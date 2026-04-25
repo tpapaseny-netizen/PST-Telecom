@@ -24,9 +24,9 @@ const sms   = at.SMS;
 
 // ── Forfaits PST ───────────────────────────
 const FORFAITS = {
-  starter:  { name: 'Starter',  price: 2000,  minutes: 60,   numeros: 1 },
-  smart:    { name: 'Smart',    price: 5000,  minutes: 200,  numeros: 1 },
-  business: { name: 'Business', price: 15000, minutes: 9999, numeros: 5 },
+  starter:  { name: 'Starter',  price: 2990,  minutes: 200,  numeros: 1 },
+  smart:    { name: 'Smart',    price: 5990,  minutes: 300,  numeros: 1 },
+  business: { name: 'Business', price: 15990, minutes: 9999, numeros: 5 },
 };
 
 // ── Base de données en mémoire ─────────────
