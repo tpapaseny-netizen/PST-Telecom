@@ -187,6 +187,10 @@ app.get('/api/admin/stats', (req, res) => {
   });
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/admin.html');
+});
+
 app.get('/', (req, res) => {
   res.json({
     service: 'PST — Pure Smart Telecom v2.0',
