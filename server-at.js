@@ -12,6 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
 const at = AfricasTalking({
   apiKey:   process.env.AT_API_KEY  || 'sandbox',
