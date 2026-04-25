@@ -1,6 +1,6 @@
 // ============================================
-// PST — Pure Smart Telecom
-// Backend API — Africa's Talking (Sénégal)
+// PST — Pure Smart Telecom v2.0
+// Backend API — Wave Webhook Automatique 🔥
 // ============================================
 
 const express = require('express');
@@ -13,23 +13,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Configuration ──────────────────────────
 const at = AfricasTalking({
-  apiKey:   process.env.AT_API_KEY   || 'atsk_4cc283ea904f64552c636f8cc32a0290b693bb9ec19d42151bb0708be692aa07dd5d94c5',
-  username: process.env.AT_USERNAME  || 'sandbox',
+  apiKey:   process.env.AT_API_KEY  || 'sandbox',
+  username: process.env.AT_USERNAME || 'sandbox',
 });
-
 const voice = at.VOICE;
 const sms   = at.SMS;
 
-// ── Forfaits PST ───────────────────────────
 const FORFAITS = {
   starter:  { name: 'Starter',  price: 2990,  minutes: 200,  numeros: 1 },
   smart:    { name: 'Smart',    price: 5990,  minutes: 300,  numeros: 1 },
   business: { name: 'Business', price: 15990, minutes: 9999, numeros: 5 },
 };
 
-// ── Base de données en mémoire ─────────────
+const MONTANTS = { 2990: 'starter', 5990: 'smart', 15990: 'business' };
+
 const db = { users: {}, calls: {}, payments: {} };
 
 // ══════════════════════════════════════════
@@ -38,7 +36,6 @@ const db = { users: {}, calls: {}, payments: {} };
 
 app.post('/api/auth/register', async (req, res) => {
   const { nom, prenom, telephone, forfait } = req.body;
-
   if (!nom || !telephone || !forfait || !FORFAITS[forfait]) {
     return res.status(400).json({ error: 'Données manquantes' });
   }
@@ -49,33 +46,30 @@ app.post('/api/auth/register', async (req, res) => {
     Math.floor(10  + Math.random() * 90)  + ' ' +
     Math.floor(10  + Math.random() * 90);
 
-  const user = {
+  db.users[userId] = {
     userId, nom, prenom, telephone, forfait,
     numeroVirtuel,
     minutesRestantes: FORFAITS[forfait].minutes,
     actif: false,
-    dateInscription:   new Date().toISOString(),
+    dateInscription:    new Date().toISOString(),
     dateRenouvellement: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
   };
 
-  db.users[userId] = user;
-
-  // Envoyer un SMS de bienvenue via Africa's Talking
   try {
     await sms.send({
-      to:      [telephone],
-      message: `Bienvenue sur PST ! Votre compte est créé. Numéro virtuel : ${numeroVirtuel}. Activez votre forfait ${FORFAITS[forfait].name} pour commencer à appeler.`,
-      from:    'PST',
+      to: [telephone],
+      message: `Bienvenue sur PST ! Numéro virtuel : ${numeroVirtuel}. Payez votre forfait ${FORFAITS[forfait].name} (${FORFAITS[forfait].price} FCFA) pour commencer : https://pst-telecom-production.up.railway.app/api/payer/${userId}`,
+      from: 'PST',
     });
-  } catch (e) {
-    console.log('SMS sandbox:', e.message);
-  }
+  } catch (e) { console.log('SMS:', e.message); }
 
-  res.json({ success: true, userId, numeroVirtuel,
-    message: `Compte PST créé ! Forfait ${FORFAITS[forfait].name} en attente de paiement.` });
+  res.json({
+    success: true, userId, numeroVirtuel,
+    message: `Compte PST créé ! Forfait ${FORFAITS[forfait].name} en attente de paiement.`,
+    lienPaiement: `https://pst-telecom-production.up.railway.app/api/payer/${userId}`,
+  });
 });
 
-// GET profil
 app.get('/api/users/:userId', (req, res) => {
   const user = db.users[req.params.userId];
   if (!user) return res.status(404).json({ error: 'Introuvable' });
@@ -83,245 +77,129 @@ app.get('/api/users/:userId', (req, res) => {
 });
 
 // ══════════════════════════════════════════
-// 2. APPELS VOIX — Africa's Talking
+// 2. WEBHOOK WAVE AUTOMATIQUE 🔥
 // ══════════════════════════════════════════
 
-// POST /api/calls/make — déclencher un appel sortant
-app.post('/api/calls/make', async (req, res) => {
-  const { userId, numeroDestination } = req.body;
-  const user = db.users[userId];
-
-  if (!user || !user.actif) {
-    return res.status(403).json({ error: 'Compte inactif. Payez votre forfait.' });
-  }
-  if (user.minutesRestantes <= 0) {
-    return res.status(403).json({ error: 'Plus de minutes. Renouvelez votre forfait.' });
-  }
-
+app.post('/api/webhook/wave', async (req, res) => {
+  console.log('📩 Webhook Wave:', JSON.stringify(req.body));
   try {
-    const result = await voice.call({
-      callFrom: '+12025551234', // numéro sandbox AT
-      callTo:   [numeroDestination],
-    });
-
-    const callId = 'CALL-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-    db.calls[callId] = {
-      callId, userId,
-      numeroDestination,
-      direction: 'sortant',
-      statut:    'initié',
-      debut:     new Date().toISOString(),
-    };
-
-    res.json({ success: true, callId, result,
-      message: `Appel vers ${numeroDestination} initié !` });
-
-  } catch (err) {
-    // Mode sandbox — simuler l'appel
-    const callId = 'CALL-DEMO-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-    db.calls[callId] = {
-      callId, userId, numeroDestination,
-      direction: 'sortant', statut: 'demo',
-      debut: new Date().toISOString(),
-    };
-    res.json({ success: true, callId, demo: true,
-      message: `[SANDBOX] Appel simulé vers ${numeroDestination}` });
-  }
-});
-
-// POST /api/calls/incoming — webhook appel entrant (Africa's Talking appelle cette URL)
-app.post('/api/calls/incoming', (req, res) => {
-  const { callerNumber, destinationNumber } = req.body;
-
-  // Trouver l'abonné PST par son numéro virtuel
-  const user = Object.values(db.users).find(u =>
-    u.numeroVirtuel.replace(/\s/g, '') === destinationNumber
-  );
-
-  // Répondre avec une action XML Africa's Talking
-  let xml;
-  if (user && user.actif) {
-    xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say>Bienvenue chez PST Pure Smart Telecom. Connexion en cours.</Say>
-  <Dial phoneNumbers="${user.telephone}" ringbackTone="https://www.soundjay.com/phone/phone-calling-1.mp3"/>
-</Response>`;
-  } else {
-    xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say>Ce numéro PST n'est pas disponible pour le moment. Veuillez réessayer plus tard.</Say>
-</Response>`;
-  }
-
-  res.type('application/xml').send(xml);
-});
-
-// POST /api/calls/status — webhook fin d'appel
-app.post('/api/calls/status', (req, res) => {
-  const { callSessionState, durationInSeconds, callerNumber } = req.body;
-
-  if (callSessionState === 'Completed' && durationInSeconds) {
-    const dureeMin = Math.ceil(parseInt(durationInSeconds) / 60);
-    // Trouver et mettre à jour l'appel
-    const call = Object.values(db.calls).find(c =>
-      c.numeroDestination === callerNumber && c.statut === 'initié'
-    );
-    if (call) {
-      call.statut = 'terminé';
-      call.duree  = durationInSeconds + 's';
-      call.fin    = new Date().toISOString();
-      const user = db.users[call.userId];
-      if (user) user.minutesRestantes = Math.max(0, user.minutesRestantes - dureeMin);
+    const { amount, status, client_reference, transaction_id } = req.body;
+    if (status !== 'succeeded' && status !== 'complete') {
+      return res.json({ received: true });
     }
-  }
 
-  res.sendStatus(200);
-});
+    const montant = parseInt(amount);
+    const forfait = MONTANTS[montant];
+    if (!forfait) return res.json({ received: true });
 
-// GET historique des appels
-app.get('/api/calls/history/:userId', (req, res) => {
-  const appels = Object.values(db.calls)
-    .filter(c => c.userId === req.params.userId)
-    .sort((a, b) => new Date(b.debut) - new Date(a.debut))
-    .slice(0, 20);
-  res.json(appels);
-});
+    const user = db.users[client_reference];
+    if (!user) return res.json({ received: true });
 
-// ══════════════════════════════════════════
-// 3. PAIEMENT — Wave Money
-// ══════════════════════════════════════════
-
-app.post('/api/payment/wave/initiate', async (req, res) => {
-  const { userId } = req.body;
-  const user = db.users[userId];
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-
-  const forfait   = FORFAITS[user.forfait];
-  const reference = 'PST-W-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-
-  db.payments[reference] = {
-    reference, userId, methode: 'wave',
-    montant: forfait.price, forfait: user.forfait,
-    statut: 'en_attente', createdAt: new Date().toISOString(),
-  };
-
-  try {
-    const response = await fetch('https://api.wave.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.WAVE_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        amount:           forfait.price,
-        currency:         'XOF',
-        success_url:      `${process.env.BASE_URL}/payment/success?ref=${reference}`,
-        error_url:        `${process.env.BASE_URL}/payment/error`,
-        client_reference: reference,
-      }),
-    });
-    const data = await response.json();
-    res.json({ success: true, reference, wave_launch_url: data.wave_launch_url });
-
-  } catch {
-    // Mode démo
-    res.json({
-      success: true, reference, demo: true,
-      wave_launch_url: `wave://pay?amount=${forfait.price}&ref=${reference}`,
-      message: `[DEMO] Paiement Wave de ${forfait.price.toLocaleString()} FCFA`,
-    });
-  }
-});
-
-// ══════════════════════════════════════════
-// 4. PAIEMENT — Orange Money
-// ══════════════════════════════════════════
-
-app.post('/api/payment/orange/initiate', async (req, res) => {
-  const { userId } = req.body;
-  const user = db.users[userId];
-  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-
-  const forfait   = FORFAITS[user.forfait];
-  const reference = 'PST-OM-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-
-  db.payments[reference] = {
-    reference, userId, methode: 'orange_money',
-    montant: forfait.price, forfait: user.forfait,
-    statut: 'en_attente', createdAt: new Date().toISOString(),
-  };
-
-  res.json({
-    success: true, reference, demo: true,
-    payment_url: `https://payment.orange.sn/demo?amount=${forfait.price}&ref=${reference}`,
-    message: `[DEMO] Paiement Orange Money de ${forfait.price.toLocaleString()} FCFA`,
-  });
-});
-
-// POST /api/payment/confirm — confirmer un paiement
-app.post('/api/payment/confirm', (req, res) => {
-  const { reference } = req.body;
-  const payment = db.payments[reference];
-  if (!payment) return res.status(404).json({ error: 'Paiement introuvable' });
-
-  payment.statut      = 'confirme';
-  payment.confirmedAt = new Date().toISOString();
-
-  const user = db.users[payment.userId];
-  if (user) {
-    user.actif             = true;
-    user.minutesRestantes  = FORFAITS[payment.forfait].minutes;
+    // ✅ ACTIVATION AUTOMATIQUE
+    user.actif            = true;
+    user.forfait          = forfait;
+    user.minutesRestantes = FORFAITS[forfait].minutes;
     user.dateRenouvellement = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
 
-    // SMS de confirmation
-    sms.send({
-      to:      [user.telephone],
-      message: `PST: Forfait ${FORFAITS[payment.forfait].name} activé ! Vous avez ${FORFAITS[payment.forfait].minutes} minutes. Appelez depuis l'app PST. Merci !`,
-      from:    'PST',
-    }).catch(() => {});
-  }
+    db.payments[transaction_id || Date.now()] = {
+      userId: user.userId, montant, forfait,
+      statut: 'confirme', date: new Date().toISOString(),
+    };
 
-  res.json({ success: true, message: 'Forfait activé !', userId: payment.userId });
-});
+    // ✅ SMS AUTOMATIQUE
+    try {
+      await sms.send({
+        to: [user.telephone],
+        message: `✅ PST: Paiement de ${montant} FCFA confirmé ! Forfait ${FORFAITS[forfait].name} activé. ${FORFAITS[forfait].minutes === 9999 ? 'Appels illimités' : FORFAITS[forfait].minutes + ' minutes'}. Votre numéro : ${user.numeroVirtuel}. Merci !`,
+        from: 'PST',
+      });
+    } catch (e) { console.log('SMS erreur:', e.message); }
 
-// GET statut paiement
-app.get('/api/payment/status/:reference', (req, res) => {
-  const p = db.payments[req.params.reference];
-  if (!p) return res.status(404).json({ error: 'Introuvable' });
-  res.json(p);
-});
-
-// ══════════════════════════════════════════
-// 5. SMS — Notifications
-// ══════════════════════════════════════════
-
-app.post('/api/sms/send', async (req, res) => {
-  const { userId, message } = req.body;
-  const user = db.users[userId];
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-
-  try {
-    const result = await sms.send({
-      to:      [user.telephone],
-      message,
-      from:    'PST',
-    });
-    res.json({ success: true, result });
+    console.log(`✅ ${user.userId} activé - ${forfait}`);
+    res.json({ success: true });
   } catch (err) {
+    console.error('Webhook erreur:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── Démarrage ──────────────────────────────
+// ══════════════════════════════════════════
+// 3. LIEN PAIEMENT WAVE
+// ══════════════════════════════════════════
+
+app.get('/api/payer/:userId', (req, res) => {
+  const user = db.users[req.params.userId];
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  const forfait = FORFAITS[user.forfait];
+  const lien = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${forfait.price}&client_reference=${user.userId}`;
+  res.redirect(lien);
+});
+
+// ══════════════════════════════════════════
+// 4. APPELS
+// ══════════════════════════════════════════
+
+app.post('/api/calls/make', async (req, res) => {
+  const { userId, numeroDestination } = req.body;
+  const user = db.users[userId];
+  if (!user || !user.actif) return res.status(403).json({ error: 'Compte inactif' });
+  if (user.minutesRestantes <= 0) return res.status(403).json({ error: 'Plus de minutes' });
+
+  const callId = 'CALL-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  db.calls[callId] = { callId, userId, numeroDestination, direction: 'sortant', debut: new Date().toISOString() };
+
+  try {
+    const result = await voice.call({ callFrom: '+12025551234', callTo: [numeroDestination] });
+    res.json({ success: true, callId, result });
+  } catch {
+    res.json({ success: true, callId, demo: true, message: `Appel vers ${numeroDestination}` });
+  }
+});
+
+app.post('/api/calls/incoming', (req, res) => {
+  const { destinationNumber } = req.body;
+  const user = Object.values(db.users).find(u => u.numeroVirtuel.replace(/\s/g,'') === destinationNumber);
+  const xml = user && user.actif
+    ? `<?xml version="1.0"?><Response><Say>PST Pure Smart Telecom.</Say><Dial phoneNumbers="${user.telephone}"/></Response>`
+    : `<?xml version="1.0"?><Response><Say>Numéro non disponible.</Say></Response>`;
+  res.type('application/xml').send(xml);
+});
+
+app.get('/api/calls/history/:userId', (req, res) => {
+  res.json(Object.values(db.calls).filter(c => c.userId === req.params.userId).slice(0, 20));
+});
+
+// ══════════════════════════════════════════
+// 5. ADMIN
+// ══════════════════════════════════════════
+
+app.get('/api/admin/stats', (req, res) => {
+  const users    = Object.values(db.users);
+  const payments = Object.values(db.payments);
+  const revenus  = payments.reduce((s, p) => s + p.montant, 0);
+  res.json({
+    totalAbonnes:  users.length,
+    abonnesActifs: users.filter(u => u.actif).length,
+    totalAppels:   Object.values(db.calls).length,
+    revenus:       revenus,
+    revenusFormate: revenus.toLocaleString('fr-FR') + ' FCFA',
+  });
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    service: 'PST — Pure Smart Telecom v2.0',
+    status:  '✅ Online',
+    webhook_wave: 'POST /api/webhook/wave',
+    forfaits: Object.entries(FORFAITS).map(([k,v]) => ({
+      id: k, nom: v.name, prix: v.price + ' FCFA', minutes: v.minutes === 9999 ? 'Illimité' : v.minutes
+    })),
+  });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`
-  ╔══════════════════════════════════════╗
-  ║   PST — Pure Smart Telecom           ║
-  ║   Backend Africa's Talking           ║
-  ║   http://localhost:${PORT}              ║
-  ╚══════════════════════════════════════╝
-  `);
+  console.log(`PST v2.0 — Port ${PORT} — Wave Webhook Automatique ✅`);
 });
 
 module.exports = app;
