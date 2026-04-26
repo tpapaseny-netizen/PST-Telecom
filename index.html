@@ -12,9 +12,10 @@
 html{scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);overflow-x:hidden;}
 
-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1rem 5%;background:rgba(13,33,55,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.06);}
-.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;letter-spacing:-0.05em;}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0.75rem 5%;background:rgba(13,33,55,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.06);}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;letter-spacing:-0.05em;display:flex;flex-direction:column;line-height:1.1;}
 .nav-logo em{color:var(--green);font-style:normal;}
+.nav-sub{font-size:0.58rem;font-weight:500;color:var(--green);letter-spacing:0.08em;text-transform:uppercase;opacity:0.75;}
 .nav-links{display:flex;gap:2rem;list-style:none;}
 .nav-links a{color:var(--muted);text-decoration:none;font-size:0.88rem;font-weight:500;transition:color 0.2s;}
 .nav-links a:hover{color:var(--white);}
@@ -118,7 +119,8 @@ footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;
   .features-grid{grid-template-columns:1fr 1fr;}
   .form-row2{grid-template-columns:1fr;}
   .signup-inner{padding:3rem 1rem;}
-  .hero{padding:6rem 5% 3rem;}
+  .hero{padding:5.5rem 5% 3rem;}
+  .btn-main.nav-btn{font-size:0.78rem;padding:0.45rem 0.9rem;}
 }
 @media(max-width:380px){
   h1{font-size:1.7rem;}
@@ -131,14 +133,14 @@ footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;
 <body>
 
 <nav>
-  <div class="nav-logo">P<em>S</em>T</div>
+  <div class="nav-logo">P<em>S</em>T<span class="nav-sub">Pure Smart Telecom</span></div>
   <ul class="nav-links">
     <li><a href="#forfaits">Forfaits</a></li>
     <li><a href="#fonctionnalites">Pourquoi PST</a></li>
     <li><a href="#inscription">S'inscrire</a></li>
     <li><a href="https://pst-telecom-production.up.railway.app/dashboard" class="nav-cta">Mon espace</a></li>
   </ul>
-  <a href="#inscription" class="btn-main" style="font-size:0.85rem;padding:0.6rem 1.2rem">S'inscrire</a>
+  <a href="#inscription" class="btn-main nav-btn" style="font-size:0.78rem;padding:0.45rem 0.9rem">S'inscrire</a>
 </nav>
 
 <section class="hero">

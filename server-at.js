@@ -94,8 +94,18 @@ app.get('/', (req, res) => {
   res.json({ service: 'PST Pure Smart Telecom', status: 'online', version: '4.0' });
 });
 
+// Middleware auth admin
+function authAdmin(req, res, next) {
+  const token = req.query.token || req.headers['x-admin-token'];
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'pst-admin-2026';
+  if (token !== ADMIN_PASSWORD) {
+    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PST Admin</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:sans-serif;background:#0d2137;color:white;min-height:100vh;display:flex;align-items:center;justify-content:center;}.box{background:#111c2a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:2rem;width:320px;text-align:center;}.logo{font-size:2rem;font-weight:900;color:#00c864;margin-bottom:0.5rem;}.sub{font-size:0.8rem;color:#7a8f9e;margin-bottom:2rem;}input{width:100%;padding:0.85rem;background:#0d2137;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;color:white;font-size:1rem;outline:none;margin-bottom:1rem;}.btn{width:100%;padding:0.85rem;background:#00c864;color:#0d2137;border:none;border-radius:8px;font-weight:700;font-size:1rem;cursor:pointer;}.err{color:#f44336;font-size:0.82rem;margin-top:0.75rem;display:none;}</style></head><body><div class="box"><div class="logo">PST</div><div class="sub">Dashboard Admin</div><input type="password" id="pwd" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')login()"/><button class="btn" onclick="login()">Accéder →</button><div class="err" id="err">Mot de passe incorrect</div></div><script>function login(){const p=document.getElementById('pwd').value;if(p)window.location.href='/admin?token='+encodeURIComponent(p);else{document.getElementById('err').style.display='block';}}</script></body></html>`);
+  }
+  next();
+}
+
 // Admin dashboard
-app.get('/admin', (req, res) => {
+app.get('/admin', authAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
