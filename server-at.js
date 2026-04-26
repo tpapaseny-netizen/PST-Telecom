@@ -104,6 +104,11 @@ app.get('/appel', (req, res) => {
   res.sendFile(path.join(__dirname, 'appel.html'));
 });
 
+// Dashboard client
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
 // ─── STATS ADMIN ────────────────────────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
