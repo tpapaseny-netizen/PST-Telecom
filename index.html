@@ -4,984 +4,350 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PST — Pure Smart Telecom</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<meta name="description" content="L'opérateur téléphonique intelligent du Sénégal. Forfaits à partir de 2 990 FCFA. Paiement Wave.">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --green: #00E676;
-    --green-dark: #00C853;
-    --gold: #FFD600;
-    --dark: #050A0E;
-    --dark2: #0C1821;
-    --dark3: #142028;
-    --white: #F4F9F4;
-    --muted: #7A9BA0;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    background: var(--dark);
-    color: var(--white);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    overflow-x: hidden;
-  }
-
-  /* ─── NOISE TEXTURE OVERLAY ─── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.6;
-  }
-
-  /* ─── NAV ─── */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 4rem;
-    background: rgba(5,10,14,0.85);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(0,230,118,0.08);
-  }
-
-  .logo {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 1.4rem;
-    letter-spacing: -0.04em;
-    color: var(--white);
-  }
-
-  .logo span { color: var(--green); }
-
-  nav ul {
-    display: flex;
-    gap: 2.5rem;
-    list-style: none;
-  }
-
-  nav ul a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    transition: color 0.2s;
-  }
-
-  nav ul a:hover { color: var(--white); }
-
-  .nav-cta {
-    background: var(--green);
-    color: var(--dark) !important;
-    padding: 0.55rem 1.4rem;
-    border-radius: 100px;
-    font-weight: 700 !important;
-    transition: background 0.2s, transform 0.2s !important;
-  }
-
-  .nav-cta:hover {
-    background: var(--green-dark) !important;
-    transform: translateY(-1px);
-  }
-
-  /* ─── HERO ─── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    position: relative;
-    padding: 8rem 4rem 4rem;
-    overflow: hidden;
-  }
-
-  /* Radial glow bg */
-  .hero::after {
-    content: '';
-    position: absolute;
-    top: -10%;
-    right: -15%;
-    width: 700px;
-    height: 700px;
-    background: radial-gradient(circle, rgba(0,230,118,0.12) 0%, transparent 65%);
-    pointer-events: none;
-  }
-
-  .hero-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4rem;
-    align-items: center;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-    position: relative;
-    z-index: 1;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(0,230,118,0.1);
-    border: 1px solid rgba(0,230,118,0.25);
-    border-radius: 100px;
-    padding: 0.35rem 0.9rem;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--green);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-    animation: fadeUp 0.6s ease both;
-  }
-
-  .badge::before {
-    content: '';
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.8); }
-  }
-
-  h1 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: clamp(2.8rem, 5vw, 4.2rem);
-    line-height: 1.05;
-    letter-spacing: -0.04em;
-    animation: fadeUp 0.6s 0.1s ease both;
-  }
-
-  h1 em {
-    font-style: normal;
-    color: var(--green);
-  }
-
-  .hero-sub {
-    margin-top: 1.5rem;
-    color: var(--muted);
-    font-size: 1.05rem;
-    max-width: 480px;
-    line-height: 1.7;
-    animation: fadeUp 0.6s 0.2s ease both;
-  }
-
-  .hero-actions {
-    margin-top: 2.5rem;
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    animation: fadeUp 0.6s 0.3s ease both;
-  }
-
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--green);
-    color: var(--dark);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    font-size: 0.95rem;
-    padding: 0.85rem 2rem;
-    border-radius: 100px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 0 30px rgba(0,230,118,0.25);
-  }
-
-  .btn-primary:hover {
-    background: var(--green-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 0 45px rgba(0,230,118,0.4);
-  }
-
-  .btn-outline {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: transparent;
-    color: var(--white);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 500;
-    font-size: 0.95rem;
-    padding: 0.85rem 2rem;
-    border-radius: 100px;
-    border: 1px solid rgba(255,255,255,0.15);
-    cursor: pointer;
-    text-decoration: none;
-    transition: border-color 0.2s, background 0.2s;
-  }
-
-  .btn-outline:hover {
-    border-color: rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.05);
-  }
-
-  /* ─── HERO VISUAL ─── */
-  .hero-visual {
-    position: relative;
-    animation: fadeUp 0.6s 0.2s ease both;
-  }
-
-  .phone-card {
-    background: var(--dark2);
-    border: 1px solid rgba(0,230,118,0.15);
-    border-radius: 24px;
-    padding: 2rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .phone-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -30%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(0,230,118,0.08) 0%, transparent 60%);
-  }
-
-  .phone-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-  }
-
-  .signal-bars {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-  }
-
-  .signal-bars span {
-    display: block;
-    width: 6px;
-    background: var(--green);
-    border-radius: 2px;
-    animation: signalPulse 1.5s ease infinite;
-  }
-
-  .signal-bars span:nth-child(1) { height: 8px; animation-delay: 0s; }
-  .signal-bars span:nth-child(2) { height: 14px; animation-delay: 0.1s; }
-  .signal-bars span:nth-child(3) { height: 20px; animation-delay: 0.2s; }
-  .signal-bars span:nth-child(4) { height: 26px; animation-delay: 0.3s; }
-
-  @keyframes signalPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  .network-label {
-    font-size: 0.75rem;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .call-display {
-    text-align: center;
-    padding: 1.5rem 0;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    margin-bottom: 1.5rem;
-  }
-
-  .call-number {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.8rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--white);
-  }
-
-  .call-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    margin-top: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--green);
-  }
-
-  .call-status::before {
-    content: '';
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    animation: pulse 1.5s infinite;
-  }
-
-  .call-timer {
-    font-family: 'Syne', sans-serif;
-    font-size: 2.5rem;
-    font-weight: 800;
-    text-align: center;
-    color: var(--white);
-    letter-spacing: 0.04em;
-    margin-bottom: 1.5rem;
-    counter-reset: none;
-  }
-
-  .call-buttons {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-  }
-
-  .call-btn {
-    aspect-ratio: 1;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.04);
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .call-btn:hover { background: rgba(255,255,255,0.08); }
-  .call-btn.end { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.3); }
-  .call-btn.answer { background: rgba(0,230,118,0.2); border-color: rgba(0,230,118,0.3); }
-
-  /* ─── STATS STRIP ─── */
-  .stats-strip {
-    border-top: 1px solid rgba(255,255,255,0.06);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    padding: 2.5rem 4rem;
-    display: flex;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .stat-item {
-    text-align: center;
-    padding: 0 4rem;
-    border-right: 1px solid rgba(255,255,255,0.08);
-  }
-
-  .stat-item:last-child { border-right: none; }
-
-  .stat-number {
-    font-family: 'Syne', sans-serif;
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--green);
-    line-height: 1;
-  }
-
-  .stat-label {
-    font-size: 0.82rem;
-    color: var(--muted);
-    margin-top: 0.4rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* ─── FORFAITS ─── */
-  section { padding: 6rem 4rem; max-width: 1200px; margin: 0 auto; }
-
-  .section-tag {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--green);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 0.75rem;
-  }
-
-  h2 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: clamp(2rem, 3.5vw, 2.8rem);
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-    margin-bottom: 1rem;
-  }
-
-  .section-sub {
-    color: var(--muted);
-    font-size: 1rem;
-    max-width: 500px;
-    margin-bottom: 3rem;
-  }
-
-  .plans-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    align-items: start;
-  }
-
-  .plan-card {
-    background: var(--dark2);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px;
-    padding: 2rem;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s, border-color 0.3s;
-  }
-
-  .plan-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(0,230,118,0.25);
-  }
-
-  .plan-card.featured {
-    border-color: rgba(0,230,118,0.4);
-    background: linear-gradient(135deg, rgba(0,230,118,0.06) 0%, var(--dark2) 100%);
-  }
-
-  .plan-card.featured::before {
-    content: 'POPULAIRE';
-    position: absolute;
-    top: 1.25rem; right: 1.25rem;
-    background: var(--green);
-    color: var(--dark);
-    font-size: 0.65rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    padding: 0.2rem 0.7rem;
-    border-radius: 100px;
-  }
-
-  .plan-name {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-    color: var(--white);
-  }
-
-  .plan-desc {
-    font-size: 0.82rem;
-    color: var(--muted);
-    margin-bottom: 1.5rem;
-  }
-
-  .plan-price {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 2.4rem;
-    color: var(--white);
-    letter-spacing: -0.03em;
-    line-height: 1;
-  }
-
-  .plan-price sub {
-    font-size: 1rem;
-    font-weight: 400;
-    vertical-align: baseline;
-    color: var(--muted);
-    margin-left: 0.25rem;
-  }
-
-  .plan-minutes {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.75rem;
-    margin-bottom: 1.5rem;
-    background: rgba(0,230,118,0.08);
-    border: 1px solid rgba(0,230,118,0.2);
-    border-radius: 100px;
-    padding: 0.25rem 0.85rem;
-    font-size: 0.82rem;
-    color: var(--green);
-    font-weight: 600;
-  }
-
-  .plan-features {
-    list-style: none;
-    margin-bottom: 1.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .plan-features li {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.87rem;
-    color: var(--muted);
-  }
-
-  .plan-features li::before {
-    content: '✓';
-    color: var(--green);
-    font-weight: 700;
-    font-size: 0.75rem;
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: rgba(0,230,118,0.12);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .plan-btn {
-    width: 100%;
-    padding: 0.85rem;
-    border-radius: 12px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-  }
-
-  .plan-btn-outline {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--white);
-  }
-
-  .plan-btn-outline:hover {
-    border-color: var(--green);
-    color: var(--green);
-  }
-
-  .plan-btn-solid {
-    background: var(--green);
-    color: var(--dark);
-    box-shadow: 0 4px 20px rgba(0,230,118,0.3);
-  }
-
-  .plan-btn-solid:hover {
-    background: var(--green-dark);
-    transform: translateY(-1px);
-  }
-
-  /* ─── FEATURES ─── */
-  .features-section {
-    border-top: 1px solid rgba(255,255,255,0.06);
-  }
-
-  .features-section section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6rem;
-    align-items: center;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-  }
-
-  .feature-card {
-    background: var(--dark2);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 1.5rem;
-    transition: border-color 0.2s;
-  }
-
-  .feature-card:hover { border-color: rgba(0,230,118,0.2); }
-
-  .feature-icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .feature-name {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 0.95rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .feature-desc {
-    font-size: 0.8rem;
-    color: var(--muted);
-    line-height: 1.5;
-  }
-
-  /* ─── PAYMENT ─── */
-  .payment-section {
-    background: var(--dark2);
-    border-top: 1px solid rgba(255,255,255,0.06);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-
-  .payment-section section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .payment-methods {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 2.5rem;
-  }
-
-  .pay-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    background: var(--dark3);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 0.75rem 1.25rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    transition: border-color 0.2s;
-  }
-
-  .pay-badge:hover { border-color: rgba(0,230,118,0.3); }
-
-  /* ─── CTA ─── */
-  .cta-section {
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .cta-section section {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .cta-glow {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(0,230,118,0.08) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  /* ─── FOOTER ─── */
-  footer {
-    border-top: 1px solid rgba(255,255,255,0.06);
-    padding: 2rem 4rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .footer-left {
-    font-size: 0.82rem;
-    color: var(--muted);
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 2rem;
-  }
-
-  .footer-links a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 0.82rem;
-    transition: color 0.2s;
-  }
-
-  .footer-links a:hover { color: var(--white); }
-
-  /* ─── ANIMATIONS ─── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ─── TIMER ANIMATION ─── */
-  #call-time { font-variant-numeric: tabular-nums; }
-
-  /* ─── RESPONSIVE ─── */
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; }
-    nav ul { display: none; }
-    .hero { padding: 7rem 1.5rem 3rem; }
-    .hero-grid { grid-template-columns: 1fr; }
-    .hero-visual { display: none; }
-    .stats-strip { padding: 2rem 1.5rem; gap: 1.5rem; flex-wrap: wrap; }
-    .stat-item { padding: 0 1.5rem; border-right: none; }
-    section { padding: 4rem 1.5rem; }
-    .plans-grid { grid-template-columns: 1fr; }
-    .features-section section { grid-template-columns: 1fr; }
-    .features-grid { grid-template-columns: 1fr 1fr; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; }
-  }
+:root { --navy:#0d2137; --blue:#1a3a5c; --green:#00c864; --green2:#00a050; --white:#f8faf9; --muted:#7a8f9e; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);overflow-x:hidden;}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1rem 5%;background:rgba(13,33,55,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.06);}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;letter-spacing:-0.05em;}
+.nav-logo em{color:var(--green);font-style:normal;}
+.nav-links{display:flex;gap:2rem;list-style:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:0.88rem;font-weight:500;transition:color 0.2s;}
+.nav-links a:hover{color:var(--white);}
+.nav-cta{background:var(--green);color:var(--navy)!important;padding:0.5rem 1.25rem;border-radius:100px;font-weight:700!important;}
+
+.btn-main{display:inline-flex;align-items:center;gap:0.5rem;background:var(--green);color:var(--navy);font-weight:700;font-size:0.95rem;padding:0.85rem 1.75rem;border-radius:100px;border:none;text-decoration:none;cursor:pointer;transition:background 0.2s,transform 0.2s;}
+.btn-main:hover{background:var(--green2);transform:translateY(-2px);}
+.btn-sec{display:inline-flex;align-items:center;background:transparent;color:var(--white);font-weight:500;font-size:0.95rem;padding:0.85rem 1.75rem;border-radius:100px;border:1px solid rgba(255,255,255,0.2);text-decoration:none;cursor:pointer;transition:border-color 0.2s,background 0.2s;}
+.btn-sec:hover{border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.05);}
+
+.hero{min-height:100vh;display:flex;align-items:center;padding:7rem 5% 4rem;position:relative;overflow:hidden;}
+.hero-glow{position:absolute;top:-20%;right:-10%;width:500px;height:500px;background:radial-gradient(circle,rgba(0,200,100,0.1) 0%,transparent 65%);pointer-events:none;}
+.hero-inner{max-width:680px;margin:0 auto;width:100%;position:relative;z-index:1;}
+.hero-tag{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(0,200,100,0.12);border:1px solid rgba(0,200,100,0.3);border-radius:100px;padding:0.3rem 0.9rem;font-size:0.75rem;font-weight:600;color:var(--green);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:1.5rem;}
+.hero-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,8vw,4rem);font-weight:800;line-height:1.08;letter-spacing:-0.03em;word-break:break-word;overflow-wrap:break-word;}
+h1 .accent{color:var(--green);}
+.hero-sub{margin-top:1.25rem;color:var(--muted);font-size:clamp(0.88rem,2.5vw,1.05rem);line-height:1.7;max-width:500px;word-wrap:break-word;}
+.hero-actions{margin-top:2rem;display:flex;gap:0.85rem;flex-wrap:wrap;}
+
+.stats-bar{border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);padding:2.5rem 5%;}
+.stats-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;}
+.stat-item .s-num{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--green);line-height:1;}
+.stat-item .s-label{font-size:0.78rem;color:var(--muted);margin-top:0.3rem;}
+
+.section{padding:5rem 5%;}
+.section-inner{max-width:1000px;margin:0 auto;}
+.section-tag{font-size:0.72rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.6rem;}
+h2{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.7rem,4vw,2.5rem);letter-spacing:-0.03em;line-height:1.1;margin-bottom:0.75rem;}
+.section-sub{color:var(--muted);font-size:1rem;max-width:480px;margin-bottom:3rem;line-height:1.7;}
+
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}
+.plan{background:#111c2a;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:2rem;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.3s;}
+.plan:hover{border-color:rgba(0,200,100,0.3);transform:translateY(-4px);}
+.plan.popular{border-color:rgba(0,200,100,0.4);background:linear-gradient(135deg,rgba(0,200,100,0.06),#111c2a);}
+.plan-badge{position:absolute;top:1.1rem;right:1.1rem;background:var(--green);color:var(--navy);font-size:0.62rem;font-weight:800;letter-spacing:0.1em;padding:0.2rem 0.65rem;border-radius:100px;text-transform:uppercase;}
+.plan-name{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;margin-bottom:0.35rem;}
+.plan-price{font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:800;line-height:1;margin:0.75rem 0 0.4rem;}
+.plan-price sub{font-size:0.9rem;font-weight:400;color:var(--muted);vertical-align:baseline;}
+.plan-min{display:inline-flex;align-items:center;gap:0.35rem;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.2);border-radius:100px;padding:0.22rem 0.75rem;font-size:0.78rem;color:var(--green);font-weight:600;margin-bottom:1.5rem;}
+.plan-features{list-style:none;margin-bottom:1.75rem;display:flex;flex-direction:column;gap:0.55rem;}
+.plan-features li{display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;color:var(--muted);}
+.plan-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:0.7rem;width:17px;height:17px;border-radius:50%;background:rgba(0,200,100,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.plan-btn{width:100%;padding:0.85rem;border-radius:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;border:none;text-decoration:none;display:block;text-align:center;transition:all 0.2s;}
+.plan-btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--white);}
+.plan-btn-outline:hover{border-color:var(--green);color:var(--green);}
+.plan-btn-solid{background:var(--green);color:var(--navy);box-shadow:0 4px 20px rgba(0,200,100,0.35);}
+.plan-btn-solid:hover{background:var(--green2);}
+
+.features-2col{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;}
+.features-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.feat{background:#111c2a;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:1.5rem;transition:border-color 0.2s;}
+.feat:hover{border-color:rgba(0,200,100,0.2);}
+.feat-icon{font-size:1.6rem;margin-bottom:0.75rem;}
+.feat-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;margin-bottom:0.3rem;}
+.feat-desc{font-size:0.82rem;color:var(--muted);line-height:1.55;}
+
+.signup-section{background:#0a1825;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);}
+.signup-inner{max-width:540px;margin:0 auto;text-align:center;padding:5rem 1.5rem;}
+.signup-form{margin-top:2.5rem;text-align:left;}
+.form-group{margin-bottom:1rem;}
+.form-group label{display:block;font-size:0.82rem;font-weight:600;color:var(--muted);margin-bottom:0.4rem;}
+.form-group input,.form-group select{width:100%;padding:0.85rem 1rem;background:#111c2a;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--white);font-size:0.95rem;outline:none;font-family:'DM Sans',sans-serif;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus{border-color:var(--green);}
+.form-group select option{background:#111c2a;}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.btn-submit{width:100%;padding:1rem;background:var(--green);color:var(--navy);border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;margin-top:0.5rem;transition:background 0.2s,transform 0.2s;}
+.btn-submit:hover{background:var(--green2);transform:translateY(-2px);}
+.form-note{font-size:0.78rem;color:var(--muted);text-align:center;margin-top:1rem;}
+.success-msg{background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.3);border-radius:12px;padding:1.5rem;text-align:center;display:none;margin-top:1rem;}
+.success-msg .s-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:0.5rem;}
+.success-msg .s-id{font-size:1.4rem;font-weight:800;color:var(--green);margin:0.75rem 0;}
+.success-msg .s-sub{font-size:0.85rem;color:var(--muted);}
+
+.pay-methods{display:flex;gap:0.85rem;flex-wrap:wrap;justify-content:center;margin-top:2rem;}
+.pay-badge{display:flex;align-items:center;gap:0.6rem;background:#111c2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.75rem 1.25rem;font-size:0.88rem;font-weight:600;transition:border-color 0.2s;}
+.pay-badge:hover{border-color:rgba(0,200,100,0.3);}
+
+.cta-section{text-align:center;padding:6rem 5%;position:relative;overflow:hidden;}
+.cta-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:500px;height:500px;background:radial-gradient(circle,rgba(0,200,100,0.08) 0%,transparent 60%);pointer-events:none;}
+.cta-inner{max-width:600px;margin:0 auto;position:relative;z-index:1;}
+
+footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;}
+.footer-copy{font-size:0.82rem;color:var(--muted);}
+.footer-links{display:flex;gap:2rem;flex-wrap:wrap;}
+.footer-links a{color:var(--muted);text-decoration:none;font-size:0.82rem;transition:color 0.2s;}
+.footer-links a:hover{color:var(--white);}
+
+.reveal{opacity:0;transform:translateY(20px);transition:opacity 0.5s ease,transform 0.5s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+@media(max-width:768px){
+  .nav-links{display:none;}
+  h1{font-size:clamp(1.8rem,8vw,2.8rem);}
+  .hero-sub{font-size:0.9rem;}
+  .stats-inner{grid-template-columns:repeat(2,1fr);gap:1.5rem;}
+  .plans{grid-template-columns:1fr;max-width:360px;margin:0 auto;}
+  .features-2col{grid-template-columns:1fr;gap:2rem;}
+  .features-grid{grid-template-columns:1fr 1fr;}
+  .form-row2{grid-template-columns:1fr;}
+  .signup-inner{padding:3rem 1rem;}
+  .hero{padding:6rem 5% 3rem;}
+}
+@media(max-width:380px){
+  h1{font-size:1.7rem;}
+  .features-grid{grid-template-columns:1fr;}
+  .hero-actions{flex-direction:column;}
+  .btn-main,.btn-sec{width:100%;justify-content:center;}
+}
 </style>
 </head>
 <body>
 
-<!-- NAV -->
 <nav>
-  <div class="logo">P<span>S</span>T</div>
-  <ul>
+  <div class="nav-logo">P<em>S</em>T</div>
+  <ul class="nav-links">
     <li><a href="#forfaits">Forfaits</a></li>
-    <li><a href="#fonctionnalites">Fonctionnalités</a></li>
-    <li><a href="#paiement">Paiement</a></li>
-    <li><a href="#forfaits" class="nav-cta">Souscrire</a></li>
+    <li><a href="#fonctionnalites">Pourquoi PST</a></li>
+    <li><a href="#inscription">S'inscrire</a></li>
+    <li><a href="https://pst-telecom-production.up.railway.app/dashboard" class="nav-cta">Mon espace</a></li>
   </ul>
+  <a href="#inscription" class="btn-main" style="font-size:0.85rem;padding:0.6rem 1.2rem">S'inscrire</a>
 </nav>
 
-<!-- HERO -->
-<div class="hero">
-  <div class="hero-grid">
-    <div>
-      <div class="badge">Pure Smart Telecom</div>
-      <h1>Appels <em>intelligents</em><br>pour l'Afrique</h1>
-      <p class="hero-sub">Des forfaits téléphoniques flexibles, des appels clairs, et un paiement facile via Wave. PST vous connecte sans friction.</p>
-      <div class="hero-actions">
-        <a href="#forfaits" class="btn-primary">
-          <span>Voir les forfaits</span>
-          <span>→</span>
-        </a>
-        <a href="#fonctionnalites" class="btn-outline">En savoir plus</a>
-      </div>
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="hero-tag">Pure Smart Telecom — Sénégal</div>
+    <h1>Appels <span class="accent">intelligents</span> pour l'Afrique</h1>
+    <p class="hero-sub">Forfaits flexibles, appels clairs, paiement Wave. PST vous connecte au Sénégal et au monde — sans friction.</p>
+    <div class="hero-actions">
+      <a href="#inscription" class="btn-main">Souscrire maintenant →</a>
+      <a href="#forfaits" class="btn-sec">Voir les forfaits</a>
     </div>
+  </div>
+</section>
 
-    <div class="hero-visual">
-      <div class="phone-card">
-        <div class="phone-header">
-          <div class="signal-bars">
-            <span></span><span></span><span></span><span></span>
-          </div>
-          <div class="network-label">PST Network</div>
-        </div>
-        <div class="call-display">
-          <div class="call-number">+221 77 000 00 00</div>
-          <div class="call-status">Appel en cours</div>
-        </div>
-        <div class="call-timer" id="call-time">00:04:23</div>
-        <div class="call-buttons">
-          <div class="call-btn">🔇</div>
-          <div class="call-btn">⌨️</div>
-          <div class="call-btn">📢</div>
-          <div class="call-btn end">📵</div>
-          <div class="call-btn">⏸️</div>
-          <div class="call-btn answer">📞</div>
-        </div>
-      </div>
-    </div>
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item"><div class="s-num">99.9%</div><div class="s-label">Disponibilité réseau</div></div>
+    <div class="stat-item"><div class="s-num">3</div><div class="s-label">Forfaits flexibles</div></div>
+    <div class="stat-item"><div class="s-num">Wave</div><div class="s-label">Paiement mobile</div></div>
+    <div class="stat-item"><div class="s-num">HD</div><div class="s-label">Qualité d'appel</div></div>
   </div>
 </div>
 
-<!-- STATS -->
-<div class="stats-strip">
-  <div class="stat-item">
-    <div class="stat-number">99.9%</div>
-    <div class="stat-label">Disponibilité réseau</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-number">3</div>
-    <div class="stat-label">Forfaits flexibles</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-number">Wave</div>
-    <div class="stat-label">Paiement mobile</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-number">HD</div>
-    <div class="stat-label">Qualité d'appel</div>
-  </div>
-</div>
-
-<!-- FORFAITS -->
-<div id="forfaits">
-  <section>
+<section class="section" id="forfaits">
+  <div class="section-inner">
     <div class="section-tag">Nos forfaits</div>
-    <h2>Simple, transparent,<br>sans engagement</h2>
-    <p class="section-sub">Choisissez le forfait adapté à vos besoins. Paiement sécurisé via Wave en quelques secondes.</p>
-
-    <div class="plans-grid">
-
-      <!-- Starter -->
-      <div class="plan-card">
+    <h2>Simple, transparent, sans engagement</h2>
+    <p class="section-sub">Choisissez le forfait adapté à vos besoins. Paiement sécurisé via Wave.</p>
+    <div class="plans">
+      <div class="plan reveal">
         <div class="plan-name">Starter</div>
-        <div class="plan-desc">Idéal pour un usage personnel léger</div>
         <div class="plan-price">2 990 <sub>FCFA</sub></div>
-        <div class="plan-minutes">📞 200 minutes</div>
+        <div class="plan-min">📞 200 minutes</div>
         <ul class="plan-features">
           <li>Appels locaux inclus</li>
-          <li>Qualité voix standard</li>
-          <li>Paiement Wave sécurisé</li>
+          <li>Numéro virtuel PST</li>
+          <li>Paiement Wave</li>
           <li>Activation immédiate</li>
         </ul>
-        <button class="plan-btn plan-btn-outline">Choisir Starter</button>
+        <a href="#inscription" class="plan-btn plan-btn-outline" onclick="choisirForfait('starter')">Choisir Starter</a>
       </div>
-
-      <!-- Smart -->
-      <div class="plan-card featured">
+      <div class="plan popular reveal">
+        <div class="plan-badge">Populaire</div>
         <div class="plan-name">Smart</div>
-        <div class="plan-desc">Pour les professionnels actifs</div>
         <div class="plan-price">5 990 <sub>FCFA</sub></div>
-        <div class="plan-minutes">📞 300 minutes</div>
+        <div class="plan-min">📞 300 minutes</div>
         <ul class="plan-features">
           <li>Appels locaux inclus</li>
-          <li>Qualité voix HD</li>
-          <li>Paiement Wave sécurisé</li>
+          <li>Numéro virtuel PST</li>
+          <li>Paiement Wave</li>
           <li>Support prioritaire</li>
-          <li>Statistiques d'appels</li>
+          <li>Dashboard personnel</li>
         </ul>
-        <button class="plan-btn plan-btn-solid">Choisir Smart</button>
+        <a href="#inscription" class="plan-btn plan-btn-solid" onclick="choisirForfait('smart')">Choisir Smart</a>
       </div>
-
-      <!-- Business -->
-      <div class="plan-card">
+      <div class="plan reveal">
         <div class="plan-name">Business</div>
-        <div class="plan-desc">Pour les entreprises sans limites</div>
         <div class="plan-price">15 990 <sub>FCFA</sub></div>
-        <div class="plan-minutes">♾️ Minutes illimitées</div>
+        <div class="plan-min">♾️ Illimité</div>
         <ul class="plan-features">
-          <li>Appels illimités</li>
-          <li>Qualité voix HD+</li>
-          <li>Paiement Wave sécurisé</li>
+          <li>Minutes illimitées</li>
+          <li>Numéro virtuel PST</li>
+          <li>Paiement Wave</li>
           <li>Support dédié 24/7</li>
           <li>Dashboard analytics</li>
           <li>Multi-lignes</li>
         </ul>
-        <button class="plan-btn plan-btn-outline">Choisir Business</button>
-      </div>
-
-    </div>
-  </section>
-</div>
-
-<!-- FONCTIONNALITÉS -->
-<div class="features-section" id="fonctionnalites">
-  <section>
-    <div>
-      <div class="section-tag">Pourquoi PST</div>
-      <h2>Conçu pour<br>l'Afrique de l'Ouest</h2>
-      <p class="section-sub">Une infrastructure téléphonique moderne, pensée pour les réalités locales.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">📡</div>
-        <div class="feature-name">Réseau fiable</div>
-        <div class="feature-desc">Infrastructure Africa's Talking pour une couverture maximale</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">💚</div>
-        <div class="feature-name">Wave Pay</div>
-        <div class="feature-desc">Paiement en un clic via Wave, sans carte bancaire</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-name">Instantané</div>
-        <div class="feature-desc">Activation du forfait immédiate après paiement confirmé</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔒</div>
-        <div class="feature-name">Sécurisé</div>
-        <div class="feature-desc">Transactions chiffrées, données protégées en tout temps</div>
+        <a href="#inscription" class="plan-btn plan-btn-outline" onclick="choisirForfait('business')">Choisir Business</a>
       </div>
     </div>
-  </section>
-</div>
+  </div>
+</section>
 
-<!-- PAIEMENT -->
-<div class="payment-section" id="paiement">
-  <section>
-    <div class="section-tag">Modes de paiement</div>
-    <h2>Payer en toute confiance</h2>
-    <p class="section-sub">Nous acceptons les moyens de paiement les plus utilisés en Afrique de l'Ouest.</p>
-    <div class="payment-methods">
+<section class="section" id="fonctionnalites" style="background:#0a1825">
+  <div class="section-inner">
+    <div class="features-2col">
+      <div>
+        <div class="section-tag">Pourquoi PST</div>
+        <h2>Conçu pour l'Afrique de l'Ouest</h2>
+        <p class="section-sub" style="margin-bottom:0">Infrastructure moderne, pensée pour les réalités locales.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feat reveal"><div class="feat-icon">📡</div><div class="feat-name">Réseau fiable</div><div class="feat-desc">Infrastructure Africa's Talking pour une couverture maximale</div></div>
+        <div class="feat reveal"><div class="feat-icon">💚</div><div class="feat-name">Wave Pay</div><div class="feat-desc">Paiement en un clic via Wave, sans carte bancaire</div></div>
+        <div class="feat reveal"><div class="feat-icon">⚡</div><div class="feat-name">Instantané</div><div class="feat-desc">Activation du forfait immédiate après paiement confirmé</div></div>
+        <div class="feat reveal"><div class="feat-icon">🔒</div><div class="feat-name">Sécurisé</div><div class="feat-desc">Données protégées, transactions chiffrées en tout temps</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="signup-section" id="inscription">
+  <div class="signup-inner">
+    <div class="section-tag">Rejoindre PST</div>
+    <h2>Créer mon compte</h2>
+    <p style="color:var(--muted);font-size:0.95rem;line-height:1.7">Remplissez le formulaire, choisissez votre forfait et payez via Wave.</p>
+    <div class="signup-form">
+      <div class="form-row2">
+        <div class="form-group"><label>Nom *</label><input id="s-nom" placeholder="Touré" /></div>
+        <div class="form-group"><label>Prénom</label><input id="s-prenom" placeholder="Papa Seny" /></div>
+      </div>
+      <div class="form-group"><label>Numéro de téléphone *</label><input id="s-tel" placeholder="+221 77 000 00 00" type="tel" /></div>
+      <div class="form-group">
+        <label>Choisir un forfait *</label>
+        <select id="s-forfait">
+          <option value="starter">Starter — 200 min — 2 990 FCFA/mois</option>
+          <option value="smart" selected>Smart — 300 min — 5 990 FCFA/mois ⭐</option>
+          <option value="business">Business — Illimité — 15 990 FCFA/mois</option>
+        </select>
+      </div>
+      <button class="btn-submit" onclick="sInscrire()">Créer mon compte et payer →</button>
+      <p class="form-note">🔒 Vos données sont sécurisées. Paiement via Wave.</p>
+      <div class="success-msg" id="success-msg">
+        <div class="s-title">🎉 Compte créé avec succès !</div>
+        <div class="s-id" id="success-id">PST-XXXXXXXX</div>
+        <div style="margin-bottom:1rem">Numéro PST : <strong id="success-num"></strong></div>
+        <div class="s-sub">Notez votre ID PST — il vous sert à vous connecter.</div>
+        <a id="wave-link" href="#" target="_blank" class="btn-main" style="margin-top:1.25rem;justify-content:center">💚 Payer avec Wave</a>
+        <br><br>
+        <a href="https://pst-telecom-production.up.railway.app/dashboard" class="btn-sec" style="justify-content:center">Accéder à mon espace →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="text-align:center;padding:4rem 5%">
+  <div class="section-inner" style="display:flex;flex-direction:column;align-items:center">
+    <div class="section-tag">Paiement</div>
+    <h2>Payez en toute confiance</h2>
+    <div class="pay-methods">
       <div class="pay-badge">💚 Wave Money</div>
       <div class="pay-badge">📱 Orange Money</div>
       <div class="pay-badge">🏧 Free Money</div>
       <div class="pay-badge">📲 E-money</div>
     </div>
-  </section>
-</div>
-
-<!-- CTA -->
-<div class="cta-section">
-  <div class="cta-glow"></div>
-  <section>
-    <div class="section-tag">Commencez maintenant</div>
-    <h2>Prêt à rejoindre PST ?</h2>
-    <p class="section-sub" style="text-align:center">Moins de 2 minutes pour s'abonner. Paiement Wave, activation immédiate.</p>
-    <div style="margin-top:2rem; display:flex; gap:1rem; flex-wrap:wrap; justify-content:center">
-      <a href="#forfaits" class="btn-primary">Voir les forfaits →</a>
-      <a href="mailto:contact@pst-telecom.com" class="btn-outline">Nous contacter</a>
-    </div>
-  </section>
-</div>
-
-<!-- FOOTER -->
-<footer>
-  <div class="footer-left">
-    <strong>PST</strong> — Pure Smart Telecom &nbsp;·&nbsp; © 2025
   </div>
+</section>
+
+<section class="cta-section">
+  <div class="cta-glow"></div>
+  <div class="cta-inner">
+    <div class="section-tag">Commencer maintenant</div>
+    <h2>Prêt à rejoindre PST ?</h2>
+    <p style="color:var(--muted);margin:1rem 0 2rem;line-height:1.7">Moins de 2 minutes pour s'abonner. Paiement Wave, activation immédiate.</p>
+    <div style="display:flex;gap:0.85rem;justify-content:center;flex-wrap:wrap">
+      <a href="#inscription" class="btn-main">Créer mon compte →</a>
+      <a href="https://pst-telecom-production.up.railway.app/dashboard" class="btn-sec">Mon espace client</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-copy"><strong>PST</strong> — Pure Smart Telecom · © 2026</div>
   <div class="footer-links">
     <a href="#">Conditions</a>
-    <a href="#">Confidentialité</a>
     <a href="#">Contact</a>
     <a href="https://pst-telecom-production.up.railway.app/admin">Admin</a>
+    <a href="https://pst-telecom-production.up.railway.app/dashboard">Mon espace</a>
   </div>
 </footer>
 
 <script>
-  // Fake call timer animation
-  let seconds = 263;
-  function updateTimer() {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    const pad = n => String(n).padStart(2, '0');
-    const el = document.getElementById('call-time');
-    if (el) el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-    seconds++;
+const API='https://pst-telecom-production.up.railway.app';
+const WAVE_ID='M_rlEv9b4P3VtG';
+const MONTANTS={starter:2990,smart:5990,business:15990};
+
+const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible');});},{threshold:0.1});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+function choisirForfait(f){
+  const sel=document.getElementById('s-forfait');
+  if(sel)sel.value=f;
+}
+
+async function sInscrire(){
+  const nom=document.getElementById('s-nom').value.trim();
+  const prenom=document.getElementById('s-prenom').value.trim();
+  const tel=document.getElementById('s-tel').value.trim();
+  const forfait=document.getElementById('s-forfait').value;
+  if(!nom||!tel){alert('Veuillez remplir le nom et le téléphone.');return;}
+  const btn=document.querySelector('.btn-submit');
+  btn.textContent='Création en cours...';
+  btn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom,prenom,telephone:tel,forfait})});
+    const d=await r.json();
+    if(d.success){
+      document.getElementById('success-id').textContent=d.userId;
+      document.getElementById('success-num').textContent=d.numeroVirtuel;
+      document.getElementById('wave-link').href=`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${MONTANTS[forfait]}`;
+      document.getElementById('success-msg').style.display='block';
+      document.querySelector('.form-row2').style.display='none';
+      document.getElementById('s-tel').closest('.form-group').style.display='none';
+      document.getElementById('s-forfait').closest('.form-group').style.display='none';
+      btn.style.display='none';
+      document.querySelector('.form-note').style.display='none';
+      document.getElementById('success-msg').scrollIntoView({behavior:'smooth'});
+    }else{
+      alert('Erreur : '+(d.error||'Réessayez.'));
+      btn.textContent='Créer mon compte et payer →';
+      btn.disabled=false;
+    }
+  }catch(e){
+    alert('Erreur de connexion. Réessayez.');
+    btn.textContent='Créer mon compte et payer →';
+    btn.disabled=false;
   }
-  setInterval(updateTimer, 1000);
-
-  // Scroll reveal
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        e.target.style.opacity = '1';
-        e.target.style.transform = 'translateY(0)';
-      }
-    });
-  }, { threshold: 0.1 });
-
-  document.querySelectorAll('.plan-card, .feature-card, .pay-badge').forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(20px)';
-    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-    observer.observe(el);
-  });
+}
 </script>
 </body>
 </html>
