@@ -151,7 +151,7 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th><th>Nom</th><th>Téléphone</th><th>Forfait</th>
+            <th>ID</th><th>Nom</th><th>Téléphone</th><th>N° Virtuel PST</th><th>Forfait</th>
             <th>Minutes</th><th>Statut</th><th>Date</th><th>Actions</th>
           </tr>
         </thead>
@@ -275,6 +275,7 @@ function afficherAbonnes(liste) {
       <td><code style="font-size:0.78rem">${a.userId}</code></td>
       <td><strong>${a.nom}</strong>${a.prenom ? ' ' + a.prenom : ''}</td>
       <td>${a.telephone}</td>
+      <td><code style="font-size:0.8rem;background:#e8f4fd;padding:2px 6px;border-radius:4px;color:#1a3a5c">${a.numeroVirtuel || '—'}</code></td>
       <td>${a.forfaitNom || a.forfait}</td>
       <td>
         ${a.minutes === 99999 ? '∞ Illimité' : (a.minutesUsees||0) + ' / ' + a.minutes + ' min'}
