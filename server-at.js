@@ -1,11 +1,12 @@
-// PST — Pure Smart Telecom v3.0
-// Base de données persistante + Admin complet
+// PST — Pure Smart Telecom v4.0
+// MongoDB Atlas — Données persistantes
 
-const express = require('express');
-const cors    = require('cors');
-const crypto  = require('crypto');
-const path    = require('path');
-const fs      = require('fs');
+const express  = require('express');
+const cors     = require('cors');
+const crypto   = require('crypto');
+const path     = require('path');
+const fs       = require('fs');
+const { MongoClient, ObjectId } = require('mongodb');
 const AfricasTalking = require('africastalking');
 
 const app = express();
@@ -24,29 +25,32 @@ const FORFAITS = {
   smart:    { name: 'Smart',    price: 5990,  minutes: 300,  numeros: 1 },
   business: { name: 'Business', price: 15990, minutes: 9999, numeros: 5 },
 };
-
 const MONTANTS = { 2990: 'starter', 5990: 'smart', 15990: 'business' };
 
-// Base de données persistante sur disque
-const DB_FILE = path.join(__dirname, 'pst-db.json');
+// ── MongoDB ────────────────────────────────
+let db;
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
-function loadDB() {
+async function connectDB() {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    }
-  } catch(e) {}
-  return { users: {}, calls: {}, payments: {} };
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    db = client.db('pst_telecom');
+    console.log('✅ MongoDB connecté');
+    // Créer les index
+    await db.collection('users').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('users').createIndex({ telephone: 1 });
+  } catch(err) {
+    console.error('❌ MongoDB erreur:', err.message);
+  }
 }
 
-function saveDB(db) {
-  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } catch(e) {}
-}
-
-let db = loadDB();
+function users()    { return db.collection('users'); }
+function payments() { return db.collection('payments'); }
+function calls()    { return db.collection('calls'); }
 
 // ══════════════════════════════════════════
-// API ABONNÉS
+// 1. ABONNÉS
 // ══════════════════════════════════════════
 
 app.post('/api/auth/register', async (req, res) => {
@@ -60,17 +64,18 @@ app.post('/api/auth/register', async (req, res) => {
     Math.floor(10  + Math.random() * 90)  + ' ' +
     Math.floor(10  + Math.random() * 90);
 
-  db.users[userId] = {
-    userId, nom, prenom, telephone, forfait, numeroVirtuel,
+  const user = {
+    userId, nom, prenom: prenom || '', telephone, forfait, numeroVirtuel,
     minutesRestantes: FORFAITS[forfait].minutes,
     minutesTotal: FORFAITS[forfait].minutes,
     actif: false,
-    dateInscription: new Date().toISOString(),
-    dateRenouvellement: new Date(Date.now() + 30*24*3600*1000).toISOString(),
-    historiquePaiements: [],
     notes: '',
+    dateInscription: new Date(),
+    dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
+    historiquePaiements: [],
   };
-  saveDB(db);
+
+  await users().insertOne(user);
 
   try {
     await sms.send({
@@ -87,80 +92,72 @@ app.post('/api/auth/register', async (req, res) => {
   });
 });
 
-app.get('/api/users/:userId', (req, res) => {
-  const user = db.users[req.params.userId];
+app.get('/api/users', async (req, res) => {
+  const liste = await users().find({}).sort({ dateInscription: -1 }).toArray();
+  res.json(liste);
+});
+
+app.get('/api/users/:userId', async (req, res) => {
+  const user = await users().findOne({ userId: req.params.userId });
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   res.json(user);
 });
 
-app.get('/api/users', (req, res) => {
-  res.json(Object.values(db.users));
-});
-
-// Modifier un abonné
-app.put('/api/users/:userId', (req, res) => {
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
+app.put('/api/users/:userId', async (req, res) => {
   const { nom, prenom, telephone, forfait, actif, minutesRestantes, notes } = req.body;
-  if (nom) user.nom = nom;
-  if (prenom) user.prenom = prenom;
-  if (telephone) user.telephone = telephone;
-  if (forfait && FORFAITS[forfait]) user.forfait = forfait;
-  if (typeof actif === 'boolean') user.actif = actif;
-  if (minutesRestantes !== undefined) user.minutesRestantes = parseInt(minutesRestantes);
-  if (notes !== undefined) user.notes = notes;
-  saveDB(db);
+  const update = {};
+  if (nom) update.nom = nom;
+  if (prenom !== undefined) update.prenom = prenom;
+  if (telephone) update.telephone = telephone;
+  if (forfait && FORFAITS[forfait]) update.forfait = forfait;
+  if (typeof actif === 'boolean') update.actif = actif;
+  if (minutesRestantes !== undefined) update.minutesRestantes = parseInt(minutesRestantes);
+  if (notes !== undefined) update.notes = notes;
+  await users().updateOne({ userId: req.params.userId }, { $set: update });
+  const user = await users().findOne({ userId: req.params.userId });
   res.json({ success: true, user });
 });
 
-// Activer un abonné
-app.post('/api/users/:userId/activer', (req, res) => {
-  const user = db.users[req.params.userId];
+app.post('/api/users/:userId/activer', async (req, res) => {
+  const user = await users().findOne({ userId: req.params.userId });
   if (!user) return res.status(404).json({ error: 'Introuvable' });
-  user.actif = true;
-  user.minutesRestantes = FORFAITS[user.forfait].minutes;
-  user.minutesTotal = FORFAITS[user.forfait].minutes;
-  user.dateRenouvellement = new Date(Date.now() + 30*24*3600*1000).toISOString();
-  user.historiquePaiements.push({
-    date: new Date().toISOString(),
-    montant: FORFAITS[user.forfait].price,
-    forfait: user.forfait,
-    methode: 'manuel',
+  const paiement = {
+    date: new Date(), montant: FORFAITS[user.forfait].price,
+    forfait: user.forfait, methode: 'manuel',
+  };
+  await users().updateOne({ userId: req.params.userId }, {
+    $set: {
+      actif: true,
+      minutesRestantes: FORFAITS[user.forfait].minutes,
+      minutesTotal: FORFAITS[user.forfait].minutes,
+      dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
+    },
+    $push: { historiquePaiements: paiement },
   });
-  saveDB(db);
-  res.json({ success: true, user });
-});
-
-// Suspendre un abonné
-app.post('/api/users/:userId/suspendre', (req, res) => {
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-  user.actif = false;
-  saveDB(db);
+  await payments().insertOne({ userId: req.params.userId, ...paiement });
   res.json({ success: true });
 });
 
-// Supprimer un abonné
-app.delete('/api/users/:userId', (req, res) => {
-  if (!db.users[req.params.userId]) return res.status(404).json({ error: 'Introuvable' });
-  delete db.users[req.params.userId];
-  saveDB(db);
+app.post('/api/users/:userId/suspendre', async (req, res) => {
+  await users().updateOne({ userId: req.params.userId }, { $set: { actif: false } });
   res.json({ success: true });
 });
 
-// Ajouter des minutes
-app.post('/api/users/:userId/minutes', (req, res) => {
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-  const { minutes } = req.body;
-  user.minutesRestantes += parseInt(minutes);
-  user.minutesTotal += parseInt(minutes);
-  saveDB(db);
-  res.json({ success: true, minutesRestantes: user.minutesRestantes });
+app.delete('/api/users/:userId', async (req, res) => {
+  await users().deleteOne({ userId: req.params.userId });
+  res.json({ success: true });
+});
+
+app.post('/api/users/:userId/minutes', async (req, res) => {
+  const mins = parseInt(req.body.minutes);
+  await users().updateOne({ userId: req.params.userId }, {
+    $inc: { minutesRestantes: mins, minutesTotal: mins },
+  });
+  res.json({ success: true });
 });
 
 // ══════════════════════════════════════════
-// WEBHOOK WAVE
+// 2. WEBHOOK WAVE
 // ══════════════════════════════════════════
 
 app.post('/api/webhook/wave', async (req, res) => {
@@ -170,17 +167,21 @@ app.post('/api/webhook/wave', async (req, res) => {
     const montant = parseInt(amount);
     const forfait = MONTANTS[montant];
     if (!forfait) return res.json({ received: true });
-    const user = db.users[client_reference];
+    const user = await users().findOne({ userId: client_reference });
     if (!user) return res.json({ received: true });
-    user.actif = true;
-    user.forfait = forfait;
-    user.minutesRestantes = FORFAITS[forfait].minutes;
-    user.minutesTotal = FORFAITS[forfait].minutes;
-    user.dateRenouvellement = new Date(Date.now() + 30*24*3600*1000).toISOString();
-    user.historiquePaiements = user.historiquePaiements || [];
-    user.historiquePaiements.push({ date: new Date().toISOString(), montant, forfait, methode: 'wave', transaction_id });
-    db.payments[transaction_id || Date.now()] = { userId: user.userId, montant, forfait, statut: 'confirme', date: new Date().toISOString() };
-    saveDB(db);
+
+    const paiement = { date: new Date(), montant, forfait, methode: 'wave', transaction_id };
+    await users().updateOne({ userId: client_reference }, {
+      $set: {
+        actif: true, forfait,
+        minutesRestantes: FORFAITS[forfait].minutes,
+        minutesTotal: FORFAITS[forfait].minutes,
+        dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
+      },
+      $push: { historiquePaiements: paiement },
+    });
+    await payments().insertOne({ userId: client_reference, ...paiement });
+
     try {
       await sms.send({
         to: [user.telephone],
@@ -192,58 +193,64 @@ app.post('/api/webhook/wave', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-// PAIEMENT
-app.get('/api/payer/:userId', (req, res) => {
-  const user = db.users[req.params.userId];
+// ══════════════════════════════════════════
+// 3. PAIEMENT
+// ══════════════════════════════════════════
+
+app.get('/api/payer/:userId', async (req, res) => {
+  const user = await users().findOne({ userId: req.params.userId });
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   res.redirect(`https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${FORFAITS[user.forfait].price}&client_reference=${user.userId}`);
 });
 
-// APPELS
-app.get('/api/calls/history/:userId', (req, res) => {
-  const appels = Object.values(db.calls || {}).filter(c => c.userId === req.params.userId).slice(0, 20);
-  res.json(appels);
-});
+// ══════════════════════════════════════════
+// 4. STATS ADMIN
+// ══════════════════════════════════════════
 
-// STATS ADMIN
-app.get('/api/admin/stats', (req, res) => {
-  const users = Object.values(db.users);
-  const payments = Object.values(db.payments || {});
-  const revenus = payments.reduce((s, p) => s + (p.montant || 0), 0);
+app.get('/api/admin/stats', async (req, res) => {
+  const total   = await users().countDocuments();
+  const actifs  = await users().countDocuments({ actif: true });
+  const paiList = await payments().find({}).toArray();
+  const revenus = paiList.reduce((s, p) => s + (p.montant || 0), 0);
   res.json({
-    totalAbonnes: users.length,
-    abonnesActifs: users.filter(u => u.actif).length,
-    abonnésSuspendus: users.filter(u => !u.actif && u.dateInscription).length,
+    totalAbonnes: total,
+    abonnesActifs: actifs,
+    abonnésSuspendus: total - actifs,
     revenus, revenusFormate: revenus.toLocaleString('fr-FR') + ' FCFA',
-    revenusMois: revenus,
   });
 });
 
 // ══════════════════════════════════════════
-// PAGES HTML
+// 5. PAGES HTML
 // ══════════════════════════════════════════
 
 app.get('/appel', (req, res) => {
-  const appel = path.join(__dirname, 'appel.html');
-  if (fs.existsSync(appel)) return res.sendFile(appel);
-  res.send('<h1>PST Appel</h1><p>Fichier appel.html non trouvé</p>');
+  const f = path.join(__dirname, 'appel.html');
+  if (fs.existsSync(f)) return res.sendFile(f);
+  res.send('<h1>PST Appel</h1>');
 });
 
 app.get('/admin', (req, res) => {
-  const admin = path.join(__dirname, 'admin.html');
-  if (fs.existsSync(admin)) return res.sendFile(admin);
-  res.send('<h1>PST Admin</h1><p>Fichier admin.html non trouvé</p>');
+  const f = path.join(__dirname, 'admin.html');
+  if (fs.existsSync(f)) return res.sendFile(f);
+  res.send('<h1>PST Admin</h1>');
 });
 
 app.get('/', (req, res) => {
   res.json({
-    service: 'PST — Pure Smart Telecom v3.0',
-    status: 'Online',
-    db: `${Object.keys(db.users).length} abonnés`,
+    service: 'PST — Pure Smart Telecom v4.0',
+    status: 'Online', db: 'MongoDB Atlas',
     pages: { admin: '/admin', appel: '/appel' },
   });
 });
 
+// ══════════════════════════════════════════
+// 6. DÉMARRAGE
+// ══════════════════════════════════════════
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`PST v3.0 — Port ${PORT} — DB persistante`));
+connectDB().then(() => {
+  app.listen(PORT, () => console.log(`PST v4.0 — Port ${PORT} — MongoDB Atlas`));
+});
+
 module.exports = app;
