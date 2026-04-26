@@ -3,253 +3,314 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PST Admin — Pure Smart Telecom</title>
+<title>PST — Dashboard Admin</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F5F5F5; color: #1a1a1a; }
-  .topbar { background: #185FA5; color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .topbar-logo { font-size: 18px; font-weight: 600; letter-spacing: 2px; }
-  .topbar-sub { font-size: 13px; opacity: 0.8; }
-  .topbar-user { font-size: 13px; background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 20px; }
-  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .metric { background: white; border-radius: 12px; padding: 16px; border: 1px solid #eee; }
-  .metric-val { font-size: 26px; font-weight: 600; color: #185FA5; }
-  .metric-val.green { color: #3B6D11; }
-  .metric-val.amber { color: #854F0B; }
-  .metric-label { font-size: 12px; color: #888; margin-top: 4px; }
-  .card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #eee; margin-bottom: 20px; }
-  .card-title { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 16px; }
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .form-grid input, .form-grid select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-  .form-grid input:focus, .form-grid select:focus { border-color: #185FA5; }
-  .btn-primary { width: 100%; padding: 12px; border-radius: 8px; background: #185FA5; color: white; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .btn-primary:hover { background: #0C447C; }
-  .search-row { display: flex; gap: 10px; margin-bottom: 14px; }
-  .search-row input { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-  .search-row select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; outline: none; }
-  .abonne-item { border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 14px; background: white; }
-  .abonne-avatar { width: 40px; height: 40px; border-radius: 50%; background: #E6F1FB; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #0C447C; flex-shrink: 0; }
-  .abonne-info { flex: 1; }
-  .abonne-nom { font-size: 15px; font-weight: 600; }
-  .abonne-tel { font-size: 12px; color: #888; margin-top: 2px; }
-  .abonne-num { font-size: 12px; color: #185FA5; margin-top: 2px; }
-  .abonne-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-  .btn-activer { padding: 6px 14px; border-radius: 8px; background: #185FA5; color: white; border: none; font-size: 12px; cursor: pointer; font-weight: 600; }
-  .btn-activer.actif { background: #EAF3DE; color: #27500A; cursor: default; }
-  .btn-sm { padding: 6px 14px; border-radius: 8px; background: white; color: #555; border: 1px solid #ddd; font-size: 12px; cursor: pointer; }
-  .btn-sm:hover { background: #f5f5f5; }
-  .forfait-badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
-  .forfait-badge.starter { background: #EAF3DE; color: #27500A; }
-  .forfait-badge.smart { background: #E6F1FB; color: #0C447C; }
-  .forfait-badge.business { background: #FAEEDA; color: #633806; }
-  .statut-dot { font-size: 12px; margin-top: 4px; }
-  .statut-dot.actif { color: #3B6D11; }
-  .statut-dot.attente { color: #854F0B; }
-  .wave-section { background: #F0F8FF; border-radius: 12px; padding: 20px; }
-  .wave-liens { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
-  .wave-card { background: white; border-radius: 10px; padding: 14px; border: 1px solid #ddd; }
-  .wave-name { font-size: 14px; font-weight: 600; }
-  .wave-price { font-size: 13px; color: #185FA5; margin: 4px 0 10px; }
-  .btn-wave { width: 100%; padding: 8px; border-radius: 8px; background: #00B0E8; color: white; border: none; font-size: 13px; cursor: pointer; font-weight: 600; }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: #185FA5; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; display: none; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .empty { text-align: center; padding: 40px; color: #888; font-size: 14px; border: 2px dashed #ddd; border-radius: 12px; }
-  .api-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #888; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
-  .status-dot.online { background: #3B6D11; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+  /* NAV */
+  nav { background: #1a3a5c; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .nav-brand { font-weight: 700; font-size: 1.2rem; }
+  .nav-brand span { font-size: 0.8rem; opacity: 0.7; margin-left: 0.5rem; }
+  .nav-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* LAYOUT */
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  /* STATS */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .stat-card .label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .stat-card .value { font-size: 2rem; font-weight: 700; }
+  .stat-card.green .value { color: #2e7d32; }
+  .stat-card.blue  .value { color: #1565c0; }
+  .stat-card.orange .value { color: #e65100; }
+  .stat-card.gold  .value { color: #f57f17; }
+
+  /* CARDS */
+  .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+  .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; color: #1a3a5c; border-bottom: 2px solid #e8f4fd; padding-bottom: 0.75rem; }
+
+  /* FORM */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+  input, select { width: 100%; padding: 0.7rem 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  input:focus, select:focus { border-color: #1a3a5c; }
+  .btn { padding: 0.7rem 1.4rem; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: #1a3a5c; color: white; width: 100%; }
+  .btn-primary:hover { background: #16324f; }
+  .btn-success { background: #2e7d32; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .btn-warning { background: #e65100; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .btn-danger  { background: #c62828; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .btn-info    { background: #0277bd; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  /* SEARCH */
+  .search-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
+  .search-row input { flex: 1; }
+  .search-row select { width: 160px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { background: #f5f7fa; text-align: left; padding: 0.75rem 1rem; font-weight: 600; color: #555; font-size: 0.78rem; text-transform: uppercase; }
+  td { padding: 0.85rem 1rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafbff; }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 0.25rem 0.65rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
+  .badge-actif     { background: #e8f5e9; color: #2e7d32; }
+  .badge-attente   { background: #fff3e0; color: #e65100; }
+  .badge-suspendu  { background: #fce4ec; color: #c62828; }
+
+  /* PROGRESS */
+  .progress { background: #eee; border-radius: 100px; height: 6px; margin-top: 4px; }
+  .progress-bar { height: 6px; border-radius: 100px; background: #1a3a5c; }
+
+  /* WAVE LINKS */
+  .wave-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .wave-card { border: 2px solid #1a3a5c; border-radius: 10px; padding: 1rem; text-align: center; }
+  .wave-card .name { font-weight: 700; color: #1a3a5c; }
+  .wave-card .price { font-size: 1.3rem; font-weight: 800; color: #2e7d32; margin: 0.25rem 0; }
+  .wave-card .minutes { font-size: 0.8rem; color: #888; margin-bottom: 0.75rem; }
+  .btn-copy { background: #e8f4fd; color: #1a3a5c; border: 1px solid #bbdefb; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer; width: 100%; }
+  .btn-copy:hover { background: #bbdefb; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 16px; padding: 2rem; width: 420px; max-width: 95vw; }
+  .modal h3 { margin-bottom: 1.25rem; color: #1a3a5c; }
+  .modal .field { margin-bottom: 0.75rem; }
+  .modal .field label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.3rem; color: #555; }
+  .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+  .modal-actions .btn { flex: 1; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 2rem; right: 2rem; background: #1a3a5c; color: white; padding: 0.85rem 1.5rem; border-radius: 10px; font-weight: 600; z-index: 9999; display: none; }
+  .toast.show { display: block; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+  .empty { text-align: center; padding: 2.5rem; color: #aaa; }
+  .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+  @media(max-width:768px){
+    .stats { grid-template-columns: repeat(2,1fr); }
+    .form-row { grid-template-columns: 1fr; }
+    .wave-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div>
-    <div class="topbar-logo">PST</div>
-    <div class="topbar-sub">Pure Smart Telecom — Dashboard Admin</div>
-  </div>
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div class="api-status">
-      <div class="status-dot" id="api-dot"></div>
-      <span id="api-status">Connexion...</span>
-    </div>
-    <div class="topbar-user">Papa Seny Touré</div>
-  </div>
-</div>
+<nav>
+  <div class="nav-brand">PST <span>Pure Smart Telecom — Dashboard Admin</span></div>
+  <div class="nav-status"><div class="dot"></div> <span id="api-status">Chargement...</span></div>
+</nav>
 
 <div class="container">
 
-  <!-- MÉTRIQUES -->
-  <div class="metrics">
-    <div class="metric"><div class="metric-val" id="m-total">—</div><div class="metric-label">Total abonnés</div></div>
-    <div class="metric"><div class="metric-val green" id="m-actifs">—</div><div class="metric-label">Actifs</div></div>
-    <div class="metric"><div class="metric-val amber" id="m-attente">—</div><div class="metric-label">En attente</div></div>
-    <div class="metric"><div class="metric-val" id="m-revenus">—</div><div class="metric-label">Revenus ce mois</div></div>
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-card blue">  <div class="label">Total abonnés</div> <div class="value" id="s-total">—</div></div>
+    <div class="stat-card green"> <div class="label">Actifs</div>         <div class="value" id="s-actifs">—</div></div>
+    <div class="stat-card orange"><div class="label">En attente</div>     <div class="value" id="s-attente">—</div></div>
+    <div class="stat-card gold">  <div class="label">Revenus ce mois</div><div class="value" id="s-revenus">—</div></div>
   </div>
 
-  <!-- AJOUTER UN ABONNÉ -->
+  <!-- AJOUTER -->
   <div class="card">
-    <div class="card-title">Ajouter un abonné</div>
-    <div class="form-grid">
-      <input type="text" id="f-nom" placeholder="Nom *" />
-      <input type="text" id="f-prenom" placeholder="Prénom" />
-      <input type="tel" id="f-tel" placeholder="+221771234567 *" />
+    <h3>➕ Ajouter un abonné</h3>
+    <div class="form-row">
+      <input id="f-nom"       placeholder="Nom *" />
+      <input id="f-prenom"    placeholder="Prénom" />
+      <input id="f-tel"       placeholder="+221771234567 *" />
       <select id="f-forfait">
         <option value="starter">Starter — 2 990 FCFA</option>
         <option value="smart" selected>Smart — 5 990 FCFA</option>
         <option value="business">Business — 15 990 FCFA</option>
       </select>
     </div>
-    <button class="btn-primary" onclick="ajouterAbonne()">
-      Créer le compte et copier le lien Wave
-    </button>
+    <button class="btn btn-primary" onclick="ajouterAbonne()">Créer le compte et copier le lien Wave</button>
   </div>
 
-  <!-- LISTE DES ABONNÉS -->
+  <!-- LISTE ABONNÉS -->
   <div class="card">
-    <div class="card-title">Abonnés PST</div>
+    <h3>👥 Abonnés PST</h3>
     <div class="search-row">
-      <input type="text" id="search" placeholder="Rechercher..." oninput="filtrer()" />
-      <select id="filtre" onchange="filtrer()">
-        <option value="tous">Tous</option>
-        <option value="actif">Actifs seulement</option>
-        <option value="attente">En attente</option>
+      <input id="search" placeholder="Rechercher par nom, téléphone, ID..." oninput="filtrerAbonnes()" />
+      <select id="filtre-statut" onchange="filtrerAbonnes()">
+        <option value="">Tous les statuts</option>
+        <option value="actif">Actifs</option>
+        <option value="en_attente">En attente</option>
+        <option value="suspendu">Suspendus</option>
       </select>
     </div>
-    <div id="liste"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Nom</th><th>Téléphone</th><th>Forfait</th>
+            <th>Minutes</th><th>Statut</th><th>Date</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty-msg" style="display:none">Aucun abonné trouvé.</div>
   </div>
 
   <!-- LIENS WAVE -->
-  <div class="wave-section">
-    <div class="card-title">Liens Wave à partager sur WhatsApp</div>
-    <div class="wave-liens">
+  <div class="card">
+    <h3>💚 Liens Wave à partager</h3>
+    <div class="wave-grid">
       <div class="wave-card">
-        <div class="wave-name">Starter</div>
-        <div class="wave-price">2 990 FCFA · 200 min/mois</div>
-        <button class="btn-wave" onclick="copier('https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=2990', this)">Copier le lien</button>
+        <div class="name">Starter</div>
+        <div class="price">2 990 FCFA</div>
+        <div class="minutes">200 minutes / mois</div>
+        <button class="btn-copy" onclick="copierLien('starter')">📋 Copier le lien</button>
       </div>
       <div class="wave-card">
-        <div class="wave-name">Smart</div>
-        <div class="wave-price">5 990 FCFA · 300 min/mois</div>
-        <button class="btn-wave" onclick="copier('https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=5990', this)">Copier le lien</button>
+        <div class="name">Smart</div>
+        <div class="price">5 990 FCFA</div>
+        <div class="minutes">300 minutes / mois</div>
+        <button class="btn-copy" onclick="copierLien('smart')">📋 Copier le lien</button>
       </div>
       <div class="wave-card">
-        <div class="wave-name">Business</div>
-        <div class="wave-price">15 990 FCFA · Illimité</div>
-        <button class="btn-wave" onclick="copier('https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=15990', this)">Copier le lien</button>
+        <div class="name">Business</div>
+        <div class="price">15 990 FCFA</div>
+        <div class="minutes">Minutes illimitées</div>
+        <button class="btn-copy" onclick="copierLien('business')">📋 Copier le lien</button>
       </div>
     </div>
   </div>
 
 </div>
 
+<!-- MODAL MODIFIER -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>✏️ Modifier l'abonné</h3>
+    <input type="hidden" id="m-userId" />
+    <div class="field"><label>Nom</label><input id="m-nom" /></div>
+    <div class="field"><label>Prénom</label><input id="m-prenom" /></div>
+    <div class="field"><label>Téléphone</label><input id="m-tel" /></div>
+    <div class="field">
+      <label>Forfait</label>
+      <select id="m-forfait">
+        <option value="starter">Starter — 2 990 FCFA</option>
+        <option value="smart">Smart — 5 990 FCFA</option>
+        <option value="business">Business — 15 990 FCFA</option>
+      </select>
+    </div>
+    <div class="field"><label>Minutes bonus à ajouter</label><input id="m-bonus" type="number" placeholder="ex: 50" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="sauvegarderModif()">Sauvegarder</button>
+      <button class="btn" style="background:#eee;color:#333" onclick="fermerModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://pst-telecom-production.up.railway.app';
-const FORFAITS = {
-  starter:  { name: 'Starter',  price: 2990,  minutes: 200 },
-  smart:    { name: 'Smart',    price: 5990,  minutes: 300 },
-  business: { name: 'Business', price: 15990, minutes: 9999 },
+const API = '';
+const WAVE_ID = 'M_rlEv9b4P3VtG';
+const MONTANTS = { starter: 2990, smart: 5990, business: 15990 };
+const MINUTES  = { starter: '200 min', smart: '300 min', business: 'Illimité' };
+
+let tousAbonnes = [];
+
+// ─── INIT ───────────────────────────────────────────────────
+window.onload = () => {
+  chargerStats();
+  chargerAbonnes();
+  setInterval(chargerStats, 30000);
 };
 
-let abonnes = [];
-
-// Vérifier si l'API est en ligne
-async function checkAPI() {
-  try {
-    const r = await fetch(API + '/');
-    const d = await r.json();
-    document.getElementById('api-dot').className = 'status-dot online';
-    document.getElementById('api-status').textContent = 'API en ligne ✓';
-    chargerStats();
-  } catch {
-    document.getElementById('api-status').textContent = 'API hors ligne';
-  }
-}
-
+// ─── STATS ──────────────────────────────────────────────────
 async function chargerStats() {
   try {
     const r = await fetch(API + '/api/admin/stats');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    document.getElementById('m-total').textContent   = d.totalAbonnes;
-    document.getElementById('m-actifs').textContent  = d.abonnesActifs;
-    document.getElementById('m-attente').textContent = d.totalAbonnes - d.abonnesActifs;
-    document.getElementById('m-revenus').textContent = d.revenusFormate;
-  } catch {
-    majMetricsLocales();
+    document.getElementById('s-total').textContent   = d.total   ?? 0;
+    document.getElementById('s-actifs').textContent  = d.actifs  ?? 0;
+    document.getElementById('s-attente').textContent = d.attente ?? 0;
+    document.getElementById('s-revenus').textContent = ((d.revenus ?? 0)).toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('api-status').textContent = '● API en ligne';
+  } catch (e) {
+    document.getElementById('api-status').textContent = '● Erreur API';
   }
 }
 
-function majMetricsLocales() {
-  const actifs  = abonnes.filter(a => a.actif).length;
-  const revenus = abonnes.filter(a => a.actif).reduce((s, a) => s + FORFAITS[a.forfait].price, 0);
-  document.getElementById('m-total').textContent   = abonnes.length;
-  document.getElementById('m-actifs').textContent  = actifs;
-  document.getElementById('m-attente').textContent = abonnes.length - actifs;
-  document.getElementById('m-revenus').textContent = revenus.toLocaleString('fr-FR') + ' FCFA';
+// ─── ABONNÉS ────────────────────────────────────────────────
+async function chargerAbonnes() {
+  try {
+    const r = await fetch(API + '/api/admin/abonnes');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    tousAbonnes = await r.json();
+    afficherAbonnes(tousAbonnes);
+  } catch (e) {
+    console.error('Erreur chargement abonnés:', e);
+  }
 }
 
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 3000);
-}
-
-function initiales(nom, prenom) {
-  return ((nom||'?')[0] + (prenom||'?')[0]).toUpperCase();
-}
-
-function rendreListe(liste) {
-  const el = document.getElementById('liste');
+function afficherAbonnes(liste) {
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty-msg');
   if (!liste.length) {
-    el.innerHTML = '<div class="empty">Aucun abonné trouvé.<br>Ajoutez le premier abonné ci-dessus !</div>';
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
     return;
   }
-  el.innerHTML = liste.map(a => `
-    <div class="abonne-item" id="row-${a.id}">
-      <div class="abonne-avatar">${initiales(a.nom, a.prenom)}</div>
-      <div class="abonne-info">
-        <div class="abonne-nom">${a.prenom || ''} ${a.nom}</div>
-        <div class="abonne-tel">${a.telephone}</div>
-        <div class="abonne-num">Numéro PST : ${a.numeroVirtuel}</div>
-        <div class="abonne-actions">
-          <button class="btn-activer ${a.actif ? 'actif' : ''}" onclick="activerCompte('${a.id}')">
-            ${a.actif ? '✓ Actif' : 'Activer le compte'}
-          </button>
-          <button class="btn-sm" onclick="copierLienWave('${a.id}')">Lien Wave</button>
-          <button class="btn-sm" onclick="copierMessage('${a.id}')">Message WhatsApp</button>
+  empty.style.display = 'none';
+  tbody.innerHTML = liste.map(a => {
+    const pct = a.minutes === 99999 ? 0 : Math.min(100, Math.round((a.minutesUsees||0)/a.minutes*100));
+    const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
+    const badge = { actif: 'badge-actif', en_attente: 'badge-attente', suspendu: 'badge-suspendu' }[a.statut] || 'badge-attente';
+    const statutLabel = { actif: 'Actif', en_attente: 'En attente', suspendu: 'Suspendu' }[a.statut] || a.statut;
+    return `<tr>
+      <td><code style="font-size:0.78rem">${a.userId}</code></td>
+      <td><strong>${a.nom}</strong>${a.prenom ? ' ' + a.prenom : ''}</td>
+      <td>${a.telephone}</td>
+      <td>${a.forfaitNom || a.forfait}</td>
+      <td>
+        ${a.minutes === 99999 ? '∞ Illimité' : (a.minutesUsees||0) + ' / ' + a.minutes + ' min'}
+        ${a.minutes !== 99999 ? `<div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>` : ''}
+      </td>
+      <td><span class="badge ${badge}">${statutLabel}</span></td>
+      <td>${date}</td>
+      <td>
+        <div class="actions">
+          ${a.statut !== 'actif'     ? `<button class="btn btn-success" onclick="activer('${a.userId}')">✅ Activer</button>` : ''}
+          ${a.statut === 'actif'     ? `<button class="btn btn-warning" onclick="suspendre('${a.userId}')">⏸ Suspendre</button>` : ''}
+          <button class="btn btn-info" onclick="ouvrirModal(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️</button>
+          <button class="btn btn-danger" onclick="supprimer('${a.userId}', '${a.nom}')">🗑</button>
         </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div class="forfait-badge ${a.forfait}">${FORFAITS[a.forfait].name}</div>
-        <div class="statut-dot ${a.actif ? 'actif' : 'attente'}" style="margin-top:6px;">
-          ${a.actif ? '● Actif' : '● En attente'}
-        </div>
-        <div style="font-size:11px;color:#888;margin-top:4px;">${FORFAITS[a.forfait].price.toLocaleString('fr-FR')} FCFA</div>
-      </div>
-    </div>
-  `).join('');
+      </td>
+    </tr>`;
+  }).join('');
 }
 
-function filtrer() {
+function filtrerAbonnes() {
   const q = document.getElementById('search').value.toLowerCase();
-  const f = document.getElementById('filtre').value;
-  let liste = abonnes.filter(a => {
-    const match = (a.nom + (a.prenom||'') + a.telephone).toLowerCase().includes(q);
-    if (f === 'actif') return match && a.actif;
-    if (f === 'attente') return match && !a.actif;
-    return match;
+  const s = document.getElementById('filtre-statut').value;
+  const filtre = tousAbonnes.filter(a => {
+    const texte = (a.userId + a.nom + (a.prenom||'') + a.telephone).toLowerCase();
+    return texte.includes(q) && (!s || a.statut === s);
   });
-  rendreListe(liste);
+  afficherAbonnes(filtre);
 }
 
+// ─── AJOUTER ────────────────────────────────────────────────
 async function ajouterAbonne() {
-  const nom    = document.getElementById('f-nom').value.trim();
-  const prenom = document.getElementById('f-prenom').value.trim();
-  const tel    = document.getElementById('f-tel').value.trim();
+  const nom     = document.getElementById('f-nom').value.trim();
+  const prenom  = document.getElementById('f-prenom').value.trim();
+  const tel     = document.getElementById('f-tel').value.trim();
   const forfait = document.getElementById('f-forfait').value;
-
-  if (!nom || !tel) { toast('⚠️ Remplis le nom et le téléphone'); return; }
+  if (!nom || !tel) { toast('Nom et téléphone obligatoires', true); return; }
 
   try {
     const r = await fetch(API + '/api/auth/register', {
@@ -258,75 +319,106 @@ async function ajouterAbonne() {
       body: JSON.stringify({ nom, prenom, telephone: tel, forfait }),
     });
     const d = await r.json();
-
     if (d.success) {
-      const abonne = {
-        id: d.userId, nom, prenom, telephone: tel,
-        forfait, numeroVirtuel: d.numeroVirtuel, actif: false,
-      };
-      abonnes.unshift(abonne);
-
+      navigator.clipboard.writeText(d.lienWave).catch(()=>{});
+      toast(`✅ Compte créé ! Lien Wave copié. ID: ${d.userId}`);
       document.getElementById('f-nom').value = '';
       document.getElementById('f-prenom').value = '';
       document.getElementById('f-tel').value = '';
-
-      filtrer();
-      majMetricsLocales();
-
-      const msg = `Bonjour ${prenom || nom} ! Votre compte PST Pure Smart Telecom est créé.\n\nNuméro virtuel : ${d.numeroVirtuel}\nForfait : ${FORFAITS[forfait].name} — ${FORFAITS[forfait].price.toLocaleString('fr-FR')} FCFA/mois\n\nPayez maintenant pour activer votre compte :\n${d.lienPaiement}`;
-      navigator.clipboard.writeText(msg).catch(() => {});
-      toast(`✓ ${prenom || nom} ajouté ! Message WhatsApp copié !`);
+      chargerAbonnes();
+      chargerStats();
+    } else {
+      toast(d.error || 'Erreur', true);
     }
-  } catch (err) {
-    // Mode hors ligne
-    const id = 'PST-' + Math.random().toString(36).substr(2,6).toUpperCase();
-    const num = '+221 77 ' + Math.floor(100+Math.random()*900) + ' ' +
-                Math.floor(10+Math.random()*90) + ' ' + Math.floor(10+Math.random()*90);
-    abonnes.unshift({ id, nom, prenom, telephone: tel, forfait, numeroVirtuel: num, actif: false });
-    document.getElementById('f-nom').value = '';
-    document.getElementById('f-prenom').value = '';
-    document.getElementById('f-tel').value = '';
-    filtrer();
-    majMetricsLocales();
-    toast(`✓ ${prenom || nom} ajouté (mode hors ligne)`);
+  } catch (e) {
+    toast('Erreur réseau', true);
   }
 }
 
-function activerCompte(id) {
-  const a = abonnes.find(x => x.id === id);
-  if (!a || a.actif) return;
-  a.actif = true;
-  filtrer();
-  majMetricsLocales();
-  toast(`✓ Compte de ${a.prenom || a.nom} activé !`);
+// ─── ACTIVER ────────────────────────────────────────────────
+async function activer(userId) {
+  if (!confirm('Activer cet abonné ?')) return;
+  const r = await fetch(API + '/api/admin/activer/' + userId, { method: 'POST' });
+  const d = await r.json();
+  if (d.success) { toast('✅ Abonné activé !'); chargerAbonnes(); chargerStats(); }
+  else toast(d.error, true);
 }
 
-function copierLienWave(id) {
-  const a = abonnes.find(x => x.id === id);
-  if (!a) return;
-  const lien = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${FORFAITS[a.forfait].price}&client_reference=${id}`;
-  navigator.clipboard.writeText(lien).catch(() => {});
-  toast('Lien Wave copié !');
+// ─── SUSPENDRE ──────────────────────────────────────────────
+async function suspendre(userId) {
+  if (!confirm('Suspendre cet abonné ?')) return;
+  const r = await fetch(API + '/api/admin/suspendre/' + userId, { method: 'POST' });
+  const d = await r.json();
+  if (d.success) { toast('⏸ Abonné suspendu'); chargerAbonnes(); chargerStats(); }
+  else toast(d.error, true);
 }
 
-function copierMessage(id) {
-  const a = abonnes.find(x => x.id === id);
-  if (!a) return;
-  const lien = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${FORFAITS[a.forfait].price}&client_reference=${id}`;
-  const msg = `Bonjour ${a.prenom || a.nom} ! Votre compte PST est créé.\n\nNuméro virtuel : ${a.numeroVirtuel}\nForfait : ${FORFAITS[a.forfait].name} — ${FORFAITS[a.forfait].price.toLocaleString('fr-FR')} FCFA/mois\n\nPayez ici : ${lien}`;
-  navigator.clipboard.writeText(msg).catch(() => {});
-  toast('Message WhatsApp copié !');
+// ─── SUPPRIMER ──────────────────────────────────────────────
+async function supprimer(userId, nom) {
+  if (!confirm(`Supprimer définitivement ${nom} ?`)) return;
+  const r = await fetch(API + '/api/admin/abonne/' + userId, { method: 'DELETE' });
+  const d = await r.json();
+  if (d.success) { toast('🗑 Abonné supprimé'); chargerAbonnes(); chargerStats(); }
+  else toast(d.error, true);
 }
 
-function copier(lien, btn) {
-  navigator.clipboard.writeText(lien).catch(() => {});
-  const orig = btn.textContent;
-  btn.textContent = 'Copié !';
-  setTimeout(() => btn.textContent = orig, 2000);
+// ─── MODAL MODIFIER ─────────────────────────────────────────
+function ouvrirModal(a) {
+  document.getElementById('m-userId').value  = a.userId;
+  document.getElementById('m-nom').value     = a.nom || '';
+  document.getElementById('m-prenom').value  = a.prenom || '';
+  document.getElementById('m-tel').value     = a.telephone || '';
+  document.getElementById('m-forfait').value = a.forfait || 'smart';
+  document.getElementById('m-bonus').value   = '';
+  document.getElementById('modal').classList.add('open');
 }
 
-checkAPI();
-rendreListe([]);
+function fermerModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+async function sauvegarderModif() {
+  const userId = document.getElementById('m-userId').value;
+  const body = {
+    nom:          document.getElementById('m-nom').value,
+    prenom:       document.getElementById('m-prenom').value,
+    telephone:    document.getElementById('m-tel').value,
+    forfait:      document.getElementById('m-forfait').value,
+    minutesBonus: document.getElementById('m-bonus').value || null,
+  };
+  const r = await fetch(API + '/api/admin/abonne/' + userId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.success) { toast('✅ Abonné mis à jour'); fermerModal(); chargerAbonnes(); chargerStats(); }
+  else toast(d.error, true);
+}
+
+// ─── LIENS WAVE ─────────────────────────────────────────────
+function copierLien(forfait) {
+  const montant = MONTANTS[forfait];
+  const minutes = MINUTES[forfait];
+  const lien = `https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${montant}`;
+  const msg  = `📱 Forfait PST ${forfait.charAt(0).toUpperCase()+forfait.slice(1)} — ${minutes} d'appels/mois\nPrix : ${montant.toLocaleString('fr-FR')} FCFA seulement !\nPayez maintenant via Wave 👇\n${lien}`;
+  navigator.clipboard.writeText(msg).catch(()=>{});
+  toast(`✅ Lien ${forfait} copié !`);
+}
+
+// ─── TOAST ──────────────────────────────────────────────────
+function toast(msg, error = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = error ? '#c62828' : '#1a3a5c';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Fermer modal en cliquant dehors
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) fermerModal();
+});
 </script>
 </body>
 </html>
