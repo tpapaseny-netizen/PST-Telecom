@@ -1,256 +1,339 @@
-// PST — Pure Smart Telecom v4.0
-// MongoDB Atlas — Données persistantes
-
-const express  = require('express');
-const cors     = require('cors');
-const crypto   = require('crypto');
-const path     = require('path');
-const fs       = require('fs');
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
-const AfricasTalking = require('africastalking');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname)));
 
-const at = AfricasTalking({
-  apiKey:   process.env.AT_API_KEY  || 'sandbox',
-  username: process.env.AT_USERNAME || 'sandbox',
-});
-const sms = at.SMS;
+// ─── MongoDB ───────────────────────────────────────────────
+const MONGODB_URI = process.env.MONGODB_URI;
+const AT_API_KEY  = process.env.AT_API_KEY;
+const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
+const PORT        = process.env.PORT || 3001;
 
-const FORFAITS = {
-  starter:  { name: 'Starter',  price: 2990,  minutes: 200,  numeros: 1 },
-  smart:    { name: 'Smart',    price: 5990,  minutes: 300,  numeros: 1 },
-  business: { name: 'Business', price: 15990, minutes: 9999, numeros: 5 },
-};
-const MONTANTS = { 2990: 'starter', 5990: 'smart', 15990: 'business' };
-
-// ── MongoDB ────────────────────────────────
 let db;
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
 async function connectDB() {
+  if (!MONGODB_URI) {
+    console.warn('⚠️  MONGODB_URI manquant — mode mémoire activé');
+    return;
+  }
   try {
-    const client = new MongoClient(MONGO_URI);
+    const client = new MongoClient(MONGODB_URI);
     await client.connect();
     db = client.db('pst_telecom');
-    console.log('✅ MongoDB connecté');
-    // Créer les index
-    await db.collection('users').createIndex({ userId: 1 }, { unique: true });
-    await db.collection('users').createIndex({ telephone: 1 });
-  } catch(err) {
+    console.log('✅ MongoDB Atlas connecté');
+  } catch (err) {
     console.error('❌ MongoDB erreur:', err.message);
   }
 }
 
-function users()    { return db.collection('users'); }
-function payments() { return db.collection('payments'); }
-function calls()    { return db.collection('calls'); }
-
-// ══════════════════════════════════════════
-// 1. ABONNÉS
-// ══════════════════════════════════════════
-
-app.post('/api/auth/register', async (req, res) => {
-  const { nom, prenom, telephone, forfait } = req.body;
-  if (!nom || !telephone || !forfait || !FORFAITS[forfait]) {
-    return res.status(400).json({ error: 'Données manquantes' });
-  }
-  const userId = 'PST-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-  const numeroVirtuel = '+221 77 ' +
-    Math.floor(100 + Math.random() * 900) + ' ' +
-    Math.floor(10  + Math.random() * 90)  + ' ' +
-    Math.floor(10  + Math.random() * 90);
-
-  const user = {
-    userId, nom, prenom: prenom || '', telephone, forfait, numeroVirtuel,
-    minutesRestantes: FORFAITS[forfait].minutes,
-    minutesTotal: FORFAITS[forfait].minutes,
-    actif: false,
-    notes: '',
-    dateInscription: new Date(),
-    dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
-    historiquePaiements: [],
-  };
-
-  await users().insertOne(user);
-
+// ─── Africa's Talking ───────────────────────────────────────
+function getAT() {
+  if (!AT_API_KEY) return null;
   try {
-    await sms.send({
-      to: [telephone],
-      message: `Bienvenue sur PST ! Numéro : ${numeroVirtuel}. Payez ${FORFAITS[forfait].price} FCFA : https://pst-telecom-production.up.railway.app/api/payer/${userId}`,
-      from: 'PST',
+    const AfricasTalking = require('africastalking');
+    return AfricasTalking({ apiKey: AT_API_KEY, username: AT_USERNAME });
+  } catch { return null; }
+}
+
+// ─── Helpers ────────────────────────────────────────────────
+const FORFAITS = {
+  starter:  { nom: 'Starter',  minutes: 200,  prix: 2990 },
+  smart:    { nom: 'Smart',    minutes: 300,  prix: 5990 },
+  business: { nom: 'Business', minutes: 99999, prix: 15990 },
+};
+
+function genUserId()  { return 'PST-' + Math.random().toString(16).slice(2,10).toUpperCase(); }
+function genNumero()  {
+  const prefixes = ['77','78','76','70'];
+  const p = prefixes[Math.floor(Math.random()*prefixes.length)];
+  const n = Math.floor(Math.random()*9000000)+1000000;
+  return `+221 ${p} ${String(n).slice(0,3)} ${String(n).slice(3,5)} ${String(n).slice(5)}`;
+}
+
+async function getAbonnes() {
+  if (db) return await db.collection('abonnes').find({}).sort({ createdAt: -1 }).toArray();
+  return global._abonnes || [];
+}
+
+async function saveAbonne(abonne) {
+  if (db) {
+    await db.collection('abonnes').insertOne(abonne);
+  } else {
+    global._abonnes = global._abonnes || [];
+    global._abonnes.push(abonne);
+  }
+}
+
+async function updateAbonne(userId, update) {
+  if (db) {
+    await db.collection('abonnes').updateOne({ userId }, { $set: update });
+  } else {
+    global._abonnes = (global._abonnes || []).map(a =>
+      a.userId === userId ? { ...a, ...update } : a
+    );
+  }
+}
+
+async function deleteAbonne(userId) {
+  if (db) {
+    await db.collection('abonnes').deleteOne({ userId });
+  } else {
+    global._abonnes = (global._abonnes || []).filter(a => a.userId !== userId);
+  }
+}
+
+// ─── ROUTES ─────────────────────────────────────────────────
+
+// Santé
+app.get('/', (req, res) => {
+  res.json({ service: 'PST Pure Smart Telecom', status: 'online', version: '4.0' });
+});
+
+// Admin dashboard
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// Interface appel
+app.get('/appel', (req, res) => {
+  res.sendFile(path.join(__dirname, 'appel.html'));
+});
+
+// ─── STATS ADMIN ────────────────────────────────────────────
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const abonnes = await getAbonnes();
+    const total   = abonnes.length;
+    const actifs  = abonnes.filter(a => a.statut === 'actif').length;
+    const attente = abonnes.filter(a => a.statut === 'en_attente').length;
+    const revenus = abonnes
+      .filter(a => a.statut === 'actif')
+      .reduce((sum, a) => sum + (FORFAITS[a.forfait]?.prix || 0), 0);
+    res.json({ total, actifs, attente, revenus });
+  } catch (err) {
+    console.error('Stats erreur:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── LISTE ABONNÉS ──────────────────────────────────────────
+app.get('/api/admin/abonnes', async (req, res) => {
+  try {
+    const abonnes = await getAbonnes();
+    res.json(abonnes);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── CRÉER ABONNÉ ───────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { nom, prenom, telephone, forfait = 'smart' } = req.body;
+    if (!nom || !telephone) {
+      return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
+    }
+
+    const f = FORFAITS[forfait] || FORFAITS.smart;
+    const abonne = {
+      userId:        genUserId(),
+      nom, prenom,
+      telephone,
+      forfait,
+      forfaitNom:    f.nom,
+      minutes:       f.minutes,
+      minutesUsees:  0,
+      prix:          f.prix,
+      numeroVirtuel: genNumero(),
+      statut:        'en_attente',
+      createdAt:     new Date(),
+      updatedAt:     new Date(),
+      paiements:     [],
+    };
+
+    await saveAbonne(abonne);
+
+    // SMS de bienvenue
+    const at = getAT();
+    if (at) {
+      try {
+        await at.SMS.send({
+          to: telephone,
+          message: `Bienvenue sur PST Pure Smart Telecom ! 🎉\nVotre forfait ${f.nom} (${f.prix} FCFA/${f.minutes === 99999 ? 'illimité' : f.minutes + ' min'}) est en cours d'activation.\nVotre numéro PST : ${abonne.numeroVirtuel}\nID : ${abonne.userId}`,
+          from: 'PST',
+        });
+      } catch (smsErr) {
+        console.warn('SMS non envoyé:', smsErr.message);
+      }
+    }
+
+    const lienWave = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${f.prix}`;
+    res.json({
+      success: true,
+      userId: abonne.userId,
+      numeroVirtuel: abonne.numeroVirtuel,
+      lienWave,
+      message: `Compte PST créé ! Forfait ${f.nom} — ${f.prix} FCFA`,
     });
-  } catch(e) { console.log('SMS:', e.message); }
-
-  res.json({
-    success: true, userId, numeroVirtuel,
-    message: `Compte PST créé !`,
-    lienPaiement: `https://pst-telecom-production.up.railway.app/api/payer/${userId}`,
-  });
+  } catch (err) {
+    console.error('Register erreur:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/users', async (req, res) => {
-  const liste = await users().find({}).sort({ dateInscription: -1 }).toArray();
-  res.json(liste);
+// ─── ACTIVER ABONNÉ ─────────────────────────────────────────
+app.post('/api/admin/activer/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await updateAbonne(userId, {
+      statut: 'actif',
+      activatedAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const abonnes = await getAbonnes();
+    const abonne = abonnes.find(a => a.userId === userId);
+
+    if (abonne) {
+      const at = getAT();
+      if (at) {
+        try {
+          await at.SMS.send({
+            to: abonne.telephone,
+            message: `✅ PST Telecom : Votre forfait ${abonne.forfaitNom} est maintenant ACTIF !\nNuméro PST : ${abonne.numeroVirtuel}\nMinutes : ${abonne.minutes === 99999 ? 'Illimitées' : abonne.minutes}\nBonne communication ! 📞`,
+            from: 'PST',
+          });
+        } catch (smsErr) {
+          console.warn('SMS activation non envoyé:', smsErr.message);
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Abonné activé' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/users/:userId', async (req, res) => {
-  const user = await users().findOne({ userId: req.params.userId });
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-  res.json(user);
+// ─── SUSPENDRE ABONNÉ ───────────────────────────────────────
+app.post('/api/admin/suspendre/:userId', async (req, res) => {
+  try {
+    await updateAbonne(req.params.userId, {
+      statut: 'suspendu',
+      updatedAt: new Date(),
+    });
+    res.json({ success: true, message: 'Abonné suspendu' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/users/:userId', async (req, res) => {
-  const { nom, prenom, telephone, forfait, actif, minutesRestantes, notes } = req.body;
-  const update = {};
-  if (nom) update.nom = nom;
-  if (prenom !== undefined) update.prenom = prenom;
-  if (telephone) update.telephone = telephone;
-  if (forfait && FORFAITS[forfait]) update.forfait = forfait;
-  if (typeof actif === 'boolean') update.actif = actif;
-  if (minutesRestantes !== undefined) update.minutesRestantes = parseInt(minutesRestantes);
-  if (notes !== undefined) update.notes = notes;
-  await users().updateOne({ userId: req.params.userId }, { $set: update });
-  const user = await users().findOne({ userId: req.params.userId });
-  res.json({ success: true, user });
+// ─── MODIFIER ABONNÉ ────────────────────────────────────────
+app.put('/api/admin/abonne/:userId', async (req, res) => {
+  try {
+    const { nom, prenom, telephone, forfait, minutesBonus } = req.body;
+    const update = { updatedAt: new Date() };
+    if (nom)       update.nom = nom;
+    if (prenom)    update.prenom = prenom;
+    if (telephone) update.telephone = telephone;
+    if (forfait && FORFAITS[forfait]) {
+      update.forfait    = forfait;
+      update.forfaitNom = FORFAITS[forfait].nom;
+      update.prix       = FORFAITS[forfait].prix;
+      update.minutes    = FORFAITS[forfait].minutes;
+    }
+    if (minutesBonus && db) {
+      await db.collection('abonnes').updateOne(
+        { userId: req.params.userId },
+        { $inc: { minutes: parseInt(minutesBonus) }, $set: update }
+      );
+    } else {
+      await updateAbonne(req.params.userId, update);
+    }
+    res.json({ success: true, message: 'Abonné mis à jour' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/users/:userId/activer', async (req, res) => {
-  const user = await users().findOne({ userId: req.params.userId });
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-  const paiement = {
-    date: new Date(), montant: FORFAITS[user.forfait].price,
-    forfait: user.forfait, methode: 'manuel',
-  };
-  await users().updateOne({ userId: req.params.userId }, {
-    $set: {
-      actif: true,
-      minutesRestantes: FORFAITS[user.forfait].minutes,
-      minutesTotal: FORFAITS[user.forfait].minutes,
-      dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
-    },
-    $push: { historiquePaiements: paiement },
-  });
-  await payments().insertOne({ userId: req.params.userId, ...paiement });
-  res.json({ success: true });
+// ─── SUPPRIMER ABONNÉ ───────────────────────────────────────
+app.delete('/api/admin/abonne/:userId', async (req, res) => {
+  try {
+    await deleteAbonne(req.params.userId);
+    res.json({ success: true, message: 'Abonné supprimé' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/users/:userId/suspendre', async (req, res) => {
-  await users().updateOne({ userId: req.params.userId }, { $set: { actif: false } });
-  res.json({ success: true });
+// ─── APPEL ──────────────────────────────────────────────────
+app.post('/api/appel/initier', async (req, res) => {
+  try {
+    const { userId, numeroDestination } = req.body;
+    const abonnes = await getAbonnes();
+    const abonne  = abonnes.find(a => a.userId === userId);
+
+    if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
+    if (abonne.statut !== 'actif') return res.status(403).json({ error: 'Forfait non actif' });
+    if (abonne.minutes !== 99999 && abonne.minutesUsees >= abonne.minutes) {
+      return res.status(403).json({ error: 'Minutes épuisées' });
+    }
+
+    const at = getAT();
+    if (at) {
+      try {
+        const callResp = await at.VOICE.call({
+          callFrom: '+254711082300',
+          callTo:   [numeroDestination],
+        });
+        return res.json({ success: true, callId: callResp.entries?.[0]?.sessionId || 'AT-' + Date.now(), type: 'real' });
+      } catch (voiceErr) {
+        console.warn('Appel AT:', voiceErr.message);
+      }
+    }
+
+    // Fallback simulé
+    res.json({
+      success: true,
+      callId: 'CALL-DEMO-' + Math.random().toString(16).slice(2,8).toUpperCase(),
+      type: 'sandbox',
+      message: `[SANDBOX] Appel simulé vers ${numeroDestination}`,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/users/:userId', async (req, res) => {
-  await users().deleteOne({ userId: req.params.userId });
-  res.json({ success: true });
-});
-
-app.post('/api/users/:userId/minutes', async (req, res) => {
-  const mins = parseInt(req.body.minutes);
-  await users().updateOne({ userId: req.params.userId }, {
-    $inc: { minutesRestantes: mins, minutesTotal: mins },
-  });
-  res.json({ success: true });
-});
-
-// ══════════════════════════════════════════
-// 2. WEBHOOK WAVE
-// ══════════════════════════════════════════
-
+// ─── WEBHOOK WAVE ───────────────────────────────────────────
 app.post('/api/webhook/wave', async (req, res) => {
   try {
-    const { amount, status, client_reference, transaction_id } = req.body;
-    if (status !== 'succeeded' && status !== 'complete') return res.json({ received: true });
-    const montant = parseInt(amount);
-    const forfait = MONTANTS[montant];
-    if (!forfait) return res.json({ received: true });
-    const user = await users().findOne({ userId: client_reference });
-    if (!user) return res.json({ received: true });
-
-    const paiement = { date: new Date(), montant, forfait, methode: 'wave', transaction_id };
-    await users().updateOne({ userId: client_reference }, {
-      $set: {
-        actif: true, forfait,
-        minutesRestantes: FORFAITS[forfait].minutes,
-        minutesTotal: FORFAITS[forfait].minutes,
-        dateRenouvellement: new Date(Date.now() + 30*24*3600*1000),
-      },
-      $push: { historiquePaiements: paiement },
-    });
-    await payments().insertOne({ userId: client_reference, ...paiement });
-
-    try {
-      await sms.send({
-        to: [user.telephone],
-        message: `PST: ${montant} FCFA reçu ! Forfait ${FORFAITS[forfait].name} activé. Numéro : ${user.numeroVirtuel}. Merci !`,
-        from: 'PST',
+    const { amount, client_reference } = req.body;
+    console.log('Webhook Wave reçu:', req.body);
+    if (client_reference) {
+      await updateAbonne(client_reference, {
+        statut: 'actif',
+        activatedAt: new Date(),
+        updatedAt: new Date(),
+        paiementWave: { amount, date: new Date() },
       });
-    } catch(e) {}
+    }
     res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ══════════════════════════════════════════
-// 3. PAIEMENT
-// ══════════════════════════════════════════
-
-app.get('/api/payer/:userId', async (req, res) => {
-  const user = await users().findOne({ userId: req.params.userId });
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
-  res.redirect(`https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${FORFAITS[user.forfait].price}&client_reference=${user.userId}`);
-});
-
-// ══════════════════════════════════════════
-// 4. STATS ADMIN
-// ══════════════════════════════════════════
-
-app.get('/api/admin/stats', async (req, res) => {
-  const total   = await users().countDocuments();
-  const actifs  = await users().countDocuments({ actif: true });
-  const paiList = await payments().find({}).toArray();
-  const revenus = paiList.reduce((s, p) => s + (p.montant || 0), 0);
-  res.json({
-    totalAbonnes: total,
-    abonnesActifs: actifs,
-    abonnésSuspendus: total - actifs,
-    revenus, revenusFormate: revenus.toLocaleString('fr-FR') + ' FCFA',
-  });
-});
-
-// ══════════════════════════════════════════
-// 5. PAGES HTML
-// ══════════════════════════════════════════
-
-app.get('/appel', (req, res) => {
-  const f = path.join(__dirname, 'appel.html');
-  if (fs.existsSync(f)) return res.sendFile(f);
-  res.send('<h1>PST Appel</h1>');
-});
-
-app.get('/admin', (req, res) => {
-  const f = path.join(__dirname, 'admin.html');
-  if (fs.existsSync(f)) return res.sendFile(f);
-  res.send('<h1>PST Admin</h1>');
-});
-
-app.get('/', (req, res) => {
-  res.json({
-    service: 'PST — Pure Smart Telecom v4.0',
-    status: 'Online', db: 'MongoDB Atlas',
-    pages: { admin: '/admin', appel: '/appel' },
-  });
-});
-
-// ══════════════════════════════════════════
-// 6. DÉMARRAGE
-// ══════════════════════════════════════════
-
-const PORT = process.env.PORT || 3001;
+// ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
-  app.listen(PORT, () => console.log(`PST v4.0 — Port ${PORT} — MongoDB Atlas`));
+  app.listen(PORT, () => {
+    console.log(`\n🚀 PST — Pure Smart Telecom`);
+    console.log(`📡 Backend Africa's Talking`);
+    console.log(`🌐 http://localhost:${PORT}`);
+    console.log(`💾 MongoDB: ${db ? 'connecté' : 'mode mémoire'}\n`);
+  });
 });
-
-module.exports = app;
