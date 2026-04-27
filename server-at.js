@@ -372,7 +372,70 @@ const SMS_SERVICES = [
   { id: 'viber',     nom: 'Viber',            icon: '📱', prix_points: 1 },
 ];
 
-// Cache des services 5SIM
+// Mapping logos publics pour les services connus
+const SERVICE_LOGOS = {
+  uber: 'https://logo.clearbit.com/uber.com',
+  tinder: 'https://logo.clearbit.com/tinder.com',
+  instagram: 'https://logo.clearbit.com/instagram.com',
+  microsoft: 'https://logo.clearbit.com/microsoft.com',
+  google: 'https://logo.clearbit.com/google.com',
+  yahoo: 'https://logo.clearbit.com/yahoo.com',
+  facebook: 'https://logo.clearbit.com/facebook.com',
+  whatsapp: 'https://logo.clearbit.com/whatsapp.com',
+  telegram: 'https://logo.clearbit.com/telegram.org',
+  tiktok: 'https://logo.clearbit.com/tiktok.com',
+  twitter: 'https://logo.clearbit.com/twitter.com',
+  snapchat: 'https://logo.clearbit.com/snapchat.com',
+  amazon: 'https://logo.clearbit.com/amazon.com',
+  netflix: 'https://logo.clearbit.com/netflix.com',
+  apple: 'https://logo.clearbit.com/apple.com',
+  linkedin: 'https://logo.clearbit.com/linkedin.com',
+  discord: 'https://logo.clearbit.com/discord.com',
+  viber: 'https://logo.clearbit.com/viber.com',
+  airbnb: 'https://logo.clearbit.com/airbnb.com',
+  ebay: 'https://logo.clearbit.com/ebay.com',
+  pof: 'https://logo.clearbit.com/pof.com',
+  line: 'https://logo.clearbit.com/line.me',
+  zoom: 'https://logo.clearbit.com/zoom.us',
+  spotify: 'https://logo.clearbit.com/spotify.com',
+  paypal: 'https://logo.clearbit.com/paypal.com',
+  uber_eats: 'https://logo.clearbit.com/ubereats.com',
+  booking: 'https://logo.clearbit.com/booking.com',
+  badoo: 'https://logo.clearbit.com/badoo.com',
+  steam: 'https://logo.clearbit.com/steampowered.com',
+  vkontakte: 'https://logo.clearbit.com/vk.com',
+  ok: 'https://logo.clearbit.com/ok.ru',
+  wechat: 'https://logo.clearbit.com/wechat.com',
+  shopee: 'https://logo.clearbit.com/shopee.com',
+  lazada: 'https://logo.clearbit.com/lazada.com',
+  grab: 'https://logo.clearbit.com/grab.com',
+  gojek: 'https://logo.clearbit.com/gojek.com',
+  aliexpress: 'https://logo.clearbit.com/aliexpress.com',
+  alibaba: 'https://logo.clearbit.com/alibaba.com',
+  chatgpt: 'https://logo.clearbit.com/openai.com',
+  openai: 'https://logo.clearbit.com/openai.com',
+  coinbase: 'https://logo.clearbit.com/coinbase.com',
+  binance: 'https://logo.clearbit.com/binance.com',
+  twitter_x: 'https://logo.clearbit.com/x.com',
+  reddit: 'https://logo.clearbit.com/reddit.com',
+  pinterest: 'https://logo.clearbit.com/pinterest.com',
+  match: 'https://logo.clearbit.com/match.com',
+  hinge: 'https://logo.clearbit.com/hinge.co',
+  bumble: 'https://logo.clearbit.com/bumble.com',
+  lyft: 'https://logo.clearbit.com/lyft.com',
+  doordash: 'https://logo.clearbit.com/doordash.com',
+  instacart: 'https://logo.clearbit.com/instacart.com',
+  zoho: 'https://logo.clearbit.com/zoho.com',
+  zomato: 'https://logo.clearbit.com/zomato.com',
+  swiggy: 'https://logo.clearbit.com/swiggy.com',
+};
+
+function getServiceLogo(id) {
+  const key = id.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (SERVICE_LOGOS[key]) return SERVICE_LOGOS[key];
+  // Fallback: Google favicon
+  return `https://www.google.com/s2/favicons?domain=${key}.com&sz=64`;
+}
 let fivesimServicesCache = null;
 let fivesimCacheTime = 0;
 
@@ -391,7 +454,7 @@ async function getFivesimServices() {
     const services = Object.entries(data).map(([id, info]) => ({
       id,
       nom: id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '),
-      logo: `https://5sim.net/img/services/${id}.png`,
+      logo: getServiceLogo(id),
       prix_usd: info.Cost || 0.01,
       count: info.Qty || 0,
       prix_points: Math.max(1, Math.ceil((info.Cost || 0.01) / 0.04)),
