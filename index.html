@@ -121,6 +121,7 @@ footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;
   .signup-inner{padding:3rem 1rem;}
   .hero{padding:5.5rem 5% 3rem;}
   .btn-main.nav-btn{font-size:0.78rem;padding:0.45rem 0.9rem;}
+  #sms-verif .section-inner > div{grid-template-columns:1fr !important;gap:2rem;}
 }
 @media(max-width:380px){
   h1{font-size:1.7rem;}
@@ -136,6 +137,7 @@ footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;
   <div class="nav-logo">P<em>S</em>T<span class="nav-sub">Pure Smart Telecom</span></div>
   <ul class="nav-links">
     <li><a href="#forfaits">Forfaits</a></li>
+    <li><a href="#sms-verif" style="color:#c77dff">SMS Verif</a></li>
     <li><a href="#fonctionnalites">Pourquoi PST</a></li>
     <li><a href="#inscription">S'inscrire</a></li>
     <li><a href="https://pst-telecom-production.up.railway.app/dashboard" class="nav-cta">Mon espace</a></li>
@@ -233,7 +235,45 @@ footer{border-top:1px solid rgba(255,255,255,0.06);padding:2rem 5%;display:flex;
   </div>
 </section>
 
-<section class="signup-section" id="inscription">
+<!-- SECTION SMS VERIFICATION -->
+<section class="section" id="sms-verif" style="background:linear-gradient(135deg,#1a0533,#0d2137);">
+  <div class="section-inner">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center">
+      <div>
+        <div class="section-tag" style="color:#c77dff">Nouveau service</div>
+        <h2>Numéros SMS<br><span style="color:#c77dff">de vérification</span></h2>
+        <p style="color:var(--muted);line-height:1.7;margin-bottom:1.5rem">Recevez des codes de vérification pour vos applications préférées — Google, WhatsApp, Facebook, TikTok et plus — sur un numéro temporaire sécurisé.</p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:2rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem"><span style="color:#c77dff;font-size:1.1rem">✓</span> <span>Numéro disponible en quelques secondes</span></div>
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem"><span style="color:#c77dff;font-size:1.1rem">✓</span> <span>Valable 20 minutes — le temps de recevoir votre code</span></div>
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem"><span style="color:#c77dff;font-size:1.1rem">✓</span> <span>Paiement en points PST — 1 000 FCFA = 5 points</span></div>
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem"><span style="color:#c77dff;font-size:1.1rem">✓</span> <span>18 services disponibles et en croissance</span></div>
+        </div>
+        <a href="#inscription" class="btn-main" style="background:#9c27b0;box-shadow:0 0 30px rgba(156,39,176,0.3)">Accéder au service →</a>
+      </div>
+      <div>
+        <div style="background:#1a0a2e;border:1px solid rgba(199,125,255,0.2);border-radius:20px;padding:1.5rem">
+          <div style="font-size:0.72rem;color:#c77dff;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem">Services disponibles</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">💬 <span>WhatsApp</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">🔵 <span>Google</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">📘 <span>Facebook</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">🎵 <span>TikTok</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">📸 <span>Instagram</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">✈️ <span>Telegram</span></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">🍎 <span>Apple</span></div>
+            <div style="background:rgba(199,125,255,0.15);border:1px solid rgba(199,125,255,0.3);border-radius:10px;padding:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem;color:#c77dff">+ 10 autres</div>
+          </div>
+          <div style="margin-top:1rem;background:rgba(199,125,255,0.1);border-radius:10px;padding:0.85rem;text-align:center">
+            <div style="font-size:0.72rem;color:#c77dff;margin-bottom:0.25rem">À partir de</div>
+            <div style="font-size:1.5rem;font-weight:800;color:white">1 point</div>
+            <div style="font-size:0.72rem;color:var(--muted)">soit 200 FCFA par vérification</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
   <div class="signup-inner">
     <div class="section-tag">Rejoindre PST</div>
     <h2>Créer mon compte</h2>
