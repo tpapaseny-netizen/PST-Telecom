@@ -430,7 +430,61 @@ const SERVICE_LOGOS = {
   swiggy: 'https://logo.clearbit.com/swiggy.com',
 };
 
-function getServiceLogo(id) {
+const SERVICE_NOMS = {
+  google: 'Google / Gmail / YouTube',
+  youtube: 'YouTube / Google',
+  gmail: 'Gmail / Google',
+  facebook: 'Facebook / Meta',
+  instagram: 'Instagram / Meta',
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  tiktok: 'TikTok',
+  twitter: 'Twitter / X',
+  twitter_x: 'Twitter / X',
+  snapchat: 'Snapchat',
+  microsoft: 'Microsoft / Outlook',
+  apple: 'Apple / iCloud',
+  amazon: 'Amazon',
+  netflix: 'Netflix',
+  uber: 'Uber',
+  uber_eats: 'Uber Eats',
+  airbnb: 'Airbnb',
+  linkedin: 'LinkedIn',
+  discord: 'Discord',
+  viber: 'Viber',
+  chatgpt: 'ChatGPT / OpenAI',
+  openai: 'OpenAI / ChatGPT',
+  spotify: 'Spotify',
+  paypal: 'PayPal',
+  ebay: 'eBay',
+  zoom: 'Zoom',
+  tinder: 'Tinder',
+  badoo: 'Badoo',
+  bumble: 'Bumble',
+  hinge: 'Hinge',
+  match: 'Match.com',
+  reddit: 'Reddit',
+  pinterest: 'Pinterest',
+  steam: 'Steam',
+  vkontakte: 'VKontakte',
+  wechat: 'WeChat',
+  line: 'Line',
+  grab: 'Grab',
+  gojek: 'Gojek',
+  shopee: 'Shopee',
+  lazada: 'Lazada',
+  alibaba: 'Alibaba',
+  aliexpress: 'AliExpress',
+  binance: 'Binance',
+  coinbase: 'Coinbase',
+  zoho: 'Zoho',
+  zomato: 'Zomato',
+  booking: 'Booking.com',
+};
+
+function getServiceNom(id) {
+  return SERVICE_NOMS[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '));
+}
   const key = id.toLowerCase().replace(/[^a-z0-9_]/g, '');
   if (SERVICE_LOGOS[key]) return SERVICE_LOGOS[key];
   // Fallback: Google favicon
@@ -453,7 +507,7 @@ async function getFivesimServices() {
     // Convertir en tableau trié par nombre de numéros
     const services = Object.entries(data).map(([id, info]) => ({
       id,
-      nom: id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '),
+      nom: getServiceNom(id),
       logo: getServiceLogo(id),
       prix_usd: info.Cost || 0.01,
       count: info.Qty || 0,
