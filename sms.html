@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PST SMS — Numéros de vérification</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0a1a;color:white;min-height:100vh;}
+.topbar{background:rgba(13,10,26,0.95);border-bottom:1px solid rgba(199,125,255,0.15);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-weight:900;font-size:1.3rem;letter-spacing:-0.03em;}
+.logo span{color:#c77dff;}
+.logo small{font-size:0.6rem;color:#c77dff;font-weight:500;display:block;letter-spacing:0.1em;text-transform:uppercase;}
+.back-link{color:#c77dff;text-decoration:none;font-size:0.85rem;}
+
+.hero{text-align:center;padding:4rem 1.5rem 2rem;}
+.hero-badge{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(199,125,255,0.12);border:1px solid rgba(199,125,255,0.3);border-radius:100px;padding:0.3rem 0.9rem;font-size:0.72rem;font-weight:600;color:#c77dff;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:1.5rem;}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#c77dff;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+h1{font-size:clamp(2rem,6vw,3rem);font-weight:900;line-height:1.1;letter-spacing:-0.03em;margin-bottom:1rem;}
+h1 .accent{color:#c77dff;}
+.hero-sub{color:#9a8fa8;font-size:1rem;line-height:1.7;max-width:500px;margin:0 auto 2rem;}
+
+.container{max-width:900px;margin:0 auto;padding:0 1.5rem 4rem;}
+
+/* TABS */
+.tabs{display:flex;background:rgba(255,255,255,0.05);border-radius:12px;padding:4px;margin-bottom:2rem;max-width:400px;margin-left:auto;margin-right:auto;}
+.tab-btn{flex:1;padding:0.65rem;border:none;background:none;color:#9a8fa8;font-size:0.88rem;font-weight:600;border-radius:9px;cursor:pointer;transition:all 0.2s;}
+.tab-btn.active{background:white;color:#0d0a1a;}
+
+/* SCREENS */
+.screen{display:none;}
+.screen.active{display:block;}
+
+/* FORM CARD */
+.form-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:2rem;max-width:480px;margin:0 auto;}
+.form-title{font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;}
+.form-desc{font-size:0.85rem;color:#9a8fa8;margin-bottom:1.5rem;line-height:1.6;}
+.field{margin-bottom:1rem;}
+.field label{display:block;font-size:0.78rem;font-weight:600;color:#9a8fa8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
+.field input{width:100%;padding:0.85rem 1rem;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:white;font-size:0.95rem;outline:none;transition:border-color 0.2s;font-family:inherit;}
+.field input:focus{border-color:#c77dff;}
+.field input::placeholder{color:#5a4f6a;}
+.btn-purple{width:100%;padding:0.9rem;background:linear-gradient(135deg,#7b2ff7,#c77dff);color:white;border:none;border-radius:12px;font-weight:800;font-size:1rem;cursor:pointer;transition:opacity 0.2s,transform 0.2s;margin-top:0.5rem;}
+.btn-purple:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-purple:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.form-note{font-size:0.75rem;color:#5a4f6a;text-align:center;margin-top:0.75rem;}
+.error-msg{background:rgba(244,67,54,0.15);border:1px solid rgba(244,67,54,0.3);border-radius:8px;padding:0.75rem 1rem;font-size:0.82rem;color:#ef9a9a;margin-bottom:1rem;display:none;}
+.success-box{background:rgba(199,125,255,0.1);border:1px solid rgba(199,125,255,0.3);border-radius:14px;padding:1.5rem;text-align:center;display:none;}
+.success-id{font-size:1.8rem;font-weight:900;color:#c77dff;letter-spacing:0.05em;margin:0.75rem 0;}
+.success-note{font-size:0.82rem;color:#9a8fa8;line-height:1.6;}
+
+/* DASHBOARD SMS */
+.sms-dash{max-width:600px;margin:0 auto;}
+.balance-card{background:linear-gradient(135deg,#6a1b9a,#4a0072);border-radius:18px;padding:1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;}
+.bc-points{font-size:2.5rem;font-weight:900;}
+.bc-label{font-size:0.72rem;opacity:0.8;margin-bottom:0.25rem;}
+.bc-sub{font-size:0.68rem;opacity:0.6;margin-top:0.15rem;}
+.btn-buy-pts{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:0.6rem 1.1rem;border-radius:100px;font-size:0.78rem;font-weight:700;cursor:pointer;}
+
+/* PACKS */
+.packs-title{font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:#c77dff;}
+.packs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;margin-bottom:1rem;}
+.pack-card{border:2px solid rgba(199,125,255,0.2);border-radius:14px;padding:1.1rem;text-align:center;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.03);}
+.pack-card:hover,.pack-card.selected{border-color:#c77dff;background:rgba(199,125,255,0.1);}
+.pack-pts{font-size:1.6rem;font-weight:900;color:#c77dff;}
+.pack-label{font-size:0.7rem;color:#9a8fa8;margin:0.1rem 0;}
+.pack-prix{font-size:0.95rem;font-weight:700;color:#4caf50;}
+.pack-usd{font-size:0.72rem;color:#5a4f6a;}
+
+/* PAYMENT METHODS */
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem;}
+.pay-btn{padding:0.85rem;border:none;border-radius:12px;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.2s;}
+.pay-wave{background:#00b76a;color:white;}
+.pay-wave:hover{background:#00995a;}
+.pay-stripe{background:white;color:#1a1a2e;}
+.pay-stripe:hover{background:#f0f0f0;}
+
+/* SERVICES */
+.services-section{margin-top:1.5rem;}
+.services-title{font-size:0.9rem;font-weight:700;margin-bottom:0.75rem;color:#c77dff;}
+.search-input{width:100%;padding:0.75rem 1rem;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:white;font-size:0.9rem;outline:none;margin-bottom:0.75rem;font-family:inherit;}
+.search-input:focus{border-color:#c77dff;}
+.search-input::placeholder{color:#5a4f6a;}
+.services-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;max-height:400px;overflow-y:auto;}
+.service-item{background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.08);border-radius:12px;padding:0.85rem;display:flex;align-items:center;gap:0.65rem;cursor:pointer;transition:all 0.2s;}
+.service-item:hover{border-color:#c77dff;background:rgba(199,125,255,0.08);}
+.si-logo{width:26px;height:26px;border-radius:6px;object-fit:contain;flex-shrink:0;}
+.si-name{font-size:0.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.si-pts{font-size:0.65rem;color:#c77dff;font-weight:700;}
+
+/* ACTIVATION */
+.activation-card{background:rgba(199,125,255,0.08);border:2px solid rgba(199,125,255,0.3);border-radius:16px;padding:1.25rem;margin-bottom:1rem;}
+.ac-service{font-weight:700;color:#c77dff;margin-bottom:0.4rem;font-size:0.9rem;}
+.ac-num{font-size:1.2rem;font-weight:900;letter-spacing:0.04em;margin-bottom:0.35rem;}
+.ac-timer{font-size:0.75rem;color:#9a8fa8;margin-bottom:0.65rem;}
+.ac-sms{background:rgba(255,255,255,0.05);border-radius:8px;padding:0.75rem;font-size:0.85rem;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;color:#9a8fa8;}
+.ac-sms.received{color:#4caf50;font-weight:700;}
+.btn-refresh{width:100%;padding:0.6rem;background:rgba(199,125,255,0.2);border:1px solid rgba(199,125,255,0.4);color:#c77dff;border-radius:8px;font-size:0.8rem;font-weight:700;cursor:pointer;margin-top:0.5rem;}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#1a0a2e;border:1px solid rgba(199,125,255,0.3);color:white;padding:0.75rem 1.5rem;border-radius:100px;font-size:0.85rem;font-weight:600;z-index:9999;display:none;white-space:nowrap;}
+.toast.show{display:block;animation:pop 0.3s ease;}
+@keyframes pop{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+@media(max-width:480px){
+  .packs-grid{grid-template-columns:1fr 1fr;}
+  .pay-methods{grid-template-columns:1fr;}
+  .services-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">P<span>S</span>T <small>SMS Verification</small></div>
+  <a href="https://pst-telecom.vercel.app" class="back-link">← Retour au site</a>
+</div>
+
+<div class="hero">
+  <div class="hero-badge">Nouveau service PST</div>
+  <h1>Numéros SMS<br><span class="accent">de vérification</span></h1>
+  <p class="hero-sub">Recevez des codes de vérification pour Google, WhatsApp, TikTok et 1000+ services. Rapide, sécurisé, sans abonnement.</p>
+</div>
+
+<div class="container">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="changerTab('inscrire',this)">Créer un compte</button>
+    <button class="tab-btn" onclick="changerTab('connecter',this)">Se connecter</button>
+  </div>
+
+  <!-- INSCRIPTION -->
+  <div class="screen active" id="screen-inscrire">
+    <div class="form-card">
+      <div class="form-title">Créer un compte SMS</div>
+      <div class="form-desc">Gratuit — payez seulement les points dont vous avez besoin. 1 000 FCFA = 5 points.</div>
+      <div class="error-msg" id="ins-error"></div>
+      <div class="field"><label>Nom complet</label><input id="ins-nom" placeholder="Touré Papa Seny" /></div>
+      <div class="field"><label>Numéro de téléphone</label><input id="ins-tel" placeholder="+221 77 000 00 00" type="tel" /></div>
+      <button class="btn-purple" onclick="sInscrire()">Créer mon compte →</button>
+      <p class="form-note">🔒 Aucune carte requise. Paiement à l'utilisation.</p>
+      <div class="success-box" id="ins-success">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">🎉</div>
+        <div style="font-weight:700;margin-bottom:0.5rem">Compte créé !</div>
+        <div class="success-id" id="ins-id">SMS-XXXXXXXX</div>
+        <div class="success-note">Notez votre ID — il vous sert à vous connecter.<br>Achetez des points pour commencer !</div>
+        <button class="btn-purple" style="margin-top:1rem" onclick="allerAuDashboard()">Accéder à mon espace →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONNEXION -->
+  <div class="screen" id="screen-connecter">
+    <div class="form-card">
+      <div class="form-title">Se connecter</div>
+      <div class="form-desc">Entrez votre ID PST SMS et votre numéro de téléphone.</div>
+      <div class="error-msg" id="con-error"></div>
+      <div class="field"><label>Votre ID PST</label><input id="con-id" placeholder="SMS-XXXXXXXX ou PST-XXXXXXXX" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')seConnecter()"/></div>
+      <div class="field"><label>Numéro de téléphone</label><input id="con-tel" placeholder="+221 77 000 00 00" onkeydown="if(event.key==='Enter')seConnecter()"/></div>
+      <button class="btn-purple" onclick="seConnecter()">Se connecter →</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SMS -->
+  <div class="screen" id="screen-dashboard">
+    <div class="sms-dash">
+
+      <!-- Balance -->
+      <div class="balance-card">
+        <div>
+          <div class="bc-label">Points SMS disponibles</div>
+          <div class="bc-points" id="dash-points">0</div>
+          <div class="bc-sub">1 000 FCFA = 5 points · 1 pt ≈ 200 FCFA</div>
+        </div>
+        <button class="btn-buy-pts" onclick="ouvrirAchat()">+ Acheter</button>
+      </div>
+
+      <!-- Activation en cours -->
+      <div id="activation-zone"></div>
+
+      <!-- Acheter des points -->
+      <div id="achat-zone" style="display:none">
+        <div class="packs-title">✉️ Choisir un pack de points</div>
+        <div class="packs-grid">
+          <div class="pack-card selected" onclick="choisirPack('pack1',this)"><div class="pack-pts">5</div><div class="pack-label">points SMS</div><div class="pack-prix">1 000 FCFA</div><div class="pack-usd">≈ $1.67</div></div>
+          <div class="pack-card" onclick="choisirPack('pack2',this)"><div class="pack-pts">12</div><div class="pack-label">points SMS</div><div class="pack-prix">2 000 FCFA</div><div class="pack-usd">≈ $3.33</div></div>
+          <div class="pack-card" onclick="choisirPack('pack3',this)"><div class="pack-pts">30</div><div class="pack-label">points SMS</div><div class="pack-prix">4 500 FCFA</div><div class="pack-usd">≈ $7.50</div></div>
+          <div class="pack-card" onclick="choisirPack('pack4',this)"><div class="pack-pts">70</div><div class="pack-label">points SMS</div><div class="pack-prix">9 000 FCFA</div><div class="pack-usd">≈ $15</div></div>
+        </div>
+        <div class="pay-methods">
+          <button class="pay-btn pay-wave" onclick="payerWave()">💚 Payer avec Wave</button>
+          <button class="pay-btn pay-stripe" onclick="payerStripe()">💳 Payer par carte</button>
+        </div>
+        <button style="width:100%;padding:0.6rem;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#9a8fa8;border-radius:10px;cursor:pointer;margin-top:0.5rem;font-size:0.82rem" onclick="fermerAchat()">Annuler</button>
+      </div>
+
+      <!-- Services -->
+      <div class="services-section">
+        <div class="services-title">📱 Choisir un service</div>
+        <input class="search-input" placeholder="🔍 Rechercher Google, WhatsApp, TikTok..." oninput="filtrerServices(this.value)" />
+        <div class="services-grid" id="services-grid"><div style="text-align:center;padding:2rem;color:#5a4f6a;grid-column:span 2">Chargement...</div></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API='https://pst-telecom-production.up.railway.app';
+const WAVE_ID='M_rlEv9b4P3VtG';
+const PACK_PRIX={pack1:1000,pack2:2000,pack3:4500,pack4:9000};
+let compte=null, packChoisi='pack1', tousServices=[], activationEnCours=null, timerVerif=null;
+
+// ── TABS ──
+function changerTab(nom,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+nom).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── INSCRIPTION ──
+async function sInscrire(){
+  const nom=document.getElementById('ins-nom').value.trim();
+  const tel=document.getElementById('ins-tel').value.trim();
+  const err=document.getElementById('ins-error');
+  err.style.display='none';
+  if(!nom||!tel){err.textContent='Veuillez remplir tous les champs.';err.style.display='block';return;}
+  const btn=document.querySelector('#screen-inscrire .btn-purple');
+  btn.textContent='Création...';btn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/sms/inscription',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom,telephone:tel})});
+    const d=await r.json();
+    if(d.success){
+      document.getElementById('ins-id').textContent=d.userId;
+      document.getElementById('ins-success').style.display='block';
+      document.querySelector('#screen-inscrire .form-card').querySelectorAll('.field,.btn-purple,.form-note').forEach(e=>e.style.display='none');
+      compte={userId:d.userId,nom,telephone:tel,pointsSMS:0,type:'sms_only'};
+      sessionStorage.setItem('pst_sms_user',JSON.stringify(compte));
+    }else{err.textContent=d.error||'Erreur';err.style.display='block';btn.textContent='Créer mon compte →';btn.disabled=false;}
+  }catch(e){err.textContent='Erreur de connexion.';err.style.display='block';btn.textContent='Créer mon compte →';btn.disabled=false;}
+}
+
+function allerAuDashboard(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-dashboard').classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  chargerDashboard();
+}
+
+// ── CONNEXION ──
+async function seConnecter(){
+  const userId=document.getElementById('con-id').value.trim().toUpperCase();
+  const tel=document.getElementById('con-tel').value.trim();
+  const err=document.getElementById('con-error');
+  err.style.display='none';
+  if(!userId||!tel){err.textContent='Veuillez remplir tous les champs.';err.style.display='block';return;}
+  try{
+    const r=await fetch(API+'/api/sms/connexion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,telephone:tel})});
+    const d=await r.json();
+    if(d.success){
+      compte=d.compte;
+      sessionStorage.setItem('pst_sms_user',JSON.stringify(compte));
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+      document.getElementById('screen-dashboard').classList.add('active');
+      chargerDashboard();
+    }else{err.textContent=d.error||'ID ou numéro incorrect.';err.style.display='block';}
+  }catch(e){err.textContent='Erreur de connexion.';err.style.display='block';}
+}
+
+// ── DASHBOARD ──
+function chargerDashboard(){
+  if(!compte)return;
+  document.getElementById('dash-points').textContent=compte.pointsSMS||0;
+  chargerServices();
+  // Vérifier paramètres URL
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('paiement')==='success'){toast('✅ Paiement confirmé ! Vos points arrivent...');}
+}
+
+// ── SERVICES ──
+async function chargerServices(){
+  try{
+    const r=await fetch(API+'/api/sms/services');
+    tousServices=await r.json();
+    afficherServices(tousServices);
+  }catch(e){document.getElementById('services-grid').innerHTML='<div style="text-align:center;padding:2rem;color:#5a4f6a;grid-column:span 2">Erreur chargement.</div>';}
+}
+
+function afficherServices(liste){
+  const grid=document.getElementById('services-grid');
+  if(!liste.length){grid.innerHTML='<div style="text-align:center;padding:2rem;color:#5a4f6a;grid-column:span 2">Aucun résultat.</div>';return;}
+  grid.innerHTML=liste.slice(0,200).map(s=>{
+    const pts=s.prix_points||1;
+    const logoHtml=s.logo?`<img class="si-logo" src="${s.logo}" onerror="this.outerHTML='<span style=font-size:1.2rem>${s.icon||'📱'}</span>'"/>`:`<span style="font-size:1.2rem">${s.icon||'📱'}</span>`;
+    return`<div class="service-item" onclick="demanderNumero('${s.id}','${s.nom.replace(/'/g,"\\'")}',${pts})">${logoHtml}<div><div class="si-name">${s.nom}</div><div class="si-pts">${pts} pt${pts>1?'s':''}</div></div></div>`;
+  }).join('');
+}
+
+function filtrerServices(q){
+  if(!q){afficherServices(tousServices);return;}
+  afficherServices(tousServices.filter(s=>s.nom.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())));
+}
+
+// ── DEMANDER NUMÉRO ──
+async function demanderNumero(serviceId,nom,pts){
+  const points=compte?.pointsSMS||0;
+  if(points<pts){toast('Points insuffisants ! Achetez des points.');ouvrirAchat();return;}
+  if(!confirm(`Utiliser ${pts} point${pts>1?'s':''} pour ${nom} ?`))return;
+  try{
+    const r=await fetch(API+'/api/sms/demander-numero',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:compte.userId,serviceId})});
+    const d=await r.json();
+    if(d.success){
+      compte.pointsSMS=d.pointsRestants;
+      sessionStorage.setItem('pst_sms_user',JSON.stringify(compte));
+      document.getElementById('dash-points').textContent=d.pointsRestants;
+      activationEnCours={...d,nom};
+      afficherActivation();
+      toast('✅ Numéro obtenu pour '+nom);
+    }else{toast(d.error||'Erreur');}
+  }catch(e){toast('Erreur de connexion');}
+}
+
+function afficherActivation(){
+  if(!activationEnCours)return;
+  const a=activationEnCours;
+  const expire=new Date(a.expireAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('activation-zone').innerHTML=`
+    <div class="activation-card">
+      <div class="ac-service">📱 ${a.nom||a.service}</div>
+      <div class="ac-num">${a.numeroTemp}</div>
+      <div class="ac-timer">⏱ Expire à ${expire} — utilisez ce numéro sur ${a.nom||a.service} maintenant</div>
+      <div class="ac-sms" id="ac-sms">⏳ En attente du SMS de vérification...</div>
+      <button class="btn-refresh" onclick="verifierSMS()">🔄 Vérifier le SMS</button>
+    </div>`;
+  if(timerVerif)clearInterval(timerVerif);
+  timerVerif=setInterval(verifierSMS,10000);
+}
+
+async function verifierSMS(){
+  if(!activationEnCours)return;
+  try{
+    const r=await fetch(API+`/api/sms/verifier/${activationEnCours.activationId}?userId=${compte.userId}`);
+    const d=await r.json();
+    if(d.smsRecu){
+      const el=document.getElementById('ac-sms');
+      if(el){el.textContent='✅ '+d.smsRecu;el.classList.add('received');}
+      if(timerVerif)clearInterval(timerVerif);
+      toast('✅ SMS reçu !');
+    }
+  }catch(e){}
+}
+
+// ── PACKS ──
+function ouvrirAchat(){document.getElementById('achat-zone').style.display='block';document.getElementById('achat-zone').scrollIntoView({behavior:'smooth'});}
+function fermerAchat(){document.getElementById('achat-zone').style.display='none';}
+function choisirPack(p,el){packChoisi=p;document.querySelectorAll('.pack-card').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');}
+
+function payerWave(){
+  window.open(`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${PACK_PRIX[packChoisi]}`,'_blank');
+  toast('✅ Wave ouvert — contactez-nous après paiement pour activer vos points');
+}
+
+async function payerStripe(){
+  if(!compte){toast('Connectez-vous d\'abord');return;}
+  try{
+    const r=await fetch(API+'/api/paiement/stripe/creer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'sms',pack:packChoisi,userId:compte.userId,devise:'usd'})});
+    const d=await r.json();
+    if(d.success&&d.url){window.location.href=d.url;}
+    else{toast(d.error||'Stripe non configuré — utilisez Wave');}
+  }catch(e){toast('Erreur — utilisez Wave pour l\'instant');}
+}
+
+// ── TOAST ──
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+// ── AUTO-LOGIN ──
+window.onload=()=>{
+  const saved=sessionStorage.getItem('pst_sms_user');
+  if(saved){
+    compte=JSON.parse(saved);
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-dashboard').classList.add('active');
+    chargerDashboard();
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  }
+};
+</script>
+</body>
+</html>

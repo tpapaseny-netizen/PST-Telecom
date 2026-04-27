@@ -119,6 +119,11 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+// Page SMS verification
+app.get('/sms', (req, res) => {
+  res.sendFile(path.join(__dirname, 'sms.html'));
+});
+
 // ─── STATS ADMIN ────────────────────────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
@@ -701,6 +706,167 @@ app.post('/api/admin/ajouter-points', async (req, res) => {
       { $inc: { pointsSMS: parseInt(points) }, $push: { historiquePoints: { type: 'admin', points: parseInt(points), date: new Date() } } }
     );
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── STRIPE PAIEMENT ────────────────────────────────────────
+const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
+
+// Créer une session de paiement Stripe
+app.post('/api/paiement/stripe/creer', async (req, res) => {
+  try {
+    const { type, forfait, pack, userId, devise = 'usd' } = req.body;
+    if (!STRIPE_SECRET) return res.status(503).json({ error: 'Stripe non configuré' });
+
+    const stripe = require('stripe')(STRIPE_SECRET);
+
+    let montant, description, currency;
+
+    if (devise === 'xof') {
+      // FCFA — Stripe supporte XOF
+      currency = 'xof';
+      if (type === 'forfait') {
+        const f = FORFAITS[forfait];
+        if (!f) return res.status(400).json({ error: 'Forfait invalide' });
+        montant = f.prix; // déjà en FCFA
+        description = `PST Forfait ${f.nom} — ${f.minutes === 99999 ? 'Illimité' : f.minutes + ' min'}`;
+      } else {
+        const p = SMS_PACKS[pack];
+        if (!p) return res.status(400).json({ error: 'Pack invalide' });
+        montant = p.prix;
+        description = `PST ${p.label} SMS`;
+      }
+    } else {
+      // USD
+      currency = 'usd';
+      if (type === 'forfait') {
+        const f = FORFAITS[forfait];
+        if (!f) return res.status(400).json({ error: 'Forfait invalide' });
+        montant = Math.round(f.prix / 600 * 100); // FCFA → centimes USD
+        description = `PST Forfait ${f.nom}`;
+      } else {
+        const p = SMS_PACKS[pack];
+        if (!p) return res.status(400).json({ error: 'Pack invalide' });
+        montant = Math.round(p.prix / 600 * 100);
+        description = `PST ${p.label} SMS`;
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency,
+          product_data: { name: description, description: 'Pure Smart Telecom' },
+          unit_amount: montant,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `https://pst-telecom-production.up.railway.app/dashboard?paiement=success&type=${type}&ref=${userId}`,
+      cancel_url: `https://pst-telecom-production.up.railway.app/dashboard?paiement=cancel`,
+      metadata: { userId, type, forfait: forfait || '', pack: pack || '' },
+    });
+
+    res.json({ success: true, url: session.url, sessionId: session.id });
+  } catch (err) {
+    console.error('Stripe erreur:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Webhook Stripe — confirmation paiement
+app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!STRIPE_SECRET) return res.json({ received: true });
+
+  try {
+    const stripe = require('stripe')(STRIPE_SECRET);
+    let event;
+    if (WEBHOOK_SECRET) {
+      event = stripe.webhooks.constructEvent(req.body, sig, WEBHOOK_SECRET);
+    } else {
+      event = JSON.parse(req.body);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const { userId, type, forfait, pack } = session.metadata;
+
+      if (type === 'forfait' && userId) {
+        await updateAbonne(userId, { statut: 'actif', activatedAt: new Date(), updatedAt: new Date() });
+      } else if (type === 'sms' && pack && userId) {
+        const p = SMS_PACKS[pack];
+        if (p && db) {
+          await db.collection('abonnes').updateOne(
+            { userId },
+            { $inc: { pointsSMS: p.points }, $push: { historiquePoints: { type: 'stripe', points: p.points, pack, date: new Date() } } }
+          );
+        }
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook Stripe erreur:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ─── INSCRIPTION SMS RAPIDE ─────────────────────────────────
+app.post('/api/sms/inscription', async (req, res) => {
+  try {
+    const { nom, telephone } = req.body;
+    if (!nom || !telephone) return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
+
+    // Vérifier si déjà inscrit
+    if (db) {
+      const exist = await db.collection('comptes_sms').findOne({ telephone });
+      if (exist) return res.json({ success: true, userId: exist.userId, nouveau: false });
+    }
+
+    const userId = 'SMS-' + Math.random().toString(16).slice(2,10).toUpperCase();
+    const compte = {
+      userId, nom, telephone,
+      pointsSMS: 0,
+      type: 'sms_only',
+      createdAt: new Date(),
+      activationsSMS: [],
+      historiquePoints: [],
+    };
+
+    if (db) await db.collection('comptes_sms').insertOne(compte);
+
+    res.json({ success: true, userId, nouveau: true, message: `Compte SMS créé ! Votre ID : ${userId}` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Connexion compte SMS
+app.post('/api/sms/connexion', async (req, res) => {
+  try {
+    const { userId, telephone } = req.body;
+    if (!db) return res.status(503).json({ error: 'DB non disponible' });
+
+    // Chercher dans comptes_sms ET abonnes
+    let compte = await db.collection('comptes_sms').findOne({ userId, telephone });
+    if (!compte) {
+      const abonne = await db.collection('abonnes').findOne({ userId, telephone });
+      if (abonne) compte = abonne;
+    }
+    if (!compte) return res.status(404).json({ error: 'Compte introuvable' });
+
+    res.json({ success: true, compte });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Points SMS pour compte SMS-only
+app.get('/api/sms/compte/:userId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'DB non disponible' });
+    const compte = await db.collection('comptes_sms').findOne({ userId: req.params.userId })
+      || await db.collection('abonnes').findOne({ userId: req.params.userId });
+    if (!compte) return res.status(404).json({ error: 'Compte introuvable' });
+    res.json({ userId: compte.userId, nom: compte.nom, pointsSMS: compte.pointsSMS || 0, type: compte.type || 'abonne' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
