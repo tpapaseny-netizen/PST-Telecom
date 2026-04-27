@@ -372,7 +372,45 @@ const SMS_SERVICES = [
   { id: 'viber',     nom: 'Viber',            icon: '📱', prix_points: 1 },
 ];
 
-app.get('/api/sms/services', (req, res) => res.json(SMS_SERVICES));
+// Cache des services 5SIM
+let fivesimServicesCache = null;
+let fivesimCacheTime = 0;
+
+async function getFivesimServices() {
+  const now = Date.now();
+  if (fivesimServicesCache && (now - fivesimCacheTime) < 3600000) return fivesimServicesCache;
+  const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
+  if (!FIVESIM_KEY) return null;
+  try {
+    const r = await fetch('https://5sim.net/v1/guest/products/any/any', {
+      headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    // Convertir en tableau trié par nombre de numéros
+    const services = Object.entries(data).map(([id, info]) => ({
+      id,
+      nom: id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '),
+      logo: `https://5sim.net/img/services/${id}.png`,
+      prix_usd: info.Cost || 0.01,
+      count: info.Qty || 0,
+      prix_points: Math.max(1, Math.ceil((info.Cost || 0.01) / 0.04)),
+    })).filter(s => s.count > 0).sort((a,b) => b.count - a.count);
+    fivesimServicesCache = services;
+    fivesimCacheTime = now;
+    return services;
+  } catch(e) {
+    console.warn('5SIM services erreur:', e.message);
+    return null;
+  }
+}
+
+app.get('/api/sms/services', async (req, res) => {
+  const live = await getFivesimServices();
+  if (live) return res.json(live);
+  // Fallback liste statique
+  res.json(SMS_SERVICES);
+});
 app.get('/api/sms/packs', (req, res) => res.json(SMS_PACKS));
 
 // Acheter des points
@@ -402,7 +440,7 @@ app.post('/api/sms/confirmer-points', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Demander un numéro temporaire
+// Demander un numéro temporaire via 5SIM
 app.post('/api/sms/demander-numero', async (req, res) => {
   try {
     const { userId, serviceId } = req.body;
@@ -418,6 +456,36 @@ app.post('/api/sms/demander-numero', async (req, res) => {
       return res.status(403).json({ error: 'Points insuffisants', pointsActuels: points, pointsNecessaires: service.prix_points });
     }
 
+    const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
+
+    if (FIVESIM_KEY) {
+      // Appel API 5SIM réel
+      try {
+        const r = await fetch(`https://5sim.net/v1/user/buy/activation/any/any/${service.id}`, {
+          headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const activationId = 'FSIM-' + data.id;
+          const expireAt = new Date(Date.now() + 20 * 60 * 1000);
+
+          if (db) {
+            await db.collection('abonnes').updateOne(
+              { userId },
+              {
+                $inc: { pointsSMS: -service.prix_points },
+                $push: { activationsSMS: { activationId, fivesimId: data.id, serviceId, service: service.nom, icon: service.icon, numeroTemp: data.phone, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } }
+              }
+            );
+          }
+          return res.json({ success: true, activationId, numeroTemp: data.phone, service: service.nom, expireAt, pointsRestants: points - service.prix_points });
+        }
+      } catch (fiveSimErr) {
+        console.warn('5SIM erreur:', fiveSimErr.message);
+      }
+    }
+
+    // Fallback simulé si pas de clé ou erreur
     const numeroTemp = '+1' + Math.floor(2000000000 + Math.random() * 8000000000);
     const activationId = 'ACT-' + Math.random().toString(36).slice(2,10).toUpperCase();
     const expireAt = new Date(Date.now() + 20 * 60 * 1000);
@@ -435,19 +503,45 @@ app.post('/api/sms/demander-numero', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Vérifier SMS reçu
+// Vérifier SMS reçu via 5SIM
 app.get('/api/sms/verifier/:activationId', async (req, res) => {
   try {
     const { activationId } = req.params;
     const { userId } = req.query;
-    if (db) {
-      const abonne = await db.collection('abonnes').findOne({ userId });
-      if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
-      const activation = (abonne.activationsSMS || []).find(a => a.activationId === activationId);
-      if (!activation) return res.status(404).json({ error: 'Activation introuvable' });
-      return res.json({ activationId, statut: activation.statut, smsRecu: activation.smsRecu });
+    if (!db) return res.json({ activationId, statut: 'en_attente', smsRecu: null });
+
+    const abonne = await db.collection('abonnes').findOne({ userId });
+    if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
+
+    const activation = (abonne.activationsSMS || []).find(a => a.activationId === activationId);
+    if (!activation) return res.status(404).json({ error: 'Activation introuvable' });
+
+    // Si déjà reçu
+    if (activation.smsRecu) return res.json({ activationId, statut: 'recu', smsRecu: activation.smsRecu });
+
+    const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
+
+    // Vérifier sur 5SIM si c'est une vraie activation
+    if (FIVESIM_KEY && activation.fivesimId) {
+      try {
+        const r = await fetch(`https://5sim.net/v1/user/check/${activation.fivesimId}`, {
+          headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
+        });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.sms && data.sms.length > 0) {
+            const smsText = data.sms[0].text;
+            await db.collection('abonnes').updateOne(
+              { userId, 'activationsSMS.activationId': activationId },
+              { $set: { 'activationsSMS.$.smsRecu': smsText, 'activationsSMS.$.statut': 'recu' } }
+            );
+            return res.json({ activationId, statut: 'recu', smsRecu: smsText });
+          }
+        }
+      } catch (e) { console.warn('5SIM check erreur:', e.message); }
     }
-    res.json({ activationId, statut: 'en_attente', smsRecu: null });
+
+    return res.json({ activationId, statut: activation.statut, smsRecu: null });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

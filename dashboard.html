@@ -188,7 +188,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="btn-acheter-pts" onclick="ouvrirModalPacks()">+ Acheter</button>
       </div>
       <div id="activation-en-cours"></div>
-      <div class="card"><h3>📱 Choisir un service</h3><div class="services-grid" id="services-grid"><div class="empty-state">Chargement...</div></div></div>
+      <div class="card"><h3>📱 Choisir un service</h3>
+        <input id="sms-search" placeholder="🔍 Rechercher WhatsApp, Google, TikTok..." style="width:100%;padding:0.75rem 1rem;border:1.5px solid #e0e0e0;border-radius:10px;font-size:0.9rem;outline:none;margin-bottom:0.75rem;" oninput="filtrerServices(this.value)"/>
+        <div class="services-grid" id="services-grid"><div class="empty-state">Chargement...</div></div>
+      </div>
     </div>
   </div>
 
@@ -320,12 +323,35 @@ function afficherHistorique(){
   el.innerHTML=historique.slice(0,20).map(h=>{const date=new Date(h.date).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});return`<div class="hist-item"><div class="hist-icon-wrap">📞</div><div class="hist-info"><div class="hist-num">${h.num}</div><div class="hist-date">${date}</div></div><div class="hist-dur">${h.dur}</div></div>`;}).join('');
 }
 
+let tousServices=[];
+
 async function chargerServices(){
   try{
     const r=await fetch(API+'/api/sms/services');
-    const services=await r.json();
-    document.getElementById('services-grid').innerHTML=services.map(s=>`<div class="service-item" onclick="demanderNumero('${s.id}','${s.nom}','${s.icon}',${s.prix_points})"><div class="si-icon">${s.icon}</div><div><div class="si-name">${s.nom}</div><div class="si-pts">${s.prix_points} pt${s.prix_points>1?'s':''}</div></div></div>`).join('');
-  }catch(e){}
+    tousServices=await r.json();
+    afficherServices(tousServices);
+  }catch(e){document.getElementById('services-grid').innerHTML='<div class="empty-state">Erreur chargement.</div>';}
+}
+
+function afficherServices(liste){
+  const grid=document.getElementById('services-grid');
+  if(!liste.length){grid.innerHTML='<div class="empty-state">Aucun service trouvé.</div>';return;}
+  grid.innerHTML=liste.slice(0,200).map(s=>{
+    const pts=s.prix_points||1;
+    const logoHtml=s.logo
+      ?`<img src="${s.logo}" style="width:26px;height:26px;object-fit:contain;border-radius:5px;flex-shrink:0" onerror="this.outerHTML='<span style=font-size:1.2rem>${s.icon||'📱'}</span>"/>`
+      :`<span style="font-size:1.2rem">${s.icon||'📱'}</span>`;
+    const count=s.count?`<div style="font-size:0.58rem;color:#aaa">${Number(s.count).toLocaleString()} numéros</div>`:'';
+    return`<div class="service-item" onclick="demanderNumero('${s.id}','${s.nom.replace(/'/g,"\\'")}','${s.icon||'📱'}',${pts})">
+      <div style="display:flex;align-items:center;flex-shrink:0">${logoHtml}</div>
+      <div style="min-width:0"><div class="si-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.nom}</div><div class="si-pts">${pts} pt${pts>1?'s':''}</div>${count}</div>
+    </div>`;
+  }).join('');
+}
+
+function filtrerServices(q){
+  if(!q){afficherServices(tousServices);return;}
+  afficherServices(tousServices.filter(s=>s.nom.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())));
 }
 
 async function demanderNumero(serviceId,nom,icon,pts){
