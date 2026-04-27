@@ -485,9 +485,10 @@ const SERVICE_NOMS = {
 function getServiceNom(id) {
   return SERVICE_NOMS[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '));
 }
+
+function getServiceLogo(id) {
   const key = id.toLowerCase().replace(/[^a-z0-9_]/g, '');
   if (SERVICE_LOGOS[key]) return SERVICE_LOGOS[key];
-  // Fallback: Google favicon
   return `https://www.google.com/s2/favicons?domain=${key}.com&sz=64`;
 }
 let fivesimServicesCache = null;
