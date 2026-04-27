@@ -5,476 +5,377 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PST — Mon Espace</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a1a2e; min-height: 100vh; }
-
-  /* ── LOGIN ── */
-  .login-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #1a3a5c 0%, #0d2137 100%);
-    padding: 1rem;
-  }
-  .login-box {
-    background: white;
-    border-radius: 20px;
-    padding: 2.5rem 2rem;
-    width: 100%;
-    max-width: 400px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  }
-  .login-logo {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-  .login-logo .pst { font-size: 2.5rem; font-weight: 900; color: #1a3a5c; letter-spacing: -0.05em; }
-  .login-logo .sub { font-size: 0.8rem; color: #888; margin-top: 0.25rem; }
-  .login-box h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; color: #1a3a5c; text-align: center; }
-  .field { margin-bottom: 1rem; }
-  .field label { display: block; font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 0.4rem; }
-  .field input { width: 100%; padding: 0.85rem 1rem; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 1rem; outline: none; transition: border-color 0.2s; }
-  .field input:focus { border-color: #1a3a5c; }
-  .btn-login { width: 100%; padding: 0.9rem; background: #1a3a5c; color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-  .btn-login:hover { background: #16324f; }
-  .login-error { background: #fce4ec; color: #c62828; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-top: 1rem; display: none; text-align: center; }
-
-  /* ── APP ── */
-  .app-screen { display: none; min-height: 100vh; }
-
-  /* NAV */
-  .topbar {
-    background: #1a3a5c;
-    color: white;
-    padding: 0 1.5rem;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .topbar-brand { font-weight: 800; font-size: 1.2rem; letter-spacing: -0.03em; }
-  .topbar-user { display: flex; align-items: center; gap: 0.75rem; }
-  .topbar-user .name { font-size: 0.85rem; }
-  .btn-logout { background: rgba(255,255,255,0.15); border: none; color: white; padding: 0.4rem 0.9rem; border-radius: 100px; font-size: 0.8rem; cursor: pointer; }
-  .btn-logout:hover { background: rgba(255,255,255,0.25); }
-
-  /* CONTENT */
-  .content { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
-
-  /* HERO CARD */
-  .hero-card {
-    background: linear-gradient(135deg, #1a3a5c, #0d5c8a);
-    border-radius: 20px;
-    padding: 2rem;
-    color: white;
-    margin-bottom: 1.5rem;
-    position: relative;
-    overflow: hidden;
-  }
-  .hero-card::before {
-    content: '';
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 200px; height: 200px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 50%;
-  }
-  .hero-card::after {
-    content: '';
-    position: absolute;
-    bottom: -60px; right: 40px;
-    width: 160px; height: 160px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 50%;
-  }
-  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-  .forfait-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 100px; padding: 0.3rem 0.9rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-  .statut-badge { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; }
-  .statut-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .statut-dot.actif { background: #4caf50; }
-  .statut-dot.attente { background: #ff9800; }
-  .statut-dot.suspendu { background: #f44336; }
-
-  .numero-virtuel { font-size: 1.8rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
-  .numero-label { font-size: 0.78rem; opacity: 0.7; margin-bottom: 1.5rem; }
-
-  /* MINUTES BAR */
-  .minutes-section {}
-  .minutes-header { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.5rem; opacity: 0.9; }
-  .minutes-bar { background: rgba(255,255,255,0.2); border-radius: 100px; height: 10px; }
-  .minutes-fill { height: 10px; border-radius: 100px; background: #4caf50; transition: width 0.5s ease; }
-  .minutes-fill.warning { background: #ff9800; }
-  .minutes-fill.danger  { background: #f44336; }
-
-  /* GRID */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-bottom: 1.5rem; }
-
-  /* INFO CARD */
-  .info-card { background: white; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
-  .info-card .ic-label { font-size: 0.72rem; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
-  .info-card .ic-value { font-size: 1.15rem; font-weight: 700; color: #1a3a5c; }
-  .info-card .ic-sub { font-size: 0.78rem; color: #aaa; margin-top: 0.2rem; }
-
-  /* APPEL */
-  .appel-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
-  .appel-card h3 { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin-bottom: 1.25rem; }
-  .dial-input { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
-  .dial-input input { width: 100%; padding: 0.85rem 1rem; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 1.1rem; letter-spacing: 0.05em; outline: none; }
-  .dial-input input:focus { border-color: #1a3a5c; }
-  .btn-call { width: 100%; padding: 0.85rem 1.5rem; background: #2e7d32; color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; }
-  .btn-call:hover { background: #1b5e20; }
-  .btn-call:disabled { background: #aaa; cursor: not-allowed; }
-  .call-status { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; display: none; }
-  .call-status.active { display: block; background: #e8f5e9; color: #2e7d32; }
-  .call-status.error  { display: block; background: #fce4ec; color: #c62828; }
-
-  /* HISTORIQUE */
-  .hist-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
-  .hist-card h3 { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin-bottom: 1rem; }
-  .hist-item { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid #f5f5f5; }
-  .hist-item:last-child { border-bottom: none; }
-  .hist-icon { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
-  .hist-icon.out { background: #e8f5e9; }
-  .hist-icon.in  { background: #e3f2fd; }
-  .hist-info { flex: 1; }
-  .hist-num  { font-weight: 600; font-size: 0.9rem; }
-  .hist-date { font-size: 0.75rem; color: #aaa; margin-top: 0.15rem; }
-  .hist-dur  { font-size: 0.85rem; color: #555; font-weight: 600; }
-  .hist-empty { text-align: center; padding: 2rem; color: #bbb; font-size: 0.875rem; }
-
-  /* WAVE SECTION */
-  .wave-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
-  .wave-card h3 { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin-bottom: 1rem; }
-  .wave-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.75rem; }
-  .wave-opt { border: 2px solid #e0e0e0; border-radius: 10px; padding: 1rem; text-align: center; cursor: pointer; transition: all 0.2s; }
-  .wave-opt:hover, .wave-opt.selected { border-color: #1a3a5c; background: #e8f4fd; }
-  .wave-opt .wo-name { font-weight: 700; font-size: 0.9rem; color: #1a3a5c; }
-  .wave-opt .wo-price { font-size: 1.1rem; font-weight: 800; color: #2e7d32; margin: 0.2rem 0; }
-  .wave-opt .wo-min { font-size: 0.72rem; color: #aaa; }
-  .btn-wave { width: 100%; padding: 0.9rem; background: #00b76a; color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: 1rem; }
-  .btn-wave:hover { background: #00995a; }
-
-  /* TOAST */
-  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: #1a3a5c; color: white; padding: 0.85rem 1.5rem; border-radius: 100px; font-weight: 600; z-index: 9999; display: none; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-  .toast.show { display: block; animation: pop 0.3s ease; }
-  @keyframes pop { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-
-  @media(max-width:600px){
-    .grid2, .grid3 { grid-template-columns: 1fr; }
-    .wave-options { grid-template-columns: 1fr; }
-    .numero-virtuel { font-size: 1.4rem; }
-  }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;color:#1a1a2e;min-height:100vh;}
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a3a5c,#0d2137);padding:1rem;}
+.login-box{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{text-align:center;margin-bottom:2rem;}
+.login-logo .pst{font-size:2.5rem;font-weight:900;color:#1a3a5c;}
+.login-logo .sub{font-size:0.8rem;color:#888;margin-top:0.25rem;}
+.login-box h2{font-size:1.1rem;font-weight:700;margin-bottom:1.5rem;color:#1a3a5c;text-align:center;}
+.field{margin-bottom:1rem;}
+.field label{display:block;font-size:0.8rem;font-weight:600;color:#555;margin-bottom:0.4rem;}
+.field input{width:100%;padding:0.85rem 1rem;border:1.5px solid #e0e0e0;border-radius:10px;font-size:1rem;outline:none;}
+.field input:focus{border-color:#1a3a5c;}
+.btn-login{width:100%;padding:0.9rem;background:#1a3a5c;color:white;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;}
+.login-error{background:#fce4ec;color:#c62828;padding:0.75rem 1rem;border-radius:8px;font-size:0.85rem;margin-top:1rem;display:none;text-align:center;}
+.app-screen{display:none;min-height:100vh;padding-bottom:70px;}
+.topbar{background:#1a3a5c;color:white;padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-brand{font-weight:800;font-size:1.2rem;}
+.topbar-user{display:flex;align-items:center;gap:0.75rem;}
+.topbar-user .name{font-size:0.82rem;}
+.btn-logout{background:rgba(255,255,255,0.15);border:none;color:white;padding:0.35rem 0.85rem;border-radius:100px;font-size:0.75rem;cursor:pointer;}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #e8e8e8;display:flex;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,0.08);}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0.5rem 0;cursor:pointer;border:none;background:none;color:#aaa;font-size:0.62rem;gap:2px;}
+.bnav-item .icon{font-size:1.25rem;}
+.bnav-item.active{color:#1a3a5c;}
+.tab{display:none;}
+.tab.active{display:block;}
+.content{max-width:580px;margin:0 auto;padding:1rem;}
+.hero-card{background:linear-gradient(135deg,#1a3a5c,#0d5c8a);border-radius:18px;padding:1.5rem;color:white;margin-bottom:1rem;position:relative;overflow:hidden;}
+.hero-card::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:rgba(255,255,255,0.05);border-radius:50%;}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;}
+.forfait-badge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:100px;padding:0.25rem 0.8rem;font-size:0.72rem;font-weight:700;text-transform:uppercase;}
+.statut-badge{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;}
+.statut-dot{width:7px;height:7px;border-radius:50%;}
+.statut-dot.actif{background:#4caf50;}
+.statut-dot.attente{background:#ff9800;}
+.statut-dot.suspendu{background:#f44336;}
+.numero-virtuel{font-size:1.5rem;font-weight:800;letter-spacing:0.03em;margin-bottom:0.2rem;}
+.numero-label{font-size:0.72rem;opacity:0.7;margin-bottom:1.25rem;}
+.minutes-header{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.4rem;opacity:0.9;}
+.minutes-bar{background:rgba(255,255,255,0.2);border-radius:100px;height:8px;}
+.minutes-fill{height:8px;border-radius:100px;background:#4caf50;transition:width 0.5s;}
+.minutes-fill.warning{background:#ff9800;}
+.minutes-fill.danger{background:#f44336;}
+.counters{display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;}
+.counter-card{background:white;border-radius:12px;padding:0.9rem;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+.counter-card .cc-icon{font-size:1.2rem;margin-bottom:0.2rem;}
+.counter-card .cc-val{font-size:1.2rem;font-weight:800;color:#1a3a5c;line-height:1;}
+.counter-card .cc-label{font-size:0.6rem;color:#aaa;margin-top:0.2rem;text-transform:uppercase;}
+.card{background:white;border-radius:14px;padding:1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:1rem;}
+.card h3{font-size:0.9rem;font-weight:700;color:#1a3a5c;margin-bottom:1rem;}
+.dial-input{display:flex;flex-direction:column;gap:0.65rem;margin-bottom:0.75rem;}
+.dial-input input{width:100%;padding:0.8rem 1rem;border:1.5px solid #e0e0e0;border-radius:10px;font-size:1rem;outline:none;}
+.dial-input input:focus{border-color:#1a3a5c;}
+.btn-call{width:100%;padding:0.8rem;background:#2e7d32;color:white;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;}
+.btn-call:disabled{background:#aaa;cursor:not-allowed;}
+.call-status{padding:0.65rem 1rem;border-radius:8px;font-size:0.85rem;display:none;margin-top:0.5rem;}
+.call-status.active{display:block;background:#e8f5e9;color:#2e7d32;}
+.call-status.error{display:block;background:#fce4ec;color:#c62828;}
+.hist-item{display:flex;align-items:center;gap:0.85rem;padding:0.75rem 0;border-bottom:1px solid #f5f5f5;}
+.hist-item:last-child{border-bottom:none;}
+.hist-icon-wrap{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:#e8f5e9;}
+.hist-info{flex:1;}
+.hist-num{font-weight:600;font-size:0.88rem;}
+.hist-date{font-size:0.72rem;color:#aaa;}
+.hist-dur{font-size:0.82rem;color:#555;font-weight:600;}
+.empty-state{text-align:center;padding:2rem;color:#bbb;font-size:0.875rem;}
+/* SMS */
+.sms-balance{background:linear-gradient(135deg,#6a1b9a,#4a0072);border-radius:14px;padding:1.25rem;color:white;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;}
+.sb-label{font-size:0.72rem;opacity:0.8;margin-bottom:0.2rem;}
+.sb-val{font-size:2rem;font-weight:800;}
+.sb-sub{font-size:0.65rem;opacity:0.65;margin-top:0.15rem;}
+.btn-acheter-pts{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:0.5rem 0.9rem;border-radius:100px;font-size:0.75rem;font-weight:700;cursor:pointer;}
+.services-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;}
+.service-item{background:white;border:1.5px solid #e8e8e8;border-radius:12px;padding:0.85rem;display:flex;align-items:center;gap:0.65rem;cursor:pointer;transition:all 0.2s;}
+.service-item:hover{border-color:#6a1b9a;background:#f9f3ff;}
+.si-icon{font-size:1.4rem;flex-shrink:0;}
+.si-name{font-size:0.8rem;font-weight:600;}
+.si-pts{font-size:0.68rem;color:#6a1b9a;font-weight:700;}
+.activation-card{background:#f9f3ff;border:2px solid #6a1b9a;border-radius:14px;padding:1.25rem;margin-bottom:1rem;}
+.ac-service{font-weight:700;font-size:0.88rem;color:#6a1b9a;margin-bottom:0.4rem;}
+.ac-num{font-size:1.1rem;font-weight:800;color:#1a1a2e;letter-spacing:0.04em;margin-bottom:0.35rem;}
+.ac-timer{font-size:0.75rem;color:#888;margin-bottom:0.65rem;}
+.ac-sms{background:white;border-radius:8px;padding:0.75rem;font-size:0.85rem;color:#555;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;}
+.btn-refresh{background:#6a1b9a;color:white;border:none;border-radius:8px;padding:0.5rem 1rem;font-size:0.8rem;cursor:pointer;margin-top:0.5rem;width:100%;}
+/* PACKS & FORFAITS */
+.wave-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;}
+.wave-opt{border:2px solid #e0e0e0;border-radius:10px;padding:0.85rem 0.4rem;text-align:center;cursor:pointer;transition:all 0.2s;}
+.wave-opt:hover,.wave-opt.selected{border-color:#1a3a5c;background:#e8f4fd;}
+.wo-name{font-weight:700;font-size:0.8rem;color:#1a3a5c;}
+.wo-price{font-size:0.95rem;font-weight:800;color:#2e7d32;margin:0.15rem 0;}
+.wo-min{font-size:0.62rem;color:#aaa;}
+.btn-wave{width:100%;padding:0.85rem;background:#00b76a;color:white;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;margin-top:0.75rem;}
+.packs-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.75rem;}
+.pack-item{border:2px solid #e0e0e0;border-radius:12px;padding:1rem;text-align:center;cursor:pointer;transition:all 0.2s;}
+.pack-item:hover,.pack-item.selected{border-color:#6a1b9a;background:#f9f3ff;}
+.pk-pts{font-size:1.4rem;font-weight:800;color:#6a1b9a;}
+.pk-label{font-size:0.7rem;color:#888;margin:0.1rem 0;}
+.pk-prix{font-size:0.88rem;font-weight:700;color:#2e7d32;}
+.btn-wave-sms{width:100%;padding:0.85rem;background:#00b76a;color:white;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:20px 20px 0 0;padding:1.5rem;width:100%;max-width:500px;}
+.modal h3{font-size:1rem;font-weight:700;margin-bottom:1rem;}
+.modal-close{float:right;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#aaa;}
+/* TOAST */
+.toast{position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:#1a3a5c;color:white;padding:0.75rem 1.5rem;border-radius:100px;font-weight:600;z-index:9999;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-size:0.85rem;}
+.toast.show{display:block;animation:pop 0.3s ease;}
+@keyframes pop{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 </style>
 </head>
 <body>
 
-<!-- ── LOGIN ── -->
+<!-- LOGIN -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
-    <div class="login-logo">
-      <div class="pst">PST</div>
-      <div class="sub">Pure Smart Telecom</div>
-    </div>
+    <div class="login-logo"><div class="pst">PST</div><div class="sub">Pure Smart Telecom</div></div>
     <h2>Accéder à mon espace</h2>
-    <div class="field">
-      <label>Votre ID PST</label>
-      <input id="login-id" placeholder="ex: PST-A1B2C3D4" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')seConnecter()" />
-    </div>
-    <div class="field">
-      <label>Votre numéro de téléphone</label>
-      <input id="login-tel" placeholder="+221771234567" onkeydown="if(event.key==='Enter')seConnecter()" />
-    </div>
+    <div class="field"><label>Votre ID PST</label><input id="login-id" placeholder="ex: PST-A1B2C3D4" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')seConnecter()"/></div>
+    <div class="field"><label>Votre numéro de téléphone</label><input id="login-tel" placeholder="+221771234567" onkeydown="if(event.key==='Enter')seConnecter()"/></div>
     <button class="btn-login" onclick="seConnecter()">Se connecter →</button>
-    <div class="login-error" id="login-error">ID ou numéro incorrect. Vérifiez vos informations.</div>
+    <div class="login-error" id="login-error">ID ou numéro incorrect.</div>
   </div>
 </div>
 
-<!-- ── APP ── -->
+<!-- APP -->
 <div class="app-screen" id="app-screen">
-
   <div class="topbar">
     <div class="topbar-brand">PST</div>
-    <div class="topbar-user">
-      <span class="name" id="user-name">—</span>
-      <button class="btn-logout" onclick="seDeconnecter()">Déconnexion</button>
+    <div class="topbar-user"><span class="name" id="user-name">—</span><button class="btn-logout" onclick="seDeconnecter()">Déconnexion</button></div>
+  </div>
+
+  <!-- ACCUEIL -->
+  <div class="tab active" id="tab-accueil">
+    <div class="content">
+      <div class="hero-card">
+        <div class="hero-top">
+          <div class="forfait-badge" id="h-forfait">Smart</div>
+          <div class="statut-badge"><div class="statut-dot actif" id="h-statut-dot"></div><span id="h-statut">Actif</span></div>
+        </div>
+        <div class="numero-virtuel" id="h-numero">+221 77 000 00 00</div>
+        <div class="numero-label">Votre numéro PST</div>
+        <div class="minutes-header"><span>Minutes utilisées</span><span id="h-min-text">0/300</span></div>
+        <div class="minutes-bar"><div class="minutes-fill" id="h-min-bar" style="width:0%"></div></div>
+      </div>
+      <div class="counters">
+        <div class="counter-card"><div class="cc-icon">📞</div><div class="cc-val" id="c-minutes">—</div><div class="cc-label">Min restantes</div></div>
+        <div class="counter-card"><div class="cc-icon">✉️</div><div class="cc-val" id="c-points" style="color:#6a1b9a">—</div><div class="cc-label">Points SMS</div></div>
+        <div class="counter-card"><div class="cc-icon">📋</div><div class="cc-val" id="c-statut" style="font-size:0.7rem">—</div><div class="cc-label">Statut</div></div>
+      </div>
+      <div class="card">
+        <h3>📋 Mon forfait</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+          <div><div style="font-size:0.7rem;color:#aaa;margin-bottom:0.2rem">FORFAIT</div><div style="font-weight:700;color:#1a3a5c" id="i-forfait">—</div><div style="font-size:0.72rem;color:#aaa" id="i-prix">—</div></div>
+          <div><div style="font-size:0.7rem;color:#aaa;margin-bottom:0.2rem">TÉLÉPHONE</div><div style="font-weight:700;color:#1a3a5c;font-size:0.88rem" id="i-tel">—</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="content">
-
-    <!-- HERO -->
-    <div class="hero-card">
-      <div class="hero-top">
-        <div class="forfait-badge" id="h-forfait">Smart</div>
-        <div class="statut-badge">
-          <div class="statut-dot actif" id="h-statut-dot"></div>
-          <span id="h-statut">Actif</span>
+  <!-- APPELS -->
+  <div class="tab" id="tab-appels">
+    <div class="content">
+      <div class="card">
+        <h3>📞 Passer un appel</h3>
+        <div class="dial-input">
+          <input id="dial-num" placeholder="+221 77 000 00 00" type="tel"/>
+          <button class="btn-call" id="btn-call" onclick="passerAppel()">📞 Appeler</button>
         </div>
+        <div class="call-status" id="call-status"></div>
       </div>
-      <div class="numero-virtuel" id="h-numero">+221 77 000 00 00</div>
-      <div class="numero-label">Votre numéro PST</div>
-      <div class="minutes-section">
-        <div class="minutes-header">
-          <span>Minutes utilisées</span>
-          <span id="h-min-text">0 / 300 min</span>
+      <div class="card"><h3>📋 Historique</h3><div id="hist-list"><div class="empty-state">Aucun appel pour l'instant.</div></div></div>
+    </div>
+  </div>
+
+  <!-- SMS -->
+  <div class="tab" id="tab-sms">
+    <div class="content">
+      <div class="sms-balance">
+        <div><div class="sb-label">Points SMS disponibles</div><div class="sb-val" id="sms-points">0</div><div class="sb-sub">1 000 FCFA = 5 points</div></div>
+        <button class="btn-acheter-pts" onclick="ouvrirModalPacks()">+ Acheter</button>
+      </div>
+      <div id="activation-en-cours"></div>
+      <div class="card"><h3>📱 Choisir un service</h3><div class="services-grid" id="services-grid"><div class="empty-state">Chargement...</div></div></div>
+    </div>
+  </div>
+
+  <!-- RECHARGER -->
+  <div class="tab" id="tab-recharge">
+    <div class="content">
+      <div class="card">
+        <h3>💚 Renouveler mon forfait</h3>
+        <div class="wave-opts">
+          <div class="wave-opt" onclick="choisirForfait('starter',this)"><div class="wo-name">Starter</div><div class="wo-price">2 990 F</div><div class="wo-min">200 min</div></div>
+          <div class="wave-opt selected" onclick="choisirForfait('smart',this)"><div class="wo-name">Smart</div><div class="wo-price">5 990 F</div><div class="wo-min">300 min</div></div>
+          <div class="wave-opt" onclick="choisirForfait('business',this)"><div class="wo-name">Business</div><div class="wo-price">15 990 F</div><div class="wo-min">Illimité</div></div>
         </div>
-        <div class="minutes-bar">
-          <div class="minutes-fill" id="h-min-bar" style="width:0%"></div>
+        <button class="btn-wave" onclick="payerForfait()">💚 Payer avec Wave</button>
+      </div>
+      <div class="card">
+        <h3>✉️ Acheter des points SMS</h3>
+        <div class="packs-grid">
+          <div class="pack-item selected" onclick="choisirPack('pack1',this)"><div class="pk-pts">5</div><div class="pk-label">points SMS</div><div class="pk-prix">1 000 FCFA</div></div>
+          <div class="pack-item" onclick="choisirPack('pack2',this)"><div class="pk-pts">12</div><div class="pk-label">points SMS</div><div class="pk-prix">2 000 FCFA</div></div>
+          <div class="pack-item" onclick="choisirPack('pack3',this)"><div class="pk-pts">30</div><div class="pk-label">points SMS</div><div class="pk-prix">4 500 FCFA</div></div>
+          <div class="pack-item" onclick="choisirPack('pack4',this)"><div class="pk-pts">70</div><div class="pk-label">points SMS</div><div class="pk-prix">9 000 FCFA</div></div>
         </div>
+        <button class="btn-wave-sms" onclick="payerPoints()">💚 Payer avec Wave</button>
       </div>
     </div>
+  </div>
 
-    <!-- INFOS -->
-    <div class="grid3">
-      <div class="info-card">
-        <div class="ic-label">ID Abonné</div>
-        <div class="ic-value" id="i-id" style="font-size:0.95rem">—</div>
-      </div>
-      <div class="info-card">
-        <div class="ic-label">Forfait</div>
-        <div class="ic-value" id="i-forfait">—</div>
-        <div class="ic-sub" id="i-prix">—</div>
-      </div>
-      <div class="info-card">
-        <div class="ic-label">Téléphone</div>
-        <div class="ic-value" id="i-tel" style="font-size:0.95rem">—</div>
-      </div>
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <button class="bnav-item active" onclick="changerTab('accueil',this)"><div class="icon">🏠</div><span>Accueil</span></button>
+    <button class="bnav-item" onclick="changerTab('appels',this)"><div class="icon">📞</div><span>Appels</span></button>
+    <button class="bnav-item" onclick="changerTab('sms',this)"><div class="icon">✉️</div><span>SMS</span></button>
+    <button class="bnav-item" onclick="changerTab('recharge',this)"><div class="icon">💳</div><span>Recharger</span></button>
+  </div>
+</div>
+
+<!-- MODAL PACKS -->
+<div class="modal-overlay" id="modal-packs">
+  <div class="modal">
+    <button class="modal-close" onclick="fermerModal()">✕</button>
+    <h3>✉️ Acheter des points SMS</h3>
+    <div class="packs-grid">
+      <div class="pack-item selected" onclick="choisirPack('pack1',this)"><div class="pk-pts">5</div><div class="pk-label">points</div><div class="pk-prix">1 000 F</div></div>
+      <div class="pack-item" onclick="choisirPack('pack2',this)"><div class="pk-pts">12</div><div class="pk-label">points</div><div class="pk-prix">2 000 F</div></div>
+      <div class="pack-item" onclick="choisirPack('pack3',this)"><div class="pk-pts">30</div><div class="pk-label">points</div><div class="pk-prix">4 500 F</div></div>
+      <div class="pack-item" onclick="choisirPack('pack4',this)"><div class="pk-pts">70</div><div class="pk-label">points</div><div class="pk-prix">9 000 F</div></div>
     </div>
-
-    <!-- APPEL -->
-    <div class="appel-card">
-      <h3>📞 Passer un appel</h3>
-      <div class="dial-input">
-        <input id="dial-num" placeholder="+221 77 000 00 00" type="tel" />
-        <button class="btn-call" id="btn-call" onclick="passerAppel()">📞 Appeler</button>
-      </div>
-      <div class="call-status" id="call-status"></div>
-    </div>
-
-    <!-- RENOUVELER -->
-    <div class="wave-card">
-      <h3>💚 Renouveler / Changer de forfait</h3>
-      <div class="wave-options">
-        <div class="wave-opt" onclick="choisirForfait('starter',this)">
-          <div class="wo-name">Starter</div>
-          <div class="wo-price">2 990 FCFA</div>
-          <div class="wo-min">200 min / mois</div>
-        </div>
-        <div class="wave-opt selected" onclick="choisirForfait('smart',this)">
-          <div class="wo-name">Smart</div>
-          <div class="wo-price">5 990 FCFA</div>
-          <div class="wo-min">300 min / mois</div>
-        </div>
-        <div class="wave-opt" onclick="choisirForfait('business',this)">
-          <div class="wo-name">Business</div>
-          <div class="wo-price">15 990 FCFA</div>
-          <div class="wo-min">Illimité</div>
-        </div>
-      </div>
-      <button class="btn-wave" onclick="payerWave()">💚 Payer avec Wave</button>
-    </div>
-
-    <!-- HISTORIQUE -->
-    <div class="hist-card">
-      <h3>📋 Historique des appels</h3>
-      <div id="hist-list"><div class="hist-empty">Aucun appel pour l'instant.</div></div>
-    </div>
-
+    <button class="btn-wave-sms" onclick="payerPoints();fermerModal()">💚 Payer avec Wave</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const API = '';
-const WAVE_ID = 'M_rlEv9b4P3VtG';
-const MONTANTS = { starter: 2990, smart: 5990, business: 15990 };
-const FORFAIT_NOMS = { starter: 'Starter', smart: 'Smart', business: 'Business' };
+const API='';
+const WAVE_ID='M_rlEv9b4P3VtG';
+const MONTANTS={starter:2990,smart:5990,business:15990};
+const PACK_PRIX={pack1:1000,pack2:2000,pack3:4500,pack4:9000};
+let abonne=null,forfaitChoisi='smart',packChoisi='pack1',historique=[],activationEnCours=null,timerActivation=null;
 
-let abonne = null;
-let forfaitChoisi = 'smart';
-let historique = [];
-
-// ── CONNEXION ──────────────────────────────────────────────
-async function seConnecter() {
-  const userId = document.getElementById('login-id').value.trim().toUpperCase();
-  const tel    = document.getElementById('login-tel').value.trim();
-  const errEl  = document.getElementById('login-error');
-  errEl.style.display = 'none';
-
-  if (!userId || !tel) {
-    errEl.textContent = 'Veuillez remplir les deux champs.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/api/admin/abonnes');
-    if (!r.ok) throw new Error();
-    const liste = await r.json();
-    const found = liste.find(a =>
-      a.userId.toUpperCase() === userId &&
-      (a.telephone === tel || a.telephone === tel.replace(/\s/g,''))
-    );
-    if (!found) {
-      errEl.textContent = 'ID ou numéro incorrect. Vérifiez vos informations.';
-      errEl.style.display = 'block';
-      return;
-    }
-    abonne = found;
-    sessionStorage.setItem('pst_user', JSON.stringify(abonne));
-    afficherDashboard();
-  } catch(e) {
-    errEl.textContent = 'Erreur de connexion. Réessayez.';
-    errEl.style.display = 'block';
-  }
+async function seConnecter(){
+  const userId=document.getElementById('login-id').value.trim().toUpperCase();
+  const tel=document.getElementById('login-tel').value.trim();
+  const errEl=document.getElementById('login-error');
+  errEl.style.display='none';
+  if(!userId||!tel){errEl.textContent='Veuillez remplir les deux champs.';errEl.style.display='block';return;}
+  try{
+    const r=await fetch(API+'/api/admin/abonnes');
+    const liste=await r.json();
+    const found=liste.find(a=>a.userId.toUpperCase()===userId&&(a.telephone===tel||a.telephone===tel.replace(/\s/g,'')));
+    if(!found){errEl.textContent='ID ou numéro incorrect.';errEl.style.display='block';return;}
+    abonne=found;sessionStorage.setItem('pst_user',JSON.stringify(abonne));afficherDashboard();
+  }catch(e){errEl.textContent='Erreur de connexion.';errEl.style.display='block';}
 }
 
-function seDeconnecter() {
-  abonne = null;
-  sessionStorage.removeItem('pst_user');
-  document.getElementById('app-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
+function seDeconnecter(){abonne=null;sessionStorage.removeItem('pst_user');document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';}
+
+function afficherDashboard(){
+  const a=abonne;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  document.getElementById('user-name').textContent=a.nom+(a.prenom?' '+a.prenom:'');
+  document.getElementById('h-forfait').textContent=a.forfaitNom||a.forfait;
+  document.getElementById('h-numero').textContent=a.numeroVirtuel||'— Non attribué';
+  const sMap={actif:['actif','Actif'],en_attente:['attente','En attente'],suspendu:['suspendu','Suspendu']};
+  const[cls,lbl]=sMap[a.statut]||['attente','En attente'];
+  document.getElementById('h-statut-dot').className='statut-dot '+cls;
+  document.getElementById('h-statut').textContent=lbl;
+  const usees=a.minutesUsees||0,total=a.minutes||300,illim=total===99999;
+  const pct=illim?5:Math.min(100,Math.round(usees/total*100));
+  document.getElementById('h-min-text').textContent=illim?'∞ Illimitées':`${usees}/${total} min`;
+  const bar=document.getElementById('h-min-bar');
+  bar.style.width=pct+'%';bar.className='minutes-fill'+(pct>=90?' danger':pct>=70?' warning':'');
+  document.getElementById('c-minutes').textContent=illim?'∞':(total-usees);
+  document.getElementById('c-points').textContent=a.pointsSMS||0;
+  document.getElementById('c-statut').textContent=lbl;
+  document.getElementById('sms-points').textContent=a.pointsSMS||0;
+  document.getElementById('i-forfait').textContent=a.forfaitNom||a.forfait;
+  document.getElementById('i-prix').textContent=(a.prix||0).toLocaleString('fr-FR')+' FCFA/mois';
+  document.getElementById('i-tel').textContent=a.telephone;
+  forfaitChoisi=a.forfait||'smart';
+  document.getElementById('btn-call').disabled=a.statut!=='actif';
+  chargerServices();
 }
 
-// ── DASHBOARD ──────────────────────────────────────────────
-function afficherDashboard() {
-  const a = abonne;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'block';
-
-  // Topbar
-  document.getElementById('user-name').textContent = a.nom + (a.prenom ? ' ' + a.prenom : '');
-
-  // Hero
-  document.getElementById('h-forfait').textContent = a.forfaitNom || a.forfait;
-  document.getElementById('h-numero').textContent  = a.numeroVirtuel || '— Non attribué';
-
-  const statutDot   = document.getElementById('h-statut-dot');
-  const statutLabel = document.getElementById('h-statut');
-  const statutMap = { actif: ['actif','Actif'], en_attente: ['attente','En attente'], suspendu: ['suspendu','Suspendu'] };
-  const [cls, label] = statutMap[a.statut] || ['attente','En attente'];
-  statutDot.className = 'statut-dot ' + cls;
-  statutLabel.textContent = label;
-
-  // Minutes
-  const usees  = a.minutesUsees || 0;
-  const total  = a.minutes || 300;
-  const illim  = total === 99999;
-  const pct    = illim ? 5 : Math.min(100, Math.round(usees/total*100));
-  document.getElementById('h-min-text').textContent = illim ? '∞ Illimitées' : `${usees} / ${total} min`;
-  const bar = document.getElementById('h-min-bar');
-  bar.style.width = pct + '%';
-  bar.className = 'minutes-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warning' : '');
-
-  // Infos
-  document.getElementById('i-id').textContent     = a.userId;
-  document.getElementById('i-forfait').textContent = a.forfaitNom || a.forfait;
-  document.getElementById('i-prix').textContent    = (a.prix || 0).toLocaleString('fr-FR') + ' FCFA/mois';
-  document.getElementById('i-tel').textContent     = a.telephone;
-
-  // Bouton appel
-  document.getElementById('btn-call').disabled = a.statut !== 'actif';
-
-  // Forfait sélectionné par défaut
-  forfaitChoisi = a.forfait || 'smart';
-
-  // Historique (simulé pour l'instant)
-  afficherHistorique();
+function changerTab(nom,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+nom).classList.add('active');btn.classList.add('active');
 }
 
-// ── APPEL ──────────────────────────────────────────────────
-async function passerAppel() {
-  const num = document.getElementById('dial-num').value.trim();
-  const statusEl = document.getElementById('call-status');
-  if (!num) { toast('Entrez un numéro'); return; }
-  if (abonne.statut !== 'actif') { toast('Forfait non actif'); return; }
-
-  statusEl.className = 'call-status active';
-  statusEl.style.display = 'block';
-  statusEl.textContent = '⏳ Connexion en cours vers ' + num + '...';
-
-  try {
-    const r = await fetch(API + '/api/appel/initier', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: abonne.userId, numeroDestination: num }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      statusEl.textContent = '📞 Appel en cours — ' + num + (d.type === 'sandbox' ? ' [Mode test]' : '');
-
-      // Ajouter à l'historique local
-      historique.unshift({ num, date: new Date(), type: 'out', dur: '—' });
-      afficherHistorique();
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 8000);
-    } else {
-      statusEl.className = 'call-status error';
-      statusEl.textContent = '❌ ' + (d.error || 'Erreur appel');
-    }
-  } catch(e) {
-    statusEl.className = 'call-status error';
-    statusEl.textContent = '❌ Erreur de connexion';
-  }
+async function passerAppel(){
+  const num=document.getElementById('dial-num').value.trim();
+  const statusEl=document.getElementById('call-status');
+  if(!num){toast('Entrez un numéro');return;}
+  statusEl.className='call-status active';statusEl.style.display='block';statusEl.textContent='⏳ Connexion vers '+num+'...';
+  try{
+    const r=await fetch(API+'/api/appel/initier',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:abonne.userId,numeroDestination:num})});
+    const d=await r.json();
+    if(d.success){statusEl.textContent='📞 Appel en cours — '+num+(d.type==='sandbox'?' [Mode test]':'');historique.unshift({num,date:new Date(),type:'out',dur:'—'});afficherHistorique();setTimeout(()=>{statusEl.style.display='none';},8000);}
+    else{statusEl.className='call-status error';statusEl.textContent='❌ '+(d.error||'Erreur');}
+  }catch(e){statusEl.className='call-status error';statusEl.textContent='❌ Erreur';}
 }
 
-// ── HISTORIQUE ─────────────────────────────────────────────
-function afficherHistorique() {
-  const el = document.getElementById('hist-list');
-  if (!historique.length) {
-    el.innerHTML = '<div class="hist-empty">Aucun appel pour l\'instant.<br>Passez votre premier appel !</div>';
-    return;
-  }
-  el.innerHTML = historique.slice(0, 20).map(h => {
-    const date = new Date(h.date).toLocaleString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-    return `<div class="hist-item">
-      <div class="hist-icon ${h.type}">${h.type === 'out' ? '📞' : '📲'}</div>
-      <div class="hist-info">
-        <div class="hist-num">${h.num}</div>
-        <div class="hist-date">${date}</div>
-      </div>
-      <div class="hist-dur">${h.dur}</div>
-    </div>`;
-  }).join('');
+function afficherHistorique(){
+  const el=document.getElementById('hist-list');
+  if(!historique.length){el.innerHTML='<div class="empty-state">Aucun appel.</div>';return;}
+  el.innerHTML=historique.slice(0,20).map(h=>{const date=new Date(h.date).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});return`<div class="hist-item"><div class="hist-icon-wrap">📞</div><div class="hist-info"><div class="hist-num">${h.num}</div><div class="hist-date">${date}</div></div><div class="hist-dur">${h.dur}</div></div>`;}).join('');
 }
 
-// ── PAIEMENT WAVE ──────────────────────────────────────────
-function choisirForfait(f, el) {
-  forfaitChoisi = f;
-  document.querySelectorAll('.wave-opt').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected');
+async function chargerServices(){
+  try{
+    const r=await fetch(API+'/api/sms/services');
+    const services=await r.json();
+    document.getElementById('services-grid').innerHTML=services.map(s=>`<div class="service-item" onclick="demanderNumero('${s.id}','${s.nom}','${s.icon}',${s.prix_points})"><div class="si-icon">${s.icon}</div><div><div class="si-name">${s.nom}</div><div class="si-pts">${s.prix_points} pt${s.prix_points>1?'s':''}</div></div></div>`).join('');
+  }catch(e){}
 }
 
-function payerWave() {
-  const montant = MONTANTS[forfaitChoisi];
-  const lien = `https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${montant}`;
-  window.open(lien, '_blank');
-  toast('✅ Redirection vers Wave...');
+async function demanderNumero(serviceId,nom,icon,pts){
+  const points=abonne.pointsSMS||0;
+  if(points<pts){toast('Points insuffisants !');changerTab('recharge',document.querySelectorAll('.bnav-item')[3]);return;}
+  if(!confirm(`Utiliser ${pts} point${pts>1?'s':''} pour ${nom} ?`))return;
+  try{
+    const r=await fetch(API+'/api/sms/demander-numero',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:abonne.userId,serviceId})});
+    const d=await r.json();
+    if(d.success){
+      abonne.pointsSMS=d.pointsRestants;sessionStorage.setItem('pst_user',JSON.stringify(abonne));
+      document.getElementById('c-points').textContent=d.pointsRestants;document.getElementById('sms-points').textContent=d.pointsRestants;
+      activationEnCours={...d,icon,nom};afficherActivation();toast('✅ Numéro obtenu !');
+    }else{toast(d.error||'Erreur');}
+  }catch(e){toast('Erreur de connexion');}
 }
 
-// ── TOAST ──────────────────────────────────────────────────
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+function afficherActivation(){
+  if(!activationEnCours)return;
+  const a=activationEnCours;
+  const expire=new Date(a.expireAt);
+  const el=document.getElementById('activation-en-cours');
+  el.innerHTML=`<div class="activation-card"><div class="ac-service">${a.icon} ${a.nom||a.service}</div><div class="ac-num">${a.numeroTemp}</div><div class="ac-timer">Expire à ${expire.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div><div class="ac-sms" id="ac-sms-content">⏳ En attente du SMS...</div><button class="btn-refresh" onclick="verifierSMS()">🔄 Vérifier le SMS</button></div>`;
+  if(timerActivation)clearInterval(timerActivation);
+  timerActivation=setInterval(verifierSMS,10000);
 }
 
-// ── AUTO-LOGIN ─────────────────────────────────────────────
-window.onload = () => {
-  const saved = sessionStorage.getItem('pst_user');
-  if (saved) {
-    abonne = JSON.parse(saved);
-    afficherDashboard();
-  }
+async function verifierSMS(){
+  if(!activationEnCours)return;
+  try{
+    const r=await fetch(API+`/api/sms/verifier/${activationEnCours.activationId}?userId=${abonne.userId}`);
+    const d=await r.json();
+    const el=document.getElementById('ac-sms-content');
+    if(d.smsRecu&&el){el.textContent='✅ '+d.smsRecu;el.style.color='#2e7d32';el.style.fontWeight='700';if(timerActivation)clearInterval(timerActivation);toast('✅ SMS reçu !');}
+  }catch(e){}
+}
+
+function choisirForfait(f,el){forfaitChoisi=f;document.querySelectorAll('.wave-opt').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');}
+function payerForfait(){window.open(`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${MONTANTS[forfaitChoisi]}`,'_blank');toast('✅ Wave ouvert');}
+function choisirPack(p,el){packChoisi=p;document.querySelectorAll('.pack-item').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');}
+function payerPoints(){window.open(`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${PACK_PRIX[packChoisi]}`,'_blank');toast('✅ Paiement Wave — contactez-nous pour activer vos points');}
+function ouvrirModalPacks(){document.getElementById('modal-packs').classList.add('open');}
+function fermerModal(){document.getElementById('modal-packs').classList.remove('open');}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+window.onload=()=>{
+  const saved=sessionStorage.getItem('pst_user');
+  if(saved){abonne=JSON.parse(saved);afficherDashboard();}
+  document.getElementById('modal-packs').addEventListener('click',function(e){if(e.target===this)fermerModal();});
 };
 </script>
 </body>

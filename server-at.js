@@ -343,6 +343,155 @@ app.post('/api/webhook/wave', async (req, res) => {
   }
 });
 
+// ─── PACKS & SERVICES SMS ───────────────────────────────────
+const SMS_PACKS = {
+  pack1: { points: 5,  prix: 1000, label: '5 points' },
+  pack2: { points: 12, prix: 2000, label: '12 points' },
+  pack3: { points: 30, prix: 4500, label: '30 points' },
+  pack4: { points: 70, prix: 9000, label: '70 points' },
+};
+
+const SMS_SERVICES = [
+  { id: 'whatsapp',  nom: 'WhatsApp',        icon: '💬', prix_points: 1 },
+  { id: 'google',    nom: 'Google / Gmail',   icon: '🔵', prix_points: 1 },
+  { id: 'facebook',  nom: 'Facebook',         icon: '📘', prix_points: 1 },
+  { id: 'instagram', nom: 'Instagram',        icon: '📸', prix_points: 1 },
+  { id: 'tiktok',    nom: 'TikTok',           icon: '🎵', prix_points: 1 },
+  { id: 'telegram',  nom: 'Telegram',         icon: '✈️',  prix_points: 1 },
+  { id: 'twitter',   nom: 'Twitter / X',      icon: '🐦', prix_points: 1 },
+  { id: 'snapchat',  nom: 'Snapchat',         icon: '👻', prix_points: 1 },
+  { id: 'microsoft', nom: 'Microsoft',        icon: '🪟', prix_points: 2 },
+  { id: 'apple',     nom: 'Apple',            icon: '🍎', prix_points: 2 },
+  { id: 'amazon',    nom: 'Amazon',           icon: '📦', prix_points: 2 },
+  { id: 'netflix',   nom: 'Netflix',          icon: '🎬', prix_points: 2 },
+  { id: 'uber',      nom: 'Uber',             icon: '🚗', prix_points: 1 },
+  { id: 'airbnb',    nom: 'Airbnb',           icon: '🏠', prix_points: 2 },
+  { id: 'linkedin',  nom: 'LinkedIn',         icon: '💼', prix_points: 1 },
+  { id: 'chatgpt',   nom: 'OpenAI/ChatGPT',   icon: '🤖', prix_points: 2 },
+  { id: 'discord',   nom: 'Discord',          icon: '🎮', prix_points: 1 },
+  { id: 'viber',     nom: 'Viber',            icon: '📱', prix_points: 1 },
+];
+
+app.get('/api/sms/services', (req, res) => res.json(SMS_SERVICES));
+app.get('/api/sms/packs', (req, res) => res.json(SMS_PACKS));
+
+// Acheter des points
+app.post('/api/sms/acheter-points', async (req, res) => {
+  try {
+    const { userId, pack } = req.body;
+    const p = SMS_PACKS[pack];
+    if (!p) return res.status(400).json({ error: 'Pack invalide' });
+    const lienWave = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${p.prix}`;
+    res.json({ success: true, lienWave, pack: p });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Confirmer achat points après paiement
+app.post('/api/sms/confirmer-points', async (req, res) => {
+  try {
+    const { userId, pack } = req.body;
+    const p = SMS_PACKS[pack];
+    if (!p) return res.status(400).json({ error: 'Pack invalide' });
+    if (db) {
+      await db.collection('abonnes').updateOne(
+        { userId },
+        { $inc: { pointsSMS: p.points }, $push: { historiquePoints: { type: 'achat', points: p.points, pack, date: new Date() } } }
+      );
+    }
+    res.json({ success: true, pointsAjoutes: p.points });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Demander un numéro temporaire
+app.post('/api/sms/demander-numero', async (req, res) => {
+  try {
+    const { userId, serviceId } = req.body;
+    const service = SMS_SERVICES.find(s => s.id === serviceId);
+    if (!service) return res.status(400).json({ error: 'Service invalide' });
+
+    const abonnes = await getAbonnes();
+    const abonne = abonnes.find(a => a.userId === userId);
+    if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
+
+    const points = abonne.pointsSMS || 0;
+    if (points < service.prix_points) {
+      return res.status(403).json({ error: 'Points insuffisants', pointsActuels: points, pointsNecessaires: service.prix_points });
+    }
+
+    const numeroTemp = '+1' + Math.floor(2000000000 + Math.random() * 8000000000);
+    const activationId = 'ACT-' + Math.random().toString(36).slice(2,10).toUpperCase();
+    const expireAt = new Date(Date.now() + 20 * 60 * 1000);
+
+    if (db) {
+      await db.collection('abonnes').updateOne(
+        { userId },
+        {
+          $inc: { pointsSMS: -service.prix_points },
+          $push: { activationsSMS: { activationId, serviceId, service: service.nom, icon: service.icon, numeroTemp, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } }
+        }
+      );
+    }
+    res.json({ success: true, activationId, numeroTemp, service: service.nom, expireAt, pointsRestants: points - service.prix_points });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Vérifier SMS reçu
+app.get('/api/sms/verifier/:activationId', async (req, res) => {
+  try {
+    const { activationId } = req.params;
+    const { userId } = req.query;
+    if (db) {
+      const abonne = await db.collection('abonnes').findOne({ userId });
+      if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
+      const activation = (abonne.activationsSMS || []).find(a => a.activationId === activationId);
+      if (!activation) return res.status(404).json({ error: 'Activation introuvable' });
+      return res.json({ activationId, statut: activation.statut, smsRecu: activation.smsRecu });
+    }
+    res.json({ activationId, statut: 'en_attente', smsRecu: null });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - stats SMS
+app.get('/api/admin/sms-stats', async (req, res) => {
+  try {
+    if (!db) return res.json({ totalActivations: 0, pointsVendus: 0, revenusPoints: 0 });
+    const abonnes = await db.collection('abonnes').find({}).toArray();
+    let totalActivations = 0, pointsVendus = 0;
+    abonnes.forEach(a => {
+      totalActivations += (a.activationsSMS || []).length;
+      (a.historiquePoints || []).forEach(h => { if (h.type === 'achat') pointsVendus += h.points; });
+    });
+    res.json({ totalActivations, pointsVendus, revenusPoints: Math.round(pointsVendus / 5 * 1000) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - liste activations
+app.get('/api/admin/activations', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const abonnes = await db.collection('abonnes').find({}).toArray();
+    const activations = [];
+    abonnes.forEach(a => {
+      (a.activationsSMS || []).forEach(act => activations.push({ ...act, userId: a.userId, nom: a.nom, prenom: a.prenom }));
+    });
+    activations.sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
+    res.json(activations.slice(0, 100));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - ajouter points manuellement
+app.post('/api/admin/ajouter-points', async (req, res) => {
+  try {
+    const { userId, points } = req.body;
+    if (!db) return res.json({ success: true });
+    await db.collection('abonnes').updateOne(
+      { userId },
+      { $inc: { pointsSMS: parseInt(points) }, $push: { historiquePoints: { type: 'admin', points: parseInt(points), date: new Date() } } }
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
