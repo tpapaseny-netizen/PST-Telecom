@@ -5,184 +5,332 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PST — Dashboard Admin</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;}
+nav{background:#1a3a5c;color:white;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.nav-brand{font-weight:700;font-size:1.2rem;}
+.nav-brand span{font-size:0.75rem;opacity:0.7;margin-left:0.5rem;}
+.nav-status{display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;}
+.dot{width:8px;height:8px;border-radius:50%;background:#4caf50;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 
-  /* NAV */
-  nav { background: #1a3a5c; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
-  .nav-brand { font-weight: 700; font-size: 1.2rem; }
-  .nav-brand span { font-size: 0.8rem; opacity: 0.7; margin-left: 0.5rem; }
-  .nav-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+/* TABS NAV */
+.tab-nav{background:white;border-bottom:2px solid #e8f4fd;padding:0 2rem;display:flex;gap:0;overflow-x:auto;}
+.tab-nav-btn{padding:1rem 1.25rem;border:none;background:none;font-size:0.88rem;font-weight:600;color:#888;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all 0.2s;}
+.tab-nav-btn.active{color:#1a3a5c;border-bottom-color:#1a3a5c;}
+.tab-nav-btn:hover{color:#1a3a5c;}
 
-  /* LAYOUT */
-  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.container{max-width:1100px;margin:0 auto;padding:1.5rem;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
 
-  /* STATS */
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-  .stat-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .stat-card .label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
-  .stat-card .value { font-size: 2rem; font-weight: 700; }
-  .stat-card.green .value { color: #2e7d32; }
-  .stat-card.blue  .value { color: #1565c0; }
-  .stat-card.orange .value { color: #e65100; }
-  .stat-card.gold  .value { color: #f57f17; }
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.stat-card{background:white;border-radius:12px;padding:1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+.stat-card .label{font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;}
+.stat-card .value{font-size:1.8rem;font-weight:700;}
+.stat-card.green .value{color:#2e7d32;}
+.stat-card.blue .value{color:#1565c0;}
+.stat-card.orange .value{color:#e65100;}
+.stat-card.gold .value{color:#f57f17;}
+.stat-card.purple .value{color:#6a1b9a;}
 
-  /* CARDS */
-  .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
-  .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; color: #1a3a5c; border-bottom: 2px solid #e8f4fd; padding-bottom: 0.75rem; }
+/* CARDS */
+.card{background:white;border-radius:12px;padding:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:1.25rem;}
+.card h3{font-size:0.95rem;font-weight:700;margin-bottom:1rem;color:#1a3a5c;border-bottom:2px solid #e8f4fd;padding-bottom:0.75rem;}
 
-  /* FORM */
-  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
-  input, select { width: 100%; padding: 0.7rem 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
-  input:focus, select:focus { border-color: #1a3a5c; }
-  .btn { padding: 0.7rem 1.4rem; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
-  .btn-primary { background: #1a3a5c; color: white; width: 100%; }
-  .btn-primary:hover { background: #16324f; }
-  .btn-success { background: #2e7d32; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-  .btn-warning { background: #e65100; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-  .btn-danger  { background: #c62828; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-  .btn-info    { background: #0277bd; color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-  .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;}
+input,select,textarea{width:100%;padding:0.7rem 0.9rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;outline:none;transition:border-color 0.2s;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:#1a3a5c;}
+.btn{padding:0.7rem 1.4rem;border:none;border-radius:8px;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;}
+.btn-primary{background:#1a3a5c;color:white;width:100%;}
+.btn-success{background:#2e7d32;color:white;padding:0.4rem 0.8rem;font-size:0.8rem;}
+.btn-warning{background:#e65100;color:white;padding:0.4rem 0.8rem;font-size:0.8rem;}
+.btn-danger{background:#c62828;color:white;padding:0.4rem 0.8rem;font-size:0.8rem;}
+.btn-info{background:#0277bd;color:white;padding:0.4rem 0.8rem;font-size:0.8rem;}
+.btn-purple{background:#6a1b9a;color:white;padding:0.4rem 0.8rem;font-size:0.8rem;}
+.btn:hover{opacity:0.88;transform:translateY(-1px);}
 
-  /* SEARCH */
-  .search-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
-  .search-row input { flex: 1; }
-  .search-row select { width: 160px; }
+/* TABLE */
+.search-row{display:flex;gap:0.75rem;margin-bottom:1rem;}
+.search-row input{flex:1;}
+.search-row select{width:160px;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+th{background:#f5f7fa;text-align:left;padding:0.75rem 1rem;font-weight:600;color:#555;font-size:0.78rem;text-transform:uppercase;}
+td{padding:0.85rem 1rem;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+tr:hover td{background:#fafbff;}
+.badge{display:inline-block;padding:0.25rem 0.65rem;border-radius:100px;font-size:0.72rem;font-weight:600;}
+.badge-actif{background:#e8f5e9;color:#2e7d32;}
+.badge-attente{background:#fff3e0;color:#e65100;}
+.badge-suspendu{background:#fce4ec;color:#c62828;}
+.badge-recu{background:#e8f5e9;color:#2e7d32;}
+.badge-en_attente{background:#fff3e0;color:#e65100;}
+.actions{display:flex;gap:0.4rem;flex-wrap:wrap;}
+.progress{background:#eee;border-radius:100px;height:6px;margin-top:4px;}
+.progress-bar{height:6px;border-radius:100px;background:#1a3a5c;}
+.empty{text-align:center;padding:2.5rem;color:#aaa;}
 
-  /* TABLE */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  th { background: #f5f7fa; text-align: left; padding: 0.75rem 1rem; font-weight: 600; color: #555; font-size: 0.78rem; text-transform: uppercase; }
-  td { padding: 0.85rem 1rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-  tr:hover td { background: #fafbff; }
+/* WAVE */
+.wave-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+.wave-card{border:2px solid #1a3a5c;border-radius:10px;padding:1rem;text-align:center;}
+.wave-card .name{font-weight:700;color:#1a3a5c;}
+.wave-card .price{font-size:1.3rem;font-weight:800;color:#2e7d32;margin:0.25rem 0;}
+.wave-card .minutes{font-size:0.8rem;color:#888;margin-bottom:0.75rem;}
+.btn-copy{background:#e8f4fd;color:#1a3a5c;border:1px solid #bbdefb;padding:0.5rem 1rem;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;width:100%;}
 
-  /* BADGE */
-  .badge { display: inline-block; padding: 0.25rem 0.65rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
-  .badge-actif     { background: #e8f5e9; color: #2e7d32; }
-  .badge-attente   { background: #fff3e0; color: #e65100; }
-  .badge-suspendu  { background: #fce4ec; color: #c62828; }
+/* ACTIVITE */
+.activity-item{display:flex;align-items:center;gap:1rem;padding:0.85rem 0;border-bottom:1px solid #f5f5f5;}
+.activity-item:last-child{border-bottom:none;}
+.activity-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.activity-icon.sms{background:#f3e5f5;}
+.activity-icon.call{background:#e8f5e9;}
+.activity-icon.pay{background:#e8f4fd;}
+.activity-info{flex:1;}
+.activity-title{font-weight:600;font-size:0.88rem;}
+.activity-sub{font-size:0.75rem;color:#aaa;margin-top:0.1rem;}
+.activity-time{font-size:0.75rem;color:#aaa;}
 
-  /* PROGRESS */
-  .progress { background: #eee; border-radius: 100px; height: 6px; margin-top: 4px; }
-  .progress-bar { height: 6px; border-radius: 100px; background: #1a3a5c; }
+/* ÉDITEUR CONTENU */
+.content-editor{display:grid;gap:1rem;}
+.editor-field{background:white;border-radius:12px;padding:1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+.editor-field label{display:block;font-size:0.78rem;font-weight:700;color:#1a3a5c;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;}
+.editor-field .hint{font-size:0.72rem;color:#aaa;margin-bottom:0.5rem;}
+.editor-field textarea{min-height:80px;resize:vertical;}
+.btn-save-field{background:#1a3a5c;color:white;border:none;border-radius:8px;padding:0.5rem 1.25rem;font-size:0.82rem;font-weight:700;cursor:pointer;margin-top:0.5rem;}
+.btn-save-field:hover{background:#16324f;}
+.preview-link{font-size:0.75rem;color:#1565c0;text-decoration:none;margin-left:0.5rem;}
 
-  /* WAVE LINKS */
-  .wave-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-  .wave-card { border: 2px solid #1a3a5c; border-radius: 10px; padding: 1rem; text-align: center; }
-  .wave-card .name { font-weight: 700; color: #1a3a5c; }
-  .wave-card .price { font-size: 1.3rem; font-weight: 800; color: #2e7d32; margin: 0.25rem 0; }
-  .wave-card .minutes { font-size: 0.8rem; color: #888; margin-bottom: 0.75rem; }
-  .btn-copy { background: #e8f4fd; color: #1a3a5c; border: 1px solid #bbdefb; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer; width: 100%; }
-  .btn-copy:hover { background: #bbdefb; }
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:16px;padding:2rem;width:420px;max-width:95vw;}
+.modal h3{margin-bottom:1.25rem;color:#1a3a5c;}
+.modal .field{margin-bottom:0.75rem;}
+.modal .field label{display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.3rem;color:#555;}
+.modal-actions{display:flex;gap:0.75rem;margin-top:1.25rem;}
+.modal-actions .btn{flex:1;}
 
-  /* MODAL */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: white; border-radius: 16px; padding: 2rem; width: 420px; max-width: 95vw; }
-  .modal h3 { margin-bottom: 1.25rem; color: #1a3a5c; }
-  .modal .field { margin-bottom: 0.75rem; }
-  .modal .field label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.3rem; color: #555; }
-  .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
-  .modal-actions .btn { flex: 1; }
+/* TOAST */
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1a3a5c;color:white;padding:0.85rem 1.5rem;border-radius:10px;font-weight:600;z-index:9999;display:none;}
+.toast.show{display:block;animation:slideIn 0.3s ease;}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 
-  /* TOAST */
-  .toast { position: fixed; bottom: 2rem; right: 2rem; background: #1a3a5c; color: white; padding: 0.85rem 1.5rem; border-radius: 10px; font-weight: 600; z-index: 9999; display: none; }
-  .toast.show { display: block; animation: slideIn 0.3s ease; }
-  @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
-
-  .empty { text-align: center; padding: 2.5rem; color: #aaa; }
-  .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-
-  @media(max-width:768px){
-    .stats { grid-template-columns: repeat(2,1fr); }
-    .form-row { grid-template-columns: 1fr; }
-    .wave-grid { grid-template-columns: 1fr; }
-  }
+@media(max-width:768px){
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .form-row{grid-template-columns:1fr;}
+  .wave-grid{grid-template-columns:1fr;}
+  nav{padding:0 1rem;}
+}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-brand">PST <span>Pure Smart Telecom — Dashboard Admin</span></div>
-  <div class="nav-status"><div class="dot"></div> <span id="api-status">Chargement...</span></div>
+  <div class="nav-brand">PST <span>Dashboard Admin</span></div>
+  <div class="nav-status"><div class="dot"></div><span id="api-status">Chargement...</span></div>
 </nav>
+
+<!-- TABS -->
+<div class="tab-nav">
+  <button class="tab-nav-btn active" onclick="changerTab('abonnes',this)">👥 Abonnés</button>
+  <button class="tab-nav-btn" onclick="changerTab('sms',this)">✉️ Activité SMS</button>
+  <button class="tab-nav-btn" onclick="changerTab('appels',this)">📞 Appels</button>
+  <button class="tab-nav-btn" onclick="changerTab('revenus',this)">💰 Revenus</button>
+  <button class="tab-nav-btn" onclick="changerTab('contenu',this)">✏️ Éditeur contenu</button>
+</div>
 
 <div class="container">
 
-  <!-- STATS -->
-  <div class="stats">
-    <div class="stat-card blue">  <div class="label">Total abonnés</div> <div class="value" id="s-total">—</div></div>
-    <div class="stat-card green"> <div class="label">Actifs</div>         <div class="value" id="s-actifs">—</div></div>
-    <div class="stat-card orange"><div class="label">En attente</div>     <div class="value" id="s-attente">—</div></div>
-    <div class="stat-card gold">  <div class="label">Revenus ce mois</div><div class="value" id="s-revenus">—</div></div>
+  <!-- ── ABONNÉS ── -->
+  <div class="tab-content active" id="tab-abonnes">
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card blue"><div class="label">Total abonnés</div><div class="value" id="s-total">—</div></div>
+      <div class="stat-card green"><div class="label">Actifs</div><div class="value" id="s-actifs">—</div></div>
+      <div class="stat-card orange"><div class="label">En attente</div><div class="value" id="s-attente">—</div></div>
+      <div class="stat-card gold"><div class="label">Revenus mois</div><div class="value" id="s-revenus">—</div></div>
+    </div>
+
+    <!-- Ajouter -->
+    <div class="card">
+      <h3>➕ Ajouter un abonné</h3>
+      <div class="form-row">
+        <input id="f-nom" placeholder="Nom *"/>
+        <input id="f-prenom" placeholder="Prénom"/>
+        <input id="f-tel" placeholder="+221771234567 *"/>
+        <select id="f-forfait">
+          <option value="starter">Starter — 2 990 FCFA</option>
+          <option value="smart" selected>Smart — 5 990 FCFA</option>
+          <option value="business">Business — 15 990 FCFA</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="ajouterAbonne()">Créer le compte et copier le lien Wave</button>
+    </div>
+
+    <!-- Liste -->
+    <div class="card">
+      <h3>👥 Abonnés PST</h3>
+      <div class="search-row">
+        <input id="search" placeholder="Rechercher par nom, téléphone, ID..." oninput="filtrerAbonnes()"/>
+        <select id="filtre-statut" onchange="filtrerAbonnes()">
+          <option value="">Tous les statuts</option>
+          <option value="actif">Actifs</option>
+          <option value="en_attente">En attente</option>
+          <option value="suspendu">Suspendus</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>N° Virtuel</th><th>Forfait</th><th>Minutes</th><th>Points SMS</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="empty-msg" style="display:none">Aucun abonné trouvé.</div>
+    </div>
+
+    <!-- Liens Wave -->
+    <div class="card">
+      <h3>💚 Liens Wave à partager</h3>
+      <div class="wave-grid">
+        <div class="wave-card"><div class="name">Starter</div><div class="price">2 990 FCFA</div><div class="minutes">200 min/mois</div><button class="btn-copy" onclick="copierLien('starter')">📋 Copier</button></div>
+        <div class="wave-card"><div class="name">Smart</div><div class="price">5 990 FCFA</div><div class="minutes">300 min/mois</div><button class="btn-copy" onclick="copierLien('smart')">📋 Copier</button></div>
+        <div class="wave-card"><div class="name">Business</div><div class="price">15 990 FCFA</div><div class="minutes">Illimité</div><button class="btn-copy" onclick="copierLien('business')">📋 Copier</button></div>
+      </div>
+    </div>
   </div>
 
-  <!-- AJOUTER -->
-  <div class="card">
-    <h3>➕ Ajouter un abonné</h3>
-    <div class="form-row">
-      <input id="f-nom"       placeholder="Nom *" />
-      <input id="f-prenom"    placeholder="Prénom" />
-      <input id="f-tel"       placeholder="+221771234567 *" />
-      <select id="f-forfait">
-        <option value="starter">Starter — 2 990 FCFA</option>
-        <option value="smart" selected>Smart — 5 990 FCFA</option>
-        <option value="business">Business — 15 990 FCFA</option>
-      </select>
+  <!-- ── ACTIVITÉ SMS ── -->
+  <div class="tab-content" id="tab-sms">
+    <div class="stats">
+      <div class="stat-card purple"><div class="label">Activations SMS</div><div class="value" id="sms-total">—</div></div>
+      <div class="stat-card green"><div class="label">SMS reçus</div><div class="value" id="sms-recus">—</div></div>
+      <div class="stat-card blue"><div class="label">Points vendus</div><div class="value" id="sms-points">—</div></div>
+      <div class="stat-card gold"><div class="label">Revenus SMS</div><div class="value" id="sms-revenus">—</div></div>
     </div>
-    <button class="btn btn-primary" onclick="ajouterAbonne()">Créer le compte et copier le lien Wave</button>
+
+    <!-- Ajouter points manuellement -->
+    <div class="card">
+      <h3>✉️ Ajouter des points SMS manuellement</h3>
+      <div class="form-row">
+        <input id="pts-userId" placeholder="ID abonné (PST-XXXXXXXX ou SMS-XXXXXXXX)"/>
+        <input id="pts-nombre" type="number" placeholder="Nombre de points" min="1"/>
+        <div></div><div></div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:0.7rem 2rem" onclick="ajouterPoints()">+ Ajouter les points</button>
+    </div>
+
+    <!-- Activations en cours -->
+    <div class="card">
+      <h3>📱 Dernières activations SMS</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID Activation</th><th>Client</th><th>Service</th><th>Numéro</th><th>Statut</th><th>SMS Reçu</th><th>Date</th></tr></thead>
+          <tbody id="sms-tbody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:#aaa">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <!-- LISTE ABONNÉS -->
-  <div class="card">
-    <h3>👥 Abonnés PST</h3>
-    <div class="search-row">
-      <input id="search" placeholder="Rechercher par nom, téléphone, ID..." oninput="filtrerAbonnes()" />
-      <select id="filtre-statut" onchange="filtrerAbonnes()">
-        <option value="">Tous les statuts</option>
-        <option value="actif">Actifs</option>
-        <option value="en_attente">En attente</option>
-        <option value="suspendu">Suspendus</option>
-      </select>
+  <!-- ── APPELS ── -->
+  <div class="tab-content" id="tab-appels">
+    <div class="stats">
+      <div class="stat-card blue"><div class="label">Total appels</div><div class="value" id="call-total">—</div></div>
+      <div class="stat-card green"><div class="label">Appels réels</div><div class="value" id="call-reels">—</div></div>
+      <div class="stat-card orange"><div class="label">Mode test</div><div class="value" id="call-test">—</div></div>
+      <div class="stat-card gold"><div class="label">Minutes utilisées</div><div class="value" id="call-minutes">—</div></div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th><th>Nom</th><th>Téléphone</th><th>N° Virtuel PST</th><th>Forfait</th>
-            <th>Minutes</th><th>Statut</th><th>Date</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
+    <div class="card">
+      <h3>📞 Historique des appels</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Call ID</th><th>Abonné</th><th>Destination</th><th>Type</th><th>Durée</th><th>Date</th></tr></thead>
+          <tbody id="call-tbody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:#aaa">Aucun appel enregistré</td></tr></tbody>
+        </table>
+      </div>
     </div>
-    <div class="empty" id="empty-msg" style="display:none">Aucun abonné trouvé.</div>
   </div>
 
-  <!-- LIENS WAVE -->
-  <div class="card">
-    <h3>💚 Liens Wave à partager</h3>
-    <div class="wave-grid">
-      <div class="wave-card">
-        <div class="name">Starter</div>
-        <div class="price">2 990 FCFA</div>
-        <div class="minutes">200 minutes / mois</div>
-        <button class="btn-copy" onclick="copierLien('starter')">📋 Copier le lien</button>
+  <!-- ── REVENUS ── -->
+  <div class="tab-content" id="tab-revenus">
+    <div class="stats">
+      <div class="stat-card gold"><div class="label">Revenus forfaits</div><div class="value" id="rev-forfaits">—</div></div>
+      <div class="stat-card purple"><div class="label">Revenus SMS</div><div class="value" id="rev-sms">—</div></div>
+      <div class="stat-card green"><div class="label">Total général</div><div class="value" id="rev-total">—</div></div>
+      <div class="stat-card blue"><div class="label">Abonnés actifs</div><div class="value" id="rev-actifs">—</div></div>
+    </div>
+    <div class="card">
+      <h3>💰 Activité financière récente</h3>
+      <div id="activity-feed"><div class="empty">Chargement...</div></div>
+    </div>
+  </div>
+
+  <!-- ── ÉDITEUR CONTENU ── -->
+  <div class="tab-content" id="tab-contenu">
+    <div class="card" style="margin-bottom:1.25rem">
+      <h3>✏️ Modifier les textes du site PST</h3>
+      <p style="font-size:0.85rem;color:#888;margin-bottom:0">Les modifications sont sauvegardées et visibles sur le site immédiatement.</p>
+    </div>
+
+    <div class="content-editor" id="content-editor">
+
+      <div class="editor-field">
+        <label>🦸 Titre principal (Hero)</label>
+        <div class="hint">Texte affiché en grand sur la page d'accueil</div>
+        <textarea id="edit-hero-title" rows="2">Appels intelligents pour l'Afrique</textarea>
+        <button class="btn-save-field" onclick="sauvegarderChamp('hero-title')">💾 Sauvegarder</button>
+        <a href="https://pst-telecom.vercel.app" target="_blank" class="preview-link">👁 Voir le site</a>
       </div>
-      <div class="wave-card">
-        <div class="name">Smart</div>
-        <div class="price">5 990 FCFA</div>
-        <div class="minutes">300 minutes / mois</div>
-        <button class="btn-copy" onclick="copierLien('smart')">📋 Copier le lien</button>
+
+      <div class="editor-field">
+        <label>📝 Sous-titre principal</label>
+        <div class="hint">Description courte sous le titre principal</div>
+        <textarea id="edit-hero-sub" rows="3">Des forfaits téléphoniques flexibles, des appels clairs, et un paiement facile via Wave. PST vous connecte sans friction.</textarea>
+        <button class="btn-save-field" onclick="sauvegarderChamp('hero-sub')">💾 Sauvegarder</button>
       </div>
-      <div class="wave-card">
-        <div class="name">Business</div>
-        <div class="price">15 990 FCFA</div>
-        <div class="minutes">Minutes illimitées</div>
-        <button class="btn-copy" onclick="copierLien('business')">📋 Copier le lien</button>
+
+      <div class="editor-field">
+        <label>📱 Description service SMS</label>
+        <div class="hint">Texte de la section "Numéros SMS de vérification"</div>
+        <textarea id="edit-sms-desc" rows="3">Recevez des codes de vérification pour vos applications préférées — Google, WhatsApp, Facebook, TikTok et plus — sur un numéro temporaire sécurisé.</textarea>
+        <button class="btn-save-field" onclick="sauvegarderChamp('sms-desc')">💾 Sauvegarder</button>
       </div>
+
+      <div class="editor-field">
+        <label>💰 Prix forfait Starter</label>
+        <div class="hint">Affiché sur la landing page et dans l'app</div>
+        <input id="edit-prix-starter" value="2 990 FCFA — 200 minutes"/>
+        <button class="btn-save-field" onclick="sauvegarderChamp('prix-starter')">💾 Sauvegarder</button>
+      </div>
+
+      <div class="editor-field">
+        <label>💰 Prix forfait Smart</label>
+        <input id="edit-prix-smart" value="5 990 FCFA — 300 minutes"/>
+        <button class="btn-save-field" onclick="sauvegarderChamp('prix-smart')">💾 Sauvegarder</button>
+      </div>
+
+      <div class="editor-field">
+        <label>💰 Prix forfait Business</label>
+        <input id="edit-prix-business" value="15 990 FCFA — Illimité"/>
+        <button class="btn-save-field" onclick="sauvegarderChamp('prix-business')">💾 Sauvegarder</button>
+      </div>
+
+      <div class="editor-field">
+        <label>✉️ Prix points SMS</label>
+        <div class="hint">Tarif affiché pour les points SMS</div>
+        <input id="edit-prix-sms" value="1 000 FCFA = 5 points SMS"/>
+        <button class="btn-save-field" onclick="sauvegarderChamp('prix-sms')">💾 Sauvegarder</button>
+      </div>
+
+      <div class="editor-field">
+        <label>📢 Message d'annonce (optionnel)</label>
+        <div class="hint">Bandeau d'annonce en haut du site (laisser vide pour désactiver)</div>
+        <input id="edit-annonce" placeholder="Ex: 🎉 Offre de lancement : -20% sur le forfait Smart !"/>
+        <button class="btn-save-field" onclick="sauvegarderChamp('annonce')">💾 Sauvegarder</button>
+      </div>
+
     </div>
   </div>
 
@@ -192,19 +340,18 @@
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <h3>✏️ Modifier l'abonné</h3>
-    <input type="hidden" id="m-userId" />
-    <div class="field"><label>Nom</label><input id="m-nom" /></div>
-    <div class="field"><label>Prénom</label><input id="m-prenom" /></div>
-    <div class="field"><label>Téléphone</label><input id="m-tel" /></div>
-    <div class="field">
-      <label>Forfait</label>
+    <input type="hidden" id="m-userId"/>
+    <div class="field"><label>Nom</label><input id="m-nom"/></div>
+    <div class="field"><label>Prénom</label><input id="m-prenom"/></div>
+    <div class="field"><label>Téléphone</label><input id="m-tel"/></div>
+    <div class="field"><label>Forfait</label>
       <select id="m-forfait">
-        <option value="starter">Starter — 2 990 FCFA</option>
-        <option value="smart">Smart — 5 990 FCFA</option>
-        <option value="business">Business — 15 990 FCFA</option>
+        <option value="starter">Starter</option>
+        <option value="smart">Smart</option>
+        <option value="business">Business</option>
       </select>
     </div>
-    <div class="field"><label>Minutes bonus à ajouter</label><input id="m-bonus" type="number" placeholder="ex: 50" /></div>
+    <div class="field"><label>Minutes bonus à ajouter</label><input id="m-bonus" type="number" placeholder="ex: 50"/></div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="sauvegarderModif()">Sauvegarder</button>
       <button class="btn" style="background:#eee;color:#333" onclick="fermerModal()">Annuler</button>
@@ -215,211 +362,274 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = '';
-const WAVE_ID = 'M_rlEv9b4P3VtG';
-const MONTANTS = { starter: 2990, smart: 5990, business: 15990 };
-const MINUTES  = { starter: '200 min', smart: '300 min', business: 'Illimité' };
+const API='';
+const WAVE_ID='M_rlEv9b4P3VtG';
+const MONTANTS={starter:2990,smart:5990,business:15990};
+let tousAbonnes=[];
 
-let tousAbonnes = [];
+// ── TABS ──
+function changerTab(nom,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+nom).classList.add('active');
+  btn.classList.add('active');
+  if(nom==='sms')chargerActivitesSMS();
+  if(nom==='revenus')chargerRevenus();
+  if(nom==='contenu')chargerContenu();
+}
 
-// ─── INIT ───────────────────────────────────────────────────
-window.onload = () => {
+// ── INIT ──
+window.onload=()=>{
   chargerStats();
   chargerAbonnes();
-  setInterval(chargerStats, 30000);
+  setInterval(chargerStats,30000);
 };
 
-// ─── STATS ──────────────────────────────────────────────────
-async function chargerStats() {
-  try {
-    const r = await fetch(API + '/api/admin/stats');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    document.getElementById('s-total').textContent   = d.total   ?? 0;
-    document.getElementById('s-actifs').textContent  = d.actifs  ?? 0;
-    document.getElementById('s-attente').textContent = d.attente ?? 0;
-    document.getElementById('s-revenus').textContent = ((d.revenus ?? 0)).toLocaleString('fr-FR') + ' FCFA';
-    document.getElementById('api-status').textContent = '● API en ligne';
-  } catch (e) {
-    document.getElementById('api-status').textContent = '● Erreur API';
-  }
+// ── STATS ──
+async function chargerStats(){
+  try{
+    const r=await fetch(API+'/api/admin/stats');
+    const d=await r.json();
+    document.getElementById('s-total').textContent=d.total??0;
+    document.getElementById('s-actifs').textContent=d.actifs??0;
+    document.getElementById('s-attente').textContent=d.attente??0;
+    document.getElementById('s-revenus').textContent=((d.revenus??0)).toLocaleString('fr-FR')+' F';
+    document.getElementById('api-status').textContent='● API en ligne';
+  }catch(e){document.getElementById('api-status').textContent='● Hors ligne';}
 }
 
-// ─── ABONNÉS ────────────────────────────────────────────────
-async function chargerAbonnes() {
-  try {
-    const r = await fetch(API + '/api/admin/abonnes');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    tousAbonnes = await r.json();
+// ── ABONNÉS ──
+async function chargerAbonnes(){
+  try{
+    const r=await fetch(API+'/api/admin/abonnes');
+    tousAbonnes=await r.json();
     afficherAbonnes(tousAbonnes);
-  } catch (e) {
-    console.error('Erreur chargement abonnés:', e);
-  }
+  }catch(e){}
 }
 
-function afficherAbonnes(liste) {
-  const tbody = document.getElementById('tbody');
-  const empty = document.getElementById('empty-msg');
-  if (!liste.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = liste.map(a => {
-    const pct = a.minutes === 99999 ? 0 : Math.min(100, Math.round((a.minutesUsees||0)/a.minutes*100));
-    const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
-    const badge = { actif: 'badge-actif', en_attente: 'badge-attente', suspendu: 'badge-suspendu' }[a.statut] || 'badge-attente';
-    const statutLabel = { actif: 'Actif', en_attente: 'En attente', suspendu: 'Suspendu' }[a.statut] || a.statut;
-    return `<tr>
-      <td><code style="font-size:0.78rem">${a.userId}</code></td>
-      <td><strong>${a.nom}</strong>${a.prenom ? ' ' + a.prenom : ''}</td>
+function afficherAbonnes(liste){
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty-msg');
+  if(!liste.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=liste.map(a=>{
+    const pct=a.minutes===99999?0:Math.min(100,Math.round((a.minutesUsees||0)/a.minutes*100));
+    const date=a.createdAt?new Date(a.createdAt).toLocaleDateString('fr-FR'):'—';
+    const badge={actif:'badge-actif',en_attente:'badge-attente',suspendu:'badge-suspendu'}[a.statut]||'badge-attente';
+    const lbl={actif:'Actif',en_attente:'En attente',suspendu:'Suspendu'}[a.statut]||a.statut;
+    return`<tr>
+      <td><code style="font-size:0.75rem">${a.userId}</code></td>
+      <td><strong>${a.nom}</strong>${a.prenom?' '+a.prenom:''}</td>
       <td>${a.telephone}</td>
-      <td><code style="font-size:0.8rem;background:#e8f4fd;padding:2px 6px;border-radius:4px;color:#1a3a5c">${a.numeroVirtuel || '—'}</code></td>
-      <td>${a.forfaitNom || a.forfait}</td>
-      <td>
-        ${a.minutes === 99999 ? '∞ Illimité' : (a.minutesUsees||0) + ' / ' + a.minutes + ' min'}
-        ${a.minutes !== 99999 ? `<div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>` : ''}
-      </td>
-      <td><span class="badge ${badge}">${statutLabel}</span></td>
+      <td><code style="font-size:0.75rem;background:#e8f4fd;padding:2px 6px;border-radius:4px">${a.numeroVirtuel||'—'}</code></td>
+      <td>${a.forfaitNom||a.forfait}</td>
+      <td>${a.minutes===99999?'∞':((a.minutesUsees||0)+'/'+a.minutes+' min')}<div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div></td>
+      <td style="color:#6a1b9a;font-weight:700">${a.pointsSMS||0} pts</td>
+      <td><span class="badge ${badge}">${lbl}</span></td>
       <td>${date}</td>
-      <td>
-        <div class="actions">
-          ${a.statut !== 'actif'     ? `<button class="btn btn-success" onclick="activer('${a.userId}')">✅ Activer</button>` : ''}
-          ${a.statut === 'actif'     ? `<button class="btn btn-warning" onclick="suspendre('${a.userId}')">⏸ Suspendre</button>` : ''}
-          <button class="btn btn-info" onclick="ouvrirModal(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️</button>
-          <button class="btn btn-danger" onclick="supprimer('${a.userId}', '${a.nom}')">🗑</button>
-        </div>
-      </td>
+      <td><div class="actions">
+        ${a.statut!=='actif'?`<button class="btn btn-success" onclick="activer('${a.userId}')">✅</button>`:''}
+        ${a.statut==='actif'?`<button class="btn btn-warning" onclick="suspendre('${a.userId}')">⏸</button>`:''}
+        <button class="btn btn-info" onclick="ouvrirModal(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️</button>
+        <button class="btn btn-danger" onclick="supprimer('${a.userId}','${a.nom}')">🗑</button>
+      </div></td>
     </tr>`;
   }).join('');
 }
 
-function filtrerAbonnes() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const s = document.getElementById('filtre-statut').value;
-  const filtre = tousAbonnes.filter(a => {
-    const texte = (a.userId + a.nom + (a.prenom||'') + a.telephone).toLowerCase();
-    return texte.includes(q) && (!s || a.statut === s);
-  });
-  afficherAbonnes(filtre);
+function filtrerAbonnes(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const s=document.getElementById('filtre-statut').value;
+  afficherAbonnes(tousAbonnes.filter(a=>{
+    const t=(a.userId+a.nom+(a.prenom||'')+a.telephone).toLowerCase();
+    return t.includes(q)&&(!s||a.statut===s);
+  }));
 }
 
-// ─── AJOUTER ────────────────────────────────────────────────
-async function ajouterAbonne() {
-  const nom     = document.getElementById('f-nom').value.trim();
-  const prenom  = document.getElementById('f-prenom').value.trim();
-  const tel     = document.getElementById('f-tel').value.trim();
-  const forfait = document.getElementById('f-forfait').value;
-  if (!nom || !tel) { toast('Nom et téléphone obligatoires', true); return; }
-
-  try {
-    const r = await fetch(API + '/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nom, prenom, telephone: tel, forfait }),
-    });
-    const d = await r.json();
-    if (d.success) {
+async function ajouterAbonne(){
+  const nom=document.getElementById('f-nom').value.trim();
+  const prenom=document.getElementById('f-prenom').value.trim();
+  const tel=document.getElementById('f-tel').value.trim();
+  const forfait=document.getElementById('f-forfait').value;
+  if(!nom||!tel){toast('Nom et téléphone obligatoires',true);return;}
+  try{
+    const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom,prenom,telephone:tel,forfait})});
+    const d=await r.json();
+    if(d.success){
       navigator.clipboard.writeText(d.lienWave).catch(()=>{});
-      toast(`✅ Compte créé ! Lien Wave copié. ID: ${d.userId}`);
-      document.getElementById('f-nom').value = '';
-      document.getElementById('f-prenom').value = '';
-      document.getElementById('f-tel').value = '';
-      chargerAbonnes();
-      chargerStats();
-    } else {
-      toast(d.error || 'Erreur', true);
-    }
-  } catch (e) {
-    toast('Erreur réseau', true);
-  }
+      toast('✅ Compte créé ! Lien Wave copié. ID: '+d.userId);
+      document.getElementById('f-nom').value='';
+      document.getElementById('f-prenom').value='';
+      document.getElementById('f-tel').value='';
+      chargerAbonnes();chargerStats();
+    }else toast(d.error||'Erreur',true);
+  }catch(e){toast('Erreur réseau',true);}
 }
 
-// ─── ACTIVER ────────────────────────────────────────────────
-async function activer(userId) {
-  if (!confirm('Activer cet abonné ?')) return;
-  const r = await fetch(API + '/api/admin/activer/' + userId, { method: 'POST' });
-  const d = await r.json();
-  if (d.success) { toast('✅ Abonné activé !'); chargerAbonnes(); chargerStats(); }
-  else toast(d.error, true);
+async function activer(userId){
+  if(!confirm('Activer cet abonné ?'))return;
+  const r=await fetch(API+'/api/admin/activer/'+userId,{method:'POST'});
+  const d=await r.json();
+  if(d.success){toast('✅ Abonné activé !');chargerAbonnes();chargerStats();}
+  else toast(d.error,true);
 }
 
-// ─── SUSPENDRE ──────────────────────────────────────────────
-async function suspendre(userId) {
-  if (!confirm('Suspendre cet abonné ?')) return;
-  const r = await fetch(API + '/api/admin/suspendre/' + userId, { method: 'POST' });
-  const d = await r.json();
-  if (d.success) { toast('⏸ Abonné suspendu'); chargerAbonnes(); chargerStats(); }
-  else toast(d.error, true);
+async function suspendre(userId){
+  if(!confirm('Suspendre cet abonné ?'))return;
+  const r=await fetch(API+'/api/admin/suspendre/'+userId,{method:'POST'});
+  const d=await r.json();
+  if(d.success){toast('⏸ Abonné suspendu');chargerAbonnes();chargerStats();}
 }
 
-// ─── SUPPRIMER ──────────────────────────────────────────────
-async function supprimer(userId, nom) {
-  if (!confirm(`Supprimer définitivement ${nom} ?`)) return;
-  const r = await fetch(API + '/api/admin/abonne/' + userId, { method: 'DELETE' });
-  const d = await r.json();
-  if (d.success) { toast('🗑 Abonné supprimé'); chargerAbonnes(); chargerStats(); }
-  else toast(d.error, true);
+async function supprimer(userId,nom){
+  if(!confirm('Supprimer définitivement '+nom+' ?'))return;
+  const r=await fetch(API+'/api/admin/abonne/'+userId,{method:'DELETE'});
+  const d=await r.json();
+  if(d.success){toast('🗑 Abonné supprimé');chargerAbonnes();chargerStats();}
 }
 
-// ─── MODAL MODIFIER ─────────────────────────────────────────
-function ouvrirModal(a) {
-  document.getElementById('m-userId').value  = a.userId;
-  document.getElementById('m-nom').value     = a.nom || '';
-  document.getElementById('m-prenom').value  = a.prenom || '';
-  document.getElementById('m-tel').value     = a.telephone || '';
-  document.getElementById('m-forfait').value = a.forfait || 'smart';
-  document.getElementById('m-bonus').value   = '';
+// ── MODAL ──
+function ouvrirModal(a){
+  document.getElementById('m-userId').value=a.userId;
+  document.getElementById('m-nom').value=a.nom||'';
+  document.getElementById('m-prenom').value=a.prenom||'';
+  document.getElementById('m-tel').value=a.telephone||'';
+  document.getElementById('m-forfait').value=a.forfait||'smart';
+  document.getElementById('m-bonus').value='';
   document.getElementById('modal').classList.add('open');
 }
+function fermerModal(){document.getElementById('modal').classList.remove('open');}
 
-function fermerModal() {
-  document.getElementById('modal').classList.remove('open');
+async function sauvegarderModif(){
+  const userId=document.getElementById('m-userId').value;
+  const body={nom:document.getElementById('m-nom').value,prenom:document.getElementById('m-prenom').value,telephone:document.getElementById('m-tel').value,forfait:document.getElementById('m-forfait').value,minutesBonus:document.getElementById('m-bonus').value||null};
+  const r=await fetch(API+'/api/admin/abonne/'+userId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){toast('✅ Abonné mis à jour');fermerModal();chargerAbonnes();chargerStats();}
+  else toast(d.error,true);
 }
 
-async function sauvegarderModif() {
-  const userId = document.getElementById('m-userId').value;
-  const body = {
-    nom:          document.getElementById('m-nom').value,
-    prenom:       document.getElementById('m-prenom').value,
-    telephone:    document.getElementById('m-tel').value,
-    forfait:      document.getElementById('m-forfait').value,
-    minutesBonus: document.getElementById('m-bonus').value || null,
-  };
-  const r = await fetch(API + '/api/admin/abonne/' + userId, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const d = await r.json();
-  if (d.success) { toast('✅ Abonné mis à jour'); fermerModal(); chargerAbonnes(); chargerStats(); }
-  else toast(d.error, true);
-}
-
-// ─── LIENS WAVE ─────────────────────────────────────────────
-function copierLien(forfait) {
-  const montant = MONTANTS[forfait];
-  const minutes = MINUTES[forfait];
-  const lien = `https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${montant}`;
-  const msg  = `📱 Forfait PST ${forfait.charAt(0).toUpperCase()+forfait.slice(1)} — ${minutes} d'appels/mois\nPrix : ${montant.toLocaleString('fr-FR')} FCFA seulement !\nPayez maintenant via Wave 👇\n${lien}`;
+// ── LIENS WAVE ──
+function copierLien(forfait){
+  const montant=MONTANTS[forfait];
+  const lien=`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${montant}`;
+  const msg=`📱 Forfait PST ${forfait.charAt(0).toUpperCase()+forfait.slice(1)}\nPrix : ${montant.toLocaleString('fr-FR')} FCFA\nPayez via Wave 👇\n${lien}`;
   navigator.clipboard.writeText(msg).catch(()=>{});
-  toast(`✅ Lien ${forfait} copié !`);
+  toast('✅ Lien '+forfait+' copié !');
 }
 
-// ─── TOAST ──────────────────────────────────────────────────
-function toast(msg, error = false) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.background = error ? '#c62828' : '#1a3a5c';
+// ── ACTIVITÉ SMS ──
+async function chargerActivitesSMS(){
+  try{
+    // Stats SMS
+    const rs=await fetch(API+'/api/admin/sms-stats');
+    const ds=await rs.json();
+    document.getElementById('sms-total').textContent=ds.totalActivations??0;
+    document.getElementById('sms-recus').textContent=ds.totalActivations??0;
+    document.getElementById('sms-points').textContent=ds.pointsVendus??0;
+    document.getElementById('sms-revenus').textContent=((ds.revenusPoints??0)).toLocaleString('fr-FR')+' F';
+
+    // Activations
+    const ra=await fetch(API+'/api/admin/activations');
+    const activations=await ra.json();
+    const tbody=document.getElementById('sms-tbody');
+    if(!activations.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:#aaa">Aucune activation SMS</td></tr>';
+      return;
+    }
+    tbody.innerHTML=activations.map(a=>{
+      const date=a.createdAt?new Date(a.createdAt).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+      const badge=a.statut==='recu'?'badge-recu':'badge-en_attente';
+      const lbl=a.statut==='recu'?'✅ Reçu':'⏳ En attente';
+      return`<tr>
+        <td><code style="font-size:0.72rem">${a.activationId}</code></td>
+        <td>${a.nom||''} ${a.prenom||''}<br><code style="font-size:0.7rem;color:#aaa">${a.userId}</code></td>
+        <td>${a.icon||'📱'} ${a.service}</td>
+        <td><code style="font-size:0.78rem">${a.numeroTemp}</code></td>
+        <td><span class="badge ${badge}">${lbl}</span></td>
+        <td style="font-weight:600;color:#2e7d32">${a.smsRecu||'—'}</td>
+        <td>${date}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){console.error(e);}
+}
+
+// ── AJOUTER POINTS ──
+async function ajouterPoints(){
+  const userId=document.getElementById('pts-userId').value.trim();
+  const points=document.getElementById('pts-nombre').value;
+  if(!userId||!points){toast('ID et points obligatoires',true);return;}
+  try{
+    const r=await fetch(API+'/api/admin/ajouter-points',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,points:parseInt(points)})});
+    const d=await r.json();
+    if(d.success){toast('✅ '+points+' points ajoutés à '+userId);document.getElementById('pts-userId').value='';document.getElementById('pts-nombre').value='';chargerActivitesSMS();}
+    else toast(d.error||'Erreur',true);
+  }catch(e){toast('Erreur réseau',true);}
+}
+
+// ── REVENUS ──
+async function chargerRevenus(){
+  try{
+    const[rs,rss]=await Promise.all([fetch(API+'/api/admin/stats'),fetch(API+'/api/admin/sms-stats')]);
+    const ds=await rs.json();const dss=await rss.json();
+    const revForfaits=ds.revenus||0;
+    const revSMS=dss.revenusPoints||0;
+    document.getElementById('rev-forfaits').textContent=revForfaits.toLocaleString('fr-FR')+' F';
+    document.getElementById('rev-sms').textContent=revSMS.toLocaleString('fr-FR')+' F';
+    document.getElementById('rev-total').textContent=(revForfaits+revSMS).toLocaleString('fr-FR')+' F';
+    document.getElementById('rev-actifs').textContent=ds.actifs||0;
+
+    // Feed activité
+    const abonnes=await(await fetch(API+'/api/admin/abonnes')).json();
+    const feed=document.getElementById('activity-feed');
+    if(!abonnes.length){feed.innerHTML='<div class="empty">Aucune activité</div>';return;}
+    feed.innerHTML=abonnes.slice(0,20).map(a=>`
+      <div class="activity-item">
+        <div class="activity-icon pay">💰</div>
+        <div class="activity-info">
+          <div class="activity-title">${a.nom} ${a.prenom||''} — Forfait ${a.forfaitNom||a.forfait}</div>
+          <div class="activity-sub">ID: ${a.userId} · ${a.telephone}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:#2e7d32">${(a.prix||0).toLocaleString('fr-FR')} FCFA</div>
+          <div class="activity-time">${a.createdAt?new Date(a.createdAt).toLocaleDateString('fr-FR'):'—'}</div>
+        </div>
+      </div>`).join('');
+  }catch(e){}
+}
+
+// ── ÉDITEUR CONTENU ──
+const CONTENU_KEY='pst_admin_contenu';
+
+function chargerContenu(){
+  const saved=localStorage.getItem(CONTENU_KEY);
+  if(!saved)return;
+  const contenu=JSON.parse(saved);
+  Object.entries(contenu).forEach(([k,v])=>{
+    const el=document.getElementById('edit-'+k);
+    if(el)el.value=v;
+  });
+}
+
+function sauvegarderChamp(champ){
+  const el=document.getElementById('edit-'+champ);
+  if(!el)return;
+  const saved=JSON.parse(localStorage.getItem(CONTENU_KEY)||'{}');
+  saved[champ]=el.value;
+  localStorage.setItem(CONTENU_KEY,JSON.stringify(saved));
+  toast('✅ "'+champ+'" sauvegardé !');
+}
+
+// ── TOAST ──
+function toast(msg,error=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=error?'#c62828':'#1a3a5c';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3500);
+  setTimeout(()=>t.classList.remove('show'),3500);
 }
 
-// Fermer modal en cliquant dehors
-document.getElementById('modal').addEventListener('click', function(e) {
-  if (e.target === this) fermerModal();
-});
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)fermerModal();});
 </script>
 </body>
 </html>
