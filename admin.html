@@ -392,6 +392,49 @@ textarea.field-input { resize:vertical; min-height:80px; }
 
       <!-- USERS -->
       <div class="section" id="section-users">
+
+        <!-- AJOUT MANUEL -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">➕ Ajouter un abonné manuellement</div>
+            <button class="refresh-btn" onclick="toggleAddForm('appel')">+ Forfait appels</button>
+          </div>
+          <div id="add-appel-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
+              <div>
+                <label class="field-label">Nom *</label>
+                <input class="field-input" id="add-nom" placeholder="Touré">
+              </div>
+              <div>
+                <label class="field-label">Prénom</label>
+                <input class="field-input" id="add-prenom" placeholder="Papa Seny">
+              </div>
+              <div>
+                <label class="field-label">Téléphone *</label>
+                <input class="field-input" id="add-tel" placeholder="+221771234567">
+              </div>
+              <div>
+                <label class="field-label">Forfait *</label>
+                <select class="field-input" id="add-forfait">
+                  <option value="starter">Starter — 200 min — 2 990 FCFA</option>
+                  <option value="smart" selected>Smart — 300 min — 5 990 FCFA</option>
+                  <option value="business">Business — Illimité — 15 990 FCFA</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;align-items:center;">
+              <select class="field-input" id="add-statut" style="width:180px;">
+                <option value="en_attente">En attente de paiement</option>
+                <option value="actif">Actif (paiement confirmé)</option>
+              </select>
+              <button class="save-btn" onclick="addUserManual()">✅ Créer l'abonné</button>
+              <div id="add-wave-link" style="display:none;">
+                Lien Wave : <a id="add-wave-url" href="#" target="_blank" style="color:var(--green);font-weight:700;">Copier →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">👥 Tous les abonnés</div>
@@ -411,6 +454,42 @@ textarea.field-input { resize:vertical; min-height:80px; }
 
       <!-- SMS LOGS -->
       <div class="section" id="section-sms-logs">
+
+        <!-- AJOUT MANUEL SMS -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">➕ Ajouter un utilisateur SMS manuellement</div>
+            <button class="refresh-btn" onclick="toggleAddForm('sms')">+ Compte SMS</button>
+          </div>
+          <div id="add-sms-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
+              <div>
+                <label class="field-label">Nom *</label>
+                <input class="field-input" id="sms-nom" placeholder="Touré">
+              </div>
+              <div>
+                <label class="field-label">Prénom</label>
+                <input class="field-input" id="sms-prenom" placeholder="Papa Seny">
+              </div>
+              <div>
+                <label class="field-label">Téléphone *</label>
+                <input class="field-input" id="sms-tel" placeholder="+221771234567">
+              </div>
+              <div>
+                <label class="field-label">Points SMS offerts</label>
+                <input class="field-input" type="number" id="sms-points" placeholder="5" value="5">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;align-items:center;">
+              <select class="field-input" id="sms-statut" style="width:220px;">
+                <option value="en_attente">En attente de paiement</option>
+                <option value="actif">Actif (points offerts)</option>
+              </select>
+              <button class="save-btn" onclick="addSmsUserManual()">✅ Créer le compte SMS</button>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">✉️ Utilisateurs SMS Verif</div>
@@ -846,6 +925,67 @@ function updateActivityBadge() {
   const b = document.getElementById('activity-badge');
   if(newActivityCount > 0) { b.style.display='block'; b.textContent=newActivityCount; }
   else b.style.display='none';
+}
+
+// ─── AJOUT MANUEL ────────────────────────────────────────────────
+function toggleAddForm(type) {
+  const id = type === 'sms' ? 'add-sms-form' : 'add-appel-form';
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function addUserManual() {
+  const nom = document.getElementById('add-nom').value.trim();
+  const prenom = document.getElementById('add-prenom').value.trim();
+  const telephone = document.getElementById('add-tel').value.trim();
+  const forfait = document.getElementById('add-forfait').value;
+  const statut = document.getElementById('add-statut').value;
+  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
+  try {
+    const res = await fetch(API + '/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, prenom, telephone, forfait })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (statut === 'actif') {
+        await fetch(API + '/api/admin/users/' + data.userId + '/activate', { method: 'POST' });
+      }
+      const prices = { starter: 2990, smart: 5990, business: 15990 };
+      const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + prices[forfait];
+      document.getElementById('add-wave-link').style.display = 'block';
+      document.getElementById('add-wave-url').href = waveUrl;
+      document.getElementById('add-wave-url').textContent = '💚 Lien Wave ' + forfait + ' →';
+      showToast('✅ Abonné créé : ' + data.userId, 'success');
+      document.getElementById('add-nom').value = '';
+      document.getElementById('add-prenom').value = '';
+      document.getElementById('add-tel').value = '';
+      loadUsers(); loadStats();
+    } else { showToast('Erreur : ' + (data.error || ''), 'error'); }
+  } catch (e) { showToast('Erreur de connexion', 'error'); }
+}
+
+async function addSmsUserManual() {
+  const nom = document.getElementById('sms-nom').value.trim();
+  const prenom = document.getElementById('sms-prenom').value.trim();
+  const telephone = document.getElementById('sms-tel').value.trim();
+  const points = parseInt(document.getElementById('sms-points').value) || 5;
+  const statut = document.getElementById('sms-statut').value;
+  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
+  try {
+    const res = await fetch(API + '/api/sms/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, prenom, telephone, pointsInitiaux: statut === 'actif' ? points : 0 })
+    });
+    const data = await res.json();
+    if (data.success || data.userId) {
+      showToast('✅ Compte SMS créé : ' + (data.userId || ''), 'success');
+      document.getElementById('sms-nom').value = '';
+      document.getElementById('sms-prenom').value = '';
+      document.getElementById('sms-tel').value = '';
+      loadSmsUsers(); loadStats();
+    } else { showToast('Erreur : ' + (data.error || ''), 'error'); }
+  } catch (e) { showToast('Erreur de connexion', 'error'); }
 }
 
 // ─── ADMINS ──────────────────────────────────────────────────────
