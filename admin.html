@@ -286,6 +286,9 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('calls')" id="nav-calls">
         <span class="nav-icon">📞</span> Appels
       </button>
+      <button class="nav-item" onclick="showSection('payments')" id="nav-payments">
+        <span class="nav-icon">💰</span> Paiements
+      </button>
       <button class="nav-item" onclick="showSection('revenue')" id="nav-revenue">
         <span class="nav-icon">💰</span> Revenus
       </button>
@@ -515,6 +518,90 @@ textarea.field-input { resize:vertical; min-height:80px; }
             <table class="data-table">
               <thead><tr><th>Heure</th><th>Appelant</th><th>Destination</th><th>Durée</th><th>Statut</th></tr></thead>
               <tbody id="calls-table"><tr><td colspan="5" class="empty"><div class="empty-icon">📞</div><p>Aucun appel enregistré</p></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAIEMENTS -->
+      <div class="section" id="section-payments">
+
+        <!-- AJOUTER PAIEMENT MANUEL -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">➕ Enregistrer un paiement manuel</div>
+            <button class="refresh-btn" onclick="togglePayForm()">+ Nouveau paiement</button>
+          </div>
+          <div id="pay-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
+              <div>
+                <label class="field-label">ID Abonné *</label>
+                <input class="field-input" id="pay-userid" placeholder="PST-XXXXXXXX">
+              </div>
+              <div>
+                <label class="field-label">Montant (FCFA) *</label>
+                <input class="field-input" type="number" id="pay-montant" placeholder="5990">
+              </div>
+              <div>
+                <label class="field-label">Moyen de paiement</label>
+                <select class="field-input" id="pay-moyen">
+                  <option value="wave">Wave</option>
+                  <option value="orange_money">Orange Money</option>
+                  <option value="especes">Espèces</option>
+                  <option value="carte">Carte bancaire</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Type</label>
+                <select class="field-input" id="pay-type">
+                  <option value="forfait">Forfait appels</option>
+                  <option value="sms">Points SMS</option>
+                  <option value="renouvellement">Renouvellement</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;align-items:center;">
+              <input class="field-input" id="pay-ref" placeholder="Référence / Note (optionnel)" style="flex:1;">
+              <select class="field-input" id="pay-statut" style="width:180px;">
+                <option value="confirme">Confirmé ✅</option>
+                <option value="en_attente">En attente ⏳</option>
+              </select>
+              <button class="save-btn" onclick="addPayment()">💰 Enregistrer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTE PAIEMENTS -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">💰 Tous les paiements</div>
+            <div style="display:flex;gap:10px;">
+              <select id="pay-filter" class="field-input" style="width:160px;padding:7px 12px;font-size:13px;" onchange="filterPayments()">
+                <option value="tous">Tous</option>
+                <option value="confirme">Confirmés</option>
+                <option value="en_attente">En attente</option>
+              </select>
+              <button class="refresh-btn" onclick="loadPayments()">↻</button>
+            </div>
+          </div>
+          <div class="panel-body" style="max-height:600px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>ID Abonné</th>
+                  <th>Montant</th>
+                  <th>Moyen</th>
+                  <th>Type</th>
+                  <th>Référence</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="payments-table">
+                <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -1063,10 +1150,114 @@ function saveContent() {
   }).then(()=>showToast('✅ Contenu sauvegardé','success')).catch(()=>showToast('Erreur','error'));
 }
 
+// ─── PAIEMENTS ───────────────────────────────────────────────────
+let allPayments = [];
+
+function togglePayForm() {
+  const el = document.getElementById('pay-form');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadPayments() {
+  try {
+    const res = await fetch(API + '/api/admin/payments');
+    const data = await res.json();
+    allPayments = Array.isArray(data) ? data : (data.payments || []);
+    renderPayments(allPayments);
+  } catch(e) {
+    document.getElementById('payments-table').innerHTML =
+      '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement enregistré</td></tr>';
+  }
+}
+
+function filterPayments() {
+  const f = document.getElementById('pay-filter').value;
+  const filtered = f === 'tous' ? allPayments : allPayments.filter(p => p.statut === f);
+  renderPayments(filtered);
+}
+
+function renderPayments(payments) {
+  const tbody = document.getElementById('payments-table');
+  if (!payments.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement</td></tr>';
+    return;
+  }
+  const moyenIcon = { wave:'💚', orange_money:'🟠', especes:'💵', carte:'💳', autre:'🔗' };
+  const typeLabel = { forfait:'Forfait', sms:'Points SMS', renouvellement:'Renouvellement' };
+  tbody.innerHTML = payments.map(p => {
+    const date = p.createdAt ? new Date(p.createdAt).toLocaleString('fr-FR') : '—';
+    const icon = moyenIcon[p.moyen] || '💰';
+    const statBadge = p.statut === 'confirme'
+      ? '<span class="badge active">✅ Confirmé</span>'
+      : '<span class="badge pending">⏳ En attente</span>';
+    return `<tr>
+      <td style="font-size:12px;color:var(--muted)">${date}</td>
+      <td><span class="mono">${p.userId || '—'}</span></td>
+      <td><strong style="color:var(--green)">${(p.montant||0).toLocaleString('fr-FR')} FCFA</strong></td>
+      <td>${icon} ${p.moyen || '—'}</td>
+      <td><span class="badge pending">${typeLabel[p.type] || p.type || '—'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${p.reference || '—'}</td>
+      <td>${statBadge}</td>
+      <td><div class="action-group">
+        ${p.statut !== 'confirme' ? `<button class="act-btn activate" onclick="validatePayment('${p._id}')">✅ Valider</button>` : ''}
+        <button class="act-btn delete" onclick="deletePayment('${p._id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function addPayment() {
+  const userId = document.getElementById('pay-userid').value.trim();
+  const montant = parseInt(document.getElementById('pay-montant').value);
+  const moyen = document.getElementById('pay-moyen').value;
+  const type = document.getElementById('pay-type').value;
+  const reference = document.getElementById('pay-ref').value.trim();
+  const statut = document.getElementById('pay-statut').value;
+  if (!userId || !montant) { showToast('ID abonné et montant requis', 'error'); return; }
+  try {
+    const res = await fetch(API + '/api/admin/payments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, montant, moyen, type, reference, statut })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (statut === 'confirme') {
+        await fetch(API + '/api/admin/users/' + userId + '/activate', { method: 'POST' });
+      }
+      showToast('💰 Paiement enregistré', 'success');
+      document.getElementById('pay-userid').value = '';
+      document.getElementById('pay-montant').value = '';
+      document.getElementById('pay-ref').value = '';
+      loadPayments(); loadStats();
+    } else { showToast('Erreur : ' + (data.error || ''), 'error'); }
+  } catch(e) { showToast('Erreur de connexion', 'error'); }
+}
+
+async function validatePayment(id) {
+  try {
+    const res = await fetch(API + '/api/admin/payments/' + id + '/validate', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ Paiement validé — abonné activé', 'success');
+      loadPayments(); loadUsers(); loadStats();
+    }
+  } catch(e) { showToast('Erreur', 'error'); }
+}
+
+async function deletePayment(id) {
+  if (!confirm('Supprimer cette transaction ?')) return;
+  try {
+    const res = await fetch(API + '/api/admin/payments/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) { showToast('🗑 Transaction supprimée', 'success'); loadPayments(); loadStats(); }
+  } catch(e) { showToast('Erreur', 'error'); }
+}
+
 // ─── NAV ─────────────────────────────────────────────────────────
 const SECTION_TITLES = {
   dashboard:'Vue générale', activity:'Activité temps réel', users:'Abonnés',
-  'sms-logs':'SMS Verif', calls:'Appels', revenue:'Revenus', admins:'Gérer les admins', content:'Éditeur de contenu'
+  'sms-logs':'SMS Verif', calls:'Appels', payments:'Paiements', revenue:'Revenus',
+  admins:'Gérer les admins', content:'Éditeur de contenu'
 };
 
 function showSection(id) {
@@ -1077,6 +1268,7 @@ function showSection(id) {
   document.getElementById('page-title').textContent = SECTION_TITLES[id]||id;
   if(id==='admins') renderAdmins();
   if(id==='content') loadContent();
+  if(id==='payments') loadPayments();
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
 }
 

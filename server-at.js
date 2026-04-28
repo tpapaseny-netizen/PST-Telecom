@@ -882,6 +882,65 @@ app.get('/api/sms/compte/:userId', async (req, res) => {
     if (!compte) return res.status(404).json({ error: 'Compte introuvable' });
     res.json({ userId: compte.userId, nom: compte.nom, pointsSMS: compte.pointsSMS || 0, type: compte.type || 'abonne' });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});// ═══ ROUTES PAIEMENTS ════════════════════════════════════
+
+// Lister tous les paiements
+app.get('/api/admin/payments', async (req, res) => {
+  try {
+    const payments = await db.collection('payments').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(payments);
+  } catch (e) { res.json([]); }
+});
+
+// Enregistrer un paiement manuel
+app.post('/api/admin/payments', async (req, res) => {
+  try {
+    const { userId, montant, moyen, type, reference, statut } = req.body;
+    if (!userId || !montant) return res.status(400).json({ error: 'userId et montant requis' });
+    const payment = {
+      userId, montant: parseInt(montant), moyen: moyen || 'wave',
+      type: type || 'forfait', reference: reference || '',
+      statut: statut || 'en_attente', createdAt: new Date()
+    };
+    const result = await db.collection('payments').insertOne(payment);
+    await db.collection('activity_logs').insertOne({
+      type: 'paiement', message: `Paiement ${montant} FCFA enregistré pour ${userId} (${moyen})`,
+      createdAt: new Date()
+    });
+    res.json({ success: true, id: result.insertedId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Valider un paiement et activer l'abonné
+app.post('/api/admin/payments/:id/validate', async (req, res) => {
+  try {
+    const { ObjectId } = require('mongodb');
+    const payment = await db.collection('payments').findOne({ _id: new ObjectId(req.params.id) });
+    if (!payment) return res.status(404).json({ error: 'Paiement introuvable' });
+    await db.collection('payments').updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { statut: 'confirme', validatedAt: new Date() } }
+    );
+    // Activer l'abonné
+    await db.collection('abonnes').updateOne(
+      { userId: payment.userId },
+      { $set: { statut: 'actif', activatedAt: new Date() } }
+    );
+    await db.collection('activity_logs').insertOne({
+      type: 'activation', message: `Paiement validé — ${payment.userId} activé (${payment.montant} FCFA)`,
+      createdAt: new Date()
+    });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Supprimer une transaction
+app.delete('/api/admin/payments/:id', async (req, res) => {
+  try {
+    const { ObjectId } = require('mongodb');
+    await db.collection('payments').deleteOne({ _id: new ObjectId(req.params.id) });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // ═══ ROUTES ADMIN ═══════════════════════════════════════
 
