@@ -291,7 +291,7 @@ app.delete('/api/admin/abonne/:userId', async (req, res) => {
   }
 });
 
-// ─── APPEL ──────────────────────────────────────────────────
+// ─── APPELS VONAGE ──────────────────────────────────────────
 app.post('/api/appel/initier', async (req, res) => {
   try {
     const { userId, numeroDestination } = req.body;
@@ -300,20 +300,43 @@ app.post('/api/appel/initier', async (req, res) => {
 
     if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
     if (abonne.statut !== 'actif') return res.status(403).json({ error: 'Forfait non actif' });
-    if (abonne.minutes !== 99999 && abonne.minutesUsees >= abonne.minutes) {
+    if (abonne.minutes !== 99999 && (abonne.minutesUsees||0) >= abonne.minutes) {
       return res.status(403).json({ error: 'Minutes épuisées' });
     }
 
-    const at = getAT();
-    if (at) {
+    const VONAGE_KEY    = process.env.VONAGE_API_KEY;
+    const VONAGE_SECRET = process.env.VONAGE_API_SECRET;
+
+    if (VONAGE_KEY && VONAGE_SECRET) {
       try {
-        const callResp = await at.VOICE.call({
-          callFrom: '+254711082300',
-          callTo:   [numeroDestination],
+        const Vonage = require('@vonage/server-sdk');
+        const vonage = new Vonage({ apiKey: VONAGE_KEY, apiSecret: VONAGE_SECRET });
+
+        const from = process.env.VONAGE_NUMBER || '15550100700';
+        const to   = numeroDestination.replace(/\s/g, '');
+
+        vonage.calls.create({
+          to:   [{ type: 'phone', number: to }],
+          from: { type: 'phone', number: from },
+          ncco: [{
+            action: 'talk',
+            text: `Appel PST Pure Smart Telecom. Connexion en cours.`,
+            language: 'fr-FR',
+          }],
+        }, (err, resp) => {
+          if (err) {
+            console.error('Vonage erreur:', err);
+            return res.json({ success: true, callId: 'DEMO-' + Date.now(), type: 'sandbox', message: 'Mode test' });
+          }
+          // Déduire 1 minute
+          if (db) {
+            db.collection('abonnes').updateOne({ userId }, { $inc: { minutesUsees: 1 } });
+          }
+          return res.json({ success: true, callId: resp.uuid, type: 'real', message: 'Appel Vonage initié' });
         });
-        return res.json({ success: true, callId: callResp.entries?.[0]?.sessionId || 'AT-' + Date.now(), type: 'real' });
-      } catch (voiceErr) {
-        console.warn('Appel AT:', voiceErr.message);
+        return;
+      } catch (vonageErr) {
+        console.warn('Vonage SDK erreur:', vonageErr.message);
       }
     }
 
