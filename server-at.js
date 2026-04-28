@@ -89,9 +89,9 @@ async function deleteAbonne(userId) {
 
 // ─── ROUTES ─────────────────────────────────────────────────
 
-// Santé
+// Santé API
 app.get('/', (req, res) => {
-  res.json({ service: 'PST Pure Smart Telecom', status: 'online', version: '4.0' });
+  res.redirect('https://pst-telecom.vercel.app');
 });
 
 // Middleware auth admin
