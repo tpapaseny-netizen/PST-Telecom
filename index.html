@@ -354,6 +354,7 @@ document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
 function choisirForfait(f){
   const sel=document.getElementById('s-forfait');
   if(sel)sel.value=f;
+  document.getElementById('inscription').scrollIntoView({behavior:'smooth'});
 }
 
 async function sInscrire(){
