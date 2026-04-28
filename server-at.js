@@ -883,7 +883,78 @@ app.get('/api/sms/compte/:userId', async (req, res) => {
     res.json({ userId: compte.userId, nom: compte.nom, pointsSMS: compte.pointsSMS || 0, type: compte.type || 'abonne' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// ═══ ROUTES ADMIN ═══════════════════════════════════════
 
+const SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
+
+app.post('/api/admin/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+  if (password !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Mot de passe incorrect' });
+  const isSuper = SUPER_ADMINS.includes(email.toLowerCase());
+  res.json({ success: true, role: isSuper ? 'super' : 'admin', name: email.split('@')[0] });
+});
+
+app.get('/api/admin/activity', async (req, res) => {
+  try {
+    const logs = await db.collection('activity_logs').find({}).sort({ createdAt: -1 }).limit(50).toArray();
+    res.json(logs.map(l => ({ type: l.type, message: l.message, time: new Date(l.createdAt).toLocaleTimeString('fr-FR') })));
+  } catch (e) { res.json([]); }
+});
+
+app.get('/api/admin/sms-users', async (req, res) => {
+  try {
+    const users = await db.collection('sms_users').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(users);
+  } catch (e) { res.json([]); }
+});
+
+app.post('/api/admin/users/:id/activate', async (req, res) => {
+  try {
+    await db.collection('abonnes').updateOne({ userId: req.params.id }, { $set: { statut: 'actif' } });
+    await db.collection('activity_logs').insertOne({ type: 'activation', message: `Abonné ${req.params.id} activé`, createdAt: new Date() });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/users/:id/suspend', async (req, res) => {
+  try {
+    await db.collection('abonnes').updateOne({ userId: req.params.id }, { $set: { statut: 'suspendu' } });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { forfait, minutesBonus } = req.body;
+    const update = { $set: {} };
+    if (forfait) update.$set.forfait = forfait;
+    if (minutesBonus) update.$inc = { minutes: parseInt(minutesBonus) };
+    await db.collection('abonnes').updateOne({ userId: req.params.id }, update);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    await db.collection('abonnes').deleteOne({ userId: req.params.id });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/content', async (req, res) => {
+  try {
+    const content = await db.collection('site_content').findOne({});
+    res.json(content || {});
+  } catch (e) { res.json({}); }
+});
+
+app.post('/api/admin/content', async (req, res) => {
+  try {
+    await db.collection('site_content').updateOne({}, { $set: req.body }, { upsert: true });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
