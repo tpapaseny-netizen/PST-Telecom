@@ -161,17 +161,19 @@
     padding: 60px 32px;
   }
   .sms-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
-  .sms-left h2 { font-family: 'Syne', sans-serif; font-size: clamp(28px, 4vw, 42px); font-weight: 800; margin-bottom: 16px; }
-  .sms-left p { color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+  .sms-left h2 { font-family: 'Syne', sans-serif; font-size: clamp(22px, 4vw, 42px); font-weight: 800; margin-bottom: 16px; word-break: break-word; }
+  .sms-left p { color: var(--muted); line-height: 1.7; margin-bottom: 16px; word-wrap: break-word; overflow-wrap: break-word; }
   .sms-btn {
     display: inline-block; background: var(--green); color: #000; text-decoration: none;
-    padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 15px;
+    padding: 14px 24px; border-radius: 10px; font-weight: 700; font-size: 14px;
+    white-space: nowrap;
   }
-  .sms-logos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sms-logos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .sms-logo {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 16px; text-align: center;
-    font-size: 11px; color: var(--muted);
+    border-radius: 12px; padding: 12px 6px; text-align: center;
+    font-size: 10px; color: var(--muted); word-break: break-word;
+    overflow: hidden;
   }
   .sms-logo .logo-icon { font-size: 28px; margin-bottom: 8px; }
 
@@ -188,8 +190,13 @@
     .forfait-btn .fprice { font-size: 13px; }
     .form-row { grid-template-columns: 1fr; }
     .form-card { padding: 24px 20px; }
-    .sms-inner { grid-template-columns: 1fr; gap: 32px; }
-    .sms-logos { grid-template-columns: repeat(4, 1fr); }
+    .sms-inner { grid-template-columns: 1fr; gap: 32px; padding: 0 4px; }
+    .sms-section { padding: 40px 16px; }
+    .sms-left h2 { font-size: 24px; }
+    .sms-logos { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .sms-logo { padding: 10px 4px; font-size: 9px; border-radius: 10px; }
+    .sms-logo .logo-icon { font-size: 20px; margin-bottom: 4px; }
+    .sms-btn { font-size: 13px; padding: 12px 20px; }
     .features { padding: 32px 20px 60px; }
   }
 </style>
