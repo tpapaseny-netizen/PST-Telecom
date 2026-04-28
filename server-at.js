@@ -309,34 +309,25 @@ app.post('/api/appel/initier', async (req, res) => {
 
     if (VONAGE_KEY && VONAGE_SECRET) {
       try {
-        const Vonage = require('@vonage/server-sdk');
-        const vonage = new Vonage({ apiKey: VONAGE_KEY, apiSecret: VONAGE_SECRET });
-
-        const from = process.env.VONAGE_NUMBER || '15550100700';
-        const to   = numeroDestination.replace(/\s/g, '');
-
-        vonage.calls.create({
-          to:   [{ type: 'phone', number: to }],
-          from: { type: 'phone', number: from },
-          ncco: [{
-            action: 'talk',
-            text: `Appel PST Pure Smart Telecom. Connexion en cours.`,
-            language: 'fr-FR',
-          }],
-        }, (err, resp) => {
-          if (err) {
-            console.error('Vonage erreur:', err);
-            return res.json({ success: true, callId: 'DEMO-' + Date.now(), type: 'sandbox', message: 'Mode test' });
-          }
-          // Déduire 1 minute
-          if (db) {
-            db.collection('abonnes').updateOne({ userId }, { $inc: { minutesUsees: 1 } });
-          }
-          return res.json({ success: true, callId: resp.uuid, type: 'real', message: 'Appel Vonage initié' });
+        const to = numeroDestination.replace(/\s/g, '');
+        const VONAGE_NUMBER = process.env.VONAGE_NUMBER || '12345678901';
+        const credentials = Buffer.from(`${VONAGE_KEY}:${VONAGE_SECRET}`).toString('base64');
+        const r = await fetch('https://api.nexmo.com/v1/calls', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${credentials}` },
+          body: JSON.stringify({
+            to: [{ type: 'phone', number: to }],
+            from: { type: 'phone', number: VONAGE_NUMBER },
+            ncco: [{ action: 'talk', text: 'Appel PST Pure Smart Telecom. Connexion en cours.', language: 'fr-FR' }]
+          }),
         });
-        return;
+        if (r.ok) {
+          const data = await r.json();
+          if (db) await db.collection('abonnes').updateOne({ userId }, { $inc: { minutesUsees: 1 } });
+          return res.json({ success: true, callId: data.uuid || 'VNG-' + Date.now(), type: 'real' });
+        }
       } catch (vonageErr) {
-        console.warn('Vonage SDK erreur:', vonageErr.message);
+        console.warn('Vonage erreur:', vonageErr.message);
       }
     }
 
