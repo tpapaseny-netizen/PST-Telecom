@@ -162,6 +162,30 @@ app.get('/dashboard', (req, res) => { res.sendFile(path.join(__dirname, 'dashboa
 app.get('/sms', (req, res) => { res.sendFile(path.join(__dirname, 'sms.html')); });
 app.get('/recharge', (req, res) => { res.sendFile(path.join(__dirname, 'recharge.html')); });
 
+// ─── VALIDATION DES INPUTS ───────────────────────────────────
+function sanitize(str, maxLen) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, maxLen || 200).replace(/[<>{}]/g, '');
+}
+
+function validateTelephone(tel) {
+  const clean = String(tel || '').replace(/[\s\-\(\)]/g, '');
+  return /^\+?[0-9]{8,15}$/.test(clean) ? clean : null;
+}
+
+function validateMontant(val, min, max) {
+  const n = parseInt(val);
+  if (isNaN(n) || n < (min||1) || n > (max||100000)) return null;
+  return n;
+}
+
+function validateRef(ref) {
+  if (!ref || typeof ref !== 'string') return null;
+  const clean = ref.trim().toUpperCase();
+  if (clean.length < 3 || clean.length > 100) return null;
+  return clean;
+}
+
 // ─── AUTH CLIENT JWT ─────────────────────────────────────────
 app.post('/api/auth/login', limitAuth, async (req, res) => {
   try {
@@ -199,10 +223,16 @@ app.get('/api/admin/abonnes', async (req, res) => {
   try { res.json(await getAbonnes()); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', limitAuth, async (req, res) => {
   try {
-    const { nom, prenom, telephone, forfait = 'smart' } = req.body;
-    if (!nom || !telephone) return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
+    const nom = sanitize(req.body.nom, 100);
+    const prenom = sanitize(req.body.prenom, 100);
+    const telephone = validateTelephone(req.body.telephone);
+    const forfait = ['starter','smart','business'].includes(req.body.forfait) ? req.body.forfait : 'smart';
+
+    if (!nom || nom.length < 2) return res.status(400).json({ error: 'Nom invalide' });
+    if (!telephone) return res.status(400).json({ error: 'Numéro de téléphone invalide' });
+
     const f = FORFAITS[forfait] || FORFAITS.smart;
     const abonne = { userId: genUserId(), nom, prenom, telephone, forfait, forfaitNom: f.nom, minutes: f.minutes, minutesUsees: 0, prix: f.prix, numeroVirtuel: genNumero(), statut: 'en_attente', createdAt: new Date(), updatedAt: new Date(), paiements: [] };
     await saveAbonne(abonne);
@@ -752,8 +782,16 @@ app.get('/recharge', (req, res) => {
 
 app.post('/api/recharge/envoyer', limitRecharge, async (req, res) => {
   try {
-    const { numero, operateur, montant, nom, telephone, transactionId } = req.body;
-    if (!numero || !operateur || !montant) return res.status(400).json({ error: 'Données manquantes' });
+    const numero = validateTelephone(req.body.numero);
+    const montant = validateMontant(req.body.montant, 100, 100000);
+    const operateur = ['orange','free','expresso'].includes(req.body.operateur) ? req.body.operateur : null;
+    const nom = sanitize(req.body.nom, 100);
+    const telephone = validateTelephone(req.body.telephone);
+    const transactionId = sanitize(req.body.transactionId, 100);
+
+    if (!numero) return res.status(400).json({ error: 'Numéro invalide' });
+    if (!montant) return res.status(400).json({ error: 'Montant invalide (100 - 100 000 FCFA)' });
+    if (!operateur) return res.status(400).json({ error: 'Opérateur invalide (orange/free/expresso)' });
 
     // Enregistrer la recharge
     const recharge = {
