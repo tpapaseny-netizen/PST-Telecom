@@ -47,6 +47,69 @@ function safeError(err) {
   return err.message || 'Erreur inconnue';
 }
 
+// ─── LOGS SÉCURITÉ ────────────────────────────────────────────
+const suspectLogs = [];
+
+async function logSuspect(type, ip, details) {
+  const entry = { type, ip, details, createdAt: new Date() };
+  suspectLogs.push(entry);
+  if (suspectLogs.length > 500) suspectLogs.shift();
+  console.warn(`🚨 SUSPECT [${type}] IP:${ip} — ${details}`);
+  if (db) {
+    try {
+      await db.collection('security_logs').insertOne(entry);
+    } catch(e) {}
+  }
+}
+
+// Middleware de surveillance des tentatives suspectes
+const failedAttempts = new Map();
+
+function trackFailed(ip, route) {
+  const key = ip + ':' + route;
+  const now = Date.now();
+  const attempts = (failedAttempts.get(key) || []).filter(function(t) { return t > now - 15*60*1000; });
+  attempts.push(now);
+  failedAttempts.set(key, attempts);
+  if (attempts.length >= 5) {
+    logSuspect('BRUTE_FORCE', ip, `${attempts.length} tentatives échouées sur ${route}`);
+  }
+  return attempts.length;
+}
+
+// ─── BACKUP AUTOMATIQUE ───────────────────────────────────────
+async function backupData() {
+  if (!db) return;
+  try {
+    const timestamp = new Date().toISOString().slice(0,10);
+    const abonnes = await db.collection('abonnes').find({}).toArray();
+    const recharges = await db.collection('recharges').find({}).sort({createdAt:-1}).limit(1000).toArray();
+    const campagnes = await db.collection('sms_campagnes').find({}, {projection:{messages:0}}).toArray();
+
+    await db.collection('backups').updateOne(
+      { date: timestamp },
+      { $set: {
+        date: timestamp,
+        abonnes_count: abonnes.length,
+        recharges_count: recharges.length,
+        campagnes_count: campagnes.length,
+        snapshot: {
+          abonnes: abonnes.slice(0, 500),
+          recharges: recharges.slice(0, 200),
+        },
+        createdAt: new Date()
+      }},
+      { upsert: true }
+    );
+    console.log(`✅ Backup automatique — ${timestamp} — ${abonnes.length} abonnés`);
+  } catch(e) {
+    console.warn('⚠️ Backup échoué:', e.message);
+  }
+}
+
+// Route admin pour voir les logs sécurité
+// (ajoutée après connectDB)
+
 // ─── RATE LIMITING ────────────────────────────────────────────
 const rateLimitMap = new Map();
 
@@ -225,10 +288,14 @@ app.post('/api/auth/login', limitAuth, async (req, res) => {
     if (!userId || !telephone) return res.status(400).json({ error: 'userId et téléphone requis' });
     const abonnes = await getAbonnes();
     const abonne = abonnes.find(function(a) { return a.userId === userId && a.telephone === telephone; });
-    if (!abonne) return res.status(404).json({ error: 'Compte introuvable' });
+    if (!abonne) {
+      const ip = req.ip || 'unknown';
+      trackFailed(ip, '/api/auth/login');
+      return res.status(404).json({ error: 'Compte introuvable' });
+    }
     const token = signJWT({ userId: abonne.userId, telephone, role: 'client' });
     res.json({ success: true, token, abonne: { userId: abonne.userId, nom: abonne.nom, prenom: abonne.prenom, forfait: abonne.forfait, statut: abonne.statut, minutes: abonne.minutes, minutesUsees: abonne.minutesUsees, numeroVirtuel: abonne.numeroVirtuel } });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  } catch(err) { res.status(500).json({ error: safeError(err) }); }
 });
 
 app.get('/api/auth/me', authJWT, async (req, res) => {
@@ -900,10 +967,42 @@ app.get('/api/admin/recharges/stats', async (req, res) => {
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
+
+  // Routes sécurité admin
+  app.get('/api/admin/security-logs', async (req, res) => {
+    try {
+      const logs = db
+        ? await db.collection('security_logs').find({}).sort({ createdAt: -1 }).limit(100).toArray()
+        : suspectLogs.slice(-100).reverse();
+      res.json(logs);
+    } catch(e) { res.json([]); }
+  });
+
+  app.get('/api/admin/backups', async (req, res) => {
+    try {
+      if (!db) return res.json([]);
+      const backups = await db.collection('backups').find({}, { projection: { snapshot: 0 } }).sort({ createdAt: -1 }).limit(30).toArray();
+      res.json(backups);
+    } catch(e) { res.json([]); }
+  });
+
+  app.post('/api/admin/backup-now', async (req, res) => {
+    try {
+      await backupData();
+      res.json({ success: true, message: 'Backup effectué' });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Backup automatique toutes les 24h
+  setInterval(backupData, 24 * 60 * 60 * 1000);
+  // Premier backup au démarrage après 30 secondes
+  setTimeout(backupData, 30 * 1000);
+
   app.listen(PORT, () => {
     console.log(`\n🚀 PST — Pure Smart Telecom`);
     console.log(`📡 Backend Africa's Talking`);
     console.log(`🌐 http://localhost:${PORT}`);
+    console.log(`🔒 Sécurité: JWT + Rate Limit + Headers + Logs`);
     console.log(`💾 MongoDB: ${db ? 'connecté' : 'mode mémoire'}\n`);
   });
 });

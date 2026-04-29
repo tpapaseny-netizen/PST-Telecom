@@ -298,6 +298,9 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('recharge')" id="nav-recharge">
         <span class="nav-icon">⚡</span> Recharges
       </button>
+      <button class="nav-item" onclick="showSection('securite')" id="nav-securite">
+        <span class="nav-icon">🔒</span> Sécurité
+      </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
@@ -894,6 +897,39 @@ textarea.field-input { resize:vertical; min-height:80px; }
               <tbody id="recharges-table">
                 <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Chargement...</td></tr>
               </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- SÉCURITÉ -->
+      <div class="section" id="section-securite">
+        <div class="kpi-grid" style="margin-bottom:20px;">
+          <div class="kpi green"><div class="kpi-label">Headers HTTP</div><div class="kpi-val">✅</div><div class="kpi-sub">Actifs</div></div>
+          <div class="kpi blue"><div class="kpi-label">Rate Limiting</div><div class="kpi-val">✅</div><div class="kpi-sub">Actif</div></div>
+          <div class="kpi orange"><div class="kpi-label">JWT Auth</div><div class="kpi-val">✅</div><div class="kpi-sub">Actif</div></div>
+          <div class="kpi red"><div class="kpi-label">Backup Auto</div><div class="kpi-val">✅</div><div class="kpi-sub">Toutes les 24h</div></div>
+        </div>
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">💾 Backups automatiques</div>
+            <button class="refresh-btn" onclick="backupNow()">⬆ Backup maintenant</button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Abonnés</th><th>Recharges</th><th>Campagnes</th></tr></thead>
+              <tbody id="backups-table"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🚨 Logs de sécurité</div>
+            <button class="refresh-btn" onclick="loadSecurityLogs()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Type</th><th>IP</th><th>Détails</th></tr></thead>
+              <tbody id="security-logs-table"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucune activité suspecte ✅</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1636,7 +1672,53 @@ function showSection(id) {
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
   if(id==='recharge') { loadRechargeStats(); loadRecharges(); }
+  if(id==='securite') { loadSecurityLogs(); loadBackups(); }
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── SÉCURITÉ ────────────────────────────────────────────────
+async function loadSecurityLogs() {
+  try {
+    const res = await fetch(API + '/api/admin/security-logs');
+    const logs = await res.json();
+    const tbody = document.getElementById('security-logs-table');
+    if(!logs.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--green)">Aucune activité suspecte ✅</td></tr>'; return; }
+    tbody.innerHTML = logs.map(function(l) {
+      const date = new Date(l.createdAt).toLocaleString('fr-FR');
+      const typeColor = l.type === 'BRUTE_FORCE' ? 'var(--red)' : 'var(--orange)';
+      return `<tr>
+        <td style="font-size:12px;color:var(--muted)">${date}</td>
+        <td><span style="color:${typeColor};font-weight:700;font-size:12px;">${l.type}</span></td>
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;">${l.ip}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${l.details}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function loadBackups() {
+  try {
+    const res = await fetch(API + '/api/admin/backups');
+    const backups = await res.json();
+    const tbody = document.getElementById('backups-table');
+    if(!backups.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucun backup — premier backup dans 30 secondes après redémarrage</td></tr>'; return; }
+    tbody.innerHTML = backups.map(function(b) {
+      return `<tr>
+        <td><strong>${b.date}</strong></td>
+        <td style="color:var(--green)">${b.abonnes_count || 0}</td>
+        <td style="color:var(--green)">${b.recharges_count || 0}</td>
+        <td style="color:var(--green)">${b.campagnes_count || 0}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function backupNow() {
+  try {
+    const res = await fetch(API + '/api/admin/backup-now', {method:'POST'});
+    const data = await res.json();
+    if(data.success) { showToast('✅ Backup effectué', 'success'); loadBackups(); }
+  } catch(e) { showToast('Erreur backup', 'error'); }
 }
 
 // ─── RECHARGES ───────────────────────────────────────────────
