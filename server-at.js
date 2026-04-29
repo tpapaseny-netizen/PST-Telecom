@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,87 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const AT_API_KEY  = process.env.AT_API_KEY;
 const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
 const PORT        = process.env.PORT || 3001;
+const JWT_SECRET  = process.env.JWT_SECRET || 'pst-secret-2026-xk9m';
+
+// ─── RATE LIMITING ────────────────────────────────────────────
+const rateLimitMap = new Map();
+
+function rateLimit(maxReq, windowMs) {
+  return function(req, res, next) {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const key = ip + ':' + req.path;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    if (!rateLimitMap.has(key)) {
+      rateLimitMap.set(key, []);
+    }
+    const requests = rateLimitMap.get(key).filter(function(t) { return t > windowStart; });
+    requests.push(now);
+    rateLimitMap.set(key, requests);
+
+    if (requests.length > maxReq) {
+      return res.status(429).json({ error: 'Trop de requêtes — réessayez dans quelques minutes' });
+    }
+    next();
+  };
+}
+
+// Nettoyage toutes les 5 minutes
+setInterval(function() {
+  const cutoff = Date.now() - 15 * 60 * 1000;
+  rateLimitMap.forEach(function(val, key) {
+    const filtered = val.filter(function(t) { return t > cutoff; });
+    if (filtered.length === 0) rateLimitMap.delete(key);
+    else rateLimitMap.set(key, filtered);
+  });
+}, 5 * 60 * 1000);
+
+// Rate limits par route
+const limitGeneral  = rateLimit(100, 15 * 60 * 1000); // 100 req/15min
+const limitAuth     = rateLimit(10,  15 * 60 * 1000); // 10 tentatives/15min
+const limitRecharge = rateLimit(20,  60 * 60 * 1000); // 20 recharges/heure
+const limitSMS      = rateLimit(5,   60 * 60 * 1000); // 5 campagnes/heure
+
+app.use(limitGeneral);
+
+// ─── JWT ──────────────────────────────────────────────────────
+function signJWT(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, iat: Date.now(), exp: Date.now() + 7 * 24 * 60 * 60 * 1000 })).toString('base64url');
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(header + '.' + body).digest('base64url');
+  return header + '.' + body + '.' + sig;
+}
+
+function verifyJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const sig = crypto.createHmac('sha256', JWT_SECRET).update(parts[0] + '.' + parts[1]).digest('base64url');
+    if (sig !== parts[2]) return null;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch(e) { return null; }
+}
+
+function authJWT(req, res, next) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.replace('Bearer ', '').trim();
+  if (!token) return res.status(401).json({ error: 'Token requis — connectez-vous' });
+  const payload = verifyJWT(token);
+  if (!payload) return res.status(401).json({ error: 'Token invalide ou expiré — reconnectez-vous' });
+  req.user = payload;
+  next();
+}
+
+// authJWT optionnel — ne bloque pas mais enrichit req.user
+function authJWTOptional(req, res, next) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.replace('Bearer ', '').trim();
+  if (token) { req.user = verifyJWT(token) || null; }
+  next();
+}
 
 let db;
 
@@ -78,6 +160,29 @@ app.get('/sms-marketing', (req, res) => { res.sendFile(path.join(__dirname, 'sms
 app.get('/appel', (req, res) => { res.sendFile(path.join(__dirname, 'appel.html')); });
 app.get('/dashboard', (req, res) => { res.sendFile(path.join(__dirname, 'dashboard.html')); });
 app.get('/sms', (req, res) => { res.sendFile(path.join(__dirname, 'sms.html')); });
+app.get('/recharge', (req, res) => { res.sendFile(path.join(__dirname, 'recharge.html')); });
+
+// ─── AUTH CLIENT JWT ─────────────────────────────────────────
+app.post('/api/auth/login', limitAuth, async (req, res) => {
+  try {
+    const { userId, telephone } = req.body;
+    if (!userId || !telephone) return res.status(400).json({ error: 'userId et téléphone requis' });
+    const abonnes = await getAbonnes();
+    const abonne = abonnes.find(function(a) { return a.userId === userId && a.telephone === telephone; });
+    if (!abonne) return res.status(404).json({ error: 'Compte introuvable' });
+    const token = signJWT({ userId: abonne.userId, telephone, role: 'client' });
+    res.json({ success: true, token, abonne: { userId: abonne.userId, nom: abonne.nom, prenom: abonne.prenom, forfait: abonne.forfait, statut: abonne.statut, minutes: abonne.minutes, minutesUsees: abonne.minutesUsees, numeroVirtuel: abonne.numeroVirtuel } });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/auth/me', authJWT, async (req, res) => {
+  try {
+    const abonnes = await getAbonnes();
+    const abonne = abonnes.find(function(a) { return a.userId === req.user.userId; });
+    if (!abonne) return res.status(404).json({ error: 'Compte introuvable' });
+    res.json({ success: true, abonne });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 app.get('/api/admin/stats', async (req, res) => {
   try {
@@ -474,7 +579,7 @@ app.post('/api/admin/content', async (req, res) => {
 
 // ═══ ROUTES SMS MARKETING ════════════════════════════════
 
-app.post('/api/sms-marketing/send', async (req, res) => {
+app.post('/api/sms-marketing/send', limitSMS, async (req, res) => {
   try {
     const { campagne, messages, sender, scheduled, total } = req.body;
     if (!messages || !messages.length) return res.status(400).json({ error: 'Aucun message' });
@@ -639,92 +744,13 @@ app.get('/recharge', (req, res) => {
   res.sendFile(path.join(__dirname, 'recharge.html'));
 });
 
-app.post('/api/recharge/envoyer', async (req, res) => {
-  try {
-    const { numero, operateur, montant, nom, clientPhone } = req.body;
-    if (!numero || !montant) return res.status(400).json({ error: 'Numéro et montant requis' });
-
-    // Enregistrer la recharge
-    const recharge = {
-      numero, operateur, montant: parseInt(montant),
-      nom: nom || '', clientPhone: clientPhone || '',
-      statut: 'en_cours', createdAt: new Date()
-    };
-    const result = await db.collection('recharges').insertOne(recharge);
-
-    // Envoi via Africa's Talking Airtime
-    const AT_KEY = process.env.AT_API_KEY;
-    const AT_USER = process.env.AT_USERNAME;
-
-    if (AT_KEY && AT_USER) {
-      try {
-        const AT = require('africastalking')({ apiKey: AT_KEY, username: AT_USER });
-        const airtime = AT.AIRTIME;
-        const response = await airtime.send({
-          recipients: [{ phoneNumber: numero, amount: `XOF ${montant}`, currencyCode: 'XOF' }]
-        });
-
-        const status = response.responses && response.responses[0] && response.responses[0].status === 'Success' ? 'success' : 'failed';
-
-        await db.collection('recharges').updateOne(
-          { _id: result.insertedId },
-          { $set: { statut: status, finishedAt: new Date(), atResponse: response } }
-        );
-
-        await db.collection('activity_logs').insertOne({
-          type: 'recharge',
-          message: `Recharge ${montant} FCFA → ${numero} (${operateur}) — ${status}`,
-          createdAt: new Date()
-        });
-
-        if (status === 'success') {
-          return res.json({ success: true, message: `${montant} FCFA envoyés vers ${numero}` });
-        } else {
-          return res.status(400).json({ error: 'Recharge échouée — réessayez ou contactez PST' });
-        }
-      } catch (atErr) {
-        console.warn('AT Airtime erreur:', atErr.message);
-        // Mode sandbox — simuler succès
-        await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'sandbox' } });
-        return res.json({ success: true, message: `[SANDBOX] ${montant} FCFA simulés vers ${numero}` });
-      }
-    }
-
-    // Pas de clé AT — mode sandbox
-    await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'sandbox' } });
-    res.json({ success: true, message: `[SANDBOX] Recharge simulée de ${montant} FCFA vers ${numero}` });
-
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Admin — historique recharges
-app.get('/api/admin/recharges', async (req, res) => {
-  try {
-    const recharges = await db.collection('recharges').find({}).sort({ createdAt: -1 }).limit(100).toArray();
-    res.json(recharges);
-  } catch (e) { res.json([]); }
-});
-
-// Stats recharges
-app.get('/api/admin/recharges/stats', async (req, res) => {
-  try {
-    const recharges = await db.collection('recharges').find({}).toArray();
-    const total = recharges.length;
-    const montantTotal = recharges.reduce((s,r) => s + (r.montant||0), 0);
-    const frais = Math.ceil(montantTotal * 0.01);
-    res.json({ total, montantTotal, frais });
-  } catch (e) { res.json({ total:0, montantTotal:0, frais:0 }); }
-});
-
 // ═══ ROUTES RECHARGE TÉLÉPHONIQUE ════════════════════════════
 
 app.get('/recharge', (req, res) => {
   res.sendFile(path.join(__dirname, 'recharge.html'));
 });
 
-app.post('/api/recharge/envoyer', async (req, res) => {
+app.post('/api/recharge/envoyer', limitRecharge, async (req, res) => {
   try {
     const { numero, operateur, montant, nom, telephone, transactionId } = req.body;
     if (!numero || !operateur || !montant) return res.status(400).json({ error: 'Données manquantes' });
