@@ -1294,7 +1294,16 @@ app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
+// Vérifier une référence de transaction Wave ou Visa
+app.post('/api/sms-marketing/verify-ref', async (req, res) => {
+  try {
+    const { reference, telephone, smsCount } = req.body;
+    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte' });
+    const ref = reference.toUpperCase().trim();
+    const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
+    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée' });
+    await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone, smsCount: parseInt(smsCount)||0, utiliseeAt: new Date() });
+    res.json({ valid: true });
   } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
 });
 
