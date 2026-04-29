@@ -664,15 +664,30 @@ function processFile(file) {
 
   if(['xlsx','xls','csv'].includes(ext)) {
     const reader = new FileReader();
-    reader.onload = e => {
-      const wb = XLSX.read(e.target.result, {type:'binary'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      if(data.length < 2) { showToast('Fichier vide ou invalide', 'error'); return; }
-      headers = data[0].map(h => String(h).trim());
-      rawData = data.slice(1).filter(r => r.some(c => c !== ''));
-      setupMapping();
-      showToast(`✅ ${rawData.length} lignes chargées`, 'success');
+    reader.onload = function(ev) {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      // Si plusieurs feuilles, laisser choisir
+      if(wb.SheetNames.length > 1) {
+        const choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' +
+          wb.SheetNames.map((n,i) => (i+1)+'. '+n).join('\n') +
+          '\n\nEntrez le numéro de la feuille à utiliser :', wb.SheetNames.length);
+        const idx = Math.min(Math.max(parseInt(choice||1)-1, 0), wb.SheetNames.length-1);
+        const ws = wb.Sheets[wb.SheetNames[isNaN(idx)?0:idx]];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if(data.length < 2) { showToast('Fichier vide ou invalide', 'error'); return; }
+        headers = data[0].map(function(h){ return String(h).trim(); });
+        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+        setupMapping();
+        showToast('✅ ' + rawData.length + ' lignes chargées (feuille: ' + wb.SheetNames[isNaN(idx)?0:idx] + ')', 'success');
+      } else {
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if(data.length < 2) { showToast('Fichier vide ou invalide', 'error'); return; }
+        headers = data[0].map(function(h){ return String(h).trim(); });
+        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+        setupMapping();
+        showToast('✅ ' + rawData.length + ' lignes chargées', 'success');
+      }
     };
     reader.readAsBinaryString(file);
   } else if(ext === 'pdf') {
