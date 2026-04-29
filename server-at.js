@@ -5,8 +5,33 @@ const { MongoClient, ObjectId } = require('mongodb');
 const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ─── SECURITY HEADERS (Helmet-like) ──────────────────────────
+app.use(function(req, res, next) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self' https:; " +
+    "script-src 'self' 'unsafe-inline' https://checkout.flutterwave.com https://fonts.googleapis.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self' https://pst-telecom-production.up.railway.app https://api.flutterwave.com;"
+  );
+  next();
+});
+
+app.use(cors({
+  origin: ['https://pst-telecom.vercel.app', 'https://pst-telecom-production.up.railway.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token'],
+  credentials: true
+}));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname)));
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -14,6 +39,13 @@ const AT_API_KEY  = process.env.AT_API_KEY;
 const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
 const PORT        = process.env.PORT || 3001;
 const JWT_SECRET  = process.env.JWT_SECRET || 'pst-secret-2026-xk9m';
+const IS_PROD     = process.env.NODE_ENV === 'production';
+
+// En production, ne pas exposer les détails des erreurs
+function safeError(err) {
+  if (IS_PROD) return 'Une erreur est survenue — contactez PST';
+  return err.message || 'Erreur inconnue';
+}
 
 // ─── RATE LIMITING ────────────────────────────────────────────
 const rateLimitMap = new Map();
