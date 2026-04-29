@@ -518,29 +518,87 @@ app.get('/api/sms-marketing/stats', async (req, res) => {
 
 app.post('/api/sms-marketing/verify-ref', async (req, res) => {
   try {
-    const { reference, telephone, smsCount } = req.body;
-    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte — vérifiez dans votre app Wave' });
+    const { reference, telephone, smsCount, montant } = req.body;
+    if (!reference || reference.length < 3) return res.json({ valid: false, error: 'Référence trop courte' });
     const ref = reference.toUpperCase().trim();
-    const isWave = /^W[0-9A-Z]{5,20}$/.test(ref);
-    const isFLW  = /^FLW/.test(ref);
-    const isTxn  = /^(TXN|PST|REF|TRF|PAY|WAVE|T_)[0-9A-Z\-_]{3,}$/.test(ref);
-    if (!isWave && !isFLW && !isTxn) return res.json({ valid: false, error: 'Format non reconnu. Wave: W241234567 — Flutterwave: FLW-MOCK-XXXX' });
-    const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
-    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
-    await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone: telephone || '', smsCount: parseInt(smsCount) || 0, statut: 'utilise', utiliseeAt: new Date() });
-    await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Référence ${ref} validée — ${smsCount} SMS pour ${telephone}`, createdAt: new Date() });
-    res.json({ valid: true });
+
+    // 1. Vérifier si déjà utilisée
+    const dejáUtilisee = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
+    if (dejáUtilisee) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
+
+    // 2. Vérifier si pré-autorisée par l'admin (Wave manuel)
+    const autorisee = await db.collection('sms_refs_autorisees').findOne({ reference: ref, utilise: false });
+    if (autorisee) {
+      await db.collection('sms_refs_autorisees').updateOne({ reference: ref }, { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } });
+      await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone, smsCount: parseInt(smsCount)||0, utiliseeAt: new Date() });
+      await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Réf ${ref} validée (pré-autorisée) — ${smsCount} SMS pour ${telephone}`, createdAt: new Date() });
+      return res.json({ valid: true });
+    }
+
+    // 3. Vérifier si paiement Flutterwave automatique enregistré
+    const flwPaiement = await db.collection('payments').findOne({
+      reference: ref,
+      statut: 'confirme',
+      moyen: 'flutterwave_card',
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    });
+    if (flwPaiement) {
+      await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone, smsCount: parseInt(smsCount)||0, utiliseeAt: new Date() });
+      await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Réf ${ref} validée (Flutterwave) — ${smsCount} SMS pour ${telephone}`, createdAt: new Date() });
+      return res.json({ valid: true });
+    }
+
+    // 4. Rien trouvé — demander de contacter PST
+    return res.json({ valid: false, error: 'Référence non reconnue. Après paiement Wave, contactez PST au +221 77 152 09 59 pour activer votre campagne.' });
+
   } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
 });
 
-app.get('/api/sms-marketing/refs', async (req, res) => {
-  try { const refs = await db.collection('sms_refs_utilisees').find({}).sort({ utiliseeAt: -1 }).limit(100).toArray(); res.json(refs); }
-  catch (e) { res.json([]); }
+// Admin — pré-autoriser une référence Wave/Visa après paiement confirmé
+app.post('/api/sms-marketing/autoriser-ref', async (req, res) => {
+  try {
+    const { reference, telephone, montant, pack, notes } = req.body;
+    if (!reference) return res.status(400).json({ error: 'Référence requise' });
+    const ref = reference.toUpperCase().trim();
+
+    // Vérifier si déjà enregistrée
+    const exist = await db.collection('sms_refs_autorisees').findOne({ reference: ref });
+    if (exist) return res.status(400).json({ error: 'Référence déjà enregistrée' });
+
+    await db.collection('sms_refs_autorisees').insertOne({
+      reference: ref,
+      telephone: telephone || '',
+      montant: parseInt(montant) || 0,
+      pack: pack || '',
+      notes: notes || '',
+      utilise: false,
+      createdAt: new Date()
+    });
+
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Référence ${ref} autorisée par admin — ${montant} FCFA pour ${telephone}`,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Admin — lister les références autorisées
+app.get('/api/sms-marketing/refs', async (req, res) => {
+  try {
+    const refs = await db.collection('sms_refs_autorisees').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(refs);
+  } catch (e) { res.json([]); }
+});
+
+// Admin — supprimer une référence autorisée
 app.delete('/api/sms-marketing/refs/:ref', async (req, res) => {
-  try { await db.collection('sms_refs_utilisees').deleteOne({ reference: req.params.ref.toUpperCase() }); res.json({ success: true }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    await db.collection('sms_refs_autorisees').deleteOne({ reference: req.params.ref.toUpperCase() });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/sms-marketing/generate-code', async (req, res) => {
