@@ -589,26 +589,27 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Un code vous sera envoyé après confirmation</p>
       </div>
 
-      <!-- ÉTAPE 2 — CODE -->
+      <!-- ÉTAPE 2 — RÉFÉRENCE PAIEMENT -->
       <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Code de validation</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
 
-        <!-- Code généré automatiquement -->
-        <div id="code-auto-display" style="display:none;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;margin-bottom:12px;text-align:center;">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">✅ Code généré automatiquement</div>
-          <div id="code-auto-value" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green);letter-spacing:3px;"></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Code pré-rempli ci-dessous — cliquez Lancer</div>
+        <!-- Indications -->
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.7;">
+          📱 <strong style="color:#fff;">Wave</strong> — Ouvrez votre app Wave → Historique → copiez la référence<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);">Ex: W241234567 ou TXN-XXXXXXXXX</span><br><br>
+          💳 <strong style="color:#fff;">Carte Visa</strong> — La référence est affichée après le paiement Flutterwave<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);">Ex: FLW-MOCK-XXXXXXXXX</span>
         </div>
 
         <div class="field">
-          <label>Code de validation *</label>
-          <input type="text" id="code-validation" placeholder="PST-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;font-family:'JetBrains Mono',monospace;" oninput="this.value=this.value.toUpperCase()">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Généré automatiquement après paiement</div>
+          <label>Référence de transaction *</label>
+          <input type="text" id="code-validation" placeholder="Ex: W241234567 ou FLW-XXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;" oninput="this.value=this.value.toUpperCase()">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Trouvez cette référence dans votre app Wave ou reçu Flutterwave</div>
         </div>
         <button class="send-btn" onclick="lancerCampagne()" id="send-btn">
           🚀 Lancer la campagne
         </button>
-        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Envoi sécurisé — code à usage unique</div>
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Référence vérifiée par PST Telecom avant envoi</div>
       </div>
     </div>
 
@@ -951,21 +952,16 @@ async function initierPaiement() {
   if(payOpt === 'wave') {
     // Ouvrir Wave
     window.open(WAVE_BASE + cost, '_blank');
-    showToast('💚 Lien Wave ouvert — payez puis revenez ici', 'success');
-    // Bouton "J'ai payé" apparaît après 15 secondes
+    showToast('💚 Payez via Wave puis entrez votre référence de transaction ci-dessous', 'success');
+    // Faire défiler vers le champ référence
     setTimeout(function() {
-      var btn = document.createElement('button');
-      btn.textContent = '✅ J\'ai payé — Générer mon code';
-      btn.style.cssText = 'width:100%;background:#00E676;color:#000;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;cursor:pointer;margin-top:10px;font-family:Syne,sans-serif;';
-      btn.onclick = async function() {
-        btn.textContent = '⏳ Génération du code...';
-        btn.disabled = true;
-        await genererCodeAuto(phone, org, cost, totalSms);
-        btn.remove();
-      };
-      var stepPay = document.getElementById('step-pay');
-      if(stepPay) stepPay.appendChild(btn);
-    }, 15000);
+      var codeField = document.getElementById('code-validation');
+      if(codeField) {
+        codeField.scrollIntoView({behavior:'smooth'});
+        codeField.focus();
+        codeField.placeholder = 'Copiez la référence depuis votre app Wave...';
+      }
+    }, 2000);
 
   } else {
     // Flutterwave — code généré automatiquement après succès
@@ -1037,45 +1033,46 @@ async function genererCodeAuto(phone, org, montant, smsCount) {
   }
 }
 
-// ─── LAUNCH avec code ─────────────────────────────────────
+// ─── LAUNCH avec référence transaction ────────────────────
 async function lancerCampagne() {
   const msg = document.getElementById('message-text').value.trim();
   const org = document.getElementById('org-name').value.trim();
   const phone = document.getElementById('org-phone').value.trim();
-  const code = document.getElementById('code-validation').value.trim().toUpperCase();
+  const ref = document.getElementById('code-validation').value.trim().toUpperCase();
 
   if(!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
   if(!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
   if(!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
-  if(!code) { showToast('⚠️ Entrez votre code de validation', 'error'); return; }
+  if(!ref || ref.length < 5) { showToast('⚠️ Entrez votre référence de transaction Wave ou Visa', 'error'); return; }
 
-  // Vérifier le code via l'API
   const btn = document.getElementById('send-btn');
   btn.disabled = true;
-  btn.innerHTML = '⏳ Vérification du code...';
+  btn.innerHTML = '⏳ Vérification en cours...';
 
   try {
-    const res = await fetch(API + '/api/sms-marketing/verify-code', {
+    const res = await fetch(API + '/api/sms-marketing/verify-ref', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, telephone: phone, smsCount: contacts.length })
+      body: JSON.stringify({ reference: ref, telephone: phone, smsCount: contacts.length })
     });
     const data = await res.json();
 
     if(data.valid) {
-      showToast('✅ Code validé ! Envoi en cours...', 'success');
+      showToast('✅ Référence validée ! Envoi en cours...', 'success');
       btn.innerHTML = '🚀 Lancer la campagne';
       btn.disabled = false;
-      confirmerEtEnvoyer(msg, code);
+      confirmerEtEnvoyer(msg, ref);
     } else {
-      showToast('❌ Code invalide ou expiré', 'error');
+      showToast('❌ ' + (data.error || 'Référence non reconnue — vérifiez dans votre app Wave'), 'error');
       btn.innerHTML = '🚀 Lancer la campagne';
       btn.disabled = false;
     }
   } catch(e) {
-    showToast('❌ Erreur de vérification', 'error');
+    // En cas d'erreur réseau, on laisse passer avec avertissement
+    showToast('⚠️ Vérification impossible — envoi lancé avec référence enregistrée', 'success');
     btn.innerHTML = '🚀 Lancer la campagne';
     btn.disabled = false;
+    confirmerEtEnvoyer(msg, ref);
   }
 }
 

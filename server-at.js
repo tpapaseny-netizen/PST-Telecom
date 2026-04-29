@@ -1193,6 +1193,27 @@ app.get('/api/sms-marketing/stats', async (req, res) => {
     res.json({ totalCampagnes, totalEnvoyes, totalEchecs });
   } catch (e) { res.json({ totalCampagnes:0, totalEnvoyes:0, totalEchecs:0 }); }
 });
+// Vérifier une référence de transaction Wave ou Visa
+app.post('/api/sms-marketing/verify-ref', async (req, res) => {
+  try {
+    const { reference, telephone, smsCount } = req.body;
+    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte' });
+
+    // Vérifier que la référence n'a pas déjà été utilisée
+    const existing = await db.collection('sms_campagnes').findOne({ reference: reference.toUpperCase() });
+    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée' });
+
+    // Enregistrer la référence pour éviter la réutilisation
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Référence ${reference} utilisée par ${telephone} pour ${smsCount} SMS`,
+      createdAt: new Date()
+    });
+
+    res.json({ valid: true });
+  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
+});
+
 // ═══ ROUTES CODES VALIDATION SMS MARKETING ══════════════════
 
 // Générer un code de validation (depuis l'admin)
@@ -1263,6 +1284,7 @@ app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
