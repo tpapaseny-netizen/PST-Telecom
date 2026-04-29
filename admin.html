@@ -290,7 +290,10 @@ textarea.field-input { resize:vertical; min-height:80px; }
         <span class="nav-icon">💰</span> Paiements
       </button>
       <button class="nav-item" onclick="showSection('revenue')" id="nav-revenue">
-        <span class="nav-icon">💰</span> Revenus
+        <span class="nav-icon">📈</span> Revenus
+      </button>
+      <button class="nav-item" onclick="showSection('sms-marketing')" id="nav-sms-marketing">
+        <span class="nav-icon">📩</span> SMS Marketing
       </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
@@ -632,6 +635,73 @@ textarea.field-input { resize:vertical; min-height:80px; }
             <table class="data-table">
               <thead><tr><th>Forfait</th><th>Abonnés</th><th>Revenus</th></tr></thead>
               <tbody id="rev-detail"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SMS MARKETING -->
+      <div class="section" id="section-sms-marketing">
+        <!-- KPIs -->
+        <div class="kpi-grid" style="margin-bottom:20px;">
+          <div class="kpi green">
+            <div class="kpi-label">Campagnes lancées</div>
+            <div class="kpi-val green" id="smsm-campagnes">—</div>
+            <div class="kpi-sub">total</div>
+          </div>
+          <div class="kpi blue">
+            <div class="kpi-label">SMS envoyés</div>
+            <div class="kpi-val blue" id="smsm-envoyes">—</div>
+            <div class="kpi-sub">tous canaux</div>
+          </div>
+          <div class="kpi orange">
+            <div class="kpi-label">Taux de succès</div>
+            <div class="kpi-val orange" id="smsm-taux">—</div>
+            <div class="kpi-sub">livraison</div>
+          </div>
+          <div class="kpi red">
+            <div class="kpi-label">Échecs</div>
+            <div class="kpi-val red" id="smsm-echecs">—</div>
+            <div class="kpi-sub">non livrés</div>
+          </div>
+        </div>
+
+        <!-- BOUTON ACCES PLATEFORME -->
+        <div class="panel" style="margin-bottom:20px;padding:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">📩 Plateforme SMS Marketing</div>
+              <div style="font-size:13px;color:var(--muted);">Envoyez des SMS en masse — import Excel, personnalisation, planification</div>
+            </div>
+            <a href="https://pst-telecom-production.up.railway.app/sms-marketing" target="_blank"
+               style="background:var(--green);color:#000;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;white-space:nowrap;">
+              🚀 Ouvrir la plateforme →
+            </a>
+          </div>
+        </div>
+
+        <!-- HISTORIQUE CAMPAGNES -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📊 Historique des campagnes</div>
+            <button class="refresh-btn" onclick="loadSmsMktStats()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body" style="max-height:500px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Campagne</th>
+                  <th>Expéditeur</th>
+                  <th>Total</th>
+                  <th>Envoyés</th>
+                  <th>Échecs</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="smsm-table">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -1257,7 +1327,7 @@ async function deletePayment(id) {
 const SECTION_TITLES = {
   dashboard:'Vue générale', activity:'Activité temps réel', users:'Abonnés',
   'sms-logs':'SMS Verif', calls:'Appels', payments:'Paiements', revenue:'Revenus',
-  admins:'Gérer les admins', content:'Éditeur de contenu'
+  'sms-marketing':'SMS Marketing', admins:'Gérer les admins', content:'Éditeur de contenu'
 };
 
 function showSection(id) {
@@ -1269,7 +1339,51 @@ function showSection(id) {
   if(id==='admins') renderAdmins();
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
+  if(id==='sms-marketing') loadSmsMktStats();
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── SMS MARKETING ───────────────────────────────────────────────
+async function loadSmsMktStats() {
+  try {
+    // Stats
+    const res = await fetch(API + '/api/sms-marketing/stats');
+    const d = await res.json();
+    document.getElementById('smsm-campagnes').textContent = d.totalCampagnes || 0;
+    document.getElementById('smsm-envoyes').textContent = (d.totalEnvoyes||0).toLocaleString('fr-FR');
+    document.getElementById('smsm-echecs').textContent = d.totalEchecs || 0;
+    const taux = d.totalEnvoyes > 0 ? Math.round(d.totalEnvoyes/(d.totalEnvoyes+d.totalEchecs)*100) : 0;
+    document.getElementById('smsm-taux').textContent = taux + '%';
+
+    // Campagnes
+    const res2 = await fetch(API + '/api/sms-marketing/campagnes');
+    const campagnes = await res2.json();
+    const tbody = document.getElementById('smsm-table');
+    if(!campagnes.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Aucune campagne lancée</td></tr>';
+      return;
+    }
+    tbody.innerHTML = campagnes.map(c => {
+      const date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '—';
+      const statBadge = c.statut === 'termine'
+        ? '<span class="badge active">✅ Terminée</span>'
+        : c.statut === 'planifie'
+        ? '<span class="badge pending">📅 Planifiée</span>'
+        : '<span class="badge sms-only">⏳ En cours</span>';
+      return `<tr>
+        <td style="font-size:12px;color:var(--muted)">${date}</td>
+        <td><strong>${c.campagne||'—'}</strong></td>
+        <td><span class="mono">${c.sender||'PST-Telecom'}</span></td>
+        <td>${c.total||0}</td>
+        <td><strong style="color:var(--green)">${c.envoyes||0}</strong></td>
+        <td style="color:var(--red)">${c.echecs||0}</td>
+        <td>${statBadge}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('smsm-table').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Erreur de chargement</td></tr>';
+  }
 }
 
 // ─── MODAL & TOAST ───────────────────────────────────────────────
