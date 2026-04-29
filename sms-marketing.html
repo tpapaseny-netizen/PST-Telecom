@@ -586,30 +586,49 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
           💰 Procéder au paiement →
         </button>
-        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Un code vous sera envoyé après confirmation</p>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, revenez ici avec votre référence</p>
       </div>
 
       <!-- ÉTAPE 2 — RÉFÉRENCE PAIEMENT -->
       <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
 
-        <!-- Indications -->
-        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.7;">
-          📱 <strong style="color:#fff;">Wave</strong> — Ouvrez votre app Wave → Historique → copiez la référence<br>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);">Ex: W241234567 ou TXN-XXXXXXXXX</span><br><br>
-          💳 <strong style="color:#fff;">Carte Visa</strong> — La référence est affichée après le paiement Flutterwave<br>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);">Ex: FLW-MOCK-XXXXXXXXX</span>
+        <!-- Indications claires -->
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.8;">
+          📱 <strong style="color:#fff;">Wave</strong> — App Wave → <strong style="color:#fff;">Historique</strong> → dernière transaction → copier la référence<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: W241234567 (commence par W)</span><br><br>
+          💳 <strong style="color:#fff;">Carte Visa</strong> — Référence affichée sur le reçu Flutterwave<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: FLW-MOCK-XXXXXXXXX</span>
         </div>
 
         <div class="field">
           <label>Référence de transaction *</label>
-          <input type="text" id="code-validation" placeholder="Ex: W241234567 ou FLW-XXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;" oninput="this.value=this.value.toUpperCase()">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Trouvez cette référence dans votre app Wave ou reçu Flutterwave</div>
+          <input type="text" id="code-validation" placeholder="Ex: W241234567" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:16px;" oninput="this.value=this.value.toUpperCase()">
         </div>
+
+        <!-- Bouton aide -->
+        <div style="margin-bottom:14px;">
+          <button onclick="toggleAide()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">
+            ❓ Je ne trouve pas ma référence Wave
+          </button>
+          <div id="aide-ref" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8;">
+            <strong style="color:#fff;">Comment trouver votre référence Wave :</strong><br>
+            1. Ouvrez l'app Wave sur votre téléphone<br>
+            2. Appuyez sur <strong style="color:#fff;">"Historique"</strong> en bas<br>
+            3. Cherchez le paiement à PST Telecom<br>
+            4. Appuyez dessus → copiez la référence<br><br>
+            <strong style="color:var(--orange);">Pas de paiement récent ?</strong> Contactez-nous au <strong style="color:#fff;">+221 77 152 09 59</strong>
+          </div>
+        </div>
+
         <button class="send-btn" onclick="lancerCampagne()" id="send-btn">
           🚀 Lancer la campagne
         </button>
-        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Référence vérifiée par PST Telecom avant envoi</div>
+
+        <!-- Mention légale -->
+        <div style="background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6;">
+          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation préalable des destinataires pour leur envoyer des SMS commerciaux. PST Telecom décline toute responsabilité en cas d'utilisation abusive.
+        </div>
       </div>
     </div>
 
@@ -653,6 +672,11 @@ const TEMPLATES = {
   promo: "Bonjour {prenom}, offre spéciale PST ! Profitez de nos services jusqu'au {date}. pst-telecom.vercel.app",
   otp: "Votre code de vérification PST est : {code}. Valable 10 minutes. Ne le partagez pas."
 };
+
+function toggleAide() {
+  var el = document.getElementById('aide-ref');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
 
 // ─── PACKS ────────────────────────────────────────────────
 function selPack(id, price, sms) {

@@ -1294,17 +1294,74 @@ app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ═══ ROUTES RÉFÉRENCES ET CODES SMS MARKETING ═══════════════
+
 // Vérifier une référence de transaction Wave ou Visa
 app.post('/api/sms-marketing/verify-ref', async (req, res) => {
   try {
     const { reference, telephone, smsCount } = req.body;
-    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte' });
+    if (!reference || reference.length < 5) {
+      return res.json({ valid: false, error: 'Référence trop courte — vérifiez dans votre app Wave' });
+    }
+
     const ref = reference.toUpperCase().trim();
+
+    // Vérification format Wave (W + chiffres) ou Flutterwave (FLW-...)
+    const isWave = /^W[0-9A-Z]{5,20}$/.test(ref);
+    const isFLW  = /^FLW/.test(ref);
+    const isTxn  = /^(TXN|PST|REF|TRF|PAY|WAVE)[0-9A-Z\-]{3,}$/.test(ref);
+
+    if (!isWave && !isFLW && !isTxn) {
+      return res.json({
+        valid: false,
+        error: 'Format non reconnu. Wave: W241234567 — Flutterwave: FLW-MOCK-XXXX'
+      });
+    }
+
+    // Vérifier que la référence n'a pas déjà été utilisée
     const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
-    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée' });
-    await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone, smsCount: parseInt(smsCount)||0, utiliseeAt: new Date() });
+    if (existing) {
+      return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
+    }
+
+    // Enregistrer la référence comme utilisée
+    await db.collection('sms_refs_utilisees').insertOne({
+      reference: ref,
+      telephone: telephone || '',
+      smsCount: parseInt(smsCount) || 0,
+      statut: 'utilise',
+      utiliseeAt: new Date()
+    });
+
+    // Log activité admin
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Référence ${ref} validée — ${smsCount} SMS pour ${telephone}`,
+      createdAt: new Date()
+    });
+
     res.json({ valid: true });
-  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ valid: false, error: e.message });
+  }
+});
+
+// Admin — lister toutes les références utilisées
+app.get('/api/sms-marketing/refs', async (req, res) => {
+  try {
+    const refs = await db.collection('sms_refs_utilisees')
+      .find({}).sort({ utiliseeAt: -1 }).limit(100).toArray();
+    res.json(refs);
+  } catch (e) { res.json([]); }
+});
+
+// Admin — débloquer une référence (en cas d'erreur)
+app.delete('/api/sms-marketing/refs/:ref', async (req, res) => {
+  try {
+    await db.collection('sms_refs_utilisees')
+      .deleteOne({ reference: req.params.ref.toUpperCase() });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ═══ ROUTES CODES VALIDATION SMS MARKETING ══════════════════
@@ -1313,9 +1370,9 @@ app.post('/api/sms-marketing/verify-ref', async (req, res) => {
 app.post('/api/sms-marketing/generate-code', async (req, res) => {
   try {
     const { telephone, smsCount, pack, montant, notes } = req.body;
-    // Générer code unique PST-XXXX-XXXX
-    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
-    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
+    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase()
+               + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await db.collection('sms_codes').insertOne({
       code, telephone, smsCount: parseInt(smsCount)||0,
@@ -1343,11 +1400,41 @@ app.post('/api/sms-marketing/verify-code', async (req, res) => {
 
     if (!codeDoc) return res.json({ valid: false, error: 'Code invalide ou expiré' });
 
-    // Marquer comme utilisé
     await db.collection('sms_codes').updateOne(
       { code: code.toUpperCase().trim() },
       { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } }
     );
+
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Code ${code} validé — ${smsCount} SMS pour ${telephone}`,
+      createdAt: new Date()
+    });
+
+    res.json({ valid: true, smsCount: codeDoc.smsCount, pack: codeDoc.pack });
+  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
+});
+
+// Lister tous les codes (admin)
+app.get('/api/sms-marketing/codes', async (req, res) => {
+  try {
+    const codes = await db.collection('sms_codes')
+      .find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(codes);
+  } catch (e) { res.json([]); }
+});
+
+// Révoquer un code
+app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
+  try {
+    await db.collection('sms_codes').updateOne(
+      { code: req.params.code },
+      { $set: { statut: 'revoque' } }
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 
     await db.collection('activity_logs').insertOne({
       type: 'sms_marketing',
