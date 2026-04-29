@@ -951,16 +951,21 @@ async function initierPaiement() {
   if(payOpt === 'wave') {
     // Ouvrir Wave
     window.open(WAVE_BASE + cost, '_blank');
-    // Après 5 secondes demander si paiement fait → générer code automatiquement
-    setTimeout(async function() {
-      var confirmed = confirm(
-        '💚 Avez-vous bien effectué le paiement Wave de ' + cost.toLocaleString('fr-FR') + ' FCFA ?\n\n' +
-        'Cliquez OK — votre code sera généré automatiquement.'
-      );
-      if(confirmed) {
+    showToast('💚 Lien Wave ouvert — payez puis revenez ici', 'success');
+    // Bouton "J'ai payé" apparaît après 15 secondes
+    setTimeout(function() {
+      var btn = document.createElement('button');
+      btn.textContent = '✅ J\'ai payé — Générer mon code';
+      btn.style.cssText = 'width:100%;background:#00E676;color:#000;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;cursor:pointer;margin-top:10px;font-family:Syne,sans-serif;';
+      btn.onclick = async function() {
+        btn.textContent = '⏳ Génération du code...';
+        btn.disabled = true;
         await genererCodeAuto(phone, org, cost, totalSms);
-      }
-    }, 5000);
+        btn.remove();
+      };
+      var stepPay = document.getElementById('step-pay');
+      if(stepPay) stepPay.appendChild(btn);
+    }, 15000);
 
   } else {
     // Flutterwave — code généré automatiquement après succès
@@ -1001,11 +1006,31 @@ async function genererCodeAuto(phone, org, montant, smsCount) {
     });
     const data = await res.json();
     if(data.success) {
-      // Afficher le code directement sur la page
+      // Pré-remplir le champ
       document.getElementById('code-validation').value = data.code;
       document.getElementById('code-auto-display').style.display = 'block';
       document.getElementById('code-auto-value').textContent = data.code;
-      showToast('✅ Code généré automatiquement : ' + data.code, 'success');
+
+      // Grand popup central impossible à rater
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      overlay.innerHTML = '<div style="background:#0D1620;border:2px solid #00E676;border-radius:20px;padding:40px;text-align:center;max-width:400px;width:90%;">' +
+        '<div style="font-size:48px;margin-bottom:16px;">🎉</div>' +
+        '<h2 style="font-family:Syne,sans-serif;color:#fff;margin-bottom:8px;">Paiement confirmé !</h2>' +
+        '<p style="color:#556B82;margin-bottom:20px;">Votre code de validation :</p>' +
+        '<div style="background:#060B12;border:2px solid #00E676;border-radius:12px;padding:20px;margin-bottom:20px;">' +
+        '<div style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:700;color:#00E676;letter-spacing:4px;">' + data.code + '</div>' +
+        '</div>' +
+        '<p style="color:#556B82;font-size:13px;margin-bottom:20px;">Ce code est pré-rempli ci-dessous.<br>Cliquez "Lancer la campagne" pour envoyer vos SMS.</p>' +
+        '<button onclick="this.parentElement.parentElement.remove()" style="background:#00E676;color:#000;border:none;border-radius:10px;padding:14px 32px;font-weight:700;font-size:15px;cursor:pointer;font-family:Syne,sans-serif;">✅ Compris — Je lance la campagne</button>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      // Scroll vers le bouton lancer
+      setTimeout(function() {
+        var btn = document.getElementById('send-btn');
+        if(btn) btn.scrollIntoView({behavior:'smooth'});
+      }, 500);
     }
   } catch(e) {
     showToast('Erreur génération code', 'error');
