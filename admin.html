@@ -680,6 +680,72 @@ textarea.field-input { resize:vertical; min-height:80px; }
           </div>
         </div>
 
+        <!-- GÉNÉRER UN CODE -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">🔑 Générer un code de validation</div>
+          </div>
+          <div style="padding:24px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
+              <div>
+                <label class="field-label">Téléphone client</label>
+                <input class="field-input" id="code-tel" placeholder="+221771234567">
+              </div>
+              <div>
+                <label class="field-label">Pack</label>
+                <select class="field-input" id="code-pack">
+                  <option value="starter">Starter — 100 SMS</option>
+                  <option value="pro" selected>Pro — 1 000 SMS</option>
+                  <option value="business">Business — 5 000 SMS</option>
+                  <option value="ecole">École — 10 000 SMS</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Montant payé (FCFA)</label>
+                <input class="field-input" type="number" id="code-montant" placeholder="8000">
+              </div>
+              <div>
+                <label class="field-label">Note (optionnel)</label>
+                <input class="field-input" id="code-notes" placeholder="École XYZ">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;">
+              <button class="save-btn" onclick="genererCode()">🔑 Générer le code</button>
+              <div id="code-result" style="display:none;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:12px 20px;">
+                <span style="font-size:12px;color:var(--muted);">Code généré : </span>
+                <strong id="code-value" style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--green);letter-spacing:2px;"></strong>
+                <button onclick="copierCode()" style="margin-left:12px;background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Copier</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTE DES CODES -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">📋 Codes générés</div>
+            <button class="refresh-btn" onclick="loadCodes()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body" style="max-height:300px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Téléphone</th>
+                  <th>Pack</th>
+                  <th>Montant</th>
+                  <th>Statut</th>
+                  <th>Expire</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="codes-table">
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- HISTORIQUE CAMPAGNES -->
         <div class="panel">
           <div class="panel-header">
@@ -1445,8 +1511,73 @@ function showSection(id) {
   if(id==='admins') renderAdmins();
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
-  if(id==='sms-marketing') loadSmsMktStats();
+  if(id==='sms-marketing') { loadSmsMktStats(); loadCodes(); }
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── CODES SMS MARKETING ─────────────────────────────────────────
+async function genererCode() {
+  const tel = document.getElementById('code-tel').value.trim();
+  const pack = document.getElementById('code-pack').value;
+  const montant = document.getElementById('code-montant').value;
+  const notes = document.getElementById('code-notes').value.trim();
+  const smsMap = { starter:100, pro:1000, business:5000, ecole:10000 };
+
+  if(!tel) { showToast('Téléphone requis', 'error'); return; }
+
+  try {
+    const res = await fetch(API + '/api/sms-marketing/generate-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ telephone:tel, smsCount:smsMap[pack], pack, montant, notes })
+    });
+    const data = await res.json();
+    if(data.success) {
+      document.getElementById('code-value').textContent = data.code;
+      document.getElementById('code-result').style.display = 'flex';
+      showToast('✅ Code généré — envoyez-le au client', 'success');
+      loadCodes();
+    }
+  } catch(e) { showToast('Erreur','error'); }
+}
+
+function copierCode() {
+  const code = document.getElementById('code-value').textContent;
+  navigator.clipboard.writeText(code);
+  showToast('✅ Code copié : ' + code, 'success');
+}
+
+async function loadCodes() {
+  try {
+    const res = await fetch(API + '/api/sms-marketing/codes');
+    const codes = await res.json();
+    const tbody = document.getElementById('codes-table');
+    if(!codes.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucun code généré</td></tr>';
+      return;
+    }
+    tbody.innerHTML = codes.map(c => {
+      const expire = new Date(c.expireAt).toLocaleDateString('fr-FR');
+      const statut = c.utilise ? '<span class="badge pending">✓ Utilisé</span>' :
+                    c.statut==='revoque' ? '<span class="badge suspended">✕ Révoqué</span>' :
+                    '<span class="badge active">● Actif</span>';
+      return `<tr>
+        <td><span class="mono" style="font-size:13px;letter-spacing:1px;">${c.code}</span></td>
+        <td style="font-size:12px">${c.telephone||'—'}</td>
+        <td><span class="badge sms-only">${c.pack||'—'}</span></td>
+        <td><strong style="color:var(--green)">${(c.montant||0).toLocaleString('fr-FR')} F</strong></td>
+        <td>${statut}</td>
+        <td style="font-size:12px;color:var(--muted)">${expire}</td>
+        <td>${!c.utilise && c.statut!=='revoque' ? `<button class="act-btn delete" onclick="revoquerCode('${c.code}')">Révoquer</button>` : '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function revoquerCode(code) {
+  if(!confirm('Révoquer ce code ?')) return;
+  await fetch(API + '/api/sms-marketing/codes/' + code, {method:'DELETE'});
+  showToast('Code révoqué', 'success');
+  loadCodes();
 }
 
 // ─── SMS MARKETING ───────────────────────────────────────────────

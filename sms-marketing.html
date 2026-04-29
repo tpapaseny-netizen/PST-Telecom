@@ -575,14 +575,41 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <label>Téléphone</label>
         <input type="tel" id="org-phone" placeholder="+221 77 000 00 00">
       </div>
-      <div class="pay-opts">
-        <button class="pay-opt selected" id="payopt-wave" onclick="selPayOpt('wave')">💚 Wave</button>
-        <button class="pay-opt" id="payopt-card" onclick="selPayOpt('card')">💳 Carte Visa</button>
+
+      <!-- ÉTAPE 1 — PAYER -->
+      <div id="step-pay" style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Choisir le paiement</div>
+        <div class="pay-opts">
+          <button class="pay-opt selected" id="payopt-wave" onclick="selPayOpt('wave')">💚 Wave</button>
+          <button class="pay-opt" id="payopt-card" onclick="selPayOpt('card')">💳 Carte Visa</button>
+        </div>
+        <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+          💰 Procéder au paiement →
+        </button>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Un code vous sera envoyé après confirmation</p>
       </div>
-      <button class="send-btn" onclick="lancerCampagne()" id="send-btn" style="margin-top:16px;">
-        🚀 Lancer la campagne
-      </button>
-      <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Envoi sécurisé via PST Telecom</div>
+
+      <!-- ÉTAPE 2 — CODE -->
+      <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Code de validation</div>
+
+        <!-- Code généré automatiquement -->
+        <div id="code-auto-display" style="display:none;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;margin-bottom:12px;text-align:center;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">✅ Code généré automatiquement</div>
+          <div id="code-auto-value" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green);letter-spacing:3px;"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Code pré-rempli ci-dessous — cliquez Lancer</div>
+        </div>
+
+        <div class="field">
+          <label>Code de validation *</label>
+          <input type="text" id="code-validation" placeholder="PST-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;font-family:'JetBrains Mono',monospace;" oninput="this.value=this.value.toUpperCase()">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Généré automatiquement après paiement</div>
+        </div>
+        <button class="send-btn" onclick="lancerCampagne()" id="send-btn">
+          🚀 Lancer la campagne
+        </button>
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Envoi sécurisé — code à usage unique</div>
+      </div>
     </div>
 
   </div>
@@ -909,38 +936,34 @@ function selPayOpt(opt) {
   document.getElementById('payopt-card').classList.toggle('selected', opt==='card');
 }
 
-// ─── LAUNCH ───────────────────────────────────────────────
-async function lancerCampagne() {
-  const msg = document.getElementById('message-text').value.trim();
+// ─── PAIEMENT ─────────────────────────────────────────────
+async function initierPaiement() {
   const org = document.getElementById('org-name').value.trim();
   const phone = document.getElementById('org-phone').value.trim();
-
+  if(!org || !phone) { showToast('⚠️ Remplissez votre nom et téléphone', 'error'); return; }
   if(!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
-  if(!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
-  if(!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
 
-  const totalSms = contacts.length * Math.ceil(msg.length/160);
+  const msg = document.getElementById('message-text').value;
+  const totalSms = contacts.length * (Math.ceil((msg.length||1)/160)||1);
   const unitPrice = packData.price / packData.sms;
   const cost = Math.ceil(totalSms * unitPrice);
 
   if(payOpt === 'wave') {
-    // Ouvrir Wave d'abord — attendre confirmation manuelle
+    // Ouvrir Wave
     window.open(WAVE_BASE + cost, '_blank');
-    // Demander confirmation après paiement Wave
-    setTimeout(function() {
+    // Après 5 secondes demander si paiement fait → générer code automatiquement
+    setTimeout(async function() {
       var confirmed = confirm(
-        '✅ Avez-vous bien effectué le paiement Wave de ' + cost.toLocaleString('fr-FR') + ' FCFA ?\n\n' +
-        'Cliquez OK pour lancer l\'envoi des ' + contacts.length + ' SMS.\n' +
-        'Cliquez Annuler si le paiement n\'est pas encore fait.'
+        '💚 Avez-vous bien effectué le paiement Wave de ' + cost.toLocaleString('fr-FR') + ' FCFA ?\n\n' +
+        'Cliquez OK — votre code sera généré automatiquement.'
       );
       if(confirmed) {
-        confirmerEtEnvoyer(msg);
-      } else {
-        showToast('⏳ Envoi annulé — finalisez votre paiement Wave', 'error');
+        await genererCodeAuto(phone, org, cost, totalSms);
       }
-    }, 4000);
+    }, 5000);
+
   } else {
-    // Flutterwave — envoi seulement après callback succès
+    // Flutterwave — code généré automatiquement après succès
     FlutterwaveCheckout({
       public_key: FLW_KEY,
       tx_ref: 'PST-SMS-' + Date.now(),
@@ -950,21 +973,84 @@ async function lancerCampagne() {
       customer: { email: phone+'@pst-telecom.sn', phone_number: phone, name: org },
       customizations: {
         title: 'PST SMS Marketing',
-        description: 'Campagne SMS — ' + contacts.length + ' contacts — ' + cost.toLocaleString('fr-FR') + ' FCFA',
+        description: 'Campagne SMS — ' + contacts.length + ' contacts',
         logo: ''
       },
-      callback: function(response) {
+      callback: async function(response) {
         if(response.status === 'successful') {
-          showToast('💳 Paiement confirmé ! Envoi en cours...', 'success');
-          confirmerEtEnvoyer(msg);
+          await genererCodeAuto(phone, org, cost, totalSms);
         } else {
-          showToast('❌ Paiement échoué — envoi annulé', 'error');
+          showToast('❌ Paiement échoué', 'error');
         }
       },
-      onclose: function() {
-        showToast('⚠️ Paiement annulé — aucun SMS envoyé', 'error');
-      }
+      onclose: function() {}
     });
+  }
+}
+
+async function genererCodeAuto(phone, org, montant, smsCount) {
+  try {
+    const res = await fetch(API + '/api/sms-marketing/generate-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        telephone: phone, notes: org,
+        smsCount: smsCount, montant: montant,
+        pack: packData.name, auto: true
+      })
+    });
+    const data = await res.json();
+    if(data.success) {
+      // Afficher le code directement sur la page
+      document.getElementById('code-validation').value = data.code;
+      document.getElementById('code-auto-display').style.display = 'block';
+      document.getElementById('code-auto-value').textContent = data.code;
+      showToast('✅ Code généré automatiquement : ' + data.code, 'success');
+    }
+  } catch(e) {
+    showToast('Erreur génération code', 'error');
+  }
+}
+
+// ─── LAUNCH avec code ─────────────────────────────────────
+async function lancerCampagne() {
+  const msg = document.getElementById('message-text').value.trim();
+  const org = document.getElementById('org-name').value.trim();
+  const phone = document.getElementById('org-phone').value.trim();
+  const code = document.getElementById('code-validation').value.trim().toUpperCase();
+
+  if(!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
+  if(!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
+  if(!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
+  if(!code) { showToast('⚠️ Entrez votre code de validation', 'error'); return; }
+
+  // Vérifier le code via l'API
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Vérification du code...';
+
+  try {
+    const res = await fetch(API + '/api/sms-marketing/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, telephone: phone, smsCount: contacts.length })
+    });
+    const data = await res.json();
+
+    if(data.valid) {
+      showToast('✅ Code validé ! Envoi en cours...', 'success');
+      btn.innerHTML = '🚀 Lancer la campagne';
+      btn.disabled = false;
+      confirmerEtEnvoyer(msg, code);
+    } else {
+      showToast('❌ Code invalide ou expiré', 'error');
+      btn.innerHTML = '🚀 Lancer la campagne';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    showToast('❌ Erreur de vérification', 'error');
+    btn.innerHTML = '🚀 Lancer la campagne';
+    btn.disabled = false;
   }
 }
 

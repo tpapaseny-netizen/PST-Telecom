@@ -1193,6 +1193,76 @@ app.get('/api/sms-marketing/stats', async (req, res) => {
     res.json({ totalCampagnes, totalEnvoyes, totalEchecs });
   } catch (e) { res.json({ totalCampagnes:0, totalEnvoyes:0, totalEchecs:0 }); }
 });
+// ═══ ROUTES CODES VALIDATION SMS MARKETING ══════════════════
+
+// Générer un code de validation (depuis l'admin)
+app.post('/api/sms-marketing/generate-code', async (req, res) => {
+  try {
+    const { telephone, smsCount, pack, montant, notes } = req.body;
+    // Générer code unique PST-XXXX-XXXX
+    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
+
+    await db.collection('sms_codes').insertOne({
+      code, telephone, smsCount: parseInt(smsCount)||0,
+      pack: pack||'', montant: parseInt(montant)||0,
+      notes: notes||'', statut: 'actif',
+      utilise: false, createdAt: new Date(), expireAt
+    });
+
+    res.json({ success: true, code, expireAt });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Vérifier un code (depuis la plateforme SMS Marketing)
+app.post('/api/sms-marketing/verify-code', async (req, res) => {
+  try {
+    const { code, telephone, smsCount } = req.body;
+    if (!code) return res.status(400).json({ valid: false, error: 'Code requis' });
+
+    const codeDoc = await db.collection('sms_codes').findOne({
+      code: code.toUpperCase().trim(),
+      statut: 'actif',
+      utilise: false,
+      expireAt: { $gt: new Date() }
+    });
+
+    if (!codeDoc) return res.json({ valid: false, error: 'Code invalide ou expiré' });
+
+    // Marquer comme utilisé
+    await db.collection('sms_codes').updateOne(
+      { code: code.toUpperCase().trim() },
+      { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } }
+    );
+
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Code ${code} validé — campagne de ${smsCount} SMS pour ${telephone}`,
+      createdAt: new Date()
+    });
+
+    res.json({ valid: true, smsCount: codeDoc.smsCount, pack: codeDoc.pack });
+  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
+});
+
+// Lister tous les codes (admin)
+app.get('/api/sms-marketing/codes', async (req, res) => {
+  try {
+    const codes = await db.collection('sms_codes').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(codes);
+  } catch (e) { res.json([]); }
+});
+
+// Révoquer un code
+app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
+  try {
+    await db.collection('sms_codes').updateOne(
+      { code: req.params.code },
+      { $set: { statut: 'revoque' } }
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
