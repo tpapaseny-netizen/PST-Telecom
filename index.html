@@ -178,6 +178,16 @@
   }
   .sms-logo .logo-icon { font-size: 28px; margin-bottom: 8px; }
 
+  /* PAYMENT METHODS */
+  .pay-method {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    border:1.5px solid var(--border); border-radius:10px; padding:12px;
+    background:transparent; color:var(--text); font-family:'DM Sans',sans-serif;
+    font-size:13px; font-weight:500; cursor:pointer; transition:all .2s;
+  }
+  .pay-method:hover { border-color:rgba(0,230,118,0.4); }
+  .pay-method.selected { border-color:var(--green); background:rgba(0,230,118,0.08); color:#fff; }
+
   /* FOOTER */
   footer { padding: 40px 32px; text-align: center; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); }
 
@@ -289,15 +299,23 @@
         </button>
       </div>
 
-      <div class="wave-link" id="wave-box">
-        <p>Après inscription, payez votre forfait via Wave :</p>
-        <a href="#" id="wave-link-url" target="_blank">💚 Payer avec Wave →</a>
+      <!-- CHOIX PAIEMENT -->
+      <label style="margin-bottom:10px;display:block;">Moyen de paiement *</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+        <button class="pay-method selected" id="pay-wave" onclick="selPay('wave')">
+          <span style="font-size:18px;">💚</span>
+          <span>Wave</span>
+        </button>
+        <button class="pay-method" id="pay-card" onclick="selPay('card')">
+          <span style="font-size:18px;">💳</span>
+          <span>Carte Visa/MasterCard</span>
+        </button>
       </div>
 
       <button class="cta-btn" onclick="inscrire()" id="cta">
-        <span>Créer mon compte et payer</span> →
+        <span id="cta-text">Créer mon compte et payer via Wave</span> →
       </button>
-      <p class="secure-note">🔒 Vos données sont sécurisées. Paiement via Wave.</p>
+      <p class="secure-note">🔒 Paiement sécurisé — Wave & Flutterwave</p>
     </div>
 
     <!-- SUCCESS -->
@@ -308,7 +326,10 @@
       <div class="id-badge" id="user-id-display">—</div>
       <p>Votre numéro virtuel : <strong id="num-display" style="color:var(--green)">—</strong></p>
       <p style="margin-top:16px;">Payez maintenant pour activer votre forfait :</p>
-      <a href="#" id="wave-success-link" target="_blank" style="display:inline-block;margin-top:12px;background:var(--green);color:#000;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:700;">💚 Payer via Wave</a>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+        <a href="#" id="wave-success-link" target="_blank" style="background:var(--green);color:#000;text-decoration:none;padding:13px 24px;border-radius:10px;font-weight:700;">💚 Payer via Wave</a>
+        <button onclick="payerCarte()" style="background:#1a56db;color:#fff;border:none;padding:13px 24px;border-radius:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">💳 Payer par carte</button>
+      </div>
       <br>
       <a class="dash-link" href="https://pst-telecom-production.up.railway.app/dashboard">Accéder à mon espace →</a>
     </div>
@@ -381,11 +402,15 @@
   <p style="margin-top:8px;">© 2026 PST Telecom · Sénégal · <a href="https://pst-telecom-production.up.railway.app/dashboard" style="color:var(--green);text-decoration:none;">Mon espace</a> · <a href="https://pst-telecom-production.up.railway.app/sms" style="color:var(--green);text-decoration:none;">SMS Verif</a></p>
 </footer>
 
+<script src="https://checkout.flutterwave.com/v3.js"></script>
 <script>
   const API = 'https://pst-telecom-production.up.railway.app';
   const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
   const FORFAITS = { starter: 2990, smart: 5990, business: 15990 };
+  const FLW_PUBLIC_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
   let forfaitChoisi = 'smart';
+  let payMethod = 'wave';
+  let currentUser = null;
 
   function selForfait(f) {
     forfaitChoisi = f;
@@ -393,15 +418,20 @@
     document.getElementById('btn-' + f).classList.add('selected');
   }
 
+  function selPay(method) {
+    payMethod = method;
+    document.querySelectorAll('.pay-method').forEach(b => b.classList.remove('selected'));
+    document.getElementById('pay-' + method).classList.add('selected');
+    document.getElementById('cta-text').textContent = method === 'wave'
+      ? 'Créer mon compte et payer via Wave'
+      : 'Créer mon compte et payer par carte';
+  }
+
   async function inscrire() {
     const nom = document.getElementById('nom').value.trim();
     const prenom = document.getElementById('prenom').value.trim();
     const tel = document.getElementById('tel').value.trim();
-
-    if (!nom || !tel) {
-      alert('Merci de remplir votre nom et numéro de téléphone.');
-      return;
-    }
+    if (!nom || !tel) { alert('Merci de remplir votre nom et numéro de téléphone.'); return; }
 
     const btn = document.getElementById('cta');
     btn.disabled = true;
@@ -409,29 +439,74 @@
 
     try {
       const res = await fetch(API + '/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nom, prenom, telephone: tel, forfait: forfaitChoisi })
       });
       const data = await res.json();
 
       if (data.success) {
+        currentUser = { ...data, nom, prenom, tel, forfait: forfaitChoisi };
         const waveUrl = WAVE_BASE + FORFAITS[forfaitChoisi];
         document.getElementById('user-id-display').textContent = data.userId;
         document.getElementById('num-display').textContent = data.numeroVirtuel || '+221 XX XXX XX XX';
         document.getElementById('wave-success-link').href = waveUrl;
         document.getElementById('main-form').style.display = 'none';
         document.getElementById('success-box').style.display = 'block';
+
+        // Si carte choisie, lancer Flutterwave directement
+        if (payMethod === 'card') {
+          setTimeout(() => payerCarte(), 500);
+        }
       } else {
         alert('Erreur : ' + (data.error || 'Réessayez.'));
         btn.disabled = false;
-        btn.innerHTML = '<span>Créer mon compte et payer</span> →';
+        btn.innerHTML = '<span id="cta-text">Créer mon compte et payer via Wave</span> →';
       }
     } catch (e) {
       alert('Connexion impossible. Vérifiez votre connexion internet.');
       btn.disabled = false;
-      btn.innerHTML = '<span>Créer mon compte et payer</span> →';
+      btn.innerHTML = '<span id="cta-text">Créer mon compte et payer via Wave</span> →';
     }
+  }
+
+  function payerCarte() {
+    if (!currentUser) return;
+    const montant = FORFAITS[currentUser.forfait];
+    FlutterwaveCheckout({
+      public_key: FLW_PUBLIC_KEY,
+      tx_ref: 'PST-' + currentUser.userId + '-' + Date.now(),
+      amount: montant,
+      currency: 'XOF',
+      payment_options: 'card,mobilemoney',
+      customer: {
+        email: currentUser.tel + '@pst-telecom.sn',
+        phone_number: currentUser.tel,
+        name: currentUser.nom + ' ' + (currentUser.prenom || '')
+      },
+      customizations: {
+        title: 'PST — Pure Smart Telecom',
+        description: 'Forfait ' + currentUser.forfait + ' — ' + montant + ' FCFA/mois',
+        logo: 'https://pst-telecom.vercel.app/logo.png'
+      },
+      callback: function(response) {
+        if (response.status === 'successful') {
+          // Notifier le backend
+          fetch(API + '/api/flutterwave/confirm', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tx_ref: response.tx_ref, userId: currentUser.userId, transaction_id: response.transaction_id })
+          }).then(() => {
+            document.getElementById('success-box').innerHTML = `
+              <div class="icon">✅</div>
+              <h3>Paiement confirmé !</h3>
+              <p>Votre forfait <strong>${currentUser.forfait}</strong> est activé.</p>
+              <div class="id-badge">${currentUser.userId}</div>
+              <a class="dash-link" href="https://pst-telecom-production.up.railway.app/dashboard" style="margin-top:20px;display:inline-block;">Accéder à mon espace →</a>
+            `;
+          });
+        }
+      },
+      onclose: function() {}
+    });
   }
 </script>
 

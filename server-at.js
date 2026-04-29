@@ -942,6 +942,74 @@ app.delete('/api/admin/payments/:id', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ═══ ROUTE FLUTTERWAVE ═══════════════════════════════════
+
+app.post('/api/flutterwave/confirm', async (req, res) => {
+  try {
+    const { tx_ref, userId, transaction_id } = req.body;
+    if (!tx_ref || !userId) return res.status(400).json({ error: 'Données manquantes' });
+
+    // Vérifier le paiement avec l'API Flutterwave
+    const FLW_SECRET = process.env.FLW_SECRET_KEY;
+    const verify = await fetch(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, {
+      headers: { Authorization: `Bearer ${FLW_SECRET}` }
+    });
+    const verifyData = await verify.json();
+
+    if (verifyData.data && verifyData.data.status === 'successful') {
+      const montant = verifyData.data.amount;
+      const moyen = 'flutterwave_card';
+
+      // Enregistrer le paiement
+      await db.collection('payments').insertOne({
+        userId, montant, moyen, type: 'forfait',
+        reference: tx_ref, statut: 'confirme',
+        transaction_id, createdAt: new Date()
+      });
+
+      // Activer l'abonné
+      await db.collection('abonnes').updateOne(
+        { userId },
+        { $set: { statut: 'actif', activatedAt: new Date() } }
+      );
+
+      // Log activité
+      await db.collection('activity_logs').insertOne({
+        type: 'paiement',
+        message: `Paiement carte ${montant} XOF confirmé pour ${userId}`,
+        createdAt: new Date()
+      });
+
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Paiement non vérifié' });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Webhook Flutterwave (paiements automatiques)
+app.post('/api/flutterwave/webhook', async (req, res) => {
+  try {
+    const payload = req.body;
+    if (payload.event === 'charge.completed' && payload.data.status === 'successful') {
+      const tx_ref = payload.data.tx_ref;
+      const userId = tx_ref.split('-')[1];
+      const montant = payload.data.amount;
+
+      await db.collection('payments').insertOne({
+        userId, montant, moyen: 'flutterwave_card', type: 'forfait',
+        reference: tx_ref, statut: 'confirme', createdAt: new Date()
+      });
+
+      await db.collection('abonnes').updateOne(
+        { userId }, { $set: { statut: 'actif', activatedAt: new Date() } }
+      );
+    }
+    res.sendStatus(200);
+  } catch (e) { res.sendStatus(500); }
+});
 // ═══ ROUTES ADMIN ═══════════════════════════════════════
 
 const SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
