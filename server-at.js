@@ -523,7 +523,7 @@ app.post('/api/sms-marketing/verify-ref', async (req, res) => {
     const ref = reference.toUpperCase().trim();
     const isWave = /^W[0-9A-Z]{5,20}$/.test(ref);
     const isFLW  = /^FLW/.test(ref);
-    const isTxn  = /^(TXN|PST|REF|TRF|PAY|WAVE)[0-9A-Z\-]{3,}$/.test(ref);
+    const isTxn  = /^(TXN|PST|REF|TRF|PAY|WAVE|T_)[0-9A-Z\-_]{3,}$/.test(ref);
     if (!isWave && !isFLW && !isTxn) return res.json({ valid: false, error: 'Format non reconnu. Wave: W241234567 — Flutterwave: FLW-MOCK-XXXX' });
     const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
     if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
