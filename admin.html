@@ -778,6 +778,59 @@ textarea.field-input { resize:vertical; min-height:80px; }
             <button class="save-btn" onclick="saveContent()">💾 Sauvegarder</button>
           </div>
         </div>
+
+        <!-- SMS MARKETING PACKS -->
+        <div class="editor-grid" style="margin-top:20px;">
+          <div class="editor-card">
+            <h3>📩 Packs SMS Marketing</h3>
+            <div class="field-group">
+              <label class="field-label">Pack Starter — SMS</label>
+              <input class="field-input" type="number" id="c-sms-starter-qty" placeholder="100">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack Starter — Prix (FCFA)</label>
+              <input class="field-input" type="number" id="c-sms-starter-price" placeholder="1000">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack Pro — SMS</label>
+              <input class="field-input" type="number" id="c-sms-pro-qty" placeholder="1000">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack Pro — Prix (FCFA)</label>
+              <input class="field-input" type="number" id="c-sms-pro-price" placeholder="8000">
+            </div>
+            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
+          </div>
+          <div class="editor-card">
+            <h3>📩 Packs SMS Marketing (suite)</h3>
+            <div class="field-group">
+              <label class="field-label">Pack Business — SMS</label>
+              <input class="field-input" type="number" id="c-sms-business-qty" placeholder="5000">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack Business — Prix (FCFA)</label>
+              <input class="field-input" type="number" id="c-sms-business-price" placeholder="35000">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack École — SMS</label>
+              <input class="field-input" type="number" id="c-sms-ecole-qty" placeholder="10000">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Pack École — Prix (FCFA)</label>
+              <input class="field-input" type="number" id="c-sms-ecole-price" placeholder="60000">
+            </div>
+            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
+          </div>
+        </div>
+
+        <!-- APERCU MARGES -->
+        <div class="panel" style="margin-top:20px;padding:24px;">
+          <div class="panel-title" style="margin-bottom:16px;">📊 Aperçu marges (coût AT ~4 FCFA/SMS)</div>
+          <table class="data-table">
+            <thead><tr><th>Pack</th><th>SMS</th><th>Prix client</th><th>Coût AT</th><th>Marge</th><th>%</th></tr></thead>
+            <tbody id="marges-table"></tbody>
+          </table>
+        </div>
       </div>
 
     </div><!-- /content -->
@@ -1199,7 +1252,60 @@ function loadContent() {
     document.getElementById('c-price-smart').value = d.priceSmart||5990;
     document.getElementById('c-min-smart').value = d.minSmart||300;
     document.getElementById('c-price-business').value = d.priceBusiness||15990;
+    // SMS Marketing packs
+    document.getElementById('c-sms-starter-qty').value = d.smsStarterQty||100;
+    document.getElementById('c-sms-starter-price').value = d.smsStarterPrice||1000;
+    document.getElementById('c-sms-pro-qty').value = d.smsProQty||1000;
+    document.getElementById('c-sms-pro-price').value = d.smsProPrice||8000;
+    document.getElementById('c-sms-business-qty').value = d.smsBusinessQty||5000;
+    document.getElementById('c-sms-business-price').value = d.smsBusinessPrice||35000;
+    document.getElementById('c-sms-ecole-qty').value = d.smsEcoleQty||10000;
+    document.getElementById('c-sms-ecole-price').value = d.smsEcolePrice||60000;
+    calcMarges();
   }).catch(()=>{});
+}
+
+function saveSmsContent() {
+  const body = {
+    smsStarterQty: +document.getElementById('c-sms-starter-qty').value,
+    smsStarterPrice: +document.getElementById('c-sms-starter-price').value,
+    smsProQty: +document.getElementById('c-sms-pro-qty').value,
+    smsProPrice: +document.getElementById('c-sms-pro-price').value,
+    smsBusinessQty: +document.getElementById('c-sms-business-qty').value,
+    smsBusinessPrice: +document.getElementById('c-sms-business-price').value,
+    smsEcoleQty: +document.getElementById('c-sms-ecole-qty').value,
+    smsEcolePrice: +document.getElementById('c-sms-ecole-price').value,
+  };
+  fetch(API + '/api/admin/content', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  }).then(()=>{ showToast('✅ Packs SMS sauvegardés', 'success'); calcMarges(); })
+    .catch(()=>showToast('Erreur','error'));
+}
+
+function calcMarges() {
+  const packs = [
+    { nom:'Starter', qty: +document.getElementById('c-sms-starter-qty').value||100, prix: +document.getElementById('c-sms-starter-price').value||1000 },
+    { nom:'Pro', qty: +document.getElementById('c-sms-pro-qty').value||1000, prix: +document.getElementById('c-sms-pro-price').value||8000 },
+    { nom:'Business', qty: +document.getElementById('c-sms-business-qty').value||5000, prix: +document.getElementById('c-sms-business-price').value||35000 },
+    { nom:'École', qty: +document.getElementById('c-sms-ecole-qty').value||10000, prix: +document.getElementById('c-sms-ecole-price').value||60000 },
+  ];
+  const cout_par_sms = 4; // FCFA
+  const tbody = document.getElementById('marges-table');
+  if(!tbody) return;
+  tbody.innerHTML = packs.map(p => {
+    const cout = p.qty * cout_par_sms;
+    const marge = p.prix - cout;
+    const pct = Math.round(marge/p.prix*100);
+    const color = pct > 50 ? 'var(--green)' : pct > 30 ? 'var(--orange)' : 'var(--red)';
+    return `<tr>
+      <td><strong>${p.nom}</strong></td>
+      <td>${p.qty.toLocaleString('fr-FR')}</td>
+      <td><strong style="color:var(--green)">${p.prix.toLocaleString('fr-FR')} FCFA</strong></td>
+      <td style="color:var(--muted)">${cout.toLocaleString('fr-FR')} FCFA</td>
+      <td><strong>${marge.toLocaleString('fr-FR')} FCFA</strong></td>
+      <td><span style="color:${color};font-weight:700">${pct}%</span></td>
+    </tr>`;
+  }).join('');
 }
 
 function saveContent() {
