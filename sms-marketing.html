@@ -924,11 +924,23 @@ async function lancerCampagne() {
   const cost = Math.ceil(totalSms * unitPrice);
 
   if(payOpt === 'wave') {
-    // Ouvrir lien Wave puis envoyer
+    // Ouvrir Wave d'abord — attendre confirmation manuelle
     window.open(WAVE_BASE + cost, '_blank');
-    setTimeout(() => confirmerEtEnvoyer(msg), 3000);
+    // Demander confirmation après paiement Wave
+    setTimeout(function() {
+      var confirmed = confirm(
+        '✅ Avez-vous bien effectué le paiement Wave de ' + cost.toLocaleString('fr-FR') + ' FCFA ?\n\n' +
+        'Cliquez OK pour lancer l\'envoi des ' + contacts.length + ' SMS.\n' +
+        'Cliquez Annuler si le paiement n\'est pas encore fait.'
+      );
+      if(confirmed) {
+        confirmerEtEnvoyer(msg);
+      } else {
+        showToast('⏳ Envoi annulé — finalisez votre paiement Wave', 'error');
+      }
+    }, 4000);
   } else {
-    // Flutterwave
+    // Flutterwave — envoi seulement après callback succès
     FlutterwaveCheckout({
       public_key: FLW_KEY,
       tx_ref: 'PST-SMS-' + Date.now(),
@@ -938,13 +950,20 @@ async function lancerCampagne() {
       customer: { email: phone+'@pst-telecom.sn', phone_number: phone, name: org },
       customizations: {
         title: 'PST SMS Marketing',
-        description: `Campagne SMS — ${contacts.length} contacts`,
+        description: 'Campagne SMS — ' + contacts.length + ' contacts — ' + cost.toLocaleString('fr-FR') + ' FCFA',
         logo: ''
       },
       callback: function(response) {
-        if(response.status === 'successful') confirmerEtEnvoyer(msg);
+        if(response.status === 'successful') {
+          showToast('💳 Paiement confirmé ! Envoi en cours...', 'success');
+          confirmerEtEnvoyer(msg);
+        } else {
+          showToast('❌ Paiement échoué — envoi annulé', 'error');
+        }
       },
-      onclose: function() {}
+      onclose: function() {
+        showToast('⚠️ Paiement annulé — aucun SMS envoyé', 'error');
+      }
     });
   }
 }
