@@ -836,7 +836,8 @@ function updateComposer() {
   const preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'6ème A',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin'});
   document.getElementById('preview-msg').textContent = preview || 'Votre message apparaîtra ici...';
   document.getElementById('preview-msg').style.color = preview ? 'var(--text)' : 'var(--muted)';
-  document.getElementById('preview-sender-name').textContent = document.getElementById('sender-name')?.value || 'PST-Telecom';
+  var senderEl = document.getElementById('sender-name');
+  document.getElementById('preview-sender-name').textContent = (senderEl ? senderEl.value : '') || 'PST-Telecom';
 
   const now = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('preview-time').textContent = now;
@@ -868,8 +869,10 @@ function selSchedule(mode) {
 
 // ─── SUMMARY ──────────────────────────────────────────────
 function updateSummary(overrideCount, smsEach) {
-  const count = overrideCount ?? contacts.length;
-  const each = smsEach ?? Math.ceil((document.getElementById('message-text')?.value.length||0)/160)||1;
+  const count = (overrideCount !== undefined && overrideCount !== null) ? overrideCount : contacts.length;
+  var msgEl = document.getElementById('message-text');
+  var msgLen = msgEl ? msgEl.value.length : 0;
+  const each = (smsEach !== undefined && smsEach !== null) ? smsEach : (Math.ceil(msgLen/160)||1);
   const total = count * each;
   const unitPrice = packData.price / packData.sms;
   const cost = Math.ceil(total * unitPrice);
@@ -878,8 +881,9 @@ function updateSummary(overrideCount, smsEach) {
   document.getElementById('sum-contacts').textContent = count;
   document.getElementById('sum-sms-each').textContent = each;
   document.getElementById('sum-total-sms').textContent = total;
+  var schedEl = document.getElementById('schedule-datetime');
   document.getElementById('sum-schedule').textContent = scheduleMode==='now' ? 'Immédiat' :
-    (document.getElementById('schedule-datetime')?.value || 'Planifié');
+    (schedEl && schedEl.value ? schedEl.value : 'Planifié');
   document.getElementById('sum-cost').textContent = cost.toLocaleString('fr-FR') + ' FCFA';
 }
 
@@ -999,6 +1003,7 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
+// v2.1 - fix compatibilite navigateur
 // Init
 updateSummary();
 selPack('pro', 8000, 1000);
