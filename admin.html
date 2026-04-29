@@ -680,6 +680,63 @@ textarea.field-input { resize:vertical; min-height:80px; }
           </div>
         </div>
 
+        <!-- AUTORISER UNE RÉFÉRENCE WAVE -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">💚 Autoriser une référence Wave/Visa</div>
+          </div>
+          <div style="padding:24px;">
+            <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--muted);">
+              📋 <strong style="color:#fff;">Workflow :</strong> Client paie Wave → tu reçois la notification → tu entres sa référence ici → il peut l'utiliser sur la plateforme
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
+              <div>
+                <label class="field-label">Référence Wave/Visa *</label>
+                <input class="field-input" id="ref-wave" placeholder="T_PUDLIORG..." style="font-family:'JetBrains Mono',monospace;">
+              </div>
+              <div>
+                <label class="field-label">Téléphone client</label>
+                <input class="field-input" id="ref-tel" placeholder="+221771234567">
+              </div>
+              <div>
+                <label class="field-label">Montant reçu (FCFA)</label>
+                <input class="field-input" type="number" id="ref-montant" placeholder="8000">
+              </div>
+              <div>
+                <label class="field-label">Pack / Note</label>
+                <input class="field-input" id="ref-notes" placeholder="Pro — École XYZ">
+              </div>
+            </div>
+            <button class="save-btn" onclick="autoriserRef()">✅ Autoriser cette référence</button>
+          </div>
+        </div>
+
+        <!-- LISTE RÉFÉRENCES AUTORISÉES -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">📋 Références autorisées</div>
+            <button class="refresh-btn" onclick="loadRefs()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body" style="max-height:300px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Référence</th>
+                  <th>Téléphone</th>
+                  <th>Montant</th>
+                  <th>Note</th>
+                  <th>Statut</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="refs-table">
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- GÉNÉRER UN CODE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
@@ -1511,8 +1568,61 @@ function showSection(id) {
   if(id==='admins') renderAdmins();
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
-  if(id==='sms-marketing') { loadSmsMktStats(); loadCodes(); }
+  if(id==='sms-marketing') { loadSmsMktStats(); loadCodes(); loadRefs(); }
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── RÉFÉRENCES WAVE ─────────────────────────────────────────
+async function autoriserRef() {
+  const ref = document.getElementById('ref-wave').value.trim();
+  const tel = document.getElementById('ref-tel').value.trim();
+  const montant = document.getElementById('ref-montant').value;
+  const notes = document.getElementById('ref-notes').value.trim();
+  if(!ref) { showToast('Référence requise', 'error'); return; }
+  try {
+    const res = await fetch(API + '/api/sms-marketing/autoriser-ref', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ reference: ref, telephone: tel, montant, notes })
+    });
+    const data = await res.json();
+    if(data.success) {
+      showToast('✅ Référence autorisée — le client peut maintenant l\'utiliser', 'success');
+      document.getElementById('ref-wave').value = '';
+      document.getElementById('ref-tel').value = '';
+      document.getElementById('ref-montant').value = '';
+      document.getElementById('ref-notes').value = '';
+      loadRefs();
+    } else { showToast(data.error || 'Erreur', 'error'); }
+  } catch(e) { showToast('Erreur', 'error'); }
+}
+
+async function loadRefs() {
+  try {
+    const res = await fetch(API + '/api/sms-marketing/refs');
+    const refs = await res.json();
+    const tbody = document.getElementById('refs-table');
+    if(!refs.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucune référence</td></tr>'; return; }
+    tbody.innerHTML = refs.map(r => {
+      const date = new Date(r.createdAt).toLocaleDateString('fr-FR');
+      const statut = r.utilise ? '<span class="badge pending">✓ Utilisée</span>' : '<span class="badge active">● Disponible</span>';
+      return `<tr>
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;">${r.reference}</span></td>
+        <td style="font-size:12px">${r.telephone||'—'}</td>
+        <td><strong style="color:var(--green)">${(r.montant||0).toLocaleString('fr-FR')} F</strong></td>
+        <td style="font-size:12px;color:var(--muted)">${r.notes||'—'}</td>
+        <td>${statut}</td>
+        <td style="font-size:12px;color:var(--muted)">${date}</td>
+        <td>${!r.utilise ? `<button class="act-btn delete" onclick="supprimerRef('${r.reference}')">Supprimer</button>` : '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function supprimerRef(ref) {
+  if(!confirm('Supprimer cette référence ?')) return;
+  await fetch(API + '/api/sms-marketing/refs/' + ref, {method:'DELETE'});
+  showToast('Référence supprimée', 'success');
+  loadRefs();
 }
 
 // ─── CODES SMS MARKETING ─────────────────────────────────────────
