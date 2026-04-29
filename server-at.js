@@ -1082,6 +1082,114 @@ app.post('/api/admin/content', async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ═══ ROUTES SMS MARKETING ════════════════════════════════
+
+app.post('/api/sms-marketing/send', async (req, res) => {
+  try {
+    const { campagne, messages, sender, scheduled, total } = req.body;
+    if (!messages || !messages.length) return res.status(400).json({ error: 'Aucun message' });
+
+    // Enregistrer la campagne
+    const camp = {
+      campagne: campagne || 'Campagne SMS',
+      sender: sender || 'PST-Telecom',
+      total: messages.length,
+      envoyes: 0,
+      echecs: 0,
+      statut: scheduled ? 'planifie' : 'en_cours',
+      scheduledAt: scheduled ? new Date(scheduled) : null,
+      createdAt: new Date()
+    };
+    const result = await db.collection('sms_campagnes').insertOne(camp);
+    const campId = result.insertedId;
+
+    if (scheduled) {
+      // Sauvegarder pour envoi planifié
+      await db.collection('sms_campagnes').updateOne(
+        { _id: campId },
+        { $set: { messages, statut: 'planifie' } }
+      );
+      return res.json({ success: true, campagneId: campId, statut: 'planifie', message: `Campagne planifiée pour ${scheduled}` });
+    }
+
+    // Envoi immédiat via Africa's Talking
+    const AT = require('africastalking')({
+      apiKey: process.env.AT_API_KEY,
+      username: process.env.AT_USERNAME
+    });
+    const sms = AT.SMS;
+
+    let envoyes = 0, echecs = 0;
+    const batchSize = 50;
+
+    for (let i = 0; i < messages.length; i += batchSize) {
+      const batch = messages.slice(i, i + batchSize);
+      const recipients = batch.map(m => m.telephone);
+      const messageText = batch[0].message; // Pour batch simple
+
+      try {
+        // Envoi batch
+        for (const msg of batch) {
+          try {
+            await sms.send({
+              to: [msg.telephone],
+              message: msg.message,
+              from: sender || 'PST-Telecom'
+            });
+            envoyes++;
+          } catch(e) {
+            echecs++;
+          }
+        }
+      } catch(e) {
+        echecs += batch.length;
+      }
+
+      // Pause entre batches
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // Mettre à jour la campagne
+    await db.collection('sms_campagnes').updateOne(
+      { _id: campId },
+      { $set: { envoyes, echecs, statut: 'termine', finishedAt: new Date() } }
+    );
+
+    // Log activité
+    await db.collection('activity_logs').insertOne({
+      type: 'sms_marketing',
+      message: `Campagne "${campagne}" — ${envoyes} SMS envoyés, ${echecs} échecs`,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true, campagneId: campId, envoyes, echecs, total: messages.length });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Historique des campagnes
+app.get('/api/sms-marketing/campagnes', async (req, res) => {
+  try {
+    const campagnes = await db.collection('sms_campagnes')
+      .find({}, { projection: { messages: 0 } })
+      .sort({ createdAt: -1 }).limit(50).toArray();
+    res.json(campagnes);
+  } catch (e) { res.json([]); }
+});
+
+// Stats SMS Marketing
+app.get('/api/sms-marketing/stats', async (req, res) => {
+  try {
+    const campagnes = await db.collection('sms_campagnes').find({}).toArray();
+    const totalEnvoyes = campagnes.reduce((s,c) => s+(c.envoyes||0), 0);
+    const totalEchecs = campagnes.reduce((s,c) => s+(c.echecs||0), 0);
+    const totalCampagnes = campagnes.length;
+    res.json({ totalCampagnes, totalEnvoyes, totalEchecs });
+  } catch (e) { res.json({ totalCampagnes:0, totalEnvoyes:0, totalEchecs:0 }); }
+});
+
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
