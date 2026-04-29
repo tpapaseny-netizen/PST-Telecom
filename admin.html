@@ -295,6 +295,9 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('sms-marketing')" id="nav-sms-marketing">
         <span class="nav-icon">📩</span> SMS Marketing
       </button>
+      <button class="nav-item" onclick="showSection('recharge')" id="nav-recharge">
+        <span class="nav-icon">⚡</span> Recharges
+      </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
@@ -830,7 +833,71 @@ textarea.field-input { resize:vertical; min-height:80px; }
         </div>
       </div>
 
-      <!-- ADMINS (super only) -->
+      <!-- RECHARGES -->
+      <div class="section" id="section-recharge">
+        <!-- KPIs -->
+        <div class="kpi-grid" style="margin-bottom:20px;">
+          <div class="kpi green">
+            <div class="kpi-label">Total recharges</div>
+            <div class="kpi-val" id="rch-total">—</div>
+            <div class="kpi-sub">toutes</div>
+          </div>
+          <div class="kpi blue">
+            <div class="kpi-label">Réussies</div>
+            <div class="kpi-val" id="rch-success">—</div>
+            <div class="kpi-sub">succès</div>
+          </div>
+          <div class="kpi orange">
+            <div class="kpi-label">Volume total</div>
+            <div class="kpi-val" id="rch-montant">—</div>
+            <div class="kpi-sub">FCFA envoyés</div>
+          </div>
+          <div class="kpi red">
+            <div class="kpi-label">Échecs</div>
+            <div class="kpi-val" id="rch-failed">—</div>
+            <div class="kpi-sub">erreurs</div>
+          </div>
+        </div>
+
+        <!-- LIEN PLATEFORME -->
+        <div class="panel" style="margin-bottom:20px;padding:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">⚡ Plateforme Recharge</div>
+              <div style="font-size:13px;color:var(--muted);">Orange, Free, Expresso — paiement Wave ou Visa — 0 frais</div>
+            </div>
+            <a href="https://pst-telecom-production.up.railway.app/recharge" target="_blank"
+               style="background:var(--green);color:#000;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;white-space:nowrap;">
+              ⚡ Ouvrir la plateforme →
+            </a>
+          </div>
+        </div>
+
+        <!-- LISTE RECHARGES -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📋 Historique des recharges</div>
+            <button class="refresh-btn" onclick="loadRecharges()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Numéro</th>
+                  <th>Opérateur</th>
+                  <th>Montant</th>
+                  <th>Client</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="recharges-table">
+                <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <div class="section" id="section-admins">
         <div class="panel" style="padding:28px;margin-bottom:20px;">
           <div class="panel-header"><div class="panel-title">🔐 Administrateurs autorisés</div></div>
@@ -1568,8 +1635,51 @@ function showSection(id) {
   if(id==='admins') renderAdmins();
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
-  if(id==='sms-marketing') { loadSmsMktStats(); loadCodes(); loadRefs(); }
+  if(id==='recharge') { loadRechargeStats(); loadRecharges(); }
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── RECHARGES ───────────────────────────────────────────────
+async function loadRechargeStats() {
+  try {
+    const res = await fetch(API + '/api/admin/recharges/stats');
+    const d = await res.json();
+    document.getElementById('rch-total').textContent = d.total || 0;
+    document.getElementById('rch-success').textContent = d.success || 0;
+    document.getElementById('rch-failed').textContent = d.failed || 0;
+    document.getElementById('rch-montant').textContent = (d.montantTotal||0).toLocaleString('fr-FR');
+  } catch(e) {}
+}
+
+async function loadRecharges() {
+  try {
+    const res = await fetch(API + '/api/admin/recharges');
+    const recharges = await res.json();
+    const tbody = document.getElementById('recharges-table');
+    const opEmoji = {orange:'🟠',free:'🔴',expresso:'🔵'};
+    const opName = {orange:'Orange',free:'Free',expresso:'Expresso'};
+    if(!recharges.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Aucune recharge</td></tr>';
+      return;
+    }
+    tbody.innerHTML = recharges.map(r => {
+      const date = new Date(r.createdAt).toLocaleString('fr-FR');
+      const statut = r.statut === 'success'
+        ? '<span class="badge active">✓ OK</span>'
+        : r.statut === 'pending'
+        ? '<span class="badge pending">⏳ En cours</span>'
+        : '<span class="badge suspended">✕ Échec</span>';
+      const sandbox = r.sandbox ? ' <span style="font-size:10px;color:var(--muted);">[sandbox]</span>' : '';
+      return `<tr>
+        <td style="font-size:12px;color:var(--muted)">${date}</td>
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green)">${r.numero}</span></td>
+        <td>${opEmoji[r.operateur]||'📱'} ${opName[r.operateur]||r.operateur}</td>
+        <td><strong>${(r.montant||0).toLocaleString('fr-FR')} FCFA</strong></td>
+        <td style="font-size:12px">${r.nom||'—'}</td>
+        <td>${statut}${sandbox}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
 }
 
 // ─── RÉFÉRENCES WAVE ─────────────────────────────────────────
