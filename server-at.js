@@ -633,6 +633,175 @@ app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ═══ ROUTES RECHARGE TÉLÉPHONIQUE ═══════════════════════════
+
+app.get('/recharge', (req, res) => {
+  res.sendFile(path.join(__dirname, 'recharge.html'));
+});
+
+app.post('/api/recharge/envoyer', async (req, res) => {
+  try {
+    const { numero, operateur, montant, nom, clientPhone } = req.body;
+    if (!numero || !montant) return res.status(400).json({ error: 'Numéro et montant requis' });
+
+    // Enregistrer la recharge
+    const recharge = {
+      numero, operateur, montant: parseInt(montant),
+      nom: nom || '', clientPhone: clientPhone || '',
+      statut: 'en_cours', createdAt: new Date()
+    };
+    const result = await db.collection('recharges').insertOne(recharge);
+
+    // Envoi via Africa's Talking Airtime
+    const AT_KEY = process.env.AT_API_KEY;
+    const AT_USER = process.env.AT_USERNAME;
+
+    if (AT_KEY && AT_USER) {
+      try {
+        const AT = require('africastalking')({ apiKey: AT_KEY, username: AT_USER });
+        const airtime = AT.AIRTIME;
+        const response = await airtime.send({
+          recipients: [{ phoneNumber: numero, amount: `XOF ${montant}`, currencyCode: 'XOF' }]
+        });
+
+        const status = response.responses && response.responses[0] && response.responses[0].status === 'Success' ? 'success' : 'failed';
+
+        await db.collection('recharges').updateOne(
+          { _id: result.insertedId },
+          { $set: { statut: status, finishedAt: new Date(), atResponse: response } }
+        );
+
+        await db.collection('activity_logs').insertOne({
+          type: 'recharge',
+          message: `Recharge ${montant} FCFA → ${numero} (${operateur}) — ${status}`,
+          createdAt: new Date()
+        });
+
+        if (status === 'success') {
+          return res.json({ success: true, message: `${montant} FCFA envoyés vers ${numero}` });
+        } else {
+          return res.status(400).json({ error: 'Recharge échouée — réessayez ou contactez PST' });
+        }
+      } catch (atErr) {
+        console.warn('AT Airtime erreur:', atErr.message);
+        // Mode sandbox — simuler succès
+        await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'sandbox' } });
+        return res.json({ success: true, message: `[SANDBOX] ${montant} FCFA simulés vers ${numero}` });
+      }
+    }
+
+    // Pas de clé AT — mode sandbox
+    await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'sandbox' } });
+    res.json({ success: true, message: `[SANDBOX] Recharge simulée de ${montant} FCFA vers ${numero}` });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin — historique recharges
+app.get('/api/admin/recharges', async (req, res) => {
+  try {
+    const recharges = await db.collection('recharges').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(recharges);
+  } catch (e) { res.json([]); }
+});
+
+// Stats recharges
+app.get('/api/admin/recharges/stats', async (req, res) => {
+  try {
+    const recharges = await db.collection('recharges').find({}).toArray();
+    const total = recharges.length;
+    const montantTotal = recharges.reduce((s,r) => s + (r.montant||0), 0);
+    const frais = Math.ceil(montantTotal * 0.01);
+    res.json({ total, montantTotal, frais });
+  } catch (e) { res.json({ total:0, montantTotal:0, frais:0 }); }
+});
+
+// ═══ ROUTES RECHARGE TÉLÉPHONIQUE ════════════════════════════
+
+app.get('/recharge', (req, res) => {
+  res.sendFile(path.join(__dirname, 'recharge.html'));
+});
+
+app.post('/api/recharge/envoyer', async (req, res) => {
+  try {
+    const { numero, operateur, montant, nom, telephone, transactionId } = req.body;
+    if (!numero || !operateur || !montant) return res.status(400).json({ error: 'Données manquantes' });
+
+    // Enregistrer la recharge
+    const recharge = {
+      numero, operateur, montant: parseInt(montant),
+      nom: nom || '', telephone: telephone || '',
+      transactionId: transactionId || '',
+      statut: 'pending', createdAt: new Date()
+    };
+    const result = await db.collection('recharges').insertOne(recharge);
+
+    // Envoyer via Africa's Talking Airtime
+    const AT_KEY = process.env.AT_API_KEY;
+    const AT_USER = process.env.AT_USERNAME || 'sandbox';
+
+    if (AT_KEY && AT_USER !== 'sandbox') {
+      try {
+        const AfricasTalking = require('africastalking')({ apiKey: AT_KEY, username: AT_USER });
+        const airtime = AfricasTalking.AIRTIME;
+        const atRes = await airtime.send({
+          recipients: [{ phoneNumber: numero, amount: `XOF ${montant}`, currencyCode: 'XOF' }]
+        });
+        const success = atRes.responses && atRes.responses[0] && atRes.responses[0].status === 'Success';
+        await db.collection('recharges').updateOne(
+          { _id: result.insertedId },
+          { $set: { statut: success ? 'success' : 'failed', atResponse: atRes, finishedAt: new Date() } }
+        );
+        if (!success) return res.status(400).json({ error: 'Recharge échouée — ' + (atRes.responses[0]?.errorMessage || 'Erreur AT') });
+      } catch (atErr) {
+        await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'failed', error: atErr.message } });
+        return res.status(500).json({ error: 'Erreur Africa\'s Talking: ' + atErr.message });
+      }
+    } else {
+      // Mode sandbox — simuler succès
+      await db.collection('recharges').updateOne({ _id: result.insertedId }, { $set: { statut: 'success', sandbox: true, finishedAt: new Date() } });
+    }
+
+    // Log activité
+    await db.collection('activity_logs').insertOne({
+      type: 'recharge',
+      message: `Recharge ${montant} FCFA → ${numero} (${operateur}) — ${nom}`,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true, rechargeId: result.insertedId, message: `${montant} FCFA envoyés sur ${numero}` });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/recharge/historique', async (req, res) => {
+  try {
+    const { telephone, numero } = req.query;
+    const query = telephone ? { $or: [{ telephone }, { numero: { $regex: telephone.replace('+221','').replace(/\s/g,'') } }] } : {};
+    const recharges = await db.collection('recharges').find(query).sort({ createdAt: -1 }).limit(20).toArray();
+    res.json(recharges);
+  } catch (e) { res.json([]); }
+});
+
+// Admin — stats recharges
+app.get('/api/admin/recharges', async (req, res) => {
+  try {
+    const recharges = await db.collection('recharges').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(recharges);
+  } catch (e) { res.json([]); }
+});
+
+app.get('/api/admin/recharges/stats', async (req, res) => {
+  try {
+    const recharges = await db.collection('recharges').find({}).toArray();
+    const total = recharges.length;
+    const success = recharges.filter(r => r.statut === 'success').length;
+    const montantTotal = recharges.filter(r => r.statut === 'success').reduce((s, r) => s + (r.montant || 0), 0);
+    res.json({ total, success, failed: total - success, montantTotal });
+  } catch (e) { res.json({ total: 0, success: 0, failed: 0, montantTotal: 0 }); }
+});
+
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {

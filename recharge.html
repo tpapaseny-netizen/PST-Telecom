@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PST Recharge — Rechargez Orange, Free, Expresso</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060B12;--surface:#0D1620;--surface2:#131F2E;--border:rgba(255,255,255,0.07);
+  --green:#00E676;--green-dim:rgba(0,230,118,0.08);--text:#E2EAF4;--muted:#556B82;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);background:rgba(6,11,18,0.95);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;}
+.nav-logo span{color:var(--green);}
+.nav-tag{background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.3);color:#ff9a7a;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;}
+.nav-link{color:var(--muted);text-decoration:none;font-size:13px;}
+.nav-link:hover{color:#fff;}
+.hero{text-align:center;padding:60px 32px 40px;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,107,53,0.08);border:1px solid rgba(255,107,53,0.2);color:#ff9a7a;font-size:12px;padding:6px 16px;border-radius:100px;margin-bottom:20px;}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.1;margin-bottom:14px;}
+.hero h1 .accent{color:var(--green);}
+.hero p{color:var(--muted);font-size:15px;max-width:500px;margin:0 auto;}
+.operators{display:flex;gap:12px;justify-content:center;margin:32px auto;max-width:500px;padding:0 16px;}
+.op-btn{flex:1;border:2px solid var(--border);border-radius:14px;padding:18px 12px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);font-family:'Syne',sans-serif;font-weight:700;}
+.op-btn:hover{transform:translateY(-2px);}
+.op-btn.orange.selected{border-color:#FF6B35;background:rgba(255,107,53,0.1);transform:translateY(-2px);}
+.op-btn.free.selected{border-color:#E10A14;background:rgba(225,10,20,0.1);transform:translateY(-2px);}
+.op-btn.expresso.selected{border-color:#0066CC;background:rgba(0,102,204,0.1);transform:translateY(-2px);}
+.op-logo{font-size:28px;margin-bottom:6px;}
+.op-btn.orange .op-name{color:#FF6B35;font-size:13px;}
+.op-btn.free .op-name{color:#E10A14;font-size:13px;}
+.op-btn.expresso .op-name{color:#0066CC;font-size:13px;}
+.main{max-width:900px;margin:0 auto;padding:0 24px 80px;display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px;}
+.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+.phone-input-wrap{position:relative;}
+.phone-prefix{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--green);pointer-events:none;}
+.phone-input{width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:10px;padding:14px 14px 14px 80px;color:#fff;font-size:16px;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .2s;}
+.phone-input:focus{border-color:var(--green);}
+.op-detected{margin-top:8px;font-size:12px;height:20px;}
+.montants{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.montant-btn{border:1.5px solid var(--border);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;}
+.montant-btn:hover{border-color:rgba(0,230,118,0.3);}
+.montant-btn.selected{border-color:var(--green);background:var(--green-dim);}
+.montant-val{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;}
+.montant-label{font-size:11px;color:var(--muted);margin-top:2px;}
+.custom-div{margin-top:12px;display:none;}
+.custom-div input{width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:#fff;font-size:16px;font-family:'JetBrains Mono',monospace;outline:none;}
+.custom-div input:focus{border-color:var(--green);}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.field input{width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.field input:focus{border-color:var(--green);}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:14px;}
+.summary-row:last-child{border-bottom:none;}
+.summary-label{color:var(--muted);}
+.summary-val{font-weight:600;}
+.total-box{background:var(--green-dim);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px 16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;}
+.total-label{font-size:13px;color:var(--muted);}
+.total-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--green);}
+.pay-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.pay-opt{border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;}
+.pay-opt.selected{border-color:var(--green);background:var(--green-dim);}
+.pay-btn{width:100%;background:var(--green);color:#000;border:none;border-radius:12px;padding:18px;font-family:'Syne',sans-serif;font-weight:800;font-size:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;}
+.pay-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,230,118,0.3);}
+.pay-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:440px;text-align:center;}
+.modal-icon{font-size:52px;margin-bottom:16px;}
+.modal h3{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;}
+.modal p{color:var(--muted);font-size:14px;margin-bottom:24px;}
+.modal-close{background:var(--green);color:#000;border:none;border-radius:10px;padding:12px 32px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;font-size:13px;z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:rgba(0,230,118,0.4);}
+.toast.error{border-color:rgba(239,68,68,0.4);}
+.history-item{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+.history-item:last-child{border-bottom:none;}
+@media(max-width:700px){.main{grid-template-columns:1fr;}nav{padding:14px 16px;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="nav-logo">P<span>S</span>T</div>
+    <div class="nav-tag">Recharge</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a class="nav-link" href="https://pst-telecom.vercel.app">Accueil</a>
+    <a class="nav-link" href="/dashboard">Mon espace</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">⚡ Instantané</div>
+  <h1>Rechargez votre téléphone<br><span class="accent">en 30 secondes</span></h1>
+  <p>Orange, Free, Expresso — paiement Wave ou Carte Visa. Recharge immédiate. 0 frais.</p>
+</div>
+
+<div class="operators">
+  <div class="op-btn orange selected" onclick="selectOp('orange')" id="op-orange">
+    <div class="op-logo">🟠</div>
+    <div class="op-name">Orange</div>
+  </div>
+  <div class="op-btn free" onclick="selectOp('free')" id="op-free">
+    <div class="op-logo">🔴</div>
+    <div class="op-name">Free</div>
+  </div>
+  <div class="op-btn expresso" onclick="selectOp('expresso')" id="op-expresso">
+    <div class="op-logo">🔵</div>
+    <div class="op-name">Expresso</div>
+  </div>
+</div>
+
+<div class="main">
+  <div>
+    <div class="card">
+      <div class="card-title">📱 Numéro à recharger</div>
+      <div class="phone-input-wrap">
+        <span class="phone-prefix">+221</span>
+        <input type="tel" class="phone-input" id="numero" placeholder="77 000 00 00" maxlength="9" oninput="detectOp(this.value); updateSummary();">
+      </div>
+      <div class="op-detected" id="op-detected"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Montant</div>
+      <div class="montants">
+        <div class="montant-btn" onclick="selectMontant(500,'m-500')" id="m-500"><div class="montant-val">500</div><div class="montant-label">FCFA</div></div>
+        <div class="montant-btn selected" onclick="selectMontant(1000,'m-1000')" id="m-1000"><div class="montant-val">1 000</div><div class="montant-label">FCFA</div></div>
+        <div class="montant-btn" onclick="selectMontant(2000,'m-2000')" id="m-2000"><div class="montant-val">2 000</div><div class="montant-label">FCFA</div></div>
+        <div class="montant-btn" onclick="selectMontant(3000,'m-3000')" id="m-3000"><div class="montant-val">3 000</div><div class="montant-label">FCFA</div></div>
+        <div class="montant-btn" onclick="selectMontant(5000,'m-5000')" id="m-5000"><div class="montant-val">5 000</div><div class="montant-label">FCFA</div></div>
+        <div class="montant-btn" onclick="toggleCustom()" id="m-custom"><div class="montant-val">Autre</div><div class="montant-label">montant</div></div>
+      </div>
+      <div class="custom-div" id="custom-div">
+        <input type="number" id="custom-val" placeholder="Montant en FCFA (min 100)" min="100" max="100000" oninput="selectMontant(parseInt(this.value)||0,'m-custom')">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💳 Vos informations</div>
+      <div class="field"><label>Votre nom</label><input type="text" id="payer-nom" placeholder="Prénom Nom"></div>
+      <div class="field"><label>Votre téléphone (pour le reçu)</label><input type="tel" id="payer-tel" placeholder="+221 77 000 00 00"></div>
+      <div class="pay-opts">
+        <button class="pay-opt selected" id="payopt-wave" onclick="selPay('wave')">💚 Wave</button>
+        <button class="pay-opt" id="payopt-card" onclick="selPay('card')">💳 Carte Visa</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-title">📊 Récapitulatif</div>
+      <div class="summary-row"><span class="summary-label">Opérateur</span><span class="summary-val" id="sum-op">Orange</span></div>
+      <div class="summary-row"><span class="summary-label">Numéro</span><span class="summary-val" id="sum-num" style="font-family:'JetBrains Mono',monospace;font-size:13px;">—</span></div>
+      <div class="summary-row"><span class="summary-label">Montant recharge</span><span class="summary-val" id="sum-montant">1 000 FCFA</span></div>
+      <div class="summary-row"><span class="summary-label">Frais PST</span><span class="summary-val" style="color:var(--green)">0 FCFA ✓</span></div>
+      <div class="total-box">
+        <span class="total-label">Total à payer</span>
+        <span class="total-val" id="sum-total">1 000 FCFA</span>
+      </div>
+      <button class="pay-btn" id="pay-btn" onclick="lancerRecharge()">⚡ Recharger maintenant</button>
+      <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">🔒 Sécurisé — Recharge instantanée</div>
+    </div>
+
+    <div class="card" id="historique-card" style="display:none;">
+      <div class="card-title">📋 Recharges récentes</div>
+      <div id="historique-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-icon" id="modal-icon">⚡</div>
+    <h3 id="modal-title">Recharge en cours...</h3>
+    <p id="modal-sub">Traitement en cours</p>
+    <button class="modal-close" id="modal-close" style="display:none;" onclick="closeModal()">✅ Terminer</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://checkout.flutterwave.com/v3.js"></script>
+<script>
+const API = 'https://pst-telecom-production.up.railway.app';
+const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
+const FLW_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
+const OP_NAMES = {orange:'Orange',free:'Free',expresso:'Expresso'};
+const OP_EMOJIS = {orange:'🟠',free:'🔴',expresso:'🔵'};
+
+let selectedOp = 'orange';
+let selectedMontant = 1000;
+let payOpt = 'wave';
+
+function selectOp(op) {
+  selectedOp = op;
+  document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('op-'+op).classList.add('selected');
+  updateSummary();
+}
+
+function detectOp(num) {
+  num = num.replace(/\D/g,'');
+  var prefix = num.slice(0,2);
+  var el = document.getElementById('op-detected');
+  if(num.length >= 2) {
+    if(['77','78','71'].includes(prefix)) { el.innerHTML = '<span style="color:#FF6B35;">🟠 Orange détecté</span>'; selectOp('orange'); }
+    else if(prefix === '76') { el.innerHTML = '<span style="color:#E10A14;">🔴 Free détecté</span>'; selectOp('free'); }
+    else if(prefix === '70') { el.innerHTML = '<span style="color:#0066CC;">🔵 Expresso détecté</span>'; selectOp('expresso'); }
+    else el.innerHTML = '<span style="color:var(--muted);">Préfixe non reconnu</span>';
+  } else { el.textContent = ''; }
+}
+
+function selectMontant(val, id) {
+  selectedMontant = val;
+  document.querySelectorAll('.montant-btn').forEach(b => b.classList.remove('selected'));
+  if(id) document.getElementById(id).classList.add('selected');
+  updateSummary();
+}
+
+function toggleCustom() {
+  var div = document.getElementById('custom-div');
+  div.style.display = div.style.display === 'none' ? 'block' : 'none';
+  document.querySelectorAll('.montant-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('m-custom').classList.add('selected');
+}
+
+function selPay(opt) {
+  payOpt = opt;
+  document.getElementById('payopt-wave').classList.toggle('selected', opt==='wave');
+  document.getElementById('payopt-card').classList.toggle('selected', opt==='card');
+}
+
+function updateSummary() {
+  var num = document.getElementById('numero').value.replace(/\D/g,'');
+  document.getElementById('sum-op').textContent = OP_NAMES[selectedOp] || '—';
+  document.getElementById('sum-num').textContent = num ? '+221 ' + num : '—';
+  document.getElementById('sum-montant').textContent = selectedMontant ? selectedMontant.toLocaleString('fr-FR') + ' FCFA' : '—';
+  document.getElementById('sum-total').textContent = selectedMontant ? selectedMontant.toLocaleString('fr-FR') + ' FCFA' : '— FCFA';
+}
+
+async function lancerRecharge() {
+  var num = document.getElementById('numero').value.replace(/\D/g,'');
+  var nom = document.getElementById('payer-nom').value.trim();
+  var tel = document.getElementById('payer-tel').value.trim();
+  if(!selectedOp) { showToast('⚠️ Choisissez un opérateur','error'); return; }
+  if(num.length < 8) { showToast('⚠️ Numéro invalide (8 chiffres min)','error'); return; }
+  if(!selectedMontant || selectedMontant < 100) { showToast('⚠️ Choisissez un montant','error'); return; }
+  if(!nom) { showToast('⚠️ Entrez votre nom','error'); return; }
+  var numeroFull = '+221' + num;
+  var btn = document.getElementById('pay-btn');
+  btn.disabled = true; btn.innerHTML = '⏳ Traitement...';
+
+  if(payOpt === 'wave') {
+    window.open(WAVE_BASE + selectedMontant, '_blank');
+    setTimeout(function() {
+      var confirmed = confirm('💚 Avez-vous bien payé ' + selectedMontant.toLocaleString('fr-FR') + ' FCFA via Wave ?\n\nCliquez OK pour lancer la recharge.');
+      if(confirmed) { effectuerRecharge(numeroFull, nom, tel, null); }
+      else { btn.disabled = false; btn.innerHTML = '⚡ Recharger maintenant'; }
+    }, 5000);
+  } else {
+    FlutterwaveCheckout({
+      public_key: FLW_KEY, tx_ref: 'PST-RCH-' + Date.now(),
+      amount: selectedMontant, currency: 'XOF', payment_options: 'card',
+      customer: { email: num+'@pst.sn', phone_number: tel||numeroFull, name: nom },
+      customizations: { title:'PST Recharge', description:'Recharge '+selectedMontant+' FCFA → '+numeroFull, logo:'' },
+      callback: function(r) {
+        if(r.status === 'successful') effectuerRecharge(numeroFull, nom, tel, r.transaction_id);
+        else { showToast('❌ Paiement échoué','error'); btn.disabled=false; btn.innerHTML='⚡ Recharger maintenant'; }
+      },
+      onclose: function() { btn.disabled=false; btn.innerHTML='⚡ Recharger maintenant'; }
+    });
+  }
+}
+
+async function effectuerRecharge(numero, nom, tel, transactionId) {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal-icon').textContent = '⚡';
+  document.getElementById('modal-title').textContent = 'Recharge en cours...';
+  document.getElementById('modal-sub').textContent = 'Envoi de ' + selectedMontant.toLocaleString('fr-FR') + ' FCFA vers ' + numero;
+  try {
+    var res = await fetch(API + '/api/recharge/envoyer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ numero, operateur:selectedOp, montant:selectedMontant, nom, telephone:tel, transactionId:transactionId||('WAVE-'+Date.now()) })
+    });
+    var data = await res.json();
+    if(data.success) {
+      document.getElementById('modal-icon').textContent = '✅';
+      document.getElementById('modal-title').textContent = 'Recharge effectuée !';
+      document.getElementById('modal-sub').textContent = selectedMontant.toLocaleString('fr-FR') + ' FCFA envoyés sur ' + numero;
+      loadHistorique(tel||numero);
+    } else {
+      document.getElementById('modal-icon').textContent = '❌';
+      document.getElementById('modal-title').textContent = 'Erreur';
+      document.getElementById('modal-sub').textContent = data.error || 'Contactez PST au +221 77 152 09 59';
+    }
+  } catch(e) {
+    document.getElementById('modal-icon').textContent = '❌';
+    document.getElementById('modal-title').textContent = 'Erreur réseau';
+    document.getElementById('modal-sub').textContent = 'Vérifiez votre connexion.';
+  }
+  document.getElementById('modal-close').style.display = 'inline-block';
+  var btn = document.getElementById('pay-btn');
+  btn.disabled=false; btn.innerHTML='⚡ Recharger maintenant';
+}
+
+async function loadHistorique(tel) {
+  try {
+    var res = await fetch(API + '/api/recharge/historique?telephone=' + encodeURIComponent(tel));
+    var data = await res.json();
+    if(data.length > 0) {
+      document.getElementById('historique-card').style.display = 'block';
+      document.getElementById('historique-list').innerHTML = data.slice(0,5).map(function(r) {
+        return '<div class="history-item"><div style="width:42px;height:42px;border-radius:10px;background:rgba(0,230,118,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;">'+(OP_EMOJIS[r.operateur]||'📱')+'</div><div style="flex:1;"><div style="font-size:13px;font-family:JetBrains Mono,monospace;color:var(--green);">'+r.numero+'</div><div style="font-size:12px;color:var(--muted);">'+(OP_NAMES[r.operateur]||r.operateur)+' — '+new Date(r.createdAt).toLocaleDateString('fr-FR')+'</div></div><div style="text-align:right;"><div style="font-family:Syne,sans-serif;font-weight:700;">'+r.montant.toLocaleString('fr-FR')+' F</div><div style="font-size:11px;padding:3px 8px;border-radius:100px;background:rgba(0,230,118,0.1);color:var(--green);">✓ OK</div></div></div>';
+      }).join('');
+    }
+  } catch(e) {}
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + (type||'success');
+  setTimeout(function(){t.classList.add('show');},10);
+  setTimeout(function(){t.classList.remove('show');},3500);
+}
+
+updateSummary();
+</script>
+</body>
+</html>
