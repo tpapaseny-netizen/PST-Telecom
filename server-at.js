@@ -8,7 +8,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// ─── MongoDB ───────────────────────────────────────────────
 const MONGODB_URI = process.env.MONGODB_URI;
 const AT_API_KEY  = process.env.AT_API_KEY;
 const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
@@ -17,38 +16,29 @@ const PORT        = process.env.PORT || 3001;
 let db;
 
 async function connectDB() {
-  if (!MONGODB_URI) {
-    console.warn('⚠️  MONGODB_URI manquant — mode mémoire activé');
-    return;
-  }
+  if (!MONGODB_URI) { console.warn('⚠️  MONGODB_URI manquant — mode mémoire activé'); return; }
   try {
     const client = new MongoClient(MONGODB_URI);
     await client.connect();
     db = client.db('pst_telecom');
     console.log('✅ MongoDB Atlas connecté');
-  } catch (err) {
-    console.error('❌ MongoDB erreur:', err.message);
-  }
+  } catch (err) { console.error('❌ MongoDB erreur:', err.message); }
 }
 
-// ─── Africa's Talking ───────────────────────────────────────
 function getAT() {
   if (!AT_API_KEY) return null;
-  try {
-    const AfricasTalking = require('africastalking');
-    return AfricasTalking({ apiKey: AT_API_KEY, username: AT_USERNAME });
-  } catch { return null; }
+  try { const AfricasTalking = require('africastalking'); return AfricasTalking({ apiKey: AT_API_KEY, username: AT_USERNAME }); }
+  catch { return null; }
 }
 
-// ─── Helpers ────────────────────────────────────────────────
 const FORFAITS = {
-  starter:  { nom: 'Starter',  minutes: 200,  prix: 2990 },
-  smart:    { nom: 'Smart',    minutes: 300,  prix: 5990 },
+  starter:  { nom: 'Starter',  minutes: 200,   prix: 2990  },
+  smart:    { nom: 'Smart',    minutes: 300,   prix: 5990  },
   business: { nom: 'Business', minutes: 99999, prix: 15990 },
 };
 
-function genUserId()  { return 'PST-' + Math.random().toString(16).slice(2,10).toUpperCase(); }
-function genNumero()  {
+function genUserId() { return 'PST-' + Math.random().toString(16).slice(2,10).toUpperCase(); }
+function genNumero() {
   const prefixes = ['77','78','76','70'];
   const p = prefixes[Math.floor(Math.random()*prefixes.length)];
   const n = Math.floor(Math.random()*9000000)+1000000;
@@ -59,42 +49,21 @@ async function getAbonnes() {
   if (db) return await db.collection('abonnes').find({}).sort({ createdAt: -1 }).toArray();
   return global._abonnes || [];
 }
-
 async function saveAbonne(abonne) {
-  if (db) {
-    await db.collection('abonnes').insertOne(abonne);
-  } else {
-    global._abonnes = global._abonnes || [];
-    global._abonnes.push(abonne);
-  }
+  if (db) { await db.collection('abonnes').insertOne(abonne); }
+  else { global._abonnes = global._abonnes || []; global._abonnes.push(abonne); }
 }
-
 async function updateAbonne(userId, update) {
-  if (db) {
-    await db.collection('abonnes').updateOne({ userId }, { $set: update });
-  } else {
-    global._abonnes = (global._abonnes || []).map(a =>
-      a.userId === userId ? { ...a, ...update } : a
-    );
-  }
+  if (db) { await db.collection('abonnes').updateOne({ userId }, { $set: update }); }
+  else { global._abonnes = (global._abonnes || []).map(a => a.userId === userId ? { ...a, ...update } : a); }
 }
-
 async function deleteAbonne(userId) {
-  if (db) {
-    await db.collection('abonnes').deleteOne({ userId });
-  } else {
-    global._abonnes = (global._abonnes || []).filter(a => a.userId !== userId);
-  }
+  if (db) { await db.collection('abonnes').deleteOne({ userId }); }
+  else { global._abonnes = (global._abonnes || []).filter(a => a.userId !== userId); }
 }
 
-// ─── ROUTES ─────────────────────────────────────────────────
+app.get('/', (req, res) => { res.redirect('https://pst-telecom.vercel.app'); });
 
-// Santé API
-app.get('/', (req, res) => {
-  res.redirect('https://pst-telecom.vercel.app');
-});
-
-// Middleware auth admin
 function authAdmin(req, res, next) {
   const token = req.query.token || req.headers['x-admin-token'];
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'pst-admin-2026';
@@ -104,269 +73,91 @@ function authAdmin(req, res, next) {
   next();
 }
 
-// Admin dashboard
-app.get('/admin', authAdmin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
-// SMS Marketing
-app.get('/sms-marketing', (req, res) => {
-  res.sendFile(path.join(__dirname, 'sms-marketing.html'));
-});
+app.get('/admin', authAdmin, (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
+app.get('/sms-marketing', (req, res) => { res.sendFile(path.join(__dirname, 'sms-marketing.html')); });
+app.get('/appel', (req, res) => { res.sendFile(path.join(__dirname, 'appel.html')); });
+app.get('/dashboard', (req, res) => { res.sendFile(path.join(__dirname, 'dashboard.html')); });
+app.get('/sms', (req, res) => { res.sendFile(path.join(__dirname, 'sms.html')); });
 
-// Interface appel
-app.get('/appel', (req, res) => {
-  res.sendFile(path.join(__dirname, 'appel.html'));
-});
-
-// Dashboard client
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
-});
-
-// Page SMS verification
-app.get('/sms', (req, res) => {
-  res.sendFile(path.join(__dirname, 'sms.html'));
-});
-
-// ─── STATS ADMIN ────────────────────────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
     const abonnes = await getAbonnes();
     const total   = abonnes.length;
     const actifs  = abonnes.filter(a => a.statut === 'actif').length;
     const attente = abonnes.filter(a => a.statut === 'en_attente').length;
-    const revenus = abonnes
-      .filter(a => a.statut === 'actif')
-      .reduce((sum, a) => sum + (FORFAITS[a.forfait]?.prix || 0), 0);
+    const revenus = abonnes.filter(a => a.statut === 'actif').reduce((sum, a) => sum + (FORFAITS[a.forfait]?.prix || 0), 0);
     res.json({ total, actifs, attente, revenus });
-  } catch (err) {
-    console.error('Stats erreur:', err);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── LISTE ABONNÉS ──────────────────────────────────────────
 app.get('/api/admin/abonnes', async (req, res) => {
-  try {
-    const abonnes = await getAbonnes();
-    res.json(abonnes);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  try { res.json(await getAbonnes()); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── CRÉER ABONNÉ ───────────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { nom, prenom, telephone, forfait = 'smart' } = req.body;
-    if (!nom || !telephone) {
-      return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
-    }
-
+    if (!nom || !telephone) return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
     const f = FORFAITS[forfait] || FORFAITS.smart;
-    const abonne = {
-      userId:        genUserId(),
-      nom, prenom,
-      telephone,
-      forfait,
-      forfaitNom:    f.nom,
-      minutes:       f.minutes,
-      minutesUsees:  0,
-      prix:          f.prix,
-      numeroVirtuel: genNumero(),
-      statut:        'en_attente',
-      createdAt:     new Date(),
-      updatedAt:     new Date(),
-      paiements:     [],
-    };
-
+    const abonne = { userId: genUserId(), nom, prenom, telephone, forfait, forfaitNom: f.nom, minutes: f.minutes, minutesUsees: 0, prix: f.prix, numeroVirtuel: genNumero(), statut: 'en_attente', createdAt: new Date(), updatedAt: new Date(), paiements: [] };
     await saveAbonne(abonne);
-
-    // SMS de bienvenue
     const at = getAT();
-    if (at) {
-      try {
-        await at.SMS.send({
-          to: telephone,
-          message: `Bienvenue sur PST Pure Smart Telecom ! 🎉\nVotre forfait ${f.nom} (${f.prix} FCFA/${f.minutes === 99999 ? 'illimité' : f.minutes + ' min'}) est en cours d'activation.\nVotre numéro PST : ${abonne.numeroVirtuel}\nID : ${abonne.userId}`,
-          from: 'PST',
-        });
-      } catch (smsErr) {
-        console.warn('SMS non envoyé:', smsErr.message);
-      }
-    }
-
+    if (at) { try { await at.SMS.send({ to: telephone, message: `Bienvenue sur PST ! Forfait ${f.nom} en cours d'activation. ID: ${abonne.userId}`, from: 'PST' }); } catch (e) {} }
     const lienWave = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${f.prix}`;
-    res.json({
-      success: true,
-      userId: abonne.userId,
-      numeroVirtuel: abonne.numeroVirtuel,
-      lienWave,
-      message: `Compte PST créé ! Forfait ${f.nom} — ${f.prix} FCFA`,
-    });
-  } catch (err) {
-    console.error('Register erreur:', err);
-    res.status(500).json({ error: err.message });
-  }
+    res.json({ success: true, userId: abonne.userId, numeroVirtuel: abonne.numeroVirtuel, lienWave, message: `Compte PST créé ! Forfait ${f.nom} — ${f.prix} FCFA` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── ACTIVER ABONNÉ ─────────────────────────────────────────
 app.post('/api/admin/activer/:userId', async (req, res) => {
   try {
-    const { userId } = req.params;
-    await updateAbonne(userId, {
-      statut: 'actif',
-      activatedAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    const abonnes = await getAbonnes();
-    const abonne = abonnes.find(a => a.userId === userId);
-
-    if (abonne) {
-      const at = getAT();
-      if (at) {
-        try {
-          await at.SMS.send({
-            to: abonne.telephone,
-            message: `✅ PST Telecom : Votre forfait ${abonne.forfaitNom} est maintenant ACTIF !\nNuméro PST : ${abonne.numeroVirtuel}\nMinutes : ${abonne.minutes === 99999 ? 'Illimitées' : abonne.minutes}\nBonne communication ! 📞`,
-            from: 'PST',
-          });
-        } catch (smsErr) {
-          console.warn('SMS activation non envoyé:', smsErr.message);
-        }
-      }
-    }
-
+    await updateAbonne(req.params.userId, { statut: 'actif', activatedAt: new Date(), updatedAt: new Date() });
     res.json({ success: true, message: 'Abonné activé' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── SUSPENDRE ABONNÉ ───────────────────────────────────────
 app.post('/api/admin/suspendre/:userId', async (req, res) => {
-  try {
-    await updateAbonne(req.params.userId, {
-      statut: 'suspendu',
-      updatedAt: new Date(),
-    });
-    res.json({ success: true, message: 'Abonné suspendu' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  try { await updateAbonne(req.params.userId, { statut: 'suspendu', updatedAt: new Date() }); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── MODIFIER ABONNÉ ────────────────────────────────────────
 app.put('/api/admin/abonne/:userId', async (req, res) => {
   try {
     const { nom, prenom, telephone, forfait, minutesBonus } = req.body;
     const update = { updatedAt: new Date() };
-    if (nom)       update.nom = nom;
-    if (prenom)    update.prenom = prenom;
+    if (nom) update.nom = nom;
+    if (prenom) update.prenom = prenom;
     if (telephone) update.telephone = telephone;
-    if (forfait && FORFAITS[forfait]) {
-      update.forfait    = forfait;
-      update.forfaitNom = FORFAITS[forfait].nom;
-      update.prix       = FORFAITS[forfait].prix;
-      update.minutes    = FORFAITS[forfait].minutes;
-    }
-    if (minutesBonus && db) {
-      await db.collection('abonnes').updateOne(
-        { userId: req.params.userId },
-        { $inc: { minutes: parseInt(minutesBonus) }, $set: update }
-      );
-    } else {
-      await updateAbonne(req.params.userId, update);
-    }
-    res.json({ success: true, message: 'Abonné mis à jour' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    if (forfait && FORFAITS[forfait]) { update.forfait = forfait; update.forfaitNom = FORFAITS[forfait].nom; update.prix = FORFAITS[forfait].prix; update.minutes = FORFAITS[forfait].minutes; }
+    if (minutesBonus && db) { await db.collection('abonnes').updateOne({ userId: req.params.userId }, { $inc: { minutes: parseInt(minutesBonus) }, $set: update }); }
+    else { await updateAbonne(req.params.userId, update); }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── SUPPRIMER ABONNÉ ───────────────────────────────────────
 app.delete('/api/admin/abonne/:userId', async (req, res) => {
-  try {
-    await deleteAbonne(req.params.userId);
-    res.json({ success: true, message: 'Abonné supprimé' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  try { await deleteAbonne(req.params.userId); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── APPELS VONAGE ──────────────────────────────────────────
 app.post('/api/appel/initier', async (req, res) => {
   try {
     const { userId, numeroDestination } = req.body;
     const abonnes = await getAbonnes();
     const abonne  = abonnes.find(a => a.userId === userId);
-
     if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
     if (abonne.statut !== 'actif') return res.status(403).json({ error: 'Forfait non actif' });
-    if (abonne.minutes !== 99999 && (abonne.minutesUsees||0) >= abonne.minutes) {
-      return res.status(403).json({ error: 'Minutes épuisées' });
-    }
-
-    const VONAGE_KEY    = process.env.VONAGE_API_KEY;
-    const VONAGE_SECRET = process.env.VONAGE_API_SECRET;
-
-    if (VONAGE_KEY && VONAGE_SECRET) {
-      try {
-        const to = numeroDestination.replace(/\s/g, '');
-        const VONAGE_NUMBER = process.env.VONAGE_NUMBER || '12345678901';
-        const credentials = Buffer.from(`${VONAGE_KEY}:${VONAGE_SECRET}`).toString('base64');
-        const r = await fetch('https://api.nexmo.com/v1/calls', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${credentials}` },
-          body: JSON.stringify({
-            to: [{ type: 'phone', number: to }],
-            from: { type: 'phone', number: VONAGE_NUMBER },
-            ncco: [{ action: 'talk', text: 'Appel PST Pure Smart Telecom. Connexion en cours.', language: 'fr-FR' }]
-          }),
-        });
-        if (r.ok) {
-          const data = await r.json();
-          if (db) await db.collection('abonnes').updateOne({ userId }, { $inc: { minutesUsees: 1 } });
-          return res.json({ success: true, callId: data.uuid || 'VNG-' + Date.now(), type: 'real' });
-        }
-      } catch (vonageErr) {
-        console.warn('Vonage erreur:', vonageErr.message);
-      }
-    }
-
-    // Fallback simulé
-    res.json({
-      success: true,
-      callId: 'CALL-DEMO-' + Math.random().toString(16).slice(2,8).toUpperCase(),
-      type: 'sandbox',
-      message: `[SANDBOX] Appel simulé vers ${numeroDestination}`,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    res.json({ success: true, callId: 'CALL-DEMO-' + Math.random().toString(16).slice(2,8).toUpperCase(), type: 'sandbox', message: `[SANDBOX] Appel simulé vers ${numeroDestination}` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── WEBHOOK WAVE ───────────────────────────────────────────
 app.post('/api/webhook/wave', async (req, res) => {
   try {
     const { amount, client_reference } = req.body;
-    console.log('Webhook Wave reçu:', req.body);
-    if (client_reference) {
-      await updateAbonne(client_reference, {
-        statut: 'actif',
-        activatedAt: new Date(),
-        updatedAt: new Date(),
-        paiementWave: { amount, date: new Date() },
-      });
-    }
+    if (client_reference) { await updateAbonne(client_reference, { statut: 'actif', activatedAt: new Date(), updatedAt: new Date(), paiementWave: { amount, date: new Date() } }); }
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── PACKS & SERVICES SMS ───────────────────────────────────
 const SMS_PACKS = {
   pack1: { points: 5,  prix: 1000, label: '5 points' },
   pack2: { points: 12, prix: 2000, label: '12 points' },
@@ -375,625 +166,237 @@ const SMS_PACKS = {
 };
 
 const SMS_SERVICES = [
-  { id: 'whatsapp',  nom: 'WhatsApp',        icon: '💬', prix_points: 1 },
-  { id: 'google',    nom: 'Google / Gmail',   icon: '🔵', prix_points: 1 },
-  { id: 'facebook',  nom: 'Facebook',         icon: '📘', prix_points: 1 },
-  { id: 'instagram', nom: 'Instagram',        icon: '📸', prix_points: 1 },
-  { id: 'tiktok',    nom: 'TikTok',           icon: '🎵', prix_points: 1 },
-  { id: 'telegram',  nom: 'Telegram',         icon: '✈️',  prix_points: 1 },
-  { id: 'twitter',   nom: 'Twitter / X',      icon: '🐦', prix_points: 1 },
-  { id: 'snapchat',  nom: 'Snapchat',         icon: '👻', prix_points: 1 },
-  { id: 'microsoft', nom: 'Microsoft',        icon: '🪟', prix_points: 2 },
-  { id: 'apple',     nom: 'Apple',            icon: '🍎', prix_points: 2 },
-  { id: 'amazon',    nom: 'Amazon',           icon: '📦', prix_points: 2 },
-  { id: 'netflix',   nom: 'Netflix',          icon: '🎬', prix_points: 2 },
-  { id: 'uber',      nom: 'Uber',             icon: '🚗', prix_points: 1 },
-  { id: 'airbnb',    nom: 'Airbnb',           icon: '🏠', prix_points: 2 },
-  { id: 'linkedin',  nom: 'LinkedIn',         icon: '💼', prix_points: 1 },
-  { id: 'chatgpt',   nom: 'OpenAI/ChatGPT',   icon: '🤖', prix_points: 2 },
-  { id: 'discord',   nom: 'Discord',          icon: '🎮', prix_points: 1 },
-  { id: 'viber',     nom: 'Viber',            icon: '📱', prix_points: 1 },
+  { id: 'whatsapp',  nom: 'WhatsApp',       icon: '💬', prix_points: 1 },
+  { id: 'google',    nom: 'Google / Gmail',  icon: '🔵', prix_points: 1 },
+  { id: 'facebook',  nom: 'Facebook',        icon: '📘', prix_points: 1 },
+  { id: 'instagram', nom: 'Instagram',       icon: '📸', prix_points: 1 },
+  { id: 'tiktok',    nom: 'TikTok',          icon: '🎵', prix_points: 1 },
+  { id: 'telegram',  nom: 'Telegram',        icon: '✈️',  prix_points: 1 },
+  { id: 'twitter',   nom: 'Twitter / X',     icon: '🐦', prix_points: 1 },
+  { id: 'snapchat',  nom: 'Snapchat',        icon: '👻', prix_points: 1 },
+  { id: 'microsoft', nom: 'Microsoft',       icon: '🪟', prix_points: 2 },
+  { id: 'apple',     nom: 'Apple',           icon: '🍎', prix_points: 2 },
+  { id: 'amazon',    nom: 'Amazon',          icon: '📦', prix_points: 2 },
+  { id: 'netflix',   nom: 'Netflix',         icon: '🎬', prix_points: 2 },
+  { id: 'uber',      nom: 'Uber',            icon: '🚗', prix_points: 1 },
+  { id: 'airbnb',    nom: 'Airbnb',          icon: '🏠', prix_points: 2 },
+  { id: 'linkedin',  nom: 'LinkedIn',        icon: '💼', prix_points: 1 },
+  { id: 'chatgpt',   nom: 'OpenAI/ChatGPT',  icon: '🤖', prix_points: 2 },
+  { id: 'discord',   nom: 'Discord',         icon: '🎮', prix_points: 1 },
+  { id: 'viber',     nom: 'Viber',           icon: '📱', prix_points: 1 },
 ];
 
-// Mapping logos publics pour les services connus
-const SERVICE_LOGOS = {
-  uber: 'https://logo.clearbit.com/uber.com',
-  tinder: 'https://logo.clearbit.com/tinder.com',
-  instagram: 'https://logo.clearbit.com/instagram.com',
-  microsoft: 'https://logo.clearbit.com/microsoft.com',
-  google: 'https://logo.clearbit.com/google.com',
-  yahoo: 'https://logo.clearbit.com/yahoo.com',
-  facebook: 'https://logo.clearbit.com/facebook.com',
-  whatsapp: 'https://logo.clearbit.com/whatsapp.com',
-  telegram: 'https://logo.clearbit.com/telegram.org',
-  tiktok: 'https://logo.clearbit.com/tiktok.com',
-  twitter: 'https://logo.clearbit.com/twitter.com',
-  snapchat: 'https://logo.clearbit.com/snapchat.com',
-  amazon: 'https://logo.clearbit.com/amazon.com',
-  netflix: 'https://logo.clearbit.com/netflix.com',
-  apple: 'https://logo.clearbit.com/apple.com',
-  linkedin: 'https://logo.clearbit.com/linkedin.com',
-  discord: 'https://logo.clearbit.com/discord.com',
-  viber: 'https://logo.clearbit.com/viber.com',
-  airbnb: 'https://logo.clearbit.com/airbnb.com',
-  ebay: 'https://logo.clearbit.com/ebay.com',
-  pof: 'https://logo.clearbit.com/pof.com',
-  line: 'https://logo.clearbit.com/line.me',
-  zoom: 'https://logo.clearbit.com/zoom.us',
-  spotify: 'https://logo.clearbit.com/spotify.com',
-  paypal: 'https://logo.clearbit.com/paypal.com',
-  uber_eats: 'https://logo.clearbit.com/ubereats.com',
-  booking: 'https://logo.clearbit.com/booking.com',
-  badoo: 'https://logo.clearbit.com/badoo.com',
-  steam: 'https://logo.clearbit.com/steampowered.com',
-  vkontakte: 'https://logo.clearbit.com/vk.com',
-  ok: 'https://logo.clearbit.com/ok.ru',
-  wechat: 'https://logo.clearbit.com/wechat.com',
-  shopee: 'https://logo.clearbit.com/shopee.com',
-  lazada: 'https://logo.clearbit.com/lazada.com',
-  grab: 'https://logo.clearbit.com/grab.com',
-  gojek: 'https://logo.clearbit.com/gojek.com',
-  aliexpress: 'https://logo.clearbit.com/aliexpress.com',
-  alibaba: 'https://logo.clearbit.com/alibaba.com',
-  chatgpt: 'https://logo.clearbit.com/openai.com',
-  openai: 'https://logo.clearbit.com/openai.com',
-  coinbase: 'https://logo.clearbit.com/coinbase.com',
-  binance: 'https://logo.clearbit.com/binance.com',
-  twitter_x: 'https://logo.clearbit.com/x.com',
-  reddit: 'https://logo.clearbit.com/reddit.com',
-  pinterest: 'https://logo.clearbit.com/pinterest.com',
-  match: 'https://logo.clearbit.com/match.com',
-  hinge: 'https://logo.clearbit.com/hinge.co',
-  bumble: 'https://logo.clearbit.com/bumble.com',
-  lyft: 'https://logo.clearbit.com/lyft.com',
-  doordash: 'https://logo.clearbit.com/doordash.com',
-  instacart: 'https://logo.clearbit.com/instacart.com',
-  zoho: 'https://logo.clearbit.com/zoho.com',
-  zomato: 'https://logo.clearbit.com/zomato.com',
-  swiggy: 'https://logo.clearbit.com/swiggy.com',
-};
-
-const SERVICE_NOMS = {
-  google: 'Google / Gmail / YouTube',
-  youtube: 'YouTube / Google',
-  gmail: 'Gmail / Google',
-  facebook: 'Facebook / Meta',
-  instagram: 'Instagram / Meta',
-  whatsapp: 'WhatsApp',
-  telegram: 'Telegram',
-  tiktok: 'TikTok',
-  twitter: 'Twitter / X',
-  twitter_x: 'Twitter / X',
-  snapchat: 'Snapchat',
-  microsoft: 'Microsoft / Outlook',
-  apple: 'Apple / iCloud',
-  amazon: 'Amazon',
-  netflix: 'Netflix',
-  uber: 'Uber',
-  uber_eats: 'Uber Eats',
-  airbnb: 'Airbnb',
-  linkedin: 'LinkedIn',
-  discord: 'Discord',
-  viber: 'Viber',
-  chatgpt: 'ChatGPT / OpenAI',
-  openai: 'OpenAI / ChatGPT',
-  spotify: 'Spotify',
-  paypal: 'PayPal',
-  ebay: 'eBay',
-  zoom: 'Zoom',
-  tinder: 'Tinder',
-  badoo: 'Badoo',
-  bumble: 'Bumble',
-  hinge: 'Hinge',
-  match: 'Match.com',
-  reddit: 'Reddit',
-  pinterest: 'Pinterest',
-  steam: 'Steam',
-  vkontakte: 'VKontakte',
-  wechat: 'WeChat',
-  line: 'Line',
-  grab: 'Grab',
-  gojek: 'Gojek',
-  shopee: 'Shopee',
-  lazada: 'Lazada',
-  alibaba: 'Alibaba',
-  aliexpress: 'AliExpress',
-  binance: 'Binance',
-  coinbase: 'Coinbase',
-  zoho: 'Zoho',
-  zomato: 'Zomato',
-  booking: 'Booking.com',
-};
-
 function getServiceNom(id) {
-  return SERVICE_NOMS[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '));
+  const noms = { google:'Google / Gmail',facebook:'Facebook',instagram:'Instagram',whatsapp:'WhatsApp',telegram:'Telegram',tiktok:'TikTok',twitter:'Twitter / X',snapchat:'Snapchat',microsoft:'Microsoft',apple:'Apple',amazon:'Amazon',netflix:'Netflix',uber:'Uber',airbnb:'Airbnb',linkedin:'LinkedIn',discord:'Discord',viber:'Viber',chatgpt:'ChatGPT / OpenAI',spotify:'Spotify',paypal:'PayPal' };
+  return noms[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g,' '));
 }
-
 function getServiceLogo(id) {
-  const key = id.toLowerCase().replace(/[^a-z0-9_]/g, '');
-  if (SERVICE_LOGOS[key]) return SERVICE_LOGOS[key];
-  return `https://www.google.com/s2/favicons?domain=${key}.com&sz=64`;
+  const logos = { uber:'uber.com',instagram:'instagram.com',microsoft:'microsoft.com',google:'google.com',facebook:'facebook.com',whatsapp:'whatsapp.com',telegram:'telegram.org',tiktok:'tiktok.com',twitter:'twitter.com',snapchat:'snapchat.com',amazon:'amazon.com',netflix:'netflix.com',apple:'apple.com',linkedin:'linkedin.com',discord:'discord.com',viber:'viber.com',airbnb:'airbnb.com',chatgpt:'openai.com',spotify:'spotify.com',paypal:'paypal.com' };
+  const domain = logos[id.toLowerCase()];
+  return domain ? `https://logo.clearbit.com/${domain}` : `https://www.google.com/s2/favicons?domain=${id}.com&sz=64`;
 }
-let fivesimServicesCache = null;
-let fivesimCacheTime = 0;
 
+let fivesimServicesCache = null, fivesimCacheTime = 0;
 async function getFivesimServices() {
   const now = Date.now();
   if (fivesimServicesCache && (now - fivesimCacheTime) < 3600000) return fivesimServicesCache;
   const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
   if (!FIVESIM_KEY) return null;
   try {
-    const r = await fetch('https://5sim.net/v1/guest/products/any/any', {
-      headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
-    });
+    const r = await fetch('https://5sim.net/v1/guest/products/any/any', { headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' } });
     if (!r.ok) return null;
     const data = await r.json();
-    // Convertir en tableau trié par nombre de numéros
-    const services = Object.entries(data).map(([id, info]) => ({
-      id,
-      nom: getServiceNom(id),
-      logo: getServiceLogo(id),
-      prix_usd: info.Cost || 0.01,
-      count: info.Qty || 0,
-      prix_points: Math.max(1, Math.ceil((info.Cost || 0.01) / 0.04)),
-    })).filter(s => s.count > 0).sort((a,b) => b.count - a.count);
-    fivesimServicesCache = services;
-    fivesimCacheTime = now;
+    const services = Object.entries(data).map(([id, info]) => ({ id, nom: getServiceNom(id), logo: getServiceLogo(id), prix_usd: info.Cost || 0.01, count: info.Qty || 0, prix_points: Math.max(1, Math.ceil((info.Cost || 0.01) / 0.04)) })).filter(s => s.count > 0).sort((a,b) => b.count - a.count);
+    fivesimServicesCache = services; fivesimCacheTime = now;
     return services;
-  } catch(e) {
-    console.warn('5SIM services erreur:', e.message);
-    return null;
-  }
+  } catch(e) { return null; }
 }
 
-app.get('/api/sms/services', async (req, res) => {
-  const live = await getFivesimServices();
-  if (live) return res.json(live);
-  // Fallback liste statique
-  res.json(SMS_SERVICES);
-});
+app.get('/api/sms/services', async (req, res) => { const live = await getFivesimServices(); if (live) return res.json(live); res.json(SMS_SERVICES); });
 app.get('/api/sms/packs', (req, res) => res.json(SMS_PACKS));
 
-// Acheter des points
 app.post('/api/sms/acheter-points', async (req, res) => {
-  try {
-    const { userId, pack } = req.body;
-    const p = SMS_PACKS[pack];
-    if (!p) return res.status(400).json({ error: 'Pack invalide' });
-    const lienWave = `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${p.prix}`;
-    res.json({ success: true, lienWave, pack: p });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const { pack } = req.body; const p = SMS_PACKS[pack]; if (!p) return res.status(400).json({ error: 'Pack invalide' }); res.json({ success: true, lienWave: `https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${p.prix}`, pack: p }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Confirmer achat points après paiement
 app.post('/api/sms/confirmer-points', async (req, res) => {
   try {
-    const { userId, pack } = req.body;
-    const p = SMS_PACKS[pack];
-    if (!p) return res.status(400).json({ error: 'Pack invalide' });
-    if (db) {
-      await db.collection('abonnes').updateOne(
-        { userId },
-        { $inc: { pointsSMS: p.points }, $push: { historiquePoints: { type: 'achat', points: p.points, pack, date: new Date() } } }
-      );
-    }
+    const { userId, pack } = req.body; const p = SMS_PACKS[pack]; if (!p) return res.status(400).json({ error: 'Pack invalide' });
+    if (db) { await db.collection('abonnes').updateOne({ userId }, { $inc: { pointsSMS: p.points }, $push: { historiquePoints: { type: 'achat', points: p.points, pack, date: new Date() } } }); }
     res.json({ success: true, pointsAjoutes: p.points });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Demander un numéro temporaire via 5SIM
 app.post('/api/sms/demander-numero', async (req, res) => {
   try {
     const { userId, serviceId } = req.body;
     const service = SMS_SERVICES.find(s => s.id === serviceId);
     if (!service) return res.status(400).json({ error: 'Service invalide' });
-
     const abonnes = await getAbonnes();
     const abonne = abonnes.find(a => a.userId === userId);
     if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
-
     const points = abonne.pointsSMS || 0;
-    if (points < service.prix_points) {
-      return res.status(403).json({ error: 'Points insuffisants', pointsActuels: points, pointsNecessaires: service.prix_points });
-    }
-
+    if (points < service.prix_points) return res.status(403).json({ error: 'Points insuffisants', pointsActuels: points, pointsNecessaires: service.prix_points });
     const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
-
     if (FIVESIM_KEY) {
-      // Appel API 5SIM réel
       try {
-        const r = await fetch(`https://5sim.net/v1/user/buy/activation/any/any/${service.id}`, {
-          headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
-        });
+        const r = await fetch(`https://5sim.net/v1/user/buy/activation/any/any/${service.id}`, { headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' } });
         if (r.ok) {
           const data = await r.json();
           const activationId = 'FSIM-' + data.id;
           const expireAt = new Date(Date.now() + 20 * 60 * 1000);
-
-          if (db) {
-            await db.collection('abonnes').updateOne(
-              { userId },
-              {
-                $inc: { pointsSMS: -service.prix_points },
-                $push: { activationsSMS: { activationId, fivesimId: data.id, serviceId, service: service.nom, icon: service.icon, numeroTemp: data.phone, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } }
-              }
-            );
-          }
+          if (db) { await db.collection('abonnes').updateOne({ userId }, { $inc: { pointsSMS: -service.prix_points }, $push: { activationsSMS: { activationId, fivesimId: data.id, serviceId, service: service.nom, icon: service.icon, numeroTemp: data.phone, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } } }); }
           return res.json({ success: true, activationId, numeroTemp: data.phone, service: service.nom, expireAt, pointsRestants: points - service.prix_points });
         }
-      } catch (fiveSimErr) {
-        console.warn('5SIM erreur:', fiveSimErr.message);
-      }
+      } catch (e) {}
     }
-
-    // Fallback simulé si pas de clé ou erreur
     const numeroTemp = '+1' + Math.floor(2000000000 + Math.random() * 8000000000);
     const activationId = 'ACT-' + Math.random().toString(36).slice(2,10).toUpperCase();
     const expireAt = new Date(Date.now() + 20 * 60 * 1000);
-
-    if (db) {
-      await db.collection('abonnes').updateOne(
-        { userId },
-        {
-          $inc: { pointsSMS: -service.prix_points },
-          $push: { activationsSMS: { activationId, serviceId, service: service.nom, icon: service.icon, numeroTemp, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } }
-        }
-      );
-    }
+    if (db) { await db.collection('abonnes').updateOne({ userId }, { $inc: { pointsSMS: -service.prix_points }, $push: { activationsSMS: { activationId, serviceId, service: service.nom, icon: service.icon, numeroTemp, expireAt, statut: 'en_attente', smsRecu: null, createdAt: new Date() } } }); }
     res.json({ success: true, activationId, numeroTemp, service: service.nom, expireAt, pointsRestants: points - service.prix_points });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Vérifier SMS reçu via 5SIM
 app.get('/api/sms/verifier/:activationId', async (req, res) => {
   try {
-    const { activationId } = req.params;
-    const { userId } = req.query;
+    const { activationId } = req.params; const { userId } = req.query;
     if (!db) return res.json({ activationId, statut: 'en_attente', smsRecu: null });
-
     const abonne = await db.collection('abonnes').findOne({ userId });
     if (!abonne) return res.status(404).json({ error: 'Abonné introuvable' });
-
     const activation = (abonne.activationsSMS || []).find(a => a.activationId === activationId);
     if (!activation) return res.status(404).json({ error: 'Activation introuvable' });
-
-    // Si déjà reçu
     if (activation.smsRecu) return res.json({ activationId, statut: 'recu', smsRecu: activation.smsRecu });
-
     const FIVESIM_KEY = process.env.FIVESIM_API_KEY;
-
-    // Vérifier sur 5SIM si c'est une vraie activation
     if (FIVESIM_KEY && activation.fivesimId) {
       try {
-        const r = await fetch(`https://5sim.net/v1/user/check/${activation.fivesimId}`, {
-          headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' }
-        });
+        const r = await fetch(`https://5sim.net/v1/user/check/${activation.fivesimId}`, { headers: { 'Authorization': `Bearer ${FIVESIM_KEY}`, 'Accept': 'application/json' } });
         if (r.ok) {
           const data = await r.json();
           if (data.sms && data.sms.length > 0) {
             const smsText = data.sms[0].text;
-            await db.collection('abonnes').updateOne(
-              { userId, 'activationsSMS.activationId': activationId },
-              { $set: { 'activationsSMS.$.smsRecu': smsText, 'activationsSMS.$.statut': 'recu' } }
-            );
+            await db.collection('abonnes').updateOne({ userId, 'activationsSMS.activationId': activationId }, { $set: { 'activationsSMS.$.smsRecu': smsText, 'activationsSMS.$.statut': 'recu' } });
             return res.json({ activationId, statut: 'recu', smsRecu: smsText });
           }
         }
-      } catch (e) { console.warn('5SIM check erreur:', e.message); }
+      } catch (e) {}
     }
-
     return res.json({ activationId, statut: activation.statut, smsRecu: null });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Admin - stats SMS
 app.get('/api/admin/sms-stats', async (req, res) => {
   try {
     if (!db) return res.json({ totalActivations: 0, pointsVendus: 0, revenusPoints: 0 });
     const abonnes = await db.collection('abonnes').find({}).toArray();
     let totalActivations = 0, pointsVendus = 0;
-    abonnes.forEach(a => {
-      totalActivations += (a.activationsSMS || []).length;
-      (a.historiquePoints || []).forEach(h => { if (h.type === 'achat') pointsVendus += h.points; });
-    });
+    abonnes.forEach(a => { totalActivations += (a.activationsSMS || []).length; (a.historiquePoints || []).forEach(h => { if (h.type === 'achat') pointsVendus += h.points; }); });
     res.json({ totalActivations, pointsVendus, revenusPoints: Math.round(pointsVendus / 5 * 1000) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Admin - liste activations
 app.get('/api/admin/activations', async (req, res) => {
   try {
     if (!db) return res.json([]);
     const abonnes = await db.collection('abonnes').find({}).toArray();
     const activations = [];
-    abonnes.forEach(a => {
-      (a.activationsSMS || []).forEach(act => activations.push({ ...act, userId: a.userId, nom: a.nom, prenom: a.prenom }));
-    });
+    abonnes.forEach(a => { (a.activationsSMS || []).forEach(act => activations.push({ ...act, userId: a.userId, nom: a.nom, prenom: a.prenom })); });
     activations.sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
     res.json(activations.slice(0, 100));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Admin - ajouter points manuellement
 app.post('/api/admin/ajouter-points', async (req, res) => {
   try {
     const { userId, points } = req.body;
     if (!db) return res.json({ success: true });
-    await db.collection('abonnes').updateOne(
-      { userId },
-      { $inc: { pointsSMS: parseInt(points) }, $push: { historiquePoints: { type: 'admin', points: parseInt(points), date: new Date() } } }
-    );
+    await db.collection('abonnes').updateOne({ userId }, { $inc: { pointsSMS: parseInt(points) }, $push: { historiquePoints: { type: 'admin', points: parseInt(points), date: new Date() } } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── STRIPE PAIEMENT ────────────────────────────────────────
-const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
-
-// Créer une session de paiement Stripe
-app.post('/api/paiement/stripe/creer', async (req, res) => {
-  try {
-    const { type, forfait, pack, userId, devise = 'usd' } = req.body;
-    if (!STRIPE_SECRET) return res.status(503).json({ error: 'Stripe non configuré' });
-
-    const stripe = require('stripe')(STRIPE_SECRET);
-
-    let montant, description, currency;
-
-    if (devise === 'xof') {
-      // FCFA — Stripe supporte XOF
-      currency = 'xof';
-      if (type === 'forfait') {
-        const f = FORFAITS[forfait];
-        if (!f) return res.status(400).json({ error: 'Forfait invalide' });
-        montant = f.prix; // déjà en FCFA
-        description = `PST Forfait ${f.nom} — ${f.minutes === 99999 ? 'Illimité' : f.minutes + ' min'}`;
-      } else {
-        const p = SMS_PACKS[pack];
-        if (!p) return res.status(400).json({ error: 'Pack invalide' });
-        montant = p.prix;
-        description = `PST ${p.label} SMS`;
-      }
-    } else {
-      // USD
-      currency = 'usd';
-      if (type === 'forfait') {
-        const f = FORFAITS[forfait];
-        if (!f) return res.status(400).json({ error: 'Forfait invalide' });
-        montant = Math.round(f.prix / 600 * 100); // FCFA → centimes USD
-        description = `PST Forfait ${f.nom}`;
-      } else {
-        const p = SMS_PACKS[pack];
-        if (!p) return res.status(400).json({ error: 'Pack invalide' });
-        montant = Math.round(p.prix / 600 * 100);
-        description = `PST ${p.label} SMS`;
-      }
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency,
-          product_data: { name: description, description: 'Pure Smart Telecom' },
-          unit_amount: montant,
-        },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: `https://pst-telecom-production.up.railway.app/dashboard?paiement=success&type=${type}&ref=${userId}`,
-      cancel_url: `https://pst-telecom-production.up.railway.app/dashboard?paiement=cancel`,
-      metadata: { userId, type, forfait: forfait || '', pack: pack || '' },
-    });
-
-    res.json({ success: true, url: session.url, sessionId: session.id });
-  } catch (err) {
-    console.error('Stripe erreur:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Webhook Stripe — confirmation paiement
-app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!STRIPE_SECRET) return res.json({ received: true });
-
-  try {
-    const stripe = require('stripe')(STRIPE_SECRET);
-    let event;
-    if (WEBHOOK_SECRET) {
-      event = stripe.webhooks.constructEvent(req.body, sig, WEBHOOK_SECRET);
-    } else {
-      event = JSON.parse(req.body);
-    }
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const { userId, type, forfait, pack } = session.metadata;
-
-      if (type === 'forfait' && userId) {
-        await updateAbonne(userId, { statut: 'actif', activatedAt: new Date(), updatedAt: new Date() });
-      } else if (type === 'sms' && pack && userId) {
-        const p = SMS_PACKS[pack];
-        if (p && db) {
-          await db.collection('abonnes').updateOne(
-            { userId },
-            { $inc: { pointsSMS: p.points }, $push: { historiquePoints: { type: 'stripe', points: p.points, pack, date: new Date() } } }
-          );
-        }
-      }
-    }
-    res.json({ received: true });
-  } catch (err) {
-    console.error('Webhook Stripe erreur:', err.message);
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// ─── INSCRIPTION SMS RAPIDE ─────────────────────────────────
 app.post('/api/sms/inscription', async (req, res) => {
   try {
     const { nom, telephone } = req.body;
     if (!nom || !telephone) return res.status(400).json({ error: 'Nom et téléphone obligatoires' });
-
-    // Vérifier si déjà inscrit
-    if (db) {
-      const exist = await db.collection('comptes_sms').findOne({ telephone });
-      if (exist) return res.json({ success: true, userId: exist.userId, nouveau: false });
-    }
-
+    if (db) { const exist = await db.collection('comptes_sms').findOne({ telephone }); if (exist) return res.json({ success: true, userId: exist.userId, nouveau: false }); }
     const userId = 'SMS-' + Math.random().toString(16).slice(2,10).toUpperCase();
-    const compte = {
-      userId, nom, telephone,
-      pointsSMS: 0,
-      type: 'sms_only',
-      createdAt: new Date(),
-      activationsSMS: [],
-      historiquePoints: [],
-    };
-
+    const compte = { userId, nom, telephone, pointsSMS: 0, type: 'sms_only', createdAt: new Date(), activationsSMS: [], historiquePoints: [] };
     if (db) await db.collection('comptes_sms').insertOne(compte);
-
     res.json({ success: true, userId, nouveau: true, message: `Compte SMS créé ! Votre ID : ${userId}` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Connexion compte SMS
 app.post('/api/sms/connexion', async (req, res) => {
   try {
     const { userId, telephone } = req.body;
     if (!db) return res.status(503).json({ error: 'DB non disponible' });
-
-    // Chercher dans comptes_sms ET abonnes
     let compte = await db.collection('comptes_sms').findOne({ userId, telephone });
-    if (!compte) {
-      const abonne = await db.collection('abonnes').findOne({ userId, telephone });
-      if (abonne) compte = abonne;
-    }
+    if (!compte) { const abonne = await db.collection('abonnes').findOne({ userId, telephone }); if (abonne) compte = abonne; }
     if (!compte) return res.status(404).json({ error: 'Compte introuvable' });
-
     res.json({ success: true, compte });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Points SMS pour compte SMS-only
 app.get('/api/sms/compte/:userId', async (req, res) => {
   try {
     if (!db) return res.status(503).json({ error: 'DB non disponible' });
-    const compte = await db.collection('comptes_sms').findOne({ userId: req.params.userId })
-      || await db.collection('abonnes').findOne({ userId: req.params.userId });
+    const compte = await db.collection('comptes_sms').findOne({ userId: req.params.userId }) || await db.collection('abonnes').findOne({ userId: req.params.userId });
     if (!compte) return res.status(404).json({ error: 'Compte introuvable' });
     res.json({ userId: compte.userId, nom: compte.nom, pointsSMS: compte.pointsSMS || 0, type: compte.type || 'abonne' });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});// ═══ ROUTES PAIEMENTS ════════════════════════════════════
-
-// Lister tous les paiements
-app.get('/api/admin/payments', async (req, res) => {
-  try {
-    const payments = await db.collection('payments').find({}).sort({ createdAt: -1 }).toArray();
-    res.json(payments);
-  } catch (e) { res.json([]); }
 });
 
-// Enregistrer un paiement manuel
+app.get('/api/admin/payments', async (req, res) => {
+  try { const payments = await db.collection('payments').find({}).sort({ createdAt: -1 }).toArray(); res.json(payments); }
+  catch (e) { res.json([]); }
+});
+
 app.post('/api/admin/payments', async (req, res) => {
   try {
     const { userId, montant, moyen, type, reference, statut } = req.body;
     if (!userId || !montant) return res.status(400).json({ error: 'userId et montant requis' });
-    const payment = {
-      userId, montant: parseInt(montant), moyen: moyen || 'wave',
-      type: type || 'forfait', reference: reference || '',
-      statut: statut || 'en_attente', createdAt: new Date()
-    };
+    const payment = { userId, montant: parseInt(montant), moyen: moyen || 'wave', type: type || 'forfait', reference: reference || '', statut: statut || 'en_attente', createdAt: new Date() };
     const result = await db.collection('payments').insertOne(payment);
-    await db.collection('activity_logs').insertOne({
-      type: 'paiement', message: `Paiement ${montant} FCFA enregistré pour ${userId} (${moyen})`,
-      createdAt: new Date()
-    });
+    await db.collection('activity_logs').insertOne({ type: 'paiement', message: `Paiement ${montant} FCFA enregistré pour ${userId} (${moyen})`, createdAt: new Date() });
     res.json({ success: true, id: result.insertedId });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Valider un paiement et activer l'abonné
 app.post('/api/admin/payments/:id/validate', async (req, res) => {
   try {
-    const { ObjectId } = require('mongodb');
     const payment = await db.collection('payments').findOne({ _id: new ObjectId(req.params.id) });
     if (!payment) return res.status(404).json({ error: 'Paiement introuvable' });
-    await db.collection('payments').updateOne(
-      { _id: new ObjectId(req.params.id) },
-      { $set: { statut: 'confirme', validatedAt: new Date() } }
-    );
-    // Activer l'abonné
-    await db.collection('abonnes').updateOne(
-      { userId: payment.userId },
-      { $set: { statut: 'actif', activatedAt: new Date() } }
-    );
-    await db.collection('activity_logs').insertOne({
-      type: 'activation', message: `Paiement validé — ${payment.userId} activé (${payment.montant} FCFA)`,
-      createdAt: new Date()
-    });
+    await db.collection('payments').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { statut: 'confirme', validatedAt: new Date() } });
+    await db.collection('abonnes').updateOne({ userId: payment.userId }, { $set: { statut: 'actif', activatedAt: new Date() } });
+    await db.collection('activity_logs').insertOne({ type: 'activation', message: `Paiement validé — ${payment.userId} activé (${payment.montant} FCFA)`, createdAt: new Date() });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Supprimer une transaction
 app.delete('/api/admin/payments/:id', async (req, res) => {
-  try {
-    const { ObjectId } = require('mongodb');
-    await db.collection('payments').deleteOne({ _id: new ObjectId(req.params.id) });
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('payments').deleteOne({ _id: new ObjectId(req.params.id) }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
-// ═══ ROUTE FLUTTERWAVE ═══════════════════════════════════
 
 app.post('/api/flutterwave/confirm', async (req, res) => {
   try {
     const { tx_ref, userId, transaction_id } = req.body;
     if (!tx_ref || !userId) return res.status(400).json({ error: 'Données manquantes' });
-
-    // Vérifier le paiement avec l'API Flutterwave
     const FLW_SECRET = process.env.FLW_SECRET_KEY;
-    const verify = await fetch(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, {
-      headers: { Authorization: `Bearer ${FLW_SECRET}` }
-    });
+    const verify = await fetch(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, { headers: { Authorization: `Bearer ${FLW_SECRET}` } });
     const verifyData = await verify.json();
-
     if (verifyData.data && verifyData.data.status === 'successful') {
       const montant = verifyData.data.amount;
-      const moyen = 'flutterwave_card';
-
-      // Enregistrer le paiement
-      await db.collection('payments').insertOne({
-        userId, montant, moyen, type: 'forfait',
-        reference: tx_ref, statut: 'confirme',
-        transaction_id, createdAt: new Date()
-      });
-
-      // Activer l'abonné
-      await db.collection('abonnes').updateOne(
-        { userId },
-        { $set: { statut: 'actif', activatedAt: new Date() } }
-      );
-
-      // Log activité
-      await db.collection('activity_logs').insertOne({
-        type: 'paiement',
-        message: `Paiement carte ${montant} XOF confirmé pour ${userId}`,
-        createdAt: new Date()
-      });
-
+      await db.collection('payments').insertOne({ userId, montant, moyen: 'flutterwave_card', type: 'forfait', reference: tx_ref, statut: 'confirme', transaction_id, createdAt: new Date() });
+      await db.collection('abonnes').updateOne({ userId }, { $set: { statut: 'actif', activatedAt: new Date() } });
+      await db.collection('activity_logs').insertOne({ type: 'paiement', message: `Paiement carte ${montant} XOF confirmé pour ${userId}`, createdAt: new Date() });
       res.json({ success: true });
-    } else {
-      res.status(400).json({ error: 'Paiement non vérifié' });
-    }
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+    } else { res.status(400).json({ error: 'Paiement non vérifié' }); }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Webhook Flutterwave (paiements automatiques)
 app.post('/api/flutterwave/webhook', async (req, res) => {
   try {
     const payload = req.body;
@@ -1001,20 +404,12 @@ app.post('/api/flutterwave/webhook', async (req, res) => {
       const tx_ref = payload.data.tx_ref;
       const userId = tx_ref.split('-')[1];
       const montant = payload.data.amount;
-
-      await db.collection('payments').insertOne({
-        userId, montant, moyen: 'flutterwave_card', type: 'forfait',
-        reference: tx_ref, statut: 'confirme', createdAt: new Date()
-      });
-
-      await db.collection('abonnes').updateOne(
-        { userId }, { $set: { statut: 'actif', activatedAt: new Date() } }
-      );
+      await db.collection('payments').insertOne({ userId, montant, moyen: 'flutterwave_card', type: 'forfait', reference: tx_ref, statut: 'confirme', createdAt: new Date() });
+      await db.collection('abonnes').updateOne({ userId }, { $set: { statut: 'actif', activatedAt: new Date() } });
     }
     res.sendStatus(200);
   } catch (e) { res.sendStatus(500); }
 });
-// ═══ ROUTES ADMIN ═══════════════════════════════════════
 
 const SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
 
@@ -1034,10 +429,8 @@ app.get('/api/admin/activity', async (req, res) => {
 });
 
 app.get('/api/admin/sms-users', async (req, res) => {
-  try {
-    const users = await db.collection('sms_users').find({}).sort({ createdAt: -1 }).toArray();
-    res.json(users);
-  } catch (e) { res.json([]); }
+  try { const users = await db.collection('sms_users').find({}).sort({ createdAt: -1 }).toArray(); res.json(users); }
+  catch (e) { res.json([]); }
 });
 
 app.post('/api/admin/users/:id/activate', async (req, res) => {
@@ -1049,10 +442,8 @@ app.post('/api/admin/users/:id/activate', async (req, res) => {
 });
 
 app.post('/api/admin/users/:id/suspend', async (req, res) => {
-  try {
-    await db.collection('abonnes').updateOne({ userId: req.params.id }, { $set: { statut: 'suspendu' } });
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('abonnes').updateOne({ userId: req.params.id }, { $set: { statut: 'suspendu' } }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/admin/users/:id', async (req, res) => {
@@ -1067,372 +458,123 @@ app.patch('/api/admin/users/:id', async (req, res) => {
 });
 
 app.delete('/api/admin/users/:id', async (req, res) => {
-  try {
-    await db.collection('abonnes').deleteOne({ userId: req.params.id });
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('abonnes').deleteOne({ userId: req.params.id }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/content', async (req, res) => {
-  try {
-    const content = await db.collection('site_content').findOne({});
-    res.json(content || {});
-  } catch (e) { res.json({}); }
+  try { const content = await db.collection('site_content').findOne({}); res.json(content || {}); }
+  catch (e) { res.json({}); }
 });
 
 app.post('/api/admin/content', async (req, res) => {
-  try {
-    await db.collection('site_content').updateOne({}, { $set: req.body }, { upsert: true });
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('site_content').updateOne({}, { $set: req.body }, { upsert: true }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
+
 // ═══ ROUTES SMS MARKETING ════════════════════════════════
 
 app.post('/api/sms-marketing/send', async (req, res) => {
   try {
     const { campagne, messages, sender, scheduled, total } = req.body;
     if (!messages || !messages.length) return res.status(400).json({ error: 'Aucun message' });
-
-    // Enregistrer la campagne
-    const camp = {
-      campagne: campagne || 'Campagne SMS',
-      sender: sender || 'PST-Telecom',
-      total: messages.length,
-      envoyes: 0,
-      echecs: 0,
-      statut: scheduled ? 'planifie' : 'en_cours',
-      scheduledAt: scheduled ? new Date(scheduled) : null,
-      createdAt: new Date()
-    };
+    const camp = { campagne: campagne || 'Campagne SMS', sender: sender || 'PST-Telecom', total: messages.length, envoyes: 0, echecs: 0, statut: scheduled ? 'planifie' : 'en_cours', scheduledAt: scheduled ? new Date(scheduled) : null, createdAt: new Date() };
     const result = await db.collection('sms_campagnes').insertOne(camp);
     const campId = result.insertedId;
-
     if (scheduled) {
-      // Sauvegarder pour envoi planifié
-      await db.collection('sms_campagnes').updateOne(
-        { _id: campId },
-        { $set: { messages, statut: 'planifie' } }
-      );
-      return res.json({ success: true, campagneId: campId, statut: 'planifie', message: `Campagne planifiée pour ${scheduled}` });
+      await db.collection('sms_campagnes').updateOne({ _id: campId }, { $set: { messages, statut: 'planifie' } });
+      return res.json({ success: true, campagneId: campId, statut: 'planifie' });
     }
-
-    // Envoi immédiat via Africa's Talking
-    const AT = require('africastalking')({
-      apiKey: process.env.AT_API_KEY,
-      username: process.env.AT_USERNAME
-    });
+    const AT = require('africastalking')({ apiKey: process.env.AT_API_KEY, username: process.env.AT_USERNAME });
     const sms = AT.SMS;
-
     let envoyes = 0, echecs = 0;
-    const batchSize = 50;
-
-    for (let i = 0; i < messages.length; i += batchSize) {
-      const batch = messages.slice(i, i + batchSize);
-      const recipients = batch.map(m => m.telephone);
-      const messageText = batch[0].message; // Pour batch simple
-
-      try {
-        // Envoi batch
-        for (const msg of batch) {
-          try {
-            await sms.send({
-              to: [msg.telephone],
-              message: msg.message,
-              from: sender || 'PST-Telecom'
-            });
-            envoyes++;
-          } catch(e) {
-            echecs++;
-          }
-        }
-      } catch(e) {
-        echecs += batch.length;
+    for (let i = 0; i < messages.length; i += 50) {
+      const batch = messages.slice(i, i + 50);
+      for (const msg of batch) {
+        try { await sms.send({ to: [msg.telephone], message: msg.message, from: sender || 'PST-Telecom' }); envoyes++; }
+        catch(e) { echecs++; }
       }
-
-      // Pause entre batches
       await new Promise(r => setTimeout(r, 200));
     }
-
-    // Mettre à jour la campagne
-    await db.collection('sms_campagnes').updateOne(
-      { _id: campId },
-      { $set: { envoyes, echecs, statut: 'termine', finishedAt: new Date() } }
-    );
-
-    // Log activité
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Campagne "${campagne}" — ${envoyes} SMS envoyés, ${echecs} échecs`,
-      createdAt: new Date()
-    });
-
+    await db.collection('sms_campagnes').updateOne({ _id: campId }, { $set: { envoyes, echecs, statut: 'termine', finishedAt: new Date() } });
+    await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Campagne "${campagne}" — ${envoyes} SMS envoyés, ${echecs} échecs`, createdAt: new Date() });
     res.json({ success: true, campagneId: campId, envoyes, echecs, total: messages.length });
-
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Historique des campagnes
 app.get('/api/sms-marketing/campagnes', async (req, res) => {
-  try {
-    const campagnes = await db.collection('sms_campagnes')
-      .find({}, { projection: { messages: 0 } })
-      .sort({ createdAt: -1 }).limit(50).toArray();
-    res.json(campagnes);
-  } catch (e) { res.json([]); }
+  try { const campagnes = await db.collection('sms_campagnes').find({}, { projection: { messages: 0 } }).sort({ createdAt: -1 }).limit(50).toArray(); res.json(campagnes); }
+  catch (e) { res.json([]); }
 });
 
-// Stats SMS Marketing
 app.get('/api/sms-marketing/stats', async (req, res) => {
   try {
     const campagnes = await db.collection('sms_campagnes').find({}).toArray();
-    const totalEnvoyes = campagnes.reduce((s,c) => s+(c.envoyes||0), 0);
-    const totalEchecs = campagnes.reduce((s,c) => s+(c.echecs||0), 0);
-    const totalCampagnes = campagnes.length;
-    res.json({ totalCampagnes, totalEnvoyes, totalEchecs });
+    res.json({ totalCampagnes: campagnes.length, totalEnvoyes: campagnes.reduce((s,c) => s+(c.envoyes||0), 0), totalEchecs: campagnes.reduce((s,c) => s+(c.echecs||0), 0) });
   } catch (e) { res.json({ totalCampagnes:0, totalEnvoyes:0, totalEchecs:0 }); }
 });
-// Vérifier une référence de transaction Wave ou Visa
-app.post('/api/sms-marketing/verify-ref', async (req, res) => {
-  try {
-    const { reference, telephone, smsCount } = req.body;
-    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte' });
 
-    const ref = reference.toUpperCase().trim();
-
-    // Vérifier que la référence n'a pas déjà été utilisée
-    const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
-    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne' });
-
-    // Enregistrer la référence comme utilisée — ne peut plus être réutilisée
-    await db.collection('sms_refs_utilisees').insertOne({
-      reference: ref,
-      telephone,
-      smsCount: parseInt(smsCount) || 0,
-      utiliseeAt: new Date()
-    });
-
-    // Log activité
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Référence ${ref} validée et bloquée — ${smsCount} SMS pour ${telephone}`,
-      createdAt: new Date()
-    });
-
-    res.json({ valid: true });
-  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
-});
-
-// ═══ ROUTES CODES VALIDATION SMS MARKETING ══════════════════
-
-// Générer un code de validation (depuis l'admin)
-app.post('/api/sms-marketing/generate-code', async (req, res) => {
-  try {
-    const { telephone, smsCount, pack, montant, notes } = req.body;
-    // Générer code unique PST-XXXX-XXXX
-    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
-    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
-
-    await db.collection('sms_codes').insertOne({
-      code, telephone, smsCount: parseInt(smsCount)||0,
-      pack: pack||'', montant: parseInt(montant)||0,
-      notes: notes||'', statut: 'actif',
-      utilise: false, createdAt: new Date(), expireAt
-    });
-
-    res.json({ success: true, code, expireAt });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Vérifier un code (depuis la plateforme SMS Marketing)
-app.post('/api/sms-marketing/verify-code', async (req, res) => {
-  try {
-    const { code, telephone, smsCount } = req.body;
-    if (!code) return res.status(400).json({ valid: false, error: 'Code requis' });
-
-    const codeDoc = await db.collection('sms_codes').findOne({
-      code: code.toUpperCase().trim(),
-      statut: 'actif',
-      utilise: false,
-      expireAt: { $gt: new Date() }
-    });
-
-    if (!codeDoc) return res.json({ valid: false, error: 'Code invalide ou expiré' });
-
-    // Marquer comme utilisé
-    await db.collection('sms_codes').updateOne(
-      { code: code.toUpperCase().trim() },
-      { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } }
-    );
-
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Code ${code} validé — campagne de ${smsCount} SMS pour ${telephone}`,
-      createdAt: new Date()
-    });
-
-    res.json({ valid: true, smsCount: codeDoc.smsCount, pack: codeDoc.pack });
-  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
-});
-
-// Lister tous les codes (admin)
-app.get('/api/sms-marketing/codes', async (req, res) => {
-  try {
-    const codes = await db.collection('sms_codes').find({}).sort({ createdAt: -1 }).limit(100).toArray();
-    res.json(codes);
-  } catch (e) { res.json([]); }
-});
-
-// Révoquer un code
-app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
-  try {
-    await db.collection('sms_codes').updateOne(
-      { code: req.params.code },
-      { $set: { statut: 'revoque' } }
-    );
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
 // ═══ ROUTES RÉFÉRENCES ET CODES SMS MARKETING ═══════════════
 
-// Vérifier une référence de transaction Wave ou Visa
 app.post('/api/sms-marketing/verify-ref', async (req, res) => {
   try {
     const { reference, telephone, smsCount } = req.body;
-    if (!reference || reference.length < 5) {
-      return res.json({ valid: false, error: 'Référence trop courte — vérifiez dans votre app Wave' });
-    }
-
+    if (!reference || reference.length < 5) return res.json({ valid: false, error: 'Référence trop courte — vérifiez dans votre app Wave' });
     const ref = reference.toUpperCase().trim();
-
-    // Vérification format Wave (W + chiffres) ou Flutterwave (FLW-...)
     const isWave = /^W[0-9A-Z]{5,20}$/.test(ref);
     const isFLW  = /^FLW/.test(ref);
     const isTxn  = /^(TXN|PST|REF|TRF|PAY|WAVE)[0-9A-Z\-]{3,}$/.test(ref);
-
-    if (!isWave && !isFLW && !isTxn) {
-      return res.json({
-        valid: false,
-        error: 'Format non reconnu. Wave: W241234567 — Flutterwave: FLW-MOCK-XXXX'
-      });
-    }
-
-    // Vérifier que la référence n'a pas déjà été utilisée
+    if (!isWave && !isFLW && !isTxn) return res.json({ valid: false, error: 'Format non reconnu. Wave: W241234567 — Flutterwave: FLW-MOCK-XXXX' });
     const existing = await db.collection('sms_refs_utilisees').findOne({ reference: ref });
-    if (existing) {
-      return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
-    }
-
-    // Enregistrer la référence comme utilisée
-    await db.collection('sms_refs_utilisees').insertOne({
-      reference: ref,
-      telephone: telephone || '',
-      smsCount: parseInt(smsCount) || 0,
-      statut: 'utilise',
-      utiliseeAt: new Date()
-    });
-
-    // Log activité admin
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Référence ${ref} validée — ${smsCount} SMS pour ${telephone}`,
-      createdAt: new Date()
-    });
-
+    if (existing) return res.json({ valid: false, error: 'Cette référence a déjà été utilisée pour une campagne PST' });
+    await db.collection('sms_refs_utilisees').insertOne({ reference: ref, telephone: telephone || '', smsCount: parseInt(smsCount) || 0, statut: 'utilise', utiliseeAt: new Date() });
+    await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Référence ${ref} validée — ${smsCount} SMS pour ${telephone}`, createdAt: new Date() });
     res.json({ valid: true });
-  } catch (e) {
-    res.status(500).json({ valid: false, error: e.message });
-  }
+  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
 });
 
-// Admin — lister toutes les références utilisées
 app.get('/api/sms-marketing/refs', async (req, res) => {
-  try {
-    const refs = await db.collection('sms_refs_utilisees')
-      .find({}).sort({ utiliseeAt: -1 }).limit(100).toArray();
-    res.json(refs);
-  } catch (e) { res.json([]); }
+  try { const refs = await db.collection('sms_refs_utilisees').find({}).sort({ utiliseeAt: -1 }).limit(100).toArray(); res.json(refs); }
+  catch (e) { res.json([]); }
 });
 
-// Admin — débloquer une référence (en cas d'erreur)
 app.delete('/api/sms-marketing/refs/:ref', async (req, res) => {
-  try {
-    await db.collection('sms_refs_utilisees')
-      .deleteOne({ reference: req.params.ref.toUpperCase() });
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('sms_refs_utilisees').deleteOne({ reference: req.params.ref.toUpperCase() }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ═══ ROUTES CODES VALIDATION SMS MARKETING ══════════════════
-
-// Générer un code de validation (depuis l'admin)
 app.post('/api/sms-marketing/generate-code', async (req, res) => {
   try {
     const { telephone, smsCount, pack, montant, notes } = req.body;
-    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase()
-               + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const code = 'PST-' + Math.random().toString(36).slice(2,6).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
     const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    await db.collection('sms_codes').insertOne({
-      code, telephone, smsCount: parseInt(smsCount)||0,
-      pack: pack||'', montant: parseInt(montant)||0,
-      notes: notes||'', statut: 'actif',
-      utilise: false, createdAt: new Date(), expireAt
-    });
-
+    await db.collection('sms_codes').insertOne({ code, telephone, smsCount: parseInt(smsCount)||0, pack: pack||'', montant: parseInt(montant)||0, notes: notes||'', statut: 'actif', utilise: false, createdAt: new Date(), expireAt });
     res.json({ success: true, code, expireAt });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Vérifier un code (depuis la plateforme SMS Marketing)
 app.post('/api/sms-marketing/verify-code', async (req, res) => {
   try {
     const { code, telephone, smsCount } = req.body;
     if (!code) return res.status(400).json({ valid: false, error: 'Code requis' });
-
-    const codeDoc = await db.collection('sms_codes').findOne({
-      code: code.toUpperCase().trim(),
-      statut: 'actif',
-      utilise: false,
-      expireAt: { $gt: new Date() }
-    });
-
+    const codeDoc = await db.collection('sms_codes').findOne({ code: code.toUpperCase().trim(), statut: 'actif', utilise: false, expireAt: { $gt: new Date() } });
     if (!codeDoc) return res.json({ valid: false, error: 'Code invalide ou expiré' });
-
-    await db.collection('sms_codes').updateOne(
-      { code: code.toUpperCase().trim() },
-      { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } }
-    );
-
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Code ${code} validé — ${smsCount} SMS pour ${telephone}`,
-      createdAt: new Date()
-    });
-
+    await db.collection('sms_codes').updateOne({ code: code.toUpperCase().trim() }, { $set: { utilise: true, utiliseAt: new Date(), utilisePar: telephone } });
+    await db.collection('activity_logs').insertOne({ type: 'sms_marketing', message: `Code ${code} validé — ${smsCount} SMS pour ${telephone}`, createdAt: new Date() });
     res.json({ valid: true, smsCount: codeDoc.smsCount, pack: codeDoc.pack });
   } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
 });
 
-// Lister tous les codes (admin)
 app.get('/api/sms-marketing/codes', async (req, res) => {
-  try {
-    const codes = await db.collection('sms_codes')
-      .find({}).sort({ createdAt: -1 }).limit(100).toArray();
-    res.json(codes);
-  } catch (e) { res.json([]); }
+  try { const codes = await db.collection('sms_codes').find({}).sort({ createdAt: -1 }).limit(100).toArray(); res.json(codes); }
+  catch (e) { res.json([]); }
 });
 
-// Révoquer un code
 app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
-  try {
-    await db.collection('sms_codes').updateOne(
-      { code: req.params.code },
-      { $set: { statut: 'revoque' } }
-    );
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await db.collection('sms_codes').updateOne({ code: req.params.code }, { $set: { statut: 'revoque' } }); res.json({ success: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
