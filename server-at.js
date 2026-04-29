@@ -108,6 +108,10 @@ function authAdmin(req, res, next) {
 app.get('/admin', authAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
+// SMS Marketing
+app.get('/sms-marketing', (req, res) => {
+  res.sendFile(path.join(__dirname, 'sms-marketing.html'));
+});
 
 // Interface appel
 app.get('/appel', (req, res) => {
