@@ -1433,39 +1433,6 @@ app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
     );
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-    await db.collection('activity_logs').insertOne({
-      type: 'sms_marketing',
-      message: `Code ${code} validé — campagne de ${smsCount} SMS pour ${telephone}`,
-      createdAt: new Date()
-    });
-
-    res.json({ valid: true, smsCount: codeDoc.smsCount, pack: codeDoc.pack });
-  } catch (e) { res.status(500).json({ valid: false, error: e.message }); }
-});
-
-// Lister tous les codes (admin)
-app.get('/api/sms-marketing/codes', async (req, res) => {
-  try {
-    const codes = await db.collection('sms_codes').find({}).sort({ createdAt: -1 }).limit(100).toArray();
-    res.json(codes);
-  } catch (e) { res.json([]); }
-});
-
-// Révoquer un code
-app.delete('/api/sms-marketing/codes/:code', async (req, res) => {
-  try {
-    await db.collection('sms_codes').updateOne(
-      { code: req.params.code },
-      { $set: { statut: 'revoque' } }
-    );
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
