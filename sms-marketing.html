@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PST SMS Marketing — Plateforme d'envoi professionnel</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- CDN officiel SheetJS — plus stable -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #060B12;
@@ -192,7 +193,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 }
 .send-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,230,118,0.3); }
 .send-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.pay-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+.pay-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .pay-opt {
   border:1px solid var(--border); border-radius:10px; padding:12px;
   text-align:center; cursor:pointer; font-size:13px; font-weight:600;
@@ -271,7 +272,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 <div class="hero">
   <div class="hero-badge">📩 Nouveau service PST</div>
   <h1>Envoyez des SMS<br>à des <span class="accent">milliers</span> de personnes</h1>
-  <p>Importez votre liste depuis Excel, Word ou PDF. Personnalisez chaque message. Envoyez en masse en quelques clics. Parfait pour les écoles, concours, entreprises et associations.</p>
+  <p>Importez votre liste depuis Excel ou CSV. Personnalisez chaque message. Envoyez en masse en quelques clics. Parfait pour les écoles, concours, entreprises et associations.</p>
 </div>
 
 <!-- PACKS -->
@@ -312,7 +313,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <div class="step-num" id="snum-1">1</div>
         <div>
           <div class="step-title">📋 Importer vos contacts</div>
-          <div class="step-sub">Excel, CSV, Word, PDF — ou saisie manuelle</div>
+          <div class="step-sub">Excel, CSV — ou saisie manuelle</div>
         </div>
       </div>
       <div class="step-body open" id="sbody-1">
@@ -332,11 +333,9 @@ tr:hover td { background:rgba(255,255,255,0.02); }
               <span class="fmt-badge">.xlsx</span>
               <span class="fmt-badge">.xls</span>
               <span class="fmt-badge">.csv</span>
-              <span class="fmt-badge">.pdf</span>
-              <span class="fmt-badge">.docx</span>
             </div>
           </div>
-          <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.pdf,.docx,.doc" onchange="handleFile(event)">
+          <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
 
           <!-- MAPPING -->
           <div id="col-mapping" style="display:none;margin-top:16px;">
@@ -414,10 +413,10 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <!-- MANUAL -->
         <div id="tab-manual" style="display:none;">
           <div class="manual-input">
-            <textarea id="manual-numbers" placeholder="Entrez les numéros, un par ligne :&#10;221771234567&#10;221781234567&#10;221761234567&#10;&#10;Ou avec le nom :&#10;Aliou Diallo,221771234567&#10;Fatou Sow,221781234567" oninput="parseManual()"></textarea>
+            <textarea id="manual-numbers" placeholder="Entrez les numéros, un par ligne :&#10;221771234567&#10;221781234567&#10;&#10;Ou avec le nom :&#10;Aliou Diallo,221771234567&#10;Fatou Sow,221781234567" oninput="parseManual()"></textarea>
             <div class="manual-hint">
-              📌 Format accepté : numéro seul <strong>ou</strong> nom,numéro (séparé par virgule)<br>
-              ✅ Indicatifs : 221, +221 ou juste 77XXXXXXX (Sénégal automatique)
+              📌 Format : numéro seul <strong>ou</strong> nom,numéro<br>
+              ✅ 221XXXXXXXXX ou 77XXXXXXX (Sénégal automatique)
             </div>
           </div>
           <div class="contacts-preview" id="manual-preview" style="display:none;margin-top:12px;">
@@ -441,39 +440,37 @@ tr:hover td { background:rgba(255,255,255,0.02); }
       </div>
       <div class="step-body" id="sbody-2">
 
-        <!-- TEMPLATES -->
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Modèles rapides</div>
         <div class="templates-grid">
           <div class="template-card" onclick="useTemplate('convocation')">
             <h4>🏫 Convocation examen</h4>
-            <p>Bonjour {prenom}, vous êtes convoqué(e) le {date} à 8h. N° Table : {table}. Bon courage !</p>
+            <p>Bonjour {prenom}, convoqué(e) le {date}. Centre : {centre}. Table : {table}. Jury : {jury}.</p>
           </div>
           <div class="template-card" onclick="useTemplate('resultat')">
             <h4>📊 Résultats</h4>
-            <p>Bonjour {prenom}, vos résultats sont disponibles. Mention : {mention}. Félicitations !</p>
+            <p>Bonjour {prenom}, résultats disponibles. Mention : {mention}. Félicitations !</p>
           </div>
           <div class="template-card" onclick="useTemplate('inscription')">
             <h4>📝 Rappel inscription</h4>
-            <p>Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitées. Contactez-nous au 77...</p>
+            <p>Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées. Contactez-nous.</p>
           </div>
           <div class="template-card" onclick="useTemplate('mensualite')">
             <h4>💰 Rappel mensualité</h4>
-            <p>Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser votre situation.</p>
+            <p>Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser.</p>
           </div>
           <div class="template-card" onclick="useTemplate('promo')">
             <h4>🎉 Promotion</h4>
-            <p>Bonjour {prenom}, profitez de notre offre spéciale ! Valable jusqu'au {date}. PST Telecom.</p>
+            <p>Bonjour {prenom}, offre spéciale PST ! Valable jusqu'au {date}.</p>
           </div>
           <div class="template-card" onclick="useTemplate('otp')">
             <h4>🔐 Code OTP</h4>
-            <p>Votre code de vérification PST est : {code}. Valable 10 minutes. Ne le partagez pas.</p>
+            <p>Votre code de vérification PST : {code}. Valable 10 min.</p>
           </div>
         </div>
 
-        <!-- COMPOSER -->
         <div class="composer">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables disponibles — cliquez pour insérer</div>
-          <div class="vars-grid" id="vars-chips">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables — cliquez pour insérer</div>
+          <div class="vars-grid">
             <span class="var-chip" onclick="insertVar('{prenom}')">{prenom}</span>
             <span class="var-chip" onclick="insertVar('{nom}')">{nom}</span>
             <span class="var-chip" onclick="insertVar('{classe}')">{classe}</span>
@@ -484,18 +481,16 @@ tr:hover td { background:rgba(255,255,255,0.02); }
             <span class="var-chip" onclick="insertVar('{centre}')">{centre}</span>
             <span class="var-chip" onclick="insertVar('{jury}')">{jury}</span>
           </div>
-          <textarea id="message-text" placeholder="Rédigez votre message ici...&#10;&#10;Exemple : Bonjour {prenom}, vous êtes convoqué(e) le {date} à 8h salle {table}." oninput="updateComposer()" rows="5"></textarea>
+          <textarea id="message-text" placeholder="Rédigez votre message ici..." oninput="updateComposer()" rows="5"></textarea>
           <div class="composer-footer">
             <div class="char-count" id="char-count">0 / 160 caractères (1 SMS)</div>
             <div style="font-size:12px;color:var(--muted)" id="sms-count-msg"></div>
           </div>
         </div>
 
-        <!-- NOM EXPEDITEUR -->
         <div class="field" style="margin-top:16px;">
-          <label>Nom de l'expéditeur (affiché sur le téléphone)</label>
+          <label>Nom de l'expéditeur (max 11 caractères)</label>
           <input type="text" id="sender-name" placeholder="PST-Telecom" maxlength="11" value="PST-Telecom">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Maximum 11 caractères, pas d'espaces</div>
         </div>
 
       </div>
@@ -532,11 +527,10 @@ tr:hover td { background:rgba(255,255,255,0.02); }
   <!-- SIDEBAR -->
   <div class="sidebar">
 
-    <!-- PREVIEW -->
     <div class="phone-preview" style="margin-bottom:16px;">
       <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">📱 Aperçu SMS</div>
       <div class="phone-mock">
-        <div class="phone-header" id="preview-sender">PST-Telecom</div>
+        <div class="phone-header">PST-Telecom</div>
         <div class="sms-bubble">
           <div class="sms-sender" id="preview-sender-name">PST-Telecom</div>
           <div id="preview-msg" style="color:var(--muted);font-style:italic;">Votre message apparaîtra ici...</div>
@@ -545,7 +539,6 @@ tr:hover td { background:rgba(255,255,255,0.02); }
       </div>
     </div>
 
-    <!-- SUMMARY -->
     <div class="summary-card">
       <div class="summary-title">📊 Résumé</div>
       <div class="summary-row">
@@ -574,7 +567,6 @@ tr:hover td { background:rgba(255,255,255,0.02); }
       </div>
     </div>
 
-    <!-- PAIEMENT & ENVOI -->
     <div class="summary-card">
       <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;">💳 Paiement</div>
       <div class="field">
@@ -586,7 +578,6 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <input type="tel" id="org-phone" placeholder="+221 77 000 00 00">
       </div>
 
-      <!-- ÉTAPE 1 — PAYER -->
       <div id="step-pay" style="margin-bottom:16px;">
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Choisir le paiement</div>
         <div class="pay-opts">
@@ -596,38 +587,35 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
           💰 Procéder au paiement →
         </button>
-        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, revenez ici avec votre référence</p>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, revenez avec votre référence</p>
       </div>
 
-      <!-- ÉTAPE 2 — RÉFÉRENCE PAIEMENT -->
       <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
 
-        <!-- Indications claires -->
         <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.8;">
-          📱 <strong style="color:#fff;">Wave</strong> — App Wave → <strong style="color:#fff;">Historique</strong> → dernière transaction → copier la référence<br>
+          📱 <strong style="color:#fff;">Wave</strong> → App Wave → <strong style="color:#fff;">Historique</strong> → dernière transaction → copier la référence<br>
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: T_XXXXXXXXXXXXXXXXX</span><br><br>
-          💳 <strong style="color:#fff;">Carte Visa</strong> — Référence affichée sur le reçu Flutterwave<br>
+          💳 <strong style="color:#fff;">Carte Visa</strong> → référence sur le reçu Flutterwave<br>
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: FLW-MOCK-XXXXXXXXX</span>
         </div>
 
         <div class="field">
           <label>Référence de transaction *</label>
-          <input type="text" id="code-validation" placeholder="Ex: W241234567" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:16px;" oninput="this.value=this.value.toUpperCase()">
+          <input type="text" id="code-validation" placeholder="T_XXXXXXXXXXXXXXXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:14px;" oninput="this.value=this.value.toUpperCase()">
         </div>
 
-        <!-- Bouton aide -->
         <div style="margin-bottom:14px;">
           <button onclick="toggleAide()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">
             ❓ Je ne trouve pas ma référence Wave
           </button>
           <div id="aide-ref" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8;">
-            <strong style="color:#fff;">Comment trouver votre référence Wave :</strong><br>
+            <strong style="color:#fff;">Trouver votre référence Wave :</strong><br>
             1. Ouvrez l'app Wave sur votre téléphone<br>
             2. Appuyez sur <strong style="color:#fff;">"Historique"</strong> en bas<br>
-            3. Cherchez le paiement à PST Telecom<br>
+            3. Cherchez le paiement PST<br>
             4. Appuyez dessus → copiez la référence<br><br>
-            <strong style="color:var(--orange);">Pas de paiement récent ?</strong> Contactez-nous au <strong style="color:#fff;">+221 77 152 09 59</strong>
+            <strong style="color:var(--orange);">Besoin d'aide ?</strong> Contactez-nous au <strong style="color:#fff;">+221 77 152 09 59</strong>
           </div>
         </div>
 
@@ -635,9 +623,8 @@ tr:hover td { background:rgba(255,255,255,0.02); }
           🚀 Lancer la campagne
         </button>
 
-        <!-- Mention légale -->
         <div style="background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6;">
-          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation préalable des destinataires pour leur envoyer des SMS commerciaux. PST Telecom décline toute responsabilité en cas d'utilisation abusive.
+          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation des destinataires. PST Telecom décline toute responsabilité en cas d'utilisation abusive.
         </div>
       </div>
     </div>
@@ -645,7 +632,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
   </div>
 </div>
 
-<!-- MODAL PROGRESS -->
+<!-- MODAL -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-icon" id="modal-icon">📤</div>
@@ -665,7 +652,6 @@ const API = 'https://pst-telecom-production.up.railway.app';
 const FLW_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
 const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
 
-// ─── STATE ────────────────────────────────────────────────
 let contacts = [];
 let rawData = [];
 let headers = [];
@@ -677,11 +663,26 @@ let activeTab = 'upload';
 const TEMPLATES = {
   convocation: "Bonjour {prenom} {nom}, vous êtes convoqué(e) le {date} à 8h. Centre : {centre}. N° Table : {table}. Jury : {jury}. Bon courage !",
   resultat: "Bonjour {prenom} {nom}, vos résultats sont disponibles. Mention : {mention}. Félicitations ! PST.",
-  inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitées. Appelez le 77XXX. PST.",
-  mensualite: "Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser votre situation. Merci.",
-  promo: "Bonjour {prenom}, offre spéciale PST ! Profitez de nos services jusqu'au {date}. pst-telecom.vercel.app",
+  inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitées. Contactez-nous.",
+  mensualite: "Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser votre situation.",
+  promo: "Bonjour {prenom}, offre spéciale PST ! Profitez de nos services jusqu'au {date}.",
   otp: "Votre code de vérification PST est : {code}. Valable 10 minutes. Ne le partagez pas."
 };
+
+// ─── INIT CHECK XLSX ──────────────────────────────────────
+window.addEventListener('load', function() {
+  if (typeof XLSX === 'undefined') {
+    console.error('SheetJS non chargé — tentative fallback');
+    var s = document.createElement('script');
+    s.src = 'https://unpkg.com/xlsx/dist/xlsx.full.min.js';
+    s.onload = function() { console.log('SheetJS chargé via fallback'); };
+    document.head.appendChild(s);
+  } else {
+    console.log('SheetJS prêt — version:', XLSX.version);
+  }
+  updateSummary();
+  selPack('pro', 8000, 1000);
+});
 
 function toggleAide() {
   var el = document.getElementById('aide-ref');
@@ -690,9 +691,9 @@ function toggleAide() {
 
 // ─── PACKS ────────────────────────────────────────────────
 function selPack(id, price, sms) {
-  document.querySelectorAll('.pack').forEach(p => p.classList.remove('selected'));
+  document.querySelectorAll('.pack').forEach(function(p){ p.classList.remove('selected'); });
   document.getElementById('pack-'+id).classList.add('selected');
-  packData = { name: id.charAt(0).toUpperCase()+id.slice(1), price, sms };
+  packData = { name: id.charAt(0).toUpperCase()+id.slice(1), price: price, sms: sms };
   updateSummary();
 }
 
@@ -700,16 +701,16 @@ function scrollToPacks() {
   document.getElementById('packs-section').scrollIntoView({behavior:'smooth'});
 }
 
-// ─── STEPS ────────────────────────────────────────────────
 function toggleStep(n) {
-  const body = document.getElementById('sbody-'+n);
+  var body = document.getElementById('sbody-'+n);
   body.classList.toggle('open');
 }
 
-// ─── TABS ─────────────────────────────────────────────────
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='upload')||(i===1&&tab==='manual')));
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    t.classList.toggle('active', (i===0&&tab==='upload')||(i===1&&tab==='manual'));
+  });
   document.getElementById('tab-upload').style.display = tab==='upload' ? 'block' : 'none';
   document.getElementById('tab-manual').style.display = tab==='manual' ? 'block' : 'none';
 }
@@ -717,118 +718,147 @@ function switchTab(tab) {
 // ─── FILE UPLOAD ──────────────────────────────────────────
 function dragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
 function dragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
-function dropFile(e) { e.preventDefault(); dragLeave(e); const f=e.dataTransfer.files[0]; if(f) processFile(f); }
-function handleFile(e) { const f=e.target.files[0]; if(f) processFile(f); }
+function dropFile(e) { e.preventDefault(); dragLeave(e); var f=e.dataTransfer.files[0]; if(f) processFile(f); }
+function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
 
 function processFile(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
+  var ext = file.name.split('.').pop().toLowerCase();
   showToast('📂 Lecture du fichier...', 'success');
 
-  if(['xlsx','xls','csv'].includes(ext)) {
-    const reader = new FileReader();
+  // Vérifier que XLSX est disponible
+  if (typeof XLSX === 'undefined') {
+    showToast('❌ Librairie Excel non chargée — rechargez la page', 'error');
+    return;
+  }
+
+  if (['xlsx','xls','csv'].includes(ext)) {
+    var reader = new FileReader();
     reader.onerror = function() { showToast('❌ Erreur lecture fichier', 'error'); };
     reader.onload = function(ev) {
       try {
-        const wb = XLSX.read(ev.target.result, {type:'binary'});
-        var sheetIdx = 0;
-        if(wb.SheetNames.length > 1) {
-          const choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' +
-            wb.SheetNames.map(function(n,i){ return (i+1)+'. '+n; }).join('\n') +
-            '\n\nEntrez le numéro de la feuille à utiliser :', '1');
-          if(choice === null) { showToast('⚠️ Chargement annulé', 'error'); return; }
-          sheetIdx = Math.min(Math.max(parseInt(choice||1)-1, 0), wb.SheetNames.length-1);
-          if(isNaN(sheetIdx)) sheetIdx = 0;
+        var data = ev.target.result;
+        var wb;
+        if (ext === 'csv') {
+          wb = XLSX.read(data, {type:'binary', raw:false});
+        } else {
+          wb = XLSX.read(data, {type:'binary'});
         }
-        const ws = wb.Sheets[wb.SheetNames[sheetIdx]];
-        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-        if(!data || data.length < 2) { showToast('⚠️ Fichier vide ou sans données', 'error'); return; }
-        headers = data[0].map(function(h){ return String(h).trim(); });
-        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return String(c).trim() !== ''; }); });
-        if(rawData.length === 0) { showToast('⚠️ Aucune ligne de données trouvée', 'error'); return; }
+
+        var sheetIdx = 0;
+        if (wb.SheetNames.length > 1) {
+          var names = wb.SheetNames.map(function(n,i){ return (i+1)+'. '+n; }).join('\n');
+          var choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' + names + '\n\nEntrez le numéro :', '1');
+          if (choice === null) { showToast('⚠️ Chargement annulé', 'error'); return; }
+          sheetIdx = parseInt(choice||'1') - 1;
+          if (isNaN(sheetIdx) || sheetIdx < 0) sheetIdx = 0;
+          if (sheetIdx >= wb.SheetNames.length) sheetIdx = wb.SheetNames.length - 1;
+        }
+
+        var ws = wb.Sheets[wb.SheetNames[sheetIdx]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+        if (!rows || rows.length < 2) {
+          showToast('⚠️ Fichier vide ou sans données', 'error');
+          return;
+        }
+
+        headers = rows[0].map(function(h){ return String(h).trim(); });
+        rawData = rows.slice(1).filter(function(r){
+          return r.some(function(c){ return String(c).trim() !== ''; });
+        });
+
+        if (rawData.length === 0) {
+          showToast('⚠️ Aucune ligne de données trouvée', 'error');
+          return;
+        }
+
         setupMapping();
-        showToast('✅ ' + rawData.length + ' lignes chargées — feuille: ' + wb.SheetNames[sheetIdx], 'success');
+        showToast('✅ ' + rawData.length + ' lignes chargées (feuille: ' + wb.SheetNames[sheetIdx] + ')', 'success');
+
       } catch(err) {
+        console.error('Erreur parsing Excel:', err);
         showToast('❌ Erreur : ' + err.message, 'error');
       }
     };
     reader.readAsBinaryString(file);
-  } else if(ext === 'pdf') {
-    showToast('⚠️ PDF non supporté — utilisez Excel ou CSV', 'error');
-    switchTab('manual');
-  } else if(['docx','doc'].includes(ext)) {
-    showToast('⚠️ Word non supporté — utilisez Excel ou CSV', 'error');
-    switchTab('manual');
   } else {
-    showToast('⚠️ Format non supporté : .' + ext, 'error');
+    showToast('⚠️ Format non supporté — utilisez .xlsx ou .csv', 'error');
   }
 }
 
 function setupMapping() {
-  const selects = ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'];
+  var selects = ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'];
   selects.forEach(function(id) {
-    const sel = document.getElementById(id);
-    if(!sel) return;
-    const hasIgnore = id !== 'col-phone';
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var hasIgnore = id !== 'col-phone';
     sel.innerHTML = (hasIgnore ? '<option value="">— Ignorer —</option>' : '') +
-      headers.map(function(h,i){ return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>'; }).join('');
+      headers.map(function(h,i){
+        return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>';
+      }).join('');
   });
   document.getElementById('col-mapping').style.display = 'block';
   updatePreview();
 }
 
 function autoDetect(field, header) {
-  const h = header.toLowerCase();
-  const map = {
+  var h = header.toLowerCase();
+  var map = {
     'col-phone': ['telephone','tel','phone','numero','num','contact','mobile'],
     'col-nom': ['nom','name','last'],
-    'col-prenom': ['prenom','firstname','first','prénom'],
+    'col-prenom': ['prenom','firstname','first'],
     'col-classe': ['classe','class','section','groupe','group','niveau'],
-    'col-matricule': ['matricule','mat','id','identifiant','ine'],
-    'col-table': ['table','n°table','numero table','place','salle'],
-    'col-mention': ['mention','resultat','résultat','note','appreciation'],
+    'col-matricule': ['matricule','mat','identifiant','ine'],
+    'col-table': ['table','numero table','place','salle'],
+    'col-mention': ['mention','resultat','note','appreciation'],
     'col-date': ['date','jour','convocation'],
     'col-centre': ['centre','center','etablissement','lieu','site'],
-    'col-jury': ['jury','n°jury','numero jury','numjury']
+    'col-jury': ['jury','numjury','numero jury']
   };
   return (map[field]||[]).some(function(k){ return h.includes(k); });
 }
 
 function updatePreview() {
-  const phoneCol = parseInt(document.getElementById('col-phone').value);
-  if(isNaN(phoneCol)) return;
+  var phoneColEl = document.getElementById('col-phone');
+  if (!phoneColEl) return;
+  var phoneCol = parseInt(phoneColEl.value);
+  if (isNaN(phoneCol)) return;
 
-  const nomCol = document.getElementById('col-nom').value;
-  const prenomCol = document.getElementById('col-prenom').value;
-  const classeCol = document.getElementById('col-classe').value;
-  const matCol = document.getElementById('col-matricule').value;
-  const tableCol = document.getElementById('col-table').value;
-  const mentionCol = document.getElementById('col-mention').value;
-  const dateCol = document.getElementById('col-date').value;
-  const centreEl = document.getElementById('col-centre');
-  const juryEl = document.getElementById('col-jury');
-  const centreCol = centreEl ? centreEl.value : '';
-  const juryCol = juryEl ? juryEl.value : '';
+  var get = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  var nomCol = get('col-nom');
+  var prenomCol = get('col-prenom');
+  var classeCol = get('col-classe');
+  var matCol = get('col-matricule');
+  var tableCol = get('col-table');
+  var mentionCol = get('col-mention');
+  var dateCol = get('col-date');
+  var centreCol = get('col-centre');
+  var juryCol = get('col-jury');
 
-  contacts = rawData.map(function(row) { return {
-    telephone: formatPhone(String(row[phoneCol]||'')),
-    nom: nomCol !== '' ? String(row[parseInt(nomCol)]||'') : '',
-    prenom: prenomCol !== '' ? String(row[parseInt(prenomCol)]||'') : '',
-    classe: classeCol !== '' ? String(row[parseInt(classeCol)]||'') : '',
-    matricule: matCol !== '' ? String(row[parseInt(matCol)]||'') : '',
-    table: tableCol !== '' ? String(row[parseInt(tableCol)]||'') : '',
-    mention: mentionCol !== '' ? String(row[parseInt(mentionCol)]||'') : '',
-    date: dateCol !== '' ? String(row[parseInt(dateCol)]||'') : '',
-    centre: centreCol !== '' ? String(row[parseInt(centreCol)]||'') : '',
-    jury: juryCol !== '' ? String(row[parseInt(juryCol)]||'') : '',
-  }; }).filter(function(c){ return c.telephone.length >= 8; });
+  contacts = rawData.map(function(row) {
+    return {
+      telephone: formatPhone(String(row[phoneCol]||'')),
+      nom: nomCol !== '' ? String(row[parseInt(nomCol)]||'') : '',
+      prenom: prenomCol !== '' ? String(row[parseInt(prenomCol)]||'') : '',
+      classe: classeCol !== '' ? String(row[parseInt(classeCol)]||'') : '',
+      matricule: matCol !== '' ? String(row[parseInt(matCol)]||'') : '',
+      table: tableCol !== '' ? String(row[parseInt(tableCol)]||'') : '',
+      mention: mentionCol !== '' ? String(row[parseInt(mentionCol)]||'') : '',
+      date: dateCol !== '' ? String(row[parseInt(dateCol)]||'') : '',
+      centre: centreCol !== '' ? String(row[parseInt(centreCol)]||'') : '',
+      jury: juryCol !== '' ? String(row[parseInt(juryCol)]||'') : ''
+    };
+  }).filter(function(c){ return c.telephone.length >= 8; });
 
-  // Filtre par classe
-  const classes = [...new Set(contacts.map(c=>c.classe).filter(Boolean))];
-  const filterSel = document.getElementById('filter-classe');
-  if(classes.length > 0) {
+  var classes = [];
+  contacts.forEach(function(c){ if(c.classe && classes.indexOf(c.classe)===-1) classes.push(c.classe); });
+  var filterSel = document.getElementById('filter-classe');
+  if (classes.length > 0) {
     document.getElementById('filter-section').style.display = 'block';
     filterSel.innerHTML = '<option value="">Tous les contacts (' + contacts.length + ')</option>' +
-      classes.map(c => `<option value="${c}">${c} (${contacts.filter(x=>x.classe===c).length})</option>`).join('');
+      classes.map(function(c){
+        return '<option value="'+c+'">'+c+' ('+contacts.filter(function(x){return x.classe===c;}).length+')</option>';
+      }).join('');
   }
 
   renderPreviewTable(contacts.slice(0,50));
@@ -839,21 +869,23 @@ function updatePreview() {
 }
 
 function applyFilter() {
-  const val = document.getElementById('filter-classe').value;
-  const filtered = val ? contacts.filter(c=>c.classe===val) : contacts;
+  var val = document.getElementById('filter-classe').value;
+  var filtered = val ? contacts.filter(function(c){return c.classe===val;}) : contacts;
   renderPreviewTable(filtered.slice(0,50));
   document.getElementById('contact-count').textContent = filtered.length;
-  document.getElementById('filter-info').textContent = val ? `(filtre: ${val})` : '';
+  document.getElementById('filter-info').textContent = val ? '(filtre: '+val+')' : '';
   updateSummary(filtered.length);
 }
 
 function renderPreviewTable(data) {
-  if(!data.length) return;
-  const cols = ['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){ return data.some(function(r){ return r[c]; }); });
-  document.getElementById('preview-thead').innerHTML = '<tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
-  document.getElementById('preview-tbody').innerHTML = data.map(r =>
-    '<tr>' + cols.map(c => `<td class="${c==='telephone'?'col-phone':''}">${r[c]||'—'}</td>`).join('') + '</tr>'
-  ).join('');
+  if (!data.length) return;
+  var cols = ['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){
+    return data.some(function(r){ return r[c]; });
+  });
+  document.getElementById('preview-thead').innerHTML = '<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+  document.getElementById('preview-tbody').innerHTML = data.map(function(r){
+    return '<tr>'+cols.map(function(c){return '<td class="'+(c==='telephone'?'col-phone':'')+'">'+( r[c]||'—')+'</td>';}).join('')+'</tr>';
+  }).join('');
 }
 
 function clearContacts() {
@@ -866,41 +898,39 @@ function clearContacts() {
 
 function formatPhone(num) {
   num = num.replace(/\D/g,'');
-  if(num.startsWith('221')) return '+' + num;
-  if(num.startsWith('0')) num = num.slice(1);
-  if(num.length === 9) return '+221' + num;
-  if(num.length === 8) return '+221' + num;
-  return '+' + num;
+  if (num.startsWith('221')) return '+'+num;
+  if (num.startsWith('0')) num = num.slice(1);
+  if (num.length === 9 || num.length === 8) return '+221'+num;
+  return '+'+num;
 }
 
-// ─── MANUAL INPUT ─────────────────────────────────────────
+// ─── MANUAL ───────────────────────────────────────────────
 function parseManual() {
-  const lines = document.getElementById('manual-numbers').value.split('\n').filter(l=>l.trim());
-  contacts = lines.map(line => {
-    const parts = line.split(',');
-    if(parts.length >= 2) {
-      return { nom: parts[0].trim(), telephone: formatPhone(parts[1].trim()), prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
+  var lines = document.getElementById('manual-numbers').value.split('\n').filter(function(l){return l.trim();});
+  contacts = lines.map(function(line) {
+    var parts = line.split(',');
+    if (parts.length >= 2) {
+      return { nom:parts[0].trim(), telephone:formatPhone(parts[1].trim()), prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
     }
-    return { telephone: formatPhone(line.trim()), nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
-  }).filter(c => c.telephone.length >= 8);
+    return { telephone:formatPhone(line.trim()), nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
+  }).filter(function(c){ return c.telephone.length >= 8; });
   document.getElementById('manual-count').textContent = contacts.length;
   document.getElementById('manual-preview').style.display = contacts.length > 0 ? 'block' : 'none';
-  if(contacts.length > 0) markStepDone(1);
+  if (contacts.length > 0) markStepDone(1);
   updateSummary();
 }
 
 // ─── COMPOSER ─────────────────────────────────────────────
 function useTemplate(key) {
-  const txt = TEMPLATES[key];
-  document.getElementById('message-text').value = txt;
+  document.getElementById('message-text').value = TEMPLATES[key];
   updateComposer();
   document.getElementById('sbody-2').classList.add('open');
   showToast('✅ Modèle appliqué', 'success');
 }
 
 function insertVar(v) {
-  const ta = document.getElementById('message-text');
-  const pos = ta.selectionStart;
+  var ta = document.getElementById('message-text');
+  var pos = ta.selectionStart;
   ta.value = ta.value.slice(0,pos) + v + ta.value.slice(ta.selectionEnd);
   ta.selectionStart = ta.selectionEnd = pos + v.length;
   ta.focus();
@@ -908,23 +938,23 @@ function insertVar(v) {
 }
 
 function updateComposer() {
-  const txt = document.getElementById('message-text').value;
-  const len = txt.length;
-  const smsCount = Math.ceil(len/160) || 1;
-  const el = document.getElementById('char-count');
-  el.textContent = `${len} / ${smsCount*160} caractères (${smsCount} SMS)`;
-  el.className = 'char-count' + (len>320?'over':len>160?' warn':'');
-  document.getElementById('sms-count-msg').textContent = smsCount > 1 ? `⚠️ ${smsCount} SMS par contact` : '';
+  var txt = document.getElementById('message-text').value;
+  var len = txt.length;
+  var smsCount = Math.ceil(len/160) || 1;
+  var el = document.getElementById('char-count');
+  el.textContent = len+' / '+(smsCount*160)+' caractères ('+smsCount+' SMS)';
+  el.className = 'char-count'+(len>320?' over':len>160?' warn':'');
+  document.getElementById('sms-count-msg').textContent = smsCount > 1 ? '⚠️ '+smsCount+' SMS par contact' : '';
 
-  // Update preview
-  const preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'6ème A',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycée Seydou Nourou Tall',jury:'Jury 05'});
-  document.getElementById('preview-msg').textContent = preview || 'Votre message apparaîtra ici...';
-  document.getElementById('preview-msg').style.color = preview ? 'var(--text)' : 'var(--muted)';
+  var preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'3ème B',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycée Seydou Nourou Tall',jury:'Jury 05'});
+  var previewEl = document.getElementById('preview-msg');
+  previewEl.textContent = preview || 'Votre message apparaîtra ici...';
+  previewEl.style.color = preview ? 'var(--text)' : 'var(--muted)';
+  previewEl.style.fontStyle = preview ? 'normal' : 'italic';
+
   var senderEl = document.getElementById('sender-name');
   document.getElementById('preview-sender-name').textContent = (senderEl ? senderEl.value : '') || 'PST-Telecom';
-
-  const now = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('preview-time').textContent = now;
+  document.getElementById('preview-time').textContent = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 
   markStepDone(2);
   updateSummary(null, smsCount);
@@ -941,7 +971,7 @@ function personalizeMsg(template, contact) {
     .replace(/{date}/g, contact.date||'')
     .replace(/{centre}/g, contact.centre||'')
     .replace(/{jury}/g, contact.jury||'')
-    .replace(/{code}/g, Math.floor(1000+Math.random()*9000));
+    .replace(/{code}/g, String(Math.floor(1000+Math.random()*9000)));
 }
 
 // ─── SCHEDULE ─────────────────────────────────────────────
@@ -955,59 +985,49 @@ function selSchedule(mode) {
 
 // ─── SUMMARY ──────────────────────────────────────────────
 function updateSummary(overrideCount, smsEach) {
-  const count = (overrideCount !== undefined && overrideCount !== null) ? overrideCount : contacts.length;
+  var count = (overrideCount !== undefined && overrideCount !== null) ? overrideCount : contacts.length;
   var msgEl = document.getElementById('message-text');
   var msgLen = msgEl ? msgEl.value.length : 0;
-  const each = (smsEach !== undefined && smsEach !== null) ? smsEach : (Math.ceil(msgLen/160)||1);
-  const total = count * each;
-  const unitPrice = packData.price / packData.sms;
-  const cost = Math.ceil(total * unitPrice);
+  var each = (smsEach !== undefined && smsEach !== null) ? smsEach : (Math.ceil(msgLen/160)||1);
+  var total = count * each;
+  var unitPrice = packData.price / packData.sms;
+  var cost = Math.ceil(total * unitPrice);
 
   document.getElementById('sum-pack').textContent = packData.name;
   document.getElementById('sum-contacts').textContent = count;
   document.getElementById('sum-sms-each').textContent = each;
   document.getElementById('sum-total-sms').textContent = total;
   var schedEl = document.getElementById('schedule-datetime');
-  document.getElementById('sum-schedule').textContent = scheduleMode==='now' ? 'Immédiat' :
-    (schedEl && schedEl.value ? schedEl.value : 'Planifié');
-  document.getElementById('sum-cost').textContent = cost.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('sum-schedule').textContent = scheduleMode==='now' ? 'Immédiat' : (schedEl&&schedEl.value ? schedEl.value : 'Planifié');
+  document.getElementById('sum-cost').textContent = cost.toLocaleString('fr-FR')+' FCFA';
 }
 
-// ─── PAY ──────────────────────────────────────────────────
+// ─── PAIEMENT ─────────────────────────────────────────────
 function selPayOpt(opt) {
   payOpt = opt;
   document.getElementById('payopt-wave').classList.toggle('selected', opt==='wave');
   document.getElementById('payopt-card').classList.toggle('selected', opt==='card');
 }
 
-// ─── PAIEMENT ─────────────────────────────────────────────
 async function initierPaiement() {
-  const org = document.getElementById('org-name').value.trim();
-  const phone = document.getElementById('org-phone').value.trim();
-  if(!org || !phone) { showToast('⚠️ Remplissez votre nom et téléphone', 'error'); return; }
-  if(!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
+  var org = document.getElementById('org-name').value.trim();
+  var phone = document.getElementById('org-phone').value.trim();
+  if (!org || !phone) { showToast('⚠️ Remplissez votre nom et téléphone', 'error'); return; }
+  if (!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
 
-  const msg = document.getElementById('message-text').value;
-  const totalSms = contacts.length * (Math.ceil((msg.length||1)/160)||1);
-  const unitPrice = packData.price / packData.sms;
-  const cost = Math.ceil(totalSms * unitPrice);
+  var msg = document.getElementById('message-text').value;
+  var totalSms = contacts.length * (Math.ceil((msg.length||1)/160)||1);
+  var unitPrice = packData.price / packData.sms;
+  var cost = Math.ceil(totalSms * unitPrice);
 
-  if(payOpt === 'wave') {
-    // Ouvrir Wave
+  if (payOpt === 'wave') {
     window.open(WAVE_BASE + cost, '_blank');
-    showToast('💚 Payez via Wave puis entrez votre référence de transaction ci-dessous', 'success');
-    // Faire défiler vers le champ référence
+    showToast('💚 Payez via Wave puis entrez votre référence ci-dessous', 'success');
     setTimeout(function() {
       var codeField = document.getElementById('code-validation');
-      if(codeField) {
-        codeField.scrollIntoView({behavior:'smooth'});
-        codeField.focus();
-        codeField.placeholder = 'Copiez la référence depuis votre app Wave...';
-      }
+      if (codeField) { codeField.scrollIntoView({behavior:'smooth'}); codeField.focus(); }
     }, 2000);
-
   } else {
-    // Flutterwave — code généré automatiquement après succès
     FlutterwaveCheckout({
       public_key: FLW_KEY,
       tx_ref: 'PST-SMS-' + Date.now(),
@@ -1015,14 +1035,11 @@ async function initierPaiement() {
       currency: 'XOF',
       payment_options: 'card',
       customer: { email: phone+'@pst-telecom.sn', phone_number: phone, name: org },
-      customizations: {
-        title: 'PST SMS Marketing',
-        description: 'Campagne SMS — ' + contacts.length + ' contacts',
-        logo: ''
-      },
+      customizations: { title:'PST SMS Marketing', description:'Campagne SMS — '+contacts.length+' contacts', logo:'' },
       callback: async function(response) {
-        if(response.status === 'successful') {
-          await genererCodeAuto(phone, org, cost, totalSms);
+        if (response.status === 'successful') {
+          document.getElementById('code-validation').value = response.tx_ref;
+          showToast('✅ Paiement confirmé ! Cliquez "Lancer la campagne"', 'success');
         } else {
           showToast('❌ Paiement échoué', 'error');
         }
@@ -1032,166 +1049,102 @@ async function initierPaiement() {
   }
 }
 
-async function genererCodeAuto(phone, org, montant, smsCount) {
-  try {
-    const res = await fetch(API + '/api/sms-marketing/generate-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        telephone: phone, notes: org,
-        smsCount: smsCount, montant: montant,
-        pack: packData.name, auto: true
-      })
-    });
-    const data = await res.json();
-    if(data.success) {
-      // Pré-remplir le champ
-      document.getElementById('code-validation').value = data.code;
-      document.getElementById('code-auto-display').style.display = 'block';
-      document.getElementById('code-auto-value').textContent = data.code;
-
-      // Grand popup central impossible à rater
-      var overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
-      overlay.innerHTML = '<div style="background:#0D1620;border:2px solid #00E676;border-radius:20px;padding:40px;text-align:center;max-width:400px;width:90%;">' +
-        '<div style="font-size:48px;margin-bottom:16px;">🎉</div>' +
-        '<h2 style="font-family:Syne,sans-serif;color:#fff;margin-bottom:8px;">Paiement confirmé !</h2>' +
-        '<p style="color:#556B82;margin-bottom:20px;">Votre code de validation :</p>' +
-        '<div style="background:#060B12;border:2px solid #00E676;border-radius:12px;padding:20px;margin-bottom:20px;">' +
-        '<div style="font-family:JetBrains Mono,monospace;font-size:28px;font-weight:700;color:#00E676;letter-spacing:4px;">' + data.code + '</div>' +
-        '</div>' +
-        '<p style="color:#556B82;font-size:13px;margin-bottom:20px;">Ce code est pré-rempli ci-dessous.<br>Cliquez "Lancer la campagne" pour envoyer vos SMS.</p>' +
-        '<button onclick="this.parentElement.parentElement.remove()" style="background:#00E676;color:#000;border:none;border-radius:10px;padding:14px 32px;font-weight:700;font-size:15px;cursor:pointer;font-family:Syne,sans-serif;">✅ Compris — Je lance la campagne</button>' +
-        '</div>';
-      document.body.appendChild(overlay);
-
-      // Scroll vers le bouton lancer
-      setTimeout(function() {
-        var btn = document.getElementById('send-btn');
-        if(btn) btn.scrollIntoView({behavior:'smooth'});
-      }, 500);
-    }
-  } catch(e) {
-    showToast('Erreur génération code', 'error');
-  }
-}
-
-// ─── LAUNCH avec référence transaction ────────────────────
+// ─── LANCER ───────────────────────────────────────────────
 async function lancerCampagne() {
-  const msg = document.getElementById('message-text').value.trim();
-  const org = document.getElementById('org-name').value.trim();
-  const phone = document.getElementById('org-phone').value.trim();
-  const ref = document.getElementById('code-validation').value.trim().toUpperCase();
+  var msg = document.getElementById('message-text').value.trim();
+  var org = document.getElementById('org-name').value.trim();
+  var phone = document.getElementById('org-phone').value.trim();
+  var ref = document.getElementById('code-validation').value.trim().toUpperCase();
 
-  if(!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
-  if(!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
-  if(!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
-  if(!ref || ref.length < 5) { showToast('⚠️ Entrez votre référence de transaction Wave ou Visa', 'error'); return; }
+  if (!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
+  if (!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
+  if (!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
+  if (!ref || ref.length < 5) { showToast('⚠️ Entrez votre référence de transaction', 'error'); return; }
 
-  const btn = document.getElementById('send-btn');
+  var btn = document.getElementById('send-btn');
   btn.disabled = true;
   btn.innerHTML = '⏳ Vérification en cours...';
 
   try {
-    const res = await fetch(API + '/api/sms-marketing/verify-ref', {
+    var res = await fetch(API + '/api/sms-marketing/verify-ref', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reference: ref, telephone: phone, smsCount: contacts.length })
     });
-    const data = await res.json();
+    var data = await res.json();
 
-    if(data.valid) {
+    if (data.valid) {
       showToast('✅ Référence validée ! Envoi en cours...', 'success');
       btn.innerHTML = '🚀 Lancer la campagne';
       btn.disabled = false;
-      confirmerEtEnvoyer(msg, ref);
+      confirmerEtEnvoyer(msg);
     } else {
-      showToast('❌ ' + (data.error || 'Référence non reconnue — vérifiez dans votre app Wave'), 'error');
+      showToast('❌ ' + (data.error || 'Référence non reconnue. Contactez PST au +221 77 152 09 59'), 'error');
       btn.innerHTML = '🚀 Lancer la campagne';
       btn.disabled = false;
     }
   } catch(e) {
-    // En cas d'erreur réseau, on laisse passer avec avertissement
-    showToast('⚠️ Vérification impossible — envoi lancé avec référence enregistrée', 'success');
+    showToast('⚠️ Erreur réseau — réessayez', 'error');
     btn.innerHTML = '🚀 Lancer la campagne';
     btn.disabled = false;
-    confirmerEtEnvoyer(msg, ref);
   }
 }
 
 async function confirmerEtEnvoyer(msgTemplate) {
-  // Ouvrir modal
   document.getElementById('modal').classList.add('open');
   document.getElementById('modal-icon').textContent = '📤';
   document.getElementById('modal-title').textContent = 'Envoi en cours...';
-  document.getElementById('modal-sub').textContent = `0 / ${contacts.length} SMS envoyés`;
+  document.getElementById('modal-sub').textContent = '0 / '+contacts.length+' SMS envoyés';
 
-  const sender = document.getElementById('sender-name').value || 'PST-Telecom';
-  const scheduled = scheduleMode === 'later' ? document.getElementById('schedule-datetime').value : null;
-
-  // Préparer les messages personnalisés
-  const messages = contacts.map(c => ({
-    telephone: c.telephone,
-    message: personalizeMsg(msgTemplate, c)
-  }));
+  var sender = document.getElementById('sender-name').value || 'PST-Telecom';
+  var scheduled = scheduleMode === 'later' ? document.getElementById('schedule-datetime').value : null;
+  var messages = contacts.map(function(c){ return { telephone:c.telephone, message:personalizeMsg(msgTemplate,c) }; });
 
   try {
-    const res = await fetch(API + '/api/sms-marketing/send', {
+    await fetch(API + '/api/sms-marketing/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        campagne: document.getElementById('org-name').value,
-        messages,
-        sender,
-        scheduled,
-        total: contacts.length
-      })
+      body: JSON.stringify({ campagne: document.getElementById('org-name').value, messages: messages, sender: sender, scheduled: scheduled, total: contacts.length })
     });
 
-    // Simuler progression
-    let sent = 0;
-    const interval = setInterval(() => {
+    var sent = 0;
+    var interval = setInterval(function() {
       sent = Math.min(sent + Math.ceil(contacts.length/10), contacts.length);
-      const pct = Math.round(sent/contacts.length*100);
-      document.getElementById('progress-fill').style.width = pct + '%';
-      document.getElementById('progress-text').textContent = `${sent} / ${contacts.length} SMS envoyés`;
-      document.getElementById('modal-sub').textContent = `${pct}% complété...`;
-      if(sent >= contacts.length) {
+      var pct = Math.round(sent/contacts.length*100);
+      document.getElementById('progress-fill').style.width = pct+'%';
+      document.getElementById('progress-text').textContent = sent+' / '+contacts.length+' SMS envoyés';
+      document.getElementById('modal-sub').textContent = pct+'% complété...';
+      if (sent >= contacts.length) {
         clearInterval(interval);
         document.getElementById('modal-icon').textContent = '✅';
         document.getElementById('modal-title').textContent = 'Campagne envoyée !';
-        document.getElementById('modal-sub').textContent = `${contacts.length} SMS envoyés avec succès.`;
+        document.getElementById('modal-sub').textContent = contacts.length+' SMS envoyés avec succès.';
         document.getElementById('modal-close').style.display = 'inline-block';
       }
     }, 400);
-
   } catch(e) {
     document.getElementById('modal-icon').textContent = '❌';
     document.getElementById('modal-title').textContent = 'Erreur d\'envoi';
-    document.getElementById('modal-sub').textContent = 'Vérifiez votre connexion et réessayez.';
+    document.getElementById('modal-sub').textContent = 'Vérifiez votre connexion.';
     document.getElementById('modal-close').style.display = 'inline-block';
   }
 }
 
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
-// ─── HELPERS ──────────────────────────────────────────────
 function markStepDone(n) {
-  document.getElementById('snum-'+n).classList.add('done');
-  document.getElementById('snum-'+n).textContent = '✓';
+  var el = document.getElementById('snum-'+n);
+  el.classList.add('done');
+  el.textContent = '✓';
 }
 
-function showToast(msg, type='success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast ' + type;
-  setTimeout(()=>t.classList.add('show'),10);
-  setTimeout(()=>t.classList.remove('show'),3000);
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type||'success');
+  setTimeout(function(){t.classList.add('show');},10);
+  setTimeout(function(){t.classList.remove('show');},3500);
 }
-
-// v2.1 - fix compatibilite navigateur
-// Init
-updateSummary();
-selPack('pro', 8000, 1000);
 </script>
 </body>
 </html>
