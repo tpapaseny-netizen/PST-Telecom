@@ -301,6 +301,9 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('securite')" id="nav-securite">
         <span class="nav-icon">🔒</span> Sécurité
       </button>
+      <button class="nav-item" onclick="showSection('factures')" id="nav-factures">
+        <span class="nav-icon">🧾</span> Factures
+      </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
@@ -901,6 +904,71 @@ textarea.field-input { resize:vertical; min-height:80px; }
           </div>
         </div>
       </div>
+      <!-- FACTURES -->
+      <div class="section" id="section-factures">
+
+        <!-- GÉNÉRER UNE FACTURE -->
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <div class="panel-title">🧾 Générer une facture</div>
+          </div>
+          <div style="padding:24px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+              <div>
+                <label class="field-label">Nom du client *</label>
+                <input class="field-input" id="f-nom" placeholder="École Privée XYZ">
+              </div>
+              <div>
+                <label class="field-label">Organisation</label>
+                <input class="field-input" id="f-org" placeholder="Institut XYZ">
+              </div>
+              <div>
+                <label class="field-label">Téléphone client</label>
+                <input class="field-input" id="f-tel" placeholder="+221771234567">
+              </div>
+              <div>
+                <label class="field-label">Email client (pour envoi auto)</label>
+                <input class="field-input" id="f-email" placeholder="client@email.com" type="email">
+              </div>
+              <div>
+                <label class="field-label">Description du service *</label>
+                <input class="field-input" id="f-desc" placeholder="Campagne SMS — 1000 contacts">
+              </div>
+              <div>
+                <label class="field-label">Montant (FCFA) *</label>
+                <input class="field-input" type="number" id="f-montant" placeholder="8000">
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <button class="save-btn" onclick="genererFacture(false)">🧾 Générer PDF</button>
+              <button class="save-btn" style="background:var(--blue);" onclick="genererFacture(true)">📧 Générer + Envoyer par email</button>
+            </div>
+            <div id="facture-result" style="display:none;margin-top:16px;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;">
+              <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">✅ Facture générée !</div>
+              <a id="facture-link" href="#" target="_blank" style="background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📄 Voir / Télécharger la facture</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTE FACTURES -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📋 Historique des factures</div>
+            <button class="refresh-btn" onclick="loadFactures()">↻ Actualiser</button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr><th>N° Facture</th><th>Client</th><th>Montant</th><th>Date</th><th>Action</th></tr>
+              </thead>
+              <tbody id="factures-table">
+                <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- SÉCURITÉ -->
       <div class="section" id="section-securite">
         <div class="kpi-grid" style="margin-bottom:20px;">
@@ -1672,8 +1740,48 @@ function showSection(id) {
   if(id==='content') loadContent();
   if(id==='payments') loadPayments();
   if(id==='recharge') { loadRechargeStats(); loadRecharges(); }
-  if(id==='securite') { loadSecurityLogs(); loadBackups(); }
+  if(id==='factures') { loadFactures(); }
+
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+}
+
+// ─── FACTURES ────────────────────────────────────────────────
+async function genererFacture(sendEmail) {
+  const nom = document.getElementById('f-nom').value.trim();
+  const org = document.getElementById('f-org').value.trim();
+  const tel = document.getElementById('f-tel').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const montant = document.getElementById('f-montant').value;
+  if(!nom || !desc || !montant) { showToast('Remplissez les champs obligatoires *', 'error'); return; }
+  try {
+    const res = await fetch(API + '/api/facture/generer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ clientNom:nom, clientOrg:org, clientTel:tel, clientEmail:email, description:desc, montant, sendEmail })
+    });
+    const data = await res.json();
+    if(data.success) {
+      document.getElementById('facture-result').style.display = 'block';
+      document.getElementById('facture-link').href = API + data.url;
+      showToast(sendEmail && email ? '✅ Facture générée et envoyée !' : '✅ Facture générée !', 'success');
+      loadFactures();
+      window.open(API + data.url, '_blank');
+    } else { showToast(data.error || 'Erreur', 'error'); }
+  } catch(e) { showToast('Erreur', 'error'); }
+}
+
+async function loadFactures() {
+  try {
+    const res = await fetch(API + '/api/admin/factures');
+    const factures = await res.json();
+    const tbody = document.getElementById('factures-table');
+    if(!factures.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Aucune facture</td></tr>'; return; }
+    tbody.innerHTML = factures.map(function(f) {
+      const date = new Date(f.createdAt).toLocaleDateString('fr-FR');
+      const total = (f.lignes||[]).reduce(function(s,l){ return s+(l.quantite*l.prix); }, 0);
+      return '<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--green)">' + (f.numeroFacture||'—') + '</span></td><td><strong>' + (f.clientNom||'—') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (f.clientEmail||f.clientTel||'') + '</span></td><td><strong style="color:var(--green)">' + total.toLocaleString('fr-FR') + ' FCFA</strong></td><td style="font-size:12px;color:var(--muted)">' + date + '</td><td><a href="' + API + '/api/facture/' + f._id + '" target="_blank" class="act-btn" style="text-decoration:none;">📄 Voir</a></td></tr>';
+    }).join('');
+  } catch(e) {}
 }
 
 // ─── SÉCURITÉ ────────────────────────────────────────────────

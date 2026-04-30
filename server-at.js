@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -963,6 +964,242 @@ app.get('/api/admin/recharges/stats', async (req, res) => {
     const montantTotal = recharges.filter(r => r.statut === 'success').reduce((s, r) => s + (r.montant || 0), 0);
     res.json({ total, success, failed: total - success, montantTotal });
   } catch (e) { res.json({ total: 0, success: 0, failed: 0, montantTotal: 0 }); }
+});
+
+// ═══ FACTURES PDF + EMAIL ════════════════════════════════════
+
+// Générer le HTML de la facture
+function genererFactureHTML(data) {
+  const num = data.numeroFacture || ('PST-' + Date.now());
+  const date = new Date(data.date || Date.now()).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'});
+  const lignes = data.lignes || [{description: data.description || 'Service PST', quantite: 1, prix: data.montant || 0}];
+  const total = lignes.reduce(function(s, l) { return s + (l.quantite * l.prix); }, 0);
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; color: #1a1a2e; margin: 0; padding: 0; background: #fff; }
+  .facture { max-width: 700px; margin: 0 auto; padding: 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #00E676; padding-bottom: 24px; }
+  .logo { font-size: 36px; font-weight: 900; color: #060B12; }
+  .logo span { color: #00E676; }
+  .logo-sub { font-size: 11px; color: #556B82; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .facture-meta { text-align: right; }
+  .facture-num { font-size: 20px; font-weight: 700; color: #060B12; }
+  .facture-date { font-size: 13px; color: #556B82; margin-top: 4px; }
+  .facture-status { background: #00E676; color: #000; padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; margin-top: 8px; display: inline-block; }
+  .parties { display: flex; justify-content: space-between; margin-bottom: 36px; }
+  .partie h4 { font-size: 11px; color: #556B82; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .partie p { font-size: 14px; color: #1a1a2e; margin: 2px 0; }
+  .partie strong { font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead th { background: #060B12; color: #fff; padding: 12px 16px; font-size: 12px; text-align: left; text-transform: uppercase; letter-spacing: 0.5px; }
+  tbody td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  tbody tr:nth-child(even) { background: #f8fffe; }
+  .total-section { display: flex; justify-content: flex-end; }
+  .total-box { background: #060B12; color: #fff; padding: 20px 24px; border-radius: 12px; min-width: 240px; }
+  .total-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; opacity: 0.7; }
+  .total-final { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; color: #00E676; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
+  .footer { text-align: center; margin-top: 40px; padding-top: 24px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #556B82; }
+  .footer a { color: #00E676; }
+  .merci { background: linear-gradient(135deg, #060B12, #0D1620); color: #fff; padding: 20px; border-radius: 12px; text-align: center; margin-top: 24px; }
+  .merci h3 { color: #00E676; margin-bottom: 8px; }
+  .merci p { font-size: 13px; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="facture">
+  <div class="header">
+    <div>
+      <div class="logo">P<span>S</span>T</div>
+      <div class="logo-sub">Pure Smart Telecom</div>
+      <div style="font-size:12px;color:#556B82;margin-top:8px;">
+        Dakar, Sénégal<br>
+        +221 77 152 09 59<br>
+        pst-telecom.vercel.app
+      </div>
+    </div>
+    <div class="facture-meta">
+      <div class="facture-num">FACTURE #${num}</div>
+      <div class="facture-date">Date : ${date}</div>
+      <div class="facture-status">✓ PAYÉE</div>
+    </div>
+  </div>
+
+  <div class="parties">
+    <div class="partie">
+      <h4>Émetteur</h4>
+      <strong>PST Pure Smart Telecom</strong>
+      <p>Dakar, Sénégal</p>
+      <p>+221 77 152 09 59</p>
+      <p>contact@pst-telecom.sn</p>
+    </div>
+    <div class="partie" style="text-align:right">
+      <h4>Client</h4>
+      <strong>${data.clientNom || 'Client PST'}</strong>
+      <p>${data.clientTel || ''}</p>
+      <p>${data.clientEmail || ''}</p>
+      <p>${data.clientOrg || ''}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Qté</th>
+        <th>Prix unitaire</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${lignes.map(function(l) {
+        return '<tr><td>' + l.description + '</td><td>' + l.quantite + '</td><td>' + l.prix.toLocaleString('fr-FR') + ' FCFA</td><td><strong>' + (l.quantite * l.prix).toLocaleString('fr-FR') + ' FCFA</strong></td></tr>';
+      }).join('')}
+    </tbody>
+  </table>
+
+  <div class="total-section">
+    <div class="total-box">
+      <div class="total-row"><span>Sous-total</span><span>${total.toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="total-row"><span>TVA</span><span>0 FCFA</span></div>
+      <div class="total-row"><span>Frais</span><span>0 FCFA</span></div>
+      <div class="total-final"><span>TOTAL</span><span>${total.toLocaleString('fr-FR')} FCFA</span></div>
+    </div>
+  </div>
+
+  <div class="merci">
+    <h3>Merci pour votre confiance !</h3>
+    <p>Cette facture confirme votre paiement. Conservez-la pour vos archives.</p>
+  </div>
+
+  <div class="footer">
+    <p>PST Pure Smart Telecom — L'opérateur intelligent du Sénégal</p>
+    <p><a href="https://pst-telecom.vercel.app">pst-telecom.vercel.app</a> — +221 77 152 09 59</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// Générer et télécharger une facture en HTML (le navigateur peut l'imprimer en PDF)
+app.get('/api/facture/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    let factureData = null;
+
+    // Chercher dans les campagnes SMS
+    try {
+      const camp = await db.collection('sms_campagnes').findOne({ _id: new ObjectId(id) });
+      if (camp) {
+        factureData = {
+          numeroFacture: 'PST-SMS-' + id.slice(-6).toUpperCase(),
+          date: camp.createdAt,
+          clientNom: camp.clientNom || 'Client PST',
+          clientTel: camp.clientTel || '',
+          clientEmail: camp.clientEmail || '',
+          clientOrg: camp.clientOrg || '',
+          lignes: [{
+            description: 'Campagne SMS Marketing — ' + (camp.campagne || 'Campagne') + ' (' + (camp.total || 0) + ' SMS)',
+            quantite: 1,
+            prix: camp.montantPaye || 0
+          }]
+        };
+      }
+    } catch(e) {}
+
+    // Chercher dans les recharges
+    if (!factureData) {
+      try {
+        const rch = await db.collection('recharges').findOne({ _id: new ObjectId(id) });
+        if (rch) {
+          factureData = {
+            numeroFacture: 'PST-RCH-' + id.slice(-6).toUpperCase(),
+            date: rch.createdAt,
+            clientNom: rch.nom || 'Client PST',
+            clientTel: rch.telephone || '',
+            lignes: [{
+              description: 'Recharge téléphonique ' + (rch.operateur||'') + ' — ' + rch.numero,
+              quantite: 1,
+              prix: rch.montant || 0
+            }]
+          };
+        }
+      } catch(e) {}
+    }
+
+    if (!factureData) {
+      return res.status(404).send('Facture introuvable');
+    }
+
+    const html = genererFactureHTML(factureData);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="facture-' + factureData.numeroFacture + '.html"');
+    res.send(html);
+  } catch(e) { res.status(500).send('Erreur: ' + e.message); }
+});
+
+// Générer une facture manuelle et l'envoyer par email
+app.post('/api/facture/generer', async (req, res) => {
+  try {
+    const { clientNom, clientEmail, clientTel, clientOrg, lignes, description, montant, sendEmail } = req.body;
+
+    const num = 'PST-' + Date.now().toString().slice(-8);
+    const factureData = {
+      numeroFacture: num,
+      date: new Date(),
+      clientNom, clientEmail, clientTel, clientOrg,
+      lignes: lignes || [{ description: description || 'Service PST', quantite: 1, prix: parseInt(montant) || 0 }]
+    };
+
+    // Sauvegarder en DB
+    const result = await db.collection('factures').insertOne({ ...factureData, createdAt: new Date() });
+
+    // Envoyer par email si demandé
+    if (sendEmail && clientEmail) {
+      try {
+        const GMAIL_USER = process.env.GMAIL_USER;
+        const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
+
+        if (GMAIL_USER && GMAIL_PASS) {
+          const transporter = nodemailer.createTransporter({
+            service: 'gmail',
+            auth: { user: GMAIL_USER, pass: GMAIL_PASS }
+          });
+
+          const html = genererFactureHTML(factureData);
+
+          await transporter.sendMail({
+            from: '"PST Pure Smart Telecom" <' + GMAIL_USER + '>',
+            to: clientEmail,
+            subject: 'Votre facture PST #' + num,
+            html: `<p>Bonjour ${clientNom},</p>
+                   <p>Veuillez trouver ci-joint votre facture PST <strong>#${num}</strong>.</p>
+                   <p>Merci pour votre confiance !</p>
+                   <p>— PST Pure Smart Telecom<br>+221 77 152 09 59</p>`,
+            attachments: [{
+              filename: 'facture-' + num + '.html',
+              content: html,
+              contentType: 'text/html'
+            }]
+          });
+        }
+      } catch(emailErr) {
+        console.warn('Email non envoyé:', emailErr.message);
+      }
+    }
+
+    res.json({ success: true, factureId: result.insertedId, numeroFacture: num, url: '/api/facture/' + result.insertedId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Lister les factures (admin)
+app.get('/api/admin/factures', async (req, res) => {
+  try {
+    const factures = await db.collection('factures').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(factures);
+  } catch(e) { res.json([]); }
 });
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
