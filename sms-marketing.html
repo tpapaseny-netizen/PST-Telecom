@@ -374,6 +374,14 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                 <label>Colonne Date</label>
                 <select id="col-date" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
               </div>
+              <div class="field">
+                <label>Colonne Centre d'examen</label>
+                <select id="col-centre" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
+              </div>
+              <div class="field">
+                <label>Colonne Jury</label>
+                <select id="col-jury" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
+              </div>
             </div>
             <div id="filter-section" style="margin-top:12px;display:none;">
               <div class="field">
@@ -473,6 +481,8 @@ tr:hover td { background:rgba(255,255,255,0.02); }
             <span class="var-chip" onclick="insertVar('{table}')">{table}</span>
             <span class="var-chip" onclick="insertVar('{mention}')">{mention}</span>
             <span class="var-chip" onclick="insertVar('{date}')">{date}</span>
+            <span class="var-chip" onclick="insertVar('{centre}')">{centre}</span>
+            <span class="var-chip" onclick="insertVar('{jury}')">{jury}</span>
           </div>
           <textarea id="message-text" placeholder="Rédigez votre message ici...&#10;&#10;Exemple : Bonjour {prenom}, vous êtes convoqué(e) le {date} à 8h salle {table}." oninput="updateComposer()" rows="5"></textarea>
           <div class="composer-footer">
@@ -665,7 +675,7 @@ let payOpt = 'wave';
 let activeTab = 'upload';
 
 const TEMPLATES = {
-  convocation: "Bonjour {prenom}, vous êtes convoqué(e) le {date} à 8h. N° Table : {table}. PST-Telecom.",
+  convocation: "Bonjour {prenom} {nom}, vous êtes convoqué(e) le {date} à 8h. Centre : {centre}. N° Table : {table}. Jury : {jury}. Bon courage !",
   resultat: "Bonjour {prenom} {nom}, vos résultats sont disponibles. Mention : {mention}. Félicitations ! PST.",
   inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitées. Appelez le 77XXX. PST.",
   mensualite: "Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser votre situation. Merci.",
@@ -716,52 +726,51 @@ function processFile(file) {
 
   if(['xlsx','xls','csv'].includes(ext)) {
     const reader = new FileReader();
+    reader.onerror = function() { showToast('❌ Erreur lecture fichier', 'error'); };
     reader.onload = function(ev) {
-      const wb = XLSX.read(ev.target.result, {type:'binary'});
-      // Si plusieurs feuilles, laisser choisir
-      if(wb.SheetNames.length > 1) {
-        const choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' +
-          wb.SheetNames.map((n,i) => (i+1)+'. '+n).join('\n') +
-          '\n\nEntrez le numéro de la feuille à utiliser :', wb.SheetNames.length);
-        const idx = Math.min(Math.max(parseInt(choice||1)-1, 0), wb.SheetNames.length-1);
-        const ws = wb.Sheets[wb.SheetNames[isNaN(idx)?0:idx]];
+      try {
+        const wb = XLSX.read(ev.target.result, {type:'binary'});
+        var sheetIdx = 0;
+        if(wb.SheetNames.length > 1) {
+          const choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' +
+            wb.SheetNames.map(function(n,i){ return (i+1)+'. '+n; }).join('\n') +
+            '\n\nEntrez le numéro de la feuille à utiliser :', '1');
+          if(choice === null) { showToast('⚠️ Chargement annulé', 'error'); return; }
+          sheetIdx = Math.min(Math.max(parseInt(choice||1)-1, 0), wb.SheetNames.length-1);
+          if(isNaN(sheetIdx)) sheetIdx = 0;
+        }
+        const ws = wb.Sheets[wb.SheetNames[sheetIdx]];
         const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-        if(data.length < 2) { showToast('Fichier vide ou invalide', 'error'); return; }
+        if(!data || data.length < 2) { showToast('⚠️ Fichier vide ou sans données', 'error'); return; }
         headers = data[0].map(function(h){ return String(h).trim(); });
-        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return String(c).trim() !== ''; }); });
+        if(rawData.length === 0) { showToast('⚠️ Aucune ligne de données trouvée', 'error'); return; }
         setupMapping();
-        showToast('✅ ' + rawData.length + ' lignes chargées (feuille: ' + wb.SheetNames[isNaN(idx)?0:idx] + ')', 'success');
-      } else {
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-        if(data.length < 2) { showToast('Fichier vide ou invalide', 'error'); return; }
-        headers = data[0].map(function(h){ return String(h).trim(); });
-        rawData = data.slice(1).filter(function(r){ return r.some(function(c){ return c !== ''; }); });
-        setupMapping();
-        showToast('✅ ' + rawData.length + ' lignes chargées', 'success');
+        showToast('✅ ' + rawData.length + ' lignes chargées — feuille: ' + wb.SheetNames[sheetIdx], 'success');
+      } catch(err) {
+        showToast('❌ Erreur : ' + err.message, 'error');
       }
     };
     reader.readAsBinaryString(file);
   } else if(ext === 'pdf') {
-    showToast('📄 PDF détecté — extraction en cours...', 'success');
-    // Pour PDF, on simule l'extraction et demande à l'utilisateur de saisir manuellement
-    setTimeout(() => {
-      showToast('⚠️ Pour les PDF, utilisez l\'onglet saisie manuelle ou convertissez en Excel', 'error');
-      switchTab('manual');
-    }, 1500);
+    showToast('⚠️ PDF non supporté — utilisez Excel ou CSV', 'error');
+    switchTab('manual');
   } else if(['docx','doc'].includes(ext)) {
-    showToast('📝 Word détecté — utilisez de préférence Excel/CSV pour les listes', 'success');
-    setTimeout(() => switchTab('manual'), 1000);
+    showToast('⚠️ Word non supporté — utilisez Excel ou CSV', 'error');
+    switchTab('manual');
+  } else {
+    showToast('⚠️ Format non supporté : .' + ext, 'error');
   }
 }
 
 function setupMapping() {
-  const selects = ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date'];
-  selects.forEach(id => {
+  const selects = ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'];
+  selects.forEach(function(id) {
     const sel = document.getElementById(id);
+    if(!sel) return;
     const hasIgnore = id !== 'col-phone';
     sel.innerHTML = (hasIgnore ? '<option value="">— Ignorer —</option>' : '') +
-      headers.map((h,i) => `<option value="${i}" ${autoDetect(id,h)?'selected':''}>${h}</option>`).join('');
+      headers.map(function(h,i){ return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>'; }).join('');
   });
   document.getElementById('col-mapping').style.display = 'block';
   updatePreview();
@@ -775,11 +784,13 @@ function autoDetect(field, header) {
     'col-prenom': ['prenom','firstname','first','prénom'],
     'col-classe': ['classe','class','section','groupe','group','niveau'],
     'col-matricule': ['matricule','mat','id','identifiant','ine'],
-    'col-table': ['table','n°table','numero table','place'],
+    'col-table': ['table','n°table','numero table','place','salle'],
     'col-mention': ['mention','resultat','résultat','note','appreciation'],
-    'col-date': ['date','jour','convocation']
+    'col-date': ['date','jour','convocation'],
+    'col-centre': ['centre','center','etablissement','lieu','site'],
+    'col-jury': ['jury','n°jury','numero jury','numjury']
   };
-  return (map[field]||[]).some(k => h.includes(k));
+  return (map[field]||[]).some(function(k){ return h.includes(k); });
 }
 
 function updatePreview() {
@@ -793,8 +804,12 @@ function updatePreview() {
   const tableCol = document.getElementById('col-table').value;
   const mentionCol = document.getElementById('col-mention').value;
   const dateCol = document.getElementById('col-date').value;
+  const centreEl = document.getElementById('col-centre');
+  const juryEl = document.getElementById('col-jury');
+  const centreCol = centreEl ? centreEl.value : '';
+  const juryCol = juryEl ? juryEl.value : '';
 
-  contacts = rawData.map(row => ({
+  contacts = rawData.map(function(row) { return {
     telephone: formatPhone(String(row[phoneCol]||'')),
     nom: nomCol !== '' ? String(row[parseInt(nomCol)]||'') : '',
     prenom: prenomCol !== '' ? String(row[parseInt(prenomCol)]||'') : '',
@@ -803,7 +818,9 @@ function updatePreview() {
     table: tableCol !== '' ? String(row[parseInt(tableCol)]||'') : '',
     mention: mentionCol !== '' ? String(row[parseInt(mentionCol)]||'') : '',
     date: dateCol !== '' ? String(row[parseInt(dateCol)]||'') : '',
-  })).filter(c => c.telephone.length >= 8);
+    centre: centreCol !== '' ? String(row[parseInt(centreCol)]||'') : '',
+    jury: juryCol !== '' ? String(row[parseInt(juryCol)]||'') : '',
+  }; }).filter(function(c){ return c.telephone.length >= 8; });
 
   // Filtre par classe
   const classes = [...new Set(contacts.map(c=>c.classe).filter(Boolean))];
@@ -832,7 +849,7 @@ function applyFilter() {
 
 function renderPreviewTable(data) {
   if(!data.length) return;
-  const cols = ['telephone','prenom','nom','classe','matricule','table','mention','date'].filter(c => data.some(r=>r[c]));
+  const cols = ['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){ return data.some(function(r){ return r[c]; }); });
   document.getElementById('preview-thead').innerHTML = '<tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
   document.getElementById('preview-tbody').innerHTML = data.map(r =>
     '<tr>' + cols.map(c => `<td class="${c==='telephone'?'col-phone':''}">${r[c]||'—'}</td>`).join('') + '</tr>'
@@ -862,9 +879,9 @@ function parseManual() {
   contacts = lines.map(line => {
     const parts = line.split(',');
     if(parts.length >= 2) {
-      return { nom: parts[0].trim(), telephone: formatPhone(parts[1].trim()), prenom:'',classe:'',matricule:'',table:'',mention:'',date:'' };
+      return { nom: parts[0].trim(), telephone: formatPhone(parts[1].trim()), prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
     }
-    return { telephone: formatPhone(line.trim()), nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'' };
+    return { telephone: formatPhone(line.trim()), nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
   }).filter(c => c.telephone.length >= 8);
   document.getElementById('manual-count').textContent = contacts.length;
   document.getElementById('manual-preview').style.display = contacts.length > 0 ? 'block' : 'none';
@@ -900,7 +917,7 @@ function updateComposer() {
   document.getElementById('sms-count-msg').textContent = smsCount > 1 ? `⚠️ ${smsCount} SMS par contact` : '';
 
   // Update preview
-  const preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'6ème A',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin'});
+  const preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'6ème A',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycée Seydou Nourou Tall',jury:'Jury 05'});
   document.getElementById('preview-msg').textContent = preview || 'Votre message apparaîtra ici...';
   document.getElementById('preview-msg').style.color = preview ? 'var(--text)' : 'var(--muted)';
   var senderEl = document.getElementById('sender-name');
@@ -922,6 +939,8 @@ function personalizeMsg(template, contact) {
     .replace(/{table}/g, contact.table||'')
     .replace(/{mention}/g, contact.mention||'')
     .replace(/{date}/g, contact.date||'')
+    .replace(/{centre}/g, contact.centre||'')
+    .replace(/{jury}/g, contact.jury||'')
     .replace(/{code}/g, Math.floor(1000+Math.random()*9000));
 }
 
