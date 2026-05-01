@@ -372,33 +372,45 @@ let activeFilter = 'all';
 let selectedClient = null;
 
 // ─── DEMO DATA ─────────────────────────────────────────────
-// Pas de données démo — uniquement les vraies caméras depuis la DB
+const DEMO_CAMERAS = [
+  // École Privée Demo
+  {id:'n1',client:'École Privée Demo',name:'Entrée principale',type:'embed',url:'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1',brand:'Hikvision',loc:'Dakar',zone:'Entrée',online:true,hasAlert:false},
+  {id:'n2',client:'École Privée Demo',name:'Cour de récréation',type:'embed',url:'https://www.youtube.com/embed/ydYDqZQpnHU?autoplay=1&mute=1',brand:'Dahua',loc:'Dakar',zone:'Cour',online:true,hasAlert:false},
+  {id:'n3',client:'École Privée Demo',name:'Couloir Bât A',type:'placeholder',url:'',brand:'TP-Link',loc:'Dakar',zone:'Couloir',online:false,hasAlert:false},
+  {id:'n4',client:'École Privée Demo',name:'Salle des profs',type:'placeholder',url:'',brand:'Reolink',loc:'Dakar',zone:'Intérieur',online:true,hasAlert:false},
+  // Clinique Santé Plus
+  {id:'n5',client:'Clinique Santé Plus',name:'Urgences',type:'embed',url:'https://www.youtube.com/embed/86YLFOog4GM?autoplay=1&mute=1',brand:'Hikvision',loc:'Thiès',zone:'RDC',online:true,hasAlert:false},
+  {id:'n6',client:'Clinique Santé Plus',name:'Parking',type:'placeholder',url:'',brand:'Axis',loc:'Thiès',zone:'Ext',online:true,hasAlert:false},
+  {id:'n7',client:'Clinique Santé Plus',name:'Pharmacie',type:'placeholder',url:'',brand:'Dahua',loc:'Thiès',zone:'1er',online:true,hasAlert:false},
+  {id:'n8',client:'Clinique Santé Plus',name:"Salle d'attente",type:'placeholder',url:'',brand:'Reolink',loc:'Thiès',zone:'RDC',online:false,hasAlert:false},
+  // Supermarché Diallo
+  {id:'n9',client:'Supermarché Diallo',name:'Caisse principale',type:'embed',url:'https://www.youtube.com/embed/5qap5aO4i9A?autoplay=1&mute=1',brand:'TP-Link',loc:'Saint-Louis',zone:'RDC',online:true,hasAlert:false},
+  {id:'n10',client:'Supermarché Diallo',name:'Réserve',type:'placeholder',url:'',brand:'Foscam',loc:'Saint-Louis',zone:'Arrière',online:true,hasAlert:false},
+  // Institut Technique
+  {id:'n11',client:'Institut Technique Touba',name:'Portail',type:'placeholder',url:'',brand:'Hikvision',loc:'Touba',zone:'Entrée',online:true,hasAlert:false},
+  {id:'n12',client:'Institut Technique Touba',name:'Amphithéâtre',type:'placeholder',url:'',brand:'Dahua',loc:'Touba',zone:'Bât B',online:true,hasAlert:false},
+];
 
 // ─── INIT ──────────────────────────────────────────────────
 async function init() {
   startClock();
   await loadCameras();
   renderAll();
+  startMotionSimulation();
   populateClientSelect();
-  // Refresh toutes les 30 secondes
-  setInterval(async () => {
-    await loadCameras();
-    renderAll();
-  }, 30000);
 }
 
 async function loadCameras() {
   try {
     const res = await fetch(API + '/api/noc/cameras');
     const data = await res.json();
-    if (data.cameras) {
+    if (data.cameras && data.cameras.length > 0) {
       allCameras = data.cameras;
     } else {
-      allCameras = [];
+      allCameras = [...DEMO_CAMERAS];
     }
   } catch(e) {
-    console.warn('Erreur chargement caméras:', e.message);
-    allCameras = [];
+    allCameras = [...DEMO_CAMERAS];
   }
   filteredCameras = [...allCameras];
 }
@@ -545,16 +557,27 @@ function applySearch() {
 }
 
 // ─── ADD CAMERA ────────────────────────────────────────────
-function openAddCam() {
-  populateClientSelect();
+async function openAddCam() {
+  await populateClientSelect();
   document.getElementById('add-modal').classList.add('open');
 }
 function closeAddCam() { document.getElementById('add-modal').classList.remove('open'); }
 
-function populateClientSelect() {
-  const clients = [...new Set(allCameras.map(c=>c.client))];
+async function populateClientSelect() {
+  // Charger clients depuis SecurCam Admin
+  let clientNames = [...new Set(allCameras.map(c=>c.client))];
+  try {
+    const res = await fetch(API + '/api/securcam/clients');
+    const data = await res.json();
+    if (data.clients && data.clients.length > 0) {
+      const secNames = data.clients.map(c => c.name);
+      // Fusionner les deux listes sans doublons
+      clientNames = [...new Set([...clientNames, ...secNames])];
+    }
+  } catch(e) {}
   const sel = document.getElementById('m-client');
-  sel.innerHTML = '<option value="">-- Sélectionner --</option>' + clients.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' + 
+    clientNames.map(c=>`<option value="${c}">${c}</option>`).join('');
 }
 
 function updateHelp() {
