@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PST SecurCam — Surveillance à distance</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#04080F;--surface:#0A1220;--surface2:#0F1A2E;--border:rgba(255,255,255,0.06);--cyan:#06B6D4;--cyan-dim:rgba(6,182,212,0.08);--green:#00E676;--red:#EF4444;--orange:#F59E0B;--text:#E2EAF4;--muted:#4A6080;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.06) 0%, transparent 70%);}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:48px;width:100%;max-width:420px;}
+.login-logo{text-align:center;margin-bottom:32px;}
+.login-logo .brand{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;letter-spacing:-1px;}
+.login-logo .brand span{color:var(--cyan);}
+.login-logo p{font-size:13px;color:var(--muted);margin-top:4px;}
+.login-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:24px;text-align:center;}
+.fl{margin-bottom:16px;}
+.fl label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.fl input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:13px 16px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.fl input:focus{border-color:var(--cyan);}
+.btn-login{width:100%;background:var(--cyan);color:#000;border:none;border-radius:12px;padding:15px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;cursor:pointer;transition:all .2s;margin-top:8px;}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(6,182,212,0.3);}
+.login-footer{text-align:center;margin-top:20px;font-size:12px;color:var(--muted);}
+
+/* APP */
+.app{display:none;min-height:100vh;flex-direction:column;}
+.app.show{display:flex;}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:16px;}
+.tb-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;}
+.tb-brand span{color:var(--cyan);}
+.tb-org{background:var(--cyan-dim);border:1px solid rgba(6,182,212,0.2);color:var(--cyan);font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.tb-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green);}
+.tb-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.tb-alerts{background:var(--red);color:#fff;border-radius:100px;font-size:11px;font-weight:700;padding:2px 8px;cursor:pointer;}
+.tb-logout{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.tb-logout:hover{border-color:rgba(255,255,255,0.2);color:#fff;}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s;border-left:2px solid transparent;}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,0.03);}
+.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);background:var(--cyan-dim);}
+.nav-icon{font-size:16px;width:20px;text-align:center;}
+.nav-sep{border-top:1px solid var(--border);margin:12px 0;}
+
+/* CONTENT */
+.content{flex:1;padding:24px;overflow-y:auto;}
+
+/* LIVE GRID */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;}
+.view-btns{display:flex;gap:4px;}
+.view-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;transition:all .2s;}
+.view-btn.active{background:var(--cyan-dim);border-color:rgba(6,182,212,0.3);color:var(--cyan);}
+
+.cam-grid{display:grid;gap:12px;}
+.cam-grid.g2{grid-template-columns:repeat(2,1fr);}
+.cam-grid.g4{grid-template-columns:repeat(4,1fr);}
+.cam-grid.g1{grid-template-columns:1fr;}
+
+.cam-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .2s;}
+.cam-card:hover{border-color:rgba(6,182,212,0.25);}
+.cam-card.selected{border-color:var(--cyan);}
+.cam-card.alert{border-color:rgba(239,68,68,0.4);animation:alertPulse 2s infinite;}
+@keyframes alertPulse{0%,100%{border-color:rgba(239,68,68,0.4)}50%{border-color:rgba(239,68,68,0.8)}}
+
+.cam-feed{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden;cursor:pointer;}
+.cam-video{width:100%;height:100%;object-fit:cover;}
+.cam-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#050a14,#0a1525);}
+.cam-placeholder .cam-icon{font-size:32px;opacity:0.3;}
+.cam-placeholder .cam-label{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+
+/* STREAM IFRAME */
+.cam-stream{width:100%;height:100%;border:none;}
+
+.cam-overlay{position:absolute;inset:0;pointer-events:none;}
+.rec-badge{position:absolute;top:8px;left:8px;background:rgba(239,68,68,0.9);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:100px;display:flex;align-items:center;gap:4px;}
+.rec-dot{width:5px;height:5px;background:#fff;border-radius:50%;animation:pulse 1s infinite;}
+.cam-time{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;font-family:'JetBrains Mono',monospace;padding:3px 8px;border-radius:6px;}
+.cam-motion{position:absolute;bottom:8px;right:8px;background:rgba(245,158,11,0.9);color:#000;font-size:9px;font-weight:700;padding:3px 8px;border-radius:100px;display:none;}
+.cam-motion.show{display:block;}
+.cam-offline{position:absolute;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;color:var(--red);font-size:12px;font-weight:600;gap:6px;display:none;}
+.cam-offline.show{display:flex;}
+
+.cam-info{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.cam-name{font-size:13px;font-weight:600;}
+.cam-meta{font-size:11px;color:var(--muted);}
+.cam-actions{display:flex;gap:6px;}
+.cam-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;transition:all .2s;}
+.cam-btn:hover{color:#fff;}
+.cam-btn.danger:hover{color:var(--red);}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;}
+.stat-val.cyan{color:var(--cyan);}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.stat-val.orange{color:var(--orange);}
+
+/* EVENTS */
+.events-list{display:flex;flex-direction:column;gap:8px;}
+.event-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.event-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.event-dot.motion{background:var(--orange);}
+.event-dot.online{background:var(--green);}
+.event-dot.offline{background:var(--red);}
+.event-dot.alert{background:var(--red);animation:pulse 1s infinite;}
+.event-info{flex:1;}
+.event-title{font-size:13px;font-weight:500;}
+.event-meta{font-size:11px;color:var(--muted);}
+.event-time{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+
+/* ADD CAM MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:18px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg.full{grid-column:1/-1;}
+.fg label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.fg input,.fg select,.fg textarea{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--cyan);}
+.fg select option{background:#0A1220;}
+.fg textarea{resize:vertical;min-height:80px;}
+.proto-info{background:var(--surface2);border-radius:8px;padding:12px;font-size:12px;color:var(--muted);line-height:1.8;margin-top:4px;}
+.proto-info code{color:var(--cyan);font-family:'JetBrains Mono',monospace;}
+.btn-add{width:100%;background:var(--cyan);color:#000;border:none;border-radius:10px;padding:14px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;cursor:pointer;transition:all .2s;margin-top:16px;}
+.btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(6,182,212,0.3);}
+
+/* FULLSCREEN */
+.fullscreen-overlay{position:fixed;inset:0;background:#000;z-index:300;display:none;flex-direction:column;}
+.fullscreen-overlay.open{display:flex;}
+.fs-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(10,18,32,0.9);position:absolute;top:0;left:0;right:0;z-index:1;}
+.fs-info{display:flex;align-items:center;gap:12px;}
+.fs-name{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;}
+.fs-close{background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fs-video{width:100%;height:100%;object-fit:contain;}
+.fs-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.fs-placeholder .icon{font-size:64px;opacity:0.2;}
+.fs-placeholder p{color:var(--muted);font-size:14px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(6,182,212,0.3);border-radius:12px;padding:14px 20px;font-size:13px;z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.err{border-color:rgba(239,68,68,0.4);}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{display:none;}
+  .cam-grid.g4{grid-template-columns:repeat(2,1fr);}
+  .stats-bar{grid-template-columns:repeat(2,1fr);}
+  .form-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-page">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="brand">P<span>S</span>T SecurCam</div>
+      <p>Système de vidéosurveillance à distance</p>
+    </div>
+    <div class="login-title">Connexion</div>
+    <div class="fl"><label>Code client *</label><input type="text" id="login-code" placeholder="Ex: PST-CAM-ECOLE01" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="fl"><label>Mot de passe *</label><input type="password" id="login-pass" placeholder="Votre mot de passe" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn-login" onclick="doLogin()">🔐 Se connecter</button>
+    <div class="login-footer">Problème de connexion ? Contactez PST au +221 77 152 09 59</div>
+    <!-- DÉMO RAPIDE -->
+    <div style="margin-top:20px;padding:12px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;">
+      🎯 <strong style="color:var(--cyan);">Démo :</strong> Code: <code style="color:#fff;">DEMO</code> — Mot de passe: <code style="color:#fff;">demo123</code>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-brand">P<span>S</span>T SecurCam</div>
+      <div class="tb-org" id="org-name">Organisation</div>
+    </div>
+    <div class="topbar-right">
+      <div class="tb-status"><div class="tb-dot"></div><span id="active-count">0</span> caméras actives</div>
+      <div class="tb-alerts" id="alerts-badge" onclick="showSection('events')" style="display:none;">0 alertes</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);" id="clock"></div>
+      <button class="tb-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="nav-item active" onclick="showSection('live')" id="nav-live">
+        <span class="nav-icon">📹</span> Surveillance live
+      </div>
+      <div class="nav-item" onclick="showSection('events')" id="nav-events">
+        <span class="nav-icon">🔔</span> Alertes & événements
+      </div>
+      <div class="nav-item" onclick="showSection('recordings')" id="nav-recordings">
+        <span class="nav-icon">🎬</span> Enregistrements
+      </div>
+      <div class="nav-item" onclick="showSection('cameras')" id="nav-cameras">
+        <span class="nav-icon">⚙️</span> Gérer les caméras
+      </div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" onclick="showSection('settings')" id="nav-settings">
+        <span class="nav-icon">🔧</span> Paramètres
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- LIVE -->
+      <div id="section-live">
+        <div class="stats-bar">
+          <div class="stat-card">
+            <div class="stat-label">Caméras totales</div>
+            <div class="stat-val cyan" id="s-total">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">En ligne</div>
+            <div class="stat-val green" id="s-online">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Hors ligne</div>
+            <div class="stat-val red" id="s-offline">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Alertes aujourd'hui</div>
+            <div class="stat-val orange" id="s-alerts">0</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title">📹 Surveillance en direct</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="view-btns">
+              <button class="view-btn active" onclick="setGrid(2,this)">▣ 2×2</button>
+              <button class="view-btn" onclick="setGrid(4,this)">⊞ 4×4</button>
+              <button class="view-btn" onclick="setGrid(1,this)">□ 1×1</button>
+            </div>
+            <button onclick="openAddCam()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer;">+ Ajouter caméra</button>
+          </div>
+        </div>
+
+        <div class="cam-grid g2" id="cam-grid">
+          <!-- Caméras générées dynamiquement -->
+          <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);" id="no-cams">
+            <div style="font-size:48px;margin-bottom:12px;">📷</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px;">Aucune caméra configurée</div>
+            <div style="font-size:13px;">Cliquez sur "+ Ajouter caméra" pour commencer</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EVENTS -->
+      <div id="section-events" style="display:none;">
+        <div class="section-header">
+          <div class="section-title">🔔 Alertes & Événements</div>
+          <button onclick="clearEvents()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;">Tout effacer</button>
+        </div>
+        <div class="events-list" id="events-list">
+          <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Aucun événement pour le moment</div>
+        </div>
+      </div>
+
+      <!-- RECORDINGS -->
+      <div id="section-recordings" style="display:none;">
+        <div class="section-header">
+          <div class="section-title">🎬 Enregistrements</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center;">
+          <div style="font-size:48px;margin-bottom:16px;">🎬</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px;">Enregistrements cloud</div>
+          <div style="font-size:13px;color:var(--muted);max-width:400px;margin:0 auto 24px;">Les enregistrements sont sauvegardés automatiquement selon votre plan. Contactez PST pour activer le stockage cloud.</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;" id="rec-list">
+            <!-- Généré dynamiquement -->
+          </div>
+          <a href="tel:+221771520959" style="display:inline-block;background:var(--cyan);color:#000;padding:12px 24px;border-radius:8px;font-weight:700;text-decoration:none;font-size:13px;">📞 Contacter PST pour activer</a>
+        </div>
+      </div>
+
+      <!-- CAMERAS SETTINGS -->
+      <div id="section-cameras" style="display:none;">
+        <div class="section-header">
+          <div class="section-title">⚙️ Gérer les caméras</div>
+          <button onclick="openAddCam()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer;">+ Ajouter caméra</button>
+        </div>
+        <div id="cams-settings-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="section-settings" style="display:none;">
+        <div class="section-header">
+          <div class="section-title">🔧 Paramètres</div>
+        </div>
+        <div style="display:grid;gap:16px;max-width:600px;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;">
+            <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">🔔 Notifications</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+                <span>Alertes mouvement par SMS</span>
+                <input type="checkbox" id="notif-sms" checked style="width:16px;height:16px;">
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+                <span>Alertes si caméra hors ligne</span>
+                <input type="checkbox" id="notif-offline" checked style="width:16px;height:16px;">
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+                <span>Rapport quotidien par email</span>
+                <input type="checkbox" id="notif-daily">
+              </label>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;">
+            <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">📞 Contact PST</div>
+            <div style="font-size:13px;color:var(--muted);line-height:2;">
+              📱 Téléphone : <strong style="color:#fff;">+221 77 152 09 59</strong><br>
+              📧 Email : <strong style="color:#fff;">papasenytoure@gmail.com</strong><br>
+              🌐 Site : <strong style="color:var(--cyan);">pst-telecom.vercel.app</strong>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;">
+            <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">🔑 Changer le mot de passe</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <input type="password" placeholder="Ancien mot de passe" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;outline:none;">
+              <input type="password" placeholder="Nouveau mot de passe" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;outline:none;">
+              <button style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;">Modifier</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJOUTER CAMÉRA -->
+<div class="modal-overlay" id="add-cam-modal">
+  <div class="modal">
+    <div class="modal-title">
+      📷 Ajouter une caméra
+      <button class="modal-close" onclick="closeAddCam()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="fg full">
+        <label>Nom de la caméra *</label>
+        <input type="text" id="cam-name" placeholder="Ex: Entrée principale, Couloir A...">
+      </div>
+      <div class="fg">
+        <label>Type de connexion</label>
+        <select id="cam-type" onchange="updateProtoHelp()">
+          <option value="rtsp">RTSP (IP Camera)</option>
+          <option value="http">HTTP/MJPEG Stream</option>
+          <option value="hls">HLS Stream</option>
+          <option value="embed">URL Embed (cloud cam)</option>
+          <option value="onvif">ONVIF</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Marque / Modèle</label>
+        <select id="cam-brand">
+          <option>Hikvision</option>
+          <option>Dahua</option>
+          <option>TP-Link Tapo</option>
+          <option>Reolink</option>
+          <option>Foscam</option>
+          <option>Axis</option>
+          <option>Amcrest</option>
+          <option>Autre</option>
+        </select>
+      </div>
+      <div class="fg full">
+        <label>URL / Adresse *</label>
+        <input type="text" id="cam-url" placeholder="rtsp://admin:pass@192.168.1.100:554/stream">
+        <div class="proto-info" id="proto-help">
+          <strong>RTSP :</strong> <code>rtsp://utilisateur:motdepasse@IP:554/stream</code><br>
+          Exemple Hikvision : <code>rtsp://admin:pass@192.168.1.64:554/h264/ch1/main/av_stream</code>
+        </div>
+      </div>
+      <div class="fg">
+        <label>IP locale de la caméra</label>
+        <input type="text" id="cam-ip" placeholder="192.168.1.100">
+      </div>
+      <div class="fg">
+        <label>Port</label>
+        <input type="text" id="cam-port" placeholder="554">
+      </div>
+      <div class="fg">
+        <label>Nom d'utilisateur</label>
+        <input type="text" id="cam-user" placeholder="admin">
+      </div>
+      <div class="fg">
+        <label>Mot de passe caméra</label>
+        <input type="password" id="cam-pass" placeholder="••••••••">
+      </div>
+      <div class="fg">
+        <label>Localisation</label>
+        <input type="text" id="cam-loc" placeholder="Bâtiment A, Rez-de-chaussée...">
+      </div>
+      <div class="fg">
+        <label>Détection mouvement</label>
+        <select id="cam-motion">
+          <option value="1">Activée</option>
+          <option value="0">Désactivée</option>
+        </select>
+      </div>
+      <div class="fg full">
+        <label>Notes</label>
+        <textarea id="cam-notes" placeholder="Informations supplémentaires..."></textarea>
+      </div>
+    </div>
+    <button class="btn-add" onclick="addCamera()">✅ Ajouter cette caméra</button>
+  </div>
+</div>
+
+<!-- FULLSCREEN -->
+<div class="fullscreen-overlay" id="fullscreen">
+  <div class="fs-bar">
+    <div class="fs-info">
+      <div class="rec-badge"><div class="rec-dot"></div>REC</div>
+      <div class="fs-name" id="fs-cam-name">Caméra</div>
+    </div>
+    <button class="fs-close" onclick="closeFullscreen()">✕ Fermer</button>
+  </div>
+  <div class="fs-placeholder" id="fs-content">
+    <div class="icon">📷</div>
+    <p>Flux vidéo</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://pst-telecom-production.up.railway.app';
+let currentClient = null;
+let cameras = [];
+let events = [];
+let alertCount = 0;
+let motionTimers = {};
+
+// ─── DÉMO DATA ────────────────────────────────────────────
+const DEMO_CLIENTS = {
+  'DEMO': { password:'demo123', name:'École Privée Demo', cameras:[
+    {id:'cam1',name:'Entrée principale',type:'embed',url:'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1',ip:'192.168.1.100',brand:'Hikvision',loc:'Rez-de-chaussée',online:true,motion:true,notes:'Caméra HD 4MP'},
+    {id:'cam2',name:'Cour de récréation',type:'embed',url:'https://www.youtube.com/embed/ydYDqZQpnHU?autoplay=1&mute=1',ip:'192.168.1.101',brand:'Dahua',loc:'Extérieur',online:true,motion:true,notes:'Vision nocturne'},
+    {id:'cam3',name:'Couloir Bâtiment A',type:'placeholder',url:'',ip:'192.168.1.102',brand:'TP-Link Tapo',loc:'1er étage',online:false,motion:false,notes:''},
+    {id:'cam4',name:'Salle des profs',type:'placeholder',url:'',ip:'192.168.1.103',brand:'Reolink',loc:'2ème étage',online:true,motion:false,notes:''},
+  ]}
+};
+
+// ─── AUTH ──────────────────────────────────────────────────
+async function doLogin() {
+  const code = document.getElementById('login-code').value.trim().toUpperCase();
+  const pass = document.getElementById('login-pass').value.trim();
+  if (!code || !pass) { showToast('⚠️ Remplissez tous les champs', true); return;  }
+
+  // Vérif démo locale
+  if (DEMO_CLIENTS[code] && DEMO_CLIENTS[code].password === pass) {
+    currentClient = { code, ...DEMO_CLIENTS[code] };
+    cameras = [...currentClient.cameras];
+    startApp();
+    return;
+  }
+
+  // Vérif API
+  try {
+    const res = await fetch(API + '/api/securcam/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code, password: pass })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentClient = data.client;
+      cameras = data.cameras || [];
+      startApp();
+    } else {
+      showToast('❌ Code ou mot de passe incorrect', true);
+    }
+  } catch(e) {
+    // Fallback offline
+    showToast('❌ Code ou mot de passe incorrect', true);
+  }
+}
+
+function logout() {
+  currentClient = null; cameras = []; events = [];
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('app').classList.remove('show');
+}
+
+function startApp() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app').classList.add('show');
+  document.getElementById('org-name').textContent = currentClient.name;
+  renderCameras();
+  updateStats();
+  startClock();
+  startMotionSimulation();
+  addEvent('online', 'Système', 'Connexion établie — surveillance active');
+  showToast('✅ Bienvenue ! ' + cameras.filter(c=>c.online).length + ' caméras en ligne');
+}
+
+// ─── CLOCK ─────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('fr-FR') + ' — ' + now.toLocaleDateString('fr-FR');
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ─── CAMERAS ───────────────────────────────────────────────
+function renderCameras() {
+  const grid = document.getElementById('cam-grid');
+  const noMsg = document.getElementById('no-cams');
+  if (cameras.length === 0) { noMsg.style.display = 'block'; return; }
+  noMsg.style.display = 'none';
+  grid.innerHTML = '';
+  cameras.forEach(cam => grid.appendChild(createCamCard(cam)));
+  renderCamsSettings();
+}
+
+function createCamCard(cam) {
+  const div = document.createElement('div');
+  div.className = 'cam-card' + (cam.online ? '' : ' offline-card');
+  div.id = 'card-' + cam.id;
+
+  let feedHTML = '';
+  if (!cam.online) {
+    feedHTML = `<div class="cam-placeholder"><div class="cam-icon">📷</div><div class="cam-label">HORS LIGNE</div></div>`;
+  } else if (cam.type === 'embed' && cam.url) {
+    feedHTML = `<iframe class="cam-stream" src="${cam.url}" allow="autoplay" allowfullscreen></iframe>`;
+  } else if (cam.type === 'http' && cam.url) {
+    feedHTML = `<img class="cam-video" src="${cam.url}" onerror="this.parentElement.innerHTML='<div class=\\'cam-placeholder\\'><div class=\\'cam-icon\\'>📷</div><div class=\\'cam-label\\'>Flux non disponible</div></div>'" alt="Flux caméra">`;
+  } else {
+    feedHTML = `<div class="cam-placeholder"><div class="cam-icon">📷</div><div class="cam-label">${cam.ip || 'IP non configurée'}</div></div>`;
+  }
+
+  div.innerHTML = `
+    <div class="cam-feed" onclick="openFullscreen('${cam.id}')">
+      ${feedHTML}
+      <div class="cam-overlay">
+        ${cam.online ? '<div class="rec-badge"><div class="rec-dot"></div>LIVE</div>' : ''}
+        <div class="cam-time" id="time-${cam.id}"></div>
+        <div class="cam-motion" id="motion-${cam.id}">⚡ MOUVEMENT</div>
+        ${!cam.online ? '<div class="cam-offline show">⚠️ Hors ligne</div>' : ''}
+      </div>
+    </div>
+    <div class="cam-info">
+      <div>
+        <div class="cam-name">${cam.name}</div>
+        <div class="cam-meta">${cam.brand} — ${cam.loc || 'Localisation non définie'} — ${cam.online ? '<span style="color:var(--green)">● En ligne</span>' : '<span style="color:var(--red)">● Hors ligne</span>'}</div>
+      </div>
+      <div class="cam-actions">
+        <button class="cam-btn" onclick="event.stopPropagation();openFullscreen('${cam.id}')">⛶</button>
+        <button class="cam-btn" onclick="event.stopPropagation();toggleMotion('${cam.id}')">🔔</button>
+        <button class="cam-btn danger" onclick="event.stopPropagation();deleteCam('${cam.id}')">🗑</button>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function renderCamsSettings() {
+  const list = document.getElementById('cams-settings-list');
+  list.innerHTML = cameras.map(cam => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:24px;">${cam.online ? '📹' : '⚠️'}</div>
+        <div>
+          <div style="font-weight:600;font-size:14px;">${cam.name}</div>
+          <div style="font-size:12px;color:var(--muted);">${cam.brand} — IP: ${cam.ip || 'N/A'} — ${cam.loc || ''}</div>
+          <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);margin-top:2px;">${cam.url ? cam.url.substring(0,50)+'...' : 'URL non configurée'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="font-size:12px;${cam.online?'color:var(--green)':'color:var(--red)'};">${cam.online ? '● En ligne' : '● Hors ligne'}</div>
+        <button onclick="deleteCam('${cam.id}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Supprimer</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── ADD CAMERA ────────────────────────────────────────────
+function openAddCam() { document.getElementById('add-cam-modal').classList.add('open'); }
+function closeAddCam() { document.getElementById('add-cam-modal').classList.remove('open'); }
+
+function updateProtoHelp() {
+  const type = document.getElementById('cam-type').value;
+  const helps = {
+    rtsp: '🔴 <strong>RTSP :</strong> <code>rtsp://user:pass@IP:554/stream</code><br>Hikvision: <code>rtsp://admin:pass@IP/h264/ch1/main/av_stream</code><br>Dahua: <code>rtsp://admin:pass@IP:554/cam/realmonitor?channel=1&subtype=0</code>',
+    http: '🟡 <strong>HTTP/MJPEG :</strong> <code>http://IP:80/video/mjpg.cgi</code><br>TP-Link Tapo: <code>http://IP/stream</code>',
+    hls: '🟢 <strong>HLS :</strong> <code>https://server.com/stream/index.m3u8</code>',
+    embed: '🔵 <strong>Embed :</strong> URL d\'intégration YouTube Live, ou portail cloud de votre caméra<br>Ex: <code>https://www.youtube.com/embed/VIDEOID?autoplay=1&mute=1</code>',
+    onvif: '🟣 <strong>ONVIF :</strong> <code>http://IP:80/onvif/device_service</code><br>Compatible avec la plupart des caméras IP professionnelles'
+  };
+  document.getElementById('proto-help').innerHTML = helps[type] || '';
+}
+
+async function addCamera() {
+  const name = document.getElementById('cam-name').value.trim();
+  const url = document.getElementById('cam-url').value.trim();
+  const type = document.getElementById('cam-type').value;
+  const ip = document.getElementById('cam-ip').value.trim();
+  const brand = document.getElementById('cam-brand').value;
+  const loc = document.getElementById('cam-loc').value.trim();
+  const user = document.getElementById('cam-user').value.trim();
+  const pass = document.getElementById('cam-pass').value.trim();
+  const port = document.getElementById('cam-port').value.trim();
+  const notes = document.getElementById('cam-notes').value.trim();
+  const motionDetect = document.getElementById('cam-motion').value === '1';
+
+  if (!name) { showToast('⚠️ Le nom de la caméra est requis', true); return; }
+
+  // Construire l'URL RTSP si pas fournie
+  let finalUrl = url;
+  if (!finalUrl && ip && user && type === 'rtsp') {
+    finalUrl = `rtsp://${user}:${pass}@${ip}:${port || 554}/stream`;
+  }
+
+  const cam = {
+    id: 'cam' + Date.now(),
+    name, type, url: finalUrl, ip, brand, loc, user, notes,
+    online: true, motion: motionDetect
+  };
+
+  cameras.push(cam);
+
+  // Sauvegarder en base
+  try {
+    await fetch(API + '/api/securcam/cameras', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ clientCode: currentClient.code, camera: cam })
+    });
+  } catch(e) {}
+
+  renderCameras();
+  updateStats();
+  closeAddCam();
+  addEvent('online', cam.name, 'Nouvelle caméra ajoutée et connectée');
+  showToast('✅ Caméra "' + name + '" ajoutée avec succès !');
+
+  // Reset form
+  ['cam-name','cam-url','cam-ip','cam-user','cam-pass','cam-port','cam-loc','cam-notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function deleteCam(id) {
+  if (!confirm('Supprimer cette caméra ?')) return;
+  const cam = cameras.find(c => c.id === id);
+  cameras = cameras.filter(c => c.id !== id);
+  renderCameras();
+  updateStats();
+  if (cam) addEvent('offline', cam.name, 'Caméra supprimée');
+  showToast('🗑 Caméra supprimée');
+}
+
+// ─── FULLSCREEN ────────────────────────────────────────────
+function openFullscreen(id) {
+  const cam = cameras.find(c => c.id === id);
+  if (!cam) return;
+  document.getElementById('fs-cam-name').textContent = cam.name + ' — ' + cam.loc;
+  const content = document.getElementById('fs-content');
+  if (!cam.online) {
+    content.innerHTML = '<div class="icon">⚠️</div><p style="color:var(--red)">Caméra hors ligne</p>';
+  } else if (cam.type === 'embed' && cam.url) {
+    content.innerHTML = `<iframe style="width:100%;height:100%;border:none;" src="${cam.url}" allow="autoplay" allowfullscreen></iframe>`;
+  } else if (cam.type === 'http' && cam.url) {
+    content.innerHTML = `<img style="width:100%;height:100%;object-fit:contain;" src="${cam.url}" alt="Flux">`;
+  } else {
+    content.innerHTML = `<div class="icon">📷</div><p>Flux : ${cam.url || cam.ip || 'URL non configurée'}</p><p style="font-size:12px;color:var(--muted);margin-top:8px;">Configurez l'URL RTSP/HTTP pour voir le flux</p>`;
+  }
+  document.getElementById('fullscreen').classList.add('open');
+}
+
+function closeFullscreen() {
+  document.getElementById('fullscreen').classList.remove('open');
+  document.getElementById('fs-content').innerHTML = '<div class="icon">📷</div><p>Flux vidéo</p>';
+}
+
+// ─── GRID VIEW ─────────────────────────────────────────────
+function setGrid(n, btn) {
+  const grid = document.getElementById('cam-grid');
+  grid.className = 'cam-grid g' + n;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ─── EVENTS ────────────────────────────────────────────────
+function addEvent(type, cam, msg) {
+  const now = new Date().toLocaleTimeString('fr-FR');
+  events.unshift({ type, cam, msg, time: now });
+  if (type === 'alert' || type === 'motion') {
+    alertCount++;
+    const badge = document.getElementById('alerts-badge');
+    badge.style.display = 'block';
+    badge.textContent = alertCount + ' alerte' + (alertCount > 1 ? 's' : '');
+  }
+  renderEvents();
+}
+
+function renderEvents() {
+  const list = document.getElementById('events-list');
+  if (events.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Aucun événement</div>';
+    return;
+  }
+  list.innerHTML = events.slice(0,50).map(e => `
+    <div class="event-item">
+      <div class="event-dot ${e.type}"></div>
+      <div class="event-info">
+        <div class="event-title">${e.cam}</div>
+        <div class="event-meta">${e.msg}</div>
+      </div>
+      <div class="event-time">${e.time}</div>
+    </div>
+  `).join('');
+}
+
+function clearEvents() { events = []; alertCount = 0; document.getElementById('alerts-badge').style.display='none'; renderEvents(); }
+
+// ─── MOTION SIMULATION ────────────────────────────────────
+function startMotionSimulation() {
+  setInterval(() => {
+    const onlineCams = cameras.filter(c => c.online && c.motion);
+    if (onlineCams.length === 0) return;
+    if (Math.random() > 0.85) {
+      const cam = onlineCams[Math.floor(Math.random() * onlineCams.length)];
+      triggerMotion(cam.id, cam.name);
+    }
+  }, 8000);
+}
+
+function triggerMotion(id, name) {
+  const motionEl = document.getElementById('motion-' + id);
+  if (motionEl) { motionEl.classList.add('show'); setTimeout(() => motionEl.classList.remove('show'), 5000); }
+  const card = document.getElementById('card-' + id);
+  if (card) { card.classList.add('alert'); setTimeout(() => card.classList.remove('alert'), 5000); }
+  addEvent('motion', name, 'Mouvement détecté');
+}
+
+function toggleMotion(id) {
+  const cam = cameras.find(c => c.id === id);
+  if (cam) { cam.motion = !cam.motion; showToast((cam.motion ? '🔔 Alertes activées' : '🔕 Alertes désactivées') + ' pour ' + cam.name); }
+}
+
+// ─── STATS ─────────────────────────────────────────────────
+function updateStats() {
+  const total = cameras.length;
+  const online = cameras.filter(c => c.online).length;
+  const offline = total - online;
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-online').textContent = online;
+  document.getElementById('s-offline').textContent = offline;
+  document.getElementById('s-alerts').textContent = alertCount;
+  document.getElementById('active-count').textContent = online;
+}
+
+// ─── SECTION NAV ───────────────────────────────────────────
+function showSection(name) {
+  ['live','events','recordings','cameras','settings'].forEach(s => {
+    document.getElementById('section-'+s).style.display = s === name ? 'block' : 'none';
+    document.getElementById('nav-'+s)?.classList.toggle('active', s === name);
+  });
+  if (name === 'cameras') renderCamsSettings();
+  if (name === 'recordings') renderRecordings();
+}
+
+function renderRecordings() {
+  const list = document.getElementById('rec-list');
+  const days = ['Aujourd\'hui','Hier','Il y a 2 jours'];
+  list.innerHTML = days.map(d => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:left;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${d}</div>
+      <div style="font-size:13px;font-weight:600;">${cameras.filter(c=>c.online).length} caméras enregistrées</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">${Math.floor(Math.random()*20+4)}h de vidéo</div>
+    </div>
+  `).join('');
+}
+
+// ─── TOAST ─────────────────────────────────────────────────
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (err ? ' err' : '');
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Init
+updateProtoHelp();
+</script>
+</body>
+</html>
