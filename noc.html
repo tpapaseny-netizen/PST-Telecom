@@ -625,11 +625,14 @@ async function nocDeleteCam(id) {
 async function addCamera() {
   const clientSel = document.getElementById('m-client').value;
   const clientNew = document.getElementById('m-new-client').value.trim();
-  const client = clientNew || clientSel;
+  // Ignorer la valeur par défaut "-- Sélectionner --"
+  const clientSelValid = (clientSel && clientSel !== '' && !clientSel.includes('Sélectionner')) ? clientSel : '';
+  const client = clientNew || clientSelValid;
   const name = document.getElementById('m-name').value.trim();
   const url = document.getElementById('m-url').value.trim();
 
-  if (!client || !name) { showToast('⚠️ Client et nom requis', true); return; }
+  if (!name) { showToast('⚠️ Le nom de la caméra est requis', true); return; }
+  if (!client) { showToast('⚠️ Sélectionnez ou tapez un client', true); return; }
 
   const cam = {
     id: 'noc' + Date.now(),
