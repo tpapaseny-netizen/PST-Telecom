@@ -128,6 +128,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
     <div class="nav-section">
       <div class="nav-label">Liens rapides</div>
       <div class="nav-item" onclick="window.open('/securcam')"><span class="nav-icon">👁</span> Portail client</div>
+      <div class="nav-item" onclick="window.open('/noc?token=pst-admin-2026')"><span class="nav-icon">📺</span> NOC Center</div>
       <div class="nav-item" onclick="window.open('/admin')"><span class="nav-icon">🔧</span> Admin PST principal</div>
     </div>
     <div class="sidebar-footer">
@@ -327,14 +328,27 @@ async function init() {
   renderCameras();
   renderBilling();
   startAlertSimulation();
+  // Refresh automatique toutes les 30 secondes
+  setInterval(async () => {
+    await loadClients();
+    renderDashboard();
+    renderClients();
+    renderCameras();
+  }, 30000);
 }
 
 async function loadClients() {
   try {
     const res = await fetch(API + '/api/securcam/clients');
     const data = await res.json();
-    if (data.clients) clients = data.clients;
+    if (data.clients && data.clients.length > 0) {
+      clients = data.clients;
+      console.log('Clients chargés depuis API:', clients.length);
+    } else {
+      console.log('Aucun client en DB, utilisation des données démo');
+    }
   } catch(e) {
+    console.warn('API non disponible:', e.message);
     // Données de démo
     clients = [
       { code:'DEMO', name:'École Privée Demo', type:'École / Université', contact:'Papa Seny Touré', tel:'+221771520959', email:'demo@ecole.sn', addr:'Dakar', plan:'business', tarif:75000, status:'active', createdAt:new Date().toISOString(),
