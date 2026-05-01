@@ -611,15 +611,22 @@ function nocEditCam(id) {
 
 async function nocDeleteCam(id) {
   const cam = allCameras.find(c=>c.id===id);
-  if (!confirm('Supprimer la caméra "' + (cam?.name||id) + '" ?')) return;
-  allCameras = allCameras.filter(c=>c.id!==id);
-  filteredCameras = filteredCameras.filter(c=>c.id!==id);
+  if (!confirm('Supprimer "' + (cam?.name||id) + '" ?')) return;
   try {
+    // Supprimer en DB
     await fetch(API + '/api/noc/cameras/' + id, { method: 'DELETE' });
-  } catch(e) {}
-  renderAll();
-  if (cam) addAlert('offline', cam.name, cam.client, 'Caméra supprimée du NOC');
-  showToast('🗑 Caméra "' + (cam?.name||'') + '" supprimée');
+    // Recharger depuis la DB pour éviter les doublons
+    await loadCameras();
+    renderAll();
+    if (cam) addAlert('offline', cam.name, cam.client, 'Caméra supprimée du NOC');
+    showToast('🗑 "' + (cam?.name||'') + '" supprimée');
+  } catch(e) {
+    // Fallback local
+    allCameras = allCameras.filter(c=>c.id!==id);
+    filteredCameras = filteredCameras.filter(c=>c.id!==id);
+    renderAll();
+    showToast('🗑 Caméra supprimée');
+  }
 }
 
 async function addCamera() {
