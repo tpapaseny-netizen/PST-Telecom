@@ -145,6 +145,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <div class="topbar-title" id="page-title">📊 Tableau de bord SecurCam</div>
       <div class="topbar-right">
         <div class="tb-clock" id="clock"></div>
+        <button onclick="syncWithNOC()" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#06B6D4;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync NOC</button>
         <button class="tb-btn" onclick="openAddClient()">+ Nouveau client</button>
         <a href="https://pst-telecom-production.up.railway.app/admin" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-size:12px;text-decoration:none;">← Admin PST</a>
       </div>
@@ -328,6 +329,8 @@ async function init() {
   renderCameras();
   renderBilling();
   startAlertSimulation();
+  // Sync NOC au démarrage
+  setTimeout(() => syncWithNOC(), 2000);
   // Refresh automatique toutes les 30 secondes
   setInterval(async () => {
     await loadClients();
@@ -390,10 +393,24 @@ async function loadDevis() {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────
+async function syncWithNOC() {
+  try {
+    const res = await fetch(API + '/api/noc/sync', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      console.log('Sync NOC->SecurCam:', data);
+      await loadClients();
+      renderDashboard();
+      renderClients();
+      renderCameras();
+    }
+  } catch(e) { console.warn('Sync échoué:', e.message); }
+}
+
 function renderDashboard() {
   const allCams = clients.flatMap(c => c.cameras || []);
-  const online = allCams.filter(c => c.online).length;
-  document.getElementById('kpi-clients').textContent = clients.filter(c=>c.status==='active').length;
+  const online = allCams.filter(c => c.online !== false).length;
+  document.getElementById('kpi-clients').textContent = clients.filter(c=>c.status==='active').length || clients.length;
   document.getElementById('kpi-cams').textContent = allCams.length;
   document.getElementById('kpi-online').textContent = online;
   document.getElementById('kpi-alerts').textContent = allAlerts.length;
