@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PST NOC — Centre de Supervision</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020508;--surface:#060E18;--surface2:#0A1525;--border:rgba(255,255,255,0.05);
+  --cyan:#00D4FF;--green:#00FF88;--red:#FF3B3B;--orange:#FF9500;--yellow:#FFD60A;
+  --text:#C8D8E8;--muted:#3A5570;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+
+/* TOPBAR */
+.topbar{
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:relative;z-index:100;flex-shrink:0;
+}
+.tb-left{display:flex;align-items:center;gap:16px;}
+.brand{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:-0.5px;}
+.brand span{color:var(--cyan);}
+.noc-badge{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);color:var(--cyan);font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;letter-spacing:1px;text-transform:uppercase;}
+.tb-stats{display:flex;gap:20px;}
+.tb-stat{display:flex;align-items:center;gap:6px;font-size:12px;}
+.tb-stat-dot{width:6px;height:6px;border-radius:50%;}
+.tb-stat-dot.green{background:var(--green);box-shadow:0 0 6px var(--green);}
+.tb-stat-dot.red{background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse 1s infinite;}
+.tb-stat-dot.orange{background:var(--orange);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.tb-right{display:flex;align-items:center;gap:12px;}
+.clock{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);}
+.tb-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.tb-btn:hover{border-color:rgba(0,212,255,0.3);color:var(--cyan);}
+.tb-btn.active{background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--cyan);}
+.alert-badge{background:var(--red);color:#fff;border-radius:100px;font-size:10px;font-weight:700;padding:2px 8px;animation:pulse 2s infinite;cursor:pointer;}
+
+/* LAYOUT */
+.layout{display:flex;height:calc(100vh - 52px);}
+
+/* SIDEBAR */
+.sidebar{
+  width:200px;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;
+}
+.sidebar-section{padding:10px 0;}
+.sidebar-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;padding:0 12px;margin-bottom:4px;}
+.filter-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;border-left:2px solid transparent;width:100%;}
+.filter-btn:hover{color:var(--text);background:rgba(255,255,255,0.02);}
+.filter-btn.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,212,255,0.05);}
+.filter-count{margin-left:auto;background:var(--surface2);border-radius:100px;font-size:9px;padding:1px 6px;color:var(--muted);}
+.filter-count.alert{background:rgba(255,59,59,0.2);color:var(--red);}
+
+.client-item{padding:6px 12px;cursor:pointer;transition:all .15s;border-left:2px solid transparent;}
+.client-item:hover{background:rgba(255,255,255,0.02);}
+.client-item.active{border-left-color:var(--cyan);background:rgba(0,212,255,0.04);}
+.client-name{font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.client-meta{font-size:9px;color:var(--muted);margin-top:1px;}
+.client-dot{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:4px;}
+.client-dot.online{background:var(--green);}
+.client-dot.partial{background:var(--orange);}
+.client-dot.offline{background:var(--red);}
+
+/* GRID CONTROLS */
+.grid-controls{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.grid-label{font-size:11px;color:var(--muted);margin-right:4px;}
+.grid-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .2s;font-family:'JetBrains Mono',monospace;}
+.grid-btn:hover{color:var(--text);}
+.grid-btn.active{background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--cyan);}
+.spacer{flex:1;}
+.search-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);font-size:11px;font-family:'DM Sans',sans-serif;outline:none;width:160px;}
+.search-box:focus{border-color:rgba(0,212,255,0.3);}
+.add-cam-btn{background:var(--cyan);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
+/* MAIN CONTENT */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.cam-viewport{flex:1;overflow-y:auto;padding:6px;background:var(--bg);}
+
+/* CAM GRID */
+.cam-grid{display:grid;gap:4px;height:100%;}
+.cam-grid.g1{grid-template-columns:1fr;}
+.cam-grid.g4{grid-template-columns:repeat(2,1fr);}
+.cam-grid.g9{grid-template-columns:repeat(3,1fr);}
+.cam-grid.g16{grid-template-columns:repeat(4,1fr);}
+.cam-grid.g25{grid-template-columns:repeat(5,1fr);}
+.cam-grid.g36{grid-template-columns:repeat(6,1fr);}
+
+/* CAM CELL */
+.cam-cell{
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  overflow:hidden;position:relative;aspect-ratio:16/9;cursor:pointer;
+  transition:border-color .2s;
+}
+.cam-cell:hover{border-color:rgba(0,212,255,0.3);}
+.cam-cell.selected{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan);}
+.cam-cell.alert-cam{border-color:var(--red);animation:alertBlink 1.5s infinite;}
+@keyframes alertBlink{0%,100%{border-color:rgba(255,59,59,0.4)}50%{border-color:var(--red);box-shadow:0 0 8px rgba(255,59,59,0.4)}}
+.cam-cell.offline-cam{opacity:0.5;}
+
+/* CAM FEED */
+.cam-feed{width:100%;height:100%;object-fit:cover;}
+.cam-iframe{width:100%;height:100%;border:none;pointer-events:none;}
+.cam-placeholder{
+  width:100%;height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;
+  background:linear-gradient(135deg,#030810,#060f20);
+}
+.cam-placeholder-icon{font-size:20px;opacity:0.2;}
+.cam-placeholder-text{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center;}
+
+/* CAM OVERLAY */
+.cam-overlay{position:absolute;inset:0;pointer-events:none;}
+.cam-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);}
+.cam-bottom{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);}
+.cam-rec{display:flex;align-items:center;gap:3px;background:rgba(255,59,59,0.85);border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;color:#fff;}
+.cam-rec-dot{width:4px;height:4px;background:#fff;border-radius:50%;animation:pulse 1s infinite;}
+.cam-ts{font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,0.7);}
+.cam-name-tag{font-size:9px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%;}
+.cam-client-tag{font-size:8px;color:rgba(0,212,255,0.8);font-family:'JetBrains Mono',monospace;}
+.cam-motion-alert{position:absolute;top:0;left:0;right:0;bottom:0;border:2px solid var(--orange);border-radius:6px;display:none;pointer-events:none;}
+.cam-motion-alert.show{display:block;animation:motionPulse 0.5s infinite alternate;}
+@keyframes motionPulse{0%{opacity:0.4}100%{opacity:1}}
+.cam-offline-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;}
+.cam-offline-txt{font-size:10px;color:var(--red);font-weight:600;}
+
+/* FULLSCREEN */
+.fullscreen{position:fixed;inset:0;background:#000;z-index:500;display:none;flex-direction:column;}
+.fullscreen.open{display:flex;}
+.fs-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(6,14,24,0.95);position:absolute;top:0;left:0;right:0;z-index:1;}
+.fs-cam-name{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;}
+.fs-close{background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fs-content{flex:1;display:flex;align-items:center;justify-content:center;padding-top:50px;}
+.fs-iframe{width:100%;height:100%;border:none;}
+
+/* ALERTS PANEL */
+.alerts-panel{
+  width:260px;background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;transition:width .3s;
+}
+.alerts-panel.collapsed{width:0;overflow:hidden;}
+.alerts-header{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.alerts-title{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;}
+.alerts-list{flex:1;overflow-y:auto;padding:6px;}
+.alert-item{background:var(--surface2);border-radius:6px;padding:8px 10px;margin-bottom:4px;border-left:2px solid var(--orange);}
+.alert-item.motion{border-left-color:var(--orange);}
+.alert-item.offline{border-left-color:var(--red);}
+.alert-item.online{border-left-color:var(--green);}
+.alert-cam{font-size:11px;font-weight:600;color:var(--text);}
+.alert-client{font-size:9px;color:var(--muted);}
+.alert-msg{font-size:10px;color:var(--muted);margin-top:2px;}
+.alert-time{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;float:right;}
+
+/* ADD CAM MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg.full{grid-column:1/-1;}
+.fg label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.fg input,.fg select,.fg textarea{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:rgba(0,212,255,0.4);}
+.fg select option{background:#060E18;}
+.proto-help{background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.1);border-radius:6px;padding:8px 10px;font-size:10px;color:var(--muted);line-height:1.8;margin-top:2px;}
+.proto-help code{color:var(--cyan);font-family:'JetBrains Mono',monospace;}
+.btn-submit{width:100%;background:var(--cyan);color:#000;border:none;border-radius:8px;padding:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;cursor:pointer;margin-top:12px;transition:all .2s;}
+.btn-submit:hover{opacity:0.9;}
+
+/* TOAST */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--surface);border:1px solid rgba(0,212,255,0.3);border-radius:8px;padding:10px 16px;font-size:12px;z-index:999;transform:translateY(50px);opacity:0;transition:all .3s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.err{border-color:rgba(255,59,59,0.4);}
+
+/* ROTATE INDICATOR */
+.rotate-indicator{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:100px;padding:4px 16px;font-size:11px;color:var(--cyan);display:none;}
+.rotate-indicator.show{display:block;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <div class="brand">P<span>S</span>T <span style="color:#fff;font-weight:400;">NOC</span></div>
+    <div class="noc-badge">Centre de supervision</div>
+    <div class="tb-stats">
+      <div class="tb-stat"><div class="tb-stat-dot green"></div><span id="stat-online">0</span> en ligne</div>
+      <div class="tb-stat"><div class="tb-stat-dot red"></div><span id="stat-offline">0</span> hors ligne</div>
+      <div class="tb-stat"><div class="tb-stat-dot orange"></div><span id="stat-alerts">0</span> alertes</div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <button class="tb-btn" onclick="toggleRotate()" id="rotate-btn">⟳ Rotation</button>
+    <button class="tb-btn active" onclick="toggleAlerts()" id="alerts-toggle-btn">🔔 Alertes</button>
+    <button class="tb-btn" onclick="toggleFullscreenMode()">⛶ Plein écran</button>
+    <a href="/securcam-admin?token=pst-admin-2026" class="tb-btn" style="text-decoration:none;">← Admin</a>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Vue</div>
+      <div class="filter-btn active" onclick="filterCams('all',this)" id="filter-all">
+        <span>🌍 Tous les clients</span>
+        <span class="filter-count" id="fc-all">0</span>
+      </div>
+      <div class="filter-btn" onclick="filterCams('online',this)">
+        <span>🟢 En ligne</span>
+        <span class="filter-count" id="fc-online">0</span>
+      </div>
+      <div class="filter-btn" onclick="filterCams('offline',this)">
+        <span>🔴 Hors ligne</span>
+        <span class="filter-count" id="fc-offline">0</span>
+      </div>
+      <div class="filter-btn" onclick="filterCams('alert',this)">
+        <span>⚡ Alertes</span>
+        <span class="filter-count alert" id="fc-alert">0</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Clients (<span id="client-count">0</span>)</div>
+      <div id="clients-list"></div>
+    </div>
+    <div style="padding:10px 12px;margin-top:auto;border-top:1px solid var(--border);">
+      <button onclick="openAddCam()" style="width:100%;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);color:var(--cyan);border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;">+ Ajouter caméra</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- GRID CONTROLS -->
+    <div class="grid-controls">
+      <span class="grid-label">Grille :</span>
+      <button class="grid-btn" onclick="setGrid(1,this)">1</button>
+      <button class="grid-btn active" onclick="setGrid(4,this)">2×2</button>
+      <button class="grid-btn" onclick="setGrid(9,this)">3×3</button>
+      <button class="grid-btn" onclick="setGrid(16,this)">4×4</button>
+      <button class="grid-btn" onclick="setGrid(25,this)">5×5</button>
+      <button class="grid-btn" onclick="setGrid(36,this)">6×6</button>
+      <div class="spacer"></div>
+      <input type="text" class="search-box" placeholder="🔍 Rechercher caméra..." oninput="searchCams(this.value)">
+      <button class="add-cam-btn" onclick="openAddCam()">+ Ajouter</button>
+    </div>
+
+    <!-- CAM VIEWPORT -->
+    <div class="cam-viewport">
+      <div class="cam-grid g4" id="cam-grid"></div>
+    </div>
+  </div>
+
+  <!-- ALERTS PANEL -->
+  <div class="alerts-panel" id="alerts-panel">
+    <div class="alerts-header">
+      <div class="alerts-title">🔔 Alertes live</div>
+      <button onclick="clearAlerts()" style="background:transparent;border:none;color:var(--muted);font-size:10px;cursor:pointer;">Effacer</button>
+    </div>
+    <div class="alerts-list" id="alerts-list">
+      <div style="text-align:center;padding:20px;color:var(--muted);font-size:11px;">Aucune alerte</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FULLSCREEN -->
+<div class="fullscreen" id="fullscreen">
+  <div class="fs-topbar">
+    <div>
+      <div class="fs-cam-name" id="fs-name">Caméra</div>
+      <div style="font-size:11px;color:var(--muted);" id="fs-client">Client</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="cam-rec"><div class="cam-rec-dot"></div>LIVE</div>
+      <button class="fs-close" onclick="closeFullscreen()">✕ Fermer</button>
+    </div>
+  </div>
+  <div class="fs-content" id="fs-content"></div>
+</div>
+
+<!-- ADD CAM MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">
+      📷 Ajouter une caméra au NOC
+      <button class="modal-close" onclick="closeAddCam()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="fg full">
+        <label>Client / Entreprise *</label>
+        <select id="m-client">
+          <option value="">-- Sélectionner ou taper --</option>
+        </select>
+      </div>
+      <div class="fg full">
+        <label>Nouveau client (si pas dans la liste)</label>
+        <input type="text" id="m-new-client" placeholder="Nom de l'entreprise">
+      </div>
+      <div class="fg full">
+        <label>Nom de la caméra *</label>
+        <input type="text" id="m-name" placeholder="Entrée principale, Couloir A...">
+      </div>
+      <div class="fg">
+        <label>Type de flux</label>
+        <select id="m-type" onchange="updateHelp()">
+          <option value="embed">URL Embed (YouTube Live, cloud cam)</option>
+          <option value="hls">HLS Stream (.m3u8)</option>
+          <option value="http">HTTP/MJPEG</option>
+          <option value="rtsp">RTSP (via proxy)</option>
+          <option value="placeholder">Placeholder (à configurer)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Marque</label>
+        <select id="m-brand">
+          <option>Hikvision</option><option>Dahua</option>
+          <option>TP-Link Tapo</option><option>Reolink</option>
+          <option>Axis</option><option>Foscam</option>
+          <option>Amcrest</option><option>Autre</option>
+        </select>
+      </div>
+      <div class="fg full">
+        <label>URL du flux *</label>
+        <input type="text" id="m-url" placeholder="https://... ou rtsp://...">
+        <div class="proto-help" id="proto-help">
+          <strong style="color:#fff;">Embed :</strong> URL d'intégration YouTube Live ou portail cloud<br>
+          Ex: <code>https://www.youtube.com/embed/VIDEOID?autoplay=1&mute=1</code><br>
+          <strong style="color:#fff;">Hik-Connect :</strong> Copiez le lien de partage depuis l'app
+        </div>
+      </div>
+      <div class="fg">
+        <label>Localisation</label>
+        <input type="text" id="m-loc" placeholder="Dakar, Thiès...">
+      </div>
+      <div class="fg">
+        <label>Zone / Bâtiment</label>
+        <input type="text" id="m-zone" placeholder="Entrée, Couloir, Parking...">
+      </div>
+    </div>
+    <button class="btn-submit" onclick="addCamera()">✅ Ajouter au NOC</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="rotate-indicator" id="rotate-indicator">⟳ Rotation automatique active</div>
+
+<script>
+const API = 'https://pst-telecom-production.up.railway.app';
+
+// ─── STATE ─────────────────────────────────────────────────
+let allCameras = [];
+let filteredCameras = [];
+let gridSize = 4;
+let currentPage = 0;
+let alertsOpen = true;
+let alerts = [];
+let rotateInterval = null;
+let rotateActive = false;
+let searchQuery = '';
+let activeFilter = 'all';
+let selectedClient = null;
+
+// ─── DEMO DATA ─────────────────────────────────────────────
+const DEMO_CAMERAS = [
+  // École Privée Demo
+  {id:'n1',client:'École Privée Demo',name:'Entrée principale',type:'embed',url:'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1',brand:'Hikvision',loc:'Dakar',zone:'Entrée',online:true,hasAlert:false},
+  {id:'n2',client:'École Privée Demo',name:'Cour de récréation',type:'embed',url:'https://www.youtube.com/embed/ydYDqZQpnHU?autoplay=1&mute=1',brand:'Dahua',loc:'Dakar',zone:'Cour',online:true,hasAlert:false},
+  {id:'n3',client:'École Privée Demo',name:'Couloir Bât A',type:'placeholder',url:'',brand:'TP-Link',loc:'Dakar',zone:'Couloir',online:false,hasAlert:false},
+  {id:'n4',client:'École Privée Demo',name:'Salle des profs',type:'placeholder',url:'',brand:'Reolink',loc:'Dakar',zone:'Intérieur',online:true,hasAlert:false},
+  // Clinique Santé Plus
+  {id:'n5',client:'Clinique Santé Plus',name:'Urgences',type:'embed',url:'https://www.youtube.com/embed/86YLFOog4GM?autoplay=1&mute=1',brand:'Hikvision',loc:'Thiès',zone:'RDC',online:true,hasAlert:false},
+  {id:'n6',client:'Clinique Santé Plus',name:'Parking',type:'placeholder',url:'',brand:'Axis',loc:'Thiès',zone:'Ext',online:true,hasAlert:false},
+  {id:'n7',client:'Clinique Santé Plus',name:'Pharmacie',type:'placeholder',url:'',brand:'Dahua',loc:'Thiès',zone:'1er',online:true,hasAlert:false},
+  {id:'n8',client:'Clinique Santé Plus',name:"Salle d'attente",type:'placeholder',url:'',brand:'Reolink',loc:'Thiès',zone:'RDC',online:false,hasAlert:false},
+  // Supermarché Diallo
+  {id:'n9',client:'Supermarché Diallo',name:'Caisse principale',type:'embed',url:'https://www.youtube.com/embed/5qap5aO4i9A?autoplay=1&mute=1',brand:'TP-Link',loc:'Saint-Louis',zone:'RDC',online:true,hasAlert:false},
+  {id:'n10',client:'Supermarché Diallo',name:'Réserve',type:'placeholder',url:'',brand:'Foscam',loc:'Saint-Louis',zone:'Arrière',online:true,hasAlert:false},
+  // Institut Technique
+  {id:'n11',client:'Institut Technique Touba',name:'Portail',type:'placeholder',url:'',brand:'Hikvision',loc:'Touba',zone:'Entrée',online:true,hasAlert:false},
+  {id:'n12',client:'Institut Technique Touba',name:'Amphithéâtre',type:'placeholder',url:'',brand:'Dahua',loc:'Touba',zone:'Bât B',online:true,hasAlert:false},
+];
+
+// ─── INIT ──────────────────────────────────────────────────
+async function init() {
+  startClock();
+  await loadCameras();
+  renderAll();
+  startMotionSimulation();
+  populateClientSelect();
+}
+
+async function loadCameras() {
+  try {
+    const res = await fetch(API + '/api/noc/cameras');
+    const data = await res.json();
+    if (data.cameras && data.cameras.length > 0) {
+      allCameras = data.cameras;
+    } else {
+      allCameras = [...DEMO_CAMERAS];
+    }
+  } catch(e) {
+    allCameras = [...DEMO_CAMERAS];
+  }
+  filteredCameras = [...allCameras];
+}
+
+// ─── RENDER ────────────────────────────────────────────────
+function renderAll() {
+  renderStats();
+  renderClients();
+  renderGrid();
+}
+
+function renderStats() {
+  const online = allCameras.filter(c=>c.online).length;
+  const offline = allCameras.filter(c=>!c.online).length;
+  const alertCount = allCameras.filter(c=>c.hasAlert).length;
+  document.getElementById('stat-online').textContent = online;
+  document.getElementById('stat-offline').textContent = offline;
+  document.getElementById('stat-alerts').textContent = alertCount;
+  document.getElementById('fc-all').textContent = allCameras.length;
+  document.getElementById('fc-online').textContent = online;
+  document.getElementById('fc-offline').textContent = offline;
+  document.getElementById('fc-alert').textContent = alertCount;
+}
+
+function renderClients() {
+  const clients = [...new Set(allCameras.map(c=>c.client))];
+  document.getElementById('client-count').textContent = clients.length;
+  document.getElementById('clients-list').innerHTML = clients.map(cl => {
+    const cams = allCameras.filter(c=>c.client===cl);
+    const onlineCount = cams.filter(c=>c.online).length;
+    const status = onlineCount === cams.length ? 'online' : onlineCount === 0 ? 'offline' : 'partial';
+    return `<div class="client-item ${selectedClient===cl?'active':''}" onclick="filterByClient('${cl}',this)">
+      <div class="client-name"><span class="client-dot ${status}"></span>${cl}</div>
+      <div class="client-meta">${onlineCount}/${cams.length} caméras</div>
+    </div>`;
+  }).join('');
+}
+
+function renderGrid() {
+  const grid = document.getElementById('cam-grid');
+  const cams = filteredCameras;
+  if (cams.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);gap:12px;"><div style="font-size:48px;opacity:0.2;">📷</div><div style="font-size:14px;">Aucune caméra</div><button onclick="openAddCam()" style="background:var(--cyan);color:#000;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:12px;">+ Ajouter une caméra</button></div>';
+    return;
+  }
+  grid.innerHTML = cams.map(cam => createCamCell(cam)).join('');
+  // Mettre à jour les timestamps
+  updateTimestamps();
+}
+
+function createCamCell(cam) {
+  let feedHTML = '';
+  if (!cam.online) {
+    feedHTML = `<div class="cam-placeholder"><div class="cam-placeholder-icon">⚠️</div><div class="cam-placeholder-text">HORS LIGNE</div></div>`;
+  } else if (cam.type === 'embed' && cam.url) {
+    feedHTML = `<iframe class="cam-iframe" src="${cam.url}" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+  } else if (cam.type === 'http' && cam.url) {
+    feedHTML = `<img class="cam-feed" src="${cam.url}" onerror="this.parentElement.innerHTML='<div class=\\'cam-placeholder\\'><div class=\\'cam-placeholder-icon\\'>📷</div><div class=\\'cam-placeholder-text\\'>Flux non disponible</div></div>'" alt="">`;
+  } else {
+    feedHTML = `<div class="cam-placeholder"><div class="cam-placeholder-icon">📷</div><div class="cam-placeholder-text">${cam.brand||''}\n${cam.zone||''}</div></div>`;
+  }
+
+  return `<div class="cam-cell ${cam.hasAlert?'alert-cam':''} ${!cam.online?'offline-cam':''}" id="cell-${cam.id}" ondblclick="openFullscreen('${cam.id}')">
+    ${feedHTML}
+    <div class="cam-overlay">
+      <div class="cam-top">
+        ${cam.online ? '<div class="cam-rec"><div class="cam-rec-dot"></div>LIVE</div>' : '<div style="background:rgba(255,59,59,0.8);border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;color:#fff;">OFFLINE</div>'}
+        <div class="cam-ts" id="ts-${cam.id}"></div>
+      </div>
+      <div class="cam-bottom">
+        <div class="cam-name-tag">${cam.name}</div>
+        <div class="cam-client-tag">${cam.client}</div>
+      </div>
+      <div class="cam-motion-alert" id="motion-${cam.id}"></div>
+      ${!cam.online ? '<div class="cam-offline-overlay"><div style="font-size:20px;">⚠️</div><div class="cam-offline-txt">HORS LIGNE</div></div>' : ''}
+    </div>
+  </div>`;
+}
+
+function updateTimestamps() {
+  const now = new Date().toLocaleTimeString('fr-FR');
+  document.querySelectorAll('[id^="ts-"]').forEach(el => { el.textContent = now; });
+}
+
+// ─── GRID SIZE ─────────────────────────────────────────────
+function setGrid(n, btn) {
+  gridSize = n;
+  document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = document.getElementById('cam-grid');
+  grid.className = 'cam-grid g' + n;
+}
+
+// ─── FILTERS ───────────────────────────────────────────────
+function filterCams(type, btn) {
+  activeFilter = type;
+  selectedClient = null;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.client-item').forEach(b => b.classList.remove('active'));
+
+  switch(type) {
+    case 'all': filteredCameras = [...allCameras]; break;
+    case 'online': filteredCameras = allCameras.filter(c=>c.online); break;
+    case 'offline': filteredCameras = allCameras.filter(c=>!c.online); break;
+    case 'alert': filteredCameras = allCameras.filter(c=>c.hasAlert); break;
+  }
+  if (searchQuery) applySearch();
+  renderGrid();
+}
+
+function filterByClient(client, el) {
+  selectedClient = selectedClient === client ? null : client;
+  document.querySelectorAll('.client-item').forEach(b => b.classList.remove('active'));
+  if (selectedClient) {
+    el.classList.add('active');
+    filteredCameras = allCameras.filter(c=>c.client===client);
+  } else {
+    filteredCameras = [...allCameras];
+  }
+  if (searchQuery) applySearch();
+  renderGrid();
+}
+
+function searchCams(q) {
+  searchQuery = q.toLowerCase();
+  applySearch();
+  renderGrid();
+}
+
+function applySearch() {
+  if (!searchQuery) return;
+  filteredCameras = filteredCameras.filter(c =>
+    c.name.toLowerCase().includes(searchQuery) ||
+    c.client.toLowerCase().includes(searchQuery) ||
+    (c.zone||'').toLowerCase().includes(searchQuery) ||
+    (c.loc||'').toLowerCase().includes(searchQuery)
+  );
+}
+
+// ─── ADD CAMERA ────────────────────────────────────────────
+function openAddCam() {
+  populateClientSelect();
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddCam() { document.getElementById('add-modal').classList.remove('open'); }
+
+function populateClientSelect() {
+  const clients = [...new Set(allCameras.map(c=>c.client))];
+  const sel = document.getElementById('m-client');
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' + clients.map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+
+function updateHelp() {
+  const type = document.getElementById('m-type').value;
+  const helps = {
+    embed: '🔵 <strong>Embed :</strong> URL YouTube Live ou portail cloud caméra<br>Ex: <code>https://www.youtube.com/embed/ID?autoplay=1&mute=1</code>',
+    hls: '🟢 <strong>HLS :</strong> <code>https://server.com/stream/index.m3u8</code>',
+    http: '🟡 <strong>MJPEG :</strong> <code>http://IP:port/video</code>',
+    rtsp: '🔴 <strong>RTSP :</strong> Nécessite un proxy HLS. Contactez PST pour la configuration.<br><code>rtsp://user:pass@IP:554/stream</code>',
+    placeholder: '⬜ Caméra ajoutée sans flux — à configurer plus tard'
+  };
+  document.getElementById('proto-help').innerHTML = helps[type] || '';
+}
+
+async function addCamera() {
+  const clientSel = document.getElementById('m-client').value;
+  const clientNew = document.getElementById('m-new-client').value.trim();
+  const client = clientNew || clientSel;
+  const name = document.getElementById('m-name').value.trim();
+  const url = document.getElementById('m-url').value.trim();
+
+  if (!client || !name) { showToast('⚠️ Client et nom requis', true); return; }
+
+  const cam = {
+    id: 'noc' + Date.now(),
+    client, name,
+    type: document.getElementById('m-type').value,
+    url, brand: document.getElementById('m-brand').value,
+    loc: document.getElementById('m-loc').value.trim(),
+    zone: document.getElementById('m-zone').value.trim(),
+    online: true, hasAlert: false
+  };
+
+  allCameras.push(cam);
+  filteredCameras = [...allCameras];
+
+  // Sauvegarder
+  try {
+    await fetch(API + '/api/noc/cameras', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(cam)
+    });
+  } catch(e) {}
+
+  renderAll();
+  closeAddCam();
+  addAlert('online', cam.name, cam.client, 'Nouvelle caméra connectée au NOC');
+  showToast('✅ ' + name + ' ajoutée au NOC');
+
+  ['m-name','m-url','m-loc','m-zone','m-new-client'].forEach(id => document.getElementById(id).value='');
+}
+
+// ─── FULLSCREEN ────────────────────────────────────────────
+function openFullscreen(id) {
+  const cam = allCameras.find(c=>c.id===id);
+  if (!cam) return;
+  document.getElementById('fs-name').textContent = cam.name;
+  document.getElementById('fs-client').textContent = cam.client + ' — ' + (cam.loc||'') + ' — ' + (cam.zone||'');
+  const content = document.getElementById('fs-content');
+  if (!cam.online) {
+    content.innerHTML = '<div style="text-align:center;color:var(--red);"><div style="font-size:64px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;">Caméra hors ligne</div></div>';
+  } else if (cam.type==='embed' && cam.url) {
+    content.innerHTML = `<iframe class="fs-iframe" src="${cam.url}" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+  } else if (cam.type==='http' && cam.url) {
+    content.innerHTML = `<img style="max-width:100%;max-height:100%;" src="${cam.url}" alt="Flux">`;
+  } else {
+    content.innerHTML = `<div style="text-align:center;color:var(--muted);"><div style="font-size:64px;margin-bottom:16px;opacity:0.2;">📷</div><div>${cam.brand} — ${cam.zone||''}</div><div style="font-size:12px;margin-top:8px;">Configurez l'URL pour afficher le flux</div></div>`;
+  }
+  document.getElementById('fullscreen').classList.add('open');
+}
+
+function closeFullscreen() {
+  document.getElementById('fullscreen').classList.remove('open');
+  document.getElementById('fs-content').innerHTML = '';
+}
+
+// ─── ROTATION AUTO ─────────────────────────────────────────
+function toggleRotate() {
+  rotateActive = !rotateActive;
+  const btn = document.getElementById('rotate-btn');
+  const indicator = document.getElementById('rotate-indicator');
+  if (rotateActive) {
+    btn.classList.add('active');
+    indicator.classList.add('show');
+    rotateInterval = setInterval(() => {
+      const total = filteredCameras.length;
+      if (total <= gridSize) return;
+      currentPage = (currentPage + 1) % Math.ceil(total / gridSize);
+      const start = currentPage * gridSize;
+      const pageCams = filteredCameras.slice(start, start + gridSize);
+      renderPagedGrid(pageCams);
+    }, 8000);
+    showToast('⟳ Rotation activée — toutes les 8 secondes');
+  } else {
+    btn.classList.remove('active');
+    indicator.classList.remove('show');
+    clearInterval(rotateInterval);
+    renderGrid();
+    showToast('⟳ Rotation désactivée');
+  }
+}
+
+function renderPagedGrid(cams) {
+  const grid = document.getElementById('cam-grid');
+  grid.innerHTML = cams.map(cam => createCamCell(cam)).join('');
+}
+
+// ─── ALERTS PANEL ──────────────────────────────────────────
+function toggleAlerts() {
+  alertsOpen = !alertsOpen;
+  document.getElementById('alerts-panel').classList.toggle('collapsed', !alertsOpen);
+  document.getElementById('alerts-toggle-btn').classList.toggle('active', alertsOpen);
+}
+
+function addAlert(type, camName, client, msg) {
+  const now = new Date().toLocaleTimeString('fr-FR');
+  alerts.unshift({type, camName, client, msg, time: now});
+  if (alerts.length > 100) alerts.pop();
+  renderAlerts();
+  updateStats_alerts();
+}
+
+function renderAlerts() {
+  const list = document.getElementById('alerts-list');
+  if (alerts.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:11px;">Aucune alerte</div>';
+    return;
+  }
+  list.innerHTML = alerts.slice(0,50).map(a => `
+    <div class="alert-item ${a.type}">
+      <span class="alert-time">${a.time}</span>
+      <div class="alert-cam">${a.camName}</div>
+      <div class="alert-client">${a.client}</div>
+      <div class="alert-msg">${a.msg}</div>
+    </div>
+  `).join('');
+}
+
+function clearAlerts() { alerts = []; renderAlerts(); updateStats_alerts(); }
+
+function updateStats_alerts() {
+  const motionAlerts = allCameras.filter(c=>c.hasAlert).length;
+  document.getElementById('stat-alerts').textContent = alerts.filter(a=>a.type==='motion').length;
+  document.getElementById('fc-alert').textContent = motionAlerts;
+}
+
+// ─── MOTION SIMULATION ────────────────────────────────────
+function startMotionSimulation() {
+  setInterval(() => {
+    const onlineCams = allCameras.filter(c=>c.online);
+    if (!onlineCams.length) return;
+    if (Math.random() > 0.8) {
+      const cam = onlineCams[Math.floor(Math.random()*onlineCams.length)];
+      triggerMotion(cam);
+    }
+    // Simuler caméra qui revient en ligne
+    const offlineCams = allCameras.filter(c=>!c.online);
+    if (offlineCams.length > 0 && Math.random() > 0.9) {
+      const cam = offlineCams[Math.floor(Math.random()*offlineCams.length)];
+      cam.online = true;
+      addAlert('online', cam.name, cam.client, 'Caméra reconnectée');
+      renderAll();
+    }
+  }, 6000);
+}
+
+function triggerMotion(cam) {
+  cam.hasAlert = true;
+  const motionEl = document.getElementById('motion-' + cam.id);
+  if (motionEl) motionEl.classList.add('show');
+  const cell = document.getElementById('cell-' + cam.id);
+  if (cell) cell.classList.add('alert-cam');
+  addAlert('motion', cam.name, cam.client, 'Mouvement détecté ⚡');
+  renderStats();
+  setTimeout(() => {
+    cam.hasAlert = false;
+    if (motionEl) motionEl.classList.remove('show');
+    if (cell) cell.classList.remove('alert-cam');
+    renderStats();
+  }, 8000);
+}
+
+// ─── FULLSCREEN MODE ───────────────────────────────────────
+function toggleFullscreenMode() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+// ─── CLOCK ─────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR') + ' — ' + new Date().toLocaleDateString('fr-FR');
+    updateTimestamps();
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ─── TOAST ─────────────────────────────────────────────────
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className='toast'+(err?' err':'');
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ─── KEYBOARD SHORTCUTS ────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') closeFullscreen();
+  if (e.key==='f'||e.key==='F') toggleFullscreenMode();
+  if (e.key==='r'||e.key==='R') toggleRotate();
+});
+
+init();
+</script>
+</body>
+</html>
