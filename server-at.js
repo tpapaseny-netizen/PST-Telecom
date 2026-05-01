@@ -252,6 +252,7 @@ function authAdmin(req, res, next) {
 }
 
 app.get('/admin', authAdmin, (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
+app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'xlsx.full.min.js')); });
 app.get('/sms-marketing', (req, res) => { res.sendFile(path.join(__dirname, 'sms-marketing.html')); });
 app.get('/appel', (req, res) => { res.sendFile(path.join(__dirname, 'appel.html')); });
 app.get('/dashboard', (req, res) => { res.sendFile(path.join(__dirname, 'dashboard.html')); });
@@ -1243,3 +1244,4 @@ connectDB().then(() => {
     console.log(`💾 MongoDB: ${db ? 'connecté' : 'mode mémoire'}\n`);
   });
 });
+
