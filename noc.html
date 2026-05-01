@@ -484,8 +484,8 @@ function createCamCell(cam) {
         <div class="cam-name-tag">${cam.name}</div>
         <div class="cam-client-tag">${cam.client}</div>
         <div class="cam-action-btns" style="display:flex;gap:4px;margin-top:4px;" onclick="event.stopPropagation()">
-          <button onclick="event.stopPropagation();editCam('${cam.id}')" style="background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.3);color:#00D4FF;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">✏️ Modifier</button>
-          <button onclick="event.stopPropagation();deleteCam('${cam.id}')" style="background:rgba(255,59,59,0.2);border:1px solid rgba(255,59,59,0.3);color:#FF3B3B;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">🗑 Supprimer</button>
+          <button onclick="event.stopPropagation();editCam(this)" data-id="${cam.id}" style="background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.3);color:#00D4FF;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">✏️ Modifier</button>
+          <button onclick="event.stopPropagation();deleteCam(this)" data-id="${cam.id}" style="background:rgba(255,59,59,0.2);border:1px solid rgba(255,59,59,0.3);color:#FF3B3B;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">🗑 Supprimer</button>
         </div>
       </div>
       <div class="cam-motion-alert" id="motion-${cam.id}"></div>
@@ -580,7 +580,8 @@ function updateHelp() {
   document.getElementById('proto-help').innerHTML = helps[type] || '';
 }
 
-function editCam(id) {
+function editCam(btn) {
+  const id = btn.dataset.id;
   const cam = allCameras.find(c=>c.id===id);
   if (!cam) return;
   // Remplir le formulaire avec les données existantes
@@ -597,7 +598,8 @@ function editCam(id) {
   openAddCam();
 }
 
-async function deleteCam(id) {
+async function deleteCam(btn) {
+  const id = btn.dataset.id;
   const cam = allCameras.find(c=>c.id===id);
   if (!confirm('Supprimer la caméra "' + (cam?.name||id) + '" ?')) return;
   allCameras = allCameras.filter(c=>c.id!==id);
