@@ -484,6 +484,7 @@ function createCamCell(cam) {
         <div class="cam-name-tag">${cam.name}</div>
         <div class="cam-client-tag">${cam.client}</div>
         <div class="cam-action-btns" style="display:flex;gap:4px;margin-top:4px;" onclick="event.stopPropagation()">
+          <button onclick="event.stopPropagation();openFullscreen('${cam.id}')" style="background:rgba(0,255,136,0.2);border:1px solid rgba(0,255,136,0.3);color:#00FF88;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">⛶ Zoom</button>
           <button onclick="event.stopPropagation();editCam(this)" data-id="${cam.id}" style="background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.3);color:#00D4FF;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">✏️ Modifier</button>
           <button onclick="event.stopPropagation();deleteCam(this)" data-id="${cam.id}" style="background:rgba(255,59,59,0.2);border:1px solid rgba(255,59,59,0.3);color:#FF3B3B;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">🗑 Supprimer</button>
         </div>
