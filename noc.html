@@ -372,45 +372,33 @@ let activeFilter = 'all';
 let selectedClient = null;
 
 // ─── DEMO DATA ─────────────────────────────────────────────
-const DEMO_CAMERAS = [
-  // École Privée Demo
-  {id:'n1',client:'École Privée Demo',name:'Entrée principale',type:'embed',url:'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1',brand:'Hikvision',loc:'Dakar',zone:'Entrée',online:true,hasAlert:false},
-  {id:'n2',client:'École Privée Demo',name:'Cour de récréation',type:'embed',url:'https://www.youtube.com/embed/ydYDqZQpnHU?autoplay=1&mute=1',brand:'Dahua',loc:'Dakar',zone:'Cour',online:true,hasAlert:false},
-  {id:'n3',client:'École Privée Demo',name:'Couloir Bât A',type:'placeholder',url:'',brand:'TP-Link',loc:'Dakar',zone:'Couloir',online:false,hasAlert:false},
-  {id:'n4',client:'École Privée Demo',name:'Salle des profs',type:'placeholder',url:'',brand:'Reolink',loc:'Dakar',zone:'Intérieur',online:true,hasAlert:false},
-  // Clinique Santé Plus
-  {id:'n5',client:'Clinique Santé Plus',name:'Urgences',type:'embed',url:'https://www.youtube.com/embed/86YLFOog4GM?autoplay=1&mute=1',brand:'Hikvision',loc:'Thiès',zone:'RDC',online:true,hasAlert:false},
-  {id:'n6',client:'Clinique Santé Plus',name:'Parking',type:'placeholder',url:'',brand:'Axis',loc:'Thiès',zone:'Ext',online:true,hasAlert:false},
-  {id:'n7',client:'Clinique Santé Plus',name:'Pharmacie',type:'placeholder',url:'',brand:'Dahua',loc:'Thiès',zone:'1er',online:true,hasAlert:false},
-  {id:'n8',client:'Clinique Santé Plus',name:"Salle d'attente",type:'placeholder',url:'',brand:'Reolink',loc:'Thiès',zone:'RDC',online:false,hasAlert:false},
-  // Supermarché Diallo
-  {id:'n9',client:'Supermarché Diallo',name:'Caisse principale',type:'embed',url:'https://www.youtube.com/embed/5qap5aO4i9A?autoplay=1&mute=1',brand:'TP-Link',loc:'Saint-Louis',zone:'RDC',online:true,hasAlert:false},
-  {id:'n10',client:'Supermarché Diallo',name:'Réserve',type:'placeholder',url:'',brand:'Foscam',loc:'Saint-Louis',zone:'Arrière',online:true,hasAlert:false},
-  // Institut Technique
-  {id:'n11',client:'Institut Technique Touba',name:'Portail',type:'placeholder',url:'',brand:'Hikvision',loc:'Touba',zone:'Entrée',online:true,hasAlert:false},
-  {id:'n12',client:'Institut Technique Touba',name:'Amphithéâtre',type:'placeholder',url:'',brand:'Dahua',loc:'Touba',zone:'Bât B',online:true,hasAlert:false},
-];
+// Pas de données démo — uniquement les vraies caméras depuis la DB
 
 // ─── INIT ──────────────────────────────────────────────────
 async function init() {
   startClock();
   await loadCameras();
   renderAll();
-  startMotionSimulation();
   populateClientSelect();
+  // Refresh toutes les 30 secondes
+  setInterval(async () => {
+    await loadCameras();
+    renderAll();
+  }, 30000);
 }
 
 async function loadCameras() {
   try {
     const res = await fetch(API + '/api/noc/cameras');
     const data = await res.json();
-    if (data.cameras && data.cameras.length > 0) {
+    if (data.cameras) {
       allCameras = data.cameras;
     } else {
-      allCameras = [...DEMO_CAMERAS];
+      allCameras = [];
     }
   } catch(e) {
-    allCameras = [...DEMO_CAMERAS];
+    console.warn('Erreur chargement caméras:', e.message);
+    allCameras = [];
   }
   filteredCameras = [...allCameras];
 }
