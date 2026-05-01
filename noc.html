@@ -483,10 +483,10 @@ function createCamCell(cam) {
       <div class="cam-bottom">
         <div class="cam-name-tag">${cam.name}</div>
         <div class="cam-client-tag">${cam.client}</div>
-        <div class="cam-action-btns" style="display:flex;gap:4px;margin-top:4px;" onclick="event.stopPropagation()">
-          <button onclick="event.stopPropagation();openFullscreen('${cam.id}')" style="background:rgba(0,255,136,0.2);border:1px solid rgba(0,255,136,0.3);color:#00FF88;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">⛶ Zoom</button>
-          <button onclick="event.stopPropagation();editCam(this)" data-id="${cam.id}" style="background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.3);color:#00D4FF;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">✏️ Modifier</button>
-          <button onclick="event.stopPropagation();deleteCam(this)" data-id="${cam.id}" style="background:rgba(255,59,59,0.2);border:1px solid rgba(255,59,59,0.3);color:#FF3B3B;border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;">🗑 Supprimer</button>
+        <div class="cam-action-btns" id="actions-${cam.id}" style="display:flex;gap:4px;margin-top:4px;pointer-events:all;">
+          <button onclick="event.stopPropagation();openFullscreen('${cam.id}')" style="background:rgba(0,255,136,0.2);border:1px solid rgba(0,255,136,0.3);color:#00FF88;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;font-weight:600;">⛶ Zoom</button>
+          <button onclick="event.stopPropagation();nocEditCam('${cam.id}')" style="background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.3);color:#00D4FF;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;font-weight:600;">✏️</button>
+          <button onclick="event.stopPropagation();nocDeleteCam('${cam.id}')" style="background:rgba(255,59,59,0.2);border:1px solid rgba(255,59,59,0.3);color:#FF3B3B;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;font-weight:600;">🗑</button>
         </div>
       </div>
       <div class="cam-motion-alert" id="motion-${cam.id}"></div>
@@ -581,8 +581,7 @@ function updateHelp() {
   document.getElementById('proto-help').innerHTML = helps[type] || '';
 }
 
-function editCam(btn) {
-  const id = btn.dataset.id;
+function nocEditCam(id) {
   const cam = allCameras.find(c=>c.id===id);
   if (!cam) return;
   // Remplir le formulaire avec les données existantes
@@ -599,8 +598,7 @@ function editCam(btn) {
   openAddCam();
 }
 
-async function deleteCam(btn) {
-  const id = btn.dataset.id;
+async function nocDeleteCam(id) {
   const cam = allCameras.find(c=>c.id===id);
   if (!confirm('Supprimer la caméra "' + (cam?.name||id) + '" ?')) return;
   allCameras = allCameras.filter(c=>c.id!==id);
