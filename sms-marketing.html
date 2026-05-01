@@ -3,1148 +3,738 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PST SMS Marketing — Plateforme d'envoi professionnel</title>
+<title>PST SMS Marketing</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<!-- CDN officiel SheetJS — plus stable -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
-:root {
-  --bg: #060B12;
-  --surface: #0D1620;
-  --surface2: #131F2E;
-  --border: rgba(255,255,255,0.07);
-  --green: #00E676;
-  --green-dim: rgba(0,230,118,0.1);
-  --blue: #3B82F6;
-  --orange: #F59E0B;
-  --red: #EF4444;
-  --purple: #8B5CF6;
-  --text: #E2EAF4;
-  --muted: #556B82;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
-
-/* NAV */
-nav {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 32px; border-bottom:1px solid var(--border);
-  background:rgba(6,11,18,0.95); backdrop-filter:blur(12px);
-  position:sticky; top:0; z-index:100;
-}
-.nav-brand { display:flex; align-items:center; gap:12px; }
-.nav-logo { font-family:'Syne',sans-serif; font-weight:800; font-size:20px; }
-.nav-logo span { color:var(--green); }
-.nav-tag { background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); color:#a78bfa; font-size:11px; padding:3px 10px; border-radius:100px; font-weight:600; }
-.nav-right { display:flex; align-items:center; gap:16px; }
-.nav-link { color:var(--muted); text-decoration:none; font-size:13px; transition:color .2s; }
-.nav-link:hover { color:#fff; }
-.nav-btn { background:var(--green); color:#000; border:none; padding:9px 20px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; }
-
-/* HERO */
-.hero {
-  padding:60px 32px 40px; max-width:900px; margin:0 auto; text-align:center;
-}
-.hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.25); color:#a78bfa; font-size:12px; padding:6px 16px; border-radius:100px; margin-bottom:24px; }
-.hero h1 { font-family:'Syne',sans-serif; font-size:clamp(36px,5vw,60px); font-weight:800; line-height:1.1; margin-bottom:16px; }
-.hero h1 .accent { color:var(--green); }
-.hero p { color:var(--muted); font-size:16px; line-height:1.7; max-width:600px; margin:0 auto 40px; }
-
-/* PACKS */
-.packs { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; max-width:1000px; margin:0 auto 60px; padding:0 32px; }
-.pack {
-  background:var(--surface); border:1.5px solid var(--border); border-radius:16px;
-  padding:22px 18px; text-align:center; cursor:pointer; transition:all .2s; position:relative;
-}
-.pack:hover { border-color:rgba(0,230,118,0.3); transform:translateY(-2px); }
-.pack.selected { border-color:var(--green); background:var(--green-dim); }
-.pack.popular::before { content:'POPULAIRE'; position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--purple); color:#fff; font-size:9px; font-weight:700; padding:3px 10px; border-radius:100px; letter-spacing:1px; }
-.pack-name { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; margin-bottom:8px; }
-.pack-sms { font-size:28px; font-weight:800; color:var(--green); font-family:'Syne',sans-serif; }
-.pack-sms span { font-size:13px; color:var(--muted); font-weight:400; }
-.pack-price { font-size:18px; font-weight:700; margin:8px 0 4px; }
-.pack-unit { font-size:11px; color:var(--muted); }
-
-/* MAIN LAYOUT */
-.main { max-width:1200px; margin:0 auto; padding:0 32px 80px; display:grid; grid-template-columns:1fr 380px; gap:24px; align-items:start; }
-
-/* STEPS */
-.steps { display:flex; flex-direction:column; gap:20px; }
-.step { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
-.step-header { padding:20px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; }
-.step-num { width:32px; height:32px; border-radius:50%; background:var(--green-dim); border:1.5px solid var(--green); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--green); flex-shrink:0; }
-.step-num.done { background:var(--green); color:#000; }
-.step-title { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; }
-.step-sub { font-size:12px; color:var(--muted); margin-top:2px; }
-.step-body { padding:0 24px 24px; display:none; }
-.step-body.open { display:block; }
-
-/* UPLOAD ZONE */
-.upload-zone {
-  border:2px dashed var(--border); border-radius:12px; padding:40px 20px;
-  text-align:center; cursor:pointer; transition:all .2s; position:relative;
-}
-.upload-zone:hover, .upload-zone.dragover { border-color:var(--green); background:var(--green-dim); }
-.upload-icon { font-size:40px; margin-bottom:12px; }
-.upload-title { font-weight:600; margin-bottom:6px; }
-.upload-sub { font-size:13px; color:var(--muted); }
-.upload-formats { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
-.fmt-badge { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
-#file-input { display:none; }
-
-/* CONTACTS TABLE */
-.contacts-preview { margin-top:16px; }
-.contacts-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-.contacts-count { font-size:13px; color:var(--muted); }
-.contacts-count strong { color:var(--green); }
-.table-wrap { max-height:280px; overflow:auto; border-radius:10px; border:1px solid var(--border); }
-.table-wrap::-webkit-scrollbar { width:4px; height:4px; }
-.table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
-table { width:100%; border-collapse:collapse; font-size:12px; }
-th { background:var(--surface2); padding:10px 14px; text-align:left; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-size:10px; white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; }
-td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04); white-space:nowrap; }
-tr:last-child td { border-bottom:none; }
-tr:hover td { background:rgba(255,255,255,0.02); }
-.col-phone { font-family:'JetBrains Mono',monospace; color:var(--green); }
-
-/* MANUAL INPUT */
-.manual-input { margin-top:16px; }
-.manual-input textarea {
-  width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--border);
-  border-radius:10px; padding:14px; color:#fff; font-size:13px; font-family:'JetBrains Mono',monospace;
-  outline:none; resize:vertical; min-height:120px; line-height:1.6; transition:border-color .2s;
-}
-.manual-input textarea:focus { border-color:var(--green); }
-.manual-hint { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.6; }
-
-/* TABS */
-.tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:4px; margin-bottom:16px; }
-.tab { flex:1; padding:8px; text-align:center; border-radius:7px; cursor:pointer; font-size:13px; font-weight:500; color:var(--muted); transition:all .2s; border:none; background:transparent; font-family:'DM Sans',sans-serif; }
-.tab.active { background:var(--surface); color:#fff; }
-
-/* MESSAGE COMPOSER */
-.composer { }
-.composer textarea {
-  width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--border);
-  border-radius:10px; padding:14px; color:#fff; font-size:14px; font-family:'DM Sans',sans-serif;
-  outline:none; resize:vertical; min-height:120px; line-height:1.6; transition:border-color .2s;
-  margin-bottom:12px;
-}
-.composer textarea:focus { border-color:var(--green); }
-.vars-grid { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-.var-chip {
-  background:var(--surface2); border:1px solid var(--border); border-radius:6px;
-  padding:5px 12px; font-size:12px; color:var(--green); cursor:pointer; font-family:'JetBrains Mono',monospace;
-  transition:all .2s;
-}
-.var-chip:hover { background:var(--green-dim); border-color:var(--green); }
-.composer-footer { display:flex; align-items:center; justify-content:space-between; }
-.char-count { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
-.char-count.warn { color:var(--orange); }
-.char-count.over { color:var(--red); }
-
-/* TEMPLATES */
-.templates-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
-.template-card {
-  background:var(--surface2); border:1px solid var(--border); border-radius:10px;
-  padding:14px; cursor:pointer; transition:all .2s;
-}
-.template-card:hover { border-color:rgba(0,230,118,0.3); }
-.template-card h4 { font-size:13px; font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-.template-card p { font-size:11px; color:var(--muted); line-height:1.5; }
-
-/* SCHEDULE */
-.schedule-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.schedule-opt {
-  border:1.5px solid var(--border); border-radius:10px; padding:14px;
-  cursor:pointer; transition:all .2s; text-align:center;
-}
-.schedule-opt:hover { border-color:rgba(0,230,118,0.3); }
-.schedule-opt.selected { border-color:var(--green); background:var(--green-dim); }
-.schedule-opt .icon { font-size:24px; margin-bottom:6px; }
-.schedule-opt h4 { font-size:13px; font-weight:600; }
-.schedule-opt p { font-size:11px; color:var(--muted); margin-top:2px; }
-.datetime-input {
-  margin-top:14px; display:none; background:rgba(255,255,255,0.04);
-  border:1px solid var(--border); border-radius:10px; padding:12px 14px;
-  color:#fff; font-size:14px; font-family:'DM Sans',sans-serif; outline:none; width:100%;
-}
-.datetime-input:focus { border-color:var(--green); }
-
-/* SIDEBAR */
-.sidebar { position:sticky; top:80px; }
-.summary-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:16px; }
-.summary-title { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; margin-bottom:20px; display:flex; align-items:center; gap:8px; }
-.summary-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-.summary-row:last-child { border-bottom:none; }
-.summary-label { font-size:13px; color:var(--muted); }
-.summary-val { font-size:13px; font-weight:600; }
-.summary-val.green { color:var(--green); }
-.summary-val.orange { color:var(--orange); }
-.total-row { background:var(--green-dim); border:1px solid rgba(0,230,118,0.2); border-radius:10px; padding:14px; margin-top:16px; display:flex; justify-content:space-between; align-items:center; }
-.total-label { font-size:13px; color:var(--muted); }
-.total-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--green); }
-
-/* SEND BTN */
-.send-btn {
-  width:100%; background:var(--green); color:#000; border:none; border-radius:12px;
-  padding:18px; font-family:'Syne',sans-serif; font-weight:800; font-size:16px;
-  cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:10px;
-}
-.send-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,230,118,0.3); }
-.send-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.pay-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.pay-opt {
-  border:1px solid var(--border); border-radius:10px; padding:12px;
-  text-align:center; cursor:pointer; font-size:13px; font-weight:600;
-  transition:all .2s; background:transparent; color:var(--text); font-family:'DM Sans',sans-serif;
-}
-.pay-opt:hover { border-color:rgba(255,255,255,0.2); }
-.pay-opt.selected { border-color:var(--green); background:var(--green-dim); }
-
-/* PREVIEW */
-.phone-preview { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
-.phone-mock { background:#1a1a2e; border-radius:20px; padding:20px 16px; border:1px solid rgba(255,255,255,0.1); max-width:240px; margin:0 auto; }
-.phone-header { font-size:11px; color:var(--muted); text-align:center; margin-bottom:14px; }
-.sms-bubble { background:#1e3a5f; border-radius:14px 14px 14px 4px; padding:12px 14px; font-size:12px; line-height:1.6; color:#e2e8f0; word-break:break-word; }
-.sms-sender { font-size:10px; color:var(--green); font-weight:600; margin-bottom:4px; }
-.sms-time { font-size:10px; color:var(--muted); margin-top:8px; text-align:right; }
-
-/* PROGRESS MODAL */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:200; display:none; align-items:center; justify-content:center; }
-.modal-overlay.open { display:flex; }
-.modal { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; width:100%; max-width:480px; text-align:center; }
-.modal-icon { font-size:48px; margin-bottom:16px; }
-.modal h3 { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:8px; }
-.modal p { color:var(--muted); font-size:14px; margin-bottom:24px; }
-.progress-bar { background:var(--surface2); border-radius:100px; height:8px; overflow:hidden; margin-bottom:16px; }
-.progress-fill { height:100%; background:var(--green); border-radius:100px; transition:width .3s; width:0%; }
-.progress-text { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--green); }
-.modal-close { margin-top:24px; background:var(--green); color:#000; border:none; border-radius:10px; padding:12px 32px; font-weight:700; cursor:pointer; font-family:'Syne',sans-serif; }
-
-/* FIELD */
-.field { margin-bottom:14px; }
-.field label { display:block; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
-.field input, .field select {
-  width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--border);
-  border-radius:8px; padding:11px 14px; color:#fff; font-size:14px;
-  font-family:'DM Sans',sans-serif; outline:none; transition:border-color .2s;
-}
-.field input:focus, .field select:focus { border-color:var(--green); }
-.field select option { background:#0D1620; }
-
-/* TOAST */
-.toast { position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 20px; font-size:13px; z-index:999; transform:translateY(60px); opacity:0; transition:all .3s; }
-.toast.show { transform:translateY(0); opacity:1; }
-.toast.success { border-color:rgba(0,230,118,0.4); }
-.toast.error { border-color:rgba(239,68,68,0.4); }
-
-/* RESPONSIVE */
-@media(max-width:900px) {
-  .main { grid-template-columns:1fr; }
-  .packs { grid-template-columns:repeat(2,1fr); }
-  .sidebar { position:static; }
-}
-@media(max-width:600px) {
-  nav { padding:14px 16px; }
-  .hero { padding:40px 16px 24px; }
-  .packs { grid-template-columns:1fr 1fr; padding:0 16px; }
-  .main { padding:0 16px 60px; }
-  .templates-grid { grid-template-columns:1fr; }
-}
+:root{--bg:#060B12;--surface:#0D1620;--surface2:#131F2E;--border:rgba(255,255,255,0.07);--green:#00E676;--gd:rgba(0,230,118,0.1);--orange:#F59E0B;--red:#EF4444;--purple:#8B5CF6;--text:#E2EAF4;--muted:#556B82;}
+*{margin:0;padding:0;box-sizing:border-box;}body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+nav{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);background:rgba(6,11,18,0.95);position:sticky;top:0;z-index:100;}
+.nl{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;}.nl span{color:var(--green);}
+.nt{background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);color:#a78bfa;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;}
+nav a{color:var(--muted);text-decoration:none;font-size:13px;}
+.nb{background:var(--green);color:#000;border:none;padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;}
+.hero{padding:60px 32px 40px;max-width:900px;margin:0 auto;text-align:center;}
+.hb{display:inline-flex;align-items:center;gap:8px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);color:#a78bfa;font-size:12px;padding:6px 16px;border-radius:100px;margin-bottom:24px;}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;margin-bottom:16px;}
+.hero h1 .ac{color:var(--green);}
+.hero p{color:var(--muted);font-size:16px;line-height:1.7;max-width:600px;margin:0 auto 40px;}
+.packs{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:1000px;margin:0 auto 60px;padding:0 32px;}
+.pack{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:22px 18px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.pack:hover{border-color:rgba(0,230,118,0.3);transform:translateY(-2px);}
+.pack.sel{border-color:var(--green);background:var(--gd);}
+.pack.pop::before{content:'POPULAIRE';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--purple);color:#fff;font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:1px;}
+.pn{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:8px;}
+.ps{font-size:28px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif;}
+.ps span{font-size:13px;color:var(--muted);font-weight:400;}
+.pp{font-size:18px;font-weight:700;margin:8px 0 4px;}
+.pu{font-size:11px;color:var(--muted);}
+.main{max-width:1200px;margin:0 auto;padding:0 32px 80px;display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start;}
+.steps{display:flex;flex-direction:column;gap:20px;}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.sh{padding:20px 24px;display:flex;align-items:center;gap:14px;cursor:pointer;}
+.sn{width:32px;height:32px;border-radius:50%;background:var(--gd);border:1.5px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--green);flex-shrink:0;}
+.sn.done{background:var(--green);color:#000;}
+.st{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;}
+.ss{font-size:12px;color:var(--muted);margin-top:2px;}
+.sb{padding:0 24px 24px;display:none;}
+.sb.open{display:block;}
+/* XLSX status */
+.xbar{padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.xbar.ld{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);color:var(--orange);}
+.xbar.ok{background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);color:var(--green);}
+.xbar.er{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:var(--red);}
+/* Upload */
+.uz{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;}
+.uz:hover,.uz.dv{border-color:var(--green);background:var(--gd);}
+.ui{font-size:40px;margin-bottom:12px;}
+.ut{font-weight:600;margin-bottom:6px;}
+.us{font-size:13px;color:var(--muted);}
+.ufs{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
+.fb{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+#fi{display:none;}
+/* Barre fichier chargé */
+.fbar{display:none;align-items:center;justify-content:space-between;background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.25);border-radius:10px;padding:12px 16px;margin-top:12px;gap:12px;}
+.fbar.show{display:flex;}
+.fi2{display:flex;align-items:center;gap:10px;min-width:0;}
+.fn{font-weight:600;color:var(--green);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.fc{color:var(--muted);font-size:12px;white-space:nowrap;}
+.bdf{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;transition:background .2s;flex-shrink:0;}
+.bdf:hover{background:rgba(239,68,68,0.25);}
+/* Table */
+.cp{margin-top:16px;}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cc{font-size:13px;color:var(--muted);}
+.cc strong{color:var(--green);}
+.tw{max-height:280px;overflow:auto;border-radius:10px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:var(--surface2);padding:10px 14px;text-align:left;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:10px;white-space:nowrap;border-bottom:1px solid var(--border);position:sticky;top:0;}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+.cph{font-family:'JetBrains Mono',monospace;color:var(--green);}
+/* Manual */
+.mn textarea{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:14px;color:#fff;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;resize:vertical;min-height:120px;line-height:1.6;transition:border-color .2s;}
+.mn textarea:focus{border-color:var(--green);}
+.mh{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6;}
+/* Tabs */
+.tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:16px;}
+.tab{flex:1;padding:8px;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .2s;border:none;background:transparent;font-family:'DM Sans',sans-serif;}
+.tab.active{background:var(--surface);color:#fff;}
+/* Composer */
+.cm textarea{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:14px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;resize:vertical;min-height:120px;line-height:1.6;transition:border-color .2s;margin-bottom:12px;}
+.cm textarea:focus{border-color:var(--green);}
+.vg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.vc{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--green);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .2s;}
+.vc:hover{background:var(--gd);border-color:var(--green);}
+.cf{display:flex;align-items:center;justify-content:space-between;}
+.ccc{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.ccc.w{color:var(--orange);}.ccc.o{color:var(--red);}
+/* Templates */
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.tc{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;}
+.tc:hover{border-color:rgba(0,230,118,0.3);}
+.tc h4{font-size:13px;font-weight:600;margin-bottom:6px;}
+.tc p{font-size:11px;color:var(--muted);line-height:1.5;}
+/* Schedule */
+.so{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.sop{border:1.5px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;text-align:center;}
+.sop:hover{border-color:rgba(0,230,118,0.3);}
+.sop.sel{border-color:var(--green);background:var(--gd);}
+.sop .ic{font-size:24px;margin-bottom:6px;}
+.sop h4{font-size:13px;font-weight:600;}
+.sop p{font-size:11px;color:var(--muted);margin-top:2px;}
+.dti{margin-top:14px;display:none;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;width:100%;}
+/* Sidebar */
+.sidebar{position:sticky;top:80px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px;}
+.scr{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+.scr:last-child{border-bottom:none;}
+.scl{font-size:13px;color:var(--muted);}
+.scv{font-size:13px;font-weight:600;}
+.scv.g{color:var(--green);}.scv.or{color:var(--orange);}
+.tr2{background:var(--gd);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;}
+.tv{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green);}
+/* Phone preview */
+.pp2{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;}
+.pm{background:#1a1a2e;border-radius:20px;padding:20px 16px;border:1px solid rgba(255,255,255,0.1);max-width:240px;margin:0 auto;}
+.smb{background:#1e3a5f;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:12px;line-height:1.6;color:#e2e8f0;word-break:break-word;}
+.sms{font-size:10px;color:var(--green);font-weight:600;margin-bottom:4px;}
+.smt{font-size:10px;color:var(--muted);margin-top:8px;text-align:right;}
+/* Send */
+.sbtn{width:100%;background:var(--green);color:#000;border:none;border-radius:12px;padding:18px;font-family:'Syne',sans-serif;font-weight:800;font-size:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;}
+.sbtn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,230,118,0.3);}
+.sbtn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.po{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pot{border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;}
+.pot.sel{border-color:var(--green);background:var(--gd);}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:center;justify-content:center;}
+.mo.open{display:flex;}
+.md{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:480px;text-align:center;}
+.mi{font-size:48px;margin-bottom:16px;}
+.md h3{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;}
+.md p{color:var(--muted);font-size:14px;margin-bottom:24px;}
+.pb{background:var(--surface2);border-radius:100px;height:8px;overflow:hidden;margin-bottom:16px;}
+.pf{height:100%;background:var(--green);border-radius:100px;transition:width .3s;width:0%;}
+.pt{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green);}
+.mc{margin-top:24px;background:var(--green);color:#000;border:none;border-radius:10px;padding:12px 32px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;}
+/* Field */
+.fl{margin-bottom:14px;}
+.fl label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.fl input,.fl select{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.fl input:focus,.fl select:focus{border-color:var(--green);}
+.fl select option{background:#0D1620;}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;font-size:13px;z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;max-width:340px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.s{border-color:rgba(0,230,118,0.4);}
+.toast.e{border-color:rgba(239,68,68,0.4);}
+@media(max-width:900px){.main{grid-template-columns:1fr;}.packs{grid-template-columns:repeat(2,1fr);}.sidebar{position:static;}}
+@media(max-width:600px){nav{padding:14px 16px;}.hero{padding:40px 16px 24px;}.packs{grid-template-columns:1fr 1fr;padding:0 16px;}.main{padding:0 16px 60px;}.tg{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-brand">
-    <div class="nav-logo">P<span>S</span>T</div>
-    <div class="nav-tag">SMS Marketing</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="nl">P<span>S</span>T</div>
+    <div class="nt">SMS Marketing</div>
   </div>
-  <div class="nav-right">
-    <a class="nav-link" href="https://pst-telecom.vercel.app">Accueil</a>
-    <a class="nav-link" href="https://pst-telecom-production.up.railway.app/dashboard">Mon espace</a>
-    <button class="nav-btn" onclick="scrollToPacks()">Commencer →</button>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="https://pst-telecom.vercel.app">Accueil</a>
+    <a href="https://pst-telecom-production.up.railway.app/dashboard">Mon espace</a>
+    <button class="nb" onclick="document.getElementById('ps').scrollIntoView({behavior:'smooth'})">Commencer →</button>
   </div>
 </nav>
 
-<!-- HERO -->
 <div class="hero">
-  <div class="hero-badge">📩 Nouveau service PST</div>
-  <h1>Envoyez des SMS<br>à des <span class="accent">milliers</span> de personnes</h1>
-  <p>Importez votre liste depuis Excel ou CSV. Personnalisez chaque message. Envoyez en masse en quelques clics. Parfait pour les écoles, concours, entreprises et associations.</p>
+  <div class="hb">📩 Service PST</div>
+  <h1>Envoyez des SMS<br>à des <span class="ac">milliers</span> de personnes</h1>
+  <p>Importez votre liste depuis Excel, CSV, Word ou PDF. Personnalisez chaque message. Envoyez en masse en quelques clics.</p>
 </div>
 
-<!-- PACKS -->
-<div class="packs" id="packs-section">
-  <div class="pack" onclick="selPack('starter',1000,100)" id="pack-starter">
-    <div class="pack-name">Starter</div>
-    <div class="pack-sms">100 <span>SMS</span></div>
-    <div class="pack-price">1 000 FCFA</div>
-    <div class="pack-unit">10 FCFA / SMS</div>
+<div class="packs" id="ps">
+  <div class="pack" onclick="sP('starter',1000,100)" id="pk-starter">
+    <div class="pn">Starter</div><div class="ps">100 <span>SMS</span></div>
+    <div class="pp">1 000 FCFA</div><div class="pu">10 FCFA/SMS</div>
   </div>
-  <div class="pack popular selected" onclick="selPack('pro',8000,1000)" id="pack-pro">
-    <div class="pack-name">Pro</div>
-    <div class="pack-sms">1 000 <span>SMS</span></div>
-    <div class="pack-price">8 000 FCFA</div>
-    <div class="pack-unit">8 FCFA / SMS</div>
+  <div class="pack pop sel" onclick="sP('pro',8000,1000)" id="pk-pro">
+    <div class="pn">Pro</div><div class="ps">1 000 <span>SMS</span></div>
+    <div class="pp">8 000 FCFA</div><div class="pu">8 FCFA/SMS</div>
   </div>
-  <div class="pack" onclick="selPack('business',35000,5000)" id="pack-business">
-    <div class="pack-name">Business</div>
-    <div class="pack-sms">5 000 <span>SMS</span></div>
-    <div class="pack-price">35 000 FCFA</div>
-    <div class="pack-unit">7 FCFA / SMS</div>
+  <div class="pack" onclick="sP('business',35000,5000)" id="pk-business">
+    <div class="pn">Business</div><div class="ps">5 000 <span>SMS</span></div>
+    <div class="pp">35 000 FCFA</div><div class="pu">7 FCFA/SMS</div>
   </div>
-  <div class="pack" onclick="selPack('ecole',60000,10000)" id="pack-ecole">
-    <div class="pack-name">École</div>
-    <div class="pack-sms">10 000 <span>SMS</span></div>
-    <div class="pack-price">60 000 FCFA</div>
-    <div class="pack-unit">6 FCFA / SMS</div>
+  <div class="pack" onclick="sP('ecole',60000,10000)" id="pk-ecole">
+    <div class="pn">École</div><div class="ps">10 000 <span>SMS</span></div>
+    <div class="pp">60 000 FCFA</div><div class="pu">6 FCFA/SMS</div>
   </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
-  <div class="steps">
+ <div class="steps">
 
-    <!-- STEP 1 — CONTACTS -->
-    <div class="step">
-      <div class="step-header" onclick="toggleStep(1)">
-        <div class="step-num" id="snum-1">1</div>
-        <div>
-          <div class="step-title">📋 Importer vos contacts</div>
-          <div class="step-sub">Excel, CSV — ou saisie manuelle</div>
-        </div>
-      </div>
-      <div class="step-body open" id="sbody-1">
-
-        <div class="tabs">
-          <button class="tab active" onclick="switchTab('upload')">📁 Importer un fichier</button>
-          <button class="tab" onclick="switchTab('manual')">✏️ Saisie manuelle</button>
-        </div>
-
-        <!-- UPLOAD -->
-        <div id="tab-upload">
-          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-            <div class="upload-icon">📂</div>
-            <div class="upload-title">Glissez votre fichier ici ou cliquez pour parcourir</div>
-            <div class="upload-sub">Supporte les listes d'élèves, candidats, clients...</div>
-            <div class="upload-formats">
-              <span class="fmt-badge">.xlsx</span>
-              <span class="fmt-badge">.xls</span>
-              <span class="fmt-badge">.csv</span>
-            </div>
-          </div>
-          <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
-
-          <!-- MAPPING -->
-          <div id="col-mapping" style="display:none;margin-top:16px;">
-            <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Associez les colonnes de votre fichier :</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="field">
-                <label>Colonne Numéro de téléphone *</label>
-                <select id="col-phone" onchange="updatePreview()"></select>
-              </div>
-              <div class="field">
-                <label>Colonne Nom</label>
-                <select id="col-nom" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Prénom</label>
-                <select id="col-prenom" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Classe / Groupe</label>
-                <select id="col-classe" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Matricule</label>
-                <select id="col-matricule" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne N° Table (examen)</label>
-                <select id="col-table" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Mention / Résultat</label>
-                <select id="col-mention" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Date</label>
-                <select id="col-date" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Centre d'examen</label>
-                <select id="col-centre" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-              <div class="field">
-                <label>Colonne Jury</label>
-                <select id="col-jury" onchange="updatePreview()"><option value="">— Ignorer —</option></select>
-              </div>
-            </div>
-            <div id="filter-section" style="margin-top:12px;display:none;">
-              <div class="field">
-                <label>Filtrer par classe / groupe (optionnel)</label>
-                <select id="filter-classe" onchange="applyFilter()">
-                  <option value="">Tous les contacts</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- PREVIEW TABLE -->
-          <div class="contacts-preview" id="contacts-preview" style="display:none;">
-            <div class="contacts-header">
-              <div class="contacts-count">
-                <strong id="contact-count">0</strong> contacts chargés
-                <span id="filter-info" style="color:var(--orange);margin-left:8px;"></span>
-              </div>
-              <button onclick="clearContacts()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">✕ Effacer</button>
-            </div>
-            <div class="table-wrap">
-              <table id="preview-table">
-                <thead id="preview-thead"></thead>
-                <tbody id="preview-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- MANUAL -->
-        <div id="tab-manual" style="display:none;">
-          <div class="manual-input">
-            <textarea id="manual-numbers" placeholder="Entrez les numéros, un par ligne :&#10;221771234567&#10;221781234567&#10;&#10;Ou avec le nom :&#10;Aliou Diallo,221771234567&#10;Fatou Sow,221781234567" oninput="parseManual()"></textarea>
-            <div class="manual-hint">
-              📌 Format : numéro seul <strong>ou</strong> nom,numéro<br>
-              ✅ 221XXXXXXXXX ou 77XXXXXXX (Sénégal automatique)
-            </div>
-          </div>
-          <div class="contacts-preview" id="manual-preview" style="display:none;margin-top:12px;">
-            <div class="contacts-header">
-              <div class="contacts-count"><strong id="manual-count">0</strong> contacts</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
+  <!-- STEP 1 -->
+  <div class="step">
+   <div class="sh" onclick="tStep(1)">
+    <div class="sn" id="sn1">1</div>
+    <div><div class="st">📋 Importer vos contacts</div><div class="ss">Excel, CSV, Word, PDF — ou saisie manuelle</div></div>
+   </div>
+   <div class="sb open" id="sb1">
+    <div class="xbar ld" id="xs">⏳ Chargement de la librairie Excel...</div>
+    <div class="tabs">
+     <button class="tab active" onclick="swTab('upload')">📁 Importer un fichier</button>
+     <button class="tab" onclick="swTab('manual')">✏️ Saisie manuelle</button>
     </div>
 
-    <!-- STEP 2 — MESSAGE -->
-    <div class="step">
-      <div class="step-header" onclick="toggleStep(2)">
-        <div class="step-num" id="snum-2">2</div>
-        <div>
-          <div class="step-title">✍️ Rédiger votre message</div>
-          <div class="step-sub">Personnalisez avec les données de votre liste</div>
-        </div>
+    <div id="tu">
+     <div class="uz" id="uz" onclick="document.getElementById('fi').click()" ondragover="dOver(event)" ondragleave="dLeave(event)" ondrop="dDrop(event)">
+      <div class="ui">📂</div>
+      <div class="ut">Glissez votre fichier ici ou cliquez pour parcourir</div>
+      <div class="us">Listes d'élèves, candidats, clients...</div>
+      <div class="ufs">
+       <span class="fb">.xlsx</span><span class="fb">.xls</span>
+       <span class="fb">.csv</span><span class="fb">.pdf</span>
+       <span class="fb">.docx</span>
       </div>
-      <div class="step-body" id="sbody-2">
+     </div>
+     <input type="file" id="fi" accept=".xlsx,.xls,.csv,.pdf,.docx,.doc,.txt" onchange="hFile(event)">
 
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Modèles rapides</div>
-        <div class="templates-grid">
-          <div class="template-card" onclick="useTemplate('convocation')">
-            <h4>🏫 Convocation examen</h4>
-            <p>Bonjour {prenom}, convoqué(e) le {date}. Centre : {centre}. Table : {table}. Jury : {jury}.</p>
-          </div>
-          <div class="template-card" onclick="useTemplate('resultat')">
-            <h4>📊 Résultats</h4>
-            <p>Bonjour {prenom}, résultats disponibles. Mention : {mention}. Félicitations !</p>
-          </div>
-          <div class="template-card" onclick="useTemplate('inscription')">
-            <h4>📝 Rappel inscription</h4>
-            <p>Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées. Contactez-nous.</p>
-          </div>
-          <div class="template-card" onclick="useTemplate('mensualite')">
-            <h4>💰 Rappel mensualité</h4>
-            <p>Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser.</p>
-          </div>
-          <div class="template-card" onclick="useTemplate('promo')">
-            <h4>🎉 Promotion</h4>
-            <p>Bonjour {prenom}, offre spéciale PST ! Valable jusqu'au {date}.</p>
-          </div>
-          <div class="template-card" onclick="useTemplate('otp')">
-            <h4>🔐 Code OTP</h4>
-            <p>Votre code de vérification PST : {code}. Valable 10 min.</p>
-          </div>
-        </div>
-
-        <div class="composer">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables — cliquez pour insérer</div>
-          <div class="vars-grid">
-            <span class="var-chip" onclick="insertVar('{prenom}')">{prenom}</span>
-            <span class="var-chip" onclick="insertVar('{nom}')">{nom}</span>
-            <span class="var-chip" onclick="insertVar('{classe}')">{classe}</span>
-            <span class="var-chip" onclick="insertVar('{matricule}')">{matricule}</span>
-            <span class="var-chip" onclick="insertVar('{table}')">{table}</span>
-            <span class="var-chip" onclick="insertVar('{mention}')">{mention}</span>
-            <span class="var-chip" onclick="insertVar('{date}')">{date}</span>
-            <span class="var-chip" onclick="insertVar('{centre}')">{centre}</span>
-            <span class="var-chip" onclick="insertVar('{jury}')">{jury}</span>
-          </div>
-          <textarea id="message-text" placeholder="Rédigez votre message ici..." oninput="updateComposer()" rows="5"></textarea>
-          <div class="composer-footer">
-            <div class="char-count" id="char-count">0 / 160 caractères (1 SMS)</div>
-            <div style="font-size:12px;color:var(--muted)" id="sms-count-msg"></div>
-          </div>
-        </div>
-
-        <div class="field" style="margin-top:16px;">
-          <label>Nom de l'expéditeur (max 11 caractères)</label>
-          <input type="text" id="sender-name" placeholder="PST-Telecom" maxlength="11" value="PST-Telecom">
-        </div>
-
+     <!-- BARRE FICHIER + BOUTON SUPPRIMER -->
+     <div class="fbar" id="fbar">
+      <div class="fi2">
+       <span style="font-size:22px;">📄</span>
+       <div>
+        <div class="fn" id="fname">fichier.xlsx</div>
+        <div class="fc" id="fcount">0 lignes chargées</div>
+       </div>
       </div>
+      <button class="bdf" onclick="delFile()">🗑 Supprimer le fichier</button>
+     </div>
+
+     <div id="cm2" style="display:none;margin-top:16px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Associez les colonnes :</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+       <div class="fl"><label>Téléphone *</label><select id="cp" onchange="uPrev()"></select></div>
+       <div class="fl"><label>Nom</label><select id="cn" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Prénom</label><select id="cpr" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Classe</label><select id="ccl" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Matricule</label><select id="cm3" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>N° Table</label><select id="ct" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Mention</label><select id="cme" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Date</label><select id="cd" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Centre d'examen</label><select id="cce" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+       <div class="fl"><label>Jury</label><select id="cj" onchange="uPrev()"><option value="">— Ignorer —</option></select></div>
+      </div>
+      <div id="filt" style="display:none;margin-top:12px;">
+       <div class="fl"><label>Filtrer par classe (optionnel)</label>
+        <select id="fcl" onchange="aFilt()"><option value="">Tous les contacts</option></select>
+       </div>
+      </div>
+     </div>
+
+     <div class="cp" id="cprev" style="display:none;">
+      <div class="ch">
+       <div class="cc"><strong id="ccount">0</strong> contacts valides <span id="finfo" style="color:var(--orange);margin-left:6px;"></span></div>
+      </div>
+      <div class="tw"><table><thead id="pthead"></thead><tbody id="ptbody"></tbody></table></div>
+     </div>
     </div>
 
-    <!-- STEP 3 — PLANIFICATION -->
-    <div class="step">
-      <div class="step-header" onclick="toggleStep(3)">
-        <div class="step-num" id="snum-3">3</div>
-        <div>
-          <div class="step-title">📅 Planifier l'envoi</div>
-          <div class="step-sub">Maintenant ou à une date précise</div>
-        </div>
-      </div>
-      <div class="step-body" id="sbody-3">
-        <div class="schedule-opts">
-          <div class="schedule-opt selected" id="sched-now" onclick="selSchedule('now')">
-            <div class="icon">⚡</div>
-            <h4>Envoyer maintenant</h4>
-            <p>Envoi immédiat dès confirmation</p>
-          </div>
-          <div class="schedule-opt" id="sched-later" onclick="selSchedule('later')">
-            <div class="icon">📅</div>
-            <h4>Planifier</h4>
-            <p>Choisir une date et heure précise</p>
-          </div>
-        </div>
-        <input type="datetime-local" id="schedule-datetime" class="datetime-input" onchange="updateSummary()">
-      </div>
+    <div id="tm" style="display:none;">
+     <div class="mn">
+      <textarea id="mnums" placeholder="Un numéro par ligne :&#10;221771234567&#10;&#10;Ou : nom,numéro&#10;Aliou Diallo,221771234567" oninput="parseMn()"></textarea>
+      <div class="mh">✅ Formats : 221XXXXXXXXX, +221XXXXXXXXX ou 77XXXXXXX</div>
+     </div>
+     <div id="mprev" style="display:none;margin-top:8px;font-size:13px;color:var(--muted);">
+      <strong id="mcount" style="color:var(--green);">0</strong> contacts saisis
+     </div>
     </div>
-
+   </div>
   </div>
 
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-
-    <div class="phone-preview" style="margin-bottom:16px;">
-      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">📱 Aperçu SMS</div>
-      <div class="phone-mock">
-        <div class="phone-header">PST-Telecom</div>
-        <div class="sms-bubble">
-          <div class="sms-sender" id="preview-sender-name">PST-Telecom</div>
-          <div id="preview-msg" style="color:var(--muted);font-style:italic;">Votre message apparaîtra ici...</div>
-          <div class="sms-time" id="preview-time">Maintenant</div>
-        </div>
-      </div>
+  <!-- STEP 2 -->
+  <div class="step">
+   <div class="sh" onclick="tStep(2)">
+    <div class="sn" id="sn2">2</div>
+    <div><div class="st">✍️ Rédiger votre message</div><div class="ss">Personnalisez avec les données de votre liste</div></div>
+   </div>
+   <div class="sb" id="sb2">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Modèles rapides</div>
+    <div class="tg">
+     <div class="tc" onclick="uTpl('convocation')"><h4>🏫 Convocation examen</h4><p>Bonjour {prenom}, convoqué(e) le {date}. Centre : {centre}. Table : {table}. Jury : {jury}.</p></div>
+     <div class="tc" onclick="uTpl('resultat')"><h4>📊 Résultats</h4><p>Bonjour {prenom}, résultats disponibles. Mention : {mention}. Félicitations !</p></div>
+     <div class="tc" onclick="uTpl('inscription')"><h4>📝 Inscription</h4><p>Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées.</p></div>
+     <div class="tc" onclick="uTpl('mensualite')"><h4>💰 Mensualité</h4><p>Bonjour {prenom} {nom}, mensualité due. Veuillez régulariser.</p></div>
+     <div class="tc" onclick="uTpl('promo')"><h4>🎉 Promotion</h4><p>Bonjour {prenom}, offre spéciale PST jusqu'au {date} !</p></div>
+     <div class="tc" onclick="uTpl('otp')"><h4>🔐 Code OTP</h4><p>Votre code PST : {code}. Valable 10 min. Ne partagez pas.</p></div>
     </div>
-
-    <div class="summary-card">
-      <div class="summary-title">📊 Résumé</div>
-      <div class="summary-row">
-        <div class="summary-label">Pack sélectionné</div>
-        <div class="summary-val" id="sum-pack">Pro</div>
-      </div>
-      <div class="summary-row">
-        <div class="summary-label">Contacts</div>
-        <div class="summary-val green" id="sum-contacts">0</div>
-      </div>
-      <div class="summary-row">
-        <div class="summary-label">SMS par contact</div>
-        <div class="summary-val" id="sum-sms-each">1</div>
-      </div>
-      <div class="summary-row">
-        <div class="summary-label">Total SMS</div>
-        <div class="summary-val orange" id="sum-total-sms">0</div>
-      </div>
-      <div class="summary-row">
-        <div class="summary-label">Envoi</div>
-        <div class="summary-val" id="sum-schedule">Immédiat</div>
-      </div>
-      <div class="total-row">
-        <div class="total-label">Coût total</div>
-        <div class="total-val" id="sum-cost">0 FCFA</div>
-      </div>
+    <div class="cm">
+     <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables — cliquez pour insérer</div>
+     <div class="vg">
+      <span class="vc" onclick="iVar('{prenom}')">{prenom}</span>
+      <span class="vc" onclick="iVar('{nom}')">{nom}</span>
+      <span class="vc" onclick="iVar('{classe}')">{classe}</span>
+      <span class="vc" onclick="iVar('{matricule}')">{matricule}</span>
+      <span class="vc" onclick="iVar('{table}')">{table}</span>
+      <span class="vc" onclick="iVar('{mention}')">{mention}</span>
+      <span class="vc" onclick="iVar('{date}')">{date}</span>
+      <span class="vc" onclick="iVar('{centre}')">{centre}</span>
+      <span class="vc" onclick="iVar('{jury}')">{jury}</span>
+     </div>
+     <textarea id="mt" placeholder="Rédigez votre message ici..." oninput="uCom()" rows="5"></textarea>
+     <div class="cf">
+      <div class="ccc" id="cc">0 / 160 caractères (1 SMS)</div>
+      <div style="font-size:12px;color:var(--muted);" id="scm"></div>
+     </div>
     </div>
-
-    <div class="summary-card">
-      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;">💳 Paiement</div>
-      <div class="field">
-        <label>Nom / Organisation</label>
-        <input type="text" id="org-name" placeholder="École Privée XYZ">
-      </div>
-      <div class="field">
-        <label>Téléphone</label>
-        <input type="tel" id="org-phone" placeholder="+221 77 000 00 00">
-      </div>
-
-      <div id="step-pay" style="margin-bottom:16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Choisir le paiement</div>
-        <div class="pay-opts">
-          <button class="pay-opt selected" id="payopt-wave" onclick="selPayOpt('wave')">💚 Wave</button>
-          <button class="pay-opt" id="payopt-card" onclick="selPayOpt('card')">💳 Carte Visa</button>
-        </div>
-        <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
-          💰 Procéder au paiement →
-        </button>
-        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, revenez avec votre référence</p>
-      </div>
-
-      <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
-
-        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.8;">
-          📱 <strong style="color:#fff;">Wave</strong> → App Wave → <strong style="color:#fff;">Historique</strong> → dernière transaction → copier la référence<br>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: T_XXXXXXXXXXXXXXXXX</span><br><br>
-          💳 <strong style="color:#fff;">Carte Visa</strong> → référence sur le reçu Flutterwave<br>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: FLW-MOCK-XXXXXXXXX</span>
-        </div>
-
-        <div class="field">
-          <label>Référence de transaction *</label>
-          <input type="text" id="code-validation" placeholder="T_XXXXXXXXXXXXXXXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:14px;" oninput="this.value=this.value.toUpperCase()">
-        </div>
-
-        <div style="margin-bottom:14px;">
-          <button onclick="toggleAide()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">
-            ❓ Je ne trouve pas ma référence Wave
-          </button>
-          <div id="aide-ref" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8;">
-            <strong style="color:#fff;">Trouver votre référence Wave :</strong><br>
-            1. Ouvrez l'app Wave sur votre téléphone<br>
-            2. Appuyez sur <strong style="color:#fff;">"Historique"</strong> en bas<br>
-            3. Cherchez le paiement PST<br>
-            4. Appuyez dessus → copiez la référence<br><br>
-            <strong style="color:var(--orange);">Besoin d'aide ?</strong> Contactez-nous au <strong style="color:#fff;">+221 77 152 09 59</strong>
-          </div>
-        </div>
-
-        <button class="send-btn" onclick="lancerCampagne()" id="send-btn">
-          🚀 Lancer la campagne
-        </button>
-
-        <div style="background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6;">
-          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation des destinataires. PST Telecom décline toute responsabilité en cas d'utilisation abusive.
-        </div>
-      </div>
+    <div class="fl" style="margin-top:16px;">
+     <label>Nom expéditeur (max 11 car.)</label>
+     <input type="text" id="sname" placeholder="PST-Telecom" maxlength="11" value="PST-Telecom">
     </div>
-
+   </div>
   </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+   <div class="sh" onclick="tStep(3)">
+    <div class="sn" id="sn3">3</div>
+    <div><div class="st">📅 Planifier l'envoi</div><div class="ss">Maintenant ou à une date précise</div></div>
+   </div>
+   <div class="sb" id="sb3">
+    <div class="so">
+     <div class="sop sel" id="snow" onclick="sSched('now')"><div class="ic">⚡</div><h4>Maintenant</h4><p>Envoi immédiat</p></div>
+     <div class="sop" id="slater" onclick="sSched('later')"><div class="ic">📅</div><h4>Planifier</h4><p>Date précise</p></div>
+    </div>
+    <input type="datetime-local" id="sdt" class="dti" onchange="uSum()">
+   </div>
+  </div>
+
+ </div><!-- end steps -->
+
+ <!-- SIDEBAR -->
+ <div class="sidebar">
+  <div class="pp2" style="margin-bottom:16px;">
+   <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">📱 Aperçu SMS</div>
+   <div class="pm">
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;" id="ph">PST-Telecom</div>
+    <div class="smb">
+     <div class="sms" id="psn">PST-Telecom</div>
+     <div id="pmsg" style="color:var(--muted);font-style:italic;">Votre message apparaîtra ici...</div>
+     <div class="smt" id="ptime">Maintenant</div>
+    </div>
+   </div>
+  </div>
+
+  <div class="sc">
+   <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:20px;">📊 Résumé</div>
+   <div class="scr"><div class="scl">Pack</div><div class="scv" id="sp">Pro</div></div>
+   <div class="scr"><div class="scl">Contacts</div><div class="scv g" id="sco">0</div></div>
+   <div class="scr"><div class="scl">SMS/contact</div><div class="scv" id="sse">1</div></div>
+   <div class="scr"><div class="scl">Total SMS</div><div class="scv or" id="sts">0</div></div>
+   <div class="scr"><div class="scl">Envoi</div><div class="scv" id="ssh">Immédiat</div></div>
+   <div class="tr2"><div style="font-size:13px;color:var(--muted);">Coût total</div><div class="tv" id="scost">0 FCFA</div></div>
+  </div>
+
+  <div class="sc">
+   <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;">💳 Paiement</div>
+   <div class="fl"><label>Nom / Organisation</label><input type="text" id="on" placeholder="École Privée XYZ"></div>
+   <div class="fl"><label>Téléphone</label><input type="tel" id="oph" placeholder="+221 77 000 00 00"></div>
+   <div style="margin-bottom:16px;">
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Mode de paiement</div>
+    <div class="po">
+     <button class="pot sel" id="pw" onclick="sPay('wave')">💚 Wave</button>
+     <button class="pot" id="pc" onclick="sPay('card')">💳 Carte Visa</button>
+    </div>
+    <button onclick="iPay()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+     💰 Procéder au paiement →
+    </button>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, entrez votre référence ci-dessous</p>
+   </div>
+   <div style="border-top:1px solid var(--border);padding-top:16px;">
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence paiement</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.8;">
+     📱 <strong style="color:#fff;">Wave</strong> → App Wave → Historique → copier référence<br>
+     <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: T_XXXXXXXXXXXXXXXXX</span><br>
+     💳 <strong style="color:#fff;">Carte Visa</strong> → référence sur le reçu Flutterwave
+    </div>
+    <div class="fl">
+     <label>Référence de transaction *</label>
+     <input type="text" id="ref" placeholder="T_XXXXXXXXXXXXXXXXX" style="font-family:'JetBrains Mono',monospace;font-size:14px;" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div style="margin-bottom:14px;">
+     <button onclick="tAide()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">❓ Je ne trouve pas ma référence Wave</button>
+     <div id="aide" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8;">
+      1. Ouvrez l'app Wave<br>2. Appuyez sur <strong style="color:#fff;">Historique</strong><br>3. Trouvez le paiement PST<br>4. Copiez la référence<br><br>
+      <strong style="color:var(--orange);">Besoin d'aide ?</strong> <strong style="color:#fff;">+221 77 152 09 59</strong>
+     </div>
+    </div>
+    <button class="sbtn" onclick="lancer()" id="sbtn">🚀 Lancer la campagne</button>
+    <div style="background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6;">
+     ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation des destinataires. PST Telecom décline toute responsabilité en cas d'utilisation abusive.
+    </div>
+   </div>
+  </div>
+ </div>
+</div><!-- end main -->
+
+<div class="mo" id="modal">
+ <div class="md">
+  <div class="mi" id="mi">📤</div>
+  <h3 id="mti">Envoi en cours...</h3>
+  <p id="msu">Préparation de votre campagne SMS</p>
+  <div class="pb"><div class="pf" id="pf"></div></div>
+  <div class="pt" id="pt">0 / 0 SMS</div>
+  <button class="mc" id="mc" style="display:none;" onclick="closeM()">✅ Terminer</button>
+ </div>
 </div>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div class="modal-icon" id="modal-icon">📤</div>
-    <h3 id="modal-title">Envoi en cours...</h3>
-    <p id="modal-sub">Préparation de votre campagne SMS</p>
-    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    <div class="progress-text" id="progress-text">0 / 0 SMS envoyés</div>
-    <button class="modal-close" id="modal-close" style="display:none;" onclick="closeModal()">✅ Terminer</button>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
+<!-- SheetJS avec 3 CDN en fallback automatique -->
+<script>
+(function(){
+  var cdns=[
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ];
+  var idx=0;
+  function tryNext(){
+    if(idx>=cdns.length){
+      var el=document.getElementById('xs');
+      el.className='xbar er';
+      el.innerHTML='❌ Librairie Excel non disponible — <strong>rechargez la page</strong> ou utilisez la Saisie manuelle';
+      return;
+    }
+    var s=document.createElement('script');
+    s.src=cdns[idx++];
+    s.onload=function(){
+      var el=document.getElementById('xs');
+      el.className='xbar ok';
+      el.textContent='✅ Librairie Excel prête — vous pouvez importer vos fichiers .xlsx et .csv';
+      console.log('SheetJS OK — version:',XLSX.version,'— CDN:',s.src);
+    };
+    s.onerror=function(){console.warn('CDN SheetJS échoué:',s.src);tryNext();};
+    document.head.appendChild(s);
+  }
+  tryNext();
+})();
+</script>
 <script src="https://checkout.flutterwave.com/v3.js"></script>
 <script>
-const API = 'https://pst-telecom-production.up.railway.app';
-const FLW_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
-const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
-
-let contacts = [];
-let rawData = [];
-let headers = [];
-let packData = { name:'Pro', price:8000, sms:1000 };
-let scheduleMode = 'now';
-let payOpt = 'wave';
-let activeTab = 'upload';
-
-const TEMPLATES = {
-  convocation: "Bonjour {prenom} {nom}, vous êtes convoqué(e) le {date} à 8h. Centre : {centre}. N° Table : {table}. Jury : {jury}. Bon courage !",
-  resultat: "Bonjour {prenom} {nom}, vos résultats sont disponibles. Mention : {mention}. Félicitations ! PST.",
-  inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitées. Contactez-nous.",
-  mensualite: "Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser votre situation.",
-  promo: "Bonjour {prenom}, offre spéciale PST ! Profitez de nos services jusqu'au {date}.",
-  otp: "Votre code de vérification PST est : {code}. Valable 10 minutes. Ne le partagez pas."
+var API='https://pst-telecom-production.up.railway.app';
+var FLWK='FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
+var WB='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
+var contacts=[],rawData=[],hdrs=[],fn='';
+var pd={name:'Pro',price:8000,sms:1000};
+var sched='now',pOpt='wave';
+var TPL={
+  convocation:"Bonjour {prenom} {nom}, convoqué(e) le {date} à 8h. Centre : {centre}. N° Table : {table}. Jury : {jury}. Bon courage !",
+  resultat:"Bonjour {prenom} {nom}, résultats disponibles. Mention : {mention}. Félicitations ! PST Telecom.",
+  inscription:"Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées. Contactez-nous vite. PST.",
+  mensualite:"Bonjour {prenom} {nom}, votre mensualité est due. Merci de régulariser. PST Telecom.",
+  promo:"Bonjour {prenom}, offre spéciale PST jusqu'au {date} ! pst-telecom.vercel.app",
+  otp:"Votre code PST est : {code}. Valable 10 minutes. Ne le partagez pas."
 };
 
-// ─── INIT CHECK XLSX ──────────────────────────────────────
-window.addEventListener('load', function() {
-  if (typeof XLSX === 'undefined') {
-    console.error('SheetJS non chargé — tentative fallback');
-    var s = document.createElement('script');
-    s.src = 'https://unpkg.com/xlsx/dist/xlsx.full.min.js';
-    s.onload = function() { console.log('SheetJS chargé via fallback'); };
-    document.head.appendChild(s);
-  } else {
-    console.log('SheetJS prêt — version:', XLSX.version);
-  }
-  updateSummary();
-  selPack('pro', 8000, 1000);
-});
+function sP(id,p,s){document.querySelectorAll('.pack').forEach(function(x){x.classList.remove('sel');});document.getElementById('pk-'+id).classList.add('sel');pd={name:id.charAt(0).toUpperCase()+id.slice(1),price:p,sms:s};uSum();}
+function tStep(n){document.getElementById('sb'+n).classList.toggle('open');}
+function tAide(){var e=document.getElementById('aide');e.style.display=e.style.display==='none'?'block':'none';}
+function swTab(t){
+  document.querySelectorAll('.tab').forEach(function(x,i){x.classList.toggle('active',(i===0&&t==='upload')||(i===1&&t==='manual'));});
+  document.getElementById('tu').style.display=t==='upload'?'block':'none';
+  document.getElementById('tm').style.display=t==='manual'?'block':'none';
+}
+function dOver(e){e.preventDefault();document.getElementById('uz').classList.add('dv');}
+function dLeave(e){document.getElementById('uz').classList.remove('dv');}
+function dDrop(e){e.preventDefault();dLeave(e);var f=e.dataTransfer.files[0];if(f)hFile({target:{files:[f]}});}
 
-function toggleAide() {
-  var el = document.getElementById('aide-ref');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+function hFile(e){var f=e.target.files[0];if(f)pFile(f);}
+
+function delFile(){
+  contacts=[];rawData=[];hdrs=[];fn='';
+  document.getElementById('fi').value='';
+  document.getElementById('fbar').classList.remove('show');
+  document.getElementById('uz').style.display='block';
+  document.getElementById('cm2').style.display='none';
+  document.getElementById('cprev').style.display='none';
+  document.getElementById('filt').style.display='none';
+  var sn=document.getElementById('sn1');sn.classList.remove('done');sn.textContent='1';
+  uSum();
+  toast('🗑 Fichier supprimé — importez un nouveau fichier','s');
 }
 
-// ─── PACKS ────────────────────────────────────────────────
-function selPack(id, price, sms) {
-  document.querySelectorAll('.pack').forEach(function(p){ p.classList.remove('selected'); });
-  document.getElementById('pack-'+id).classList.add('selected');
-  packData = { name: id.charAt(0).toUpperCase()+id.slice(1), price: price, sms: sms };
-  updateSummary();
-}
-
-function scrollToPacks() {
-  document.getElementById('packs-section').scrollIntoView({behavior:'smooth'});
-}
-
-function toggleStep(n) {
-  var body = document.getElementById('sbody-'+n);
-  body.classList.toggle('open');
-}
-
-function switchTab(tab) {
-  activeTab = tab;
-  document.querySelectorAll('.tab').forEach(function(t,i){
-    t.classList.toggle('active', (i===0&&tab==='upload')||(i===1&&tab==='manual'));
-  });
-  document.getElementById('tab-upload').style.display = tab==='upload' ? 'block' : 'none';
-  document.getElementById('tab-manual').style.display = tab==='manual' ? 'block' : 'none';
-}
-
-// ─── FILE UPLOAD ──────────────────────────────────────────
-function dragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
-function dragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
-function dropFile(e) { e.preventDefault(); dragLeave(e); var f=e.dataTransfer.files[0]; if(f) processFile(f); }
-function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
-
-function processFile(file) {
-  var ext = file.name.split('.').pop().toLowerCase();
-  showToast('📂 Lecture du fichier...', 'success');
-
-  // Vérifier que XLSX est disponible
-  if (typeof XLSX === 'undefined') {
-    showToast('❌ Librairie Excel non chargée — rechargez la page', 'error');
-    return;
-  }
-
-  if (['xlsx','xls','csv'].includes(ext)) {
-    var reader = new FileReader();
-    reader.onerror = function() { showToast('❌ Erreur lecture fichier', 'error'); };
-    reader.onload = function(ev) {
-      try {
-        var data = ev.target.result;
-        var wb;
-        if (ext === 'csv') {
-          wb = XLSX.read(data, {type:'binary', raw:false});
-        } else {
-          wb = XLSX.read(data, {type:'binary'});
+function pFile(file){
+  var ext=file.name.split('.').pop().toLowerCase();
+  fn=file.name;
+  if(['xlsx','xls','csv'].includes(ext)){
+    if(typeof XLSX==='undefined'){toast('❌ Librairie Excel pas encore prête — attendez 2 sec et réessayez','e');return;}
+    toast('📂 Lecture en cours...','s');
+    var r=new FileReader();
+    r.onerror=function(){toast('❌ Erreur lecture fichier','e');};
+    r.onload=function(ev){
+      try{
+        var wb=XLSX.read(ev.target.result,{type:'binary'});
+        var si=0;
+        if(wb.SheetNames.length>1){
+          var ns=wb.SheetNames.map(function(n,i){return (i+1)+'. '+n;}).join('\n');
+          var ch=prompt('Ce fichier contient '+wb.SheetNames.length+' feuilles :\n'+ns+'\n\nEntrez le numéro :','1');
+          if(ch===null){toast('⚠️ Import annulé','e');return;}
+          si=parseInt(ch||'1')-1;
+          if(isNaN(si)||si<0)si=0;
+          if(si>=wb.SheetNames.length)si=wb.SheetNames.length-1;
         }
-
-        var sheetIdx = 0;
-        if (wb.SheetNames.length > 1) {
-          var names = wb.SheetNames.map(function(n,i){ return (i+1)+'. '+n; }).join('\n');
-          var choice = prompt('Ce fichier contient ' + wb.SheetNames.length + ' feuilles :\n' + names + '\n\nEntrez le numéro :', '1');
-          if (choice === null) { showToast('⚠️ Chargement annulé', 'error'); return; }
-          sheetIdx = parseInt(choice||'1') - 1;
-          if (isNaN(sheetIdx) || sheetIdx < 0) sheetIdx = 0;
-          if (sheetIdx >= wb.SheetNames.length) sheetIdx = wb.SheetNames.length - 1;
-        }
-
-        var ws = wb.Sheets[wb.SheetNames[sheetIdx]];
-        var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-
-        if (!rows || rows.length < 2) {
-          showToast('⚠️ Fichier vide ou sans données', 'error');
-          return;
-        }
-
-        headers = rows[0].map(function(h){ return String(h).trim(); });
-        rawData = rows.slice(1).filter(function(r){
-          return r.some(function(c){ return String(c).trim() !== ''; });
-        });
-
-        if (rawData.length === 0) {
-          showToast('⚠️ Aucune ligne de données trouvée', 'error');
-          return;
-        }
-
-        setupMapping();
-        showToast('✅ ' + rawData.length + ' lignes chargées (feuille: ' + wb.SheetNames[sheetIdx] + ')', 'success');
-
-      } catch(err) {
-        console.error('Erreur parsing Excel:', err);
-        showToast('❌ Erreur : ' + err.message, 'error');
-      }
+        var ws=wb.Sheets[wb.SheetNames[si]];
+        var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(!rows||rows.length<2){toast('⚠️ Fichier vide ou sans données','e');return;}
+        hdrs=rows[0].map(function(h){return String(h).trim();});
+        rawData=rows.slice(1).filter(function(r2){return r2.some(function(c){return String(c).trim()!=='';});});
+        if(rawData.length===0){toast('⚠️ Aucune donnée trouvée','e');return;}
+        setupM();
+        document.getElementById('fname').textContent=file.name;
+        document.getElementById('fcount').textContent=rawData.length+' lignes détectées';
+        document.getElementById('fbar').classList.add('show');
+        document.getElementById('uz').style.display='none';
+        toast('✅ '+rawData.length+' lignes chargées — feuille: '+wb.SheetNames[si],'s');
+      }catch(err){console.error(err);toast('❌ Erreur: '+err.message,'e');}
     };
-    reader.readAsBinaryString(file);
-  } else {
-    showToast('⚠️ Format non supporté — utilisez .xlsx ou .csv', 'error');
+    r.readAsBinaryString(file);
+  }else if(['pdf','docx','doc'].includes(ext)){
+    toast('⚠️ '+ext.toUpperCase()+' non lisible directement — copiez les numéros en Saisie manuelle','e');
+    setTimeout(function(){swTab('manual');},800);
+  }else if(ext==='txt'){
+    var r2=new FileReader();
+    r2.onload=function(ev){document.getElementById('mnums').value=ev.target.result;swTab('manual');parseMn();toast('✅ Fichier texte chargé','s');};
+    r2.readAsText(file);
+  }else{
+    toast('⚠️ Format non supporté: .'+ext+' — utilisez .xlsx ou .csv','e');
   }
 }
 
-function setupMapping() {
-  var selects = ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'];
-  selects.forEach(function(id) {
-    var sel = document.getElementById(id);
-    if (!sel) return;
-    var hasIgnore = id !== 'col-phone';
-    sel.innerHTML = (hasIgnore ? '<option value="">— Ignorer —</option>' : '') +
-      headers.map(function(h,i){
-        return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>';
-      }).join('');
+function setupM(){
+  var ids=['cp','cn','cpr','ccl','cm3','ct','cme','cd','cce','cj'];
+  var keys=['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'];
+  ids.forEach(function(id,i){
+    var sel=document.getElementById(id);if(!sel)return;
+    var ig=id!=='cp';
+    sel.innerHTML=(ig?'<option value="">— Ignorer —</option>':'')+
+      hdrs.map(function(h,j){return '<option value="'+j+'"'+(aDet(keys[i],h)?' selected':'')+'>'+h+'</option>';}).join('');
   });
-  document.getElementById('col-mapping').style.display = 'block';
-  updatePreview();
+  document.getElementById('cm2').style.display='block';
+  uPrev();
 }
 
-function autoDetect(field, header) {
-  var h = header.toLowerCase();
-  var map = {
-    'col-phone': ['telephone','tel','phone','numero','num','contact','mobile'],
-    'col-nom': ['nom','name','last'],
-    'col-prenom': ['prenom','firstname','first'],
-    'col-classe': ['classe','class','section','groupe','group','niveau'],
-    'col-matricule': ['matricule','mat','identifiant','ine'],
-    'col-table': ['table','numero table','place','salle'],
-    'col-mention': ['mention','resultat','note','appreciation'],
-    'col-date': ['date','jour','convocation'],
-    'col-centre': ['centre','center','etablissement','lieu','site'],
-    'col-jury': ['jury','numjury','numero jury']
-  };
-  return (map[field]||[]).some(function(k){ return h.includes(k); });
+function aDet(field,hdr){
+  var h=hdr.toLowerCase();
+  var m={'col-phone':['telephone','tel','phone','numero','num','contact','mobile','portable'],
+    'col-nom':['nom','name','last'],'col-prenom':['prenom','firstname','first'],
+    'col-classe':['classe','class','section','groupe','group','niveau'],
+    'col-matricule':['matricule','mat','identifiant','ine'],
+    'col-table':['table','n°table','numero table','place','salle'],
+    'col-mention':['mention','resultat','note','appreciation'],
+    'col-date':['date','jour','convocation'],
+    'col-centre':['centre','center','etablissement','lieu','site'],
+    'col-jury':['jury','n°jury','numjury']};
+  return (m[field]||[]).some(function(k){return h.includes(k);});
 }
 
-function updatePreview() {
-  var phoneColEl = document.getElementById('col-phone');
-  if (!phoneColEl) return;
-  var phoneCol = parseInt(phoneColEl.value);
-  if (isNaN(phoneCol)) return;
+function g(id){var e=document.getElementById(id);return e?e.value:'';}
 
-  var get = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
-  var nomCol = get('col-nom');
-  var prenomCol = get('col-prenom');
-  var classeCol = get('col-classe');
-  var matCol = get('col-matricule');
-  var tableCol = get('col-table');
-  var mentionCol = get('col-mention');
-  var dateCol = get('col-date');
-  var centreCol = get('col-centre');
-  var juryCol = get('col-jury');
-
-  contacts = rawData.map(function(row) {
+function uPrev(){
+  var pc=parseInt(g('cp'));if(isNaN(pc))return;
+  contacts=rawData.map(function(row){
     return {
-      telephone: formatPhone(String(row[phoneCol]||'')),
-      nom: nomCol !== '' ? String(row[parseInt(nomCol)]||'') : '',
-      prenom: prenomCol !== '' ? String(row[parseInt(prenomCol)]||'') : '',
-      classe: classeCol !== '' ? String(row[parseInt(classeCol)]||'') : '',
-      matricule: matCol !== '' ? String(row[parseInt(matCol)]||'') : '',
-      table: tableCol !== '' ? String(row[parseInt(tableCol)]||'') : '',
-      mention: mentionCol !== '' ? String(row[parseInt(mentionCol)]||'') : '',
-      date: dateCol !== '' ? String(row[parseInt(dateCol)]||'') : '',
-      centre: centreCol !== '' ? String(row[parseInt(centreCol)]||'') : '',
-      jury: juryCol !== '' ? String(row[parseInt(juryCol)]||'') : ''
+      telephone:fPhone(String(row[pc]||'')),
+      nom:g('cn')!==''?String(row[parseInt(g('cn'))]||''):'',
+      prenom:g('cpr')!==''?String(row[parseInt(g('cpr'))]||''):'',
+      classe:g('ccl')!==''?String(row[parseInt(g('ccl'))]||''):'',
+      matricule:g('cm3')!==''?String(row[parseInt(g('cm3'))]||''):'',
+      table:g('ct')!==''?String(row[parseInt(g('ct'))]||''):'',
+      mention:g('cme')!==''?String(row[parseInt(g('cme'))]||''):'',
+      date:g('cd')!==''?String(row[parseInt(g('cd'))]||''):'',
+      centre:g('cce')!==''?String(row[parseInt(g('cce'))]||''):'',
+      jury:g('cj')!==''?String(row[parseInt(g('cj'))]||''):''
     };
-  }).filter(function(c){ return c.telephone.length >= 8; });
-
-  var classes = [];
-  contacts.forEach(function(c){ if(c.classe && classes.indexOf(c.classe)===-1) classes.push(c.classe); });
-  var filterSel = document.getElementById('filter-classe');
-  if (classes.length > 0) {
-    document.getElementById('filter-section').style.display = 'block';
-    filterSel.innerHTML = '<option value="">Tous les contacts (' + contacts.length + ')</option>' +
-      classes.map(function(c){
-        return '<option value="'+c+'">'+c+' ('+contacts.filter(function(x){return x.classe===c;}).length+')</option>';
-      }).join('');
+  }).filter(function(c){return c.telephone.length>=8;});
+  var cls=[];contacts.forEach(function(c){if(c.classe&&cls.indexOf(c.classe)===-1)cls.push(c.classe);});
+  if(cls.length>0){
+    document.getElementById('filt').style.display='block';
+    document.getElementById('fcl').innerHTML='<option value="">Tous ('+contacts.length+')</option>'+cls.map(function(c){
+      return '<option value="'+c+'">'+c+' ('+contacts.filter(function(x){return x.classe===c;}).length+')</option>';
+    }).join('');
   }
-
-  renderPreviewTable(contacts.slice(0,50));
-  document.getElementById('contacts-preview').style.display = 'block';
-  document.getElementById('contact-count').textContent = contacts.length;
-  markStepDone(1);
-  updateSummary();
+  rTable(contacts.slice(0,50));
+  document.getElementById('cprev').style.display='block';
+  document.getElementById('ccount').textContent=contacts.length;
+  document.getElementById('fcount').textContent=contacts.length+' contacts valides';
+  mDone(1);uSum();
 }
 
-function applyFilter() {
-  var val = document.getElementById('filter-classe').value;
-  var filtered = val ? contacts.filter(function(c){return c.classe===val;}) : contacts;
-  renderPreviewTable(filtered.slice(0,50));
-  document.getElementById('contact-count').textContent = filtered.length;
-  document.getElementById('filter-info').textContent = val ? '(filtre: '+val+')' : '';
-  updateSummary(filtered.length);
+function aFilt(){
+  var val=document.getElementById('fcl').value;
+  var f=val?contacts.filter(function(c){return c.classe===val;}):contacts;
+  rTable(f.slice(0,50));
+  document.getElementById('ccount').textContent=f.length;
+  document.getElementById('finfo').textContent=val?'(filtre: '+val+')':'';
+  uSum(f.length);
 }
 
-function renderPreviewTable(data) {
-  if (!data.length) return;
-  var cols = ['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){
-    return data.some(function(r){ return r[c]; });
-  });
-  document.getElementById('preview-thead').innerHTML = '<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
-  document.getElementById('preview-tbody').innerHTML = data.map(function(r){
-    return '<tr>'+cols.map(function(c){return '<td class="'+(c==='telephone'?'col-phone':'')+'">'+( r[c]||'—')+'</td>';}).join('')+'</tr>';
-  }).join('');
+function rTable(data){
+  if(!data.length)return;
+  var cols=['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){return data.some(function(r){return r[c];});});
+  document.getElementById('pthead').innerHTML='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+  document.getElementById('ptbody').innerHTML=data.map(function(r){return '<tr>'+cols.map(function(c){return '<td class="'+(c==='telephone'?'cph':'')+'">'+( r[c]||'—')+'</td>';}).join('')+'</tr>';}).join('');
 }
 
-function clearContacts() {
-  contacts = []; rawData = []; headers = [];
-  document.getElementById('contacts-preview').style.display = 'none';
-  document.getElementById('col-mapping').style.display = 'none';
-  document.getElementById('file-input').value = '';
-  updateSummary();
+function fPhone(n){n=n.replace(/\D/g,'');if(n.startsWith('221'))return '+'+n;if(n.startsWith('0'))n=n.slice(1);if(n.length===9||n.length===8)return '+221'+n;return '+'+n;}
+
+function parseMn(){
+  var lines=document.getElementById('mnums').value.split('\n').filter(function(l){return l.trim();});
+  contacts=lines.map(function(l){var p=l.split(',');if(p.length>=2)return {nom:p[0].trim(),telephone:fPhone(p[1].trim()),prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};return {telephone:fPhone(l.trim()),nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};}).filter(function(c){return c.telephone.length>=8;});
+  document.getElementById('mcount').textContent=contacts.length;
+  document.getElementById('mprev').style.display=contacts.length>0?'block':'none';
+  if(contacts.length>0)mDone(1);uSum();
 }
 
-function formatPhone(num) {
-  num = num.replace(/\D/g,'');
-  if (num.startsWith('221')) return '+'+num;
-  if (num.startsWith('0')) num = num.slice(1);
-  if (num.length === 9 || num.length === 8) return '+221'+num;
-  return '+'+num;
+function uTpl(k){document.getElementById('mt').value=TPL[k];uCom();document.getElementById('sb2').classList.add('open');toast('✅ Modèle appliqué','s');}
+function iVar(v){var ta=document.getElementById('mt');var p=ta.selectionStart;ta.value=ta.value.slice(0,p)+v+ta.value.slice(ta.selectionEnd);ta.selectionStart=ta.selectionEnd=p+v.length;ta.focus();uCom();}
+
+function uCom(){
+  var txt=document.getElementById('mt').value;
+  var len=txt.length,n=Math.ceil(len/160)||1;
+  var el=document.getElementById('cc');
+  el.textContent=len+' / '+(n*160)+' caractères ('+n+' SMS)';
+  el.className='ccc'+(len>320?' o':len>160?' w':'');
+  document.getElementById('scm').textContent=n>1?'⚠️ '+n+' SMS/contact':'';
+  var sample=contacts[0]||{prenom:'Prénom',nom:'Nom',classe:'3ème B',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycée Seydou Nourou Tall',jury:'Jury 05'};
+  var prev=pers(txt,sample);
+  var pEl=document.getElementById('pmsg');
+  pEl.textContent=prev||'Votre message apparaîtra ici...';
+  pEl.style.color=prev?'var(--text)':'var(--muted)';
+  pEl.style.fontStyle=prev?'normal':'italic';
+  var sn=document.getElementById('sname');
+  document.getElementById('psn').textContent=(sn?sn.value:'')||'PST-Telecom';
+  document.getElementById('ptime').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  mDone(2);uSum(null,n);
 }
 
-// ─── MANUAL ───────────────────────────────────────────────
-function parseManual() {
-  var lines = document.getElementById('manual-numbers').value.split('\n').filter(function(l){return l.trim();});
-  contacts = lines.map(function(line) {
-    var parts = line.split(',');
-    if (parts.length >= 2) {
-      return { nom:parts[0].trim(), telephone:formatPhone(parts[1].trim()), prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
-    }
-    return { telephone:formatPhone(line.trim()), nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:'' };
-  }).filter(function(c){ return c.telephone.length >= 8; });
-  document.getElementById('manual-count').textContent = contacts.length;
-  document.getElementById('manual-preview').style.display = contacts.length > 0 ? 'block' : 'none';
-  if (contacts.length > 0) markStepDone(1);
-  updateSummary();
+function pers(tpl,c){
+  return tpl.replace(/{prenom}/g,c.prenom||'').replace(/{nom}/g,c.nom||'').replace(/{classe}/g,c.classe||'')
+    .replace(/{matricule}/g,c.matricule||'').replace(/{table}/g,c.table||'').replace(/{mention}/g,c.mention||'')
+    .replace(/{date}/g,c.date||'').replace(/{centre}/g,c.centre||'').replace(/{jury}/g,c.jury||'')
+    .replace(/{code}/g,String(Math.floor(1000+Math.random()*9000)));
 }
 
-// ─── COMPOSER ─────────────────────────────────────────────
-function useTemplate(key) {
-  document.getElementById('message-text').value = TEMPLATES[key];
-  updateComposer();
-  document.getElementById('sbody-2').classList.add('open');
-  showToast('✅ Modèle appliqué', 'success');
+function sSched(m){sched=m;document.getElementById('snow').classList.toggle('sel',m==='now');document.getElementById('slater').classList.toggle('sel',m==='later');document.getElementById('sdt').style.display=m==='later'?'block':'none';uSum();}
+
+function uSum(ov,se){
+  var count=(ov!==undefined&&ov!==null)?ov:contacts.length;
+  var ml=(document.getElementById('mt')||{value:''}).value.length;
+  var each=(se!==undefined&&se!==null)?se:(Math.ceil(ml/160)||1);
+  var total=count*each,cost=Math.ceil(total*(pd.price/pd.sms));
+  document.getElementById('sp').textContent=pd.name;
+  document.getElementById('sco').textContent=count;
+  document.getElementById('sse').textContent=each;
+  document.getElementById('sts').textContent=total;
+  var sd=document.getElementById('sdt');
+  document.getElementById('ssh').textContent=sched==='now'?'Immédiat':(sd&&sd.value?sd.value:'Planifié');
+  document.getElementById('scost').textContent=cost.toLocaleString('fr-FR')+' FCFA';
 }
 
-function insertVar(v) {
-  var ta = document.getElementById('message-text');
-  var pos = ta.selectionStart;
-  ta.value = ta.value.slice(0,pos) + v + ta.value.slice(ta.selectionEnd);
-  ta.selectionStart = ta.selectionEnd = pos + v.length;
-  ta.focus();
-  updateComposer();
-}
+function sPay(o){pOpt=o;document.getElementById('pw').classList.toggle('sel',o==='wave');document.getElementById('pc').classList.toggle('sel',o==='card');}
 
-function updateComposer() {
-  var txt = document.getElementById('message-text').value;
-  var len = txt.length;
-  var smsCount = Math.ceil(len/160) || 1;
-  var el = document.getElementById('char-count');
-  el.textContent = len+' / '+(smsCount*160)+' caractères ('+smsCount+' SMS)';
-  el.className = 'char-count'+(len>320?' over':len>160?' warn':'');
-  document.getElementById('sms-count-msg').textContent = smsCount > 1 ? '⚠️ '+smsCount+' SMS par contact' : '';
-
-  var preview = personalizeMsg(txt, contacts[0] || {prenom:'Prénom',nom:'Nom',classe:'3ème B',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycée Seydou Nourou Tall',jury:'Jury 05'});
-  var previewEl = document.getElementById('preview-msg');
-  previewEl.textContent = preview || 'Votre message apparaîtra ici...';
-  previewEl.style.color = preview ? 'var(--text)' : 'var(--muted)';
-  previewEl.style.fontStyle = preview ? 'normal' : 'italic';
-
-  var senderEl = document.getElementById('sender-name');
-  document.getElementById('preview-sender-name').textContent = (senderEl ? senderEl.value : '') || 'PST-Telecom';
-  document.getElementById('preview-time').textContent = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-
-  markStepDone(2);
-  updateSummary(null, smsCount);
-}
-
-function personalizeMsg(template, contact) {
-  return template
-    .replace(/{prenom}/g, contact.prenom||'')
-    .replace(/{nom}/g, contact.nom||'')
-    .replace(/{classe}/g, contact.classe||'')
-    .replace(/{matricule}/g, contact.matricule||'')
-    .replace(/{table}/g, contact.table||'')
-    .replace(/{mention}/g, contact.mention||'')
-    .replace(/{date}/g, contact.date||'')
-    .replace(/{centre}/g, contact.centre||'')
-    .replace(/{jury}/g, contact.jury||'')
-    .replace(/{code}/g, String(Math.floor(1000+Math.random()*9000)));
-}
-
-// ─── SCHEDULE ─────────────────────────────────────────────
-function selSchedule(mode) {
-  scheduleMode = mode;
-  document.getElementById('sched-now').classList.toggle('selected', mode==='now');
-  document.getElementById('sched-later').classList.toggle('selected', mode==='later');
-  document.getElementById('schedule-datetime').style.display = mode==='later' ? 'block' : 'none';
-  updateSummary();
-}
-
-// ─── SUMMARY ──────────────────────────────────────────────
-function updateSummary(overrideCount, smsEach) {
-  var count = (overrideCount !== undefined && overrideCount !== null) ? overrideCount : contacts.length;
-  var msgEl = document.getElementById('message-text');
-  var msgLen = msgEl ? msgEl.value.length : 0;
-  var each = (smsEach !== undefined && smsEach !== null) ? smsEach : (Math.ceil(msgLen/160)||1);
-  var total = count * each;
-  var unitPrice = packData.price / packData.sms;
-  var cost = Math.ceil(total * unitPrice);
-
-  document.getElementById('sum-pack').textContent = packData.name;
-  document.getElementById('sum-contacts').textContent = count;
-  document.getElementById('sum-sms-each').textContent = each;
-  document.getElementById('sum-total-sms').textContent = total;
-  var schedEl = document.getElementById('schedule-datetime');
-  document.getElementById('sum-schedule').textContent = scheduleMode==='now' ? 'Immédiat' : (schedEl&&schedEl.value ? schedEl.value : 'Planifié');
-  document.getElementById('sum-cost').textContent = cost.toLocaleString('fr-FR')+' FCFA';
-}
-
-// ─── PAIEMENT ─────────────────────────────────────────────
-function selPayOpt(opt) {
-  payOpt = opt;
-  document.getElementById('payopt-wave').classList.toggle('selected', opt==='wave');
-  document.getElementById('payopt-card').classList.toggle('selected', opt==='card');
-}
-
-async function initierPaiement() {
-  var org = document.getElementById('org-name').value.trim();
-  var phone = document.getElementById('org-phone').value.trim();
-  if (!org || !phone) { showToast('⚠️ Remplissez votre nom et téléphone', 'error'); return; }
-  if (!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
-
-  var msg = document.getElementById('message-text').value;
-  var totalSms = contacts.length * (Math.ceil((msg.length||1)/160)||1);
-  var unitPrice = packData.price / packData.sms;
-  var cost = Math.ceil(totalSms * unitPrice);
-
-  if (payOpt === 'wave') {
-    window.open(WAVE_BASE + cost, '_blank');
-    showToast('💚 Payez via Wave puis entrez votre référence ci-dessous', 'success');
-    setTimeout(function() {
-      var codeField = document.getElementById('code-validation');
-      if (codeField) { codeField.scrollIntoView({behavior:'smooth'}); codeField.focus(); }
-    }, 2000);
-  } else {
-    FlutterwaveCheckout({
-      public_key: FLW_KEY,
-      tx_ref: 'PST-SMS-' + Date.now(),
-      amount: cost,
-      currency: 'XOF',
-      payment_options: 'card',
-      customer: { email: phone+'@pst-telecom.sn', phone_number: phone, name: org },
-      customizations: { title:'PST SMS Marketing', description:'Campagne SMS — '+contacts.length+' contacts', logo:'' },
-      callback: async function(response) {
-        if (response.status === 'successful') {
-          document.getElementById('code-validation').value = response.tx_ref;
-          showToast('✅ Paiement confirmé ! Cliquez "Lancer la campagne"', 'success');
-        } else {
-          showToast('❌ Paiement échoué', 'error');
-        }
-      },
-      onclose: function() {}
+async function iPay(){
+  var org=document.getElementById('on').value.trim();
+  var oph=document.getElementById('oph').value.trim();
+  if(!org||!oph){toast('⚠️ Remplissez votre nom et téléphone','e');return;}
+  if(!contacts.length){toast('⚠️ Ajoutez des contacts d\'abord','e');return;}
+  var msg=document.getElementById('mt').value;
+  var total=contacts.length*(Math.ceil((msg.length||1)/160)||1);
+  var cost=Math.ceil(total*(pd.price/pd.sms));
+  if(pOpt==='wave'){
+    window.open(WB+cost,'_blank');
+    toast('💚 Wave ouvert — entrez votre référence après paiement','s');
+    setTimeout(function(){var f=document.getElementById('ref');if(f){f.scrollIntoView({behavior:'smooth'});f.focus();}},2000);
+  }else{
+    FlutterwaveCheckout({public_key:FLWK,tx_ref:'PST-SMS-'+Date.now(),amount:cost,currency:'XOF',payment_options:'card',
+      customer:{email:oph+'@pst-telecom.sn',phone_number:oph,name:org},
+      customizations:{title:'PST SMS Marketing',description:'Campagne '+contacts.length+' contacts',logo:''},
+      callback:function(r){if(r.status==='successful'){document.getElementById('ref').value=r.tx_ref;toast('✅ Paiement confirmé ! Cliquez "Lancer"','s');}else toast('❌ Paiement échoué','e');},
+      onclose:function(){}
     });
   }
 }
 
-// ─── LANCER ───────────────────────────────────────────────
-async function lancerCampagne() {
-  var msg = document.getElementById('message-text').value.trim();
-  var org = document.getElementById('org-name').value.trim();
-  var phone = document.getElementById('org-phone').value.trim();
-  var ref = document.getElementById('code-validation').value.trim().toUpperCase();
-
-  if (!contacts.length) { showToast('⚠️ Ajoutez des contacts d\'abord', 'error'); return; }
-  if (!msg) { showToast('⚠️ Rédigez votre message', 'error'); return; }
-  if (!org || !phone) { showToast('⚠️ Remplissez vos informations', 'error'); return; }
-  if (!ref || ref.length < 5) { showToast('⚠️ Entrez votre référence de transaction', 'error'); return; }
-
-  var btn = document.getElementById('send-btn');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Vérification en cours...';
-
-  try {
-    var res = await fetch(API + '/api/sms-marketing/verify-ref', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reference: ref, telephone: phone, smsCount: contacts.length })
-    });
-    var data = await res.json();
-
-    if (data.valid) {
-      showToast('✅ Référence validée ! Envoi en cours...', 'success');
-      btn.innerHTML = '🚀 Lancer la campagne';
-      btn.disabled = false;
-      confirmerEtEnvoyer(msg);
-    } else {
-      showToast('❌ ' + (data.error || 'Référence non reconnue. Contactez PST au +221 77 152 09 59'), 'error');
-      btn.innerHTML = '🚀 Lancer la campagne';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    showToast('⚠️ Erreur réseau — réessayez', 'error');
-    btn.innerHTML = '🚀 Lancer la campagne';
-    btn.disabled = false;
-  }
+async function lancer(){
+  var msg=document.getElementById('mt').value.trim();
+  var org=document.getElementById('on').value.trim();
+  var oph=document.getElementById('oph').value.trim();
+  var ref=document.getElementById('ref').value.trim().toUpperCase();
+  if(!contacts.length){toast('⚠️ Ajoutez des contacts d\'abord','e');return;}
+  if(!msg){toast('⚠️ Rédigez votre message','e');return;}
+  if(!org||!oph){toast('⚠️ Remplissez vos informations','e');return;}
+  if(!ref||ref.length<5){toast('⚠️ Entrez votre référence de transaction','e');return;}
+  var btn=document.getElementById('sbtn');btn.disabled=true;btn.innerHTML='⏳ Vérification...';
+  try{
+    var res=await fetch(API+'/api/sms-marketing/verify-ref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:ref,telephone:oph,smsCount:contacts.length})});
+    var data=await res.json();
+    if(data.valid){btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;toast('✅ Référence validée !','s');envoi(msg);}
+    else{toast('❌ '+(data.error||'Référence non reconnue — contactez PST au +221 77 152 09 59'),'e');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+  }catch(e){toast('⚠️ Erreur réseau — réessayez','e');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
 }
 
-async function confirmerEtEnvoyer(msgTemplate) {
+async function envoi(msgTemplate){
   document.getElementById('modal').classList.add('open');
-  document.getElementById('modal-icon').textContent = '📤';
-  document.getElementById('modal-title').textContent = 'Envoi en cours...';
-  document.getElementById('modal-sub').textContent = '0 / '+contacts.length+' SMS envoyés';
-
-  var sender = document.getElementById('sender-name').value || 'PST-Telecom';
-  var scheduled = scheduleMode === 'later' ? document.getElementById('schedule-datetime').value : null;
-  var messages = contacts.map(function(c){ return { telephone:c.telephone, message:personalizeMsg(msgTemplate,c) }; });
-
-  try {
-    await fetch(API + '/api/sms-marketing/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campagne: document.getElementById('org-name').value, messages: messages, sender: sender, scheduled: scheduled, total: contacts.length })
-    });
-
-    var sent = 0;
-    var interval = setInterval(function() {
-      sent = Math.min(sent + Math.ceil(contacts.length/10), contacts.length);
-      var pct = Math.round(sent/contacts.length*100);
-      document.getElementById('progress-fill').style.width = pct+'%';
-      document.getElementById('progress-text').textContent = sent+' / '+contacts.length+' SMS envoyés';
-      document.getElementById('modal-sub').textContent = pct+'% complété...';
-      if (sent >= contacts.length) {
-        clearInterval(interval);
-        document.getElementById('modal-icon').textContent = '✅';
-        document.getElementById('modal-title').textContent = 'Campagne envoyée !';
-        document.getElementById('modal-sub').textContent = contacts.length+' SMS envoyés avec succès.';
-        document.getElementById('modal-close').style.display = 'inline-block';
-      }
-    }, 400);
-  } catch(e) {
-    document.getElementById('modal-icon').textContent = '❌';
-    document.getElementById('modal-title').textContent = 'Erreur d\'envoi';
-    document.getElementById('modal-sub').textContent = 'Vérifiez votre connexion.';
-    document.getElementById('modal-close').style.display = 'inline-block';
+  document.getElementById('mi').textContent='📤';document.getElementById('mti').textContent='Envoi en cours...';
+  document.getElementById('msu').textContent='0 / '+contacts.length+' SMS envoyés';
+  var sender=document.getElementById('sname').value||'PST-Telecom';
+  var scheduled=sched==='later'?document.getElementById('sdt').value:null;
+  var messages=contacts.map(function(c){return {telephone:c.telephone,message:pers(msgTemplate,c)};});
+  try{
+    await fetch(API+'/api/sms-marketing/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({campagne:document.getElementById('on').value,messages:messages,sender:sender,scheduled:scheduled,total:contacts.length})});
+    var sent=0;var iv=setInterval(function(){
+      sent=Math.min(sent+Math.ceil(contacts.length/10),contacts.length);
+      var pct=Math.round(sent/contacts.length*100);
+      document.getElementById('pf').style.width=pct+'%';
+      document.getElementById('pt').textContent=sent+' / '+contacts.length+' SMS';
+      document.getElementById('msu').textContent=pct+'% complété...';
+      if(sent>=contacts.length){clearInterval(iv);
+        document.getElementById('mi').textContent='✅';document.getElementById('mti').textContent='Campagne envoyée !';
+        document.getElementById('msu').textContent=contacts.length+' SMS envoyés avec succès.';
+        document.getElementById('mc').style.display='inline-block';}
+    },400);
+  }catch(e){
+    document.getElementById('mi').textContent='❌';document.getElementById('mti').textContent='Erreur d\'envoi';
+    document.getElementById('msu').textContent='Vérifiez votre connexion.';document.getElementById('mc').style.display='inline-block';
   }
 }
 
-function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeM(){document.getElementById('modal').classList.remove('open');}
+function mDone(n){var e=document.getElementById('sn'+n);e.classList.add('done');e.textContent='✓';}
+function toast(msg,t){var e=document.getElementById('toast');e.textContent=msg;e.className='toast '+(t||'s');setTimeout(function(){e.classList.add('show');},10);setTimeout(function(){e.classList.remove('show');},3500);}
 
-function markStepDone(n) {
-  var el = document.getElementById('snum-'+n);
-  el.classList.add('done');
-  el.textContent = '✓';
-}
-
-function showToast(msg, type) {
-  var t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast ' + (type||'success');
-  setTimeout(function(){t.classList.add('show');},10);
-  setTimeout(function(){t.classList.remove('show');},3500);
-}
+uSum();sP('pro',8000,1000);
 </script>
 </body>
 </html>
