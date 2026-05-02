@@ -1302,6 +1302,32 @@ app.get('/api/agent/stats', async (req, res) => {
   } catch(e) { res.json({ total: 0, today: 0 }); }
 });
 
+
+// ═══════════════════════════════════════════
+// PROXY CLAUDE API — AGENT AIDA
+// ═══════════════════════════════════════════
+app.post('/api/agent/chat', async (req, res) => {
+  try {
+    const { messages, system } = req.body;
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        system: system,
+        messages: messages
+      })
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 connectDB().then(() => {
 
   // Routes sécurité admin
