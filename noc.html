@@ -296,12 +296,12 @@ function renderGrid(){
     return;
   }
   grid.innerHTML=cams.map(cam=>{
-    const id=cam._id||cam.id;
+    const id=String(cam._id||cam.id||'');
     return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button><button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button></div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
   }).join('');
-  document.querySelectorAll('.ov-btn.z').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);}));
-  document.querySelectorAll('.ov-btn.e').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>(c._id||c.id)===b.dataset.id);if(cam)editCam(cam);}));
-  document.querySelectorAll('.ov-btn.d').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>(c._id||c.id)===b.dataset.id);if(cam)askDelete(cam);}));
+  document.querySelectorAll('.ov-btn.z').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);}));
+  document.querySelectorAll('.ov-btn.e').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)editCam(cam);}));
+  document.querySelectorAll('.ov-btn.d').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)askDelete(cam);}));
 }
 function buildVideo(cam){
   const url=cam.url||'';
@@ -340,7 +340,7 @@ function zoomCam(cam){
 }
 function closeZoom(){document.getElementById('zov').classList.add('hidden');document.getElementById('zc').innerHTML='<button class="zcl" onclick="closeZoom()">x</button>';}
 function editCam(cam){
-  editId=cam._id||cam.id;
+  editId=String(cam._id||cam.id||'');
   document.getElementById('modal-title').textContent='Modifier la camera';
   document.getElementById('b-save').textContent='Sauvegarder';
   document.getElementById('f-client').value=cam.client||'';
@@ -352,7 +352,7 @@ function editCam(cam){
   document.getElementById('mbg').classList.remove('hidden');
 }
 function askDelete(cam){
-  delId=cam._id||cam.id;
+  delId=String(cam._id||cam.id||'');
   document.getElementById('c-txt').textContent='Supprimer "'+( cam.name||'cette camera')+'" ? Action irreversible.';
   document.getElementById('cov').classList.remove('hidden');
   document.getElementById('c-del').onclick=doDelete;
@@ -363,7 +363,7 @@ async function doDelete(){
   const id=delId;closeConfirm();
   try{
     const r=await fetch(API+'/api/noc/cameras/'+id+'?token='+TOKEN,{method:'DELETE'});
-    if(r.ok){cameras=cameras.filter(c=>(c._id||c.id)!==id);renderAll();}
+    if(r.ok){cameras=cameras.filter(c=>String(c._id||c.id)!==String(id));await loadCameras();}
     else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.status));}
   }catch(e){alert('Erreur: '+e.message);}
 }
@@ -393,7 +393,7 @@ async function saveCamera(){
     let r;
     if(editId){r=await fetch(API+'/api/noc/cameras/'+editId+'?token='+TOKEN,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
     else{r=await fetch(API+'/api/noc/cameras?token='+TOKEN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
-    if(r.ok){closeModal();if(!clients.includes(client)){clients.push(client);renderClientSelect();}await loadCameras();}
+    if(r.ok){closeModal();if(client&&!clients.includes(client)){clients.push(client);renderClientSelect();}await loadCameras();}
     else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.statusText));}
   }catch(e){alert('Erreur reseau: '+e.message);}
   finally{btn.disabled=false;btn.textContent=editId?'Sauvegarder':'Ajouter au NOC';}
