@@ -1216,10 +1216,10 @@ app.get('/noc', authAdmin, (req, res) => {
 // Toutes les caméras du NOC (tous clients confondus)
 app.get('/api/noc/cameras', async (req, res) => {
   try {
-    if (!db) return res.json({ cameras: [] });
+    if (!db) return res.json([]);
     const cameras = await db.collection('noc_cameras').find({}).sort({ client: 1, name: 1 }).toArray();
-    res.json({ cameras });
-  } catch(e) { res.json({ cameras: [] }); }
+    res.json(cameras);
+  } catch(e) { res.json([]); }
 });
 
 // Ajouter caméra au NOC
@@ -1667,10 +1667,10 @@ app.get('/noc', authAdmin, (req, res) => {
 // Toutes les caméras du NOC (tous clients confondus)
 app.get('/api/noc/cameras', async (req, res) => {
   try {
-    if (!db) return res.json({ cameras: [] });
+    if (!db) return res.json([]);
     const cameras = await db.collection('noc_cameras').find({}).sort({ client: 1, name: 1 }).toArray();
-    res.json({ cameras });
-  } catch(e) { res.json({ cameras: [] }); }
+    res.json(cameras);
+  } catch(e) { res.json([]); }
 });
 
 // Ajouter caméra au NOC
