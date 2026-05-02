@@ -1,0 +1,74 @@
+
+<!-- AIDA FLOATING CHAT BUTTON -->
+<style>
+#aida-fab{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+#aida-btn{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#7c3aed);border:none;cursor:pointer;box-shadow:0 8px 32px rgba(0,212,255,0.4);display:flex;align-items:center;justify-content:center;font-size:26px;transition:all .3s;animation:fabPulse 3s infinite}
+#aida-btn:hover{transform:scale(1.1);box-shadow:0 12px 40px rgba(0,212,255,0.6)}
+@keyframes fabPulse{0%,100%{box-shadow:0 8px 32px rgba(0,212,255,0.4)}50%{box-shadow:0 8px 48px rgba(0,212,255,0.7)}}
+#aida-tooltip{background:linear-gradient(135deg,#0d1117,#1a2035);border:1px solid rgba(0,212,255,0.3);border-radius:12px;padding:10px 16px;color:#fff;font-size:13px;font-family:system-ui,sans-serif;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;animation:tooltipIn .3s ease}
+@keyframes tooltipIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+#aida-tooltip .aida-dot{width:8px;height:8px;background:#00e676;border-radius:50%;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+#aida-iframe-wrap{position:fixed;bottom:100px;right:24px;width:380px;height:580px;border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.6);border:1px solid rgba(0,212,255,0.2);display:none;z-index:9998;transition:all .3s;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+#aida-iframe-wrap iframe{width:100%;height:100%;border:none}
+#aida-close{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:1}
+@media(max-width:480px){#aida-iframe-wrap{width:calc(100vw - 32px);height:70vh;right:16px;bottom:90px}}
+</style>
+
+<div id="aida-fab">
+  <div id="aida-tooltip">
+    <div class="aida-dot"></div>
+    <span>💬 <strong>Aida</strong> — Votre assistante PST</span>
+  </div>
+  <button id="aida-btn" onclick="toggleAida()" title="Parler à Aida">🤖</button>
+</div>
+
+<div id="aida-iframe-wrap">
+  <button id="aida-close" onclick="toggleAida()">×</button>
+  <iframe id="aida-iframe" src="" allow="microphone"></iframe>
+</div>
+
+<script>
+let aidaOpen = false;
+let tooltipTimer = null;
+
+// Hide tooltip after 5 seconds
+tooltipTimer = setTimeout(() => {
+  const t = document.getElementById('aida-tooltip');
+  if(t) t.style.display = 'none';
+}, 5000);
+
+function toggleAida() {
+  aidaOpen = !aidaOpen;
+  const wrap = document.getElementById('aida-iframe-wrap');
+  const btn = document.getElementById('aida-btn');
+  const tooltip = document.getElementById('aida-tooltip');
+  
+  if (aidaOpen) {
+    // Load iframe only when opened (saves bandwidth)
+    const iframe = document.getElementById('aida-iframe');
+    if (!iframe.src) {
+      iframe.src = 'https://pst-telecom-production.up.railway.app/agent';
+    }
+    wrap.style.display = 'block';
+    btn.innerHTML = '×';
+    btn.style.fontSize = '24px';
+    if(tooltip) tooltip.style.display = 'none';
+    clearTimeout(tooltipTimer);
+  } else {
+    wrap.style.display = 'none';
+    btn.innerHTML = '🤖';
+    btn.style.fontSize = '26px';
+  }
+}
+
+// Show tooltip again after 30s if not opened
+setTimeout(() => {
+  if (!aidaOpen) {
+    const t = document.getElementById('aida-tooltip');
+    if(t) { t.style.display = 'flex'; setTimeout(()=>{if(!aidaOpen&&t)t.style.display='none';}, 6000); }
+  }
+}, 30000);
+</script>
+<!-- FIN AIDA FLOATING CHAT -->
