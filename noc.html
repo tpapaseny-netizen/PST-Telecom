@@ -164,8 +164,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="mbody">
       <input type="hidden" id="edit-id">
       <div class="fg">
-        <label class="fl">Client / Entreprise *</label>
-        <select class="fsel" id="f-client"><option value="">-- Selectionner --</option></select>
+        <label class="fl">Client / Entreprise</label>
+        <select class="fsel" id="f-client"><option value="">-- Optionnel --</option></select>
       </div>
       <div class="fg">
         <label class="fl">Nom de la camera *</label>
@@ -251,7 +251,7 @@ async function loadClients(){
 function renderClientSelect(){
   const sel=document.getElementById('f-client');
   const prev=sel.value;
-  sel.innerHTML='<option value="">-- Selectionner --</option>'+clients.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  sel.innerHTML='<option value="">-- Optionnel --</option>'+clients.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
   if(prev)sel.value=prev;
 }
 function renderClientList(){
@@ -383,7 +383,7 @@ async function saveCamera(){
   const client=document.getElementById('f-client').value.trim();
   const name=document.getElementById('f-name').value.trim();
   const url=document.getElementById('f-url').value.trim();
-  if(!client){alert('Selectionner un client');return;}
+  // client optional
   if(!name){alert('Entrer un nom de camera');return;}
   if(!url){alert('Entrer une URL');return;}
   const btn=document.getElementById('b-save');
