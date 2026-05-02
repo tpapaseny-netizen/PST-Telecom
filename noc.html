@@ -231,8 +231,8 @@ async function init(){
   document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR',{hour12:false});
   await loadClients();
   await loadCameras();
-  setInterval(loadCameras,30000);
-  setInterval(simulateAlert,15000);
+  // no auto-reload: keeps video streams alive
+  setInterval(simulateAlert,60000);
 }
 async function loadClients(){
   try{
@@ -264,9 +264,7 @@ async function loadCameras(){
   try{
     const r=await fetch(API+'/api/noc/cameras?token='+TOKEN);
     if(!r.ok){cameras=[];renderAll();return;}
-    const data=await r.json();
-    // Handle both formats: {cameras:[...]} or [...]
-    cameras=Array.isArray(data)?data:(data.cameras||data.data||[]);
+    cameras=await r.json();
     renderAll();
   }catch(e){console.warn('cameras',e);cameras=[];renderAll();}
 }
@@ -290,6 +288,15 @@ function renderStats(){
   document.getElementById('b-off').textContent=off;
   document.getElementById('b-al').textContent=alerts.length;
 }
+function buildCard(cam){
+  const id=String(cam._id||cam.id||'');
+  return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button><button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button></div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
+}
+function attachEvents(){
+  document.querySelectorAll('.ov-btn.z').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);});
+  document.querySelectorAll('.ov-btn.e').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)editCam(cam);});
+  document.querySelectorAll('.ov-btn.d').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)askDelete(cam);});
+}
 function renderGrid(){
   const grid=document.getElementById('grid');
   const cams=getFiltered();
@@ -297,13 +304,21 @@ function renderGrid(){
     grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera</h3><p>Cliquez sur Ajouter pour ajouter votre premiere camera.</p><button class="empty-add" onclick="openModal()">+ Ajouter une camera</button></div>';
     return;
   }
-  grid.innerHTML=cams.map(cam=>{
+  const existingIds=new Set([...grid.querySelectorAll('.cam-card')].map(el=>el.id.replace('card-','')));
+  const newIds=new Set(cams.map(cam=>String(cam._id||cam.id||'')));
+  existingIds.forEach(id=>{if(!newIds.has(id)){const el=document.getElementById('card-'+id);if(el)el.remove();}});
+  cams.forEach((cam,i)=>{
     const id=String(cam._id||cam.id||'');
-    return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button><button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button></div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
-  }).join('');
-  document.querySelectorAll('.ov-btn.z').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);}));
-  document.querySelectorAll('.ov-btn.e').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)editCam(cam);}));
-  document.querySelectorAll('.ov-btn.d').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)askDelete(cam);}));
+    if(!existingIds.has(id)){
+      const tmp=document.createElement('div');
+      tmp.innerHTML=buildCard(cam);
+      const card=tmp.firstChild;
+      const cards=[...grid.querySelectorAll('.cam-card')];
+      if(i>=cards.length)grid.appendChild(card);
+      else grid.insertBefore(card,cards[i]);
+    }
+  });
+  attachEvents();
 }
 function buildVideo(cam){
   const url=cam.url||'';
@@ -342,7 +357,7 @@ function zoomCam(cam){
 }
 function closeZoom(){document.getElementById('zov').classList.add('hidden');document.getElementById('zc').innerHTML='<button class="zcl" onclick="closeZoom()">x</button>';}
 function editCam(cam){
-  editId=String(cam._id||cam.id||'');
+  editId=cam._id||cam.id;
   document.getElementById('modal-title').textContent='Modifier la camera';
   document.getElementById('b-save').textContent='Sauvegarder';
   document.getElementById('f-client').value=cam.client||'';
@@ -354,7 +369,7 @@ function editCam(cam){
   document.getElementById('mbg').classList.remove('hidden');
 }
 function askDelete(cam){
-  delId=String(cam._id||cam.id||'');
+  delId=cam._id||cam.id;
   document.getElementById('c-txt').textContent='Supprimer "'+( cam.name||'cette camera')+'" ? Action irreversible.';
   document.getElementById('cov').classList.remove('hidden');
   document.getElementById('c-del').onclick=doDelete;
@@ -365,7 +380,7 @@ async function doDelete(){
   const id=delId;closeConfirm();
   try{
     const r=await fetch(API+'/api/noc/cameras/'+id+'?token='+TOKEN,{method:'DELETE'});
-    if(r.ok){cameras=cameras.filter(c=>String(c._id||c.id)!==String(id));await loadCameras();}
+    if(r.ok){cameras=cameras.filter(c=>String(c._id||c.id)!==String(id));const el=document.getElementById('card-'+id);if(el)el.remove();renderStats();renderClientList();}
     else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.status));}
   }catch(e){alert('Erreur: '+e.message);}
 }
@@ -395,7 +410,7 @@ async function saveCamera(){
     let r;
     if(editId){r=await fetch(API+'/api/noc/cameras/'+editId+'?token='+TOKEN,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
     else{r=await fetch(API+'/api/noc/cameras?token='+TOKEN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
-    if(r.ok){closeModal();if(client&&!clients.includes(client)){clients.push(client);renderClientSelect();}await loadCameras();}
+    if(r.ok){const d=await r.json().catch(()=>({}));closeModal();if(client&&!clients.includes(client)){clients.push(client);renderClientSelect();}if(d.camera){cameras.unshift(d.camera);renderGrid();}else{await loadCameras();}renderStats();renderClientList();}
     else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.statusText));}
   }catch(e){alert('Erreur reseau: '+e.message);}
   finally{btn.disabled=false;btn.textContent=editId?'Sauvegarder':'Ajouter au NOC';}
