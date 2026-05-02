@@ -10,7 +10,7 @@ const app = express();
 // ─── SECURITY HEADERS (Helmet-like) ──────────────────────────
 app.use(function(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  // X-Frame-Options: removed to allow YouTube/camera iframes
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
@@ -21,6 +21,7 @@ app.use(function(req, res, next) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
+    "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://*.railway.app; " +
     "connect-src 'self' https://pst-telecom-production.up.railway.app https://api.flutterwave.com;"
   );
   next();
@@ -1203,16 +1204,14 @@ app.get('/api/admin/factures', async (req, res) => {
   } catch(e) { res.json([]); }
 });
 
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ROUTES NOC CENTER — VERSION FINALE
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 
-// Page NOC
 app.get('/noc', authAdmin, (req, res) => {
   res.sendFile(require('path').join(__dirname, 'noc.html'));
 });
 
-// GET toutes les cameras NOC
 app.get('/api/noc/cameras', async (req, res) => {
   try {
     if (!db) return res.json([]);
@@ -1221,7 +1220,6 @@ app.get('/api/noc/cameras', async (req, res) => {
   } catch(e) { res.json([]); }
 });
 
-// GET clients distincts depuis les cameras NOC
 app.get('/api/noc/clients', async (req, res) => {
   try {
     if (!db) return res.json([]);
@@ -1231,7 +1229,6 @@ app.get('/api/noc/clients', async (req, res) => {
   } catch(e) { res.json([]); }
 });
 
-// POST ajouter une camera
 app.post('/api/noc/cameras', async (req, res) => {
   try {
     const { name, url } = req.body;
@@ -1241,12 +1238,10 @@ app.post('/api/noc/cameras', async (req, res) => {
     delete cam.token;
     const r = await db.collection('noc_cameras').insertOne(cam);
     cam._id = r.insertedId;
-    await db.collection('activity_logs').insertOne({ type: 'noc', message: `Camera NOC ajoutee: ${name}`, createdAt: new Date() });
     res.json({ success: true, camera: cam });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT modifier une camera
 app.put('/api/noc/cameras/:id', async (req, res) => {
   try {
     if (!db) return res.status(500).json({ error: 'DB non disponible' });
@@ -1259,7 +1254,6 @@ app.put('/api/noc/cameras/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE supprimer une camera definitivement
 app.delete('/api/noc/cameras/:id', async (req, res) => {
   try {
     if (!db) return res.status(500).json({ error: 'DB non disponible' });
