@@ -1203,596 +1203,75 @@ app.get('/api/admin/factures', async (req, res) => {
   } catch(e) { res.json([]); }
 });
 
-// À ajouter dans server-at.js juste avant 
-// ═══════════════════════════════════════════════════════════════
-// ROUTES PST NOC CENTER
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// ROUTES NOC CENTER — VERSION FINALE
+// ═══════════════════════════════════════════════════════
 
 // Page NOC
 app.get('/noc', authAdmin, (req, res) => {
   res.sendFile(require('path').join(__dirname, 'noc.html'));
 });
 
-// Toutes les caméras du NOC (tous clients confondus)
+// GET toutes les cameras NOC
 app.get('/api/noc/cameras', async (req, res) => {
   try {
     if (!db) return res.json([]);
-    const cameras = await db.collection('noc_cameras').find({}).sort({ client: 1, name: 1 }).toArray();
-    res.json(cameras);
-  } catch(e) { res.json([]); }
-});
-
-// Ajouter caméra au NOC
-app.post('/api/noc/cameras', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('noc_cameras').insertOne({ ...req.body, createdAt: new Date() });
-    await db.collection('activity_logs').insertOne({ type: 'noc', message: `Caméra NOC ajoutée: ${req.body.name} — ${req.body.client}`, createdAt: new Date() });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Supprimer caméra du NOC
-app.delete('/api/noc/cameras/:id', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('noc_cameras').deleteOne({ id: req.params.id });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Stats NOC globales
-app.get('/api/noc/stats', async (req, res) => {
-  try {
-    if (!db) return res.json({ total: 0, online: 0, offline: 0, clients: 0 });
-    const cameras = await db.collection('noc_cameras').find({}).toArray();
-    const clients = [...new Set(cameras.map(c => c.client))].length;
-    res.json({ total: cameras.length, online: cameras.filter(c=>c.online).length, offline: cameras.filter(c=>!c.online).length, clients });
-  } catch(e) { res.json({ total: 0, online: 0, offline: 0, clients: 0 }); }
-});
-
-
-
-// ═══════════════════════════════════════════════════════════════
-// ROUTES PST RTSP CONVERTER
-// ═══════════════════════════════════════════════════════════════
-
-const GO2RTC_URL = process.env.GO2RTC_URL || 'https://pst-rtsp.up.railway.app';
-
-// Ajouter un stream RTSP
-app.post('/api/rtsp/add', async (req, res) => {
-  try {
-    const { name, url } = req.body;
-    if (!name || !url) return res.status(400).json({ error: 'name et url requis' });
-    
-    // Ajouter le stream dans go2rtc
-    const r = await fetch(`${GO2RTC_URL}/api/streams?name=${encodeURIComponent(name)}&src=${encodeURIComponent(url)}`, {
-      method: 'PUT'
-    });
-    
-    if (r.ok) {
-      // Sauvegarder en DB
-      if (db) await db.collection('rtsp_streams').updateOne(
-        { name },
-        { $set: { name, url, hlsUrl: `${GO2RTC_URL}/api/stream.m3u8?src=${encodeURIComponent(name)}`, createdAt: new Date() } },
-        { upsert: true }
-      );
-      res.json({ 
-        success: true, 
-        hlsUrl: `${GO2RTC_URL}/api/stream.m3u8?src=${encodeURIComponent(name)}`,
-        webrtcUrl: `${GO2RTC_URL}/webrtc?src=${encodeURIComponent(name)}`
-      });
-    } else {
-      res.status(500).json({ error: 'go2rtc non disponible' });
-    }
-  } catch(e) { 
-    res.status(500).json({ error: e.message, note: 'Vérifiez que le service go2rtc est démarré' }); 
-  }
-});
-
-// Lister tous les streams actifs
-app.get('/api/rtsp/streams', async (req, res) => {
-  try {
-    // Depuis go2rtc
-    const r = await fetch(`${GO2RTC_URL}/api/streams`);
-    if (r.ok) {
-      const streams = await r.json();
-      return res.json({ streams, source: 'go2rtc' });
-    }
-    // Fallback depuis DB
-    if (db) {
-      const streams = await db.collection('rtsp_streams').find({}).toArray();
-      return res.json({ streams, source: 'db' });
-    }
-    res.json({ streams: [], source: 'none' });
-  } catch(e) { 
-    res.json({ streams: [], error: e.message }); 
-  }
-});
-
-// Supprimer un stream
-app.delete('/api/rtsp/streams/:name', async (req, res) => {
-  try {
-    const { name } = req.params;
-    await fetch(`${GO2RTC_URL}/api/streams?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
-    if (db) await db.collection('rtsp_streams').deleteOne({ name });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Proxy HLS — pour éviter les problèmes CORS
-app.get('/api/rtsp/hls/:name', async (req, res) => {
-  try {
-    const { name } = req.params;
-    const r = await fetch(`${GO2RTC_URL}/api/stream.m3u8?src=${encodeURIComponent(name)}`);
-    if (r.ok) {
-      const content = await r.text();
-      res.setHeader('Content-Type', 'application/x-mpegURL');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.send(content);
-    } else {
-      res.status(404).json({ error: 'Stream non trouvé' });
-    }
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Status go2rtc
-app.get('/api/rtsp/status', async (req, res) => {
-  try {
-    const r = await fetch(`${GO2RTC_URL}/api`);
-    if (r.ok) {
-      const data = await r.json();
-      res.json({ online: true, version: data.version, url: GO2RTC_URL });
-    } else {
-      res.json({ online: false });
-    }
-  } catch(e) { res.json({ online: false, error: e.message }); }
-});
-
-// URLs RTSP par marque (guide pour les clients)
-app.get('/api/rtsp/guide', (req, res) => {
-  res.json({
-    brands: [
-      { name: 'Hikvision', format: 'rtsp://admin:PASSWORD@IP:554/h264/ch1/main/av_stream', port: 554, cloud: 'Hik-Connect' },
-      { name: 'Dahua', format: 'rtsp://admin:PASSWORD@IP:554/cam/realmonitor?channel=1&subtype=0', port: 554, cloud: 'DMSS' },
-      { name: 'TP-Link Tapo', format: 'rtsp://USERNAME:PASSWORD@IP:554/stream1', port: 554, cloud: 'Tapo Cloud' },
-      { name: 'Reolink', format: 'rtsp://admin:PASSWORD@IP:554/h264Preview_01_main', port: 554, cloud: 'Reolink Cloud' },
-      { name: 'Axis', format: 'rtsp://root:PASSWORD@IP:554/axis-media/media.amp', port: 554, cloud: 'AXIS Cloud' },
-      { name: 'Foscam', format: 'rtsp://admin:PASSWORD@IP:88/videoMain', port: 88, cloud: 'Foscam Cloud' },
-      { name: 'Amcrest', format: 'rtsp://admin:PASSWORD@IP:554/cam/realmonitor', port: 554, cloud: 'Amcrest Cloud' },
-      { name: 'Uniview', format: 'rtsp://admin:PASSWORD@IP:554/unicast/c1/s0/live', port: 554, cloud: 'UniCloud' },
-      { name: 'Hanwha', format: 'rtsp://admin:PASSWORD@IP:554/profile2/media.smp', port: 554, cloud: 'Wisenet' },
-      { name: 'Vivotek', format: 'rtsp://root:PASSWORD@IP:554/live.sdp', port: 554, cloud: 'Vivotek Cloud' },
-      { name: 'Annke', format: 'rtsp://admin:PASSWORD@IP:554/H264/ch1/main/av_stream', port: 554, cloud: 'ANNKE Cloud' },
-      { name: 'Zmodo', format: 'rtsp://admin:PASSWORD@IP:554/live', port: 554, cloud: 'Zmodo Cloud' },
-    ]
-  });
-});
-
-
-
-// Modifier une caméra NOC
-app.put('/api/noc/cameras/:id', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    const { id } = req.params;
-    await db.collection('noc_cameras').updateOne(
-      { id },
-      { $set: { ...req.body, updatedAt: new Date() } }
-    );
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-
-
-// Sync NOC cameras vers SecurCam clients
-app.post('/api/noc/sync', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true, message: 'DB non disponible' });
-    
-    // Récupérer toutes les caméras NOC
-    const nocCams = await db.collection('noc_cameras').find({}).toArray();
-    
-    // Grouper par client
-    const clientsMap = {};
-    nocCams.forEach(cam => {
-      if (!clientsMap[cam.client]) {
-        clientsMap[cam.client] = { cameras: [] };
-      }
-      clientsMap[cam.client].cameras.push(cam);
-    });
-    
-    let synced = 0;
-    for (const [clientName, data] of Object.entries(clientsMap)) {
-      // Vérifier si le client existe déjà dans securcam_clients
-      const existing = await db.collection('securcam_clients').findOne({ name: clientName });
-      if (!existing) {
-        // Créer le client automatiquement
-        const code = 'PST-' + clientName.substring(0,6).toUpperCase().replace(/\s/g,'') + '-' + Math.random().toString(36).slice(2,5).toUpperCase();
-        await db.collection('securcam_clients').insertOne({
-          code, name: clientName, type: 'Client NOC',
-          contact: clientName, tel: '', email: '',
-          plan: 'starter', tarif: 0,
-          password: 'pst2026', status: 'active',
-          cameras: data.cameras,
-          createdAt: new Date()
-        });
-        synced++;
-      } else {
-        // Mettre à jour les caméras
-        await db.collection('securcam_clients').updateOne(
-          { name: clientName },
-          { $set: { cameras: data.cameras } }
-        );
-      }
-      // Sync cameras dans securcam_cameras
-      for (const cam of data.cameras) {
-        await db.collection('securcam_cameras').updateOne(
-          { id: cam.id },
-          { $set: { ...cam, clientCode: existing?.code || clientName } },
-          { upsert: true }
-        );
-      }
-    }
-    
-    res.json({ success: true, synced, total: Object.keys(clientsMap).length });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Stats NOC globales améliorées
-app.get('/api/noc/stats', async (req, res) => {
-  try {
-    if (!db) return res.json({ total: 0, online: 0, offline: 0, clients: 0 });
-    const cameras = await db.collection('noc_cameras').find({}).toArray();
-    const clients = [...new Set(cameras.map(c => c.client))].length;
-    const secCams = await db.collection('securcam_cameras').countDocuments();
-    res.json({ 
-      total: cameras.length, 
-      online: cameras.filter(c=>c.online).length, 
-      offline: cameras.filter(c=>!c.online).length, 
-      clients,
-      securcam_total: secCams
-    });
-  } catch(e) { res.json({ total: 0, online: 0, offline: 0, clients: 0 }); }
-});
-
-
-
-// ═══════════════════════════════════════════════════════
-// ROUTES NOC CENTER - PROPRES ET DEFINITIVES
-// ═══════════════════════════════════════════════════════
-
-// GET toutes les caméras NOC depuis MongoDB
-app.get('/api/noc/cameras', async (req, res) => {
-  try {
-    const cams = db ? await db.collection('noc_cameras').find({}).sort({createdAt:-1}).toArray() : [];
+    const cams = await db.collection('noc_cameras').find({}).sort({ createdAt: -1 }).toArray();
     res.json(cams);
   } catch(e) { res.json([]); }
 });
 
-// GET liste clients NOC (noms distincts depuis les caméras)
+// GET clients distincts depuis les cameras NOC
 app.get('/api/noc/clients', async (req, res) => {
   try {
-    const cams = db ? await db.collection('noc_cameras').find({},{projection:{client:1}}).toArray() : [];
-    const names = [...new Set(cams.map(c=>c.client).filter(Boolean))];
-    res.json(names.map(n=>({name:n})));
+    if (!db) return res.json([]);
+    const cams = await db.collection('noc_cameras').find({}, { projection: { client: 1 } }).toArray();
+    const names = [...new Set(cams.map(c => c.client).filter(Boolean))];
+    res.json(names.map(n => ({ name: n })));
   } catch(e) { res.json([]); }
 });
 
-// POST ajouter une caméra
+// POST ajouter une camera
 app.post('/api/noc/cameras', async (req, res) => {
   try {
-    const { client, name, url, type, location, zone, status } = req.body;
-    if (!client || !name || !url) return res.status(400).json({ error: 'client, name et url requis' });
-    const cam = { client, name, url, type: type||'embed', location: location||'', zone: zone||'', status: status||'online', createdAt: new Date() };
-    if (db) {
-      const r = await db.collection('noc_cameras').insertOne(cam);
-      cam._id = r.insertedId;
-    } else { cam._id = Date.now().toString(); }
+    const { name, url } = req.body;
+    if (!name || !url) return res.status(400).json({ error: 'name et url requis' });
+    if (!db) return res.status(500).json({ error: 'DB non disponible' });
+    const cam = { ...req.body, createdAt: new Date() };
+    delete cam.token;
+    const r = await db.collection('noc_cameras').insertOne(cam);
+    cam._id = r.insertedId;
+    await db.collection('activity_logs').insertOne({ type: 'noc', message: `Camera NOC ajoutee: ${name}`, createdAt: new Date() });
     res.json({ success: true, camera: cam });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT modifier une caméra
+// PUT modifier une camera
 app.put('/api/noc/cameras/:id', async (req, res) => {
   try {
-    const { client, name, url, type, location, zone, status } = req.body;
-    const update = { client, name, url, type: type||'embed', location: location||'', zone: zone||'', status: status||'online', updatedAt: new Date() };
-    if (db) {
-      const { ObjectId } = require('mongodb');
-      let oid;
-      try { oid = new ObjectId(req.params.id); } catch(e) { return res.status(400).json({error:'ID invalide'}); }
-      await db.collection('noc_cameras').updateOne({ _id: oid }, { $set: update });
-    }
+    if (!db) return res.status(500).json({ error: 'DB non disponible' });
+    let oid;
+    try { oid = new ObjectId(req.params.id); } catch(e) { return res.status(400).json({ error: 'ID invalide' }); }
+    const update = { ...req.body, updatedAt: new Date() };
+    delete update._id; delete update.token; delete update.createdAt;
+    await db.collection('noc_cameras').updateOne({ _id: oid }, { $set: update });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE supprimer une caméra DEFINITIVEMENT
+// DELETE supprimer une camera definitivement
 app.delete('/api/noc/cameras/:id', async (req, res) => {
   try {
-    if (db) {
-      const { ObjectId } = require('mongodb');
-      let oid;
-      try { oid = new ObjectId(req.params.id); } catch(e) { return res.status(400).json({error:'ID invalide'}); }
-      const r = await db.collection('noc_cameras').deleteOne({ _id: oid });
-      if (r.deletedCount === 0) return res.status(404).json({ error: 'Camera non trouvee' });
-    }
+    if (!db) return res.status(500).json({ error: 'DB non disponible' });
+    let oid;
+    try { oid = new ObjectId(req.params.id); } catch(e) { return res.status(400).json({ error: 'ID invalide' }); }
+    const r = await db.collection('noc_cameras').deleteOne({ _id: oid });
+    if (r.deletedCount === 0) return res.status(404).json({ error: 'Camera non trouvee' });
     res.json({ success: true, deleted: req.params.id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 
-// ─── DÉMARRAGE
-
-// ═══════════════════════════════════════════════════════════════
-// ROUTES PST SECURCAM
-// ═══════════════════════════════════════════════════════════════
-
-// Pages SecurCam
-app.get('/securcam', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'securcam.html'));
-});
-app.get('/securcam-admin', authAdmin, (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'securcam-admin.html'));
-});
-
-// Login client SecurCam
-app.post('/api/securcam/login', async (req, res) => {
-  try {
-    const { code, password } = req.body;
-    if (!code || !password) return res.status(400).json({ error: 'Code et mot de passe requis' });
-    if (!db) return res.status(503).json({ error: 'DB non disponible' });
-    const client = await db.collection('securcam_clients').findOne({ code: code.toUpperCase().trim(), password });
-    if (!client) return res.status(401).json({ success: false, error: 'Code ou mot de passe incorrect' });
-    const cameras = await db.collection('securcam_cameras').find({ clientCode: client.code }).toArray();
-    res.json({ success: true, client: { code: client.code, name: client.name, plan: client.plan }, cameras });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Liste clients SecurCam (admin)
-app.get('/api/securcam/clients', async (req, res) => {
-  try {
-    if (!db) return res.json({ clients: [] });
-    const clients = await db.collection('securcam_clients').find({}).toArray();
-    const result = await Promise.all(clients.map(async c => {
-      const cameras = await db.collection('securcam_cameras').find({ clientCode: c.code }).toArray();
-      return { ...c, cameras };
-    }));
-    res.json({ clients: result });
-  } catch(e) { res.json({ clients: [] }); }
-});
-
-// Créer client SecurCam (admin)
-app.post('/api/securcam/clients', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    const client = { ...req.body, createdAt: new Date() };
-    await db.collection('securcam_clients').insertOne(client);
-    await db.collection('activity_logs').insertOne({ type: 'securcam', message: `Nouveau client SecurCam: ${client.name}`, createdAt: new Date() });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Supprimer client SecurCam
-app.delete('/api/securcam/clients/:code', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('securcam_clients').deleteOne({ code: req.params.code });
-    await db.collection('securcam_cameras').deleteMany({ clientCode: req.params.code });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Ajouter caméra
-app.post('/api/securcam/cameras', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    const { clientCode, camera } = req.body;
-    await db.collection('securcam_cameras').insertOne({ ...camera, clientCode, createdAt: new Date() });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Supprimer caméra
-app.delete('/api/securcam/cameras/:id', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('securcam_cameras').deleteOne({ id: req.params.id });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Demandes de devis SecurCam
-app.post('/api/securcam/devis', async (req, res) => {
-  try {
-    if (db) await db.collection('securcam_devis').insertOne({ ...req.body, createdAt: new Date(), status: 'pending' });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/securcam/devis', async (req, res) => {
-  try {
-    if (!db) return res.json({ devis: [] });
-    const devis = await db.collection('securcam_devis').find({}).sort({ createdAt: -1 }).toArray();
-    res.json({ devis });
-  } catch(e) { res.json({ devis: [] }); }
-});
-
-// Envoyer accès par SMS
-app.post('/api/securcam/send-credentials', async (req, res) => {
-  try {
-    const { clientCode, telephone } = req.body;
-    if (!db) return res.json({ success: true });
-    const client = await db.collection('securcam_clients').findOne({ code: clientCode });
-    if (!client) return res.status(404).json({ error: 'Client non trouvé' });
-    const msg = `PST SecurCam — Vos accès:\nCode: ${client.code}\nMot de passe: ${client.password}\nPortail: pst-telecom-production.up.railway.app/securcam\nSupport: +221 77 152 09 59`;
-    const at = getAT();
-    if (at) await at.SMS.send({ to: [telephone], message: msg, from: 'PST-Telecom' });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Alertes SecurCam
-app.post('/api/securcam/alert', async (req, res) => {
-  try {
-    if (db) await db.collection('securcam_alerts').insertOne({ ...req.body, createdAt: new Date() });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/securcam/alerts', async (req, res) => {
-  try {
-    if (!db) return res.json({ alerts: [] });
-    const { clientCode } = req.query;
-    const query = clientCode ? { clientCode } : {};
-    const alerts = await db.collection('securcam_alerts').find(query).sort({ createdAt: -1 }).limit(100).toArray();
-    res.json({ alerts });
-  } catch(e) { res.json({ alerts: [] }); }
-});
-
-
-
-
-// ═══════════════════════════════════════════════════════════════
-// ROUTES PST NOC CENTER
-// ═══════════════════════════════════════════════════════════════
-
-// Page NOC
-app.get('/noc', authAdmin, (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'noc.html'));
-});
-
-// Toutes les caméras du NOC (tous clients confondus)
-app.get('/api/noc/cameras', async (req, res) => {
-  try {
-    if (!db) return res.json([]);
-    const cameras = await db.collection('noc_cameras').find({}).sort({ client: 1, name: 1 }).toArray();
-    res.json(cameras);
-  } catch(e) { res.json([]); }
-});
-
-// Ajouter caméra au NOC
-app.post('/api/noc/cameras', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('noc_cameras').insertOne({ ...req.body, createdAt: new Date() });
-    await db.collection('activity_logs').insertOne({ type: 'noc', message: `Caméra NOC ajoutée: ${req.body.name} — ${req.body.client}`, createdAt: new Date() });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Supprimer caméra du NOC
-app.delete('/api/noc/cameras/:id', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    await db.collection('noc_cameras').deleteOne({ id: req.params.id });
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Stats NOC globales
-app.get('/api/noc/stats', async (req, res) => {
-  try {
-    if (!db) return res.json({ total: 0, online: 0, offline: 0, clients: 0 });
-    const cameras = await db.collection('noc_cameras').find({}).toArray();
-    const clients = [...new Set(cameras.map(c => c.client))].length;
-    res.json({ total: cameras.length, online: cameras.filter(c=>c.online).length, offline: cameras.filter(c=>!c.online).length, clients });
-  } catch(e) { res.json({ total: 0, online: 0, offline: 0, clients: 0 }); }
-});
-
-
-
-// ═══════════════════════════════════════════════════════════════
-
-// Modifier une caméra NOC
-app.put('/api/noc/cameras/:id', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true });
-    const { id } = req.params;
-    await db.collection('noc_cameras').updateOne(
-      { id },
-      { $set: { ...req.body, updatedAt: new Date() } }
-    );
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-
-
-// Sync NOC cameras vers SecurCam clients
-app.post('/api/noc/sync', async (req, res) => {
-  try {
-    if (!db) return res.json({ success: true, message: 'DB non disponible' });
-    
-    // Récupérer toutes les caméras NOC
-    const nocCams = await db.collection('noc_cameras').find({}).toArray();
-    
-    // Grouper par client
-    const clientsMap = {};
-    nocCams.forEach(cam => {
-      if (!clientsMap[cam.client]) {
-        clientsMap[cam.client] = { cameras: [] };
-      }
-      clientsMap[cam.client].cameras.push(cam);
-    });
-    
-    let synced = 0;
-    for (const [clientName, data] of Object.entries(clientsMap)) {
-      // Vérifier si le client existe déjà dans securcam_clients
-      const existing = await db.collection('securcam_clients').findOne({ name: clientName });
-      if (!existing) {
-        // Créer le client automatiquement
-        const code = 'PST-' + clientName.substring(0,6).toUpperCase().replace(/\s/g,'') + '-' + Math.random().toString(36).slice(2,5).toUpperCase();
-        await db.collection('securcam_clients').insertOne({
-          code, name: clientName, type: 'Client NOC',
-          contact: clientName, tel: '', email: '',
-          plan: 'starter', tarif: 0,
-          password: 'pst2026', status: 'active',
-          cameras: data.cameras,
-          createdAt: new Date()
-        });
-        synced++;
-      } else {
-        // Mettre à jour les caméras
-        await db.collection('securcam_clients').updateOne(
-          { name: clientName },
-          { $set: { cameras: data.cameras } }
-        );
-      }
-      // Sync cameras dans securcam_cameras
-      for (const cam of data.cameras) {
-        await db.collection('securcam_cameras').updateOne(
-          { id: cam.id },
-          { $set: { ...cam, clientCode: existing?.code || clientName } },
-          { upsert: true }
-        );
-      }
-    }
-    
-    res.json({ success: true, synced, total: Object.keys(clientsMap).length });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Stats NOC globales améliorées
-app.get('/api/noc/stats', async (req, res) => {
-  try {
-    if (!db) return res.json({ total: 0, online: 0, offline: 0, clients: 0 });
-    const cameras = await db.collection('noc_cameras').find({}).toArray();
-    const clients = [...new Set(cameras.map(c => c.client))].length;
-    const secCams = await db.collection('securcam_cameras').countDocuments();
-    res.json({ 
-      total: cameras.length, 
-      online: cameras.filter(c=>c.online).length, 
-      offline: cameras.filter(c=>!c.online).length, 
-      clients,
-      securcam_total: secCams
-    });
-  } catch(e) { res.json({ total: 0, online: 0, offline: 0, clients: 0 }); }
-});
-
-// ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
 
   // Routes sécurité admin
