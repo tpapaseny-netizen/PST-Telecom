@@ -10,7 +10,7 @@ const app = express();
 // ─── SECURITY HEADERS (Helmet-like) ──────────────────────────
 app.use(function(req, res, next) {
   // Pages NOC et SecurCam : pas de restrictions sur les iframes (YouTube, cameras IP)
-  if (req.path === '/noc' || req.path === '/securcam') {
+  if (req.path === '/noc' || req.path === '/securcam' || req.path === '/agent') {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -31,7 +31,7 @@ app.use(function(req, res, next) {
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
     "frame-src *; " +
-    "connect-src 'self' https://pst-telecom-production.up.railway.app https://api.flutterwave.com;"
+    "connect-src 'self' https://pst-telecom-production.up.railway.app https://api.flutterwave.com https://api.anthropic.com;"
   );
   next();
 });
@@ -1274,6 +1274,33 @@ app.delete('/api/noc/cameras/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+
+// ═══════════════════════════════════════════
+// AGENT IA AIDA — SERVICE CLIENT PST
+// ═══════════════════════════════════════════
+
+app.get('/agent', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'agent.html'));
+});
+
+app.post('/api/agent/log', async (req, res) => {
+  try {
+    const { message, reply, service } = req.body;
+    if (db) await db.collection('agent_logs').insertOne({ message, reply, service: service||'general', createdAt: new Date() });
+    res.json({ success: true });
+  } catch(e) { res.json({ success: false }); }
+});
+
+app.get('/api/agent/stats', async (req, res) => {
+  try {
+    if (!db) return res.json({ total: 0, today: 0 });
+    const total = await db.collection('agent_logs').countDocuments();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayCount = await db.collection('agent_logs').countDocuments({ createdAt: { $gte: today } });
+    res.json({ total, today: todayCount });
+  } catch(e) { res.json({ total: 0, today: 0 }); }
+});
 
 connectDB().then(() => {
 
