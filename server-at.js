@@ -9,8 +9,17 @@ const app = express();
 
 // ─── SECURITY HEADERS (Helmet-like) ──────────────────────────
 app.use(function(req, res, next) {
+  // Pages NOC et SecurCam : pas de restrictions sur les iframes (YouTube, cameras IP)
+  if (req.path === '/noc' || req.path === '/securcam') {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // Pas de CSP ni X-Frame-Options sur ces pages
+    return next();
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  // X-Frame-Options: removed to allow YouTube/camera iframes
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
@@ -21,7 +30,7 @@ app.use(function(req, res, next) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
-    "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://*.railway.app; " +
+    "frame-src *; " +
     "connect-src 'self' https://pst-telecom-production.up.railway.app https://api.flutterwave.com;"
   );
   next();
