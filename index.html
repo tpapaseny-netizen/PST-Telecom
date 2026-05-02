@@ -974,5 +974,216 @@ async function aidaProcess(text){
 }
 </script>
 <!-- FIN AIDA CHAT INTEGRE -->
+
+<!-- AIDA CHAT INTEGRE -->
+<style>
+#aida-fab{position:fixed;bottom:24px;right:24px;z-index:9999}
+#aida-btn{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#7c3aed);border:none;cursor:pointer;box-shadow:0 8px 32px rgba(0,212,255,0.45);display:flex;align-items:center;justify-content:center;font-size:28px;transition:all .3s;animation:fabPulse 3s infinite;color:white}
+#aida-btn:hover{transform:scale(1.1)}
+@keyframes fabPulse{0%,100%{box-shadow:0 8px 32px rgba(0,212,255,0.4)}50%{box-shadow:0 8px 52px rgba(0,212,255,0.75)}}
+
+#aida-tooltip{position:fixed;bottom:96px;right:24px;z-index:9999;background:linear-gradient(135deg,#0d1117,#1a2035);border:1px solid rgba(0,212,255,0.35);border-radius:12px;padding:10px 16px;color:#fff;font-size:13px;font-family:system-ui,sans-serif;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;align-items:center;gap:8px;cursor:pointer;transition:opacity .3s}
+#aida-dot{width:8px;height:8px;background:#00e676;border-radius:50%;animation:blink 1.5s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+#aida-chat{position:fixed;bottom:100px;right:24px;z-index:9998;width:370px;height:580px;background:#0d1117;border:1px solid rgba(0,212,255,0.25);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,0.7);display:none;flex-direction:column;overflow:hidden;font-family:system-ui,sans-serif}
+#aida-chat.open{display:flex;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+.ac-head{padding:14px 16px;background:linear-gradient(135deg,#0d1117,#111827);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.ac-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;flex-shrink:0}
+.ac-avatar::after{content:'';position:absolute;bottom:1px;right:1px;width:9px;height:9px;background:#00e676;border-radius:50%;border:2px solid #0d1117}
+.ac-info h3{font-size:14px;font-weight:700;color:#e2e8f0;margin:0}
+.ac-info p{font-size:11px;color:#64748b;margin:0}
+.ac-close{margin-left:auto;background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:0;line-height:1}
+.ac-close:hover{color:#e2e8f0}
+.ac-chips{display:flex;gap:5px;padding:8px 12px;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.ac-chip{font-size:10px;padding:3px 8px;border-radius:10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:#00d4ff;white-space:nowrap}
+
+.ac-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ac-msgs::-webkit-scrollbar{width:3px}
+.ac-msgs::-webkit-scrollbar-thumb{background:#1e2a3a;border-radius:2px}
+
+.ac-msg{display:flex;gap:7px;max-width:88%}
+.ac-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.ac-msg.agent{align-self:flex-start}
+.ac-msg-av{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px}
+.ac-msg.agent .ac-msg-av{background:linear-gradient(135deg,#00d4ff,#7c3aed)}
+.ac-msg.user .ac-msg-av{background:linear-gradient(135deg,#1e40af,#7c3aed)}
+.ac-bubble{padding:9px 12px;border-radius:14px;font-size:12px;line-height:1.5;color:#e2e8f0}
+.ac-msg.agent .ac-bubble{background:#131820;border:1px solid #1e2a3a;border-top-left-radius:4px}
+.ac-msg.user .ac-bubble{background:linear-gradient(135deg,#1e40af,#2563eb);border-top-right-radius:4px;color:#fff}
+.ac-time{font-size:9px;color:#475569;margin-top:2px}
+.ac-msg.user .ac-time{text-align:right}
+
+.ac-typing{display:flex;gap:4px;padding:9px 12px;background:#131820;border:1px solid #1e2a3a;border-radius:14px;border-top-left-radius:4px;width:fit-content}
+.ac-typing span{width:5px;height:5px;background:#475569;border-radius:50%;animation:bounce .8s infinite}
+.ac-typing span:nth-child(2){animation-delay:.15s}
+.ac-typing span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+.ac-qr{display:flex;flex-wrap:wrap;gap:5px;padding:6px 12px;flex-shrink:0}
+.ac-qr-btn{padding:5px 10px;background:transparent;border:1px solid #00d4ff;border-radius:16px;color:#00d4ff;font-size:11px;cursor:pointer;font-family:system-ui,sans-serif;transition:all .15s;white-space:nowrap}
+.ac-qr-btn:hover{background:#00d4ff;color:#000;font-weight:600}
+
+.ac-input-area{padding:10px 12px;border-top:1px solid #1e2a3a;display:flex;gap:7px;align-items:center;flex-shrink:0}
+.ac-input{flex:1;background:#131820;border:1px solid #1e2a3a;border-radius:10px;padding:8px 11px;color:#e2e8f0;font-size:12px;font-family:system-ui,sans-serif;outline:none;resize:none;height:36px;transition:border-color .2s}
+.ac-input:focus{border-color:#00d4ff}
+.ac-send{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ac-send svg{width:14px;height:14px}
+.ac-send:disabled{opacity:.4;cursor:not-allowed}
+
+@media(max-width:480px){
+  #aida-chat{width:calc(100vw - 32px);height:65vh;right:16px;bottom:90px}
+}
+</style>
+
+<div id="aida-tooltip" onclick="toggleAidaChat()">
+  <div id="aida-dot"></div>
+  <span>💬 <strong>Aida</strong> — Assistante PST • En ligne</span>
+</div>
+
+<div id="aida-fab">
+  <button id="aida-btn" onclick="toggleAidaChat()">🤖</button>
+</div>
+
+<div id="aida-chat">
+  <div class="ac-head">
+    <div class="ac-avatar">🤖</div>
+    <div class="ac-info"><h3>Aida — Agent PST</h3><p>Pure Smart Telecom • En ligne</p></div>
+    <button class="ac-close" onclick="toggleAidaChat()">×</button>
+  </div>
+  <div class="ac-chips">
+    <span class="ac-chip">📞 Appels VoIP</span>
+    <span class="ac-chip">✉️ SMS Marketing</span>
+    <span class="ac-chip">⚡ Recharge</span>
+    <span class="ac-chip">📹 SecurCam</span>
+  </div>
+  <div class="ac-msgs" id="ac-msgs"></div>
+  <div class="ac-qr" id="ac-qr"></div>
+  <div class="ac-input-area">
+    <input type="text" class="ac-input" id="ac-input" placeholder="Écrivez votre message..." onkeydown="if(event.key==='Enter')aidaSend()">
+    <button class="ac-send" id="ac-send" onclick="aidaSend()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+var aidaConv=[];
+var aidaOpen=false;
+var aidaInited=false;
+
+var AIDA_SYSTEM='Tu es Aida, l agente intelligente de PST — Pure Smart Telecom, un opérateur virtuel sénégalais. Tu parles en français. Tu es chaleureuse, professionnelle et efficace. PST propose: 1) FORFAITS APPELS: Starter 200min/2990F, Smart 300min/5990F, Business Illimité/15990F. 2) SMS MARKETING: 100SMS/1500F, 1000SMS/10000F, 5000SMS/40000F, 10000SMS/75000F. 3) SMS VÉRIFICATION: 1000F=5 points (Google,WhatsApp,TikTok). 4) RECHARGE: Orange(77,78,71),Free(76),Expresso(70) sans frais. 5) SECURCAM: surveillance caméras 24h/24. Paiement Wave uniquement. Pour inscription demande prénom, nom, téléphone, forfait puis génère le lien Wave. Réponds en max 3-4 lignes.';
+
+var WAVE_ID='M_rlEv9b4P3VtG';
+
+// Tooltip auto-hide
+setTimeout(function(){var t=document.getElementById('aida-tooltip');if(t)t.style.display='none';},6000);
+setTimeout(function(){var t=document.getElementById('aida-tooltip');if(t){t.style.display='flex';setTimeout(function(){if(!aidaOpen&&t)t.style.display='none';},6000);}},35000);
+
+function toggleAidaChat(){
+  aidaOpen=!aidaOpen;
+  var chat=document.getElementById('aida-chat');
+  var btn=document.getElementById('aida-btn');
+  var tip=document.getElementById('aida-tooltip');
+  if(aidaOpen){
+    chat.classList.add('open');
+    btn.innerHTML='×';btn.style.fontSize='24px';
+    if(tip)tip.style.display='none';
+    if(!aidaInited){aidaInited=true;aidaWelcome();}
+    setTimeout(function(){document.getElementById('ac-input').focus();},300);
+  } else {
+    chat.classList.remove('open');
+    btn.innerHTML='🤖';btn.style.fontSize='28px';
+  }
+}
+
+function aidaWelcome(){
+  aidaAddMsg('agent','Bonjour ! 👋 Je suis <strong>Aida</strong>, votre agente PST intelligente.
+
+Je peux vous aider à choisir un forfait, lancer une campagne SMS, recharger votre téléphone ou configurer la surveillance caméra.
+
+Comment puis-je vous aider ?');
+  aidaQR(['📞 Forfaits appels','📩 SMS Marketing','⚡ Recharge','📹 SecurCam','💬 En savoir plus']);
+}
+
+function aidaAddMsg(sender,text){
+  var msgs=document.getElementById('ac-msgs');
+  var div=document.createElement('div');
+  div.className='ac-msg '+sender;
+  var time=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  var av=sender==='agent'?'🤖':'👤';
+  div.innerHTML='<div class="ac-msg-av">'+av+'</div><div><div class="ac-bubble">'+text.replace(/
+/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</div><div class="ac-time">'+time+'</div></div>';
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function aidaTyping(){
+  var msgs=document.getElementById('ac-msgs');
+  var div=document.createElement('div');
+  div.className='ac-msg agent';div.id='ac-typing';
+  div.innerHTML='<div class="ac-msg-av">🤖</div><div class="ac-typing"><span></span><span></span><span></span></div>';
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+function aidaStopTyping(){var t=document.getElementById('ac-typing');if(t)t.remove();}
+
+function aidaQR(opts){
+  var qr=document.getElementById('ac-qr');
+  qr.innerHTML=opts.map(function(o){return '<button class="ac-qr-btn" onclick="aidaQuick(''+o.replace(/'/g,"\'")+'')">'+ o+'</button>';}).join('');
+}
+
+function aidaQuick(text){
+  document.getElementById('ac-qr').innerHTML='';
+  aidaAddMsg('user',text);
+  aidaProcess(text);
+}
+
+async function aidaSend(){
+  var input=document.getElementById('ac-input');
+  var text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  document.getElementById('ac-qr').innerHTML='';
+  aidaAddMsg('user',text);
+  await aidaProcess(text);
+}
+
+async function aidaProcess(text){
+  document.getElementById('ac-send').disabled=true;
+  aidaConv.push({role:'user',content:text});
+  aidaTyping();
+  try{
+    var r=await fetch('https://pst-telecom-production.up.railway.app/api/agent/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:AIDA_SYSTEM,messages:aidaConv})
+    });
+    var data=await r.json();
+    var reply=data.content&&data.content[0]?data.content[0].text:'Désolé, je rencontre une difficulté. Appelez le +221 77 152 09 59.';
+    aidaConv.push({role:'assistant',content:reply});
+    aidaStopTyping();
+    aidaAddMsg('agent',reply);
+    // Contextual quick replies
+    var low=reply.toLowerCase();
+    if(low.includes('forfait')||low.includes('abonnement')||low.includes('starter')||low.includes('smart')){
+      aidaQR(['📞 Starter 2 990F','📱 Smart 5 990F','💼 Business 15 990F']);
+    } else if(low.includes('sms')){
+      aidaQR(['📩 SMS Marketing','🔐 SMS Vérification','⬅ Retour']);
+    } else if(low.includes('recharge')){
+      aidaQR(['🟠 Orange','🔴 Free','🔵 Expresso','⬅ Retour']);
+    } else {
+      aidaQR(['📞 Forfaits','📩 SMS Marketing','⚡ Recharge','📹 SecurCam']);
+    }
+  } catch(e){
+    aidaStopTyping();
+    aidaAddMsg('agent','Je rencontre une difficulté technique. Appelez-nous au +221 77 152 09 59. 🙏');
+  }
+  document.getElementById('ac-send').disabled=false;
+}
+</script>
+<!-- FIN AIDA CHAT INTEGRE -->
 </body>
 </html>
