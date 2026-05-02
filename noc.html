@@ -264,7 +264,9 @@ async function loadCameras(){
   try{
     const r=await fetch(API+'/api/noc/cameras?token='+TOKEN);
     if(!r.ok){cameras=[];renderAll();return;}
-    cameras=await r.json();
+    const data=await r.json();
+    // Handle both formats: {cameras:[...]} or [...]
+    cameras=Array.isArray(data)?data:(data.cameras||data.data||[]);
     renderAll();
   }catch(e){console.warn('cameras',e);cameras=[];renderAll();}
 }
