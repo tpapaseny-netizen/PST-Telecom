@@ -1150,7 +1150,7 @@ setInterval(loadNocStatus, 60000);
 
       <!-- NOC CLIENTS -->
       <div class="section" id="section-noc-clients">
-        <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">📹 Clients NOC SecurCam</h2>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">&#x1F4F9; Clients NOC SecurCam</h2>
         <div class="kpi-grid" style="margin-bottom:20px">
           <div class="kpi" style="border-color:rgba(0,212,255,0.3)">
             <div class="kpi-val" id="noc-cli-total" style="color:#00d4ff">0</div>
@@ -1190,26 +1190,26 @@ setInterval(loadNocStatus, 60000);
               </select>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
-            <div onclick="nocSelectPlan(this,15000)" data-plan="noc-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;background:rgba(0,212,255,0.05)">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px" id="noc-plans">
+            <div id="np-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;background:rgba(0,212,255,0.05)" onclick="npSelect(this,15000,'noc-starter')">
               <div style="font-size:14px;font-weight:800;color:#00d4ff">Starter</div>
               <div style="font-size:10px;color:var(--muted);margin:2px 0">4 cameras</div>
               <div style="font-size:16px;font-weight:700;color:#00e676">15 000 F</div>
               <div style="font-size:10px;color:var(--muted)">/mois</div>
             </div>
-            <div onclick="nocSelectPlan(this,35000)" data-plan="noc-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+            <div id="np-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center" onclick="npSelect(this,35000,'noc-pro')">
               <div style="font-size:14px;font-weight:800;color:#7c3aed">Pro</div>
               <div style="font-size:10px;color:var(--muted);margin:2px 0">10 cameras</div>
               <div style="font-size:16px;font-weight:700;color:#00e676">35 000 F</div>
               <div style="font-size:10px;color:var(--muted)">/mois</div>
             </div>
-            <div onclick="nocSelectPlan(this,75000)" data-plan="noc-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+            <div id="np-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center" onclick="npSelect(this,75000,'noc-business')">
               <div style="font-size:14px;font-weight:800;color:#f59e0b">Business</div>
               <div style="font-size:10px;color:var(--muted);margin:2px 0">30 cameras</div>
               <div style="font-size:16px;font-weight:700;color:#00e676">75 000 F</div>
               <div style="font-size:10px;color:var(--muted)">/mois</div>
             </div>
-            <div onclick="nocSelectPlan(this,150000)" data-plan="noc-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+            <div id="np-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center" onclick="npSelect(this,150000,'noc-entreprise')">
               <div style="font-size:14px;font-weight:800;color:#ef4444">Entreprise</div>
               <div style="font-size:10px;color:var(--muted);margin:2px 0">Illimite</div>
               <div style="font-size:16px;font-weight:700;color:#00e676">150 000 F</div>
@@ -1220,18 +1220,18 @@ setInterval(loadNocStatus, 60000);
             <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Lien Wave a envoyer au client :</div>
             <div style="font-size:11px;color:#00e676;word-break:break-all;margin-bottom:6px" id="noc-wave-url">-</div>
             <div style="font-size:11px;color:var(--muted)">Montant : <strong id="noc-wave-amt" style="color:#00e676">-</strong></div>
-            <button onclick="nocCopierWave()" style="margin-top:8px;padding:5px 12px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer">Copier le lien Wave</button>
+            <button onclick="npCopierWave()" style="margin-top:8px;padding:5px 12px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer">Copier</button>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button onclick="nocGenererWave()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Lien Wave</button>
-            <button onclick="nocCreerClient()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Creer + Lien NOC</button>
+            <button onclick="npWave()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Lien Wave</button>
+            <button onclick="npCreer()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Creer + Lien NOC</button>
             <span id="noc-status" style="font-size:12px;color:var(--muted)"></span>
           </div>
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
             <h3 style="font-size:14px;font-weight:700">Tous les clients NOC</h3>
-            <button onclick="nocChargerClients()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer">Actualiser</button>
+            <button onclick="npCharger()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer">Actualiser</button>
           </div>
           <div id="noc-liste" style="min-height:80px">
             <div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC pour l instant</div>
@@ -1239,7 +1239,6 @@ setInterval(loadNocStatus, 60000);
         </div>
       </div>
       <!-- FIN NOC CLIENTS -->
-
       <!-- SÉCURITÉ -->
       <div class="section" id="section-securite">
         <div class="kpi-grid" style="margin-bottom:20px;">
@@ -2314,122 +2313,85 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.add('show'),10);
   setTimeout(()=>t.classList.remove('show'),3000);
 }
+
+// ── NOC CLIENTS ─────────────────────────────────────────────
+var npMontant=15000,npPlan='noc-starter';
+function npSelect(el,m,p){
+  npMontant=m;npPlan=p;
+  document.getElementById('noc-forfait').value=p;
+  document.querySelectorAll('#noc-plans>div').forEach(function(d){d.style.border='2px solid rgba(255,255,255,0.07)';d.style.background='transparent';});
+  el.style.border='2px solid #00d4ff';el.style.background='rgba(0,212,255,0.08)';
+  if(document.getElementById('noc-wave-box').style.display!='none')npWave();
+}
+function npWave(){
+  var u='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+npMontant;
+  var lb={'noc-starter':'Starter 4 cameras','noc-pro':'Pro 10 cameras','noc-business':'Business 30 cameras','noc-entreprise':'Entreprise Illimite'};
+  document.getElementById('noc-wave-url').textContent=u;
+  document.getElementById('noc-wave-amt').textContent=npMontant.toLocaleString('fr-FR')+' FCFA - '+(lb[npPlan]||'');
+  document.getElementById('noc-wave-box').style.display='block';
+}
+function npCopierWave(){
+  var u='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+npMontant;
+  navigator.clipboard.writeText(u).then(function(){showToast('Lien Wave copie!');}).catch(function(){prompt('Copiez:',u);});
+}
+async function npCreer(){
+  var nom=document.getElementById('noc-nom').value.trim();
+  var tel=document.getElementById('noc-tel').value.trim();
+  var email=document.getElementById('noc-email').value.trim();
+  var st=document.getElementById('noc-status');
+  if(!nom||!tel){alert('Nom et telephone requis');return;}
+  st.textContent='Creation...';st.style.color='var(--muted)';
+  var code='NOC-'+Date.now().toString(36).toUpperCase().slice(-6);
+  try{
+    var r=await fetch(API+'/api/noc/clients/creer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom:nom,telephone:tel,email:email,forfait:npPlan,code:code})});
+    var d=await r.json();
+    if(d.success){
+      var lien=window.location.origin+'/noc?token='+d.code;
+      st.textContent='Client cree! Code: '+d.code;st.style.color='#00e676';
+      alert('Client NOC cree!\nCode: '+d.code+'\nLien NOC:\n'+lien+'\n\nEnvoyez ce lien au client par WhatsApp!');
+      document.getElementById('noc-nom').value='';document.getElementById('noc-tel').value='';document.getElementById('noc-email').value='';
+      npCharger();
+    }else{st.textContent='Erreur: '+(d.error||'');st.style.color='#ef4444';}
+  }catch(e){st.textContent='Erreur reseau';st.style.color='#ef4444';}
+}
+async function npCharger(){
+  try{
+    var r=await fetch(API+'/api/noc/clients/liste?token='+TOKEN);
+    var cls=await r.json();
+    document.getElementById('noc-cli-total').textContent=cls.length;
+    document.getElementById('noc-cli-actifs').textContent=cls.filter(function(x){return x.statut!='inactif';}).length;
+    var cr=await fetch(API+'/api/noc/cameras?token='+TOKEN);
+    var cams=await cr.json();
+    document.getElementById('noc-cli-cameras').textContent=Array.isArray(cams)?cams.length:0;
+    var liste=document.getElementById('noc-liste');
+    if(!cls.length){liste.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC</div>';return;}
+    var lb2={'noc-starter':'Starter 15K','noc-pro':'Pro 35K','noc-business':'Business 75K','noc-entreprise':'Entreprise 150K'};
+    var html='';
+    for(var i=0;i<cls.length;i++){
+      var cl=cls[i];
+      var lien=window.location.origin+'/noc?token='+cl.code;
+      var fl=lb2[cl.forfait]||cl.forfait;
+      var bg=cl.statut=='inactif'?'#ef4444':'#00e676';
+      html+='<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);flex-wrap:wrap">';
+      html+='<div style="width:8px;height:8px;border-radius:50%;background:'+bg+';flex-shrink:0"></div>';
+      html+='<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:600">'+cl.nom+'</div>';
+      html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+' - '+fl+'</div></div>';
+      html+='<div style="font-size:11px;color:var(--accent);font-family:monospace">'+cl.code+'</div>';
+      html+='<div style="display:flex;gap:6px">';
+      html+='<button onclick="navigator.clipboard.writeText(''+lien+'').then(function(){showToast('Lien copie!');});return false;" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
+      html+='<button onclick="window.open(''+lien+'','_blank');return false;" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
+      html+='<button onclick="npSupp(''+cl._id+'');return false;" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
+      html+='</div></div>';
+    }
+    liste.innerHTML=html;
+  }catch(e){console.error(e);}
+}
+async function npSupp(id){
+  if(!confirm('Supprimer ce client NOC?'))return;
+  await fetch(API+'/api/noc/clients/'+id+'?token='+TOKEN,{method:'DELETE'});
+  npCharger();
+}
+
 </script>
-
-<script>
-// ── NOC CLIENTS ──────────────────────────────────────
-var nocMontant = 15000;
-var nocPlanVal = 'noc-starter';
-
-function nocSelectPlan(el, montant) {
-  nocMontant = montant;
-  nocPlanVal = el.getAttribute('data-plan');
-  document.getElementById('noc-forfait').value = nocPlanVal;
-  document.querySelectorAll('[data-plan]').forEach(function(d) {
-    d.style.border = '2px solid var(--border)';
-    d.style.background = 'transparent';
-  });
-  el.style.border = '2px solid #00d4ff';
-  el.style.background = 'rgba(0,212,255,0.08)';
-  if (document.getElementById('noc-wave-box').style.display !== 'none') {
-    nocGenererWave();
-  }
-}
-
-function nocGenererWave() {
-  var url = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + nocMontant;
-  var labels = {'noc-starter':'Starter 4 cameras','noc-pro':'Pro 10 cameras','noc-business':'Business 30 cameras','noc-entreprise':'Entreprise Illimite'};
-  document.getElementById('noc-wave-url').textContent = url;
-  document.getElementById('noc-wave-amt').textContent = nocMontant.toLocaleString('fr-FR') + ' FCFA - ' + (labels[nocPlanVal] || '');
-  document.getElementById('noc-wave-box').style.display = 'block';
-}
-
-function nocCopierWave() {
-  var url = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + nocMontant;
-  navigator.clipboard.writeText(url).then(function() {
-    alert('Lien Wave copie !');
-  }).catch(function() {
-    prompt('Copiez ce lien:', url);
-  });
-}
-
-async function nocCreerClient() {
-  var nom = document.getElementById('noc-nom').value.trim();
-  var tel = document.getElementById('noc-tel').value.trim();
-  var email = document.getElementById('noc-email').value.trim();
-  var forfait = document.getElementById('noc-forfait').value;
-  var status = document.getElementById('noc-status');
-  if (!nom || !tel) { alert('Nom et telephone requis'); return; }
-  status.textContent = 'Creation...';
-  var code = 'NOC-' + Date.now().toString(36).toUpperCase().slice(-6);
-  try {
-    var r = await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/creer', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({nom: nom, telephone: tel, email: email, forfait: forfait, code: code})
-    });
-    var d = await r.json();
-    if (d.success) {
-      var lien = 'https://pst-telecom-production.up.railway.app/noc?token=' + d.code;
-      status.textContent = 'Client cree ! Code: ' + d.code;
-      status.style.color = '#00e676';
-      alert('Client NOC cree !\nCode: ' + d.code + '\nLien: ' + lien);
-      document.getElementById('noc-nom').value = '';
-      document.getElementById('noc-tel').value = '';
-      document.getElementById('noc-email').value = '';
-      nocChargerClients();
-    } else {
-      status.textContent = 'Erreur: ' + (d.error || '');
-      status.style.color = '#ef4444';
-    }
-  } catch(e) {
-    status.textContent = 'Erreur reseau';
-    status.style.color = '#ef4444';
-  }
-}
-
-async function nocChargerClients() {
-  try {
-    var r = await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/liste?token=pst-admin-2026');
-    var clients = await r.json();
-    document.getElementById('noc-cli-total').textContent = clients.length;
-    document.getElementById('noc-cli-actifs').textContent = clients.filter(function(x) { return x.statut !== 'inactif'; }).length;
-    var camR = await fetch('https://pst-telecom-production.up.railway.app/api/noc/cameras?token=pst-admin-2026');
-    var cams = await camR.json();
-    document.getElementById('noc-cli-cameras').textContent = Array.isArray(cams) ? cams.length : 0;
-    var liste = document.getElementById('noc-liste');
-    if (!clients.length) {
-      liste.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC</div>';
-      return;
-    }
-    var html = '';
-    for (var i = 0; i < clients.length; i++) {
-      var cl = clients[i];
-      var lien = 'https://pst-telecom-production.up.railway.app/noc?token=' + cl.code;
-      var labels2 = {'noc-starter':'Starter 15K','noc-pro':'Pro 35K','noc-business':'Business 75K','noc-entreprise':'Entreprise 150K'};
-      var fl = labels2[cl.forfait] || cl.forfait;
-      var bg = cl.statut === 'inactif' ? '#ef4444' : '#00e676';
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);flex-wrap:wrap">';
-      html += '<div style="width:8px;height:8px;border-radius:50%;background:' + bg + ';flex-shrink:0"></div>';
-      html += '<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:600">' + cl.nom + '</div>';
-      html += '<div style="font-size:11px;color:var(--muted)">' + cl.telephone + ' - ' + fl + '</div></div>';
-      html += '<div style="font-size:11px;color:var(--accent);font-family:monospace">' + cl.code + '</div>';
-      html += '<div style="display:flex;gap:6px">';
-      html += '<button onclick="navigator.clipboard.writeText('' + lien + '').then(function(){alert('Lien copie!')})" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
-      html += '<button onclick="window.open('' + lien + '','_blank')" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
-      html += '<button onclick="nocSupprimerClient('' + cl._id + '')" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
-      html += '</div></div>';
-    }
-    liste.innerHTML = html;
-  } catch(e) { console.error(e); }
-}
-
-async function nocSupprimerClient(id) {
-  if (!confirm('Supprimer ce client NOC ?')) return;
-  await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/' + id + '?token=pst-admin-2026', {method: 'DELETE'});
-  nocChargerClients();
-}
-</script>
-
 </body>
 </html>
