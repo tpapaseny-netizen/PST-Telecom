@@ -1899,7 +1899,6 @@ console.log('Agent SMS Marketing pret');
 // AGENT RECHARGE — RECHARGES AUTO 24H/24
 // ═══════════════════════════════════════════
 
-const ADMIN_PHONE = process.env.ADMIN_PHONE || '+221771520959';
 
 // Traiter une recharge automatiquement
 async function traiterRecharge(data) {
