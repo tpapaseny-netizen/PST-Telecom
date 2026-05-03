@@ -1498,11 +1498,10 @@ app.post('/api/noc/agent/check-now', async (req, res) => {
 // AGENT FACTURATION — FACTURES AUTO PDF+GMAIL
 // ═══════════════════════════════════════════
 
-const nodemailer = require('nodemailer');
-
 // Gmail transporter
 function getMailer() {
-  return nodemailer.createTransport({
+  const nm = require('nodemailer');
+  return nm.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.GMAIL_USER || 'papasenytoure@gmail.com',
