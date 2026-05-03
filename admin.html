@@ -400,8 +400,25 @@ function loadNocStatus(){
   });
 }
 function nocCheckNow(){
-  fetch('/api/noc/agent/check-now?token=pst-admin-2026',{method:'POST'})
-  .then(function(){setTimeout(loadNocStatus,3000);});
+  var btn = event.target;
+  btn.textContent = 'Verification...';
+  btn.disabled = true;
+  fetch('/api/noc/agent/check-now?token=pst-admin-2026',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:'{}'
+  }).then(function(r){return r.json();})
+  .then(function(){
+    document.getElementById('noc-agent-label').textContent='Verification lancee - resultats dans 10s';
+    setTimeout(function(){
+      loadNocStatus();
+      btn.textContent='Verifier maintenant';
+      btn.disabled=false;
+    },5000);
+  }).catch(function(){
+    btn.textContent='Verifier maintenant';
+    btn.disabled=false;
+  });
 }
 loadNocStatus();
 setInterval(loadNocStatus, 60000);
