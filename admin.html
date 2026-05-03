@@ -1185,30 +1185,30 @@ setInterval(loadNocStatus, 60000);
               <input id="noc-email" type="email" placeholder="client@email.com" class="form-input" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none">
             </div>
             <div style="grid-column:1/-1">
-              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:8px">Forfait NOC — Sélectionnez</label>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:8px">Forfait NOC</label>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-                <div class="noc-plan" onclick="selectNocPlan('noc-starter',15000)" id="plan-noc-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s;background:rgba(0,212,255,0.05)">
-                  <div style="font-size:16px;font-weight:800;color:#00d4ff">Starter</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">4 caméras max</div>
-                  <div style="font-size:18px;font-weight:700;color:#00e676">15 000 F</div>
+                <div class="noc-plan" onclick="selectNocPlan('noc-starter',15000)" id="plan-noc-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;background:rgba(0,212,255,0.05)">
+                  <div style="font-size:15px;font-weight:800;color:#00d4ff">Starter</div>
+                  <div style="font-size:11px;color:var(--muted);margin:4px 0">4 cameras</div>
+                  <div style="font-size:17px;font-weight:700;color:#00e676">15 000 F</div>
                   <div style="font-size:10px;color:var(--muted)">/mois</div>
                 </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-pro',35000)" id="plan-noc-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s">
-                  <div style="font-size:16px;font-weight:800;color:#7c3aed">Pro</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">10 caméras max</div>
-                  <div style="font-size:18px;font-weight:700;color:#00e676">35 000 F</div>
+                <div class="noc-plan" onclick="selectNocPlan('noc-pro',35000)" id="plan-noc-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+                  <div style="font-size:15px;font-weight:800;color:#7c3aed">Pro</div>
+                  <div style="font-size:11px;color:var(--muted);margin:4px 0">10 cameras</div>
+                  <div style="font-size:17px;font-weight:700;color:#00e676">35 000 F</div>
                   <div style="font-size:10px;color:var(--muted)">/mois</div>
                 </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-business',75000)" id="plan-noc-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s">
-                  <div style="font-size:16px;font-weight:800;color:#f59e0b">Business</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">30 caméras max</div>
-                  <div style="font-size:18px;font-weight:700;color:#00e676">75 000 F</div>
+                <div class="noc-plan" onclick="selectNocPlan('noc-business',75000)" id="plan-noc-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+                  <div style="font-size:15px;font-weight:800;color:#f59e0b">Business</div>
+                  <div style="font-size:11px;color:var(--muted);margin:4px 0">30 cameras</div>
+                  <div style="font-size:17px;font-weight:700;color:#00e676">75 000 F</div>
                   <div style="font-size:10px;color:var(--muted)">/mois</div>
                 </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-entreprise',150000)" id="plan-noc-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s">
-                  <div style="font-size:16px;font-weight:800;color:#ef4444">Entreprise</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">Illimité</div>
-                  <div style="font-size:18px;font-weight:700;color:#00e676">150 000 F</div>
+                <div class="noc-plan" onclick="selectNocPlan('noc-entreprise',150000)" id="plan-noc-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+                  <div style="font-size:15px;font-weight:800;color:#ef4444">Entreprise</div>
+                  <div style="font-size:11px;color:var(--muted);margin:4px 0">Illimite</div>
+                  <div style="font-size:17px;font-weight:700;color:#00e676">150 000 F</div>
                   <div style="font-size:10px;color:var(--muted)">/mois</div>
                 </div>
               </div>
@@ -1216,19 +1216,17 @@ setInterval(loadNocStatus, 60000);
               <input type="hidden" id="noc-montant" value="15000">
             </div>
           </div>
-          <!-- Wave payment link preview -->
           <div id="noc-wave-preview" style="display:none;margin-bottom:12px;padding:14px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:10px">
-            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Lien Wave à envoyer au client :</div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <a id="noc-wave-link" href="#" target="_blank" style="font-size:12px;color:#00e676;word-break:break-all;flex:1">-</a>
-              <button onclick="copierWaveNOC()" style="padding:5px 10px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer;flex-shrink:0">Copier</button>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Lien Wave a envoyer au client :</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="noc-wave-link-text" style="font-size:11px;color:#00e676;flex:1;word-break:break-all">-</span>
+              <button onclick="copierWaveNOC()" style="padding:5px 10px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer">Copier</button>
             </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px">Montant : <strong id="noc-wave-montant" style="color:#00e676">-</strong></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Montant : <strong id="noc-wave-montant" style="color:#00e676">-</strong></div>
           </div>
-          
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button onclick="previewWaveNOC()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Générer lien Wave</button>
-            <button onclick="creerClientNOC()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Créer + Envoyer lien NOC</button>
+            <button onclick="previewWaveNOC()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Lien Wave</button>
+            <button onclick="creerClientNOC()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Créer + Lien NOC</button>
             <span id="noc-create-status" style="font-size:12px;color:var(--muted)"></span>
           </div>
         </div>
@@ -2432,62 +2430,26 @@ async function supprimerClientNOC(id) {
 // Load on section show
 const _origShowSection = typeof showSection === 'function' ? showSection : null;
 
-var _nocSelectedPlan = 'noc-starter';
-var _nocSelectedMontant = 15000;
-
-function selectNocPlan(plan, montant) {
-  _nocSelectedPlan = plan;
-  _nocSelectedMontant = montant;
-  document.getElementById('noc-forfait').value = plan;
-  document.getElementById('noc-montant').value = montant;
-  
-  // Update UI
-  document.querySelectorAll('.noc-plan').forEach(el => {
-    el.style.border = '2px solid var(--border)';
-    el.style.background = 'transparent';
-  });
-  const sel = document.getElementById('plan-' + plan);
-  if (sel) {
-    sel.style.border = '2px solid #00d4ff';
-    sel.style.background = 'rgba(0,212,255,0.08)';
-  }
-  
-  // Update Wave preview if visible
-  const preview = document.getElementById('noc-wave-preview');
-  if (preview && preview.style.display !== 'none') {
-    previewWaveNOC();
-  }
+var _nocPlan='noc-starter',_nocMontant=15000;
+function selectNocPlan(plan,montant){
+  _nocPlan=plan;_nocMontant=montant;
+  document.getElementById('noc-forfait').value=plan;
+  document.getElementById('noc-montant').value=montant;
+  document.querySelectorAll('.noc-plan').forEach(function(el){el.style.border='2px solid var(--border)';el.style.background='transparent';});
+  var sel=document.getElementById('plan-'+plan);
+  if(sel){sel.style.border='2px solid #00d4ff';sel.style.background='rgba(0,212,255,0.08)';}
 }
-
-function previewWaveNOC() {
-  const nom = document.getElementById('noc-nom').value.trim() || 'Client';
-  const montant = _nocSelectedMontant;
-  const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + montant;
-  
-  const preview = document.getElementById('noc-wave-preview');
-  const link = document.getElementById('noc-wave-link');
-  const montantEl = document.getElementById('noc-wave-montant');
-  
-  link.href = waveUrl;
-  link.textContent = waveUrl;
-  montantEl.textContent = montant.toLocaleString('fr-FR') + ' FCFA — ' + ({
-    'noc-starter': 'Starter 4 cameras',
-    'noc-pro': 'Pro 10 cameras',
-    'noc-business': 'Business 30 cameras',
-    'noc-entreprise': 'Entreprise Illimite'
-  }[_nocSelectedPlan] || '');
-  
-  preview.style.display = 'block';
+function previewWaveNOC(){
+  var montant=_nocMontant;
+  var url='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+montant;
+  var labels={'noc-starter':'Starter 4 cameras','noc-pro':'Pro 10 cameras','noc-business':'Business 30 cameras','noc-entreprise':'Entreprise Illimite'};
+  document.getElementById('noc-wave-link-text').textContent=url;
+  document.getElementById('noc-wave-montant').textContent=montant.toLocaleString('fr-FR')+' FCFA - '+( labels[_nocPlan]||'');
+  document.getElementById('noc-wave-preview').style.display='block';
 }
-
-function copierWaveNOC() {
-  const montant = _nocSelectedMontant;
-  const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + montant;
-  navigator.clipboard.writeText(waveUrl).then(() => {
-    alert('Lien Wave copie !\n' + waveUrl);
-  }).catch(() => {
-    prompt('Copiez ce lien Wave:', waveUrl);
-  });
+function copierWaveNOC(){
+  var url='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+_nocMontant;
+  navigator.clipboard.writeText(url).then(function(){alert('Lien Wave copie!');}).catch(function(){prompt('Copiez:',url);});
 }
 </script>
 </body>
