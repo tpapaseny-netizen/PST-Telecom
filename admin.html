@@ -314,8 +314,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('content')" id="nav-content" style="display:none">
         <span class="nav-icon">✏️</span> Contenu du site
       </button>
-    <div class="nav-item" onclick="showSection('factures')" id="nav-factures"><span class="nav-icon">🧾</span> Factures</div>
-</nav>
+    </nav>
     <div class="sidebar-footer">
       <div class="admin-user">
         <div class="admin-avatar" id="sidebar-avatar">👤</div>
@@ -423,80 +422,6 @@ function nocCheckNow(){
 }
 loadNocStatus();
 setInterval(loadNocStatus, 60000);
-
-async function loadFactures() {
-  try {
-    const r = await fetch(API + '/api/factures?token=' + TOKEN);
-    const facts = await r.json();
-    
-    document.getElementById('fact-total').textContent = facts.length;
-    document.getElementById('fact-sent').textContent = facts.filter(f => f.sent).length;
-    const rev = facts.reduce((s, f) => s + (Number(f.montant) || 0), 0);
-    document.getElementById('fact-revenue').textContent = rev.toLocaleString('fr-FR');
-    
-    const list = document.getElementById('factures-list');
-    if (!facts.length) {
-      list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Aucune facture</div>';
-      return;
-    }
-    list.innerHTML = facts.map(f => `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.04)">
-        <div style="width:8px;height:8px;border-radius:50%;background:${f.sent ? '#00e676' : '#f59e0b'};flex-shrink:0"></div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:600">${f.numero || 'N/A'}</div>
-          <div style="font-size:11px;color:var(--muted)">${f.client || ''} • ${f.service || ''}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:13px;font-weight:700;color:var(--accent)">${Number(f.montant||0).toLocaleString('fr-FR')} F</div>
-          <div style="font-size:10px;color:var(--muted)">${new Date(f.createdAt).toLocaleDateString('fr-FR')}</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button onclick="window.open('${API}/api/factures/${f.numero}','_blank')" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Voir</button>
-          <button onclick="supprimerFacture('${f._id}')" style="padding:4px 8px;background:rgba(255,61,87,0.1);border:1px solid rgba(255,61,87,0.3);border-radius:5px;color:#ff3d57;font-size:11px;cursor:pointer">X</button>
-        </div>
-      </div>`).join('');
-  } catch(e) { console.error('Factures error:', e); }
-}
-
-async function genererFacture() {
-  const client = document.getElementById('f-client').value.trim();
-  const montant = document.getElementById('f-montant').value.trim();
-  if (!client || !montant) { alert('Client et montant requis'); return; }
-  
-  const status = document.getElementById('f-status');
-  status.textContent = 'Generation en cours...';
-  
-  try {
-    const r = await fetch(API + '/api/factures/generer', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        client,
-        telephone: document.getElementById('f-tel').value.trim(),
-        email: document.getElementById('f-email').value.trim(),
-        service: document.getElementById('f-service').value.trim() || 'Service PST',
-        montant: Number(montant),
-        forfait: document.getElementById('f-forfait').value.trim()
-      })
-    });
-    const d = await r.json();
-    if (d.success) {
-      status.textContent = 'Facture ' + d.numero + ' generee !';
-      status.style.color = '#00e676';
-      setTimeout(loadFactures, 1000);
-    } else {
-      status.textContent = 'Erreur: ' + (d.error || 'Inconnue');
-      status.style.color = '#ff3d57';
-    }
-  } catch(e) { status.textContent = 'Erreur reseau'; }
-}
-
-async function supprimerFacture(id) {
-  if (!confirm('Supprimer cette facture ?')) return;
-  await fetch(API + '/api/factures/' + id + '?token=' + TOKEN, {method: 'DELETE'});
-  loadFactures();
-}
-
 </script>
 
 
@@ -1311,8 +1236,7 @@ async function supprimerFacture(id) {
 <script>
 const API = 'https://pst-telecom-production.up.railway.app';
 const WAVE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
-const FORFAIT_PRICES = { starter: 2990, smart: 5990, business: 15990   factures: '🧾 Factures & Agent Facturation',
-};
+const FORFAIT_PRICES = { starter: 2990, smart: 5990, business: 15990 };
 
 // ─── AUTH ───────────────────────────────────────────────────────
 const SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
