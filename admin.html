@@ -1151,97 +1151,94 @@ setInterval(loadNocStatus, 60000);
       <!-- NOC CLIENTS -->
       <div class="section" id="section-noc-clients">
         <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">📹 Clients NOC SecurCam</h2>
-        
-        <!-- Stats -->
         <div class="kpi-grid" style="margin-bottom:20px">
           <div class="kpi" style="border-color:rgba(0,212,255,0.3)">
-            <div class="kpi-val" id="noc-cli-total" style="color:#00d4ff">-</div>
+            <div class="kpi-val" id="noc-cli-total" style="color:#00d4ff">0</div>
             <div class="kpi-label">Clients NOC</div>
           </div>
           <div class="kpi" style="border-color:rgba(0,230,118,0.3)">
-            <div class="kpi-val" id="noc-cli-actifs" style="color:#00e676">-</div>
+            <div class="kpi-val" id="noc-cli-actifs" style="color:#00e676">0</div>
             <div class="kpi-label">Actifs</div>
           </div>
           <div class="kpi" style="border-color:rgba(124,58,237,0.3)">
-            <div class="kpi-val" id="noc-cli-cameras" style="color:#7c3aed">-</div>
-            <div class="kpi-label">Cameras totales</div>
+            <div class="kpi-val" id="noc-cli-cameras" style="color:#7c3aed">0</div>
+            <div class="kpi-label">Cameras</div>
           </div>
         </div>
-
-        <!-- Formulaire creation client NOC -->
         <div class="card" style="margin-bottom:20px;padding:20px">
-          <h3 style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--accent)">+ Créer un client NOC</h3>
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--accent)">+ Creer un client NOC</h3>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             <div>
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Nom / Entreprise *</label>
-              <input id="noc-nom" type="text" placeholder="Ex: École Sainte Marie" class="form-input" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none">
+              <input id="noc-nom" type="text" placeholder="Ex: Ecole Sainte Marie" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
             </div>
             <div>
-              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Téléphone *</label>
-              <input id="noc-tel" type="text" placeholder="+221771234567" class="form-input" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none">
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Telephone *</label>
+              <input id="noc-tel" type="text" placeholder="+221771234567" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
             </div>
             <div>
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Email</label>
-              <input id="noc-email" type="email" placeholder="client@email.com" class="form-input" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none">
+              <input id="noc-email" type="email" placeholder="client@email.com" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
             </div>
-            <div style="grid-column:1/-1">
-              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:8px">Forfait NOC</label>
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-                <div class="noc-plan" onclick="selectNocPlan('noc-starter',15000)" id="plan-noc-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;background:rgba(0,212,255,0.05)">
-                  <div style="font-size:15px;font-weight:800;color:#00d4ff">Starter</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">4 cameras</div>
-                  <div style="font-size:17px;font-weight:700;color:#00e676">15 000 F</div>
-                  <div style="font-size:10px;color:var(--muted)">/mois</div>
-                </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-pro',35000)" id="plan-noc-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
-                  <div style="font-size:15px;font-weight:800;color:#7c3aed">Pro</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">10 cameras</div>
-                  <div style="font-size:17px;font-weight:700;color:#00e676">35 000 F</div>
-                  <div style="font-size:10px;color:var(--muted)">/mois</div>
-                </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-business',75000)" id="plan-noc-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
-                  <div style="font-size:15px;font-weight:800;color:#f59e0b">Business</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">30 cameras</div>
-                  <div style="font-size:17px;font-weight:700;color:#00e676">75 000 F</div>
-                  <div style="font-size:10px;color:var(--muted)">/mois</div>
-                </div>
-                <div class="noc-plan" onclick="selectNocPlan('noc-entreprise',150000)" id="plan-noc-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
-                  <div style="font-size:15px;font-weight:800;color:#ef4444">Entreprise</div>
-                  <div style="font-size:11px;color:var(--muted);margin:4px 0">Illimite</div>
-                  <div style="font-size:17px;font-weight:700;color:#00e676">150 000 F</div>
-                  <div style="font-size:10px;color:var(--muted)">/mois</div>
-                </div>
-              </div>
-              <input type="hidden" id="noc-forfait" value="noc-starter">
-              <input type="hidden" id="noc-montant" value="15000">
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Forfait NOC</label>
+              <select id="noc-forfait" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none">
+                <option value="noc-starter">Starter - 4 cameras - 15 000 F/mois</option>
+                <option value="noc-pro">Pro - 10 cameras - 35 000 F/mois</option>
+                <option value="noc-business">Business - 30 cameras - 75 000 F/mois</option>
+                <option value="noc-entreprise">Entreprise - Illimite - 150 000 F/mois</option>
+              </select>
             </div>
           </div>
-          <div id="noc-wave-preview" style="display:none;margin-bottom:12px;padding:14px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:10px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+            <div onclick="nocSelectPlan(this,15000)" data-plan="noc-starter" style="padding:12px;border:2px solid rgba(0,212,255,0.4);border-radius:10px;cursor:pointer;text-align:center;background:rgba(0,212,255,0.05)">
+              <div style="font-size:14px;font-weight:800;color:#00d4ff">Starter</div>
+              <div style="font-size:10px;color:var(--muted);margin:2px 0">4 cameras</div>
+              <div style="font-size:16px;font-weight:700;color:#00e676">15 000 F</div>
+              <div style="font-size:10px;color:var(--muted)">/mois</div>
+            </div>
+            <div onclick="nocSelectPlan(this,35000)" data-plan="noc-pro" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:14px;font-weight:800;color:#7c3aed">Pro</div>
+              <div style="font-size:10px;color:var(--muted);margin:2px 0">10 cameras</div>
+              <div style="font-size:16px;font-weight:700;color:#00e676">35 000 F</div>
+              <div style="font-size:10px;color:var(--muted)">/mois</div>
+            </div>
+            <div onclick="nocSelectPlan(this,75000)" data-plan="noc-business" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:14px;font-weight:800;color:#f59e0b">Business</div>
+              <div style="font-size:10px;color:var(--muted);margin:2px 0">30 cameras</div>
+              <div style="font-size:16px;font-weight:700;color:#00e676">75 000 F</div>
+              <div style="font-size:10px;color:var(--muted)">/mois</div>
+            </div>
+            <div onclick="nocSelectPlan(this,150000)" data-plan="noc-entreprise" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:14px;font-weight:800;color:#ef4444">Entreprise</div>
+              <div style="font-size:10px;color:var(--muted);margin:2px 0">Illimite</div>
+              <div style="font-size:16px;font-weight:700;color:#00e676">150 000 F</div>
+              <div style="font-size:10px;color:var(--muted)">/mois</div>
+            </div>
+          </div>
+          <div id="noc-wave-box" style="display:none;margin-bottom:12px;padding:12px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:10px">
             <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Lien Wave a envoyer au client :</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span id="noc-wave-link-text" style="font-size:11px;color:#00e676;flex:1;word-break:break-all">-</span>
-              <button onclick="copierWaveNOC()" style="padding:5px 10px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer">Copier</button>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Montant : <strong id="noc-wave-montant" style="color:#00e676">-</strong></div>
+            <div style="font-size:11px;color:#00e676;word-break:break-all;margin-bottom:6px" id="noc-wave-url">-</div>
+            <div style="font-size:11px;color:var(--muted)">Montant : <strong id="noc-wave-amt" style="color:#00e676">-</strong></div>
+            <button onclick="nocCopierWave()" style="margin-top:8px;padding:5px 12px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:6px;color:#00e676;font-size:11px;cursor:pointer">Copier le lien Wave</button>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button onclick="previewWaveNOC()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Lien Wave</button>
-            <button onclick="creerClientNOC()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Créer + Lien NOC</button>
-            <span id="noc-create-status" style="font-size:12px;color:var(--muted)"></span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button onclick="nocGenererWave()" style="padding:10px 16px;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.3);border-radius:8px;color:#00e676;font-weight:700;cursor:pointer;font-size:13px">Lien Wave</button>
+            <button onclick="nocCreerClient()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Creer + Lien NOC</button>
+            <span id="noc-status" style="font-size:12px;color:var(--muted)"></span>
           </div>
         </div>
-
-        <!-- Liste clients NOC -->
         <div class="card" style="padding:0;overflow:hidden">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
             <h3 style="font-size:14px;font-weight:700">Tous les clients NOC</h3>
-            <button onclick="loadNocClients()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer">Actualiser</button>
+            <button onclick="nocChargerClients()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer">Actualiser</button>
           </div>
-          <div id="noc-clients-list" style="min-height:100px">
-            <div style="padding:40px;text-align:center;color:var(--muted)">Chargement...</div>
+          <div id="noc-liste" style="min-height:80px">
+            <div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC pour l instant</div>
           </div>
         </div>
       </div>
+      <!-- FIN NOC CLIENTS -->
 
       <!-- SÉCURITÉ -->
       <div class="section" id="section-securite">
@@ -2317,126 +2314,122 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.add('show'),10);
   setTimeout(()=>t.classList.remove('show'),3000);
 }
+</script>
 
-// ─── NOC CLIENTS ───────────────────────────────────────
-async function creerClientNOC() {
-  const nom = document.getElementById('noc-nom').value.trim();
-  const tel = document.getElementById('noc-tel').value.trim();
-  const email = document.getElementById('noc-email').value.trim();
-  const forfait = document.getElementById('noc-forfait').value;
-  const status = document.getElementById('noc-create-status');
-  
-  if (!nom || !tel) { alert('Nom et téléphone requis'); return; }
-  
-  status.textContent = 'Création en cours...';
-  status.style.color = 'var(--muted)';
-  
-  // Générer code unique
-  const code = 'NOC-' + Date.now().toString(36).toUpperCase().slice(-6);
-  
+<script>
+// ── NOC CLIENTS ──────────────────────────────────────
+var nocMontant = 15000;
+var nocPlanVal = 'noc-starter';
+
+function nocSelectPlan(el, montant) {
+  nocMontant = montant;
+  nocPlanVal = el.getAttribute('data-plan');
+  document.getElementById('noc-forfait').value = nocPlanVal;
+  document.querySelectorAll('[data-plan]').forEach(function(d) {
+    d.style.border = '2px solid var(--border)';
+    d.style.background = 'transparent';
+  });
+  el.style.border = '2px solid #00d4ff';
+  el.style.background = 'rgba(0,212,255,0.08)';
+  if (document.getElementById('noc-wave-box').style.display !== 'none') {
+    nocGenererWave();
+  }
+}
+
+function nocGenererWave() {
+  var url = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + nocMontant;
+  var labels = {'noc-starter':'Starter 4 cameras','noc-pro':'Pro 10 cameras','noc-business':'Business 30 cameras','noc-entreprise':'Entreprise Illimite'};
+  document.getElementById('noc-wave-url').textContent = url;
+  document.getElementById('noc-wave-amt').textContent = nocMontant.toLocaleString('fr-FR') + ' FCFA - ' + (labels[nocPlanVal] || '');
+  document.getElementById('noc-wave-box').style.display = 'block';
+}
+
+function nocCopierWave() {
+  var url = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + nocMontant;
+  navigator.clipboard.writeText(url).then(function() {
+    alert('Lien Wave copie !');
+  }).catch(function() {
+    prompt('Copiez ce lien:', url);
+  });
+}
+
+async function nocCreerClient() {
+  var nom = document.getElementById('noc-nom').value.trim();
+  var tel = document.getElementById('noc-tel').value.trim();
+  var email = document.getElementById('noc-email').value.trim();
+  var forfait = document.getElementById('noc-forfait').value;
+  var status = document.getElementById('noc-status');
+  if (!nom || !tel) { alert('Nom et telephone requis'); return; }
+  status.textContent = 'Creation...';
+  var code = 'NOC-' + Date.now().toString(36).toUpperCase().slice(-6);
   try {
-    const r = await fetch(API + '/api/noc/clients/creer', {
+    var r = await fetch(API + '/api/noc/clients/creer', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ nom, telephone: tel, email, forfait, code })
+      body: JSON.stringify({nom: nom, telephone: tel, email: email, forfait: forfait, code: code})
     });
-    const d = await r.json();
-    
+    var d = await r.json();
     if (d.success) {
-      const lien = window.location.origin + '/noc?token=' + d.code;
-      status.textContent = 'Client créé ! Code: ' + d.code;
+      var lien = window.location.origin + '/noc?token=' + d.code;
+      status.textContent = 'Client cree ! Code: ' + d.code;
       status.style.color = '#00e676';
-      
-      // Show link
-      setTimeout(() => {
-        alert('Client NOC créé !\n\nCode: ' + d.code + '\n\nLien: ' + lien + '\n\nEnvoyez ce lien au client par WhatsApp/SMS');
-      }, 300);
-      
-      // Reset form
+      alert('Client NOC cree !\nCode: ' + d.code + '\nLien: ' + lien);
       document.getElementById('noc-nom').value = '';
       document.getElementById('noc-tel').value = '';
       document.getElementById('noc-email').value = '';
-      
-      loadNocClients();
+      nocChargerClients();
     } else {
-      status.textContent = 'Erreur: ' + (d.error || 'Inconnue');
+      status.textContent = 'Erreur: ' + (d.error || '');
       status.style.color = '#ef4444';
     }
   } catch(e) {
-    status.textContent = 'Erreur réseau';
+    status.textContent = 'Erreur reseau';
     status.style.color = '#ef4444';
   }
 }
 
-async function loadNocClients() {
+async function nocChargerClients() {
   try {
-    const r = await fetch(API + '/api/noc/clients/liste?token=' + TOKEN);
-    const clients = await r.json();
-    
+    var r = await fetch(API + '/api/noc/clients/liste?token=' + TOKEN);
+    var clients = await r.json();
     document.getElementById('noc-cli-total').textContent = clients.length;
-    document.getElementById('noc-cli-actifs').textContent = clients.filter(c => c.statut !== 'inactif').length;
-    
-    // Count cameras
-    const camR = await fetch(API + '/api/noc/cameras?token=' + TOKEN);
-    const cams = await camR.json();
+    document.getElementById('noc-cli-actifs').textContent = clients.filter(function(x) { return x.statut !== 'inactif'; }).length;
+    var camR = await fetch(API + '/api/noc/cameras?token=' + TOKEN);
+    var cams = await camR.json();
     document.getElementById('noc-cli-cameras').textContent = Array.isArray(cams) ? cams.length : 0;
-    
-    const list = document.getElementById('noc-clients-list');
+    var liste = document.getElementById('noc-liste');
     if (!clients.length) {
-      list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC — créez le premier ci-dessus</div>';
+      liste.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC</div>';
       return;
     }
-    
-    list.innerHTML = clients.map(cl => {
-      const lien = window.location.origin + '/noc?token=' + cl.code;
-      const forfaitLabel = {
-        'noc-starter': 'Starter 15K F',
-        'noc-pro': 'Pro 35K F',
-        'noc-business': 'Business 75K F',
-        'noc-entreprise': 'Entreprise 150K F'
-      }[cl.forfait] || cl.forfait;
-      
-  } catch(e) { console.error('loadNocClients error:', e); }
+    var html = '';
+    for (var i = 0; i < clients.length; i++) {
+      var cl = clients[i];
+      var lien = window.location.origin + '/noc?token=' + cl.code;
+      var labels2 = {'noc-starter':'Starter 15K','noc-pro':'Pro 35K','noc-business':'Business 75K','noc-entreprise':'Entreprise 150K'};
+      var fl = labels2[cl.forfait] || cl.forfait;
+      var bg = cl.statut === 'inactif' ? '#ef4444' : '#00e676';
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);flex-wrap:wrap">';
+      html += '<div style="width:8px;height:8px;border-radius:50%;background:' + bg + ';flex-shrink:0"></div>';
+      html += '<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:600">' + cl.nom + '</div>';
+      html += '<div style="font-size:11px;color:var(--muted)">' + cl.telephone + ' - ' + fl + '</div></div>';
+      html += '<div style="font-size:11px;color:var(--accent);font-family:monospace">' + cl.code + '</div>';
+      html += '<div style="display:flex;gap:6px">';
+      html += '<button onclick="navigator.clipboard.writeText('' + lien + '').then(function(){alert('Lien copie!')})" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
+      html += '<button onclick="window.open('' + lien + '','_blank')" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
+      html += '<button onclick="nocSupprimerClient('' + cl._id + '')" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
+      html += '</div></div>';
+    }
+    liste.innerHTML = html;
+  } catch(e) { console.error(e); }
 }
 
-function copierLien(lien) {
-  navigator.clipboard.writeText(lien).then(() => {
-    alert('Lien copié !\n' + lien);
-  }).catch(() => {
-    prompt('Copiez ce lien:', lien);
-  });
-}
-
-async function supprimerClientNOC(id) {
+async function nocSupprimerClient(id) {
   if (!confirm('Supprimer ce client NOC ?')) return;
-  await fetch(API + '/api/noc/clients/' + id + '?token=' + TOKEN, { method: 'DELETE' });
-  loadNocClients();
-}
-
-// Load on section show
-const _origShowSection = typeof showSection === 'function' ? showSection : null;
-
-var _nocPlan='noc-starter',_nocMontant=15000;
-function selectNocPlan(plan,montant){
-  _nocPlan=plan;_nocMontant=montant;
-  document.getElementById('noc-forfait').value=plan;
-  document.getElementById('noc-montant').value=montant;
-  document.querySelectorAll('.noc-plan').forEach(function(el){el.style.border='2px solid var(--border)';el.style.background='transparent';});
-  var sel=document.getElementById('plan-'+plan);
-  if(sel){sel.style.border='2px solid #00d4ff';sel.style.background='rgba(0,212,255,0.08)';}
-}
-function previewWaveNOC(){
-  var montant=_nocMontant;
-  var url='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+montant;
-  var labels={'noc-starter':'Starter 4 cameras','noc-pro':'Pro 10 cameras','noc-business':'Business 30 cameras','noc-entreprise':'Entreprise Illimite'};
-  document.getElementById('noc-wave-link-text').textContent=url;
-  document.getElementById('noc-wave-montant').textContent=montant.toLocaleString('fr-FR')+' FCFA - '+( labels[_nocPlan]||'');
-  document.getElementById('noc-wave-preview').style.display='block';
-}
-function copierWaveNOC(){
-  var url='https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount='+_nocMontant;
-  navigator.clipboard.writeText(url).then(function(){alert('Lien Wave copie!');}).catch(function(){prompt('Copiez:',url);});
+  await fetch(API + '/api/noc/clients/' + id + '?token=' + TOKEN, {method: 'DELETE'});
+  nocChargerClients();
 }
 </script>
+
 </body>
 </html>
