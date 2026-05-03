@@ -2363,14 +2363,14 @@ async function nocCreerClient() {
   status.textContent = 'Creation...';
   var code = 'NOC-' + Date.now().toString(36).toUpperCase().slice(-6);
   try {
-    var r = await fetch(API + '/api/noc/clients/creer', {
+    var r = await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/creer', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({nom: nom, telephone: tel, email: email, forfait: forfait, code: code})
     });
     var d = await r.json();
     if (d.success) {
-      var lien = window.location.origin + '/noc?token=' + d.code;
+      var lien = 'https://pst-telecom-production.up.railway.app/noc?token=' + d.code;
       status.textContent = 'Client cree ! Code: ' + d.code;
       status.style.color = '#00e676';
       alert('Client NOC cree !\nCode: ' + d.code + '\nLien: ' + lien);
@@ -2390,11 +2390,11 @@ async function nocCreerClient() {
 
 async function nocChargerClients() {
   try {
-    var r = await fetch(API + '/api/noc/clients/liste?token=' + TOKEN);
+    var r = await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/liste?token=pst-admin-2026');
     var clients = await r.json();
     document.getElementById('noc-cli-total').textContent = clients.length;
     document.getElementById('noc-cli-actifs').textContent = clients.filter(function(x) { return x.statut !== 'inactif'; }).length;
-    var camR = await fetch(API + '/api/noc/cameras?token=' + TOKEN);
+    var camR = await fetch('https://pst-telecom-production.up.railway.app/api/noc/cameras?token=pst-admin-2026');
     var cams = await camR.json();
     document.getElementById('noc-cli-cameras').textContent = Array.isArray(cams) ? cams.length : 0;
     var liste = document.getElementById('noc-liste');
@@ -2405,7 +2405,7 @@ async function nocChargerClients() {
     var html = '';
     for (var i = 0; i < clients.length; i++) {
       var cl = clients[i];
-      var lien = window.location.origin + '/noc?token=' + cl.code;
+      var lien = 'https://pst-telecom-production.up.railway.app/noc?token=' + cl.code;
       var labels2 = {'noc-starter':'Starter 15K','noc-pro':'Pro 35K','noc-business':'Business 75K','noc-entreprise':'Entreprise 150K'};
       var fl = labels2[cl.forfait] || cl.forfait;
       var bg = cl.statut === 'inactif' ? '#ef4444' : '#00e676';
@@ -2426,7 +2426,7 @@ async function nocChargerClients() {
 
 async function nocSupprimerClient(id) {
   if (!confirm('Supprimer ce client NOC ?')) return;
-  await fetch(API + '/api/noc/clients/' + id + '?token=' + TOKEN, {method: 'DELETE'});
+  await fetch('https://pst-telecom-production.up.railway.app/api/noc/clients/' + id + '?token=pst-admin-2026', {method: 'DELETE'});
   nocChargerClients();
 }
 </script>
