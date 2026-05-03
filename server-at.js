@@ -3,7 +3,6 @@ const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -1911,10 +1910,10 @@ console.log('Agent Recharge pret');
 // AGENT FACTURATION — FACTURES AUTO PDF+GMAIL
 // ═══════════════════════════════════════════
 
-const nodemailer = require('nodemailer');
 
 // Gmail transporter
 function getMailer() {
+  const nodemailer = require('nodemailer');
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
