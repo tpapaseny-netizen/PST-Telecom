@@ -215,7 +215,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   </div>
 </div>
 <script>
-const TOKEN=new URLSearchParams(location.search).get('token')||'pst-admin-2026';
+const TOKEN=new URLSearchParams(location.search).get('token')||'';
+const IS_ADMIN = TOKEN === 'pst-admin-2026';
+const CLIENT_CODE = IS_ADMIN ? null : TOKEN;
 const API='';
 let cameras=[],clients=[],alerts=[],fType='all',fClient=null,camType='embed',editId=null,delId=null,rotOn=false,rotTimer=null;
 const HELPS={
@@ -263,7 +265,7 @@ function renderClientList(){
 async function loadCameras(){
   try{
     const r=await fetch(API+'/api/noc/cameras?token='+TOKEN);
-    if(!r.ok){cameras=[];renderAll();return;}
+    if(!r.ok){cameras=[];renderAll();initMode();return;}
     cameras=await r.json();
     renderAll();
   }catch(e){console.warn('cameras',e);cameras=[];renderAll();}
@@ -434,6 +436,20 @@ function renderAlerts(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeZoom();closeModal();closeConfirm();}});
 document.getElementById('mbg').addEventListener('click',function(e){if(e.target===this)closeModal();});
 init();
+
+// Hide admin controls for client mode
+function initMode(){
+  if(!IS_ADMIN){
+    // Hide add button
+    const addBtn=document.getElementById('add-btn');
+    if(addBtn)addBtn.style.display='none';
+    const addBtn2=document.getElementById('add-btn-sidebar');
+    if(addBtn2)addBtn2.style.display='none';
+    // Hide modify/delete buttons (handled in buildCard)
+    // Change title
+    document.title='PST NOC — Mon espace surveillance';
+  }
+}
 </script>
 </body>
 </html>
