@@ -1501,10 +1501,23 @@ app.post('/api/noc/agent/check-now', async (req, res) => {
 // Gmail transporter
 function getMailer() {
   const nm = require('nodemailer');
+  // Use Brevo SMTP if available, fallback to Gmail
+  if (process.env.BREVO_SMTP_KEY) {
+    return nm.createTransport({
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.BREVO_SMTP_LOGIN || process.env.GMAIL_USER,
+        pass: process.env.BREVO_SMTP_KEY
+      }
+    });
+  }
+  // Gmail fallback
   return nm.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
     auth: {
       user: process.env.GMAIL_USER || 'papasenytoure@gmail.com',
       pass: process.env.GMAIL_APP_PASSWORD || 'gwwjmwlgrigemvmd'
