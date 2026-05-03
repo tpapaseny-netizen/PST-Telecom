@@ -1502,11 +1502,14 @@ app.post('/api/noc/agent/check-now', async (req, res) => {
 function getMailer() {
   const nm = require('nodemailer');
   return nm.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.GMAIL_USER || 'papasenytoure@gmail.com',
       pass: process.env.GMAIL_APP_PASSWORD || 'gwwjmwlgrigemvmd'
-    }
+    },
+    tls: { rejectUnauthorized: false }
   });
 }
 
