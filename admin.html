@@ -2378,9 +2378,9 @@ async function npCharger(){
       html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+' - '+fl+'</div></div>';
       html+='<div style="font-size:11px;color:var(--accent);font-family:monospace">'+cl.code+'</div>';
       html+='<div style="display:flex;gap:6px">';
-      html+='<button onclick="navigator.clipboard.writeText(''+lien+'').then(function(){showToast('Lien copie!');});return false;" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
-      html+='<button onclick="window.open(''+lien+'','_blank');return false;" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
-      html+='<button onclick="npSupp(''+cl._id+'');return false;" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
+      html+='<button data-url="'+lien+'" onclick="navigator.clipboard.writeText(this.getAttribute(String.fromCharCode(100,97,116,97,45,117,114,108))).then(function(){showToast(String.fromCharCode(67,111,112,105,233))})" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
+      html+='<button data-url="'+lien+'" onclick="window.open(this.getAttribute(String.fromCharCode(100,97,116,97,45,117,114,108)))" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
+      html+='<button data-nid="'+cl._id+'" onclick="npSupp(this.getAttribute(String.fromCharCode(100,97,116,97,45,110,105,100)))" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
       html+='</div></div>';
     }
     liste.innerHTML=html;
