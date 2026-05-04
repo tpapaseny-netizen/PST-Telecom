@@ -2194,6 +2194,11 @@ app.post('/api/stream/scores', async (req, res) => {
   }
 });
 
+
+app.get('/streaming', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'streaming.html'));
+});
+
 connectDB().then(() => {
 
   // Routes sécurité admin
