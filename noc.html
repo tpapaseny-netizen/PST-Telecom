@@ -122,7 +122,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="clock" id="clock"></div>
     <button class="btn" id="rot-btn" onclick="toggleRotation()">&#10227; Rotation</button>
     <button class="btn" onclick="toggleFS()">&#9974; Plein ecran</button>
-    <button class="btn" onclick="location.href='/admin'">&#8592; Admin</button>
+    <button class="btn" id="admin-btn" onclick="location.href='/admin'">&#8592; Admin</button>
   </div>
 </div>
 <div class="layout">
@@ -264,11 +264,16 @@ function renderClientList(){
 }
 async function loadCameras(){
   try{
-    const r=await fetch(API+'/api/noc/cameras?token='+TOKEN);
+    const url=IS_ADMIN
+      ? API+'/api/noc/cameras?token='+TOKEN
+      : API+'/api/noc/cameras/client/'+CLIENT_CODE;
+    const r=await fetch(url);
     if(!r.ok){cameras=[];renderAll();initMode();return;}
-    cameras=await r.json();
+    const data=await r.json();
+    cameras=Array.isArray(data)?data:(data.cameras||[]);
     renderAll();
-  }catch(e){console.warn('cameras',e);cameras=[];renderAll();}
+    initMode();
+  }catch(e){console.warn('cameras',e);cameras=[];renderAll();initMode();}
 }
 function getFiltered(){
   let c=[...cameras];
@@ -292,7 +297,8 @@ function renderStats(){
 }
 function buildCard(cam){
   const id=String(cam._id||cam.id||'');
-  return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button><button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button></div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
+  var adminBtns=IS_ADMIN?'<button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button>':'';
+  return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button>'+adminBtns+'</div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
 }
 function attachEvents(){
   document.querySelectorAll('.ov-btn.z').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);});
@@ -441,17 +447,29 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeZoom();closeMo
 document.getElementById('mbg').addEventListener('click',function(e){if(e.target===this)closeModal();});
 init();
 
-// Hide admin controls for client mode
 function initMode(){
   if(!IS_ADMIN){
-    // Hide add button
-    const addBtn=document.getElementById('add-btn');
-    if(addBtn)addBtn.style.display='none';
-    const addBtn2=document.getElementById('add-btn-sidebar');
-    if(addBtn2)addBtn2.style.display='none';
-    // Hide modify/delete buttons (handled in buildCard)
+    // Hide all admin elements
+    document.querySelectorAll('#add-btn,#add-btn-sidebar,.add-side,[onclick*="openModal"],[onclick*="Admin"],#admin-btn').forEach(function(el){el.style.display='none';});
+    // Hide sidebar client list section
+    const cliSection=document.querySelector('.nav-group-label');
+    if(cliSection)cliSection.style.display='none';
+    const cliList=document.getElementById('cli-list');
+    if(cliList)cliList.parentElement.style.display='none';
+    // Hide filter buttons En ligne/Hors ligne/Alertes for cleaner view
     // Change title
-    document.title='PST NOC — Mon espace surveillance';
+    document.title='PST NOC — Mon espace';
+    // Add contact PST banner
+    const head=document.querySelector('.hd-right');
+    if(head){
+      const banner=document.createElement('div');
+      banner.style.cssText='font-size:12px;color:#64748b;display:flex;align-items:center;gap:6px';
+      banner.innerHTML='<span>&#x1F4DE;</span><a href="tel:+221771520959" style="color:#00d4ff;text-decoration:none;font-weight:600">+221 77 152 09 59</a>';
+      head.insertBefore(banner,head.firstChild);
+    }
+    // Remove Admin button
+    const adminBtn=document.getElementById('admin-btn');
+    if(adminBtn)adminBtn.style.display='none';
   }
 }
 </script>
