@@ -577,7 +577,7 @@ function renderGrid() {
     var catColor = {foot:"#10b981",news:"#e63946",sport:"#f59e0b",musique:"#ec4899",monde:"#06b6d4"}[c.cat]||"#64748b";
     return '<div class="cam-card" id="cam-'+c.id+'" onclick="openZoom('+c.id+')">'
       +'<div class="cam-ratio"><iframe src="'+c.url+'" allow="autoplay;encrypted-media" allowfullscreen style="pointer-events:none;"></iframe><div style="position:absolute;inset:0;z-index:5;cursor:pointer;"></div></div>'
-      ++'<div class="cam-top">'
+      +'<div class="cam-top">'
       +'<span class="live-dot">LIVE</span>'
       +'<span class="cam-name">'+c.name+'</span>'
       +'<span class="cam-cat-badge" style="background:'+catColor+'22;color:'+catColor+';border:1px solid '+catColor+'44;">'+c.cat+'</span>'
