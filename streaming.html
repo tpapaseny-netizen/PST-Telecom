@@ -779,14 +779,27 @@ document.getElementById("logo-click").addEventListener("click",function(){
   logoClicks++;
   if(logoTimer)clearTimeout(logoTimer);
   if(logoClicks>=5){
-    var email=prompt("Email admin :");
-    if(email==="tpapaseny@ept.sn"||email==="papasenytoure@gmail.com"){
-      adminUnlocked=true;
-      document.getElementById("admin-btn").style.display="block";
-      alert("Acces admin debloque !");
-    }else if(email){alert("Acces refuse");}
+    document.getElementById("login-modal").style.display="flex";
+    document.getElementById("login-email").value="";
+    document.getElementById("login-email").focus();
     logoClicks=0;
   }else{logoTimer=setTimeout(function(){logoClicks=0;},2000);}
+});
+function checkAdminLogin(){
+  var email=document.getElementById("login-email").value.trim().toLowerCase();
+  if(email==="tpapaseny@ept.sn"||email==="papasenytoure@gmail.com"){
+    adminUnlocked=true;
+    document.getElementById("admin-btn").style.display="block";
+    document.getElementById("login-modal").style.display="none";
+    openAdmin();
+  }else{
+    document.getElementById("login-error").style.display="block";
+    setTimeout(function(){document.getElementById("login-error").style.display="none";},2000);
+  }
+}
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape") document.getElementById("login-modal").style.display="none";
+  if(e.key==="Enter" && document.getElementById("login-modal").style.display==="flex") checkAdminLogin();
 });
 function openAdmin(){if(!adminUnlocked)return;document.getElementById("admin-panel").style.display="block";renderAdmList();renderAdmStats();}
 function closeAdmin(){document.getElementById("admin-panel").style.display="none";}
@@ -1139,5 +1152,30 @@ function saveInlineEdit(id){
 
 init();
 </script>
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#0b0e18;border:1px solid rgba(245,158,11,0.4);border-radius:14px;padding:28px;max-width:340px;width:90%;text-align:center;">
+    <div style="font-size:1.4rem;margin-bottom:4px;">🔐</div>
+    <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">Acces Admin PST Stream</div>
+    <div style="font-size:11px;color:#4a5568;margin-bottom:18px;">Entrez votre email administrateur</div>
+    <input id="login-email" type="email" placeholder="Email admin (ex: tpapaseny@ept.sn)"
+      style="width:100%;background:#0f1220;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:11px;color:#fff;font-size:12px;margin-bottom:10px;outline:none;">
+    <div id="login-error" style="display:none;background:rgba(230,57,70,0.15);border:1px solid rgba(230,57,70,0.3);border-radius:6px;padding:7px;font-size:11px;color:#e63946;margin-bottom:10px;">
+      Email non autorise. Acces refuse.
+    </div>
+    <button onclick="checkAdminLogin()"
+      style="width:100%;background:#f59e0b;color:#000;border:none;border-radius:8px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:8px;">
+      Acceder au panneau admin
+    </button>
+    <button onclick="document.getElementById('login-modal').style.display='none'"
+      style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px;color:#4a5568;font-size:11px;cursor:pointer;">
+      Annuler
+    </button>
+    <div style="margin-top:14px;font-size:9px;color:#4a5568;">
+      Cliquez 5 fois sur le logo PST STREAM pour ouvrir cette fenetre
+    </div>
+  </div>
+</div>
 </body>
 </html>
