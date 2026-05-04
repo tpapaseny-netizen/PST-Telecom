@@ -260,6 +260,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="nfb" onclick="filterCat(event,'sport')">🏆 Sport</button>
     <button class="nfb" onclick="filterCat(event,'musique')">🎵 Musique</button>
     <button class="nfb" onclick="filterCat(event,'monde')">🌍 Monde</button>
+    <button class="nfb" onclick="filterCat(event,'docu')">🎬 Docu</button>
   </div>
   <div class="nav-right">
     <button id="admin-btn" class="nb" onclick="openAdmin()">⚙️ Admin</button>
@@ -295,6 +296,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="cat-btn" onclick="filterSide(event,'sport')"><span class="cat-icon">🏆</span>Sport<span class="cat-count" id="cnt-sport">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'musique')"><span class="cat-icon">🎵</span>Musique<span class="cat-count" id="cnt-musique">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'monde')"><span class="cat-icon">🌍</span>Monde<span class="cat-count" id="cnt-monde">0</span></button>
+    <button class="cat-btn" onclick="filterSide(event,'docu')"><span class="cat-icon">🎬</span>Documentaire<span class="cat-count" id="cnt-docu">0</span></button>
   </div>
   <div class="sidebar-sec" style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px;">
     <div class="sidebar-title">Stats live</div>
@@ -493,7 +495,52 @@ var CHANNELS = [
   {id:9,name:"PST Live 1",cat:"foot",icon:"🎯",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
   {id:10,name:"Arryadia",cat:"sport",icon:"🏆",url:"https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8",hot:false,likes:0,comments:[]},
   {id:11,name:"Info Monde",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:12,name:"Lofi Music",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false,likes:0,comments:[]}
+  {id:12,name:"Lofi Music",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+
+  // ===== NEWS SENEGAL & AFRIQUE =====
+  {id:13,name:"TFM Live",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/xLAs3tXpjlw?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
+  {id:14,name:"Walf TV",cat:"news",icon:"🇸🇳",url:"https://www.youtube.com/embed/e4GtRZCJln0?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
+  {id:15,name:"RFI Monde",cat:"news",icon:"📻",url:"https://www.youtube.com/embed/FI_AHUs2SjM?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:16,name:"DW Francais",cat:"news",icon:"🇩🇪",url:"https://www.youtube.com/embed/fSL_8cRm7Q0?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:17,name:"TV5 Monde",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/zSzDJRDVnkc?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:18,name:"Africa News",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/KHriZMzUwOQ?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:19,name:"Al Jazeera FR",cat:"news",icon:"🌐",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:20,name:"LCI",cat:"news",icon:"📡",url:"https://www.youtube.com/embed/nGHJJb1VtKk?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:21,name:"BFMTV",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/3n1_T7bG-3k?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:22,name:"France Info",cat:"news",icon:"🗞️",url:"https://www.youtube.com/embed/m4XGBdxfcJU?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:23,name:"Sky News",cat:"news",icon:"🇬🇧",url:"https://www.youtube.com/embed/9Auq9mYxFEE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:24,name:"DW English",cat:"news",icon:"📰",url:"https://www.youtube.com/embed/pqabxBRzrb0?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:25,name:"CGTN Francais",cat:"news",icon:"🇨🇳",url:"https://www.youtube.com/embed/SkCT7MBSRPA?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:26,name:"VOA Afrique",cat:"news",icon:"📢",url:"https://www.youtube.com/embed/CoXeQxvFLEg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+
+  // ===== SPORT & FOOT =====
+  {id:30,name:"Match Live 2",cat:"foot",icon:"⚽",url:"https://www.youtube.com/embed/mwImx5LjFcY?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
+  {id:31,name:"Arryadia",cat:"sport",icon:"🏆",url:"https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8",hot:false,likes:0,comments:[]},
+  {id:32,name:"Sport News",cat:"sport",icon:"🏅",url:"https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:33,name:"Foot Africa",cat:"foot",icon:"🥅",url:"https://www.youtube.com/embed/E4bQIBcbTNE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:34,name:"Sport 24",cat:"sport",icon:"🎽",url:"https://www.youtube.com/embed/FcQEs2KsPR8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+
+  // ===== DOCUMENTAIRE =====
+  {id:40,name:"Nat Geo Free",cat:"docu",icon:"🌿",url:"https://www.youtube.com/embed/videoseries?list=PLivjPDlt4VnvQfHFT_-kRn3OjqCEnKiIf&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:41,name:"Docu History",cat:"docu",icon:"🏛️",url:"https://www.youtube.com/embed/videoseries?list=PLtxHFp8LLdMhsUKZ-sFCQFi3OX1oG4b_j&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:42,name:"Science Live",cat:"docu",icon:"🔬",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:43,name:"Nature & Wild",cat:"docu",icon:"🦁",url:"https://www.youtube.com/embed/uCDCHZFNPj8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:44,name:"Space & NASA",cat:"docu",icon:"🚀",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:45,name:"Histoire TV",cat:"docu",icon:"📜",url:"https://www.youtube.com/embed/inXC_lab-34?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+
+  // ===== MUSIQUE =====
+  {id:50,name:"Lofi Beats",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:51,name:"Afrobeats Live",cat:"musique",icon:"🎶",url:"https://www.youtube.com/embed/PGCQ7leWHyY?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:52,name:"Mbalax Radio",cat:"musique",icon:"🥁",url:"https://www.youtube.com/embed/Ir6BMKTqCf8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:53,name:"Jazz 24/7",cat:"musique",icon:"🎷",url:"https://www.youtube.com/embed/Dx5qFachd3A?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:54,name:"Chill Radio",cat:"musique",icon:"🎸",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:55,name:"Gospel Live",cat:"musique",icon:"🙏",url:"https://www.youtube.com/embed/g8YRNjqIU4k?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+
+  // ===== MONDE =====
+  {id:60,name:"NASA Live",cat:"monde",icon:"🚀",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
+  {id:61,name:"Parlement EU",cat:"monde",icon:"🇪🇺",url:"https://www.youtube.com/embed/live_stream?channel=UCmDOMonkLT2uFaahk3BXGCQ&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:62,name:"ONU Live",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/videoseries?list=PLtxHFp8LLdMhNKrqCcFo5d-4hCWJFAUa-&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+  {id:63,name:"Cooking World",cat:"monde",icon:"🍳",url:"https://www.youtube.com/embed/F7bE_khTRWY?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
 ];
 
 var SCORES = [
@@ -574,7 +621,7 @@ function renderGrid() {
     return;
   }
   grid.innerHTML = list.map(function(c) {
-    var catColor = {foot:"#10b981",news:"#e63946",sport:"#f59e0b",musique:"#ec4899",monde:"#06b6d4"}[c.cat]||"#64748b";
+    var catColor = {foot:"#10b981",news:"#e63946",sport:"#f59e0b",musique:"#ec4899",monde:"#06b6d4",docu:"#8b5cf6"}[c.cat]||"#64748b";
     return '<div class="cam-card" id="cam-'+c.id+'" onclick="openZoom('+c.id+')">'
       +'<div class="cam-ratio"><iframe src="'+c.url+'" allow="autoplay;encrypted-media" allowfullscreen style="pointer-events:none;"></iframe><div style="position:absolute;inset:0;z-index:5;cursor:pointer;"></div></div>'
       +'<div class="cam-top">'
@@ -894,7 +941,7 @@ function startAutoCmts() {
 // COUNTS & STATS
 // ============================================================
 function updateCounts() {
-  var cats = ["all","foot","news","sport","musique","monde"];
+  var cats = ["all","foot","news","sport","musique","monde","docu"];
   cats.forEach(function(cat){
     var el = document.getElementById("cnt-"+cat);
     if (!el) return;
