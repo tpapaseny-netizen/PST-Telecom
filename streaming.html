@@ -3,37 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PST STREAM — Streaming Live Senegal | Foot News Sport Musique</title>
-<meta name="description" content="Regardez en direct RTS1 TFM Walf 2STV foot CAN Premier League news sport musique concerts live streaming Senegal Afrique gratuit">
-<meta name="keywords" content="streaming Senegal, foot direct, CAN direct, RTS1 direct, TFM live, match direct Afrique, streaming gratuit Senegal, actualite Senegal direct, sport live Afrique">
+<title>PST STREAM - Streaming Live Senegal</title>
+<meta name="description" content="Streaming live Senegal foot news sport musique CAN Premier League RTS1 TFM direct gratuit">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-:root{
-  --bg:#040609;--bg2:#07090f;--bg3:#0b0e18;--bg4:#0f1220;
-  --red:#e63946;--green:#10b981;--blue:#2563eb;
-  --gold:#f59e0b;--cyan:#06b6d4;--orange:#f97316;
-  --text:#dde4f0;--muted:#4a5568;--border:rgba(255,255,255,0.06);
-  --card:rgba(255,255,255,0.025);
-}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden;}
+:root{--bg:#040609;--bg2:#07090f;--bg3:#0b0e18;--bg4:#0f1220;--red:#e63946;--green:#10b981;--blue:#2563eb;--gold:#f59e0b;--cyan:#06b6d4;--orange:#f97316;--text:#dde4f0;--muted:#4a5568;--border:rgba(255,255,255,0.07);}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-x:hidden;}
+@keyframes pa{0%,100%{opacity:1;}50%{opacity:.5;}}
+@keyframes tick{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+@keyframes gp{0%{transform:scale(.7);opacity:0;}100%{transform:scale(1);opacity:1;}}
+@keyframes be{0%{opacity:1;transform:translateY(0)scale(1);}100%{opacity:0;transform:translateY(-200px)scale(1.4);}}
+@keyframes sd{from{transform:translateY(-20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
-nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6,9,0.98);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:300;flex-wrap:wrap;}
+/* NAV */
+nav{display:flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(4,6,9,.98);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:300;flex-wrap:wrap;}
 .logo{font-size:1.1rem;font-weight:900;letter-spacing:2px;color:#fff;cursor:pointer;user-select:none;flex-shrink:0;}
 .logo span{color:var(--red);}
-.live-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;animation:pa 1.5s infinite;flex-shrink:0;}
-@keyframes pa{0%,100%{opacity:1;}50%{opacity:.5;}}
-.nav-filters{display:flex;gap:5px;flex-wrap:wrap;}
-.fb2{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;transition:.2s;}
-.fb2:hover,.fb2.active{background:var(--red);color:#fff;border-color:var(--red);}
+.lbadge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;animation:pa 1.5s infinite;}
+.nfb{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;transition:.2s;}
+.nfb:hover,.nfb.active{background:var(--red);color:#fff;border-color:var(--red);}
 .nav-right{margin-left:auto;display:flex;gap:6px;align-items:center;}
 .nb{padding:5px 12px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;border:none;text-decoration:none;display:inline-block;}
 #admin-btn{display:none;background:var(--gold);color:#000;}
 .cnt-btn{background:var(--red);color:#fff;}
-.pst-b{background:var(--bg3);color:var(--text);border:1px solid var(--border) !important;}
+.pst-b{background:var(--bg3);color:var(--text);border:1px solid var(--border)!important;}
 
+/* TICKER */
 .ticker{background:linear-gradient(90deg,#991b1b,var(--red));padding:5px 0;overflow:hidden;white-space:nowrap;}
-.tick-in{display:inline-block;animation:ticka 45s linear infinite;}
-@keyframes ticka{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.tick-in{display:inline-block;animation:tick 45s linear infinite;}
 .tick-item{display:inline-block;padding:0 22px;font-size:10px;font-weight:600;}
 .tick-item::before{content:"• ";opacity:.7;}
 
@@ -43,10 +40,7 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 @media(max-width:800px){.main{grid-template-columns:1fr;}.info-col{display:none;}}
 
 /* LEFT */
-.left-col{display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid var(--border);scrollbar-width:thin;}
-.left-col::-webkit-scrollbar{width:3px;}
-.left-col::-webkit-scrollbar-thumb{background:var(--border);}
-
+.left-col{display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid var(--border);}
 .player-wrap{position:relative;width:100%;background:#000;flex-shrink:0;}
 .player-wrap iframe{width:100%;height:380px;border:none;display:block;}
 @media(max-width:600px){.player-wrap iframe{height:200px;}}
@@ -54,106 +48,81 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 .ld{background:var(--red);color:#fff;font-size:8px;font-weight:800;padding:2px 7px;border-radius:3px;display:flex;align-items:center;gap:3px;}
 .ld::before{content:"";width:4px;height:4px;background:#fff;border-radius:50%;animation:pa 1s infinite;}
 .ch-b{background:rgba(0,0,0,.8);color:#fff;font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px;}
-
 #goal-flash{display:none;position:absolute;inset:0;background:rgba(220,20,40,.9);z-index:100;align-items:center;justify-content:center;flex-direction:column;}
 #goal-flash.show{display:flex;animation:gp .3s;}
-@keyframes gp{0%{transform:scale(.7);opacity:0;}100%{transform:scale(1);opacity:1;}}
 .gf-main{font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:3px;}
 .gf-sub{font-size:.85rem;color:rgba(255,255,255,.8);margin-top:5px;}
 #emoji-burst{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:50;}
 .be{position:absolute;bottom:10%;font-size:24px;animation:be 2s ease-out forwards;pointer-events:none;}
-@keyframes be{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-200px) scale(1.4);}}
-
 .trend-bar{display:flex;gap:5px;padding:6px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
 .trend-bar::-webkit-scrollbar{display:none;}
 .tr-i{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--bg3);border-radius:6px;cursor:pointer;border:1px solid transparent;transition:.2s;font-size:10px;font-weight:700;white-space:nowrap;}
 .tr-i:hover,.tr-i.act{border-color:var(--red);background:rgba(230,57,70,.1);}
 .hot-t{background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;}
-
 .ibar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;}
 .vw{font-size:10px;color:var(--green);font-weight:700;display:flex;align-items:center;gap:3px;}
 .vw::before{content:"";width:4px;height:4px;background:var(--green);border-radius:50%;display:inline-block;animation:pa 2s infinite;}
 .sh-row{display:flex;gap:4px;margin-left:auto;}
 .sh{padding:3px 8px;border-radius:4px;border:none;font-size:9px;font-weight:700;cursor:pointer;}
 .sfb{background:#1877f2;color:#fff;}.swa{background:#25d366;color:#fff;}.stw{background:#111;color:#fff;}
-
 .scores-bar{padding:8px 10px;background:var(--bg3);border-top:1px solid var(--border);flex-shrink:0;}
 .st{font-size:9px;font-weight:800;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
 .sc-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
-.sc-row::-webkit-scrollbar{display:none;}
 .sc-c{flex-shrink:0;background:var(--bg2);border-radius:6px;padding:6px 8px;border:1px solid var(--border);text-align:center;min-width:100px;}
 .sc-l{font-size:7px;font-weight:800;color:var(--gold);letter-spacing:1px;text-transform:uppercase;}
 .sc-t{font-size:9px;font-weight:700;margin:2px 0;white-space:nowrap;}
 .sc-r{font-size:13px;font-weight:900;}
 .sc-m{font-size:7px;color:var(--green);}
-
 .pub-b{background:linear-gradient(90deg,rgba(37,99,235,.07),rgba(230,57,70,.07));border:1px solid rgba(37,99,235,.12);border-radius:6px;padding:6px 10px;margin:7px 10px;display:flex;align-items:center;cursor:pointer;gap:8px;flex-shrink:0;}
 .pub-label{font-size:7px;color:var(--muted);font-weight:800;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;}
 .pub-t{font-size:10px;font-weight:600;flex:1;}
 .pub-cta{background:var(--gold);color:#000;font-size:9px;font-weight:800;padding:3px 8px;border-radius:4px;white-space:nowrap;}
-
 .ch-sec{padding:8px 10px 12px;flex-shrink:0;}
 .ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:6px;}
-.ch-c{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;transition:.2s;text-align:center;}
+.ch-c{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;transition:.2s;text-align:center;}
 .ch-c:hover,.ch-c.act{border-color:var(--red);background:rgba(230,57,70,.07);}
 .ch-ic{font-size:16px;margin-bottom:3px;}
 .ch-nm{font-size:9px;font-weight:700;display:block;}
 .ch-cat{font-size:7px;color:var(--muted);}
 .ch-lv{display:inline-block;background:var(--red);color:#fff;font-size:6px;font-weight:800;padding:1px 3px;border-radius:2px;margin-top:2px;}
 
-/* INFO COL - VERTICAL RECTANGLE */
+/* INFO COL */
 .info-col{background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 .ic-hdr{padding:9px 10px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-shrink:0;}
 .ic-title{font-size:10px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase;flex:1;}
 .ic-live{background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:2px 6px;border-radius:3px;animation:pa 1s infinite;}
-
-/* ALERT BANNER */
 .alert-banner{display:none;align-items:center;gap:8px;padding:5px 10px;background:var(--red);flex-shrink:0;}
-.alert-banner.show{display:flex;animation:slideD .3s;}
-@keyframes slideD{from{transform:translateY(-30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.alert-banner.show{display:flex;animation:sd .3s;}
 .ab-tag{font-size:8px;font-weight:800;color:rgba(255,255,255,.8);}
 .ab-text{font-size:10px;font-weight:700;color:#fff;flex:1;}
 .ab-x{background:rgba(0,0,0,.3);border:none;color:#fff;padding:1px 6px;border-radius:3px;cursor:pointer;font-size:10px;}
-
-/* MINI PLAYER */
 .mini-wrap{position:relative;width:100%;background:#000;flex-shrink:0;}
 .mini-wrap iframe{width:100%;height:148px;border:none;display:block;}
 .mini-ov{position:absolute;top:5px;left:5px;display:flex;gap:4px;z-index:10;pointer-events:none;}
 .mini-live{background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:2px 5px;border-radius:3px;}
 .mini-nm{background:rgba(0,0,0,.75);color:#fff;font-size:7px;font-weight:700;padding:2px 5px;border-radius:3px;}
-
 .mini-bar{display:flex;gap:4px;padding:5px;background:var(--bg3);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
 .mini-bar::-webkit-scrollbar{display:none;}
 .mb-btn{flex-shrink:0;background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:8px;font-weight:700;color:var(--muted);transition:.2s;white-space:nowrap;}
 .mb-btn:hover,.mb-btn.act-m{background:var(--red);color:#fff;border-color:var(--red);}
-
-/* ALERTS LIST */
 .al-sec{padding:6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex:1;scrollbar-width:thin;}
-.al-sec::-webkit-scrollbar{width:2px;}
 .al-item{border-radius:5px;padding:6px 8px;border-left:2px solid var(--red);}
 .al-item.goal{background:rgba(230,57,70,.1);border-color:var(--red);}
 .al-item.news{background:rgba(37,99,235,.08);border-color:var(--blue);}
 .al-item.score{background:rgba(245,158,11,.08);border-color:var(--gold);}
 .al-item.brek{background:rgba(249,115,22,.1);border-color:var(--orange);}
 .al-tag{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
-.al-tag.goal{color:var(--red);}
-.al-tag.news{color:var(--blue);}
-.al-tag.score{color:var(--gold);}
-.al-tag.brek{color:var(--orange);}
+.al-tag.goal{color:var(--red);}.al-tag.news{color:var(--blue);}.al-tag.score{color:var(--gold);}.al-tag.brek{color:var(--orange);}
 .al-text{font-size:9px;margin-top:1px;line-height:1.3;color:var(--text);}
 .al-time{font-size:7px;color:var(--muted);margin-top:2px;}
-
-/* LIVE SCORES */
 .ls-sec{padding:6px;border-top:1px solid var(--border);flex-shrink:0;}
 .ls-item{display:flex;align-items:center;gap:5px;padding:5px 6px;background:var(--bg3);border-radius:5px;margin-bottom:3px;}
 .ls-lg{font-size:7px;font-weight:800;color:var(--gold);width:50px;flex-shrink:0;text-transform:uppercase;}
 .ls-tm{font-size:8px;flex:1;font-weight:600;}
 .ls-sc{font-size:12px;font-weight:900;flex-shrink:0;}
 .ls-mn{font-size:7px;color:var(--green);flex-shrink:0;width:22px;text-align:right;}
-
-/* BOTTOM TICKER */
 .info-ticker{padding:4px 8px;background:rgba(230,57,70,.1);border-top:1px solid var(--border);font-size:8px;color:var(--muted);overflow:hidden;white-space:nowrap;flex-shrink:0;}
-.it-in{display:inline-block;animation:ticka 18s linear infinite;}
+.it-in{display:inline-block;animation:tick 18s linear infinite;}
 
 /* RIGHT COL */
 .right-col{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
@@ -166,7 +135,7 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 .r-ct{font-size:9px;font-weight:700;color:var(--muted);margin-top:1px;}
 .comments-panel{flex:1;display:flex;flex-direction:column;min-height:0;}
 .c-title{padding:9px;font-size:9px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);flex-shrink:0;}
-.c-list{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;}
+.c-list{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:5px;}
 .cm{display:flex;gap:5px;align-items:flex-start;}
 .cm-av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--blue));display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;color:#fff;}
 .cm-body{background:var(--bg3);border-radius:6px;padding:4px 7px;flex:1;min-width:0;}
@@ -178,12 +147,15 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 .c-fn:focus,.c-tf:focus{outline:none;border-color:var(--red);}
 .c-send{background:var(--red);color:#fff;border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;}
 
-/* ADMIN */
+/* ADMIN PANEL */
 #admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:1000;overflow-y:auto;}
-.adm-in{max-width:780px;margin:0 auto;padding:20px 14px;}
-.adm-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.adm-in{max-width:860px;margin:0 auto;padding:20px 14px;}
+.adm-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .adm-title{font-size:1.1rem;font-weight:900;}
-.adm-close{background:var(--red);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;}
+.adm-close{background:var(--red);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;}
+.adm-tabs{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap;}
+.atab{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;transition:.2s;}
+.atab:hover,.atab.on{background:var(--red);color:#fff;border-color:var(--red);}
 .adm-sec{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
 .adm-sec h3{font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
 .adm-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
@@ -192,69 +164,66 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 .adm-i:focus{outline:none;border-color:var(--gold);}
 .adm-btn{background:var(--gold);color:#000;border:none;border-radius:6px;padding:7px 14px;font-weight:800;font-size:10px;cursor:pointer;width:100%;margin-top:6px;}
 .adm-btn.red{background:var(--red);color:#fff;}
-.adm-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;}
-.adm-it{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:5px;padding:6px;}
-.adm-it span{flex:1;font-size:9px;}
-.adm-del{background:var(--red);color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:8px;}
-.adm-tab{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;transition:.2s;}
-.adm-tab:hover,.adm-tab.active-tab{background:var(--red);color:#fff;border-color:var(--red);}
-.adm-tab-content{display:block;}
-.sw-item{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:7px;padding:8px 10px;border:1px solid var(--border);cursor:pointer;transition:.2s;}
-.sw-item:hover,.sw-item.sw-active{border-color:var(--red);background:rgba(230,57,70,.1);}
-.sw-item .sw-icon{font-size:18px;flex-shrink:0;}
-.sw-item .sw-info{flex:1;}
-.sw-item .sw-name{font-size:11px;font-weight:800;}
-.sw-item .sw-cat{font-size:9px;color:var(--muted);}
-.sw-item .sw-url{font-size:8px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
-.sw-actions{display:flex;gap:4px;flex-shrink:0;}
-.sw-btn{border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:9px;font-weight:700;}
-.sw-play{background:var(--green);color:#fff;}
-.sw-edit{background:var(--blue);color:#fff;}
-.sw-del{background:var(--red);color:#fff;}
-.sw-hot{background:var(--gold);color:#000;}
-.edit-form{background:var(--bg4);border-radius:7px;padding:10px;margin-top:5px;border:1px solid var(--gold);display:none;}
-.edit-form.show{display:block;}
-.order-item{display:flex;align-items:center;gap:7px;background:var(--bg3);border-radius:6px;padding:7px 10px;border:1px solid var(--border);}
-.ord-num{font-size:10px;font-weight:800;color:var(--muted);width:20px;}
-.ord-up,.ord-dn{background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px;color:var(--muted);}
-.ord-up:hover{color:var(--green);border-color:var(--green);}
-.ord-dn:hover{color:var(--red);border-color:var(--red);}
-.score-adm-item{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:6px;padding:7px 10px;}
-.sal-item{border-radius:5px;padding:6px 8px;border-left:2px solid var(--red);display:flex;align-items:center;gap:6px;}
-.sal-item.goal{background:rgba(230,57,70,.1);border-color:var(--red);}
-.sal-item.news{background:rgba(37,99,235,.08);border-color:var(--blue);}
-.sal-item.score{background:rgba(245,158,11,.08);border-color:var(--gold);}
-.sal-item.brek{background:rgba(249,115,22,.1);border-color:var(--orange);}
+.adm-list{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;}
+.ch-row{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:6px;padding:7px 8px;}
+.ch-row-info{flex:1;}
+.ch-row-name{font-size:10px;font-weight:800;}
+.ch-row-meta{font-size:8px;color:var(--muted);margin-top:1px;}
+.ch-row-url{font-size:7px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;}
+.row-btns{display:flex;gap:3px;flex-shrink:0;}
+.rbtn{border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:8px;font-weight:700;}
+.rbtn.play{background:var(--green);color:#fff;}
+.rbtn.hot{background:var(--gold);color:#000;}
+.rbtn.edit{background:var(--blue);color:#fff;}
+.rbtn.del{background:var(--red);color:#fff;}
+.rbtn.mini{background:var(--cyan);color:#000;}
+.edit-inline{display:none;background:var(--bg4);border-radius:6px;padding:9px;margin-top:5px;border:1px solid var(--gold);}
+.edit-inline.open{display:block;}
+.score-row{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:6px;padding:7px 8px;margin-bottom:4px;}
+.al-row{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:5px;padding:6px 8px;margin-bottom:3px;}
 
-/* CONTACT */
+/* LOGIN MODAL */
+#login-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;align-items:center;justify-content:center;}
+#login-modal.open{display:flex;}
+.lm-box{background:#0b0e18;border:1px solid rgba(245,158,11,.4);border-radius:14px;padding:28px;max-width:340px;width:90%;text-align:center;}
+.lm-title{font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;}
+.lm-sub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+.lm-input{width:100%;background:#0f1220;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:11px;color:#fff;font-size:12px;margin-bottom:10px;outline:none;}
+.lm-input:focus{border-color:var(--gold);}
+.lm-err{display:none;background:rgba(230,57,70,.15);border:1px solid rgba(230,57,70,.3);border-radius:6px;padding:7px;font-size:11px;color:var(--red);margin-bottom:10px;}
+.lm-btn{width:100%;background:var(--gold);color:#000;border:none;border-radius:8px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;margin-bottom:7px;}
+.lm-cancel{width:100%;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px;color:var(--muted);font-size:11px;cursor:pointer;}
+.lm-hint{margin-top:12px;font-size:9px;color:var(--muted);}
+
+/* CONTACT MODAL */
 #contact-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;}
-#contact-modal.show{display:flex;}
-.c-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%;text-align:center;}
-.c-box h3{font-size:.9rem;font-weight:900;margin-bottom:10px;}
-.c-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:6px;margin-bottom:6px;text-decoration:none;color:var(--text);}
-.c-item:hover{background:rgba(230,57,70,.1);}
-.c-icon{font-size:18px;}
-.c-info strong{display:block;font-size:10px;}
-.c-info span{font-size:8px;color:var(--muted);}
-.c-close{background:var(--red);color:#fff;border:none;border-radius:6px;padding:8px;font-weight:700;cursor:pointer;margin-top:4px;width:100%;font-size:10px;}
+#contact-modal.open{display:flex;}
+.cm-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:320px;width:90%;text-align:center;}
+.cm-box h3{font-size:.9rem;font-weight:900;margin-bottom:10px;}
+.cm-link{display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:6px;margin-bottom:6px;text-decoration:none;color:var(--text);}
+.cm-link:hover{background:rgba(230,57,70,.1);}
+.cm-icon{font-size:18px;}
+.cm-info strong{display:block;font-size:10px;}
+.cm-info span{font-size:8px;color:var(--muted);}
+.cm-close{background:var(--red);color:#fff;border:none;border-radius:6px;padding:8px;font-weight:700;cursor:pointer;margin-top:4px;width:100%;font-size:10px;}
 </style>
 </head>
 <body>
 
 <nav>
   <div class="logo" id="logo-click">PST <span>STREAM</span></div>
-  <span class="live-badge">LIVE</span>
-  <div class="nav-filters">
-    <button class="fb2 active" onclick="filterLeft(event,'all')">Tout</button>
-    <button class="fb2" onclick="filterLeft(event,'foot')">Foot</button>
-    <button class="fb2" onclick="filterLeft(event,'news')">News</button>
-    <button class="fb2" onclick="filterLeft(event,'sport')">Sport</button>
-    <button class="fb2" onclick="filterLeft(event,'musique')">Musique</button>
-    <button class="fb2" onclick="filterLeft(event,'monde')">Monde</button>
+  <span class="lbadge">LIVE</span>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;">
+    <button class="nfb active" onclick="filterLeft(event,'all')">Tout</button>
+    <button class="nfb" onclick="filterLeft(event,'foot')">Foot</button>
+    <button class="nfb" onclick="filterLeft(event,'news')">News</button>
+    <button class="nfb" onclick="filterLeft(event,'sport')">Sport</button>
+    <button class="nfb" onclick="filterLeft(event,'musique')">Musique</button>
+    <button class="nfb" onclick="filterLeft(event,'monde')">Monde</button>
   </div>
   <div class="nav-right">
-    <button id="admin-btn" class="nb" onclick="openAdmin()">Admin</button>
-    <button class="nb cnt-btn" onclick="document.getElementById('contact-modal').classList.add('show')">Nous contacter</button>
+    <button id="admin-btn" class="nb" onclick="openAdmin()">⚙️ Admin</button>
+    <button class="nb cnt-btn" onclick="openContact()">Nous contacter</button>
     <a href="https://pst-telecom.vercel.app" target="_blank" class="nb pst-b">PST Telecom</a>
   </div>
 </nav>
@@ -275,8 +244,7 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 </div></div>
 
 <div class="main">
-
-<!-- LEFT COL -->
+<!-- LEFT -->
 <div class="left-col">
   <div class="player-wrap">
     <div class="p-ov">
@@ -286,7 +254,7 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
     <iframe id="main-player" src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1" allow="autoplay;encrypted-media" allowfullscreen></iframe>
     <div id="emoji-burst"></div>
     <div id="goal-flash">
-      <div class="gf-main">BUT !!!</div>
+      <div class="gf-main">⚽ BUT !!!</div>
       <div class="gf-sub" id="gf-detail">Senegal marque !</div>
     </div>
   </div>
@@ -317,16 +285,14 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 <!-- INFO COL -->
 <div class="info-col">
   <div class="ic-hdr">
-    <div class="ic-title">Info & Scores Live</div>
+    <div class="ic-title">Info &amp; Scores Live</div>
     <span class="ic-live">EN DIRECT</span>
   </div>
-
   <div class="alert-banner" id="alert-banner">
     <span class="ab-tag" id="ab-tag">BUT !</span>
     <span class="ab-text" id="ab-text"></span>
     <button class="ab-x" onclick="closeAlert()">x</button>
   </div>
-
   <div class="mini-wrap">
     <div class="mini-ov">
       <span class="mini-live">LIVE</span>
@@ -334,22 +300,15 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
     </div>
     <iframe id="mini-player" src="https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1" allow="autoplay;encrypted-media" allowfullscreen></iframe>
   </div>
-
   <div class="mini-bar" id="mini-bar"></div>
-
   <div class="al-sec" id="al-sec"></div>
-
   <div class="ls-sec">
     <div class="st">Matchs en direct</div>
     <div id="live-scores"></div>
   </div>
-
   <div style="flex:1;"></div>
   <div class="info-ticker">
-    <div class="it-in">
-      SEN 2-0 MAR (87') &nbsp;|&nbsp; Man Utd 1-1 LIV (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; Ligue 1 SN: GF 0-0 Teungueth &nbsp;|&nbsp;
-      SEN 2-0 MAR (87') &nbsp;|&nbsp; Man Utd 1-1 LIV (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; Ligue 1 SN: GF 0-0 Teungueth &nbsp;|&nbsp;
-    </div>
+    <div class="it-in">SEN 2-0 MAR (87') &nbsp;|&nbsp; Man Utd 1-1 LIV (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; GF 0-0 Teungueth &nbsp;|&nbsp; SEN 2-0 MAR (87') &nbsp;|&nbsp; Man Utd 1-1 LIV (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; GF 0-0 Teungueth &nbsp;|&nbsp;</div>
   </div>
 </div>
 
@@ -358,10 +317,10 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
   <div class="react-p">
     <div class="pt">Reactions live</div>
     <div class="react-row">
-      <div class="r-btn" onclick="react('heart')"><span class="r-ic">❤️</span><div class="r-ct" id="rc0">0</div></div>
-      <div class="r-btn" onclick="react('fire')"><span class="r-ic">🔥</span><div class="r-ct" id="rc1">0</div></div>
-      <div class="r-btn" onclick="react('clap')"><span class="r-ic">👏</span><div class="r-ct" id="rc2">0</div></div>
-      <div class="r-btn" onclick="react('wow')"><span class="r-ic">😮</span><div class="r-ct" id="rc3">0</div></div>
+      <div class="r-btn" onclick="react(0,'heart')"><span class="r-ic">❤️</span><div class="r-ct" id="rc0">0</div></div>
+      <div class="r-btn" onclick="react(1,'fire')"><span class="r-ic">🔥</span><div class="r-ct" id="rc1">0</div></div>
+      <div class="r-btn" onclick="react(2,'clap')"><span class="r-ic">👏</span><div class="r-ct" id="rc2">0</div></div>
+      <div class="r-btn" onclick="react(3,'wow')"><span class="r-ic">😮</span><div class="r-ct" id="rc3">0</div></div>
     </div>
   </div>
   <div class="comments-panel">
@@ -374,182 +333,145 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
     </div>
   </div>
 </div>
-
 </div>
 
-<!-- ADMIN -->
+<!-- ADMIN PANEL -->
 <div id="admin-panel">
 <div class="adm-in">
   <div class="adm-hdr">
-    <div class="adm-title">Admin PST Stream</div>
-    <button class="adm-close" onclick="closeAdmin()">Fermer</button>
+    <div class="adm-title">⚙️ Admin PST Stream</div>
+    <button class="adm-close" onclick="document.getElementById('admin-panel').style.display='none'">✕ Fermer</button>
+  </div>
+  <div class="adm-tabs">
+    <button class="atab on" onclick="showTab('t-ch',this)">📺 Chaines</button>
+    <button class="atab" onclick="showTab('t-mini',this)">🖥️ Mini Player</button>
+    <button class="atab" onclick="showTab('t-al',this)">🔴 Alertes</button>
+    <button class="atab" onclick="showTab('t-sc',this)">⚽ Scores</button>
+    <button class="atab" onclick="showTab('t-st',this)">📊 Stats</button>
   </div>
 
-  <!-- TABS -->
-  <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-    <button class="adm-tab active-tab" onclick="showTab('tab-chaines',this)">Gestion Chaines</button>
-    <button class="adm-tab" onclick="showTab('tab-ecrans',this)">Ecrans Live</button>
-    <button class="adm-tab" onclick="showTab('tab-mini',this)">Mini Player</button>
-    <button class="adm-tab" onclick="showTab('tab-alertes',this)">Alertes</button>
-    <button class="adm-tab" onclick="showTab('tab-scores',this)">Scores</button>
-    <button class="adm-tab" onclick="showTab('tab-stats',this)">Stats</button>
-  </div>
-
-  <!-- TAB: CHAINES -->
-  <div id="tab-chaines" class="adm-tab-content">
+  <!-- TAB CHAINES -->
+  <div id="t-ch">
     <div class="adm-sec">
       <h3>Ajouter une chaine</h3>
       <div class="adm-g">
         <input class="adm-i" id="a-name" placeholder="Nom (ex: BeIN Sports)">
         <input class="adm-i" id="a-cat" placeholder="foot/news/sport/musique/monde">
         <input class="adm-i" id="a-url" placeholder="URL YouTube embed ou HLS">
-        <input class="adm-i" id="a-icon" placeholder="Emoji icone (ex: TV)">
+        <input class="adm-i" id="a-icon" placeholder="Emoji (ex: ⚽)">
       </div>
       <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;">
-        <input type="checkbox" id="a-hot"> Tendance HOT (apparait dans la barre du haut)
+        <input type="checkbox" id="a-hot"> Marquer HOT (barre tendances)
       </label>
-      <button class="adm-btn" onclick="addChannel()">Ajouter la chaine</button>
+      <button class="adm-btn" onclick="adminAddCh()">Ajouter la chaine</button>
     </div>
     <div class="adm-sec">
       <h3>Toutes les chaines (<span id="ch-count">0</span>)</h3>
-      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('all',this)">Toutes</button>
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('foot',this)">Foot</button>
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('news',this)">News</button>
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('sport',this)">Sport</button>
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('musique',this)">Musique</button>
-        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('monde',this)">Monde</button>
-      </div>
+      <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;" id="cat-filters"></div>
       <div class="adm-list" id="adm-list"></div>
     </div>
   </div>
 
-  <!-- TAB: ECRANS (main player + trending) -->
-  <div id="tab-ecrans" class="adm-tab-content" style="display:none;">
+  <!-- TAB MINI -->
+  <div id="t-mini" style="display:none;">
     <div class="adm-sec">
-      <h3>Player principal</h3>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px;">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Chaine active actuellement</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span id="main-active-icon" style="font-size:20px;">📺</span>
-          <div>
-            <div id="main-active-name" style="font-size:13px;font-weight:800;"></div>
-            <div id="main-active-cat" style="font-size:10px;color:var(--muted);"></div>
-          </div>
-          <span style="margin-left:auto;background:var(--red);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;">EN DIRECT</span>
-        </div>
+      <h3>Mini player actuel</h3>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;display:flex;align-items:center;gap:10px;">
+        <span id="mn-icon" style="font-size:22px;">🌍</span>
+        <div><div id="mn-name" style="font-size:13px;font-weight:800;"></div><span style="background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;">LIVE</span></div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Changer le player principal :</div>
-      <div id="main-switcher" style="display:flex;flex-direction:column;gap:5px;max-height:250px;overflow-y:auto;"></div>
     </div>
     <div class="adm-sec">
-      <h3>Barre tendances (HOT)</h3>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Chaines marquees HOT qui apparaissent dans la barre du haut du site</div>
-      <div id="hot-list" style="display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;"></div>
+      <h3>Changer le mini player — cliquez pour mettre en direct</h3>
+      <div class="adm-list" id="mini-list"></div>
+    </div>
+    <div class="adm-sec">
+      <h3>Ordre du switcher</h3>
+      <div id="mini-order" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
     </div>
   </div>
 
-  <!-- TAB: MINI PLAYER -->
-  <div id="tab-mini" class="adm-tab-content" style="display:none;">
-    <div class="adm-sec">
-      <h3>Mini player (panneau central)</h3>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Chaine active dans le mini player du panneau Info :</div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-        <span id="mini-active-icon" style="font-size:18px;">🌍</span>
-        <div>
-          <div id="mini-active-name" style="font-size:12px;font-weight:800;"></div>
-          <span style="background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;">LIVE</span>
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Changer le mini player :</div>
-      <div id="mini-switcher" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;"></div>
-    </div>
-    <div class="adm-sec">
-      <h3>Ordre des chaines dans le switcher</h3>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Glissez pour reordonner (ou utilisez les boutons)</div>
-      <div id="mini-order-list" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;"></div>
-    </div>
-  </div>
-
-  <!-- TAB: ALERTES -->
-  <div id="tab-alertes" class="adm-tab-content" style="display:none;">
+  <!-- TAB ALERTES -->
+  <div id="t-al" style="display:none;">
     <div class="adm-sec">
       <h3>Envoyer une alerte en direct</h3>
       <div class="adm-g">
-        <select class="adm-i" id="a-alert-type">
+        <select class="adm-i" id="al-type">
           <option value="goal">⚽ BUT !</option>
           <option value="score">📊 Score</option>
           <option value="brek">🔴 BREAKING</option>
           <option value="news">📺 News</option>
         </select>
-        <input class="adm-i" id="a-alert-txt" placeholder="Texte (ex: Senegal 2-0 Maroc 87')">
+        <input class="adm-i" id="al-txt" placeholder="Texte (ex: Senegal 2-0 Maroc 87')">
       </div>
-      <button class="adm-btn red" onclick="adminAlert()">Envoyer en direct</button>
+      <button class="adm-btn red" onclick="adminSendAlert()">Envoyer en direct</button>
     </div>
     <div class="adm-sec">
-      <h3>Historique des alertes (<span id="al-count">0</span>)</h3>
-      <div id="adm-alert-list" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;"></div>
+      <h3>Historique (<span id="al-count">0</span>)</h3>
+      <div id="al-hist" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto;"></div>
     </div>
   </div>
 
-  <!-- TAB: SCORES -->
-  <div id="tab-scores" class="adm-tab-content" style="display:none;">
+  <!-- TAB SCORES -->
+  <div id="t-sc" style="display:none;">
     <div class="adm-sec">
-      <h3>Ajouter / Modifier un score</h3>
+      <h3>Ajouter un match</h3>
       <div class="adm-g">
-        <input class="adm-i" id="s-league" placeholder="Ligue (ex: CAN 2026)">
-        <input class="adm-i" id="s-teams" placeholder="Equipes (ex: SEN vs MAR)">
-        <input class="adm-i" id="s-score" placeholder="Score (ex: 2 - 0)">
-        <input class="adm-i" id="s-min" placeholder="Minute (ex: 87)">
+        <input class="adm-i" id="s-lg" placeholder="Ligue (ex: CAN 2026)">
+        <input class="adm-i" id="s-tm" placeholder="Equipes (ex: SEN vs MAR)">
+        <input class="adm-i" id="s-sc" placeholder="Score (ex: 2 - 0)">
+        <input class="adm-i" id="s-mn" placeholder="Minute (ex: 87)">
       </div>
-      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;">
-        <input type="checkbox" id="s-live" checked> Match en cours (live)
-      </label>
-      <button class="adm-btn" onclick="addScore()">Ajouter ce match</button>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;"><input type="checkbox" id="s-live" checked> Match en cours (live)</label>
+      <button class="adm-btn" onclick="adminAddScore()">Ajouter ce match</button>
     </div>
     <div class="adm-sec">
-      <h3>Matchs en direct (<span id="sc-count">0</span>)</h3>
-      <div id="adm-scores-list" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;"></div>
+      <h3>Matchs (<span id="sc-count">0</span>)</h3>
+      <div id="sc-list" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;"></div>
     </div>
   </div>
 
-  <!-- TAB: STATS -->
-  <div id="tab-stats" class="adm-tab-content" style="display:none;">
+  <!-- TAB STATS -->
+  <div id="t-st" style="display:none;">
     <div class="adm-sec">
-      <h3>Statistiques en temps reel</h3>
+      <h3>Statistiques</h3>
       <div id="adm-stats" style="font-size:11px;line-height:2.2;"></div>
     </div>
   </div>
-
 </div>
 </div>
 
-<!-- CONTACT -->
-<div id="contact-modal" onclick="if(event.target===this)this.classList.remove('show')">
-<div class="c-box">
-  <h3>Contacter PST Telecom</h3>
-  <a class="c-item" href="tel:+221771520959">
-    <span class="c-icon">📞</span>
-    <div class="c-info"><strong>+221 77 152 09 59</strong><span>Appel direct</span></div>
-  </a>
-  <a class="c-item" href="https://wa.me/221771520959" target="_blank">
-    <span class="c-icon">💬</span>
-    <div class="c-info"><strong>WhatsApp</strong><span>Message instantane</span></div>
-  </a>
-  <a class="c-item" href="mailto:papasenytoure@gmail.com">
-    <span class="c-icon">✉️</span>
-    <div class="c-info"><strong>papasenytoure@gmail.com</strong><span>Email</span></div>
-  </a>
-  <a class="c-item" href="https://pst-telecom.vercel.app" target="_blank">
-    <span class="c-icon">🌐</span>
-    <div class="c-info"><strong>pst-telecom.vercel.app</strong><span>Site officiel</span></div>
-  </a>
-  <button class="c-close" onclick="document.getElementById('contact-modal').classList.remove('show')">Fermer</button>
+<!-- LOGIN MODAL -->
+<div id="login-modal">
+  <div class="lm-box">
+    <div style="font-size:2rem;margin-bottom:6px;">🔐</div>
+    <div class="lm-title">Acces Admin PST Stream</div>
+    <div class="lm-sub">Entrez votre email administrateur</div>
+    <input id="login-email" class="lm-input" type="email" placeholder="tpapaseny@ept.sn ou papasenytoure@gmail.com">
+    <div id="login-err" class="lm-err">Email non autorise. Acces refuse.</div>
+    <button class="lm-btn" onclick="checkLogin()">Acceder au panneau admin</button>
+    <button class="lm-cancel" onclick="closeLogin()">Annuler</button>
+    <div class="lm-hint">5 clics sur le logo — ou — Ctrl+Shift+A</div>
+  </div>
+</div>
+
+<!-- CONTACT MODAL -->
+<div id="contact-modal">
+<div class="cm-box">
+  <h3>📞 Contacter PST Telecom</h3>
+  <a class="cm-link" href="tel:+221771520959"><span class="cm-icon">📞</span><div class="cm-info"><strong>+221 77 152 09 59</strong><span>Appel direct</span></div></a>
+  <a class="cm-link" href="https://wa.me/221771520959" target="_blank"><span class="cm-icon">💬</span><div class="cm-info"><strong>WhatsApp</strong><span>Message instantane</span></div></a>
+  <a class="cm-link" href="mailto:papasenytoure@gmail.com"><span class="cm-icon">✉️</span><div class="cm-info"><strong>papasenytoure@gmail.com</strong><span>Email</span></div></a>
+  <a class="cm-link" href="https://pst-telecom.vercel.app" target="_blank"><span class="cm-icon">🌐</span><div class="cm-info"><strong>pst-telecom.vercel.app</strong><span>Site officiel</span></div></a>
+  <button class="cm-close" onclick="closeContact()">Fermer</button>
 </div>
 </div>
 
 <script>
-var CHANNELS=[
+// ============================================================
+// DATA
+// ============================================================
+var CHANNELS = [
   {id:1,name:"RTS1",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1",hot:true},
   {id:2,name:"France 24",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1",hot:true},
   {id:3,name:"Euronews",cat:"news",icon:"📡",url:"https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1",hot:false},
@@ -559,649 +481,596 @@ var CHANNELS=[
   {id:7,name:"Info Monde",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1",hot:false},
   {id:8,name:"Lofi Music",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false},
   {id:9,name:"PST News",cat:"news",icon:"📰",url:"https://www.youtube.com/embed/xGv_4tBY50Q?autoplay=1&mute=1",hot:false},
-  {id:10,name:"PST Sport",cat:"sport",icon:"🏅",url:"https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1",hot:false}
+  {id:10,name:"PST Sport",cat:"sport",icon:"🏅",url:"https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1",hot:false},
+  {id:11,name:"PST Live 2",cat:"foot",icon:"🏟️",url:"https://www.youtube.com/embed/8s0eaDOW-S4?autoplay=1&mute=1",hot:false}
 ];
-var MINI=[
+var MINI = [
   {name:"France 24",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1"},
   {name:"Euronews",url:"https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1"},
   {name:"BeIN Sport",url:"https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=1"},
-  {name:"PST Live",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1"},
-  {name:"Info Monde",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1"},
+  {name:"PST Live 1",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1"},
   {name:"RTS1",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1"}
 ];
-var curMini=0,curMain=CHANNELS[0];
-var reactions=[0,0,0,0];
-var alerts=[];
-var logoClicks=0,logoTimer=null,adminUnlocked=false;
-var SCORES=[
-  {league:"CAN 2026",teams:"SEN vs MAR",score:"2 - 0",min:87,live:true},
-  {league:"Premier",teams:"Man Utd vs Liv",score:"1 - 1",min:65,live:true},
-  {league:"Ligue 1 SN",teams:"GF vs Teung",score:"0 - 0",min:32,live:true},
-  {league:"Champ. L.",teams:"PSG vs BVB",score:"3 - 1",min:0,live:false},
-  {league:"Ligue 1 FR",teams:"PSG vs OM",score:"2 - 2",min:92,live:true}
+var SCORES = [
+  {lg:"CAN 2026",tm:"SEN vs MAR",sc:"2 - 0",mn:87,live:true},
+  {lg:"Premier",tm:"Man Utd vs Liv",sc:"1 - 1",mn:65,live:true},
+  {lg:"Ligue 1 SN",tm:"GF vs Teung",sc:"0 - 0",mn:32,live:true},
+  {lg:"Champ. L.",tm:"PSG vs BVB",sc:"3 - 1",mn:0,live:false},
+  {lg:"Ligue 1 FR",tm:"PSG vs OM",sc:"2 - 2",mn:92,live:true}
 ];
-var autoN=["Modou","Fatou","Ibou","Aida","Cheikh","Mariama","Oumar","Lamine","Sidy","Khady"];
-var autoT=["Allez Senegal !","Super qualite","PST Stream le top","Depuis Dakar","Meilleur site SN","Incroyable !","Merci PST","On est ensemble","Depuis la France","J'adore ce site"];
+var ALERTS = [];
+var curMain = CHANNELS[0];
+var curMini = 0;
+var reactions = [0,0,0,0];
+var logoClicks = 0, logoTimer = null;
+var adminOpen = false;
+var ADMINS = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+var catFilter = "all";
+var autoN = ["Modou","Fatou","Ibou","Aida","Cheikh","Mariama","Oumar","Lamine","Sidy","Khady"];
+var autoT = ["Allez Senegal !","Super qualite","PST Stream le top","Depuis Dakar","Meilleur site","Incroyable !","Merci PST","On est ensemble","Depuis la France","J'adore"];
 
-function init(){
-  renderTrend();renderGrid("all");renderMiniBar();renderScores();renderLiveScores();
-  startViewers();startAutoCmt();startAutoAlerts();
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  renderTrend();
+  renderGrid("all");
+  renderMiniBar();
+  renderScores();
+  renderLiveScores();
+  startViewers();
+  startAutoCmt();
+  startAutoAlerts();
   addAlert("goal","Senegal 2-0 Maroc — 87' CAN 2026");
   addAlert("brek","CAN 2026 : Le Senegal qualifie pour la finale !");
   addAlert("news","RTS1 : Emission speciale en direct ce soir");
 }
 
-function renderTrend(){
-  var bar=document.getElementById("trend-bar");
-  var t=CHANNELS.filter(function(c){return c.hot;});
-  bar.innerHTML=t.map(function(c){
+// ============================================================
+// LEFT COL
+// ============================================================
+function renderTrend() {
+  var bar = document.getElementById("trend-bar");
+  bar.innerHTML = CHANNELS.filter(function(c){return c.hot;}).map(function(c){
     return '<div class="tr-i'+(c.id===curMain.id?" act":"")+'" onclick="switchMain('+c.id+')">'
-      +'<span style="font-size:13px;">'+c.icon+'</span> '+c.name
-      +(c.hot?' <span class="hot-t">HOT</span>':'')+'</div>';
+      +c.icon+' '+c.name+' <span class="hot-t">HOT</span></div>';
   }).join("");
 }
-function renderGrid(cat){
-  var grid=document.getElementById("ch-grid");
-  var list=cat==="all"?CHANNELS:CHANNELS.filter(function(c){return c.cat===cat;});
-  if(!list.length){grid.innerHTML='<div style="color:var(--muted);font-size:10px;padding:12px;grid-column:1/-1;">Aucune chaine.</div>';return;}
-  grid.innerHTML=list.map(function(c){
+
+function renderGrid(cat) {
+  var grid = document.getElementById("ch-grid");
+  var list = cat==="all" ? CHANNELS : CHANNELS.filter(function(c){return c.cat===cat;});
+  if (!list.length) { grid.innerHTML='<div style="color:var(--muted);font-size:10px;padding:12px;grid-column:1/-1;">Aucune chaine.</div>'; return; }
+  grid.innerHTML = list.map(function(c){
     return '<div class="ch-c'+(c.id===curMain.id?" act":"")+'" onclick="switchMain('+c.id+')">'
-      +'<div class="ch-ic">'+c.icon+'</div><span class="ch-nm">'+c.name+'</span>'
-      +'<div class="ch-cat">'+c.cat+'</div><span class="ch-lv">LIVE</span></div>';
+      +'<div class="ch-ic">'+c.icon+'</div>'
+      +'<span class="ch-nm">'+c.name+'</span>'
+      +'<div class="ch-cat">'+c.cat+'</div>'
+      +'<span class="ch-lv">LIVE</span></div>';
   }).join("");
 }
-function filterLeft(e,cat){
-  document.querySelectorAll(".fb2").forEach(function(b){b.classList.remove("active");});
+
+function filterLeft(e, cat) {
+  document.querySelectorAll(".nfb").forEach(function(b){b.classList.remove("active");});
   e.target.classList.add("active");
   renderGrid(cat);
 }
-function switchMain(id){
-  var ch=CHANNELS.find(function(c){return c.id===id;});
-  if(!ch)return;
-  curMain=ch;
-  document.getElementById("main-player").src=ch.url;
-  document.getElementById("main-label").textContent=ch.name;
+
+function switchMain(id) {
+  var ch = CHANNELS.find(function(c){return c.id===id;});
+  if (!ch) return;
+  curMain = ch;
+  document.getElementById("main-player").src = ch.url;
+  document.getElementById("main-label").textContent = ch.name;
   renderTrend();
-  var ab=document.querySelector(".fb2.active");
-  var m={"tout":"all","foot":"foot","news":"news","sport":"sport","musique":"musique","monde":"monde"};
-  renderGrid(ab?m[ab.textContent.toLowerCase()]||"all":"all");
+  renderGrid(catFilter);
 }
 
-function renderMiniBar(){
-  var bar=document.getElementById("mini-bar");
-  bar.innerHTML=MINI.map(function(c,i){
-    return '<div class="mb-btn'+(i===curMini?" act-m":"")+'" onclick="switchMini('+i+')">'+c.name+'</div>';
+// ============================================================
+// MINI PLAYER
+// ============================================================
+function renderMiniBar() {
+  var bar = document.getElementById("mini-bar");
+  bar.innerHTML = MINI.map(function(m,i){
+    return '<div class="mb-btn'+(i===curMini?" act-m":"")+'" onclick="switchMini('+i+')">'+m.name+'</div>';
   }).join("");
-}
-function switchMini(i){
-  curMini=i;
-  document.getElementById("mini-player").src=MINI[i].url;
-  document.getElementById("mini-label").textContent=MINI[i].name;
-  document.querySelectorAll(".mb-btn").forEach(function(b,j){b.classList.toggle("act-m",j===i);});
 }
 
-function renderScores(){
-  var row=document.getElementById("sc-row");
-  row.innerHTML=SCORES.map(function(s){
-    return '<div class="sc-c"><div class="sc-l">'+s.league+'</div><div class="sc-t">'+s.teams+'</div>'
-      +'<div class="sc-r">'+s.score+'</div><div class="sc-m">'+(s.live?"🔴 "+s.min+"'":s.min+"'")+'</div></div>';
+function switchMini(i) {
+  if (i < 0 || i >= MINI.length) i = 0;
+  curMini = i;
+  document.getElementById("mini-player").src = MINI[i].url;
+  document.getElementById("mini-label").textContent = MINI[i].name;
+  renderMiniBar();
+}
+
+// ============================================================
+// SCORES
+// ============================================================
+function renderScores() {
+  var row = document.getElementById("sc-row");
+  row.innerHTML = SCORES.map(function(s){
+    return '<div class="sc-c">'
+      +'<div class="sc-l">'+s.lg+'</div>'
+      +'<div class="sc-t">'+s.tm+'</div>'
+      +'<div class="sc-r">'+s.sc+'</div>'
+      +'<div class="sc-m">'+(s.live?"🔴 "+s.mn+"'":s.mn?"FT":"FT")+'</div></div>';
   }).join("");
 }
-function renderLiveScores(){
-  var el=document.getElementById("live-scores");
-  el.innerHTML=SCORES.map(function(s){
-    return '<div class="ls-item"><div class="ls-lg">'+s.league+'</div><div class="ls-tm">'+s.teams+'</div>'
-      +'<div class="ls-sc">'+s.score+'</div><div class="ls-mn">'+(s.live?"🔴 "+s.min+"'":s.min+"'")+'</div></div>';
+
+function renderLiveScores() {
+  var el = document.getElementById("live-scores");
+  el.innerHTML = SCORES.map(function(s){
+    return '<div class="ls-item">'
+      +'<div class="ls-lg">'+s.lg+'</div>'
+      +'<div class="ls-tm">'+s.tm+'</div>'
+      +'<div class="ls-sc">'+s.sc+'</div>'
+      +'<div class="ls-mn">'+(s.live?"🔴 "+s.mn+"'":"FT")+'</div></div>';
   }).join("");
 }
+
 setInterval(function(){
   SCORES.forEach(function(s){
-    if(s.live&&s.min>0&&s.min<90){
-      s.min++;
-      if(Math.random()<0.015){
-        var teams=s.teams.split(" vs ");
-        var sc=Math.random()>0.5?teams[0]:teams[1];
-        var pts=s.score.split(" - ");
-        if(sc===teams[0])pts[0]=String(parseInt(pts[0])+1);
+    if (s.live && s.mn>0 && s.mn<90) {
+      s.mn++;
+      if (Math.random()<0.015) {
+        var t = s.tm.split(" vs ");
+        var sc = Math.random()>0.5?t[0]:t[1];
+        var pts = s.sc.split(" - ");
+        if (sc===t[0]) pts[0]=String(parseInt(pts[0])+1);
         else pts[1]=String(parseInt(pts[1])+1);
-        s.score=pts[0]+" - "+pts[1];
-        addAlert("goal","BUT ! "+sc+" — "+s.score+" ("+s.min+"') "+s.league);
+        s.sc = pts[0]+" - "+pts[1];
+        addAlert("goal","BUT ! "+sc+" — "+s.sc+" ("+s.mn+"') "+s.lg);
       }
     }
   });
-  renderScores();renderLiveScores();
-},60000);
+  renderScores();
+  renderLiveScores();
+}, 60000);
 
-function addAlert(type,text){
-  var now=new Date();
-  var t=now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
-  alerts.unshift({type:type,text:text,time:t});
-  if(alerts.length>20)alerts.pop();
+// ============================================================
+// ALERTS
+// ============================================================
+function addAlert(type, text) {
+  var now = new Date();
+  var t = now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
+  ALERTS.unshift({type:type,text:text,time:t});
+  if (ALERTS.length > 20) ALERTS.pop();
   renderAlerts();
-  showBanner(type,text);
-  if(type==="goal")goalFlash(text);
+  showBanner(type, text);
+  if (type==="goal") goalFlash(text);
 }
-function renderAlerts(){
-  var list=document.getElementById("al-sec");
-  var icons={goal:"BUT !",score:"SCORE",brek:"BREAKING",news:"NEWS"};
-  list.innerHTML=alerts.slice(0,10).map(function(a){
-    return '<div class="al-item '+a.type+'"><div class="al-tag '+a.type+'">'+icons[a.type]+'</div>'
-      +'<div class="al-text">'+a.text+'</div><div class="al-time">'+a.time+'</div></div>';
+
+function renderAlerts() {
+  var sec = document.getElementById("al-sec");
+  var icons = {goal:"⚽ BUT",score:"📊 SCORE",brek:"🔴 BREAKING",news:"📺 NEWS"};
+  sec.innerHTML = ALERTS.slice(0,10).map(function(a){
+    return '<div class="al-item '+a.type+'">'
+      +'<div class="al-tag '+a.type+'">'+icons[a.type]+'</div>'
+      +'<div class="al-text">'+a.text+'</div>'
+      +'<div class="al-time">'+a.time+'</div></div>';
   }).join("");
 }
-function showBanner(type,text){
-  var b=document.getElementById("alert-banner");
-  var icons={goal:"BUT !",score:"SCORE",brek:"BREAKING",news:"INFO"};
-  document.getElementById("ab-tag").textContent=icons[type]||"INFO";
-  document.getElementById("ab-text").textContent=text;
+
+function showBanner(type, text) {
+  var b = document.getElementById("alert-banner");
+  var icons = {goal:"⚽ BUT !",score:"📊 SCORE",brek:"🔴 BREAKING",news:"📺 INFO"};
+  document.getElementById("ab-tag").textContent = icons[type]||"INFO";
+  document.getElementById("ab-text").textContent = text;
   b.classList.add("show");
   clearTimeout(window._at);
-  window._at=setTimeout(function(){b.classList.remove("show");},8000);
+  window._at = setTimeout(function(){b.classList.remove("show");}, 8000);
 }
-function closeAlert(){document.getElementById("alert-banner").classList.remove("show");}
-function goalFlash(detail){
-  var el=document.getElementById("goal-flash");
-  document.getElementById("gf-detail").textContent=detail||"BUT !";
+
+function closeAlert() { document.getElementById("alert-banner").classList.remove("show"); }
+
+function goalFlash(detail) {
+  var el = document.getElementById("goal-flash");
+  document.getElementById("gf-detail").textContent = detail||"BUT !";
   el.classList.add("show");
-  burst("⚽");burst("🔥");
-  setTimeout(function(){el.classList.remove("show");},4000);
+  burstEmoji("⚽"); burstEmoji("🔥");
+  setTimeout(function(){el.classList.remove("show");}, 4000);
 }
-var autoAlerts=[
-  {type:"news",text:"RTS1 : Journal de 20h en direct sur PST Stream"},
-  {type:"score",text:"Man Utd 1-1 Liverpool — Premier League 65'"},
-  {type:"brek",text:"Afrique : Sommet de l'UA en cours a Addis-Abeba"},
-  {type:"news",text:"Senegal : Session du Parlement en cours"},
-  {type:"score",text:"PSG 3-1 BVB — Ligue des Champions FT"},
-  {type:"brek",text:"URGENT : Conference de presse du gouvernement"},
-  {type:"news",text:"Culture : Yoff Festival — Programme disponible"}
+
+var autoAlerts = [
+  {type:"news",text:"RTS1 : Journal de 20h en direct"},
+  {type:"score",text:"Man Utd 1-1 Liverpool — 65'"},
+  {type:"brek",text:"Afrique : Sommet UA en cours"},
+  {type:"news",text:"Senegal : Session du Parlement"},
+  {type:"score",text:"PSG 3-1 BVB — Champions League FT"},
+  {type:"brek",text:"URGENT : Conference de presse"},
+  {type:"news",text:"Culture : Festival de Dakar"}
 ];
-var alertIdx=0;
-function startAutoAlerts(){
+var alertIdx = 0;
+function startAutoAlerts() {
   setInterval(function(){
-    var a=autoAlerts[alertIdx%autoAlerts.length];
-    addAlert(a.type,a.text);alertIdx++;
-  },35000);
+    var a = autoAlerts[alertIdx % autoAlerts.length];
+    addAlert(a.type, a.text);
+    alertIdx++;
+  }, 35000);
 }
 
-function react(key){
-  var map={heart:0,fire:1,clap:2,wow:3};
-  var idx=map[key];if(idx===undefined)return;
+// ============================================================
+// REACTIONS
+// ============================================================
+function react(idx, emoji) {
   reactions[idx]++;
-  document.getElementById("rc"+idx).textContent=reactions[idx];
-  burst({heart:"❤️",fire:"🔥",clap:"👏",wow:"😮"}[key]);
+  document.getElementById("rc"+idx).textContent = reactions[idx];
+  burstEmoji({heart:"❤️",fire:"🔥",clap:"👏",wow:"😮"}[emoji]||emoji);
 }
-function burst(emoji){
-  var wrap=document.getElementById("emoji-burst");
-  for(var i=0;i<6;i++){
-    (function(n){setTimeout(function(){
-      var el=document.createElement("div");el.className="be";el.textContent=emoji;
-      el.style.left=(15+Math.random()*70)+"%";
-      el.style.animationDuration=(1+Math.random()*0.9)+"s";
-      wrap.appendChild(el);setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},2300);
-    },n*90);})(i);
+
+function burstEmoji(emoji) {
+  var wrap = document.getElementById("emoji-burst");
+  for (var i=0; i<6; i++) {
+    (function(n){
+      setTimeout(function(){
+        var el = document.createElement("div");
+        el.className = "be";
+        el.textContent = emoji;
+        el.style.left = (15+Math.random()*70)+"%";
+        el.style.animationDuration = (1+Math.random()*0.9)+"s";
+        wrap.appendChild(el);
+        setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);}, 2300);
+      }, n*90);
+    })(i);
   }
 }
 
-function sendCmt(){
-  var name=document.getElementById("cm-name").value.trim()||"Visiteur";
-  var text=document.getElementById("cm-text").value.trim();
-  if(!text)return;addCmt(name,text);document.getElementById("cm-text").value="";
+// ============================================================
+// COMMENTS
+// ============================================================
+function sendCmt() {
+  var name = document.getElementById("cm-name").value.trim() || "Visiteur";
+  var text = document.getElementById("cm-text").value.trim();
+  if (!text) return;
+  addCmt(name, text);
+  document.getElementById("cm-text").value = "";
 }
-function addCmt(name,text){
-  var list=document.getElementById("c-list");
-  var d=document.createElement("div");d.className="cm";
-  d.innerHTML='<div class="cm-av">'+name[0].toUpperCase()+'</div>'
-    +'<div class="cm-body"><span class="cm-name">'+name+'</span> <span class="cm-text">'+text.replace(/</g,"&lt;")+'</span></div>';
-  list.appendChild(d);list.scrollTop=list.scrollHeight;
-  if(list.children.length>60)list.removeChild(list.firstChild);
+
+function addCmt(name, text) {
+  var list = document.getElementById("c-list");
+  var d = document.createElement("div");
+  d.className = "cm";
+  d.innerHTML = '<div class="cm-av">'+name[0].toUpperCase()+'</div>'
+    +'<div class="cm-body"><span class="cm-name">'+name+'</span>'
+    +' <span class="cm-text">'+text.replace(/</g,"&lt;")+'</span></div>';
+  list.appendChild(d);
+  list.scrollTop = list.scrollHeight;
+  if (list.children.length > 60) list.removeChild(list.firstChild);
 }
-function startAutoCmt(){
-  function drop(){
-    var n=autoN[Math.floor(Math.random()*autoN.length)];
-    var t=autoT[Math.floor(Math.random()*autoT.length)];
-    addCmt(n,t);setTimeout(drop,2500+Math.random()*7000);
+
+function startAutoCmt() {
+  function drop() {
+    var n = autoN[Math.floor(Math.random()*autoN.length)];
+    var t = autoT[Math.floor(Math.random()*autoT.length)];
+    addCmt(n, t);
+    setTimeout(drop, 2500+Math.random()*7000);
   }
-  setTimeout(drop,1200);
+  setTimeout(drop, 1200);
 }
-function startViewers(){
-  var v=1247;
+
+// ============================================================
+// VIEWERS
+// ============================================================
+function startViewers() {
+  var v = 1247;
   setInterval(function(){
-    v+=Math.floor((Math.random()-0.4)*15);if(v<500)v=500;
-    document.getElementById("viewers").textContent=v.toLocaleString("fr-FR")+" spectateurs";
-  },5000);
+    v += Math.floor((Math.random()-0.4)*15);
+    if (v<500) v=500;
+    document.getElementById("viewers").textContent = v.toLocaleString("fr-FR")+" spectateurs";
+  }, 5000);
 }
 
+// ============================================================
+// SHARE
+// ============================================================
 function shareFB(){window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(location.href),"_blank");}
 function shareWA(){window.open("https://wa.me/?text="+encodeURIComponent("PST STREAM : "+location.href),"_blank");}
-function shareTW(){window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent("PST STREAM")+"&url="+encodeURIComponent(location.href),"_blank");}
+function shareTW(){window.open("https://twitter.com/intent/tweet?url="+encodeURIComponent(location.href),"_blank");}
 
-document.getElementById("logo-click").addEventListener("click",function(){
-  logoClicks++;
-  if(logoTimer) clearTimeout(logoTimer);
-  logoTimer = setTimeout(function(){logoClicks=0;}, 3000);
-  if(logoClicks >= 5){
-    logoClicks = 0;
-    openLoginModal();
-  }
+// ============================================================
+// ADMIN LOGIN
+// ============================================================
+var lClicks=0, lTimer=null;
+document.getElementById("logo-click").addEventListener("click", function(){
+  lClicks++;
+  if (lTimer) clearTimeout(lTimer);
+  lTimer = setTimeout(function(){lClicks=0;}, 3000);
+  if (lClicks >= 5) { lClicks=0; openLogin(); }
 });
-// Keyboard shortcut: Ctrl+Shift+A
 document.addEventListener("keydown", function(e){
-  if(e.ctrlKey && e.shiftKey && e.key === "A"){
-    openLoginModal();
+  if (e.ctrlKey && e.shiftKey && (e.key==="A"||e.key==="a")) openLogin();
+  if (e.key==="Escape") { closeLogin(); closeContact(); }
+  if (e.key==="Enter") {
+    var lm = document.getElementById("login-modal");
+    if (lm && lm.classList.contains("open")) checkLogin();
   }
 });
-
-var secretClicks = 0, secretTimer = null;
-function secretCount(){
-  secretClicks++;
-  if(secretTimer) clearTimeout(secretTimer);
-  secretTimer = setTimeout(function(){secretClicks=0;}, 3000);
-  if(secretClicks >= 10){
-    secretClicks = 0;
-    openLoginModal();
-  }
-}
-function openLoginModal(){
+function openLogin() {
   var m = document.getElementById("login-modal");
-  if(m){
-    m.style.display = "flex";
-    var inp = document.getElementById("login-email");
-    if(inp){ inp.value = ""; setTimeout(function(){inp.focus();}, 100); }
-  }
+  m.classList.add("open");
+  document.getElementById("login-email").value="";
+  document.getElementById("login-err").style.display="none";
+  setTimeout(function(){document.getElementById("login-email").focus();},100);
 }
-function checkAdminLogin(){
-  var email=document.getElementById("login-email").value.trim().toLowerCase();
-  if(email==="tpapaseny@ept.sn"||email==="papasenytoure@gmail.com"){
-    adminUnlocked=true;
+function closeLogin() {
+  document.getElementById("login-modal").classList.remove("open");
+}
+function checkLogin() {
+  var email = document.getElementById("login-email").value.trim().toLowerCase();
+  if (ADMINS.indexOf(email) >= 0) {
+    closeLogin();
     document.getElementById("admin-btn").style.display="block";
-    document.getElementById("login-modal").style.display="none";
     openAdmin();
-  }else{
-    document.getElementById("login-error").style.display="block";
-    setTimeout(function(){document.getElementById("login-error").style.display="none";},2000);
+  } else {
+    document.getElementById("login-err").style.display="block";
+    setTimeout(function(){document.getElementById("login-err").style.display="none";},2500);
   }
 }
-document.addEventListener("keydown",function(e){
-  var modal = document.getElementById("login-modal");
-  if(!modal) return;
-  if(e.key==="Escape") modal.style.display="none";
-  if(e.key==="Enter" && modal.style.display==="flex") checkAdminLogin();
-});
-function openAdmin(){if(!adminUnlocked)return;document.getElementById("admin-panel").style.display="block";renderAdmList();renderAdmStats();}
-function closeAdmin(){document.getElementById("admin-panel").style.display="none";}
 
-function addChannel(){
+// ============================================================
+// ADMIN PANEL
+// ============================================================
+function openAdmin() {
+  document.getElementById("admin-panel").style.display="block";
+  refreshAdminTab();
+}
+function openContact() {
+  document.getElementById("contact-modal").classList.add("open");
+}
+function closeContact() {
+  document.getElementById("contact-modal").classList.remove("open");
+}
+
+function showTab(id, btn) {
+  ["t-ch","t-mini","t-al","t-sc","t-st"].forEach(function(t){
+    var el=document.getElementById(t);
+    if(el) el.style.display="none";
+  });
+  document.querySelectorAll(".atab").forEach(function(b){b.classList.remove("on");});
+  var el=document.getElementById(id);
+  if(el) el.style.display="block";
+  if(btn) btn.classList.add("on");
+  refreshAdminTab(id);
+}
+
+function refreshAdminTab(id) {
+  id = id || "t-ch";
+  if (id==="t-ch") renderAdmList();
+  if (id==="t-mini") renderMiniAdmin();
+  if (id==="t-al") renderAlHist();
+  if (id==="t-sc") renderScList();
+  if (id==="t-st") renderStats();
+}
+
+// --- Chaines tab ---
+function renderAdmList() {
+  var el = document.getElementById("ch-count");
+  if(el) el.textContent = CHANNELS.length;
+  // render cat filters
+  var cf = document.getElementById("cat-filters");
+  if(cf) {
+    var cats=["all","foot","news","sport","musique","monde"];
+    cf.innerHTML=cats.map(function(c){
+      return '<button onclick="admFilter(''+c+'')" style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:'+(catFilter===c?"var(--red)":"var(--bg3)")+';color:'+(catFilter===c?"#fff":"var(--muted)")+';font-size:9px;font-weight:700;cursor:pointer;">'+c+'</button>';
+    }).join("");
+  }
+  var list = document.getElementById("adm-list");
+  if(!list) return;
+  var filtered = catFilter==="all"?CHANNELS:CHANNELS.filter(function(c){return c.cat===catFilter;});
+  list.innerHTML = filtered.map(function(c){
+    return '<div><div class="ch-row">'
+      +'<span style="font-size:18px;">'+c.icon+'</span>'
+      +'<div class="ch-row-info">'
+      +'<div class="ch-row-name">'+c.name+'</div>'
+      +'<div class="ch-row-meta">'+c.cat+(c.hot?' • <span style="color:var(--red);">HOT</span>':'')+'</div>'
+      +'<div class="ch-row-url">'+c.url+'</div>'
+      +'</div>'
+      +'<div class="row-btns">'
+      +'<button class="rbtn play" onclick="switchMain('+c.id+')">▶ Player</button>'
+      +'<button class="rbtn hot" onclick="toggleHot('+c.id+')">'+( c.hot?"✕ HOT":"★ HOT")+'</button>'
+      +'<button class="rbtn edit" onclick="toggleEdit('+c.id+')">✏ Modif</button>'
+      +'<button class="rbtn del" onclick="delCh('+c.id+')">🗑 Suppr</button>'
+      +'</div></div>'
+      +'<div class="edit-inline" id="ei-'+c.id+'">'
+      +'<div class="adm-g">'
+      +'<input class="adm-i" id="en-'+c.id+'" value="'+c.name+'" placeholder="Nom">'
+      +'<input class="adm-i" id="ec-'+c.id+'" value="'+c.cat+'" placeholder="Categorie">'
+      +'<input class="adm-i" id="ei-ic-'+c.id+'" value="'+c.icon+'" placeholder="Emoji">'
+      +'<input class="adm-i" id="eu-'+c.id+'" placeholder="Nouvelle URL (vide = garder)">'
+      +'</div>'
+      +'<div style="display:flex;gap:5px;margin-top:6px;">'
+      +'<button class="adm-btn" style="margin:0;" onclick="saveEdit('+c.id+')">Sauvegarder</button>'
+      +'<button style="padding:0 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer;font-size:10px;" onclick="toggleEdit('+c.id+')">Annuler</button>'
+      +'</div></div></div>';
+  }).join("");
+}
+
+function admFilter(cat) {
+  catFilter=cat;
+  renderAdmList();
+}
+
+function toggleHot(id) {
+  var ch=CHANNELS.find(function(c){return c.id===id;});
+  if(ch){ch.hot=!ch.hot; renderTrend(); renderAdmList();}
+}
+
+function toggleEdit(id) {
+  var el=document.getElementById("ei-"+id);
+  if(el) el.classList.toggle("open");
+}
+
+function saveEdit(id) {
+  var ch=CHANNELS.find(function(c){return c.id===id;});
+  if(!ch) return;
+  var n=document.getElementById("en-"+id);
+  var cat=document.getElementById("ec-"+id);
+  var ic=document.getElementById("ei-ic-"+id);
+  var u=document.getElementById("eu-"+id);
+  if(n&&n.value.trim()) ch.name=n.value.trim();
+  if(cat&&cat.value.trim()) ch.cat=cat.value.trim().toLowerCase();
+  if(ic&&ic.value.trim()) ch.icon=ic.value.trim();
+  if(u&&u.value.trim()){
+    ch.url=u.value.trim();
+    if(ch.id===curMain.id) document.getElementById("main-player").src=ch.url;
+    var mi=MINI.findIndex(function(m){return m.name===ch.name;});
+    if(mi>=0) MINI[mi].url=ch.url;
+  }
+  renderTrend(); renderGrid(catFilter); renderMiniBar(); renderAdmList();
+}
+
+function delCh(id) {
+  if(!confirm("Supprimer cette chaine ?")) return;
+  CHANNELS=CHANNELS.filter(function(c){return c.id!==id;});
+  renderTrend(); renderGrid(catFilter); renderAdmList();
+}
+
+function adminAddCh() {
   var name=document.getElementById("a-name").value.trim();
   var cat=document.getElementById("a-cat").value.trim().toLowerCase()||"news";
   var url=document.getElementById("a-url").value.trim();
   var icon=document.getElementById("a-icon").value.trim()||"📺";
   var hot=document.getElementById("a-hot").checked;
   if(!name||!url){alert("Nom et URL requis !");return;}
-  var ch={id:Date.now(),name:name,cat:cat,icon:icon,url:url,hot:hot};
-  CHANNELS.push(ch);MINI.push({name:name,url:url});
-  ["a-name","a-cat","a-url","a-icon"].forEach(function(id){document.getElementById(id).value="";});
+  var id=Date.now();
+  CHANNELS.push({id:id,name:name,cat:cat,icon:icon,url:url,hot:hot});
+  MINI.push({name:name,url:url});
+  ["a-name","a-cat","a-url","a-icon"].forEach(function(i){document.getElementById(i).value="";});
   document.getElementById("a-hot").checked=false;
-  renderTrend();renderGrid("all");renderAdmList();renderMiniBar();
+  renderTrend(); renderGrid(catFilter); renderMiniBar(); renderAdmList();
   alert("Chaine ajoutee !");
 }
-function adminAlert(){
-  var type=document.getElementById("a-alert-type").value;
-  var text=document.getElementById("a-alert-txt").value.trim();
-  if(!text){alert("Entrez le texte !");return;}
-  addAlert(type,text);document.getElementById("a-alert-txt").value="";alert("Alerte envoyee !");
-}
-function renderAdmList(){
-  var list=document.getElementById("adm-list");if(!list)return;
-  document.getElementById("ch-count").textContent=CHANNELS.length;
-  list.innerHTML=CHANNELS.map(function(c){
-    return '<div class="adm-it"><span>'+c.icon+'</span><span style="font-weight:700;">'+c.name+'</span>'
-      +'<span style="color:var(--muted);">'+c.cat+'</span>'
-      +'<span style="color:var(--red);font-size:8px;">'+(c.hot?"HOT":"")+'</span>'
-      +'<button class="adm-del" onclick="delCh('+c.id+')">Suppr</button></div>';
-  }).join("");
-}
-function delCh(id){
-  if(!confirm("Supprimer ?"))return;
-  CHANNELS=CHANNELS.filter(function(c){return c.id!==id;});
-  renderTrend();renderGrid("all");renderAdmList();
-}
-function renderAdmStats(){
-  var el=document.getElementById("adm-stats");if(!el)return;
-  var hot=CHANNELS.filter(function(c){return c.hot;}).length;
-  el.innerHTML="Total chaines : <strong>"+CHANNELS.length+"</strong><br>"
-    +"Chaines HOT : <strong>"+hot+"</strong><br>"
-    +"Alertes envoyees : <strong>"+alerts.length+"</strong><br>"
-    +"Reactions totales : <strong>"+(reactions[0]+reactions[1]+reactions[2]+reactions[3])+"</strong><br>"
-    +"Commentaires : <strong>"+document.querySelectorAll(".cm").length+"</strong><br>"
-    +"Scores en direct : <strong>"+SCORES.filter(function(s){return s.live;}).length+"</strong>";
-}
 
-// ============================================================
-// ADMIN TABS
-// ============================================================
-function showTab(id, btn){
-  document.querySelectorAll(".adm-tab-content").forEach(function(el){el.style.display="none";});
-  document.querySelectorAll(".adm-tab").forEach(function(b){b.classList.remove("active-tab");});
-  var el=document.getElementById(id);
-  if(el) el.style.display="block";
-  if(btn) btn.classList.add("active-tab");
-  // refresh content of tab
-  if(id==="tab-chaines") renderAdmList();
-  if(id==="tab-ecrans") renderEcransTab();
-  if(id==="tab-mini") renderMiniTab();
-  if(id==="tab-alertes") renderAdmAlerts();
-  if(id==="tab-scores") renderAdmScores();
-  if(id==="tab-stats") renderAdmStats();
-}
-
-// ============================================================
-// TAB ECRANS - Main player + HOT bar management
-// ============================================================
-function renderEcransTab(){
-  // Current main channel info
-  document.getElementById("main-active-name").textContent=curMain.name;
-  document.getElementById("main-active-cat").textContent=curMain.cat;
-  document.getElementById("main-active-icon").textContent=curMain.icon;
-
-  // Main switcher - all channels
-  var ms=document.getElementById("main-switcher");
-  if(!ms) return;
-  ms.innerHTML=CHANNELS.map(function(c){
-    var isActive=c.id===curMain.id;
-    return '<div class="sw-item'+(isActive?" sw-active":"")+'">'
-      +'<span class="sw-icon">'+c.icon+'</span>'
-      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div>'
-      +'<div class="sw-cat">'+c.cat+'</div>'
-      +'<div class="sw-url">'+c.url+'</div></div>'
-      +'<div class="sw-actions">'
-      +(isActive?'<span class="sw-btn sw-play" style="background:var(--green);">ACTIF</span>'
-        :'<button class="sw-btn sw-play" onclick="switchMain('+c.id+');renderEcransTab();">Mettre</button>')
-      +'<button class="sw-btn sw-hot" onclick="toggleHot('+c.id+');renderEcransTab();">'+(c.hot?"HOT OFF":"HOT ON")+'</button>'
-      +'<button class="sw-btn sw-del" onclick="delCh('+c.id+');renderEcransTab();">Suppr</button>'
-      +'</div></div>'
-      +'<div class="edit-form" id="edit-main-'+c.id+'">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-      +'<input class="adm-i" id="em-name-'+c.id+'" value="'+c.name+'" placeholder="Nom">'
-      +'<input class="adm-i" id="em-cat-'+c.id+'" value="'+c.cat+'" placeholder="Categorie">'
-      +'<input class="adm-i" id="em-url-'+c.id+'" value="'+c.url+'" placeholder="URL" style="grid-column:1/-1;">'
-      +'<input class="adm-i" id="em-icon-'+c.id+'" value="'+c.icon+'" placeholder="Emoji">'
-      +'</div>'
-      +'<button class="adm-btn" style="margin-top:6px;" onclick="saveEdit('+c.id+','main')">Sauvegarder</button>'
-      +'</div>';
-  }).join("");
-
-  // HOT bar management
-  var hl=document.getElementById("hot-list");
-  if(!hl) return;
-  var hotChs=CHANNELS.filter(function(c){return c.hot;});
-  if(!hotChs.length){hl.innerHTML='<div style="color:var(--muted);font-size:10px;">Aucune chaine HOT. Activez le HOT dans la liste des chaines.</div>';return;}
-  hl.innerHTML=hotChs.map(function(c){
-    return '<div class="sw-item">'
-      +'<span class="sw-icon">'+c.icon+'</span>'
-      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div><div class="sw-cat">'+c.cat+'</div></div>'
-      +'<div class="sw-actions">'
-      +'<button class="sw-btn sw-play" onclick="switchMain('+c.id+');renderEcransTab();">Player</button>'
-      +'<button class="sw-btn" style="background:var(--muted);color:#fff;" onclick="toggleHot('+c.id+');renderEcransTab();">Retirer HOT</button>'
+// --- Mini player tab ---
+function renderMiniAdmin() {
+  var mn=MINI[curMini]||MINI[0];
+  document.getElementById("mn-name").textContent=mn.name;
+  var ch=CHANNELS.find(function(c){return c.name===mn.name;});
+  document.getElementById("mn-icon").textContent=ch?ch.icon:"📺";
+  // list all channels to set as mini
+  var list=document.getElementById("mini-list");
+  if(list) list.innerHTML=CHANNELS.map(function(c){
+    var isMini=curMini>=0&&MINI[curMini]&&MINI[curMini].name===c.name;
+    return '<div class="ch-row">'
+      +'<span style="font-size:16px;">'+c.icon+'</span>'
+      +'<div class="ch-row-info"><div class="ch-row-name">'+c.name+'</div><div class="ch-row-meta">'+c.cat+'</div></div>'
+      +'<div class="row-btns">'
+      +(isMini?'<span class="rbtn play" style="background:var(--green);">ACTIF</span>'
+        :'<button class="rbtn play" onclick="setMiniAdmin(''+c.name+'',''+c.url+'')">Mettre live</button>')
+      +'<button class="rbtn mini" onclick="addToMini(''+c.name+'',''+c.url+'')">+Switcher</button>'
       +'</div></div>';
   }).join("");
-}
-
-function toggleHot(id){
-  var ch=CHANNELS.find(function(c){return c.id===id;});
-  if(!ch)return;
-  ch.hot=!ch.hot;
-  renderTrend();
-  renderChGrid(document.querySelector(".fb2.active")?document.querySelector(".fb2.active").textContent.toLowerCase():"all");
-}
-
-function showEditForm(id, prefix){
-  var form=document.getElementById(prefix+"-"+id);
-  if(form) form.classList.toggle("show");
-}
-
-function saveEdit(id, prefix){
-  var ch=CHANNELS.find(function(c){return c.id===id;});
-  if(!ch)return;
-  var nameEl=document.getElementById("em-name-"+id);
-  var catEl=document.getElementById("em-cat-"+id);
-  var urlEl=document.getElementById("em-url-"+id);
-  var iconEl=document.getElementById("em-icon-"+id);
-  if(nameEl) ch.name=nameEl.value.trim()||ch.name;
-  if(catEl) ch.cat=catEl.value.trim().toLowerCase()||ch.cat;
-  if(urlEl) ch.url=urlEl.value.trim()||ch.url;
-  if(iconEl) ch.icon=iconEl.value.trim()||ch.icon;
-  // if this is the active channel, update player
-  if(ch.id===curMain.id){
-    document.getElementById("main-player").src=ch.url;
-    document.getElementById("main-label").textContent=ch.name;
-  }
-  if(ch.id===MINI[curMini].id||MINI.find(function(m){return m.url===ch.url;})){
-    var mi=MINI.findIndex(function(m){return m.name===ch.name;});
-    if(mi>=0){MINI[mi].name=ch.name;MINI[mi].url=ch.url;}
-  }
-  renderTrend();renderAdmList();renderEcransTab();
-  alert("Modifie avec succes !");
-}
-
-// ============================================================
-// TAB MINI PLAYER
-// ============================================================
-function renderMiniTab(){
-  var mn=MINI[curMini]||{name:"",icon:"📺"};
-  var ch=CHANNELS.find(function(c){return c.name===mn.name;})||{icon:"📺"};
-  document.getElementById("mini-active-name").textContent=mn.name;
-  document.getElementById("mini-active-icon").textContent=ch.icon||"📺";
-
-  // Mini switcher
-  var ms=document.getElementById("mini-switcher");
-  if(ms) ms.innerHTML=CHANNELS.map(function(c,i){
-    var inMini=MINI.findIndex(function(m){return m.name===c.name;});
-    var isActive=MINI[curMini]&&MINI[curMini].name===c.name;
-    return '<div class="sw-item'+(isActive?" sw-active":"")+'">'
-      +'<span class="sw-icon">'+c.icon+'</span>'
-      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div><div class="sw-cat">'+c.cat+'</div></div>'
-      +'<div class="sw-actions">'
-      +(isActive?'<span class="sw-btn sw-play" style="background:var(--green);">ACTIF</span>'
-        :'<button class="sw-btn sw-play" onclick="setMiniFromAdmin(''+c.name+'',''+c.url+'',''+c.icon+'')">Mettre</button>')
-      +(inMini>=0
-        ?'<button class="sw-btn" style="background:var(--muted);color:#fff;" onclick="removeFromMini(''+c.name+'')">Retirer</button>'
-        :'<button class="sw-btn sw-hot" onclick="addToMini(''+c.name+'',''+c.url+'')">Ajouter</button>')
-      +'</div></div>';
-  }).join("");
-
-  // Mini order list
-  var ol=document.getElementById("mini-order-list");
-  if(ol) ol.innerHTML=MINI.map(function(m,i){
-    return '<div class="order-item">'
-      +'<span class="ord-num">'+(i+1)+'</span>'
+  // order
+  var ord=document.getElementById("mini-order");
+  if(ord) ord.innerHTML=MINI.map(function(m,i){
+    return '<div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:5px;padding:6px 8px;">'
+      +'<span style="font-size:9px;font-weight:800;color:var(--muted);width:16px;">'+(i+1)+'</span>'
       +'<span style="flex:1;font-size:10px;font-weight:700;">'+m.name+'</span>'
-      +'<button class="ord-up" onclick="moveMini('+i+',-1)">▲</button>'
-      +'<button class="ord-dn" onclick="moveMini('+i+',1)">▼</button>'
-      +'<button class="adm-del" onclick="removeFromMini(''+m.name+'')">Suppr</button>'
+      +'<button onclick="moveMini('+i+',-1)" style="background:var(--bg4);border:1px solid var(--border);border-radius:3px;padding:2px 5px;cursor:pointer;color:var(--muted);font-size:10px;">▲</button>'
+      +'<button onclick="moveMini('+i+',1)" style="background:var(--bg4);border:1px solid var(--border);border-radius:3px;padding:2px 5px;cursor:pointer;color:var(--muted);font-size:10px;">▼</button>'
+      +'<button onclick="remMini('+i+')" style="background:var(--red);color:#fff;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;font-size:8px;">✕</button>'
       +'</div>';
   }).join("");
 }
 
-function setMiniFromAdmin(name,url,icon){
+function setMiniAdmin(name,url) {
   var idx=MINI.findIndex(function(m){return m.name===name;});
   if(idx<0){MINI.unshift({name:name,url:url});idx=0;}
   switchMini(idx);
-  document.getElementById("mini-active-name").textContent=name;
-  document.getElementById("mini-active-icon").textContent=icon;
-  renderMiniBar();
-  renderMiniTab();
+  renderMiniAdmin();
 }
-function addToMini(name,url){
+function addToMini(name,url) {
   if(!MINI.find(function(m){return m.name===name;})){
     MINI.push({name:name,url:url});
-    renderMiniBar();renderMiniTab();
+    renderMiniBar(); renderMiniAdmin();
   }
 }
-function removeFromMini(name){
-  if(MINI.length<=1){alert("Il faut au moins une chaine dans le mini player !");return;}
-  var idx=MINI.findIndex(function(m){return m.name===name;});
-  if(idx>=0) MINI.splice(idx,1);
+function moveMini(i,d) {
+  var j=i+d;
+  if(j<0||j>=MINI.length) return;
+  var t=MINI[i];MINI[i]=MINI[j];MINI[j]=t;
+  renderMiniBar(); renderMiniAdmin();
+}
+function remMini(i) {
+  if(MINI.length<=1){alert("Il faut au moins une chaine !");return;}
+  MINI.splice(i,1);
   if(curMini>=MINI.length) curMini=0;
   switchMini(curMini);
-  renderMiniBar();renderMiniTab();
-}
-function moveMini(i,dir){
-  var j=i+dir;
-  if(j<0||j>=MINI.length)return;
-  var tmp=MINI[i];MINI[i]=MINI[j];MINI[j]=tmp;
-  renderMiniBar();renderMiniTab();
+  renderMiniBar(); renderMiniAdmin();
 }
 
-// ============================================================
-// TAB ALERTES
-// ============================================================
-function renderAdmAlerts(){
-  document.getElementById("al-count").textContent=alerts.length;
-  var list=document.getElementById("adm-alert-list");
-  if(!list)return;
-  var icons={goal:"⚽ BUT",score:"📊 Score",brek:"🔴 BREAKING",news:"📺 News"};
-  if(!alerts.length){list.innerHTML='<div style="color:var(--muted);font-size:10px;padding:8px;">Aucune alerte envoyee.</div>';return;}
-  list.innerHTML=alerts.map(function(a,i){
-    return '<div class="sal-item '+a.type+'">'
-      +'<span style="font-size:10px;flex-shrink:0;">'+icons[a.type]+'</span>'
+// --- Alertes tab ---
+function adminSendAlert() {
+  var type=document.getElementById("al-type").value;
+  var text=document.getElementById("al-txt").value.trim();
+  if(!text){alert("Entrez le texte !");return;}
+  addAlert(type,text);
+  document.getElementById("al-txt").value="";
+  renderAlHist();
+  alert("Alerte envoyee !");
+}
+function renderAlHist() {
+  var el=document.getElementById("al-count");
+  if(el) el.textContent=ALERTS.length;
+  var hist=document.getElementById("al-hist");
+  if(!hist) return;
+  var icons={goal:"⚽ BUT",score:"📊 SCORE",brek:"🔴 BREAKING",news:"📺 NEWS"};
+  hist.innerHTML=ALERTS.map(function(a,i){
+    return '<div class="al-row">'
+      +'<span style="font-size:9px;font-weight:800;color:var(--muted);flex-shrink:0;">'+icons[a.type]+'</span>'
       +'<span style="flex:1;font-size:9px;">'+a.text+'</span>'
       +'<span style="font-size:8px;color:var(--muted);flex-shrink:0;">'+a.time+'</span>'
-      +'<button class="adm-del" onclick="delAlert('+i+')">x</button>'
+      +'<button onclick="delAlert('+i+')" style="background:var(--red);color:#fff;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;font-size:8px;margin-left:5px;">✕</button>'
       +'</div>';
-  }).join("");
+  }).join("") || '<div style="color:var(--muted);font-size:10px;padding:8px;">Aucune alerte.</div>';
 }
-function delAlert(i){
-  alerts.splice(i,1);
-  renderAlerts();renderAdmAlerts();
-}
+function delAlert(i){ ALERTS.splice(i,1); renderAlHist(); renderAlerts(); }
 
-// ============================================================
-// TAB SCORES
-// ============================================================
-function addScore(){
-  var league=document.getElementById("s-league").value.trim();
-  var teams=document.getElementById("s-teams").value.trim();
-  var score=document.getElementById("s-score").value.trim();
-  var min=parseInt(document.getElementById("s-min").value)||0;
+// --- Scores tab ---
+function adminAddScore() {
+  var lg=document.getElementById("s-lg").value.trim();
+  var tm=document.getElementById("s-tm").value.trim();
+  var sc=document.getElementById("s-sc").value.trim();
+  var mn=parseInt(document.getElementById("s-mn").value)||0;
   var live=document.getElementById("s-live").checked;
-  if(!league||!teams||!score){alert("Ligue, equipes et score requis !");return;}
-  SCORES.push({league:league,teams:teams,score:score,min:min,live:live});
-  ["s-league","s-teams","s-score","s-min"].forEach(function(id){document.getElementById(id).value="";});
-  renderScores();renderLiveScores();renderAdmScores();
-  alert("Match ajoute !");
+  if(!lg||!tm||!sc){alert("Ligue, equipes et score requis !");return;}
+  SCORES.push({lg:lg,tm:tm,sc:sc,mn:mn,live:live});
+  ["s-lg","s-tm","s-sc","s-mn"].forEach(function(i){document.getElementById(i).value="";});
+  renderScores(); renderLiveScores(); renderScList();
 }
-function renderAdmScores(){
-  document.getElementById("sc-count").textContent=SCORES.length;
-  var list=document.getElementById("adm-scores-list");
-  if(!list)return;
+function renderScList() {
+  var el=document.getElementById("sc-count");
+  if(el) el.textContent=SCORES.length;
+  var list=document.getElementById("sc-list");
+  if(!list) return;
   list.innerHTML=SCORES.map(function(s,i){
-    return '<div class="score-adm-item">'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:8px;font-weight:800;color:var(--gold);text-transform:uppercase;">'+s.league+'</div>'
-      +'<div style="font-size:10px;font-weight:700;">'+s.teams+'</div>'
-      +'</div>'
-      +'<span style="font-size:14px;font-weight:900;margin:0 8px;">'+s.score+'</span>'
-      +'<span style="font-size:8px;color:'+(s.live?"var(--green)":"var(--muted)")+';">'+(s.live?"🔴 "+s.min+"'":"FT")+'</span>'
-      +'<button class="adm-del" style="margin-left:6px;" onclick="delScore('+i+')">x</button>'
+    return '<div class="score-row">'
+      +'<div style="flex:1;"><div style="font-size:8px;font-weight:800;color:var(--gold);">'+s.lg+'</div>'
+      +'<div style="font-size:10px;font-weight:700;">'+s.tm+'</div></div>'
+      +'<span style="font-size:14px;font-weight:900;margin:0 8px;">'+s.sc+'</span>'
+      +'<span style="font-size:8px;color:'+(s.live?"var(--green)":"var(--muted)")+';margin-right:6px;">'+(s.live?"🔴 "+s.mn+"'":"FT")+'</span>'
+      +'<button onclick="delScore('+i+')" style="background:var(--red);color:#fff;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;font-size:8px;">✕</button>'
       +'</div>';
-  }).join("");
+  }).join("") || '<div style="color:var(--muted);font-size:10px;padding:8px;">Aucun match.</div>';
 }
-function delScore(i){
-  SCORES.splice(i,1);renderScores();renderLiveScores();renderAdmScores();
-}
+function delScore(i){ SCORES.splice(i,1); renderScores(); renderLiveScores(); renderScList(); }
 
-// ============================================================
-// ENHANCED renderAdmList with edit buttons
-// ============================================================
-var admFilter="all";
-function filterAdmList(cat,btn){
-  admFilter=cat;
-  renderAdmList();
-}
-function renderAdmList(){
-  var list=document.getElementById("adm-list");if(!list)return;
-  var filtered=admFilter==="all"?CHANNELS:CHANNELS.filter(function(c){return c.cat===admFilter;});
-  document.getElementById("ch-count").textContent=CHANNELS.length;
-  if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:10px;padding:8px;">Aucune chaine dans cette categorie.</div>';return;}
-  list.innerHTML=filtered.map(function(c){
-    return '<div>'
-      +'<div class="adm-it">'
-      +'<span style="font-size:16px;">'+c.icon+'</span>'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:10px;font-weight:800;">'+c.name+'</div>'
-      +'<div style="font-size:8px;color:var(--muted);">'+c.cat+(c.hot?' • <span style="color:var(--red);">HOT</span>':'')+'</div>'
-      +'</div>'
-      +'<div style="display:flex;gap:3px;">'
-      +'<button class="sw-btn sw-play" style="font-size:8px;padding:2px 6px;" onclick="switchMain('+c.id+')">Player</button>'
-      +'<button class="sw-btn sw-hot" style="font-size:8px;padding:2px 6px;" onclick="toggleHot('+c.id+');renderAdmList();">'+(c.hot?"No HOT":"HOT")+'</button>'
-      +'<button class="sw-btn sw-edit" style="font-size:8px;padding:2px 6px;" onclick="toggleEditInline('+c.id+')">Modif</button>'
-      +'<button class="adm-del" onclick="delCh('+c.id+')">Suppr</button>'
-      +'</div>'
-      +'</div>'
-      +'<div class="edit-form" id="edit-inline-'+c.id+'">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'
-      +'<input class="adm-i" id="ei-name-'+c.id+'" value="'+c.name+'" placeholder="Nom">'
-      +'<input class="adm-i" id="ei-cat-'+c.id+'" value="'+c.cat+'" placeholder="Categorie">'
-      +'<input class="adm-i" id="ei-icon-'+c.id+'" value="'+c.icon+'" placeholder="Emoji">'
-      +'<input class="adm-i" id="ei-url-'+c.id+'" value="" placeholder="Nouvelle URL (laisser vide = garder)">'
-      +'</div>'
-      +'<div style="display:flex;gap:5px;margin-top:5px;">'
-      +'<button class="adm-btn" style="flex:1;margin:0;" onclick="saveInlineEdit('+c.id+')">Sauvegarder</button>'
-      +'<button style="padding:0 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer;font-size:10px;" onclick="toggleEditInline('+c.id+')">Annuler</button>'
-      +'</div>'
-      +'</div>'
-      +'</div>';
-  }).join("");
-}
-function toggleEditInline(id){
-  var form=document.getElementById("edit-inline-"+id);
-  if(form) form.classList.toggle("show");
-}
-function saveInlineEdit(id){
-  var ch=CHANNELS.find(function(c){return c.id===id;});if(!ch)return;
-  var n=document.getElementById("ei-name-"+id);
-  var cat=document.getElementById("ei-cat-"+id);
-  var icon=document.getElementById("ei-icon-"+id);
-  var url=document.getElementById("ei-url-"+id);
-  if(n&&n.value.trim()) ch.name=n.value.trim();
-  if(cat&&cat.value.trim()) ch.cat=cat.value.trim().toLowerCase();
-  if(icon&&icon.value.trim()) ch.icon=icon.value.trim();
-  if(url&&url.value.trim()){
-    ch.url=url.value.trim();
-    if(ch.id===curMain.id){document.getElementById("main-player").src=ch.url;}
-    var mi=MINI.findIndex(function(m){return m.name===ch.name;});
-    if(mi>=0) MINI[mi].url=ch.url;
-  }
-  renderTrend();renderGrid("all");renderMiniBar();renderAdmList();
-  alert("Chaine modifiee !");
+// --- Stats tab ---
+function renderStats() {
+  var el=document.getElementById("adm-stats");
+  if(!el) return;
+  var tot=reactions[0]+reactions[1]+reactions[2]+reactions[3];
+  el.innerHTML="Chaines actives : <strong>"+CHANNELS.length+"</strong><br>"
+    +"Chaines HOT : <strong>"+CHANNELS.filter(function(c){return c.hot;}).length+"</strong><br>"
+    +"Mini switcher : <strong>"+MINI.length+" chaines</strong><br>"
+    +"Matchs en direct : <strong>"+SCORES.filter(function(s){return s.live;}).length+"</strong><br>"
+    +"Alertes envoyees : <strong>"+ALERTS.length+"</strong><br>"
+    +"Reactions totales : <strong>"+tot+"</strong><br>"
+    +"Commentaires : <strong>"+document.querySelectorAll(".cm").length+"</strong>";
 }
 
 init();
 </script>
-
-<!-- LOGIN MODAL -->
-<div id="login-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:center;justify-content:center;">
-  <div style="background:#0b0e18;border:1px solid rgba(245,158,11,0.4);border-radius:14px;padding:28px;max-width:340px;width:90%;text-align:center;">
-    <div style="font-size:1.4rem;margin-bottom:4px;">🔐</div>
-    <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">Acces Admin PST Stream</div>
-    <div style="font-size:11px;color:#4a5568;margin-bottom:18px;">Entrez votre email administrateur</div>
-    <input id="login-email" type="email" placeholder="Email admin (ex: tpapaseny@ept.sn)"
-      style="width:100%;background:#0f1220;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:11px;color:#fff;font-size:12px;margin-bottom:10px;outline:none;">
-    <div id="login-error" style="display:none;background:rgba(230,57,70,0.15);border:1px solid rgba(230,57,70,0.3);border-radius:6px;padding:7px;font-size:11px;color:#e63946;margin-bottom:10px;">
-      Email non autorise. Acces refuse.
-    </div>
-    <button onclick="checkAdminLogin()"
-      style="width:100%;background:#f59e0b;color:#000;border:none;border-radius:8px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:8px;">
-      Acceder au panneau admin
-    </button>
-    <button onclick="document.getElementById('login-modal').style.display='none'"
-      style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px;color:#4a5568;font-size:11px;cursor:pointer;">
-      Annuler
-    </button>
-    <div style="margin-top:14px;font-size:9px;color:#4a5568;">
-      Cliquez 5 fois sur le logo PST STREAM pour ouvrir cette fenetre
-    </div>
-  </div>
-</div>
 </body>
 </html>
