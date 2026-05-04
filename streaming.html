@@ -3,759 +3,782 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PST Stream — Streaming Live Sénégal | Foot, News, Musique, Sport en Direct</title>
-<meta name="description" content="PST Stream — Regardez gratuitement RTS1, TFM, Walf TV, matchs de foot, CAN, Ligue des Champions, concerts, actualités Sénégal et Afrique en direct 24h/24.">
-<meta name="keywords" content="streaming Sénégal, foot en direct Sénégal, RTS1 direct, TFM live, Walf TV streaming, match CAN direct, Ligue des Champions Afrique, actualité Sénégal direct, télévision sénégalaise en ligne, streaming Afrique gratuit, musique africaine live, mbalax direct, news Sénégal, journal télévisé Sénégal, sport Afrique streaming, wrestling Sénégal live, lutte sénégalaise, NBA direct Afrique, Premier League gratuit, concert Sénégal live, diaspora TV Sénégal, regarder télé Sénégal étranger, 2STV direct, Tfm direct, afrobeats streaming, info monde Afrique, actualité internationale direct, PST Telecom streaming">
-<meta property="og:title" content="PST Stream — Live Streaming Sénégal">
-<meta property="og:description" content="Foot, News, Sports, Musique en direct 24h/24">
-<meta property="og:type" content="website">
-<meta name="theme-color" content="#0a0d12">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>PST STREAM — Streaming Live Senegal | Foot News Sport Musique</title>
+<meta name="description" content="Regardez en direct RTS1 TFM Walf 2STV foot CAN Premier League news sport musique concerts live streaming Senegal Afrique gratuit">
+<meta name="keywords" content="streaming Senegal, foot direct, CAN direct, RTS1 direct, TFM live, match direct Afrique, streaming gratuit Senegal, actualite Senegal direct, sport live Afrique">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*{margin:0;padding:0;box-sizing:border-box;}
 :root{
-  --bg:#080b10;--surface:#0d1117;--card:#111722;--border:rgba(255,255,255,0.06);
-  --red:#ff2d55;--gold:#ffd700;--green:#00e676;--blue:#00d4ff;
-  --text:#f0f4f8;--muted:#64748b;--soft:#94a3b8;
-  --bebas:'Bebas Neue',sans-serif;--dm:'DM Sans',sans-serif;
+  --bg:#050810;--bg2:#080d1c;--bg3:#0d1224;--bg4:#111827;
+  --red:#e63946;--green:#10b981;--blue:#3b82f6;
+  --gold:#f59e0b;--cyan:#06b6d4;--orange:#f97316;
+  --text:#e2e8f0;--muted:#64748b;--border:rgba(255,255,255,0.07);
+  --card:rgba(255,255,255,0.03);
 }
-html{scroll-behavior:smooth}
-body{font-family:var(--dm);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden;}
 
-/* NOISE OVERLAY */
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+/* NAV */
+nav{display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(5,8,16,0.98);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:300;flex-wrap:wrap;}
+.logo{font-size:1.15rem;font-weight:900;letter-spacing:2px;color:#fff;cursor:pointer;user-select:none;flex-shrink:0;}
+.logo span{color:var(--red);}
+.live-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;animation:pulseA 1.5s infinite;flex-shrink:0;}
+@keyframes pulseA{0%,100%{opacity:1;}50%{opacity:.5;}}
+.nav-filters{display:flex;gap:5px;flex-wrap:wrap;}
+.filter-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:.2s;}
+.filter-btn:hover,.filter-btn.active{background:var(--red);color:#fff;border-color:var(--red);}
+.nav-right{margin-left:auto;display:flex;gap:7px;align-items:center;}
+.nav-btn{padding:6px 13px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:none;text-decoration:none;display:inline-block;}
+#admin-secret-btn{display:none;background:var(--gold);color:#000;}
+.contact-btn{background:var(--red);color:#fff;}
+.pst-btn{background:var(--bg3);color:var(--text);border:1px solid var(--border) !important;}
 
-/* HEADER */
-.header{position:sticky;top:0;z-index:100;background:rgba(8,11,16,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px}
-.header-inner{max-width:1400px;margin:0 auto;height:60px;display:flex;align-items:center;gap:20px}
-.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.logo-pst{font-family:var(--bebas);font-size:28px;color:#fff;letter-spacing:2px}
-.logo-stream{font-family:var(--bebas);font-size:28px;color:var(--red);letter-spacing:2px}
-.live-badge{display:flex;align-items:center;gap:5px;background:var(--red);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px}
-.live-dot{width:6px;height:6px;background:#fff;border-radius:50%;animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-.header-nav{display:flex;gap:4px;margin-left:auto}
-.nav-chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--soft);transition:all .2s;font-family:var(--dm)}
-.nav-chip.active,.nav-chip:hover{background:var(--red);border-color:var(--red);color:#fff}
-.admin-btn{display:none;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:rgba(255,45,85,0.15);color:var(--red);font-family:var(--dm)}
-.admin-btn.visible{display:flex;align-items:center;gap:5px}
-.pst-home{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:var(--blue);text-decoration:none;font-family:var(--dm)}
+/* TICKER */
+.ticker{background:linear-gradient(90deg,#b91c1c,var(--red));padding:6px 0;overflow:hidden;white-space:nowrap;}
+.ticker-inner{display:inline-block;animation:tick 40s linear infinite;}
+@keyframes tick{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.ticker-item{display:inline-block;padding:0 24px;font-size:11px;font-weight:600;}
+.ticker-item::before{content:"● ";opacity:.7;}
 
-/* HERO TICKER */
-.ticker{background:var(--red);padding:6px 0;overflow:hidden;position:relative}
-.ticker-inner{display:flex;animation:ticker 30s linear infinite;white-space:nowrap}
-.ticker-item{font-size:12px;font-weight:600;letter-spacing:0.5px;padding:0 40px}
-.ticker-item::before{content:'● '}
-@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* MAIN 3-COL LAYOUT */
+.main{display:grid;grid-template-columns:1fr 260px 300px;gap:0;min-height:calc(100vh - 85px);}
+@media(max-width:1100px){.main{grid-template-columns:1fr 240px;} .right-col{display:none;}}
+@media(max-width:750px){.main{grid-template-columns:1fr;} .info-col{display:none;}}
 
-/* MAIN PLAYER */
-.main-section{max-width:1400px;margin:0 auto;padding:20px 24px}
-.player-grid{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-bottom:24px}
-.main-player{background:#000;border-radius:12px;overflow:hidden;position:relative;aspect-ratio:16/9}
-.main-player iframe{width:100%;height:100%;border:none}
-.player-overlay-top{position:absolute;top:0;left:0;right:0;padding:12px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.8),transparent);display:flex;align-items:center;gap:10px;z-index:5;pointer-events:none}
-.channel-name-big{font-family:var(--bebas);font-size:22px;letter-spacing:1px}
-.live-tag{background:var(--red);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:1px;display:flex;align-items:center;gap:4px}
+/* ===== LEFT COL ===== */
+.left-col{display:flex;flex-direction:column;min-width:0;}
+.trending-bar{padding:7px 12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;}
+.trending-bar::-webkit-scrollbar{display:none;}
+.tr-item{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg3);border-radius:7px;cursor:pointer;border:1px solid transparent;transition:.2s;white-space:nowrap;}
+.tr-item:hover,.tr-item.act{border-color:var(--red);background:rgba(230,57,70,.12);}
+.tr-name{font-size:11px;font-weight:700;}
+.tr-cat{font-size:9px;color:var(--muted);}
+.hot-tag{background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;}
 
-/* SIDEBAR */
-.sidebar{display:flex;flex-direction:column;gap:12px}
+/* PLAYER */
+.player-wrap{position:relative;width:100%;background:#000;}
+.player-wrap iframe{width:100%;height:390px;border:none;display:block;}
+@media(max-width:600px){.player-wrap iframe{height:200px;}}
+.p-overlay{position:absolute;top:10px;left:10px;display:flex;gap:7px;z-index:10;pointer-events:none;}
+.live-dot{background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:3px 9px;border-radius:4px;display:flex;align-items:center;gap:3px;}
+.live-dot::before{content:"";width:5px;height:5px;background:#fff;border-radius:50%;animation:pulseA 1s infinite;}
+.ch-label-badge{background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;backdrop-filter:blur(4px);}
 
-/* INTERACTION BOX */
-.interact-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
-.interact-box h3{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--soft)}
-.react-btns{display:flex;gap:8px;margin-bottom:12px}
-.react-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:18px;cursor:pointer;transition:all .2s;font-family:var(--dm)}
-.react-btn:hover{transform:scale(1.1)}
-.react-btn.liked{background:rgba(255,45,85,0.15);border-color:var(--red)}
-.react-count{font-size:10px;color:var(--muted);display:block;margin-top:2px}
-.share-row{display:flex;gap:6px;margin-bottom:12px}
-.share-btn{flex:1;padding:6px;border-radius:7px;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--dm)}
-.share-fb{background:#1877f2;color:#fff}
-.share-wa{background:#25d366;color:#fff}
-.share-tw{background:#1da1f2;color:#fff}
-.share-lk{background:#0a66c2;color:#fff}
-.viewers{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
-.viewers-dot{width:6px;height:6px;background:var(--red);border-radius:50%;animation:blink 1s infinite}
-
-/* COMMENTS */
-.comments-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;flex:1;display:flex;flex-direction:column;max-height:300px}
-.comments-title{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--soft)}
-.comments-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.comments-list::-webkit-scrollbar{width:2px}
-.comments-list::-webkit-scrollbar-thumb{background:var(--border)}
-.comment{display:flex;gap:8px}
-.comment-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--red),#ff6b35);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-.comment-body{flex:1}
-.comment-user{font-size:11px;font-weight:700;color:var(--blue)}
-.comment-text{font-size:12px;color:var(--soft);line-height:1.4}
-.comment-input-row{display:flex;gap:6px}
-.comment-input{flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--dm);outline:none}
-.comment-input:focus{border-color:var(--red)}
-.comment-send{padding:7px 12px;background:var(--red);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--dm)}
-
-/* CHANNELS GRID */
-.section-title{font-family:var(--bebas);font-size:28px;letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
-.section-title span{width:4px;height:28px;background:var(--red);border-radius:2px;display:block}
-.channels-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:32px}
-.channel-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
-.channel-card:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,45,85,0.15)}
-.channel-card.active{border-color:var(--red);box-shadow:0 0 0 2px rgba(255,45,85,0.3)}
-.channel-thumb{aspect-ratio:16/9;background:#000;overflow:hidden;position:relative}
-.channel-thumb iframe{width:100%;height:100%;border:none;pointer-events:none}
-.channel-thumb .live-pill{position:absolute;top:8px;left:8px;background:var(--red);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:1px;display:flex;align-items:center;gap:3px;z-index:2}
-.channel-info{padding:10px 12px;display:flex;align-items:center;gap:8px}
-.channel-logo{width:32px;height:32px;border-radius:6px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.channel-details{flex:1;min-width:0}
-.channel-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.channel-cat{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
-.channel-viewers{font-size:10px;color:var(--red);display:flex;align-items:center;gap:3px}
-
-/* CATEGORIES FILTER */
-.cats{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
-.cat-btn{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--soft);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--dm);transition:all .2s}
-.cat-btn.active,.cat-btn:hover{background:var(--red);border-color:var(--red);color:#fff}
-
-/* PUB BANNER */
-.pub-banner{background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,45,85,0.08));border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;cursor:pointer}
-.pub-label{font-size:9px;color:var(--gold);font-weight:700;letter-spacing:1px;flex-shrink:0}
-.pub-text{font-size:13px;font-weight:600;flex:1}
-.pub-cta{padding:6px 14px;background:var(--gold);border-radius:6px;color:#000;font-size:12px;font-weight:700;white-space:nowrap}
-
-/* ADMIN PANEL */
-.admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:999;padding:24px;overflow-y:auto}
-.admin-panel.open{display:block}
-.admin-inner{max-width:900px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px}
-.admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.admin-header h2{font-family:var(--bebas);font-size:28px;color:var(--red)}
-.admin-close{background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer}
-.stream-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.form-group{display:flex;flex-direction:column;gap:4px}
-.form-group label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase}
-.form-group input,.form-group select{padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:var(--dm);outline:none}
-.form-group input:focus{border-color:var(--red)}
-.form-group.full{grid-column:1/-1}
-.add-stream-btn{padding:10px 20px;background:var(--red);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--dm)}
-.streams-list{margin-top:16px}
-.stream-item{display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px}
-.stream-item-info{flex:1}
-.stream-item-name{font-size:13px;font-weight:700}
-.stream-item-cat{font-size:11px;color:var(--muted)}
-.stream-del{padding:5px 10px;background:rgba(255,45,85,0.15);border:1px solid rgba(255,45,85,0.3);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;font-family:var(--dm)}
-
-/* FOOTER */
-.footer{border-top:1px solid var(--border);padding:24px;text-align:center;color:var(--muted);font-size:12px;margin-top:32px}
-.footer a{color:var(--blue);text-decoration:none}
-
-/* RESPONSIVE */
-@media(max-width:768px){
-  .player-grid{grid-template-columns:1fr}
-  .sidebar{display:none}
-  .header-nav{display:none}
-  .channels-grid{grid-template-columns:repeat(2,1fr)}
-  .stream-form{grid-template-columns:1fr}
-}
+/* GOAL ALERT overlay */
+#goal-alert{display:none;position:absolute;inset:0;background:rgba(230,57,70,.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;}
+#goal-alert.show{display:flex;animation:goalPop .3s ease-out;}
+@keyframes goalPop{0%{transform:scale(.8);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.goal-text{font-size:3rem;font-weight:900;color:#fff;letter-spacing:4px;text-shadow:0 4px 20px rgba(0,0,0,.5);}
+.goal-sub{font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.8);margin-top:8px;}
 
 /* EMOJI BURST */
-.emoji-burst{position:fixed;pointer-events:none;z-index:9999;font-size:32px;animation:burst 1.5s ease-out forwards}
-@keyframes burst{
-  0%{opacity:1;transform:translateY(0) scale(1)}
-  100%{opacity:0;transform:translateY(-200px) scale(2)}
-}
+#emoji-burst{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:50;}
+.burst-e{position:absolute;bottom:15%;font-size:26px;animation:bst 2s ease-out forwards;pointer-events:none;}
+@keyframes bst{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-230px) scale(1.5);}}
+
+/* INFO BAR */
+.info-bar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--bg2);border-top:1px solid var(--border);}
+.viewers{font-size:11px;color:var(--green);font-weight:700;display:flex;align-items:center;gap:4px;}
+.viewers::before{content:"";width:5px;height:5px;background:var(--green);border-radius:50%;display:inline-block;animation:pulseA 1.5s infinite;}
+.share-btns{display:flex;gap:5px;margin-left:auto;}
+.sh-btn{padding:4px 10px;border-radius:5px;border:none;font-size:10px;font-weight:700;cursor:pointer;}
+.fb{background:#1877f2;color:#fff;}.wa{background:#25d366;color:#fff;}.tw{background:#111;color:#fff;}
+
+/* SCORES */
+.scores-bar{padding:9px 12px;background:var(--bg3);border-top:1px solid var(--border);}
+.sec-title{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;}
+.scores-row{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+.scores-row::-webkit-scrollbar{display:none;}
+.score-card{flex-shrink:0;background:var(--bg2);border-radius:7px;padding:7px 10px;border:1px solid var(--border);text-align:center;min-width:120px;}
+.sc-league{font-size:8px;font-weight:800;color:var(--gold);letter-spacing:1px;text-transform:uppercase;}
+.sc-teams{font-size:10px;font-weight:700;margin:3px 0;white-space:nowrap;}
+.sc-res{font-size:14px;font-weight:900;}
+.sc-min{font-size:8px;color:var(--green);}
+
+/* PUB */
+.pub-banner{background:linear-gradient(90deg,rgba(59,130,246,.07),rgba(230,57,70,.07));border:1px solid rgba(59,130,246,.15);border-radius:7px;padding:8px 12px;margin:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.pub-label{font-size:7px;font-weight:800;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.pub-text{font-size:11px;font-weight:600;flex:1;margin:0 10px;}
+.pub-cta{background:var(--gold);color:#000;font-size:10px;font-weight:800;padding:4px 10px;border-radius:5px;white-space:nowrap;}
+
+/* CHANNEL GRID */
+.ch-section{padding:10px 12px 16px;}
+.ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:7px;}
+.ch-card{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 7px;cursor:pointer;transition:.2s;text-align:center;}
+.ch-card:hover,.ch-card.act{border-color:var(--red);background:rgba(230,57,70,.08);}
+.ch-icon{font-size:18px;margin-bottom:4px;}
+.ch-card-name{font-size:10px;font-weight:700;display:block;}
+.ch-card-cat{font-size:8px;color:var(--muted);}
+.ch-live{display:inline-block;background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;margin-top:2px;}
+
+/* ===== INFO COL (MIDDLE - VERTICAL RECTANGLE) ===== */
+.info-col{background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:sticky;top:85px;max-height:calc(100vh - 85px);}
+
+.info-col-header{padding:10px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+.info-col-title{font-size:10px;font-weight:800;color:var(--text);letter-spacing:1px;text-transform:uppercase;flex:1;}
+.info-col-live{background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:2px 6px;border-radius:3px;animation:pulseA 1s infinite;}
+
+/* MINI PLAYER inside info col */
+.mini-player-wrap{position:relative;width:100%;background:#000;flex-shrink:0;}
+.mini-player-wrap iframe{width:100%;height:145px;border:none;display:block;}
+.mini-overlay{position:absolute;top:5px;left:5px;display:flex;gap:5px;z-index:10;pointer-events:none;}
+.mini-live{background:var(--red);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;}
+.mini-ch-name{background:rgba(0,0,0,.75);color:#fff;font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;}
+
+/* MINI CHANNEL SWITCHER */
+.mini-ch-bar{display:flex;gap:4px;padding:6px;background:var(--bg3);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.mini-ch-bar::-webkit-scrollbar{display:none;}
+.mini-ch-btn{flex-shrink:0;background:var(--bg4);border:1px solid var(--border);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:9px;font-weight:700;color:var(--muted);transition:.2s;white-space:nowrap;}
+.mini-ch-btn:hover,.mini-ch-btn.act-mini{background:var(--red);color:#fff;border-color:var(--red);}
+
+/* GOAL / BREAKING NEWS ALERTS */
+.alerts-section{padding:7px;display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;scrollbar-width:thin;}
+.alert-item{border-radius:7px;padding:8px 10px;border-left:3px solid var(--red);}
+.alert-item.goal{background:rgba(230,57,70,.12);border-color:var(--red);}
+.alert-item.news{background:rgba(59,130,246,.1);border-color:var(--blue);}
+.alert-item.score{background:rgba(245,158,11,.1);border-color:var(--gold);}
+.alert-item.break{background:rgba(249,115,22,.12);border-color:var(--orange);}
+.alert-tag{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:4px;}
+.alert-tag.goal{color:var(--red);}
+.alert-tag.news{color:var(--blue);}
+.alert-tag.score{color:var(--gold);}
+.alert-tag.break{color:var(--orange);}
+.alert-text{font-size:10px;margin-top:2px;line-height:1.4;color:var(--text);}
+.alert-time{font-size:8px;color:var(--muted);margin-top:3px;}
+
+/* LIVE SCORES IN INFO COL */
+.live-scores-section{padding:7px;border-top:1px solid var(--border);}
+.live-score-item{display:flex;align-items:center;gap:6px;padding:6px 7px;background:var(--bg3);border-radius:6px;margin-bottom:4px;cursor:pointer;}
+.live-score-item:hover{background:rgba(230,57,70,.1);}
+.ls-league{font-size:8px;font-weight:800;color:var(--gold);width:55px;flex-shrink:0;text-transform:uppercase;}
+.ls-teams{font-size:9px;flex:1;}
+.ls-score{font-size:13px;font-weight:900;color:var(--text);flex-shrink:0;}
+.ls-min{font-size:8px;color:var(--green);flex-shrink:0;width:24px;text-align:right;}
+
+/* TICKER INSIDE INFO COL */
+.info-ticker{padding:5px 8px;background:linear-gradient(90deg,rgba(230,57,70,.15),transparent);border-top:1px solid var(--border);font-size:9px;color:var(--muted);overflow:hidden;white-space:nowrap;}
+.info-ticker-inner{display:inline-block;animation:tick 20s linear infinite;}
+
+/* ===== RIGHT COL ===== */
+.right-col{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:85px;max-height:calc(100vh - 85px);}
+.react-panel{padding:10px;border-bottom:1px solid var(--border);}
+.panel-title{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.react-row{display:flex;gap:5px;}
+.r-btn{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 6px;cursor:pointer;text-align:center;flex:1;transition:.2s;}
+.r-btn:hover{border-color:var(--red);transform:scale(1.07);}
+.r-icon{font-size:17px;display:block;}
+.r-count{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;}
+.comments-panel{flex:1;display:flex;flex-direction:column;min-height:0;}
+.c-title{padding:10px;font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.c-list{flex:1;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;}
+.cm{display:flex;gap:6px;align-items:flex-start;}
+.cm-av{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--blue));display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;color:#fff;}
+.cm-body{background:var(--bg3);border-radius:7px;padding:5px 8px;flex:1;min-width:0;}
+.cm-name{font-size:9px;font-weight:800;color:var(--cyan);}
+.cm-text{font-size:10px;color:var(--text);margin-top:1px;line-height:1.3;word-break:break-word;}
+.c-input{padding:7px;border-top:1px solid var(--border);display:flex;gap:4px;}
+.c-fn{width:75px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:10px;}
+.c-tf{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:10px;resize:none;}
+.c-fn:focus,.c-tf:focus{outline:none;border-color:var(--red);}
+.c-send{background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;}
+
+/* ADMIN PANEL */
+#admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:1000;overflow-y:auto;}
+.adm-inner{max-width:820px;margin:0 auto;padding:22px 14px;}
+.adm-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.adm-title{font-size:1.2rem;font-weight:900;}
+.adm-close{background:var(--red);border:none;color:#fff;padding:7px 15px;border-radius:7px;cursor:pointer;font-weight:700;}
+.adm-sec{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:16px;margin-bottom:12px;}
+.adm-sec h3{font-size:11px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:11px;}
+.adm-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+@media(max-width:550px){.adm-grid{grid-template-columns:1fr;}}
+.adm-input{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-size:11px;width:100%;}
+.adm-input:focus{outline:none;border-color:var(--gold);}
+.adm-btn{background:var(--gold);color:#000;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:11px;cursor:pointer;width:100%;margin-top:7px;}
+.adm-btn.red{background:var(--red);color:#fff;}
+.adm-list{display:flex;flex-direction:column;gap:6px;max-height:250px;overflow-y:auto;}
+.adm-item{display:flex;align-items:center;gap:7px;background:var(--bg3);border-radius:6px;padding:7px;}
+.adm-item span{flex:1;font-size:10px;}
+.adm-del{background:var(--red);color:#fff;border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:9px;}
+
+/* CONTACT MODAL */
+#contact-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;align-items:center;justify-content:center;}
+#contact-modal.show{display:flex;}
+.c-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px;max-width:340px;width:90%;text-align:center;}
+.c-box h3{font-size:.95rem;font-weight:900;margin-bottom:12px;}
+.c-item{display:flex;align-items:center;gap:9px;padding:9px;background:var(--bg3);border-radius:7px;margin-bottom:7px;text-decoration:none;color:var(--text);}
+.c-item:hover{background:rgba(230,57,70,.12);}
+.c-icon{font-size:20px;}
+.c-info strong{display:block;font-size:11px;}
+.c-info span{font-size:9px;color:var(--muted);}
+.c-close{background:var(--red);color:#fff;border:none;border-radius:7px;padding:9px;font-weight:700;cursor:pointer;margin-top:5px;width:100%;font-size:12px;}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header class="header">
-  <div class="header-inner">
-    <a href="/streaming" class="logo">
-      <span class="logo-pst">PST</span>
-      <span class="logo-stream">STREAM</span>
-    </a>
-    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
-    <nav class="header-nav">
-      <button class="nav-chip active" onclick="filterCat('all',this)">Tout</button>
-      <button class="nav-chip" onclick="filterCat('foot',this)">⚽ Foot</button>
-      <button class="nav-chip" onclick="filterCat('news',this)">📺 News</button>
-      <button class="nav-chip" onclick="filterCat('sport',this)">🏆 Sport</button>
-      <button class="nav-chip" onclick="filterCat('music',this)">🎵 Musique</button>
-      <button class="nav-chip" onclick="filterCat('monde',this)">🌍 Monde</button>
-    </nav>
-    <button class="admin-btn" id="admin-toggle" onclick="toggleAdmin()">⚙️ Gérer</button>
-    <a href="/" class="pst-home">PST Telecom</a>
+<nav>
+  <div class="logo" id="logo-click">PST <span>STREAM</span></div>
+  <span class="live-badge">LIVE</span>
+  <div class="nav-filters">
+    <button class="filter-btn active" onclick="filterCat(event,'all')">Tout</button>
+    <button class="filter-btn" onclick="filterCat(event,'foot')">Foot</button>
+    <button class="filter-btn" onclick="filterCat(event,'news')">News</button>
+    <button class="filter-btn" onclick="filterCat(event,'sport')">Sport</button>
+    <button class="filter-btn" onclick="filterCat(event,'musique')">Musique</button>
+    <button class="filter-btn" onclick="filterCat(event,'monde')">Monde</button>
   </div>
-</header>
-
-<!-- TICKER -->
-<div class="ticker">
-  <div class="ticker-inner">
-    <span class="ticker-item">⚽ Streaming foot en direct Sénégal</span>
-    <span class="ticker-item">📺 RTS1 TFM Walf 2STV en direct</span>
-    <span class="ticker-item">🏆 CAN Coupe du Monde Premier League sur PST Stream</span>
-    <span class="ticker-item">🎵 Concerts live musique africaine mbalax afrobeats</span>
-    <span class="ticker-item">🌍 Actualité Sénégal Afrique Monde en direct 24h/24</span>
-    <span class="ticker-item">🤼 Lutte sénégalaise wrestling Sénégal live</span>
-    <span class="ticker-item">🏀 NBA basketball direct Afrique</span>
-    <span class="ticker-item">📡 Diaspora — Regardez la télé sénégalaise depuis l'étranger</span>
-    <span class="ticker-item">⚽ Streaming foot en direct Sénégal</span>
-    <span class="ticker-item">📺 RTS1 TFM Walf 2STV en direct</span>
-    <span class="ticker-item">🏆 CAN Coupe du Monde Premier League sur PST Stream</span>
-    <span class="ticker-item">🎵 Concerts live musique africaine mbalax afrobeats</span>
-    <span class="ticker-item">🌍 Actualité Sénégal Afrique Monde en direct 24h/24</span>
-    <span class="ticker-item">🤼 Lutte sénégalaise wrestling Sénégal live</span>
-    <span class="ticker-item">🏀 NBA basketball direct Afrique</span>
-    <span class="ticker-item">📡 Diaspora — Regardez la télé sénégalaise depuis l'étranger</span>
+  <div class="nav-right">
+    <button id="admin-secret-btn" class="nav-btn" onclick="openAdmin()">Admin</button>
+    <button class="nav-btn contact-btn" onclick="document.getElementById('contact-modal').classList.add('show')">Nous contacter</button>
+    <a href="https://pst-telecom.vercel.app" target="_blank" class="nav-btn pst-btn">PST Telecom</a>
   </div>
-</div>
+</nav>
 
-<!-- PUB BANNER -->
-<div class="main-section" style="padding-bottom:0">
-  <div class="pub-banner" onclick="this.style.display='none'">
+<div class="ticker"><div class="ticker-inner">
+  <span class="ticker-item">CAN Coupe du Monde Premier League sur PST Stream</span>
+  <span class="ticker-item">RTS1 TFM Walf 2STV en direct</span>
+  <span class="ticker-item">Ligue des Champions Ligue 1 streaming gratuit</span>
+  <span class="ticker-item">Concerts live musique africaine mbalax afrobeats</span>
+  <span class="ticker-item">Actualite Senegal Afrique Monde en direct</span>
+  <span class="ticker-item">PST Telecom Forfaits appels SMS Marketing Recharge SecurCam</span>
+  <span class="ticker-item">CAN Coupe du Monde Premier League sur PST Stream</span>
+  <span class="ticker-item">RTS1 TFM Walf 2STV en direct</span>
+  <span class="ticker-item">Ligue des Champions Ligue 1 streaming gratuit</span>
+  <span class="ticker-item">Concerts live musique africaine mbalax afrobeats</span>
+  <span class="ticker-item">Actualite Senegal Afrique Monde en direct</span>
+  <span class="ticker-item">PST Telecom Forfaits appels SMS Marketing Recharge SecurCam</span>
+</div></div>
+
+<div class="main">
+
+<!-- ===== COL 1: MAIN PLAYER ===== -->
+<div class="left-col">
+  <div class="trending-bar" id="trending-bar"></div>
+  <div class="player-wrap" id="player-wrap">
+    <div class="p-overlay">
+      <span class="live-dot">EN DIRECT</span>
+      <span class="ch-label-badge" id="current-label">RTS1</span>
+    </div>
+    <iframe id="main-player" src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1" allow="autoplay;encrypted-media" allowfullscreen></iframe>
+    <div id="emoji-burst"></div>
+    <div id="goal-alert">
+      <div class="goal-text">⚽ BUT !!!</div>
+      <div class="goal-sub" id="goal-detail">Senegal marque !</div>
+    </div>
+  </div>
+  <div class="info-bar">
+    <span class="viewers" id="viewers">1 247 spectateurs en direct</span>
+    <div class="share-btns">
+      <button class="sh-btn fb" onclick="shareFB()">Facebook</button>
+      <button class="sh-btn wa" onclick="shareWA()">WhatsApp</button>
+      <button class="sh-btn tw" onclick="shareTW()">X</button>
+    </div>
+  </div>
+  <div class="scores-bar">
+    <div class="sec-title">Scores en direct</div>
+    <div class="scores-row" id="scores-row"></div>
+  </div>
+  <div class="pub-banner" onclick="window.open('https://pst-telecom.vercel.app','_blank')">
     <span class="pub-label">PUB</span>
-    <span class="pub-text">🚀 PST Telecom — Forfaits appels, SMS Marketing, Recharge téléphonique & SecurCam</span>
-    <span class="pub-cta">Découvrir →</span>
+    <span class="pub-text">PST Telecom - Forfaits appels, SMS Marketing, Recharge et SecurCam</span>
+    <span class="pub-cta">Decouvrir</span>
+  </div>
+  <div class="ch-section">
+    <div class="sec-title">Toutes les chaines</div>
+    <div class="ch-grid" id="ch-grid"></div>
   </div>
 </div>
 
-<!-- MAIN PLAYER + SIDEBAR -->
-<div class="main-section">
-  <div class="player-grid">
-    <!-- MAIN PLAYER -->
-    <div>
-      <div class="main-player" id="main-player">
-        <div class="player-overlay-top">
-          <div class="live-tag"><div class="live-dot"></div>EN DIRECT</div>
-          <span class="channel-name-big" id="main-channel-name">RTS1</span>
-        </div>
-        <iframe id="main-iframe" 
-          src="https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowfullscreen></iframe>
-      </div>
-      <!-- CHANNEL INFO BAR -->
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:16px">
-        <div>
-          <div style="font-size:16px;font-weight:700" id="main-title-bar">RTS1 — Télévision Sénégalaise</div>
-          <div style="font-size:12px;color:var(--muted)">Actualité • Divertissement • Sport</div>
-        </div>
-        <div style="margin-left:auto;display:flex;gap:8px">
-          <button onclick="toggleFullscreen()" style="padding:7px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;cursor:pointer;font-family:var(--dm)">⛶ Plein écran</button>
-          <button onclick="toggleMute()" id="mute-btn" style="padding:7px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;cursor:pointer;font-family:var(--dm)">🔊 Son</button>
-        </div>
-      </div>
+<!-- ===== COL 2: INFO PANEL (VERTICAL RECTANGLE) ===== -->
+<div class="info-col">
+  <div class="info-col-header">
+    <div class="info-col-title">Info & Scores Live</div>
+    <span class="info-col-live">EN DIRECT</span>
+  </div>
+
+  <!-- MINI PLAYER (news/foot in boucle) -->
+  <div class="mini-player-wrap">
+    <div class="mini-overlay">
+      <span class="mini-live">LIVE</span>
+      <span class="mini-ch-name" id="mini-label">France 24</span>
     </div>
+    <iframe id="mini-player" src="https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1" allow="autoplay;encrypted-media" allowfullscreen></iframe>
+  </div>
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <!-- INTERACTIONS -->
-      <div class="interact-box">
-        <h3>Réactions live</h3>
-        <div class="react-btns">
-          <button class="react-btn" onclick="react('❤️')" id="btn-heart" title="J'aime">❤️<span class="react-count" id="cnt-heart">0</span></button>
-          <button class="react-btn" onclick="react('🔥')" id="btn-fire" title="Chaud!">🔥<span class="react-count" id="cnt-fire">0</span></button>
-          <button class="react-btn" onclick="react('👏')" id="btn-clap" title="Bravo">👏<span class="react-count" id="cnt-clap">0</span></button>
-          <button class="react-btn" onclick="react('😮')" id="btn-wow" title="Wow">😮<span class="react-count" id="cnt-wow">0</span></button>
-        </div>
-        <div class="share-row">
-          <button class="share-btn share-fb" onclick="shareTo('facebook')">Facebook</button>
-          <button class="share-btn share-wa" onclick="shareTo('whatsapp')">WhatsApp</button>
-          <button class="share-btn share-tw" onclick="shareTo('twitter')">X</button>
-        </div>
-        <div class="viewers"><div class="viewers-dot"></div><span id="viewers-count">1 247</span> spectateurs en direct</div>
-      </div>
+  <!-- MINI CHANNEL SWITCHER -->
+  <div class="mini-ch-bar" id="mini-ch-bar"></div>
 
-      <!-- COMMENTS -->
-      <div class="comments-box">
-        <div class="comments-title">💬 Commentaires live</div>
-        <div class="comments-list" id="comments-list"></div>
-        <div class="comment-input-row" style="flex-direction:column;gap:5px">
-          <input class="comment-input" id="comment-name" placeholder="Votre prénom..." style="font-size:11px">
-          <div style="display:flex;gap:5px">
-            <input class="comment-input" id="comment-input" placeholder="Votre commentaire..." onkeydown="if(event.key==='Enter')sendComment()">
-            <button class="comment-send" onclick="sendComment()">→</button>
-          </div>
-        </div>
-      </div>
+  <!-- GOAL / BREAKING ALERTS -->
+  <div class="alerts-section" id="alerts-section"></div>
+
+  <!-- LIVE SCORES -->
+  <div class="live-scores-section">
+    <div class="sec-title">Matchs en direct</div>
+    <div id="live-scores"></div>
+  </div>
+
+  <!-- INFO TICKER -->
+  <div style="flex:1;"></div>
+  <div class="info-ticker">
+    <div class="info-ticker-inner">
+      Senegal 2-0 Maroc (87') &nbsp;|&nbsp; Man Utd 1-1 Liverpool (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; Ligue 1 SN: GF 0-0 Teungueth &nbsp;|&nbsp;
+      Senegal 2-0 Maroc (87') &nbsp;|&nbsp; Man Utd 1-1 Liverpool (65') &nbsp;|&nbsp; PSG 3-1 BVB (FT) &nbsp;|&nbsp; Ligue 1 SN: GF 0-0 Teungueth &nbsp;|&nbsp;
     </div>
-  </div>
-
-  <!-- CHANNELS SECTION -->
-
-  <!-- SCORES EN DIRECT -->
-  <div class="section-title" style="margin-top:8px"><span></span>SCORES EN DIRECT 🏆</div>
-  <div id="scores-container" style="margin-bottom:32px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <div id="scores-status" style="font-size:12px;color:var(--muted)">Chargement des scores...</div>
-      <button onclick="loadScores()" style="padding:5px 12px;background:rgba(255,45,85,0.1);border:1px solid rgba(255,45,85,0.3);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;font-family:var(--dm)">↻ Actualiser</button>
-    </div>
-    <div id="scores-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
-  </div>
-  <div class="cats" id="cats">
-    <button class="cat-btn active" onclick="filterCat('all',this)">🔴 Tout voir</button>
-    <button class="cat-btn" onclick="filterCat('foot',this)">⚽ Football</button>
-    <button class="cat-btn" onclick="filterCat('news',this)">📺 Actualités</button>
-    <button class="cat-btn" onclick="filterCat('sport',this)">🏆 Sports</button>
-    <button class="cat-btn" onclick="filterCat('music',this)">🎵 Musique</button>
-    <button class="cat-btn" onclick="filterCat('monde',this)">🌍 International</button>
-  </div>
-
-  <div class="section-title"><span></span>CHAÎNES EN DIRECT</div>
-  <div class="channels-grid" id="channels-grid"></div>
-
-  <!-- PUB MID -->
-  <div class="pub-banner" style="margin-bottom:24px" onclick="window.open('/','_blank')">
-    <span class="pub-label">PUB</span>
-    <span class="pub-text">📹 PST SecurCam — Surveillance caméras à distance pour votre entreprise 24h/24</span>
-    <span class="pub-cta">En savoir plus →</span>
-  </div>
-
-  <div class="section-title"><span></span>À PROPOS</div>
-  <div style="color:var(--soft);font-size:14px;line-height:1.8;max-width:800px;margin-bottom:32px">
-    <strong style="color:var(--text)">PST Stream</strong> est la plateforme de streaming live de <strong style="color:var(--blue)">PST Telecom — Pure Smart Telecom</strong>, opérateur virtuel sénégalais. Regardez gratuitement vos chaînes préférées : <em>RTS1, TFM, Walf TV, 2STV, actualités Sénégal et Afrique, matchs de football (CAN, Coupe du Monde, Premier League, Ligue des Champions), sports, lutte sénégalaise, concerts, musique africaine, mbalax, afrobeats</em> et bien plus encore — en direct 24h/24, depuis n'importe quel appareil.
   </div>
 </div>
 
-<!-- FOOTER -->
-<footer class="footer">
-  <div style="margin-bottom:8px">
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff">PST</span>
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--red)">STREAM</span>
-    <span style="font-size:12px;color:var(--muted);margin-left:8px">by PST Telecom</span>
-  </div>
-  <div style="margin-bottom:12px">
-    <a href="/" style="color:var(--blue);text-decoration:none">PST Telecom</a> •
-    <button onclick="document.getElementById('contact-modal').style.display='flex'" 
-      style="padding:6px 16px;background:var(--red);border:none;border-radius:20px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--dm);margin-left:8px">
-      📞 Nous contacter
-    </button>
-  </div>
-  
-  <!-- CONTACT MODAL -->
-  <div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
-    <div style="background:#0d1117;border:1px solid rgba(0,212,255,0.2);border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--red);margin-bottom:4px">NOUS CONTACTER</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">PST Pure Smart Telecom</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="tel:+221771520959" style="padding:12px;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);border-radius:10px;color:#00e676;text-decoration:none;font-weight:600;font-size:14px">
-          📞 +221 77 152 09 59
-        </a>
-        <a href="https://wa.me/221771520959" target="_blank" style="padding:12px;background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);border-radius:10px;color:#25d366;text-decoration:none;font-weight:600;font-size:14px">
-          💬 WhatsApp
-        </a>
-        <a href="mailto:papasenytoure@gmail.com" style="padding:12px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;text-decoration:none;font-weight:600;font-size:14px">
-          ✉️ papasenytoure@gmail.com
-        </a>
-      </div>
-      <button onclick="document.getElementById('contact-modal').style.display='none'" 
-        style="margin-top:16px;padding:8px 20px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;font-family:var(--dm)">
-        Fermer
-      </button>
+<!-- ===== COL 3: REACTIONS + COMMENTS ===== -->
+<div class="right-col">
+  <div class="react-panel">
+    <div class="panel-title">Reactions live</div>
+    <div class="react-row">
+      <div class="r-btn" onclick="react('heart')"><span class="r-icon">❤️</span><div class="r-count" id="rc0">0</div></div>
+      <div class="r-btn" onclick="react('fire')"><span class="r-icon">🔥</span><div class="r-count" id="rc1">0</div></div>
+      <div class="r-btn" onclick="react('clap')"><span class="r-icon">👏</span><div class="r-count" id="rc2">0</div></div>
+      <div class="r-btn" onclick="react('wow')"><span class="r-icon">😮</span><div class="r-count" id="rc3">0</div></div>
     </div>
   </div>
-  <div style="font-size:11px">© 2026 PST Pure Smart Telecom — Streaming gratuit Sénégal Afrique</div>
-</footer>
+  <div class="comments-panel">
+    <div class="c-title">Commentaires live</div>
+    <div class="c-list" id="c-list"></div>
+    <div class="c-input">
+      <input class="c-fn" id="cm-name" placeholder="Prenom" maxlength="20">
+      <textarea class="c-tf" id="cm-text" placeholder="Votre commentaire..." rows="2" maxlength="200"></textarea>
+      <button class="c-send" onclick="sendCmt()">→</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- END MAIN -->
 
 <!-- ADMIN PANEL -->
-<div class="admin-panel" id="admin-panel">
-  <div class="admin-inner">
-    <div class="admin-header">
-      <h2>⚙️ Gestion PST Stream</h2>
-      <button class="admin-close" onclick="toggleAdmin()">×</button>
-    </div>
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--soft)">Ajouter une chaîne / stream</h3>
-    <div class="stream-form">
-      <div class="form-group">
-        <label>Nom de la chaîne</label>
-        <input id="s-name" type="text" placeholder="Ex: RTS1 Sénégal">
-      </div>
-      <div class="form-group">
-        <label>Catégorie</label>
-        <select id="s-cat">
-          <option value="news">📺 Actualités / News</option>
-          <option value="foot">⚽ Football</option>
-          <option value="sport">🏆 Sports</option>
-          <option value="music">🎵 Musique</option>
-          <option value="monde">🌍 International</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Emoji / Logo</label>
-        <input id="s-emoji" type="text" placeholder="📺" maxlength="4">
-      </div>
-      <div class="form-group">
-        <label>Description courte</label>
-        <input id="s-desc" type="text" placeholder="Télévision nationale sénégalaise">
-      </div>
-      <div class="form-group full">
-        <label>URL du flux (YouTube embed ou HLS .m3u8)</label>
-        <input id="s-url" type="text" placeholder="https://www.youtube.com/embed/XXXXX?autoplay=1&mute=1">
-      </div>
-    </div>
-    <button class="add-stream-btn" onclick="addStream()">+ Ajouter cette chaîne</button>
-    <div class="streams-list" id="streams-admin-list"></div>
+<div id="admin-panel">
+<div class="adm-inner">
+  <div class="adm-hdr">
+    <div class="adm-title">Admin PST Stream</div>
+    <button class="adm-close" onclick="closeAdmin()">Fermer</button>
   </div>
+  <div class="adm-sec">
+    <h3>Ajouter une chaine</h3>
+    <div class="adm-grid">
+      <input class="adm-input" id="a-name" placeholder="Nom (ex: RTS1)">
+      <input class="adm-input" id="a-cat" placeholder="foot/news/sport/musique/monde">
+      <input class="adm-input" id="a-url" placeholder="URL YouTube embed ou HLS">
+      <input class="adm-input" id="a-icon" placeholder="Emoji icone">
+    </div>
+    <input class="adm-input" id="a-desc" placeholder="Description" style="margin-top:7px;">
+    <label style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11px;">
+      <input type="checkbox" id="a-hot"> Marquer comme Tendance HOT
+    </label>
+    <button class="adm-btn" onclick="addChannel()">Ajouter la chaine</button>
+  </div>
+  <div class="adm-sec">
+    <h3>Alertes manuelles (But / Breaking)</h3>
+    <div class="adm-grid">
+      <select class="adm-input" id="a-alert-type">
+        <option value="goal">⚽ BUT !</option>
+        <option value="score">📊 Score</option>
+        <option value="break">🔴 BREAKING</option>
+        <option value="news">📺 News</option>
+      </select>
+      <input class="adm-input" id="a-alert-txt" placeholder="Texte de l'alerte (ex: Senegal marque 2-0)">
+    </div>
+    <button class="adm-btn red" onclick="sendAlertAdmin()">Envoyer l'alerte en direct</button>
+  </div>
+  <div class="adm-sec">
+    <h3>Chaines actives (<span id="ch-count">0</span>)</h3>
+    <div class="adm-list" id="adm-list"></div>
+  </div>
+  <div class="adm-sec">
+    <h3>Stats</h3>
+    <div id="adm-stats" style="font-size:11px;line-height:2;"></div>
+  </div>
+</div>
+</div>
+
+<!-- CONTACT -->
+<div id="contact-modal" onclick="if(event.target===this)this.classList.remove('show')">
+<div class="c-box">
+  <h3>Contacter PST Telecom</h3>
+  <a class="c-item" href="tel:+221771520959">
+    <span class="c-icon">📞</span>
+    <div class="c-info"><strong>+221 77 152 09 59</strong><span>Appel direct</span></div>
+  </a>
+  <a class="c-item" href="https://wa.me/221771520959" target="_blank">
+    <span class="c-icon">💬</span>
+    <div class="c-info"><strong>WhatsApp</strong><span>Message instantane</span></div>
+  </a>
+  <a class="c-item" href="mailto:papasenytoure@gmail.com">
+    <span class="c-icon">✉️</span>
+    <div class="c-info"><strong>papasenytoure@gmail.com</strong><span>Email</span></div>
+  </a>
+  <a class="c-item" href="https://pst-telecom.vercel.app" target="_blank">
+    <span class="c-icon">🌐</span>
+    <div class="c-info"><strong>pst-telecom.vercel.app</strong><span>Site officiel</span></div>
+  </a>
+  <button class="c-close" onclick="document.getElementById('contact-modal').classList.remove('show')">Fermer</button>
+</div>
 </div>
 
 <script>
-const API = 'https://pst-telecom-production.up.railway.app';
-const ADMIN_EMAILS = ['tpapaseny@ept.sn','papasenytoure@gmail.com'];
-let currentCat = 'all';
-let reactions = {heart:Math.floor(Math.random()*500)+100, fire:Math.floor(Math.random()*300)+50, clap:Math.floor(Math.random()*200)+30, wow:Math.floor(Math.random()*150)+20};
-let viewersBase = Math.floor(Math.random()*2000)+500;
-
-// DEFAULT STREAMS
-const defaultStreams = [
-  {id:'rts1',name:'RTS1',cat:'news',emoji:'📺',desc:'Télévision Nationale Sénégalaise',url:'https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=1'},
-  {id:'tfm',name:'TFM',cat:'news',emoji:'🎬',desc:'Télé Futurs Médias Sénégal',url:'https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1'},
-  {id:'walf',name:'Walf TV',cat:'news',emoji:'📡',desc:'Walf TV Direct Sénégal',url:'https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1'},
-  {id:'rfi',name:'RFI',cat:'news',emoji:'🌍',desc:'Radio France Internationale',url:'https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1'},
-  {id:'france24',name:'France 24',cat:'monde',emoji:'🇫🇷',desc:'Info internationale en français',url:'https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1'},
-  {id:'euronews',name:'Euronews',cat:'monde',emoji:'🇪🇺',desc:'Actualité européenne et mondiale',url:'https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1'},
-  {id:'arryadia',name:'Arryadia',cat:'sport',emoji:'⚽',desc:'Chaîne sportive marocaine',url:'https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8'},
-  {id:'franceinfo',name:'Franceinfo',cat:'news',emoji:'📰',desc:'Info en continu France',url:'https://www.youtube.com/embed/F7bE_khTRWY?autoplay=1&mute=1'},
+var CHANNELS = [
+  {id:1,name:"RTS1",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1",hot:true},
+  {id:2,name:"France 24",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1",hot:true},
+  {id:3,name:"Euronews",cat:"news",icon:"📡",url:"https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1",hot:false},
+  {id:4,name:"BeIN Sports",cat:"foot",icon:"⚽",url:"https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=1",hot:true},
+  {id:5,name:"Arryadia",cat:"sport",icon:"🏆",url:"https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8",hot:false},
+  {id:6,name:"PST Live 1",cat:"foot",icon:"🎯",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1",hot:true},
+  {id:7,name:"Info Monde",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1",hot:false},
+  {id:8,name:"Lofi Music",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false},
+  {id:9,name:"PST News",cat:"news",icon:"📰",url:"https://www.youtube.com/embed/xGv_4tBY50Q?autoplay=1&mute=1",hot:false},
+  {id:10,name:"PST Sport",cat:"sport",icon:"🏅",url:"https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1",hot:false}
 ];
 
-let streams = JSON.parse(localStorage.getItem('pst-streams')||'null') || defaultStreams;
-let comments = JSON.parse(localStorage.getItem('pst-comments')||'[]');
-let currentStream = streams[0];
+var MINI_CHANNELS = [
+  {name:"France 24",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1"},
+  {name:"Euronews",url:"https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1"},
+  {name:"BeIN Sport",url:"https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=1"},
+  {name:"PST Live",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1"},
+  {name:"Info Monde",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1"},
+  {name:"RTS1",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1"}
+];
 
-// CHECK ADMIN
-function checkAdmin(){
-  const email = localStorage.getItem('pst-stream-email');
-  if(email && ADMIN_EMAILS.includes(email)){
-    document.getElementById('admin-toggle').classList.add('visible');
-    return true;
-  }
-  return false;
+var currentMini = 0;
+var currentCh = CHANNELS[0];
+var reactions = [0,0,0,0];
+var reactEmojis = {heart:"❤️",fire:"🔥",clap:"👏",wow:"😮"};
+var logoClicks=0,logoTimer=null,adminUnlocked=false;
+var alerts = [];
+
+var SCORES = [
+  {league:"CAN 2026",teams:"SEN vs MAR",score:"2 - 0",min:87,live:true},
+  {league:"Premier",teams:"Man Utd vs Liv",score:"1 - 1",min:65,live:true},
+  {league:"Ligue 1 SN",teams:"GF vs Teung",score:"0 - 0",min:32,live:true},
+  {league:"Champ. L.",teams:"PSG vs BVB",score:"3 - 1",min:0,live:false},
+  {league:"Ligue 1 FR",teams:"PSG vs OM",score:"2 - 2",min:92,live:true}
+];
+
+var autoNames=["Modou","Fatou","Ibou","Aida","Cheikh","Mariama","Oumar","Lamine","Sidy","Khady"];
+var autoTexts=["Allez le Senegal !","Vraiment bien ce match","PST Stream le top","Super qualite","Depuis Dakar","Meilleur site SN","Incroyable !","Merci PST","On est ensemble","Depuis la France"];
+
+function init(){
+  renderTrending();
+  renderGrid("all");
+  renderScores();
+  renderMiniBar();
+  renderLiveScores();
+  startViewers();
+  startAutoCmt();
+  startAutoAlerts();
+  // initial alerts
+  addAlert("goal","Senegal 2-0 Maroc — 87' CAN 2026");
+  addAlert("break","CAN 2026 : Le Senegal qualifie pour la finale !");
+  addAlert("news","RTS1 : Emission speciale en direct ce soir 20h");
+  addAlert("score","Man Utd 1-1 Liverpool — 65' Premier League");
 }
 
-function promptAdmin(){
-  const email = prompt('Email administrateur PST :');
-  if(email && ADMIN_EMAILS.includes(email.toLowerCase().trim())){
-    localStorage.setItem('pst-stream-email',email.toLowerCase().trim());
-    document.getElementById('admin-toggle').classList.add('visible');
-    alert('Accès admin activé !');
-  } else if(email){
-    alert('Email non autorisé.');
-  }
+// ---- TRENDING ----
+function renderTrending(){
+  var bar=document.getElementById("trending-bar");
+  var t=CHANNELS.filter(function(c){return c.hot;});
+  bar.innerHTML=t.map(function(c){
+    return '<div class="tr-item'+(c.id===currentCh.id?" act":"")+'" onclick="switchCh('+c.id+')">'
+      +'<span style="font-size:15px;">'+c.icon+'</span>'
+      +'<div><div class="tr-name">'+c.name+'</div><div class="tr-cat">'+c.cat+'</div></div>'
+      +(c.hot?'<span class="hot-tag">HOT</span>':'')
+      +'</div>';
+  }).join("");
 }
 
-// SECRET: click logo 5 times to show admin login
-let logoClicks = 0;
-document.querySelector('.logo').addEventListener('click', function(e){
-  e.preventDefault();
-  logoClicks++;
-  if(logoClicks >= 5){
-    logoClicks = 0;
-    if(!checkAdmin()) promptAdmin();
-  }
-});
-
-function toggleAdmin(){
-  const panel = document.getElementById('admin-panel');
-  panel.classList.toggle('open');
-  if(panel.classList.contains('open')) renderAdminList();
+// ---- GRID ----
+function renderGrid(cat){
+  var grid=document.getElementById("ch-grid");
+  var list=cat==="all"?CHANNELS:CHANNELS.filter(function(c){return c.cat===cat;});
+  if(!list.length){grid.innerHTML='<div style="color:var(--muted);font-size:11px;padding:16px;grid-column:1/-1;">Aucune chaine dans cette categorie.</div>';return;}
+  grid.innerHTML=list.map(function(c){
+    return '<div class="ch-card'+(c.id===currentCh.id?" act":"")+'" onclick="switchCh('+c.id+')">'
+      +'<div class="ch-icon">'+c.icon+'</div>'
+      +'<span class="ch-card-name">'+c.name+'</span>'
+      +'<div class="ch-card-cat">'+c.cat+'</div>'
+      +'<span class="ch-live">LIVE</span>'
+      +'</div>';
+  }).join("");
 }
 
-// RENDER CHANNELS
-function renderChannels(){
-  const grid = document.getElementById('channels-grid');
-  const filtered = currentCat === 'all' ? streams : streams.filter(s=>s.cat===currentCat);
-  
-  grid.innerHTML = filtered.map(function(s){
-    const isHLS = s.url.includes('.m3u8');
-    const thumb = isHLS 
-      ? '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a2035,#0d1117);display:flex;align-items:center;justify-content:center;font-size:40px">'+s.emoji+'</div>'
-      : '<iframe src="'+s.url+'" style="width:100%;height:100%;border:none;pointer-events:none" tabindex="-1"></iframe>';
-    
-    return '<div class="channel-card'+(s.id===currentStream.id?' active':'')+'" onclick="playStream(\''+s.id+'\')">'+
-      '<div class="channel-thumb">'+
-        '<div class="live-pill"><div class="live-dot"></div>LIVE</div>'+
-        thumb+
-      '</div>'+
-      '<div class="channel-info">'+
-        '<div class="channel-logo">'+s.emoji+'</div>'+
-        '<div class="channel-details">'+
-          '<div class="channel-title">'+s.name+'</div>'+
-          '<div class="channel-cat">'+getCatLabel(s.cat)+'</div>'+
-        '</div>'+
-        '<div class="channel-viewers"><div class="viewers-dot" style="width:5px;height:5px"></div>'+Math.floor(Math.random()*999+100)+'</div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
+function filterCat(e,cat){
+  document.querySelectorAll(".filter-btn").forEach(function(b){b.classList.remove("active");});
+  e.target.classList.add("active");
+  renderGrid(cat);
 }
 
-function getCatLabel(cat){
-  return {news:'📺 Actualités',foot:'⚽ Football',sport:'🏆 Sport',music:'🎵 Musique',monde:'🌍 International'}[cat]||cat;
+function switchCh(id){
+  var ch=null;
+  for(var i=0;i<CHANNELS.length;i++){if(CHANNELS[i].id===id){ch=CHANNELS[i];break;}}
+  if(!ch) return;
+  currentCh=ch;
+  document.getElementById("main-player").src=ch.url;
+  document.getElementById("current-label").textContent=ch.name;
+  renderTrending();
+  var activeBtn=document.querySelector(".filter-btn.active");
+  var catMap={"tout":"all","foot":"foot","news":"news","sport":"sport","musique":"musique","monde":"monde","tout":"all"};
+  var btnText=(activeBtn?activeBtn.textContent.toLowerCase().trim():"all");
+  renderGrid(catMap[btnText]||"all");
 }
 
-function filterCat(cat, btn){
-  currentCat = cat;
-  document.querySelectorAll('.cat-btn,.nav-chip').forEach(function(b){b.classList.remove('active');});
-  if(btn) btn.classList.add('active');
-  renderChannels();
+// ---- MINI PLAYER ----
+function renderMiniBar(){
+  var bar=document.getElementById("mini-ch-bar");
+  bar.innerHTML=MINI_CHANNELS.map(function(c,i){
+    return '<div class="mini-ch-btn'+(i===currentMini?" act-mini":"")+'" onclick="switchMini('+i+')">'+c.name+'</div>';
+  }).join("");
 }
 
-function playStream(id){
-  const s = streams.find(function(x){return x.id===id;});
-  if(!s) return;
-  currentStream = s;
-  
-  // Update main player
-  const iframe = document.getElementById('main-iframe');
-  if(s.url.includes('.m3u8')){
-    // HLS stream - use video element
-    document.getElementById('main-player').innerHTML = 
-      '<div class="player-overlay-top"><div class="live-tag"><div class="live-dot"></div>EN DIRECT</div><span class="channel-name-big" id="main-channel-name">'+s.name+'</span></div>'+
-      '<video id="hls-video" controls autoplay style="width:100%;height:100%;background:#000" src="'+s.url+'"></video>';
-  } else {
-    document.getElementById('main-player').innerHTML = 
-      '<div class="player-overlay-top"><div class="live-tag"><div class="live-dot"></div>EN DIRECT</div><span class="channel-name-big" id="main-channel-name">'+s.name+'</span></div>'+
-      '<iframe id="main-iframe" src="'+s.url+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:none"></iframe>';
-  }
-  
-  document.getElementById('main-title-bar').textContent = s.name+' — '+s.desc;
-  
-  // Update viewers count
-  viewersBase = Math.floor(Math.random()*2000)+500;
-  document.getElementById('viewers-count').textContent = viewersBase.toLocaleString('fr-FR');
-  
-  renderChannels();
+function switchMini(idx){
+  currentMini=idx;
+  var ch=MINI_CHANNELS[idx];
+  document.getElementById("mini-player").src=ch.url;
+  document.getElementById("mini-label").textContent=ch.name;
+  document.querySelectorAll(".mini-ch-btn").forEach(function(b,i){
+    b.classList.toggle("act-mini",i===idx);
+  });
 }
 
-// REACTIONS
-function react(emoji){
-  var map = {'❤️':'heart','🔥':'fire','👏':'clap','😮':'wow'};
-  var key = map[emoji];
-  if(!key) return;
-  reactions[key]++;
-  document.getElementById('cnt-'+key).textContent = reactions[key];
-  var btn = document.getElementById('btn-'+key);
-  btn.classList.toggle('liked');
-  btn.style.transform = 'scale(1.4)';
-  setTimeout(function(){btn.style.transform='';},200);
-  
-  // Burst emojis on screen
-  for(var i=0;i<5;i++){
-    (function(idx){
+// Auto-rotate mini player every 5min
+setInterval(function(){
+  var next=(currentMini+1)%MINI_CHANNELS.length;
+  switchMini(next);
+},300000);
+
+// ---- ALERTS ----
+function addAlert(type,text){
+  var now=new Date();
+  var time=now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
+  alerts.unshift({type:type,text:text,time:time});
+  if(alerts.length>20) alerts.pop();
+  renderAlerts();
+  if(type==="goal") showGoalFlash(text);
+}
+
+function renderAlerts(){
+  var sec=document.getElementById("alerts-section");
+  var icons={goal:"⚽ BUT !",score:"📊 SCORE",break:"🔴 BREAKING",news:"📺 NEWS"};
+  sec.innerHTML=alerts.slice(0,8).map(function(a){
+    return '<div class="alert-item '+a.type+'">'
+      +'<div class="alert-tag '+a.type+'">'+icons[a.type]+'</div>'
+      +'<div class="alert-text">'+a.text+'</div>'
+      +'<div class="alert-time">'+a.time+'</div>'
+      +'</div>';
+  }).join("");
+}
+
+function showGoalFlash(detail){
+  var el=document.getElementById("goal-alert");
+  document.getElementById("goal-detail").textContent=detail||"BUT !";
+  el.classList.add("show");
+  burst("⚽");burst("🔥");
+  setTimeout(function(){el.classList.remove("show");},4000);
+}
+
+// Auto alerts agent
+var autoAlerts=[
+  {type:"news",text:"RTS1 : Journal de 20h en direct sur PST Stream"},
+  {type:"score",text:"Man Utd 1-1 Liverpool — Premier League 65'"},
+  {type:"break",text:"Afrique : Sommet de l'UA en cours a Addis-Abeba"},
+  {type:"news",text:"Senegal : Conseil des ministres ce mercredi"},
+  {type:"score",text:"PSG 3-1 BVB — Ligue des Champions FT"},
+  {type:"news",text:"Economie : La BCEAO maintient son taux directeur"},
+  {type:"break",text:"URGENT : Declaration du Ministre de l'Interieur"},
+  {type:"news",text:"Culture : Festival de Dakar — Programme complet disponible"}
+];
+var alertIdx=0;
+function startAutoAlerts(){
+  setInterval(function(){
+    var a=autoAlerts[alertIdx%autoAlerts.length];
+    addAlert(a.type,a.text);
+    alertIdx++;
+  },45000);
+}
+
+function sendAlertAdmin(){
+  var type=document.getElementById("a-alert-type").value;
+  var text=document.getElementById("a-alert-txt").value.trim();
+  if(!text){alert("Entrez le texte de l'alerte !");return;}
+  addAlert(type,text);
+  document.getElementById("a-alert-txt").value="";
+  alert("Alerte envoyee en direct !");
+}
+
+// ---- LIVE SCORES ----
+function renderLiveScores(){
+  var el=document.getElementById("live-scores");
+  el.innerHTML=SCORES.map(function(s){
+    return '<div class="live-score-item">'
+      +'<div class="ls-league">'+s.league+'</div>'
+      +'<div class="ls-teams">'+s.teams+'</div>'
+      +'<div class="ls-score">'+s.score+'</div>'
+      +'<div class="ls-min">'+(s.live?"🔴 "+s.min+"'":s.min+"'")+'</div>'
+      +'</div>';
+  }).join("");
+}
+
+// ---- MAIN SCORES BAR ----
+function renderScores(){
+  var row=document.getElementById("scores-row");
+  row.innerHTML=SCORES.map(function(s){
+    return '<div class="score-card">'
+      +'<div class="sc-league">'+s.league+'</div>'
+      +'<div class="sc-teams">'+s.teams+'</div>'
+      +'<div class="sc-res">'+s.score+'</div>'
+      +'<div class="sc-min">'+(s.live?"🔴 "+s.min+"'":s.min+"'")+'</div>'
+      +'</div>';
+  }).join("");
+}
+
+// Score update agent - every minute advance
+setInterval(function(){
+  SCORES.forEach(function(s){
+    if(s.live && s.min>0 && s.min<90){
+      s.min++;
+      // random goal simulation 2% chance
+      if(Math.random()<0.02){
+        var teams=s.teams.split(" vs ");
+        var scorer=Math.random()>0.5?teams[0]:teams[1];
+        var parts=s.score.split(" - ");
+        if(scorer===teams[0]) parts[0]=String(parseInt(parts[0])+1);
+        else parts[1]=String(parseInt(parts[1])+1);
+        s.score=parts[0]+" - "+parts[1];
+        addAlert("goal","BUT ! "+scorer+" — "+s.score+" ("+s.min+"') "+s.league);
+      }
+    }
+  });
+  renderScores();
+  renderLiveScores();
+},60000);
+
+// ---- REACTIONS ----
+function react(key){
+  var map={heart:0,fire:1,clap:2,wow:3};
+  var idx=map[key];
+  if(idx===undefined) return;
+  reactions[idx]++;
+  document.getElementById("rc"+idx).textContent=reactions[idx];
+  burst(reactEmojis[key]);
+}
+
+function burst(emoji){
+  var wrap=document.getElementById("emoji-burst");
+  for(var i=0;i<7;i++){
+    (function(n){
       setTimeout(function(){
-        var el = document.createElement('div');
-        el.className = 'emoji-burst';
-        el.textContent = emoji;
-        var player = document.getElementById('main-player');
-        var rect = player.getBoundingClientRect();
-        el.style.left = (rect.left + Math.random()*rect.width) + 'px';
-        el.style.top = (rect.top + rect.height*0.7) + 'px';
-        el.style.animationDuration = (1+Math.random()*0.5)+'s';
-        document.body.appendChild(el);
-        setTimeout(function(){el.remove();},2000);
-      }, idx*150);
+        var el=document.createElement("div");
+        el.className="burst-e";
+        el.textContent=emoji;
+        el.style.left=(15+Math.random()*70)+"%";
+        el.style.animationDuration=(1.1+Math.random()*0.9)+"s";
+        wrap.appendChild(el);
+        setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},2500);
+      },n*90);
     })(i);
   }
 }
 
-// Update reaction counts display
-Object.keys(reactions).forEach(function(k){
-  document.getElementById('cnt-'+k).textContent = reactions[k];
+// ---- COMMENTS ----
+function sendCmt(){
+  var name=document.getElementById("cm-name").value.trim()||"Visiteur";
+  var text=document.getElementById("cm-text").value.trim();
+  if(!text) return;
+  addCmt(name,text);
+  document.getElementById("cm-text").value="";
+}
+function addCmt(name,text){
+  var list=document.getElementById("c-list");
+  var d=document.createElement("div");
+  d.className="cm";
+  d.innerHTML='<div class="cm-av">'+name[0].toUpperCase()+'</div>'
+    +'<div class="cm-body"><span class="cm-name">'+name+'</span> <span class="cm-text">'+text.replace(/</g,"&lt;")+'</span></div>';
+  list.appendChild(d);
+  list.scrollTop=list.scrollHeight;
+  if(list.children.length>60) list.removeChild(list.firstChild);
+}
+function startAutoCmt(){
+  function drop(){
+    var n=autoNames[Math.floor(Math.random()*autoNames.length)];
+    var t=autoTexts[Math.floor(Math.random()*autoTexts.length)];
+    addCmt(n,t);
+    setTimeout(drop,3000+Math.random()*8000);
+  }
+  setTimeout(drop,1500);
+}
+
+// ---- VIEWERS ----
+function startViewers(){
+  var v=1247;
+  setInterval(function(){
+    v+=Math.floor((Math.random()-0.4)*14);
+    if(v<600)v=600;
+    document.getElementById("viewers").textContent=v.toLocaleString("fr-FR")+" spectateurs en direct";
+  },5000);
+}
+
+// ---- SHARE ----
+function shareFB(){window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(location.href),"_blank");}
+function shareWA(){window.open("https://wa.me/?text="+encodeURIComponent("PST STREAM en direct : "+location.href),"_blank");}
+function shareTW(){window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent("En direct sur PST STREAM")+"&url="+encodeURIComponent(location.href),"_blank");}
+
+// ---- ADMIN SECRET (5 clicks logo) ----
+document.getElementById("logo-click").addEventListener("click",function(){
+  logoClicks++;
+  if(logoTimer) clearTimeout(logoTimer);
+  if(logoClicks>=5){
+    var email=prompt("Email admin :");
+    if(email==="tpapaseny@ept.sn"||email==="papasenytoure@gmail.com"){
+      adminUnlocked=true;
+      document.getElementById("admin-secret-btn").style.display="block";
+      alert("Acces admin debloque !");
+    } else if(email){alert("Acces refuse");}
+    logoClicks=0;
+  } else {logoTimer=setTimeout(function(){logoClicks=0;},2000);}
 });
 
-// SHARE
-function shareTo(platform){
-  const url = encodeURIComponent(window.location.href);
-  const text = encodeURIComponent('Regardez '+currentStream.name+' en direct sur PST Stream !');
-  const links = {
-    facebook:'https://www.facebook.com/sharer/sharer.php?u='+url,
-    whatsapp:'https://wa.me/?text='+text+'%20'+url,
-    twitter:'https://twitter.com/intent/tweet?text='+text+'&url='+url
-  };
-  window.open(links[platform],'_blank','width=600,height=400');
+function openAdmin(){if(!adminUnlocked)return;document.getElementById("admin-panel").style.display="block";renderAdmList();renderAdmStats();}
+function closeAdmin(){document.getElementById("admin-panel").style.display="none";}
+
+function addChannel(){
+  var name=document.getElementById("a-name").value.trim();
+  var cat=document.getElementById("a-cat").value.trim().toLowerCase()||"news";
+  var url=document.getElementById("a-url").value.trim();
+  var icon=document.getElementById("a-icon").value.trim()||"📺";
+  var hot=document.getElementById("a-hot").checked;
+  if(!name||!url){alert("Nom et URL requis !");return;}
+  CHANNELS.push({id:Date.now(),name:name,cat:cat,icon:icon,url:url,hot:hot});
+  MINI_CHANNELS.push({name:name,url:url});
+  ["a-name","a-cat","a-url","a-icon"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("a-hot").checked=false;
+  renderTrending();renderGrid("all");renderAdmList();renderMiniBar();
+  alert("Chaine ajoutee !");
+}
+function renderAdmList(){
+  var list=document.getElementById("adm-list");
+  if(!list)return;
+  document.getElementById("ch-count").textContent=CHANNELS.length;
+  list.innerHTML=CHANNELS.map(function(c){
+    return '<div class="adm-item"><span>'+c.icon+'</span><span style="font-weight:700;">'+c.name+'</span><span style="color:var(--muted);">'+c.cat+'</span><span style="color:var(--red);font-size:9px;">'+(c.hot?"HOT":"")+'</span><button class="adm-del" onclick="delCh('+c.id+')">Suppr</button></div>';
+  }).join("");
+}
+function delCh(id){
+  if(!confirm("Supprimer cette chaine ?"))return;
+  CHANNELS=CHANNELS.filter(function(c){return c.id!==id;});
+  renderTrending();renderGrid("all");renderAdmList();
+}
+function renderAdmStats(){
+  var el=document.getElementById("adm-stats");
+  if(!el)return;
+  el.innerHTML="Chaines : <strong>"+CHANNELS.length+"</strong><br>"
+    +"Tendance HOT : <strong>"+CHANNELS.filter(function(c){return c.hot;}).length+"</strong><br>"
+    +"Alertes envoyes : <strong>"+alerts.length+"</strong><br>"
+    +"Reactions : <strong>"+(reactions[0]+reactions[1]+reactions[2]+reactions[3])+"</strong>";
 }
 
-// COMMENTS
-function renderComments(){
-  const list = document.getElementById('comments-list');
-  if(!comments.length){
-    list.innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">Soyez le premier à commenter !</div>';
-    return;
-  }
-  list.innerHTML = comments.slice(-30).map(function(cm){
-    return '<div class="comment">'+
-      '<div class="comment-av">'+cm.name[0].toUpperCase()+'</div>'+
-      '<div class="comment-body"><span class="comment-user">'+cm.name+'</span> <span class="comment-text">'+cm.text+'</span></div>'+
-    '</div>';
-  }).join('');
-  list.scrollTop = list.scrollHeight;
-}
-
-function sendComment(){
-  const input = document.getElementById('comment-input');
-  const text = input.value.trim();
-  if(!text) return;
-  const names = ['Mamadou','Fatou','Ibrahima','Aminata','Cheikh','Rokhaya','Omar','Aissatou','Modou','Ndéye'];
-  const name = names[Math.floor(Math.random()*names.length)];
-  comments.push({name:name, text:text, time:Date.now()});
-  localStorage.setItem('pst-comments',JSON.stringify(comments.slice(-100)));
-  input.value = '';
-  renderComments();
-}
-
-// ADMIN FUNCTIONS
-function addStream(){
-  const name = document.getElementById('s-name').value.trim();
-  const url = document.getElementById('s-url').value.trim();
-  if(!name||!url){alert('Nom et URL requis');return;}
-  const newStream = {
-    id:'stream-'+Date.now(),
-    name:name,
-    cat:document.getElementById('s-cat').value,
-    emoji:document.getElementById('s-emoji').value||'📺',
-    desc:document.getElementById('s-desc').value||name,
-    url:url
-  };
-  streams.push(newStream);
-  localStorage.setItem('pst-streams',JSON.stringify(streams));
-  document.getElementById('s-name').value='';
-  document.getElementById('s-url').value='';
-  document.getElementById('s-emoji').value='';
-  document.getElementById('s-desc').value='';
-  renderChannels();
-  renderAdminList();
-}
-
-function deleteStream(id){
-  if(!confirm('Supprimer cette chaîne ?')) return;
-  streams = streams.filter(function(s){return s.id!==id;});
-  localStorage.setItem('pst-streams',JSON.stringify(streams));
-  renderChannels();
-  renderAdminList();
-}
-
-function renderAdminList(){
-  const list = document.getElementById('streams-admin-list');
-  list.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--soft);margin:16px 0 8px">Chaînes actuelles ('+streams.length+')</div>' +
-  streams.map(function(s){
-    return '<div class="stream-item">'+
-      '<div style="font-size:20px">'+s.emoji+'</div>'+
-      '<div class="stream-item-info"><div class="stream-item-name">'+s.name+'</div><div class="stream-item-cat">'+getCatLabel(s.cat)+'</div></div>'+
-      '<button class="stream-del" onclick="deleteStream(\''+s.id+'\')">Supprimer</button>'+
-    '</div>';
-  }).join('');
-}
-
-// FULLSCREEN
-function toggleFullscreen(){
-  const player = document.getElementById('main-player');
-  if(!document.fullscreenElement){
-    player.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-function toggleMute(){
-  const iframe = document.getElementById('main-iframe');
-  if(iframe){
-    const src = iframe.src;
-    if(src.includes('mute=1')){
-      iframe.src = src.replace('mute=1','mute=0');
-      document.getElementById('mute-btn').textContent = '🔊 Son';
-    } else {
-      iframe.src = src.replace('mute=0','mute=1');
-      document.getElementById('mute-btn').textContent = '🔇 Muet';
-    }
-  }
-}
-
-// LIVE VIEWERS SIMULATION
-setInterval(function(){
-  var delta = Math.floor(Math.random()*20) - 8;
-  viewersBase = Math.max(100, viewersBase + delta);
-  var el = document.getElementById('viewers-count');
-  if(el) el.textContent = viewersBase.toLocaleString('fr-FR');
-}, 5000);
-
-// AUTO COMMENTS
-var autoComments = [
-  'Allez Sénégal ! 🦁','Trop bien ce match !','Merci PST Stream 🙏','RTS direct c\'est super !','La qualité est parfaite !','Waaw dafa baax !','Je regarde depuis Paris 🇫🇷','Excellent streaming merci','Go go go !!!','On est là !!! 🔥'
-];
-setInterval(function(){
-  if(Math.random() > 0.6){
-    var names = ['Mamadou','Fatou','Cheikh','Aminata','Omar','Ibou','Ndéye','Modou'];
-    comments.push({
-      name:names[Math.floor(Math.random()*names.length)],
-      text:autoComments[Math.floor(Math.random()*autoComments.length)],
-      time:Date.now()
-    });
-    renderComments();
-  }
-}, 8000);
-
-// LIVE SCORES
-var scoresData = [];
-
-async function loadScores(){
-  document.getElementById('scores-status').textContent = 'Agent IA recherche les scores...';
-  try {
-    const r = await fetch(API + '/api/stream/scores', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({query:'scores matchs foot en direct aujourd\'hui Sénégal Afrique Europe'})
-    });
-    const d = await r.json();
-    if(d.scores && d.scores.length){
-      renderScores(d.scores);
-      document.getElementById('scores-status').textContent = 'Mis à jour: ' + new Date().toLocaleTimeString('fr-FR');
-    } else {
-      renderDefaultScores();
-    }
-  } catch(e){
-    renderDefaultScores();
-  }
-}
-
-function renderDefaultScores(){
-  // Show sample scores when API not available
-  var samples = [
-    {home:'Sénégal',away:'Mali',score:'2 - 1',status:'EN DIRECT 67\'',comp:'CAN 2025',live:true},
-    {home:'PSG',away:'Real Madrid',score:'1 - 1',status:'MI-TEMPS',comp:'Ligue des Champions',live:true},
-    {home:'Man City',away:'Arsenal',score:'0 - 0',status:'EN DIRECT 23\'',comp:'Premier League',live:true},
-    {home:'Barcelone',away:'Bayern',score:'3 - 2',status:'TERMINÉ',comp:'Ligue des Champions',live:false},
-    {home:'Ajax',away:'Lens',score:'1 - 0',status:'EN DIRECT 45\'',comp:'Europa League',live:true},
-    {home:'Casa Sports',away:'Génération Foot',score:'0 - 0',status:'EN DIRECT 12\'',comp:'Ligue 1 Sénégal',live:true},
-  ];
-  renderScores(samples);
-  document.getElementById('scores-status').textContent = 'Scores simulés — Agent IA en attente de clé API';
-}
-
-function renderScores(scores){
-  var grid = document.getElementById('scores-grid');
-  grid.innerHTML = scores.map(function(s){
-    var liveBg = s.live ? 'rgba(255,45,85,0.08)' : 'rgba(255,255,255,0.02)';
-    var liveBorder = s.live ? 'rgba(255,45,85,0.3)' : 'rgba(255,255,255,0.06)';
-    var statusColor = s.live ? 'var(--red)' : 'var(--muted)';
-    return '<div style="background:'+liveBg+';border:1px solid '+liveBorder+';border-radius:10px;padding:14px 16px">'+
-      '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">'+s.comp+'</div>'+
-      '<div style="display:flex;align-items:center;gap:8px">'+
-        '<div style="flex:1;text-align:right;font-size:14px;font-weight:700">'+s.home+'</div>'+
-        '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;text-align:center;min-width:70px">'+
-          '<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px">'+s.score+'</div>'+
-          '<div style="font-size:9px;color:'+statusColor+';font-weight:700">'+(s.live?'● ':'')+s.status+'</div>'+
-        '</div>'+
-        '<div style="flex:1;font-size:14px;font-weight:700">'+s.away+'</div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
-}
-
-// Auto refresh scores every 60 seconds
-setInterval(loadScores, 60000);
-
-// INIT
-checkAdmin();
-renderChannels();
-renderComments();
-loadScores();
+init();
 </script>
 </body>
 </html>
