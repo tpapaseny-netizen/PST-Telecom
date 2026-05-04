@@ -777,14 +777,38 @@ function shareTW(){window.open("https://twitter.com/intent/tweet?text="+encodeUR
 
 document.getElementById("logo-click").addEventListener("click",function(){
   logoClicks++;
-  if(logoTimer)clearTimeout(logoTimer);
-  if(logoClicks>=5){
-    document.getElementById("login-modal").style.display="flex";
-    document.getElementById("login-email").value="";
-    document.getElementById("login-email").focus();
-    logoClicks=0;
-  }else{logoTimer=setTimeout(function(){logoClicks=0;},2000);}
+  if(logoTimer) clearTimeout(logoTimer);
+  logoTimer = setTimeout(function(){logoClicks=0;}, 3000);
+  if(logoClicks >= 5){
+    logoClicks = 0;
+    openLoginModal();
+  }
 });
+// Keyboard shortcut: Ctrl+Shift+A
+document.addEventListener("keydown", function(e){
+  if(e.ctrlKey && e.shiftKey && e.key === "A"){
+    openLoginModal();
+  }
+});
+
+var secretClicks = 0, secretTimer = null;
+function secretCount(){
+  secretClicks++;
+  if(secretTimer) clearTimeout(secretTimer);
+  secretTimer = setTimeout(function(){secretClicks=0;}, 3000);
+  if(secretClicks >= 10){
+    secretClicks = 0;
+    openLoginModal();
+  }
+}
+function openLoginModal(){
+  var m = document.getElementById("login-modal");
+  if(m){
+    m.style.display = "flex";
+    var inp = document.getElementById("login-email");
+    if(inp){ inp.value = ""; setTimeout(function(){inp.focus();}, 100); }
+  }
+}
 function checkAdminLogin(){
   var email=document.getElementById("login-email").value.trim().toLowerCase();
   if(email==="tpapaseny@ept.sn"||email==="papasenytoure@gmail.com"){
@@ -798,8 +822,10 @@ function checkAdminLogin(){
   }
 }
 document.addEventListener("keydown",function(e){
-  if(e.key==="Escape") document.getElementById("login-modal").style.display="none";
-  if(e.key==="Enter" && document.getElementById("login-modal").style.display==="flex") checkAdminLogin();
+  var modal = document.getElementById("login-modal");
+  if(!modal) return;
+  if(e.key==="Escape") modal.style.display="none";
+  if(e.key==="Enter" && modal.style.display==="flex") checkAdminLogin();
 });
 function openAdmin(){if(!adminUnlocked)return;document.getElementById("admin-panel").style.display="block";renderAdmList();renderAdmStats();}
 function closeAdmin(){document.getElementById("admin-panel").style.display="none";}
