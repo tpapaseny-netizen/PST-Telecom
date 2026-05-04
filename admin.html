@@ -2450,14 +2450,15 @@ function npAssigner(btn){
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">'+nom+' ('+code+')</div>'+
       '<div id="cam-checks" style="margin-bottom:16px">'+opts+'</div>'+
       '<div style="display:flex;gap:8px">'+
-      '<button onclick="npDoAssigner(this,''+code+'',''+nom+'')" style="padding:10px 16px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Assigner</button>'+
-      '<button onclick="this.closest('div[style*=position]').remove()" style="padding:10px 16px;background:transparent;border:1px solid #1e2a3a;border-radius:8px;color:#64748b;cursor:pointer;font-size:13px">Annuler</button>'+
+      '<button onclick="npDoAssigner(this,this.dataset.code,this.dataset.nom)" data-code="'+code+'" data-nom="'+nom+'" style="padding:10px 16px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Assigner</button>'+
+      '<button onclick="this.closest(\'[style*=position]\').remove()" style="padding:10px 16px;background:transparent;border:1px solid #1e2a3a;border-radius:8px;color:#64748b;cursor:pointer;font-size:13px">Annuler</button>'+
       '</div></div>';
     document.body.appendChild(modal);
   });
 }
 
 async function npDoAssigner(btn, code, nom){
+  if(!code){code=btn.dataset.code;nom=btn.dataset.nom;}
   var checks=[].slice.call(btn.closest('div').previousElementSibling.querySelectorAll('input:checked'));
   var ids=checks.map(function(c){return c.value;});
   if(!ids.length){alert('Selectionnez au moins une camera');return;}
