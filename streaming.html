@@ -196,6 +196,35 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
 .adm-it{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:5px;padding:6px;}
 .adm-it span{flex:1;font-size:9px;}
 .adm-del{background:var(--red);color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:8px;}
+.adm-tab{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;transition:.2s;}
+.adm-tab:hover,.adm-tab.active-tab{background:var(--red);color:#fff;border-color:var(--red);}
+.adm-tab-content{display:block;}
+.sw-item{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:7px;padding:8px 10px;border:1px solid var(--border);cursor:pointer;transition:.2s;}
+.sw-item:hover,.sw-item.sw-active{border-color:var(--red);background:rgba(230,57,70,.1);}
+.sw-item .sw-icon{font-size:18px;flex-shrink:0;}
+.sw-item .sw-info{flex:1;}
+.sw-item .sw-name{font-size:11px;font-weight:800;}
+.sw-item .sw-cat{font-size:9px;color:var(--muted);}
+.sw-item .sw-url{font-size:8px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.sw-actions{display:flex;gap:4px;flex-shrink:0;}
+.sw-btn{border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:9px;font-weight:700;}
+.sw-play{background:var(--green);color:#fff;}
+.sw-edit{background:var(--blue);color:#fff;}
+.sw-del{background:var(--red);color:#fff;}
+.sw-hot{background:var(--gold);color:#000;}
+.edit-form{background:var(--bg4);border-radius:7px;padding:10px;margin-top:5px;border:1px solid var(--gold);display:none;}
+.edit-form.show{display:block;}
+.order-item{display:flex;align-items:center;gap:7px;background:var(--bg3);border-radius:6px;padding:7px 10px;border:1px solid var(--border);}
+.ord-num{font-size:10px;font-weight:800;color:var(--muted);width:20px;}
+.ord-up,.ord-dn{background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px;color:var(--muted);}
+.ord-up:hover{color:var(--green);border-color:var(--green);}
+.ord-dn:hover{color:var(--red);border-color:var(--red);}
+.score-adm-item{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:6px;padding:7px 10px;}
+.sal-item{border-radius:5px;padding:6px 8px;border-left:2px solid var(--red);display:flex;align-items:center;gap:6px;}
+.sal-item.goal{background:rgba(230,57,70,.1);border-color:var(--red);}
+.sal-item.news{background:rgba(37,99,235,.08);border-color:var(--blue);}
+.sal-item.score{background:rgba(245,158,11,.08);border-color:var(--gold);}
+.sal-item.brek{background:rgba(249,115,22,.1);border-color:var(--orange);}
 
 /* CONTACT */
 #contact-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;}
@@ -355,40 +384,143 @@ nav{display:flex;align-items:center;gap:9px;padding:7px 14px;background:rgba(4,6
     <div class="adm-title">Admin PST Stream</div>
     <button class="adm-close" onclick="closeAdmin()">Fermer</button>
   </div>
-  <div class="adm-sec">
-    <h3>Ajouter une chaine</h3>
-    <div class="adm-g">
-      <input class="adm-i" id="a-name" placeholder="Nom (ex: BeIN Sports)">
-      <input class="adm-i" id="a-cat" placeholder="foot/news/sport/musique/monde">
-      <input class="adm-i" id="a-url" placeholder="URL YouTube embed ou HLS">
-      <input class="adm-i" id="a-icon" placeholder="Emoji icone">
+
+  <!-- TABS -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="adm-tab active-tab" onclick="showTab('tab-chaines',this)">Gestion Chaines</button>
+    <button class="adm-tab" onclick="showTab('tab-ecrans',this)">Ecrans Live</button>
+    <button class="adm-tab" onclick="showTab('tab-mini',this)">Mini Player</button>
+    <button class="adm-tab" onclick="showTab('tab-alertes',this)">Alertes</button>
+    <button class="adm-tab" onclick="showTab('tab-scores',this)">Scores</button>
+    <button class="adm-tab" onclick="showTab('tab-stats',this)">Stats</button>
+  </div>
+
+  <!-- TAB: CHAINES -->
+  <div id="tab-chaines" class="adm-tab-content">
+    <div class="adm-sec">
+      <h3>Ajouter une chaine</h3>
+      <div class="adm-g">
+        <input class="adm-i" id="a-name" placeholder="Nom (ex: BeIN Sports)">
+        <input class="adm-i" id="a-cat" placeholder="foot/news/sport/musique/monde">
+        <input class="adm-i" id="a-url" placeholder="URL YouTube embed ou HLS">
+        <input class="adm-i" id="a-icon" placeholder="Emoji icone (ex: TV)">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;">
+        <input type="checkbox" id="a-hot"> Tendance HOT (apparait dans la barre du haut)
+      </label>
+      <button class="adm-btn" onclick="addChannel()">Ajouter la chaine</button>
     </div>
-    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;">
-      <input type="checkbox" id="a-hot"> Tendance HOT
-    </label>
-    <button class="adm-btn" onclick="addChannel()">Ajouter la chaine</button>
-  </div>
-  <div class="adm-sec">
-    <h3>Envoyer alerte BUT / BREAKING</h3>
-    <div class="adm-g">
-      <select class="adm-i" id="a-alert-type">
-        <option value="goal">BUT !</option>
-        <option value="score">Score</option>
-        <option value="brek">BREAKING</option>
-        <option value="news">News</option>
-      </select>
-      <input class="adm-i" id="a-alert-txt" placeholder="Texte (ex: Senegal 2-0 Maroc)">
+    <div class="adm-sec">
+      <h3>Toutes les chaines (<span id="ch-count">0</span>)</h3>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('all',this)">Toutes</button>
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('foot',this)">Foot</button>
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('news',this)">News</button>
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('sport',this)">Sport</button>
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('musique',this)">Musique</button>
+        <button class="adm-btn" style="width:auto;margin:0;padding:4px 10px;font-size:9px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="filterAdmList('monde',this)">Monde</button>
+      </div>
+      <div class="adm-list" id="adm-list"></div>
     </div>
-    <button class="adm-btn red" onclick="adminAlert()">Envoyer en direct</button>
   </div>
-  <div class="adm-sec">
-    <h3>Chaines actives (<span id="ch-count">0</span>)</h3>
-    <div class="adm-list" id="adm-list"></div>
+
+  <!-- TAB: ECRANS (main player + trending) -->
+  <div id="tab-ecrans" class="adm-tab-content" style="display:none;">
+    <div class="adm-sec">
+      <h3>Player principal</h3>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Chaine active actuellement</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="main-active-icon" style="font-size:20px;">📺</span>
+          <div>
+            <div id="main-active-name" style="font-size:13px;font-weight:800;"></div>
+            <div id="main-active-cat" style="font-size:10px;color:var(--muted);"></div>
+          </div>
+          <span style="margin-left:auto;background:var(--red);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;">EN DIRECT</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Changer le player principal :</div>
+      <div id="main-switcher" style="display:flex;flex-direction:column;gap:5px;max-height:250px;overflow-y:auto;"></div>
+    </div>
+    <div class="adm-sec">
+      <h3>Barre tendances (HOT)</h3>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Chaines marquees HOT qui apparaissent dans la barre du haut du site</div>
+      <div id="hot-list" style="display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;"></div>
+    </div>
   </div>
-  <div class="adm-sec">
-    <h3>Stats</h3>
-    <div id="adm-stats" style="font-size:10px;line-height:2;"></div>
+
+  <!-- TAB: MINI PLAYER -->
+  <div id="tab-mini" class="adm-tab-content" style="display:none;">
+    <div class="adm-sec">
+      <h3>Mini player (panneau central)</h3>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Chaine active dans le mini player du panneau Info :</div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span id="mini-active-icon" style="font-size:18px;">🌍</span>
+        <div>
+          <div id="mini-active-name" style="font-size:12px;font-weight:800;"></div>
+          <span style="background:var(--red);color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;">LIVE</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Changer le mini player :</div>
+      <div id="mini-switcher" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;"></div>
+    </div>
+    <div class="adm-sec">
+      <h3>Ordre des chaines dans le switcher</h3>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Glissez pour reordonner (ou utilisez les boutons)</div>
+      <div id="mini-order-list" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;"></div>
+    </div>
   </div>
+
+  <!-- TAB: ALERTES -->
+  <div id="tab-alertes" class="adm-tab-content" style="display:none;">
+    <div class="adm-sec">
+      <h3>Envoyer une alerte en direct</h3>
+      <div class="adm-g">
+        <select class="adm-i" id="a-alert-type">
+          <option value="goal">⚽ BUT !</option>
+          <option value="score">📊 Score</option>
+          <option value="brek">🔴 BREAKING</option>
+          <option value="news">📺 News</option>
+        </select>
+        <input class="adm-i" id="a-alert-txt" placeholder="Texte (ex: Senegal 2-0 Maroc 87')">
+      </div>
+      <button class="adm-btn red" onclick="adminAlert()">Envoyer en direct</button>
+    </div>
+    <div class="adm-sec">
+      <h3>Historique des alertes (<span id="al-count">0</span>)</h3>
+      <div id="adm-alert-list" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: SCORES -->
+  <div id="tab-scores" class="adm-tab-content" style="display:none;">
+    <div class="adm-sec">
+      <h3>Ajouter / Modifier un score</h3>
+      <div class="adm-g">
+        <input class="adm-i" id="s-league" placeholder="Ligue (ex: CAN 2026)">
+        <input class="adm-i" id="s-teams" placeholder="Equipes (ex: SEN vs MAR)">
+        <input class="adm-i" id="s-score" placeholder="Score (ex: 2 - 0)">
+        <input class="adm-i" id="s-min" placeholder="Minute (ex: 87)">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;">
+        <input type="checkbox" id="s-live" checked> Match en cours (live)
+      </label>
+      <button class="adm-btn" onclick="addScore()">Ajouter ce match</button>
+    </div>
+    <div class="adm-sec">
+      <h3>Matchs en direct (<span id="sc-count">0</span>)</h3>
+      <div id="adm-scores-list" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: STATS -->
+  <div id="tab-stats" class="adm-tab-content" style="display:none;">
+    <div class="adm-sec">
+      <h3>Statistiques en temps reel</h3>
+      <div id="adm-stats" style="font-size:11px;line-height:2.2;"></div>
+    </div>
+  </div>
+
 </div>
 </div>
 
@@ -696,10 +828,315 @@ function delCh(id){
 }
 function renderAdmStats(){
   var el=document.getElementById("adm-stats");if(!el)return;
-  el.innerHTML="Chaines : <strong>"+CHANNELS.length+"</strong><br>"
-    +"Alertes : <strong>"+alerts.length+"</strong><br>"
-    +"Reactions : <strong>"+(reactions[0]+reactions[1]+reactions[2]+reactions[3])+"</strong>";
+  var hot=CHANNELS.filter(function(c){return c.hot;}).length;
+  el.innerHTML="Total chaines : <strong>"+CHANNELS.length+"</strong><br>"
+    +"Chaines HOT : <strong>"+hot+"</strong><br>"
+    +"Alertes envoyees : <strong>"+alerts.length+"</strong><br>"
+    +"Reactions totales : <strong>"+(reactions[0]+reactions[1]+reactions[2]+reactions[3])+"</strong><br>"
+    +"Commentaires : <strong>"+document.querySelectorAll(".cm").length+"</strong><br>"
+    +"Scores en direct : <strong>"+SCORES.filter(function(s){return s.live;}).length+"</strong>";
 }
+
+// ============================================================
+// ADMIN TABS
+// ============================================================
+function showTab(id, btn){
+  document.querySelectorAll(".adm-tab-content").forEach(function(el){el.style.display="none";});
+  document.querySelectorAll(".adm-tab").forEach(function(b){b.classList.remove("active-tab");});
+  var el=document.getElementById(id);
+  if(el) el.style.display="block";
+  if(btn) btn.classList.add("active-tab");
+  // refresh content of tab
+  if(id==="tab-chaines") renderAdmList();
+  if(id==="tab-ecrans") renderEcransTab();
+  if(id==="tab-mini") renderMiniTab();
+  if(id==="tab-alertes") renderAdmAlerts();
+  if(id==="tab-scores") renderAdmScores();
+  if(id==="tab-stats") renderAdmStats();
+}
+
+// ============================================================
+// TAB ECRANS - Main player + HOT bar management
+// ============================================================
+function renderEcransTab(){
+  // Current main channel info
+  document.getElementById("main-active-name").textContent=curMain.name;
+  document.getElementById("main-active-cat").textContent=curMain.cat;
+  document.getElementById("main-active-icon").textContent=curMain.icon;
+
+  // Main switcher - all channels
+  var ms=document.getElementById("main-switcher");
+  if(!ms) return;
+  ms.innerHTML=CHANNELS.map(function(c){
+    var isActive=c.id===curMain.id;
+    return '<div class="sw-item'+(isActive?" sw-active":"")+'">'
+      +'<span class="sw-icon">'+c.icon+'</span>'
+      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div>'
+      +'<div class="sw-cat">'+c.cat+'</div>'
+      +'<div class="sw-url">'+c.url+'</div></div>'
+      +'<div class="sw-actions">'
+      +(isActive?'<span class="sw-btn sw-play" style="background:var(--green);">ACTIF</span>'
+        :'<button class="sw-btn sw-play" onclick="switchMain('+c.id+');renderEcransTab();">Mettre</button>')
+      +'<button class="sw-btn sw-hot" onclick="toggleHot('+c.id+');renderEcransTab();">'+(c.hot?"HOT OFF":"HOT ON")+'</button>'
+      +'<button class="sw-btn sw-del" onclick="delCh('+c.id+');renderEcransTab();">Suppr</button>'
+      +'</div></div>'
+      +'<div class="edit-form" id="edit-main-'+c.id+'">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+      +'<input class="adm-i" id="em-name-'+c.id+'" value="'+c.name+'" placeholder="Nom">'
+      +'<input class="adm-i" id="em-cat-'+c.id+'" value="'+c.cat+'" placeholder="Categorie">'
+      +'<input class="adm-i" id="em-url-'+c.id+'" value="'+c.url+'" placeholder="URL" style="grid-column:1/-1;">'
+      +'<input class="adm-i" id="em-icon-'+c.id+'" value="'+c.icon+'" placeholder="Emoji">'
+      +'</div>'
+      +'<button class="adm-btn" style="margin-top:6px;" onclick="saveEdit('+c.id+','main')">Sauvegarder</button>'
+      +'</div>';
+  }).join("");
+
+  // HOT bar management
+  var hl=document.getElementById("hot-list");
+  if(!hl) return;
+  var hotChs=CHANNELS.filter(function(c){return c.hot;});
+  if(!hotChs.length){hl.innerHTML='<div style="color:var(--muted);font-size:10px;">Aucune chaine HOT. Activez le HOT dans la liste des chaines.</div>';return;}
+  hl.innerHTML=hotChs.map(function(c){
+    return '<div class="sw-item">'
+      +'<span class="sw-icon">'+c.icon+'</span>'
+      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div><div class="sw-cat">'+c.cat+'</div></div>'
+      +'<div class="sw-actions">'
+      +'<button class="sw-btn sw-play" onclick="switchMain('+c.id+');renderEcransTab();">Player</button>'
+      +'<button class="sw-btn" style="background:var(--muted);color:#fff;" onclick="toggleHot('+c.id+');renderEcransTab();">Retirer HOT</button>'
+      +'</div></div>';
+  }).join("");
+}
+
+function toggleHot(id){
+  var ch=CHANNELS.find(function(c){return c.id===id;});
+  if(!ch)return;
+  ch.hot=!ch.hot;
+  renderTrend();
+  renderChGrid(document.querySelector(".fb2.active")?document.querySelector(".fb2.active").textContent.toLowerCase():"all");
+}
+
+function showEditForm(id, prefix){
+  var form=document.getElementById(prefix+"-"+id);
+  if(form) form.classList.toggle("show");
+}
+
+function saveEdit(id, prefix){
+  var ch=CHANNELS.find(function(c){return c.id===id;});
+  if(!ch)return;
+  var nameEl=document.getElementById("em-name-"+id);
+  var catEl=document.getElementById("em-cat-"+id);
+  var urlEl=document.getElementById("em-url-"+id);
+  var iconEl=document.getElementById("em-icon-"+id);
+  if(nameEl) ch.name=nameEl.value.trim()||ch.name;
+  if(catEl) ch.cat=catEl.value.trim().toLowerCase()||ch.cat;
+  if(urlEl) ch.url=urlEl.value.trim()||ch.url;
+  if(iconEl) ch.icon=iconEl.value.trim()||ch.icon;
+  // if this is the active channel, update player
+  if(ch.id===curMain.id){
+    document.getElementById("main-player").src=ch.url;
+    document.getElementById("main-label").textContent=ch.name;
+  }
+  if(ch.id===MINI[curMini].id||MINI.find(function(m){return m.url===ch.url;})){
+    var mi=MINI.findIndex(function(m){return m.name===ch.name;});
+    if(mi>=0){MINI[mi].name=ch.name;MINI[mi].url=ch.url;}
+  }
+  renderTrend();renderAdmList();renderEcransTab();
+  alert("Modifie avec succes !");
+}
+
+// ============================================================
+// TAB MINI PLAYER
+// ============================================================
+function renderMiniTab(){
+  var mn=MINI[curMini]||{name:"",icon:"📺"};
+  var ch=CHANNELS.find(function(c){return c.name===mn.name;})||{icon:"📺"};
+  document.getElementById("mini-active-name").textContent=mn.name;
+  document.getElementById("mini-active-icon").textContent=ch.icon||"📺";
+
+  // Mini switcher
+  var ms=document.getElementById("mini-switcher");
+  if(ms) ms.innerHTML=CHANNELS.map(function(c,i){
+    var inMini=MINI.findIndex(function(m){return m.name===c.name;});
+    var isActive=MINI[curMini]&&MINI[curMini].name===c.name;
+    return '<div class="sw-item'+(isActive?" sw-active":"")+'">'
+      +'<span class="sw-icon">'+c.icon+'</span>'
+      +'<div class="sw-info"><div class="sw-name">'+c.name+'</div><div class="sw-cat">'+c.cat+'</div></div>'
+      +'<div class="sw-actions">'
+      +(isActive?'<span class="sw-btn sw-play" style="background:var(--green);">ACTIF</span>'
+        :'<button class="sw-btn sw-play" onclick="setMiniFromAdmin(''+c.name+'',''+c.url+'',''+c.icon+'')">Mettre</button>')
+      +(inMini>=0
+        ?'<button class="sw-btn" style="background:var(--muted);color:#fff;" onclick="removeFromMini(''+c.name+'')">Retirer</button>'
+        :'<button class="sw-btn sw-hot" onclick="addToMini(''+c.name+'',''+c.url+'')">Ajouter</button>')
+      +'</div></div>';
+  }).join("");
+
+  // Mini order list
+  var ol=document.getElementById("mini-order-list");
+  if(ol) ol.innerHTML=MINI.map(function(m,i){
+    return '<div class="order-item">'
+      +'<span class="ord-num">'+(i+1)+'</span>'
+      +'<span style="flex:1;font-size:10px;font-weight:700;">'+m.name+'</span>'
+      +'<button class="ord-up" onclick="moveMini('+i+',-1)">▲</button>'
+      +'<button class="ord-dn" onclick="moveMini('+i+',1)">▼</button>'
+      +'<button class="adm-del" onclick="removeFromMini(''+m.name+'')">Suppr</button>'
+      +'</div>';
+  }).join("");
+}
+
+function setMiniFromAdmin(name,url,icon){
+  var idx=MINI.findIndex(function(m){return m.name===name;});
+  if(idx<0){MINI.unshift({name:name,url:url});idx=0;}
+  switchMini(idx);
+  document.getElementById("mini-active-name").textContent=name;
+  document.getElementById("mini-active-icon").textContent=icon;
+  renderMiniBar();
+  renderMiniTab();
+}
+function addToMini(name,url){
+  if(!MINI.find(function(m){return m.name===name;})){
+    MINI.push({name:name,url:url});
+    renderMiniBar();renderMiniTab();
+  }
+}
+function removeFromMini(name){
+  if(MINI.length<=1){alert("Il faut au moins une chaine dans le mini player !");return;}
+  var idx=MINI.findIndex(function(m){return m.name===name;});
+  if(idx>=0) MINI.splice(idx,1);
+  if(curMini>=MINI.length) curMini=0;
+  switchMini(curMini);
+  renderMiniBar();renderMiniTab();
+}
+function moveMini(i,dir){
+  var j=i+dir;
+  if(j<0||j>=MINI.length)return;
+  var tmp=MINI[i];MINI[i]=MINI[j];MINI[j]=tmp;
+  renderMiniBar();renderMiniTab();
+}
+
+// ============================================================
+// TAB ALERTES
+// ============================================================
+function renderAdmAlerts(){
+  document.getElementById("al-count").textContent=alerts.length;
+  var list=document.getElementById("adm-alert-list");
+  if(!list)return;
+  var icons={goal:"⚽ BUT",score:"📊 Score",brek:"🔴 BREAKING",news:"📺 News"};
+  if(!alerts.length){list.innerHTML='<div style="color:var(--muted);font-size:10px;padding:8px;">Aucune alerte envoyee.</div>';return;}
+  list.innerHTML=alerts.map(function(a,i){
+    return '<div class="sal-item '+a.type+'">'
+      +'<span style="font-size:10px;flex-shrink:0;">'+icons[a.type]+'</span>'
+      +'<span style="flex:1;font-size:9px;">'+a.text+'</span>'
+      +'<span style="font-size:8px;color:var(--muted);flex-shrink:0;">'+a.time+'</span>'
+      +'<button class="adm-del" onclick="delAlert('+i+')">x</button>'
+      +'</div>';
+  }).join("");
+}
+function delAlert(i){
+  alerts.splice(i,1);
+  renderAlerts();renderAdmAlerts();
+}
+
+// ============================================================
+// TAB SCORES
+// ============================================================
+function addScore(){
+  var league=document.getElementById("s-league").value.trim();
+  var teams=document.getElementById("s-teams").value.trim();
+  var score=document.getElementById("s-score").value.trim();
+  var min=parseInt(document.getElementById("s-min").value)||0;
+  var live=document.getElementById("s-live").checked;
+  if(!league||!teams||!score){alert("Ligue, equipes et score requis !");return;}
+  SCORES.push({league:league,teams:teams,score:score,min:min,live:live});
+  ["s-league","s-teams","s-score","s-min"].forEach(function(id){document.getElementById(id).value="";});
+  renderScores();renderLiveScores();renderAdmScores();
+  alert("Match ajoute !");
+}
+function renderAdmScores(){
+  document.getElementById("sc-count").textContent=SCORES.length;
+  var list=document.getElementById("adm-scores-list");
+  if(!list)return;
+  list.innerHTML=SCORES.map(function(s,i){
+    return '<div class="score-adm-item">'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:8px;font-weight:800;color:var(--gold);text-transform:uppercase;">'+s.league+'</div>'
+      +'<div style="font-size:10px;font-weight:700;">'+s.teams+'</div>'
+      +'</div>'
+      +'<span style="font-size:14px;font-weight:900;margin:0 8px;">'+s.score+'</span>'
+      +'<span style="font-size:8px;color:'+(s.live?"var(--green)":"var(--muted)")+';">'+(s.live?"🔴 "+s.min+"'":"FT")+'</span>'
+      +'<button class="adm-del" style="margin-left:6px;" onclick="delScore('+i+')">x</button>'
+      +'</div>';
+  }).join("");
+}
+function delScore(i){
+  SCORES.splice(i,1);renderScores();renderLiveScores();renderAdmScores();
+}
+
+// ============================================================
+// ENHANCED renderAdmList with edit buttons
+// ============================================================
+var admFilter="all";
+function filterAdmList(cat,btn){
+  admFilter=cat;
+  renderAdmList();
+}
+function renderAdmList(){
+  var list=document.getElementById("adm-list");if(!list)return;
+  var filtered=admFilter==="all"?CHANNELS:CHANNELS.filter(function(c){return c.cat===admFilter;});
+  document.getElementById("ch-count").textContent=CHANNELS.length;
+  if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:10px;padding:8px;">Aucune chaine dans cette categorie.</div>';return;}
+  list.innerHTML=filtered.map(function(c){
+    return '<div>'
+      +'<div class="adm-it">'
+      +'<span style="font-size:16px;">'+c.icon+'</span>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:10px;font-weight:800;">'+c.name+'</div>'
+      +'<div style="font-size:8px;color:var(--muted);">'+c.cat+(c.hot?' • <span style="color:var(--red);">HOT</span>':'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:3px;">'
+      +'<button class="sw-btn sw-play" style="font-size:8px;padding:2px 6px;" onclick="switchMain('+c.id+')">Player</button>'
+      +'<button class="sw-btn sw-hot" style="font-size:8px;padding:2px 6px;" onclick="toggleHot('+c.id+');renderAdmList();">'+(c.hot?"No HOT":"HOT")+'</button>'
+      +'<button class="sw-btn sw-edit" style="font-size:8px;padding:2px 6px;" onclick="toggleEditInline('+c.id+')">Modif</button>'
+      +'<button class="adm-del" onclick="delCh('+c.id+')">Suppr</button>'
+      +'</div>'
+      +'</div>'
+      +'<div class="edit-form" id="edit-inline-'+c.id+'">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'
+      +'<input class="adm-i" id="ei-name-'+c.id+'" value="'+c.name+'" placeholder="Nom">'
+      +'<input class="adm-i" id="ei-cat-'+c.id+'" value="'+c.cat+'" placeholder="Categorie">'
+      +'<input class="adm-i" id="ei-icon-'+c.id+'" value="'+c.icon+'" placeholder="Emoji">'
+      +'<input class="adm-i" id="ei-url-'+c.id+'" value="" placeholder="Nouvelle URL (laisser vide = garder)">'
+      +'</div>'
+      +'<div style="display:flex;gap:5px;margin-top:5px;">'
+      +'<button class="adm-btn" style="flex:1;margin:0;" onclick="saveInlineEdit('+c.id+')">Sauvegarder</button>'
+      +'<button style="padding:0 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer;font-size:10px;" onclick="toggleEditInline('+c.id+')">Annuler</button>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join("");
+}
+function toggleEditInline(id){
+  var form=document.getElementById("edit-inline-"+id);
+  if(form) form.classList.toggle("show");
+}
+function saveInlineEdit(id){
+  var ch=CHANNELS.find(function(c){return c.id===id;});if(!ch)return;
+  var n=document.getElementById("ei-name-"+id);
+  var cat=document.getElementById("ei-cat-"+id);
+  var icon=document.getElementById("ei-icon-"+id);
+  var url=document.getElementById("ei-url-"+id);
+  if(n&&n.value.trim()) ch.name=n.value.trim();
+  if(cat&&cat.value.trim()) ch.cat=cat.value.trim().toLowerCase();
+  if(icon&&icon.value.trim()) ch.icon=icon.value.trim();
+  if(url&&url.value.trim()){
+    ch.url=url.value.trim();
+    if(ch.id===curMain.id){document.getElementById("main-player").src=ch.url;}
+    var mi=MINI.findIndex(function(m){return m.name===ch.name;});
+    if(mi>=0) MINI[mi].url=ch.url;
+  }
+  renderTrend();renderGrid("all");renderMiniBar();renderAdmList();
+  alert("Chaine modifiee !");
+}
+
 init();
 </script>
 </body>
