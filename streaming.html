@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!-- PST Stream v5 - 202605041322-->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -328,7 +328,7 @@ nav{display:flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(4,6
     <div class="c-list" id="c-list"></div>
     <div class="c-inp">
       <input class="c-fn" id="cm-name" placeholder="Prenom" maxlength="20">
-      <textarea class="c-tf" id="cm-text" placeholder="Commentaire..." rows="2" maxlength="200"></textarea>
+      <textarea class="c-tf" id="cm-text" placeholder="Commentaire..." rows="2" maxlength="200" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCmt();}"></textarea>
       <button class="c-send" onclick="sendCmt()">→</button>
     </div>
   </div>
