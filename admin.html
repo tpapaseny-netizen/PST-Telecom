@@ -2406,6 +2406,7 @@ async function npCharger(){
       html+='<div style="display:flex;gap:5px;flex-wrap:wrap">';
       html+='<button data-url="'+lien+'" onclick="npCopyUrl(this)" style="padding:5px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier lien</button>';
       html+='<button data-url="'+lien+'" onclick="npOpenUrl(this)" style="padding:5px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir NOC</button>';
+      html+='<button data-code="'+cl.code+'" data-nom="'+cl.nom+'" onclick="npAssigner(this)" style="padding:5px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:5px;color:#f59e0b;font-size:11px;cursor:pointer">Assigner cameras</button>';
       html+='<button data-nid="'+cl._id+'" onclick="npSuppBtn(this)" style="padding:5px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">Suppr.</button>';
       html+='</div></div></div>';
     }
@@ -2428,6 +2429,49 @@ function npOpenUrl(btn){
 }
 function npSuppBtn(btn){
   npSupp(btn.getAttribute('data-nid'));
+}
+
+
+function npAssigner(btn){
+  var code=btn.getAttribute('data-code');
+  var nom=btn.getAttribute('data-nom');
+  // Show modal to assign cameras
+  fetch(API+'/api/noc/cameras?token=pst-admin-2026')
+  .then(function(r){return r.json();})
+  .then(function(cams){
+    var modal=document.createElement('div');
+    modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center';
+    var camList=Array.isArray(cams)?cams:[];
+    var opts=camList.map(function(cam){
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer"><input type="checkbox" value="'+cam._id+'" style="width:16px;height:16px"> <span style="font-size:13px;color:#e2e8f0">'+cam.name+'</span><span style="font-size:11px;color:#64748b;margin-left:4px">'+(cam.client||'Sans client')+'</span></label>';
+    }).join('');
+    modal.innerHTML='<div style="background:#0d1117;border:1px solid rgba(0,212,255,0.3);border-radius:16px;padding:24px;max-width:460px;width:90%;font-family:system-ui;max-height:80vh;overflow-y:auto">'+
+      '<div style="font-size:16px;font-weight:700;color:#00d4ff;margin-bottom:4px">Assigner cameras a :</div>'+
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">'+nom+' ('+code+')</div>'+
+      '<div id="cam-checks" style="margin-bottom:16px">'+opts+'</div>'+
+      '<div style="display:flex;gap:8px">'+
+      '<button onclick="npDoAssigner(this,''+code+'',''+nom+'')" style="padding:10px 16px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer;font-size:13px">Assigner</button>'+
+      '<button onclick="this.closest('div[style*=position]').remove()" style="padding:10px 16px;background:transparent;border:1px solid #1e2a3a;border-radius:8px;color:#64748b;cursor:pointer;font-size:13px">Annuler</button>'+
+      '</div></div>';
+    document.body.appendChild(modal);
+  });
+}
+
+async function npDoAssigner(btn, code, nom){
+  var checks=[].slice.call(btn.closest('div').previousElementSibling.querySelectorAll('input:checked'));
+  var ids=checks.map(function(c){return c.value;});
+  if(!ids.length){alert('Selectionnez au moins une camera');return;}
+  btn.textContent='En cours...';btn.disabled=true;
+  for(var i=0;i<ids.length;i++){
+    await fetch(API+'/api/noc/cameras/'+ids[i]+'/assigner?token=pst-admin-2026',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({clientCode:code,clientName:nom})
+    });
+  }
+  btn.closest('div[style*=position]').remove();
+  showToast(ids.length+' camera(s) assignee(s) a '+nom);
+  npCharger();
 }
 
 </script>

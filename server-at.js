@@ -2143,6 +2143,23 @@ app.get('/api/noc/cameras/client/:code', async (req, res) => {
   } catch(e) { res.json([]); }
 });
 
+
+// Assigner une camera a un client NOC
+app.put('/api/noc/cameras/:id/assigner', async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'DB non disponible' });
+    const { ObjectId } = require('mongodb');
+    let oid;
+    try { oid = new ObjectId(req.params.id); } catch(e) { return res.status(400).json({ error: 'ID invalide' }); }
+    const { clientCode, clientName } = req.body;
+    await db.collection('noc_cameras').updateOne(
+      { _id: oid },
+      { $set: { clientCode, client: clientName, updatedAt: new Date() } }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 connectDB().then(() => {
 
   // Routes sécurité admin

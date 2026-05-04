@@ -303,7 +303,11 @@ function renderGrid(){
   const grid=document.getElementById('grid');
   const cams=getFiltered();
   if(!cams.length){
-    grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera</h3><p>Cliquez sur Ajouter pour ajouter votre premiere camera.</p><button class="empty-add" onclick="openModal()">+ Ajouter une camera</button></div>';
+    if(IS_ADMIN){
+      grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera</h3><p>Cliquez sur Ajouter pour ajouter votre premiere camera.</p><button class="empty-add" onclick="openModal()">+ Ajouter une camera</button></div>';
+    } else {
+      grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera configuree</h3><p>Vos cameras ne sont pas encore configurees. Contactez PST Telecom au +221 77 152 09 59.</p></div>';
+    }
     return;
   }
   const existingIds=new Set([...grid.querySelectorAll('.cam-card')].map(el=>el.id.replace('card-','')));
