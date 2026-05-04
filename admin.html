@@ -2404,9 +2404,9 @@ async function npCharger(){
       html+='<div style="font-size:10px;color:var(--muted)">'+fl+'</div>';
       html+='<div style="font-size:10px;color:var(--muted)">Max '+limite+' cameras • '+dateStr+'</div></div>';
       html+='<div style="display:flex;gap:5px;flex-wrap:wrap">';
-      html+='<button data-url="'+lien+'" onclick="var u=this.getAttribute('data-url');navigator.clipboard.writeText(u).then(function(){showToast('Lien copie!');})" style="padding:5px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier lien</button>';
-      html+='<button data-url="'+lien+'" onclick="window.open(this.getAttribute('data-url'),'_blank')" style="padding:5px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir NOC</button>';
-      html+='<button data-nid="'+cl._id+'" onclick="npSupp(this.getAttribute('data-nid'))" style="padding:5px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">Suppr.</button>';
+      html+='<button data-url="'+lien+'" onclick="npCopyUrl(this)" style="padding:5px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier lien</button>';
+      html+='<button data-url="'+lien+'" onclick="npOpenUrl(this)" style="padding:5px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir NOC</button>';
+      html+='<button data-nid="'+cl._id+'" onclick="npSuppBtn(this)" style="padding:5px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">Suppr.</button>';
       html+='</div></div></div>';
     }
     liste.innerHTML=html;
@@ -2416,6 +2416,18 @@ async function npSupp(id){
   if(!confirm('Supprimer ce client NOC?'))return;
   await fetch(API+'/api/noc/clients/'+id+'?token=pst-admin-2026',{method:'DELETE'});
   npCharger();
+}
+
+
+function npCopyUrl(btn){
+  var u=btn.getAttribute('data-url');
+  navigator.clipboard.writeText(u).then(function(){showToast('Lien copie!');});
+}
+function npOpenUrl(btn){
+  window.open(btn.getAttribute('data-url'),'_blank');
+}
+function npSuppBtn(btn){
+  npSupp(btn.getAttribute('data-nid'));
 }
 
 </script>
