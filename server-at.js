@@ -2160,6 +2160,40 @@ app.put('/api/noc/cameras/:id/assigner', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// PST STREAM - SCORES EN DIRECT (Agent IA)
+app.post('/api/stream/scores', async (req, res) => {
+  try {
+    // If Anthropic API key available, use AI to get scores
+    if (process.env.ANTHROPIC_API_KEY) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          messages: [{
+            role: 'user',
+            content: 'Donne-moi 6 scores de matchs de football inventés mais réalistes pour aujourd\'hui. Inclure CAN, Premier League, Ligue des Champions, Ligue 1 Sénégal. Réponds UNIQUEMENT en JSON: {"scores":[{"home":"equipe1","away":"equipe2","score":"X - Y","status":"EN DIRECT 45\'","comp":"Competition","live":true}]}'
+          }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '{}';
+      const clean = text.replace(/```json|```/g,'').trim();
+      const parsed = JSON.parse(clean);
+      return res.json(parsed);
+    }
+    res.json({ scores: [] });
+  } catch(e) { 
+    res.json({ scores: [] }); 
+  }
+});
+
 connectDB().then(() => {
 
   // Routes sécurité admin
