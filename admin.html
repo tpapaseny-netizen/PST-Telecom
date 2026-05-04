@@ -1418,6 +1418,7 @@ setInterval(loadNocStatus, 60000);
 
 <script>
 const API = 'https://pst-telecom-production.up.railway.app';
+const TOKEN = 'pst-admin-2026';
 const WAVE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
 const FORFAIT_PRICES = { starter: 2990, smart: 5990, business: 15990 };
 
@@ -2370,39 +2371,50 @@ document.body.appendChild(modal);
 }
 async function npCharger(){
   try{
-    var r=await fetch(API+'/api/noc/clients/liste?token='+TOKEN);
+    var r=await fetch(API+'/api/noc/clients/liste?token=pst-admin-2026');
+    if(!r.ok){
+      document.getElementById('noc-liste').innerHTML='<div style="padding:20px;text-align:center;color:#ef4444">Erreur: '+r.status+'</div>';
+      return;
+    }
     var cls=await r.json();
     document.getElementById('noc-cli-total').textContent=cls.length;
     document.getElementById('noc-cli-actifs').textContent=cls.filter(function(x){return x.statut!='inactif';}).length;
-    var cr=await fetch(API+'/api/noc/cameras?token='+TOKEN);
-    var cams=await cr.json();
+    var cr=await fetch(API+'/api/noc/cameras?token=pst-admin-2026');
+    var cams=[];try{cams=await cr.json();}catch(e){}
     document.getElementById('noc-cli-cameras').textContent=Array.isArray(cams)?cams.length:0;
     var liste=document.getElementById('noc-liste');
-    if(!cls.length){liste.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC</div>';return;}
-    var lb2={'noc-starter':'Starter 15K','noc-pro':'Pro 35K','noc-business':'Business 75K','noc-entreprise':'Entreprise 150K'};
+    if(!cls.length){liste.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted)">Aucun client NOC - creez le premier</div>';return;}
+    var lb2={'noc-starter':'Starter 4cam/15K','noc-pro':'Pro 10cam/35K','noc-business':'Business 30cam/75K','noc-entreprise':'Illimite/150K'};
+    var limites={'noc-starter':4,'noc-pro':10,'noc-business':30,'noc-entreprise':999};
     var html='';
     for(var i=0;i<cls.length;i++){
       var cl=cls[i];
       var lien=window.location.origin+'/noc?token='+cl.code;
       var fl=lb2[cl.forfait]||cl.forfait;
       var bg=cl.statut=='inactif'?'#ef4444':'#00e676';
-      html+='<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);flex-wrap:wrap">';
+      var limite=limites[cl.forfait]||4;
+      var dateStr=cl.createdAt?new Date(cl.createdAt).toLocaleDateString('fr-FR'):'';
+      html+='<div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04)">';
+      html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
       html+='<div style="width:8px;height:8px;border-radius:50%;background:'+bg+';flex-shrink:0"></div>';
-      html+='<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:600">'+cl.nom+'</div>';
-      html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+' - '+fl+'</div></div>';
-      html+='<div style="font-size:11px;color:var(--accent);font-family:monospace">'+cl.code+'</div>';
-      html+='<div style="display:flex;gap:6px">';
-      html+='<button data-url="'+lien+'" onclick="navigator.clipboard.writeText(this.getAttribute(String.fromCharCode(100,97,116,97,45,117,114,108))).then(function(){showToast(String.fromCharCode(67,111,112,105,233))})" style="padding:4px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier</button>';
-      html+='<button data-url="'+lien+'" onclick="window.open(this.getAttribute(String.fromCharCode(100,97,116,97,45,117,114,108)))" style="padding:4px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir</button>';
-      html+='<button data-nid="'+cl._id+'" onclick="npSupp(this.getAttribute(String.fromCharCode(100,97,116,97,45,110,105,100)))" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">X</button>';
-      html+='</div></div>';
+      html+='<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:700">'+cl.nom+'</div>';
+      html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+(cl.email?' • '+cl.email:'')+'</div></div>';
+      html+='<div style="text-align:right;min-width:120px">';
+      html+='<div style="font-size:11px;font-weight:700;color:#00d4ff;font-family:monospace">'+cl.code+'</div>';
+      html+='<div style="font-size:10px;color:var(--muted)">'+fl+'</div>';
+      html+='<div style="font-size:10px;color:var(--muted)">Max '+limite+' cameras • '+dateStr+'</div></div>';
+      html+='<div style="display:flex;gap:5px;flex-wrap:wrap">';
+      html+='<button data-url="'+lien+'" onclick="var u=this.getAttribute('data-url');navigator.clipboard.writeText(u).then(function(){showToast('Lien copie!');})" style="padding:5px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier lien</button>';
+      html+='<button data-url="'+lien+'" onclick="window.open(this.getAttribute('data-url'),'_blank')" style="padding:5px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir NOC</button>';
+      html+='<button data-nid="'+cl._id+'" onclick="npSupp(this.getAttribute('data-nid'))" style="padding:5px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#ef4444;font-size:11px;cursor:pointer">Suppr.</button>';
+      html+='</div></div></div>';
     }
     liste.innerHTML=html;
   }catch(e){console.error(e);}
 }
 async function npSupp(id){
   if(!confirm('Supprimer ce client NOC?'))return;
-  await fetch(API+'/api/noc/clients/'+id+'?token='+TOKEN,{method:'DELETE'});
+  await fetch(API+'/api/noc/clients/'+id+'?token=pst-admin-2026',{method:'DELETE'});
   npCharger();
 }
 

@@ -2110,6 +2110,39 @@ global.autoFactureOnPayment = autoFactureOnPayment;
 console.log('Agent Facturation pret');
 
 
+
+// Historique NOC
+app.get('/api/noc/historique', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const hist = await db.collection('noc_historique')
+      .find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(hist);
+  } catch(e) { res.json([]); }
+});
+
+
+// GET cameras d un client specifique par son code NOC
+app.get('/api/noc/cameras/client/:code', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const code = req.params.code;
+    const client = await db.collection('noc_clients').findOne({ code });
+    if (!client) return res.status(401).json({ error: 'Code invalide' });
+    const limites = { 'noc-starter': 4, 'noc-pro': 10, 'noc-business': 30, 'noc-entreprise': 999 };
+    const limite = limites[client.forfait] || 4;
+    const cameras = await db.collection('noc_cameras')
+      .find({ $or: [{ client: client.nom }, { clientCode: code }] })
+      .sort({ createdAt: -1 }).limit(limite).toArray();
+    await db.collection('noc_historique').insertOne({
+      clientCode: code, clientNom: client.nom,
+      action: 'connexion', camerasVues: cameras.length,
+      createdAt: new Date()
+    });
+    res.json(cameras);
+  } catch(e) { res.json([]); }
+});
+
 connectDB().then(() => {
 
   // Routes sécurité admin
