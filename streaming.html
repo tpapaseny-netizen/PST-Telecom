@@ -208,6 +208,41 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 .cm-info strong{display:block;font-size:10px;}
 .cm-info span{font-size:8px;color:var(--muted);}
 .cm-close{background:var(--red);color:#fff;border:none;border-radius:6px;padding:8px;font-weight:700;cursor:pointer;margin-top:4px;width:100%;font-size:10px;}
+
+/* ZOOM MODAL */
+#zoom-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:400;flex-direction:column;}
+#zoom-modal.open{display:flex;animation:fadeIn .2s;}
+.zoom-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.zoom-ch-name{font-size:14px;font-weight:900;color:#fff;flex:1;}
+.zoom-close{background:var(--red);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:800;font-size:13px;}
+.zoom-body{display:flex;flex:1;overflow:hidden;}
+.zoom-player{flex:1;background:#000;position:relative;}
+.zoom-player iframe{width:100%;height:100%;border:none;display:block;}
+.zoom-side{width:320px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;}
+@media(max-width:800px){.zoom-body{flex-direction:column;}.zoom-side{width:100%;height:200px;border-left:none;border-top:1px solid var(--border);}}
+.zoom-side-hdr{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.zoom-side-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.zoom-inter-bar{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.zoom-inter-btn{display:flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700;color:#fff;transition:.2s;flex:1;justify-content:center;}
+.zoom-inter-btn:hover{border-color:var(--green);}
+.zoom-inter-btn.liked{background:rgba(230,57,70,.2);border-color:var(--red);color:var(--red);}
+.zoom-cmts{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;}
+.zoom-cmt{display:flex;gap:6px;}
+.zoom-cmt-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--blue));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;color:#fff;}
+.zoom-cmt-body{background:var(--bg3);border-radius:8px;padding:5px 9px;flex:1;}
+.zoom-cmt-name{font-size:9px;font-weight:800;color:var(--cyan);}
+.zoom-cmt-text{font-size:10px;color:var(--text);margin-top:2px;line-height:1.4;}
+.zoom-inp{padding:8px;border-top:1px solid var(--border);display:flex;gap:5px;flex-shrink:0;}
+.zoom-fn{width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);font-size:11px;}
+.zoom-tf{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);font-size:11px;resize:none;}
+.zoom-fn:focus,.zoom-tf:focus{outline:none;border-color:var(--green);}
+.zoom-send{background:var(--green);color:#fff;border:none;border-radius:7px;padding:7px 12px;cursor:pointer;font-size:14px;font-weight:800;}
+.zoom-share-bar{display:flex;gap:4px;padding:6px 8px;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.zsb{padding:4px 10px;border-radius:5px;border:none;font-size:9px;font-weight:700;cursor:pointer;}
+.zsb.fb{background:#1877f2;color:#fff;}
+.zsb.wa{background:#25d366;color:#fff;}
+.zsb.tg{background:#2ca5e0;color:#fff;}
+.zsb.cp{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -558,21 +593,97 @@ function renderGrid() {
   updateCounts();
 }
 
+var activeZoomId = null;
+
 function selectCam(id) {
-  document.querySelectorAll(".cam-card").forEach(function(el){
-    var isThis = el.id==="cam-"+id;
-    el.classList.toggle("selected", isThis);
-    // enable iframe interaction when selected
-    var iframe = el.querySelector("iframe");
-    if(iframe) iframe.style.pointerEvents = isThis?"auto":"none";
-  });
+  // Open zoom modal directly
+  openZoom(id);
 }
 
 function openFull(id) {
+  openZoom(id);
+}
+
+function openZoom(id) {
   var ch = CHANNELS.find(function(c){return c.id===id;});
   if (!ch) return;
-  window.open(ch.url.replace("autoplay=1&mute=1","autoplay=1"), "_blank");
+  activeZoomId = id;
+  document.getElementById("zoom-ch-name").textContent = ch.name;
+  document.getElementById("zoom-ch-cat").textContent = ch.cat;
+  document.getElementById("zoom-iframe").src = ch.url.replace("mute=1","mute=0");
+  document.getElementById("zoom-likes").textContent = ch.likes;
+  document.getElementById("zoom-like-btn").classList.toggle("liked", !!likedChannels[id]);
+  renderZoomCmts(ch);
+  document.getElementById("zoom-modal").classList.add("open");
 }
+
+function closeZoom() {
+  document.getElementById("zoom-modal").classList.remove("open");
+  document.getElementById("zoom-iframe").src = "";
+  activeZoomId = null;
+}
+
+function renderZoomCmts(ch) {
+  var list = document.getElementById("zoom-cmts");
+  if (!ch.comments.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:11px;text-align:center;padding:20px;">Soyez le premier à commenter !</div>';
+    return;
+  }
+  list.innerHTML = ch.comments.map(function(cm){
+    return '<div class="zoom-cmt"><div class="zoom-cmt-av">'+cm.name[0].toUpperCase()+'</div>'
+      +'<div class="zoom-cmt-body"><div class="zoom-cmt-name">'+cm.name+'</div>'
+      +'<div class="zoom-cmt-text">'+cm.text+'</div></div></div>';
+  }).join("");
+  list.scrollTop = list.scrollHeight;
+}
+
+function zoomLike() {
+  if (!activeZoomId) return;
+  var ch = CHANNELS.find(function(c){return c.id===activeZoomId;});
+  if (!ch) return;
+  if (likedChannels[activeZoomId]) {
+    ch.likes = Math.max(0, ch.likes-1);
+    delete likedChannels[activeZoomId];
+  } else {
+    ch.likes++;
+    likedChannels[activeZoomId] = true;
+    burstEmoji("❤️");
+  }
+  document.getElementById("zoom-likes").textContent = ch.likes;
+  document.getElementById("zoom-like-btn").classList.toggle("liked", !!likedChannels[activeZoomId]);
+  var el = document.getElementById("likes-"+activeZoomId);
+  if (el) el.textContent = ch.likes;
+  updateSideStats();
+}
+
+function zoomSubmitCmt() {
+  if (!activeZoomId) return;
+  var ch = CHANNELS.find(function(c){return c.id===activeZoomId;});
+  if (!ch) return;
+  var name = document.getElementById("zoom-name").value.trim() || "Visiteur";
+  var text = document.getElementById("zoom-text").value.trim();
+  if (!text) return;
+  ch.comments.push({name:name, text:text});
+  document.getElementById("zoom-text").value = "";
+  renderZoomCmts(ch);
+  var el = document.getElementById("cmts-"+activeZoomId);
+  if (el) el.textContent = ch.comments.length;
+  totalCmts++;
+  updateSideStats();
+}
+
+function zoomShare(type) {
+  var ch = CHANNELS.find(function(c){return c.id===activeZoomId;});
+  var name = ch ? ch.name : "PST STREAM";
+  var url = location.href;
+  var text = "Regardez "+name+" en direct sur PST STREAM ! ";
+  if (type==="fb") window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(url),"_blank");
+  else if (type==="wa") window.open("https://wa.me/?text="+encodeURIComponent(text+url),"_blank");
+  else if (type==="tg") window.open("https://t.me/share/url?url="+encodeURIComponent(url)+"&text="+encodeURIComponent(text),"_blank");
+  else if (type==="copy") { navigator.clipboard.writeText(url).then(function(){alert("Lien copié !");}).catch(function(){prompt("Copiez:",url);}); }
+}
+
+function zoomShareWA() { zoomShare("wa"); }
 
 // ============================================================
 // INTERACTIONS
@@ -771,6 +882,7 @@ function startAutoCmts() {
     if (el) el.textContent = ch.comments.length;
     totalCmts++;
     if (activeCmtId===ch.id) renderCmtList(ch);
+    if (activeZoomId===ch.id) renderZoomCmts(ch);
     updateSideStats();
   }, 5000);
 }
@@ -813,7 +925,7 @@ document.getElementById("logo-click").addEventListener("click",function(){
 });
 document.addEventListener("keydown",function(e){
   if(e.ctrlKey&&e.shiftKey&&(e.key==="A"||e.key==="a")) openLogin();
-  if(e.key==="Escape"){closeLogin();closeContact();closeCmtPopup();closeSharePopup();}
+  if(e.key==="Escape"){closeLogin();closeContact();closeCmtPopup();closeSharePopup();closeZoom();}
   if(e.key==="Enter"&&document.getElementById("login-modal").classList.contains("open")) checkLogin();
 });
 function openLogin(){
@@ -953,5 +1065,42 @@ function renderStats(){
 
 init();
 </script>
+
+<!-- ZOOM MODAL -->
+<div id="zoom-modal">
+  <div class="zoom-hdr">
+    <span class="live-dot" style="font-size:9px;padding:2px 8px;">EN DIRECT</span>
+    <span class="zoom-ch-name" id="zoom-ch-name">RTS1</span>
+    <span id="zoom-ch-cat" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:var(--muted);margin-right:8px;"></span>
+    <button class="zoom-close" onclick="closeZoom()">✕ Fermer</button>
+  </div>
+  <div class="zoom-body">
+    <div class="zoom-player">
+      <iframe id="zoom-iframe" src="" allow="autoplay;encrypted-media;fullscreen" allowfullscreen></iframe>
+    </div>
+    <div class="zoom-side">
+      <div class="zoom-side-hdr">
+        <div class="zoom-side-title">💬 Commentaires live</div>
+      </div>
+      <div class="zoom-inter-bar">
+        <button class="zoom-inter-btn" id="zoom-like-btn" onclick="zoomLike()">❤️ <span id="zoom-likes">0</span> J'aime</button>
+        <button class="zoom-inter-btn" onclick="zoomShareWA()">📤 Partager</button>
+      </div>
+      <div class="zoom-cmts" id="zoom-cmts"></div>
+      <div class="zoom-inp">
+        <input class="zoom-fn" id="zoom-name" placeholder="Prénom" maxlength="20">
+        <textarea class="zoom-tf" id="zoom-text" placeholder="Commentaire..." rows="2" maxlength="200"></textarea>
+        <button class="zoom-send" onclick="zoomSubmitCmt()">→</button>
+      </div>
+      <div class="zoom-share-bar">
+        <button class="zsb fb" onclick="zoomShare('fb')">📘 Facebook</button>
+        <button class="zsb wa" onclick="zoomShare('wa')">💬 WhatsApp</button>
+        <button class="zsb tg" onclick="zoomShare('tg')">✈️ Telegram</button>
+        <button class="zsb cp" onclick="zoomShare('copy')">🔗 Copier</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
