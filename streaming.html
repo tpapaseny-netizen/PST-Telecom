@@ -247,6 +247,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 .zsb.tg{background:#2ca5e0;color:#fff;}
 .zsb.cp{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
 
@@ -260,7 +261,6 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="nfb" onclick="filterCat(event,'sport')">🏆 Sport</button>
     <button class="nfb" onclick="filterCat(event,'musique')">🎵 Musique</button>
     <button class="nfb" onclick="filterCat(event,'monde')">🌍 Monde</button>
-    <button class="nfb" onclick="filterCat(event,'docu')">🎬 Docu</button>
   </div>
   <div class="nav-right">
     <button id="admin-btn" class="nb" onclick="openAdmin()">⚙️ Admin</button>
@@ -296,7 +296,6 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="cat-btn" onclick="filterSide(event,'sport')"><span class="cat-icon">🏆</span>Sport<span class="cat-count" id="cnt-sport">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'musique')"><span class="cat-icon">🎵</span>Musique<span class="cat-count" id="cnt-musique">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'monde')"><span class="cat-icon">🌍</span>Monde<span class="cat-count" id="cnt-monde">0</span></button>
-    <button class="cat-btn" onclick="filterSide(event,'docu')"><span class="cat-icon">🎬</span>Documentaire<span class="cat-count" id="cnt-docu">0</span></button>
   </div>
   <div class="sidebar-sec" style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px;">
     <div class="sidebar-title">Stats live</div>
@@ -483,65 +482,19 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 // ============================================================
 // DATA
 // ============================================================
-var CHANNELS = [
-  {id:1,name:"RTS1",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:2,name:"France 24",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:3,name:"Euronews",cat:"news",icon:"📡",url:"https://www.youtube.com/embed/NiRIbKwAejk?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:4,name:"BeIN Sports",cat:"foot",icon:"⚽",url:"https://www.youtube.com/embed/p_ahFAilh9I?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:5,name:"Walf TV",cat:"news",icon:"🇸🇳",url:"https://www.youtube.com/embed/e4GtRZCJln0?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:6,name:"TFM",cat:"news",icon:"🎬",url:"https://www.youtube.com/embed/xLAs3tXpjlw?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:7,name:"RFI",cat:"news",icon:"📻",url:"https://www.youtube.com/embed/FI_AHUs2SjM?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:8,name:"Match Live",cat:"foot",icon:"🏟️",url:"https://www.youtube.com/embed/mwImx5LjFcY?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:9,name:"PST Live 1",cat:"foot",icon:"🎯",url:"https://www.youtube.com/embed/l8PMl7tUDIE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:10,name:"Arryadia",cat:"sport",icon:"🏆",url:"https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8",hot:false,likes:0,comments:[]},
-  {id:11,name:"Info Monde",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/NG7ZX42nZKc?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:12,name:"Lofi Music",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
+var CHANNELS = [];
 
-  // ===== NEWS SENEGAL & AFRIQUE =====
-  {id:13,name:"TFM Live",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/xLAs3tXpjlw?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:14,name:"Walf TV",cat:"news",icon:"🇸🇳",url:"https://www.youtube.com/embed/e4GtRZCJln0?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:15,name:"RFI Monde",cat:"news",icon:"📻",url:"https://www.youtube.com/embed/FI_AHUs2SjM?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:16,name:"DW Francais",cat:"news",icon:"🇩🇪",url:"https://www.youtube.com/embed/fSL_8cRm7Q0?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:17,name:"TV5 Monde",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/zSzDJRDVnkc?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:18,name:"Africa News",cat:"news",icon:"🌍",url:"https://www.youtube.com/embed/KHriZMzUwOQ?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:19,name:"Al Jazeera FR",cat:"news",icon:"🌐",url:"https://www.youtube.com/embed/h3MuIUNCCLI?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:20,name:"LCI",cat:"news",icon:"📡",url:"https://www.youtube.com/embed/nGHJJb1VtKk?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:21,name:"BFMTV",cat:"news",icon:"📺",url:"https://www.youtube.com/embed/3n1_T7bG-3k?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:22,name:"France Info",cat:"news",icon:"🗞️",url:"https://www.youtube.com/embed/m4XGBdxfcJU?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:23,name:"Sky News",cat:"news",icon:"🇬🇧",url:"https://www.youtube.com/embed/9Auq9mYxFEE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:24,name:"DW English",cat:"news",icon:"📰",url:"https://www.youtube.com/embed/pqabxBRzrb0?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:25,name:"CGTN Francais",cat:"news",icon:"🇨🇳",url:"https://www.youtube.com/embed/SkCT7MBSRPA?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:26,name:"VOA Afrique",cat:"news",icon:"📢",url:"https://www.youtube.com/embed/CoXeQxvFLEg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-
-  // ===== SPORT & FOOT =====
-  {id:30,name:"Match Live 2",cat:"foot",icon:"⚽",url:"https://www.youtube.com/embed/mwImx5LjFcY?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:31,name:"Arryadia",cat:"sport",icon:"🏆",url:"https://cdn.live.easybroadcast.io/ts_corp/73_arryadia-tnt_zcmwjdc/playlist_dvr.m3u8",hot:false,likes:0,comments:[]},
-  {id:32,name:"Sport News",cat:"sport",icon:"🏅",url:"https://www.youtube.com/embed/bDbU-VOzPQw?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:33,name:"Foot Africa",cat:"foot",icon:"🥅",url:"https://www.youtube.com/embed/E4bQIBcbTNE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:34,name:"Sport 24",cat:"sport",icon:"🎽",url:"https://www.youtube.com/embed/FcQEs2KsPR8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-
-  // ===== DOCUMENTAIRE =====
-  {id:40,name:"Nat Geo Free",cat:"docu",icon:"🌿",url:"https://www.youtube.com/embed/videoseries?list=PLivjPDlt4VnvQfHFT_-kRn3OjqCEnKiIf&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:41,name:"Docu History",cat:"docu",icon:"🏛️",url:"https://www.youtube.com/embed/videoseries?list=PLtxHFp8LLdMhsUKZ-sFCQFi3OX1oG4b_j&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:42,name:"Science Live",cat:"docu",icon:"🔬",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:43,name:"Nature & Wild",cat:"docu",icon:"🦁",url:"https://www.youtube.com/embed/uCDCHZFNPj8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:44,name:"Space & NASA",cat:"docu",icon:"🚀",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:45,name:"Histoire TV",cat:"docu",icon:"📜",url:"https://www.youtube.com/embed/inXC_lab-34?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-
-  // ===== MUSIQUE =====
-  {id:50,name:"Lofi Beats",cat:"musique",icon:"🎵",url:"https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:51,name:"Afrobeats Live",cat:"musique",icon:"🎶",url:"https://www.youtube.com/embed/PGCQ7leWHyY?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:52,name:"Mbalax Radio",cat:"musique",icon:"🥁",url:"https://www.youtube.com/embed/Ir6BMKTqCf8?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:53,name:"Jazz 24/7",cat:"musique",icon:"🎷",url:"https://www.youtube.com/embed/Dx5qFachd3A?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:54,name:"Chill Radio",cat:"musique",icon:"🎸",url:"https://www.youtube.com/embed/wyWA7x3RjFE?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:55,name:"Gospel Live",cat:"musique",icon:"🙏",url:"https://www.youtube.com/embed/g8YRNjqIU4k?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-
-  // ===== MONDE =====
-  {id:60,name:"NASA Live",cat:"monde",icon:"🚀",url:"https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1",hot:true,likes:0,comments:[]},
-  {id:61,name:"Parlement EU",cat:"monde",icon:"🇪🇺",url:"https://www.youtube.com/embed/live_stream?channel=UCmDOMonkLT2uFaahk3BXGCQ&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:62,name:"ONU Live",cat:"monde",icon:"🌐",url:"https://www.youtube.com/embed/videoseries?list=PLtxHFp8LLdMhNKrqCcFo5d-4hCWJFAUa-&autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-  {id:63,name:"Cooking World",cat:"monde",icon:"🍳",url:"https://www.youtube.com/embed/F7bE_khTRWY?autoplay=1&mute=1",hot:false,likes:0,comments:[]},
-];
+// === PERSISTANCE LOCALSTORAGE ===
+function saveChannels() {
+  localStorage.setItem("pst_channels", JSON.stringify(CHANNELS));
+}
+function loadChannels() {
+  var saved = localStorage.getItem("pst_channels");
+  if(saved) {
+    try { CHANNELS = JSON.parse(saved); } catch(e) { CHANNELS = []; }
+  }
+}
+loadChannels();
 
 var SCORES = [
   {lg:"CAN 2026",tm:"SEN vs MAR",sc:"2 - 0",mn:87,live:true},
@@ -552,6 +505,7 @@ var SCORES = [
 
 var ALERTS = [];
 var curCat = "all";
+var curPays = null;
 var curGrid = 2;
 var totalReacts = 0;
 var totalCmts = 0;
@@ -593,6 +547,7 @@ function setGrid(n, btn) {
 
 function filterCat(e, cat) {
   curCat = cat;
+  curPays = null;
   document.querySelectorAll(".nfb").forEach(function(b){b.classList.remove("active");});
   e.target.classList.add("active");
   // sync sidebar
@@ -602,8 +557,16 @@ function filterCat(e, cat) {
   renderGrid();
 }
 
+function filterPays(pays) {
+  curCat = "all";
+  curPays = pays;
+  document.querySelectorAll(".cat-btn").forEach(function(b){b.classList.remove("active");});
+  document.querySelectorAll(".nfb").forEach(function(b){b.classList.remove("active");});
+  renderGrid();
+}
 function filterSide(e, cat) {
   curCat = cat;
+  curPays = null;
   document.querySelectorAll(".cat-btn").forEach(function(b){b.classList.remove("active");});
   e.currentTarget.classList.add("active");
   // sync nav
@@ -615,7 +578,9 @@ function filterSide(e, cat) {
 
 function renderGrid() {
   var grid = document.getElementById("cam-grid");
-  var list = curCat==="all" ? CHANNELS : CHANNELS.filter(function(c){return c.cat===curCat;});
+  var list = CHANNELS;
+  if(curPays) list = list.filter(function(c){return c.pays===curPays;});
+  else if(curCat!=="all") list = list.filter(function(c){return c.cat===curCat;});
   if (!list.length) {
     grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;grid-column:1/-1;">Aucune chaîne dans cette catégorie.</div>';
     return;
@@ -627,7 +592,7 @@ function renderGrid() {
       +'<div class="cam-top">'
       +'<span class="live-dot">LIVE</span>'
       +'<span class="cam-name">'+c.name+'</span>'
-      +'<span class="cam-cat-badge" style="background:'+catColor+'22;color:'+catColor+';border:1px solid '+catColor+'44;">'+c.cat+'</span>'
+      +'<span class="cam-cat-badge" style="background:'+catColor+'22;color:'+catColor+';border:1px solid '+catColor+'44;">'+c.cat+'</span>' +'<span style="font-size:7px;color:rgba(255,255,255,.5);margin-left:3px;">'+c.pays+'</span>'
       +'</div>'
       +'<div class="cam-bot">'
       +'<button class="inter-btn'+(likedChannels[c.id]?" liked":"'")+'" onclick="event.stopPropagation();likeChannel('+c.id+')">'
@@ -660,9 +625,79 @@ function openZoom(id) {
   activeZoomId = id;
   document.getElementById("zoom-ch-name").textContent = ch.name;
   document.getElementById("zoom-ch-cat").textContent = ch.cat;
-  document.getElementById("zoom-iframe").src = ch.url.replace("mute=1","mute=0");
+  var iframe = document.getElementById("zoom-iframe");
+  var video = document.getElementById("zoom-video");
+  var placeholder = document.getElementById("zoom-placeholder");
+  var url = ch.url.replace("mute=1","mute=0");
+  
+  // Reset
+  iframe.style.display = "none";
+  video.style.display = "none";
+  placeholder.style.display = "flex";
+  iframe.src = "";
+  video.src = "";
+  if(window._hlsInstance){window._hlsInstance.destroy();window._hlsInstance=null;}
+  
+  // Detect stream type
+  var isYoutube = url.indexOf("youtube.com") !== -1 || url.indexOf("youtu.be") !== -1;
+  var isDailymotion = url.indexOf("dailymotion.com") !== -1;
+  var isM3U8 = url.indexOf(".m3u8") !== -1 || url.indexOf("playlist") !== -1;
+  var isMPD = url.indexOf(".mpd") !== -1;
+  
+  if(isYoutube || isDailymotion) {
+    iframe.src = url;
+    iframe.style.display = "block";
+    placeholder.style.display = "none";
+  } else if(isM3U8 || isMPD) {
+    video.style.display = "block";
+    placeholder.style.display = "none";
+    if(Hls.isSupported()) {
+      var hls = new Hls({enableWorker:true,lowLatencyMode:true});
+      window._hlsInstance = hls;
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function(){video.play().catch(function(){});});
+      hls.on(Hls.Events.ERROR, function(e,d){
+        if(d.fatal){
+          console.log("HLS error:", d.type, url);
+          if(d.type === "networkError") {
+            video.style.display = "none";
+            placeholder.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:40px;margin-bottom:10px;">🔒</div><div style="color:#e63946;font-weight:700;margin-bottom:8px;">Stream protégé</div><div style="color:#666;font-size:12px;">Ce stream bloque les accès externes (CORS).<br>Essayez une autre chaîne.</div></div>';
+            placeholder.style.display = "flex";
+          } else {
+            video.src = url;
+            video.play().catch(function(){
+              video.style.display = "none";
+              placeholder.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">⚠️ Stream indisponible</div>';
+              placeholder.style.display = "flex";
+            });
+          }
+        }
+      });
+    } else if(video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+      video.play().catch(function(){});
+    } else {
+      // Fallback: try iframe with url
+      iframe.src = url;
+      iframe.style.display = "block";
+      video.style.display = "none";
+      placeholder.style.display = "none";
+    }
+  } else {
+    // Generic URL - try video first
+    video.style.display = "block";
+    placeholder.style.display = "none";
+    video.src = url;
+    video.play().catch(function(){
+      video.style.display = "none";
+      iframe.src = url;
+      iframe.style.display = "block";
+    });
+  }
   document.getElementById("zoom-likes").textContent = ch.likes;
   document.getElementById("zoom-like-btn").classList.toggle("liked", !!likedChannels[id]);
+  if(!ch.comments) ch.comments = [];
   renderZoomCmts(ch);
   document.getElementById("zoom-modal").classList.add("open");
 }
@@ -670,12 +705,17 @@ function openZoom(id) {
 function closeZoom() {
   document.getElementById("zoom-modal").classList.remove("open");
   document.getElementById("zoom-iframe").src = "";
+  document.getElementById("zoom-iframe").style.display = "none";
+  var v = document.getElementById("zoom-video");
+  v.pause(); v.src = ""; v.style.display = "none";
+  document.getElementById("zoom-placeholder").style.display = "flex";
+  if(window._hlsInstance){window._hlsInstance.destroy();window._hlsInstance=null;}
   activeZoomId = null;
 }
 
 function renderZoomCmts(ch) {
   var list = document.getElementById("zoom-cmts");
-  if (!ch.comments.length) {
+  if (!ch || !ch.comments || !ch.comments.length) {
     list.innerHTML = '<div style="color:var(--muted);font-size:11px;text-align:center;padding:20px;">Soyez le premier à commenter !</div>';
     return;
   }
@@ -941,7 +981,8 @@ function startAutoCmts() {
 // COUNTS & STATS
 // ============================================================
 function updateCounts() {
-  var cats = ["all","foot","news","sport","musique","monde","docu"];
+  var cats = ["all","foot","news","sport","musique","monde"];
+
   cats.forEach(function(cat){
     var el = document.getElementById("cnt-"+cat);
     if (!el) return;
@@ -1040,7 +1081,7 @@ function renderAdmList(){
       +'</div></div></div>';
   }).join("");
 }
-function toggleHot(id){var c=CHANNELS.find(function(c){return c.id===id;});if(c){c.hot=!c.hot;renderAdmList();}}
+function toggleHot(id){var c=CHANNELS.find(function(c){return c.id===id;});if(c){c.hot=!c.hot;renderAdmList();saveChannels();}}
 function toggleEdit(id){var el=document.getElementById("ei-"+id);if(el)el.classList.toggle("open");}
 function saveEdit(id){
   var c=CHANNELS.find(function(ch){return ch.id===id;});if(!c)return;
@@ -1126,7 +1167,9 @@ init();
   </div>
   <div class="zoom-body">
     <div class="zoom-player">
-      <iframe id="zoom-iframe" src="" allow="autoplay;encrypted-media;fullscreen" allowfullscreen></iframe>
+      <iframe id="zoom-iframe" src="" allow="autoplay;encrypted-media;fullscreen" allowfullscreen style="display:none;"></iframe>
+      <video id="zoom-video" controls autoplay style="display:none;width:100%;height:100%;background:#000;"></video>
+      <div id="zoom-placeholder" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#000;color:#666;font-size:13px;">Chargement...</div>
     </div>
     <div class="zoom-side">
       <div class="zoom-side-hdr">
