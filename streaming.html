@@ -269,10 +269,117 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 .wm-stat{text-align:center;}
 .wm-stat-n{font-size:1.4rem;font-weight:900;color:#e63946;}
 .wm-stat-l{font-size:10px;color:#64748b;font-weight:600;}
+
+/* ═══ BANNIÈRES PUB PST ═══ */
+#ad-banner {
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:500;
+  width:90%;
+  max-width:700px;
+  animation:slideUp .5s ease;
+}
+.ad-card {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:12px 18px;
+  border-radius:14px;
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  border:1px solid rgba(255,255,255,0.1);
+  backdrop-filter:blur(10px);
+  transition:.3s;
+  position:relative;
+  overflow:hidden;
+}
+.ad-card:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+.ad-card::before{content:'';position:absolute;inset:0;opacity:0.92;z-index:0;}
+.ad-card.green::before{background:linear-gradient(135deg,#00c864,#00a050);}
+.ad-card.blue::before{background:linear-gradient(135deg,#0070f3,#0050c0);}
+.ad-card.red::before{background:linear-gradient(135deg,#e63946,#c01020);}
+.ad-card.dark::before{background:linear-gradient(135deg,#1a1a2e,#16213e);}
+.ad-card.gold::before{background:linear-gradient(135deg,#f59e0b,#d97706);}
+.ad-icon{font-size:2rem;z-index:1;flex-shrink:0;}
+.ad-content{z-index:1;flex:1;}
+.ad-label{font-size:9px;font-weight:800;letter-spacing:2px;opacity:0.8;text-transform:uppercase;margin-bottom:2px;}
+.ad-title{font-size:14px;font-weight:900;line-height:1.2;}
+.ad-sub{font-size:11px;opacity:0.85;margin-top:2px;}
+.ad-cta{z-index:1;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:7px 16px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;transition:.2s;}
+.ad-cta:hover{background:rgba(255,255,255,0.35);}
+.ad-close{position:absolute;top:8px;right:8px;z-index:2;background:rgba(0,0,0,0.3);border:none;color:#fff;width:20px;height:20px;border-radius:50%;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0.7;}
+.ad-close:hover{opacity:1;}
+.ad-progress{position:absolute;bottom:0;left:0;height:2px;background:rgba(255,255,255,0.4);animation:adProgress linear;}
+@keyframes adProgress{from{width:100%;}to{width:0%;}}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(20px);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
+
+/* ═══ TICKER PUB DANS NAV ═══ */
+#ad-ticker{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  background:linear-gradient(90deg,#00c864,#0070f3);
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  padding:6px 0;
+  z-index:490;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.ad-ticker-inner{
+  display:inline-block;
+  animation:tickerScroll 30s linear infinite;
+  padding-left:100%;
+}
+@keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);};}
+
+/* ═══ WATERMARK LOGO ═══ */
+#pst-watermark{
+  position:fixed;
+  top:70px;right:16px;
+  z-index:100;
+  opacity:0.7;
+  pointer-events:none;
+  display:flex;align-items:center;gap:6px;
+}
+.wm-text{font-size:11px;font-weight:900;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.8);letter-spacing:1px;}
+.wm-dot{width:6px;height:6px;background:#e63946;border-radius:50%;animation:pa 1s infinite;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
+
+<!-- WATERMARK PST -->
+<div id="pst-watermark">
+  <div class="wm-dot"></div>
+  <div class="wm-text">PST STREAM</div>
+</div>
+
+<!-- TICKER BAS DE PAGE -->
+<div id="ad-ticker">
+  <div class="ad-ticker-inner" id="ticker-text">
+    📡 PST TELECOM — Appels illimités dès 5 990 FCFA/mois &nbsp;&nbsp;⚡&nbsp;&nbsp; 📱 Recharge Orange · Free · Expresso instantanée &nbsp;&nbsp;⚡&nbsp;&nbsp; 💬 SMS Vérification WhatsApp · Instagram · TikTok &nbsp;&nbsp;⚡&nbsp;&nbsp; 🔒 PST SecurCam — Surveillance 24h/24 &nbsp;&nbsp;⚡&nbsp;&nbsp; 🤖 Agent Aida — Votre assistant télécom IA &nbsp;&nbsp;⚡&nbsp;&nbsp; 📊 PST SMS Marketing — Touchez vos clients par SMS &nbsp;&nbsp;⚡&nbsp;&nbsp;
+  </div>
+</div>
+
+<!-- BANNIÈRE PUB FLOTTANTE -->
+<div id="ad-banner" style="display:none;">
+  <div class="ad-card" id="ad-card-inner">
+    <button class="ad-close" onclick="skipAd()">✕</button>
+    <div class="ad-icon" id="ad-icon">📡</div>
+    <div class="ad-content">
+      <div class="ad-label">PST TELECOM</div>
+      <div class="ad-title" id="ad-title">Forfaits téléphoniques</div>
+      <div class="ad-sub" id="ad-sub">Appels illimités dès 5 990 FCFA/mois</div>
+    </div>
+    <button class="ad-cta" id="ad-cta-btn" onclick="adClick()">Découvrir →</button>
+    <div class="ad-progress" id="ad-progress"></div>
+  </div>
+</div>
+
 
 <!-- WELCOME MODAL -->
 <div id="welcome-modal">
@@ -822,6 +929,120 @@ function updateWmViewers() {
   if(el) el.textContent = (Math.floor(Math.random()*300)+1100).toLocaleString('fr-FR');
 }
 setInterval(updateWmViewers, 3000);
+
+
+// ═══ SYSTÈME PUB PST TELECOM ═══
+var PST_ADS = [
+  {
+    icon:"📡", color:"green",
+    label:"PST TELECOM",
+    title:"Forfaits téléphoniques",
+    sub:"Appels illimités dès 5 990 FCFA/mois",
+    cta:"Voir les forfaits",
+    url:"https://pst-telecom.vercel.app"
+  },
+  {
+    icon:"📱", color:"blue",
+    label:"PST RECHARGE",
+    title:"Recharge instantanée",
+    sub:"Orange · Free · Expresso — 24h/24",
+    cta:"Recharger maintenant",
+    url:"https://pst-telecom.vercel.app/recharge"
+  },
+  {
+    icon:"💬", color:"dark",
+    label:"PST SMS",
+    title:"Numéro temporaire",
+    sub:"Vérifiez WhatsApp, Instagram, TikTok...",
+    cta:"Obtenir un numéro",
+    url:"https://pst-telecom.vercel.app/sms"
+  },
+  {
+    icon:"🔒", color:"red",
+    label:"PST SECURCAM",
+    title:"Surveillance intelligente",
+    sub:"Caméras HD + alertes temps réel 24h/24",
+    cta:"En savoir plus",
+    url:"https://pst-telecom.vercel.app"
+  },
+  {
+    icon:"🤖", color:"gold",
+    label:"AGENT AIDA",
+    title:"Votre assistant IA PST",
+    sub:"Disponible 24h/24 pour vous aider",
+    cta:"Parler à Aida",
+    url:"https://pst-telecom.vercel.app"
+  },
+  {
+    icon:"📊", color:"blue",
+    label:"PST SMS MARKETING",
+    title:"Touchez vos clients",
+    sub:"Campagnes SMS ciblées — dès 1 000 FCFA",
+    cta:"Lancer une campagne",
+    url:"https://pst-telecom.vercel.app/sms-marketing"
+  }
+];
+
+var adIdx = 0;
+var adTimer = null;
+var adDuration = 8000; // 8 secondes par pub
+
+function showAd() {
+  var ad = PST_ADS[adIdx % PST_ADS.length];
+  var banner = document.getElementById('ad-banner');
+  var card = document.getElementById('ad-card-inner');
+  var progress = document.getElementById('ad-progress');
+
+  document.getElementById('ad-icon').textContent = ad.icon;
+  document.getElementById('ad-title').textContent = ad.title;
+  document.getElementById('ad-sub').textContent = ad.sub;
+  document.getElementById('ad-cta-btn').textContent = ad.cta;
+  document.querySelector('.ad-label').textContent = ad.label;
+
+  // Remove old color classes
+  card.className = 'ad-card ' + ad.color;
+
+  // Progress bar
+  progress.style.animation = 'none';
+  progress.offsetHeight; // reflow
+  progress.style.animation = 'adProgress ' + (adDuration/1000) + 's linear forwards';
+
+  banner.style.display = 'block';
+  adIdx++;
+
+  // Auto-hide after duration
+  clearTimeout(adTimer);
+  adTimer = setTimeout(function(){
+    nextAd();
+  }, adDuration);
+}
+
+function nextAd() {
+  var banner = document.getElementById('ad-banner');
+  banner.style.opacity = '0';
+  banner.style.transition = 'opacity .3s';
+  setTimeout(function(){
+    banner.style.display = 'none';
+    banner.style.opacity = '1';
+    banner.style.transition = '';
+    // Show next ad after 15 seconds pause
+    setTimeout(showAd, 15000);
+  }, 300);
+}
+
+function skipAd() {
+  clearTimeout(adTimer);
+  nextAd();
+}
+
+function adClick() {
+  var ad = PST_ADS[(adIdx-1) % PST_ADS.length];
+  window.open(ad.url, '_blank');
+  skipAd();
+}
+
+// Démarrer les pubs après 20 secondes
+setTimeout(showAd, 20000);
 
 function closeZoom() {
   document.getElementById("zoom-modal").classList.remove("open");
