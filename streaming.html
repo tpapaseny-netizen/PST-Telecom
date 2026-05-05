@@ -604,6 +604,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="atab" onclick="showTab('t-al',this)">🔴 Alertes</button>
     <button class="atab" onclick="showTab('t-sc',this)">⚽ Scores</button>
     <button class="atab" onclick="showTab('t-st',this)">📊 Stats</button>
+    <button class="atab" onclick="showTab('t-pub',this)">💰 Publicités</button>
   </div>
   <div id="t-ch">
     <div class="adm-sec">
@@ -654,6 +655,43 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <div class="adm-sec"><h3>Statistiques</h3><div id="adm-stats" style="font-size:11px;line-height:2.2;"></div></div>
   </div>
 </div>
+
+  <!-- ═══ ONGLET PUBLICITÉS ═══ -->
+  <div id="t-pub" style="display:none;">
+    <div class="adm-sec">
+      <h3>➕ Ajouter une pub sponsor</h3>
+      <div class="adm-g">
+        <input class="adm-i" id="pub-icon" placeholder="Icône (ex: 📱)" style="max-width:80px;">
+        <input class="adm-i" id="pub-label" placeholder="Label (ex: MON SPONSOR)">
+        <input class="adm-i" id="pub-title" placeholder="Titre accrocheur">
+        <input class="adm-i" id="pub-sub" placeholder="Description courte">
+        <input class="adm-i" id="pub-cta" placeholder="Bouton (ex: Découvrir →)">
+        <input class="adm-i" id="pub-url" placeholder="URL (https://...)">
+        <select class="adm-i" id="pub-color" style="background:var(--bg3);color:#fff;border:1px solid var(--border);">
+          <option value="green">🟢 Vert</option>
+          <option value="blue">🔵 Bleu</option>
+          <option value="red">🔴 Rouge</option>
+          <option value="gold">🟡 Or</option>
+          <option value="dark">⚫ Sombre</option>
+        </select>
+      </div>
+      <button class="adm-btn" onclick="adminAddPub()" style="margin-top:8px;">✅ Ajouter cette pub</button>
+    </div>
+    <div class="adm-sec">
+      <h3>📋 Pubs sponsors actives</h3>
+      <div id="pub-list"><div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">Aucun sponsor — pubs PST Telecom actives par défaut</div></div>
+    </div>
+    <div class="adm-sec" style="border-color:rgba(245,158,11,0.3);">
+      <h3 style="color:#f59e0b;">💡 Tarifs sponsors recommandés</h3>
+      <div style="font-size:11px;color:var(--muted);line-height:2;">
+        <div>🥉 <strong style="color:#fff;">Basique</strong> — Logo + lien — 25 000 FCFA/mois</div>
+        <div>🥈 <strong style="color:#fff;">Standard</strong> — Bannière animée — 50 000 FCFA/mois</div>
+        <div>🥇 <strong style="color:#fff;">Premium</strong> — Bannière prioritaire + ticker — 100 000 FCFA/mois</div>
+        <div>🏆 <strong style="color:#fff;">Exclusif</strong> — Toutes options + watermark — 200 000 FCFA/mois</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- LOGIN -->
@@ -1088,6 +1126,110 @@ function adClick() {
 
 // Démarrer les pubs après 20 secondes
 setTimeout(showAd, 20000);
+
+
+// ═══ GESTION PUBLICITÉS ═══
+var PST_ADS_CUSTOM = [];
+
+function savePubs() {
+  try { localStorage.setItem('pst_ads_v1', JSON.stringify(PST_ADS_CUSTOM)); } catch(e){}
+  fetch('/api/ads', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ads: PST_ADS_CUSTOM})
+  }).catch(function(){});
+}
+
+function loadPubs() {
+  // localStorage first
+  try {
+    var saved = localStorage.getItem('pst_ads_v1');
+    if(saved) {
+      var parsed = JSON.parse(saved);
+      if(parsed && parsed.length > 0) {
+        PST_ADS_CUSTOM = parsed;
+        // Merge with default PST_ADS
+        PST_ADS = PST_ADS.concat(PST_ADS_CUSTOM);
+      }
+    }
+  } catch(e){}
+  // MongoDB
+  fetch('/api/ads').then(function(r){return r.json();}).then(function(d){
+    if(d && d.ads && d.ads.length > 0) {
+      PST_ADS_CUSTOM = d.ads;
+      try { localStorage.setItem('pst_ads_v1', JSON.stringify(PST_ADS_CUSTOM)); } catch(e){}
+    }
+  }).catch(function(){});
+}
+
+function adminAddPub() {
+  var icon  = document.getElementById('pub-icon').value.trim() || '📢';
+  var label = document.getElementById('pub-label').value.trim();
+  var title = document.getElementById('pub-title').value.trim();
+  var sub   = document.getElementById('pub-sub').value.trim();
+  var cta   = document.getElementById('pub-cta').value.trim() || 'En savoir plus';
+  var url   = document.getElementById('pub-url').value.trim();
+  var color = document.getElementById('pub-color').value;
+
+  if(!title || !url) { alert('Titre et URL requis !'); return; }
+
+  var pub = {id: Date.now(), icon, label: label||'SPONSOR', title, sub, cta, url, color, actif:true};
+  PST_ADS_CUSTOM.push(pub);
+  PST_ADS.push(pub);
+  savePubs();
+  renderPubList();
+
+  // Clear fields
+  ['pub-icon','pub-label','pub-title','pub-sub','pub-cta','pub-url'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  alert('✅ Pub ajoutée ! Elle apparaîtra dans la rotation.');
+}
+
+function deletePub(id) {
+  if(!confirm('Supprimer cette pub ?')) return;
+  PST_ADS_CUSTOM = PST_ADS_CUSTOM.filter(function(p){ return p.id !== id; });
+  PST_ADS = PST_ADS.filter(function(p){ return p.id !== id; });
+  savePubs();
+  renderPubList();
+}
+
+function togglePub(id) {
+  var pub = PST_ADS_CUSTOM.find(function(p){ return p.id === id; });
+  if(pub) {
+    pub.actif = !pub.actif;
+    // Toggle in main PST_ADS
+    var mainPub = PST_ADS.find(function(p){ return p.id === id; });
+    if(mainPub) mainPub.actif = pub.actif;
+    savePubs();
+    renderPubList();
+  }
+}
+
+function renderPubList() {
+  var list = document.getElementById('pub-list');
+  if(!list) return;
+  if(PST_ADS_CUSTOM.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">Aucune pub sponsor — les pubs PST Telecom sont actives par défaut</div>';
+    return;
+  }
+  list.innerHTML = PST_ADS_CUSTOM.map(function(pub){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;">' +
+      '<span style="font-size:1.5rem;">' + pub.icon + '</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:11px;font-weight:800;color:#fff;">' + pub.title + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);">' + pub.label + ' — ' + pub.url.slice(0,30) + '...</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;">' +
+        '<button class="adm-btn" style="padding:4px 10px;font-size:10px;background:' + (pub.actif?'var(--green)':'var(--muted)') + ';" onclick="togglePub(' + pub.id + ')">' + (pub.actif?'ON':'OFF') + '</button>' +
+        '<button class="adm-btn red" style="padding:4px 10px;font-size:10px;" onclick="deletePub(' + pub.id + ')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Load custom pubs on start
+setTimeout(loadPubs, 1000);
 
 function closeZoom() {
   document.getElementById("zoom-modal").classList.remove("open");
