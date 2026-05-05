@@ -536,40 +536,64 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 // ============================================================
 var CHANNELS = [];
 
-// === PERSISTANCE BACKEND API ===
+// === PERSISTANCE HYBRIDE (localStorage PRIMAIRE + MongoDB BACKUP) ===
+var LS_KEY = "pst_stream_channels_v2";
+
 function saveChannels() {
-  fetch("/api/channels", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({channels: CHANNELS})
-  }).catch(function(e){ console.log("Save error:", e); });
-  // Also localStorage as backup
-  try { localStorage.setItem("pst_channels", JSON.stringify(CHANNELS)); } catch(e){}
+  // 1. localStorage EN PREMIER — immédiat et fiable
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(CHANNELS));
+    console.log("[PST] Sauvegardé localStorage:", CHANNELS.length, "chaînes");
+  } catch(e) { console.warn("LS save error:", e); }
+
+  // 2. MongoDB en parallèle (best effort)
+  try {
+    fetch("/api/channels", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({channels: CHANNELS})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ console.log("[PST] MongoDB saved:", d); })
+    .catch(function(e){ console.warn("[PST] MongoDB save failed (OK, LS a sauvegardé):", e); });
+  } catch(e){}
 }
 
 function loadChannels() {
-  // Try backend first
+  // 1. localStorage D'ABORD — instantané
+  var lsData = null;
+  try {
+    var saved = localStorage.getItem(LS_KEY);
+    if(saved) lsData = JSON.parse(saved);
+  } catch(e){}
+
+  if(lsData && lsData.length > 0) {
+    CHANNELS = lsData;
+    console.log("[PST] Chargé localStorage:", CHANNELS.length, "chaînes");
+    renderGrid(); updateCounts(); updateSideStats();
+  }
+
+  // 2. MongoDB en parallèle — si plus récent, met à jour
   fetch("/api/channels")
     .then(function(r){ return r.json(); })
     .then(function(data){
       if(data && data.channels && data.channels.length > 0) {
-        CHANNELS = data.channels;
-      } else {
-        // Fallback localStorage
-        var saved = localStorage.getItem("pst_channels");
-        if(saved) { try { CHANNELS = JSON.parse(saved); } catch(e){ CHANNELS=[]; } }
+        // Prendre MongoDB si plus de chaînes que localStorage
+        if(data.channels.length >= CHANNELS.length) {
+          CHANNELS = data.channels;
+          try { localStorage.setItem(LS_KEY, JSON.stringify(CHANNELS)); } catch(e){}
+          console.log("[PST] Sync MongoDB:", CHANNELS.length, "chaînes");
+          renderGrid(); updateCounts(); updateSideStats();
+        }
+      } else if(CHANNELS.length === 0) {
+        renderGrid(); updateCounts(); updateSideStats();
       }
-      renderGrid();
-      updateCounts();
-      updateSideStats();
     })
     .catch(function(){
-      // Fallback localStorage
-      var saved = localStorage.getItem("pst_channels");
-      if(saved) { try { CHANNELS = JSON.parse(saved); } catch(e){ CHANNELS=[]; } }
-      renderGrid();
-      updateCounts();
-      updateSideStats();
+      // MongoDB indispo — localStorage suffit
+      if(CHANNELS.length === 0) {
+        renderGrid(); updateCounts(); updateSideStats();
+      }
     });
 }
 loadChannels();
