@@ -347,6 +347,51 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 }
 .wm-text{font-size:11px;font-weight:900;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.8);letter-spacing:1px;}
 .wm-dot{width:6px;height:6px;background:#e63946;border-radius:50%;animation:pa 1s infinite;}
+
+/* ═══ MOBILE COMMENTS FIX ═══ */
+@media(max-width:768px){
+  #zoom-modal{flex-direction:column;}
+  .zoom-player{height:220px;flex-shrink:0;}
+  .zoom-side{
+    width:100% !important;
+    border-left:none !important;
+    border-top:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    flex:1;
+    min-height:0;
+    overflow:hidden;
+  }
+  .zoom-cmts{
+    flex:1;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth;
+  }
+  .zoom-inp{
+    position:sticky;
+    bottom:0;
+    background:var(--bg2);
+    padding:8px;
+    border-top:1px solid var(--border);
+    z-index:10;
+    flex-shrink:0;
+  }
+  .zoom-tf{
+    font-size:16px !important; /* Prevent iOS zoom */
+  }
+  .zoom-fn{
+    font-size:16px !important;
+  }
+  .zoom-share-bar{
+    flex-shrink:0;
+  }
+  /* Auto-scroll to input when focused */
+  .zoom-inp:focus-within{
+    position:sticky;
+    bottom:0;
+  }
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
@@ -939,7 +984,7 @@ var PST_ADS = [
     title:"Forfaits téléphoniques",
     sub:"Appels illimités dès 5 990 FCFA/mois",
     cta:"Voir les forfaits",
-    url:"https://pst-telecom.vercel.app"
+    url:"https://pst-telecom-production.up.railway.app/dashboard"
   },
   {
     icon:"📱", color:"blue",
@@ -947,7 +992,7 @@ var PST_ADS = [
     title:"Recharge instantanée",
     sub:"Orange · Free · Expresso — 24h/24",
     cta:"Recharger maintenant",
-    url:"https://pst-telecom.vercel.app/recharge"
+    url:"https://pst-telecom-production.up.railway.app/recharge"
   },
   {
     icon:"💬", color:"dark",
@@ -955,7 +1000,7 @@ var PST_ADS = [
     title:"Numéro temporaire",
     sub:"Vérifiez WhatsApp, Instagram, TikTok...",
     cta:"Obtenir un numéro",
-    url:"https://pst-telecom.vercel.app/sms"
+    url:"https://pst-telecom-production.up.railway.app/sms"
   },
   {
     icon:"🔒", color:"red",
@@ -963,7 +1008,7 @@ var PST_ADS = [
     title:"Surveillance intelligente",
     sub:"Caméras HD + alertes temps réel 24h/24",
     cta:"En savoir plus",
-    url:"https://pst-telecom.vercel.app"
+    url:"https://pst-telecom-production.up.railway.app/securcam"
   },
   {
     icon:"🤖", color:"gold",
@@ -971,7 +1016,7 @@ var PST_ADS = [
     title:"Votre assistant IA PST",
     sub:"Disponible 24h/24 pour vous aider",
     cta:"Parler à Aida",
-    url:"https://pst-telecom.vercel.app"
+    url:"https://pst-telecom-production.up.railway.app/agent"
   },
   {
     icon:"📊", color:"blue",
@@ -979,7 +1024,7 @@ var PST_ADS = [
     title:"Touchez vos clients",
     sub:"Campagnes SMS ciblées — dès 1 000 FCFA",
     cta:"Lancer une campagne",
-    url:"https://pst-telecom.vercel.app/sms-marketing"
+    url:"https://pst-telecom-production.up.railway.app/sms-marketing"
   }
 ];
 
@@ -1107,6 +1152,11 @@ function zoomReact(type) {
 }
 
 function zoomLike() { zoomReact("like"); }
+
+function scrollCmtsBottom() {
+  var cmts = document.getElementById("zoom-cmts");
+  if(cmts) setTimeout(function(){ cmts.scrollTop = cmts.scrollHeight; }, 50);
+}
 
 function zoomSubmitCmt() {
   if (!activeZoomId) return;
@@ -1545,9 +1595,9 @@ init();
         <button class="zoom-inter-btn" onclick="zoomShareWA()">📤</button>
       </div>
       <div class="zoom-cmts" id="zoom-cmts"></div>
-      <div class="zoom-inp">
-        <input class="zoom-fn" id="zoom-name" placeholder="Prénom" maxlength="20">
-        <textarea class="zoom-tf" id="zoom-text" placeholder="Commentaire..." rows="2" maxlength="200"></textarea>
+      <div class="zoom-inp" id="zoom-inp-wrap">
+        <input class="zoom-fn" id="zoom-name" placeholder="Prénom" maxlength="20" onfocus="scrollCmtsBottom()">
+        <textarea class="zoom-tf" id="zoom-text" placeholder="Commentaire..." rows="2" maxlength="200" onfocus="document.getElementById('zoom-inp-wrap').scrollIntoView({behavior:'smooth'})"></textarea>
         <button class="zoom-send" onclick="zoomSubmitCmt()">→</button>
       </div>
       <div class="zoom-share-bar">
