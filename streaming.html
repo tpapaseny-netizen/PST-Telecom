@@ -1212,7 +1212,7 @@ function saveEdit(id){
 function delCh(id){
   if(!confirm("Supprimer cette chaîne ?"))return;
   CHANNELS=CHANNELS.filter(function(c){return c.id!==id;});
-  renderGrid();renderAdmList();updateCounts();
+  renderGrid();renderAdmList();updateCounts();saveChannels();
 }
 function adminAddCh(){
   var name=document.getElementById("a-name").value.trim();
@@ -1224,7 +1224,7 @@ function adminAddCh(){
   CHANNELS.push({id:Date.now(),name:name,cat:cat,icon:icon,url:url,hot:hot,likes:0,comments:[]});
   ["a-name","a-cat","a-url","a-icon"].forEach(function(i){document.getElementById(i).value="";});
   document.getElementById("a-hot").checked=false;
-  renderGrid();renderAdmList();updateCounts();alert("Chaîne ajoutée !");
+  renderGrid();renderAdmList();updateCounts();saveChannels();alert("Chaîne ajoutée !");
 }
 function adminSendAlert(){
   var type=document.getElementById("al-type").value;
