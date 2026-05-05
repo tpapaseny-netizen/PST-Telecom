@@ -137,10 +137,37 @@ app.get('/recharge', (req, res) => {
 app.get('/noc', (req, res) => {
   res.sendFile(path.join(__dirname, 'noc.html'));
 });
-// Charger les routes externes
-try { require('./noc-routes-final')(app, db); } catch(e) { console.warn('noc-routes:', e.message); }
-try { require('./recharge-agent')(app, db); } catch(e) { console.warn('recharge:', e.message); }
-try { require('./noc-client-db-routes')(app, db); } catch(e) { console.warn('noc-client:', e.message); }
+// Routes NOC Agent Status
+app.get('/api/noc/agent/status', async (req, res) => {
+  try {
+    if (!db) return res.json({ cameras: 0, online: 0, offline: 0 });
+    const cameras = await db.collection('cameras').find({}).toArray();
+    const online = cameras.filter(c => c.statut === 'online').length;
+    const offline = cameras.filter(c => c.statut !== 'online').length;
+    res.json({ cameras: cameras.length, online, offline });
+  } catch(e) { res.json({ cameras: 0, online: 0, offline: 0 }); }
+});
+
+// Routes Recharge Stats
+app.get('/api/recharge/stats', async (req, res) => {
+  try {
+    if (!db) return res.json({ recharges: 0, reussies: 0, echecs: 0, fcfa: 0 });
+    const recharges = await db.collection('recharges').find({}).toArray();
+    const reussies = recharges.filter(r => r.statut === 'success').length;
+    const echecs = recharges.filter(r => r.statut === 'failed').length;
+    const fcfa = recharges.filter(r => r.statut === 'success').reduce((s,r) => s+(r.montant||0), 0);
+    res.json({ recharges: recharges.length, reussies, echecs, fcfa });
+  } catch(e) { res.json({ recharges: 0, reussies: 0, echecs: 0, fcfa: 0 }); }
+});
+
+// Route Admin Users
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const users = await db.collection('abonnes').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(users);
+  } catch(e) { res.json([]); }
+});
 // ─── STATS ADMIN ────────────────────────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
