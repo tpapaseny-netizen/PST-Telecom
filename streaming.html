@@ -1070,8 +1070,16 @@ var adIdx = 0;
 var adTimer = null;
 var adDuration = 8000; // 8 secondes par pub
 
+function getActiveAds() {
+  // Combine default PST_ADS + custom sponsor ads that are ON
+  var customs = PST_ADS_CUSTOM.filter(function(p){ return p.actif !== false; });
+  return PST_ADS.concat(customs);
+}
+
 function showAd() {
-  var ad = PST_ADS[adIdx % PST_ADS.length];
+  var allAds = getActiveAds();
+  if(!allAds.length) return;
+  var ad = allAds[adIdx % allAds.length];
   var banner = document.getElementById('ad-banner');
   var card = document.getElementById('ad-card-inner');
   var progress = document.getElementById('ad-progress');
@@ -1148,8 +1156,7 @@ function loadPubs() {
       var parsed = JSON.parse(saved);
       if(parsed && parsed.length > 0) {
         PST_ADS_CUSTOM = parsed;
-        // Merge with default PST_ADS
-        PST_ADS = PST_ADS.concat(PST_ADS_CUSTOM);
+        console.log("[PST ADS] Loaded", parsed.length, "sponsor ads");
       }
     }
   } catch(e){}
@@ -1183,7 +1190,9 @@ function adminAddPub() {
   ['pub-icon','pub-label','pub-title','pub-sub','pub-cta','pub-url'].forEach(function(id){
     document.getElementById(id).value = '';
   });
-  alert('✅ Pub ajoutée ! Elle apparaîtra dans la rotation.');
+  // Show immediately in rotation
+  showAd();
+  alert('✅ Pub ajoutée ! Elle apparaîtra dans la rotation dans quelques secondes.');
 }
 
 function deletePub(id) {
