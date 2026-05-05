@@ -246,10 +246,60 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 .zsb.wa{background:#25d366;color:#fff;}
 .zsb.tg{background:#2ca5e0;color:#fff;}
 .zsb.cp{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+
+/* WELCOME MODAL */
+#welcome-modal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.92);animation:fadeIn .4s;}
+.wm-box{background:linear-gradient(135deg,#0d1117 0%,#111c2a 100%);border:1px solid rgba(230,57,70,0.3);border-radius:20px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;box-shadow:0 0 60px rgba(230,57,70,0.15);}
+.wm-logo{font-size:2.2rem;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:4px;}
+.wm-logo span{color:#e63946;}
+.wm-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(230,57,70,0.15);border:1px solid rgba(230,57,70,0.4);color:#e63946;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;margin-bottom:20px;letter-spacing:1px;}
+.wm-badge::before{content:'';width:7px;height:7px;background:#e63946;border-radius:50%;animation:pa 1s infinite;}
+.wm-title{font-size:1.5rem;font-weight:900;color:#fff;margin-bottom:12px;line-height:1.3;}
+.wm-desc{font-size:13px;color:#8899aa;line-height:1.7;margin-bottom:24px;}
+.wm-features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}
+.wm-feat{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 10px;text-align:center;}
+.wm-feat-icon{font-size:1.5rem;margin-bottom:4px;}
+.wm-feat-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;}
+.wm-feat-val{font-size:12px;font-weight:800;color:#fff;margin-top:2px;}
+.wm-cta{width:100%;padding:14px;background:linear-gradient(135deg,#e63946,#c1121f);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:0.5px;transition:.2s;margin-bottom:12px;}
+.wm-cta:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(230,57,70,0.4);}
+.wm-skip{font-size:11px;color:#4a5568;cursor:pointer;text-decoration:underline;}
+.wm-skip:hover{color:#8899aa;}
+.wm-stats{display:flex;justify-content:center;gap:24px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.wm-stat{text-align:center;}
+.wm-stat-n{font-size:1.4rem;font-weight:900;color:#e63946;}
+.wm-stat-l{font-size:10px;color:#64748b;font-weight:600;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
+
+<!-- WELCOME MODAL -->
+<div id="welcome-modal">
+  <div class="wm-box">
+    <div class="wm-logo">PST <span>STREAM</span></div>
+    <div class="wm-badge">⚡ EN DIRECT MAINTENANT</div>
+    <div class="wm-title">Toute l'Afrique regarde ici 🌍</div>
+    <div class="wm-desc">
+      Chaînes live, matchs en direct, infos, musique et films — 
+      tout sur une seule plateforme. <strong style="color:#fff;">Gratuit. Sans inscription.</strong>
+    </div>
+    <div class="wm-stats">
+      <div class="wm-stat"><div class="wm-stat-n" id="wm-viewers">1 247</div><div class="wm-stat-l">Spectateurs live</div></div>
+      <div class="wm-stat"><div class="wm-stat-n">6</div><div class="wm-stat-l">Catégories</div></div>
+      <div class="wm-stat"><div class="wm-stat-n">HD</div><div class="wm-stat-l">Qualité vidéo</div></div>
+    </div>
+    <div class="wm-features">
+      <div class="wm-feat"><div class="wm-feat-icon">⚽</div><div class="wm-feat-label">Sport & Foot</div><div class="wm-feat-val">Matchs live</div></div>
+      <div class="wm-feat"><div class="wm-feat-icon">📺</div><div class="wm-feat-label">Actualités</div><div class="wm-feat-val">24h/24</div></div>
+      <div class="wm-feat"><div class="wm-feat-icon">🎬</div><div class="wm-feat-label">Films & Séries</div><div class="wm-feat-val">En continu</div></div>
+      <div class="wm-feat"><div class="wm-feat-icon">💬</div><div class="wm-feat-label">Chat Live</div><div class="wm-feat-val">Réagissez !</div></div>
+    </div>
+    <button class="wm-cta" onclick="closeWelcome()">▶ Regarder maintenant</button>
+    <div class="wm-skip" onclick="closeWelcome()">Fermer</div>
+  </div>
+</div>
+
 
 <nav>
   <div class="logo" id="logo-click">PST <span>STREAM</span></div>
@@ -486,15 +536,41 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
 // ============================================================
 var CHANNELS = [];
 
-// === PERSISTANCE LOCALSTORAGE ===
+// === PERSISTANCE BACKEND API ===
 function saveChannels() {
-  localStorage.setItem("pst_channels", JSON.stringify(CHANNELS));
+  fetch("/api/channels", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({channels: CHANNELS})
+  }).catch(function(e){ console.log("Save error:", e); });
+  // Also localStorage as backup
+  try { localStorage.setItem("pst_channels", JSON.stringify(CHANNELS)); } catch(e){}
 }
+
 function loadChannels() {
-  var saved = localStorage.getItem("pst_channels");
-  if(saved) {
-    try { CHANNELS = JSON.parse(saved); } catch(e) { CHANNELS = []; }
-  }
+  // Try backend first
+  fetch("/api/channels")
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.channels && data.channels.length > 0) {
+        CHANNELS = data.channels;
+      } else {
+        // Fallback localStorage
+        var saved = localStorage.getItem("pst_channels");
+        if(saved) { try { CHANNELS = JSON.parse(saved); } catch(e){ CHANNELS=[]; } }
+      }
+      renderGrid();
+      updateCounts();
+      updateSideStats();
+    })
+    .catch(function(){
+      // Fallback localStorage
+      var saved = localStorage.getItem("pst_channels");
+      if(saved) { try { CHANNELS = JSON.parse(saved); } catch(e){ CHANNELS=[]; } }
+      renderGrid();
+      updateCounts();
+      updateSideStats();
+    });
 }
 loadChannels();
 
@@ -697,12 +773,33 @@ function openZoom(id) {
       iframe.style.display = "block";
     });
   }
-  document.getElementById("zoom-likes").textContent = ch.likes;
-  document.getElementById("zoom-like-btn").classList.toggle("liked", !!likedChannels[id]);
+  if(!ch.reactions) ch.reactions = {like:0,fire:0,clap:0,wow:0};
+  document.getElementById("zoom-likes").textContent = ch.reactions.like || ch.likes || 0;
+  document.getElementById("zoom-fires") && (document.getElementById("zoom-fires").textContent = ch.reactions.fire || 0);
+  document.getElementById("zoom-claps") && (document.getElementById("zoom-claps").textContent = ch.reactions.clap || 0);
+  document.getElementById("zoom-wows") && (document.getElementById("zoom-wows").textContent = ch.reactions.wow || 0);
+  document.getElementById("zoom-like-btn").classList.toggle("liked", !!reactedChannels[id+"_like"]);
+  document.getElementById("zoom-fire-btn") && document.getElementById("zoom-fire-btn").classList.toggle("liked", !!reactedChannels[id+"_fire"]);
+  document.getElementById("zoom-clap-btn") && document.getElementById("zoom-clap-btn").classList.toggle("liked", !!reactedChannels[id+"_clap"]);
+  document.getElementById("zoom-wow-btn") && document.getElementById("zoom-wow-btn").classList.toggle("liked", !!reactedChannels[id+"_wow"]);
   if(!ch.comments) ch.comments = [];
   renderZoomCmts(ch);
   document.getElementById("zoom-modal").classList.add("open");
 }
+
+
+function closeWelcome() {
+  var m = document.getElementById('welcome-modal');
+  if(m) { m.style.animation='fadeOut .3s'; setTimeout(function(){ m.style.display='none'; }, 280); }
+}
+// Auto-close after 8 seconds
+setTimeout(function(){ closeWelcome(); }, 8000);
+// Update viewer count in welcome
+function updateWmViewers() {
+  var el = document.getElementById('wm-viewers');
+  if(el) el.textContent = (Math.floor(Math.random()*300)+1100).toLocaleString('fr-FR');
+}
+setInterval(updateWmViewers, 3000);
 
 function closeZoom() {
   document.getElementById("zoom-modal").classList.remove("open");
@@ -729,24 +826,44 @@ function renderZoomCmts(ch) {
   list.scrollTop = list.scrollHeight;
 }
 
-function zoomLike() {
+var reactedChannels = {};
+
+function zoomReact(type) {
   if (!activeZoomId) return;
   var ch = CHANNELS.find(function(c){return c.id===activeZoomId;});
   if (!ch) return;
-  if (likedChannels[activeZoomId]) {
-    ch.likes = Math.max(0, ch.likes-1);
-    delete likedChannels[activeZoomId];
+  if(!ch.reactions) ch.reactions = {like:0,fire:0,clap:0,wow:0};
+  
+  var key = activeZoomId + "_" + type;
+  var btnId = "zoom-" + (type==="like"?"like":type) + "-btn";
+  var countId = "zoom-" + type + (type==="like"?"s":type==="fire"?"s":type==="clap"?"s":"s");
+  
+  if(reactedChannels[key]) {
+    ch.reactions[type] = Math.max(0, ch.reactions[type]-1);
+    delete reactedChannels[key];
+    document.getElementById(btnId) && document.getElementById(btnId).classList.remove("liked");
   } else {
-    ch.likes++;
-    likedChannels[activeZoomId] = true;
-    burstEmoji("❤️");
+    ch.reactions[type]++;
+    reactedChannels[key] = true;
+    var emojis = {like:"❤️",fire:"🔥",clap:"👏",wow:"😮"};
+    burstEmoji(emojis[type]);
+    document.getElementById(btnId) && document.getElementById(btnId).classList.add("liked");
   }
-  document.getElementById("zoom-likes").textContent = ch.likes;
-  document.getElementById("zoom-like-btn").classList.toggle("liked", !!likedChannels[activeZoomId]);
+  
+  // Update counts
+  document.getElementById("zoom-likes") && (document.getElementById("zoom-likes").textContent = ch.reactions.like);
+  document.getElementById("zoom-fires") && (document.getElementById("zoom-fires").textContent = ch.reactions.fire);
+  document.getElementById("zoom-claps") && (document.getElementById("zoom-claps").textContent = ch.reactions.clap);
+  document.getElementById("zoom-wows") && (document.getElementById("zoom-wows").textContent = ch.reactions.wow);
+  
+  // Backward compat
+  ch.likes = ch.reactions.like;
   var el = document.getElementById("likes-"+activeZoomId);
-  if (el) el.textContent = ch.likes;
+  if(el) el.textContent = ch.likes;
   updateSideStats();
 }
+
+function zoomLike() { zoomReact("like"); }
 
 function zoomSubmitCmt() {
   if (!activeZoomId) return;
@@ -1178,8 +1295,11 @@ init();
         <div class="zoom-side-title">💬 Commentaires live</div>
       </div>
       <div class="zoom-inter-bar">
-        <button class="zoom-inter-btn" id="zoom-like-btn" onclick="zoomLike()">❤️ <span id="zoom-likes">0</span> J'aime</button>
-        <button class="zoom-inter-btn" onclick="zoomShareWA()">📤 Partager</button>
+        <button class="zoom-inter-btn" id="zoom-like-btn" onclick="zoomReact('like')">❤️ <span id="zoom-likes">0</span></button>
+        <button class="zoom-inter-btn" id="zoom-fire-btn" onclick="zoomReact('fire')">🔥 <span id="zoom-fires">0</span></button>
+        <button class="zoom-inter-btn" id="zoom-clap-btn" onclick="zoomReact('clap')">👏 <span id="zoom-claps">0</span></button>
+        <button class="zoom-inter-btn" id="zoom-wow-btn" onclick="zoomReact('wow')">😮 <span id="zoom-wows">0</span></button>
+        <button class="zoom-inter-btn" onclick="zoomShareWA()">📤</button>
       </div>
       <div class="zoom-cmts" id="zoom-cmts"></div>
       <div class="zoom-inp">
