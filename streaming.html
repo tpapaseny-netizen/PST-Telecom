@@ -261,6 +261,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="nfb" onclick="filterCat(event,'sport')">🏆 Sport</button>
     <button class="nfb" onclick="filterCat(event,'musique')">🎵 Musique</button>
     <button class="nfb" onclick="filterCat(event,'monde')">🌍 Monde</button>
+    <button class="nfb" onclick="filterCat(event,'films')">🎬 Films</button>
   </div>
   <div class="nav-right">
     <button id="admin-btn" class="nb" onclick="openAdmin()">⚙️ Admin</button>
@@ -296,6 +297,7 @@ nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(4,6
     <button class="cat-btn" onclick="filterSide(event,'sport')"><span class="cat-icon">🏆</span>Sport<span class="cat-count" id="cnt-sport">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'musique')"><span class="cat-icon">🎵</span>Musique<span class="cat-count" id="cnt-musique">0</span></button>
     <button class="cat-btn" onclick="filterSide(event,'monde')"><span class="cat-icon">🌍</span>Monde<span class="cat-count" id="cnt-monde">0</span></button>
+    <button class="cat-btn" onclick="filterSide(event,'films')"><span class="cat-icon">🎬</span>Films<span class="cat-count" id="cnt-films">0</span></button>
   </div>
   <div class="sidebar-sec" style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px;">
     <div class="sidebar-title">Stats live</div>
@@ -981,7 +983,7 @@ function startAutoCmts() {
 // COUNTS & STATS
 // ============================================================
 function updateCounts() {
-  var cats = ["all","foot","news","sport","musique","monde"];
+  var cats = ["all","foot","news","sport","musique","monde","films"];
 
   cats.forEach(function(cat){
     var el = document.getElementById("cnt-"+cat);
