@@ -1,8 +1,7 @@
 {
   "rewrites": [
     { "source": "/sms-marketing", "destination": "https://pst-telecom-production.up.railway.app/sms-marketing" },
-    { "source": "/recharge", "destination": "https://pst-telecom-production.up.railway.app/recharge" },
-    { "source": "/recharger", "destination": "https://pst-telecom-production.up.railway.app/recharge" },
+    { "source": "/recharge", "destination": "https://pst-telecom-production.up.railway.app/recharge.html" },
     { "source": "/sms", "destination": "https://pst-telecom-production.up.railway.app/sms" },
     { "source": "/dashboard", "destination": "https://pst-telecom-production.up.railway.app/dashboard" },
     { "source": "/agent", "destination": "https://pst-telecom-production.up.railway.app/agent" },
