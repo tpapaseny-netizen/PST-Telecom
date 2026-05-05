@@ -134,6 +134,9 @@ app.get('/streaming', (req, res) => {
 app.get('/recharge', (req, res) => {
   res.sendFile(path.join(__dirname, 'recharge.html'));
 });
+app.get('/noc', (req, res) => {
+  res.sendFile(path.join(__dirname, 'noc.html'));
+});
 // ─── STATS ADMIN ────────────────────────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
