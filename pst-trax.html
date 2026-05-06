@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PST-TRAX | Géolocalisation Flotte</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;800;900&display=swap');
+
+:root {
+  --bg: #050a0f;
+  --bg2: #0a1520;
+  --bg3: #0f1e2d;
+  --border: rgba(0,210,255,0.15);
+  --cyan: #00d2ff;
+  --cyan2: #00aacc;
+  --green: #00ff88;
+  --red: #ff3355;
+  --orange: #ff8c00;
+  --gold: #ffd700;
+  --muted: #4a6080;
+  --text: #c8dff0;
+  --white: #e8f4ff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Exo 2', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══ HEADER ═══ */
+#header {
+  background: linear-gradient(90deg, #050a0f, #0a1520, #050a0f);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1000;
+}
+
+#header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+
+.logo {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 2px;
+}
+
+.logo span { color: var(--cyan); }
+.logo small {
+  font-size: 0.55rem;
+  color: var(--muted);
+  display: block;
+  letter-spacing: 3px;
+  margin-top: -4px;
+}
+
+.hdr-center {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,255,136,0.1);
+  border: 1px solid rgba(0,255,136,0.3);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(0.8);} }
+
+.hdr-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.hdr-stat {
+  text-align: center;
+}
+
+.hdr-stat-n {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  line-height: 1;
+}
+
+.hdr-stat-l {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hdr-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-add {
+  background: linear-gradient(135deg, var(--cyan), var(--cyan2));
+  color: #000;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: .2s;
+}
+
+.btn-add:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,210,255,0.4); }
+
+/* ═══ MAIN LAYOUT ═══ */
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ═══ SIDEBAR ═══ */
+#sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sb-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sb-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.sb-count {
+  background: var(--cyan);
+  color: #000;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Filter tabs */
+.filter-tabs {
+  display: flex;
+  padding: 8px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ftab {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: .2s;
+  font-family: 'Exo 2', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.ftab.on { background: rgba(0,210,255,0.15); border-color: var(--cyan); color: var(--cyan); }
+
+/* Moto list */
+#moto-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.moto-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: .2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.moto-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--muted);
+  border-radius: 3px 0 0 3px;
+}
+
+.moto-card.moving::before { background: var(--green); }
+.moto-card.stopped::before { background: var(--orange); }
+.moto-card.alert::before { background: var(--red); animation: blink 0.5s infinite; }
+.moto-card.offline::before { background: var(--muted); }
+
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+.moto-card:hover { border-color: rgba(0,210,255,0.4); transform: translateX(2px); }
+.moto-card.selected { border-color: var(--cyan); background: rgba(0,210,255,0.08); }
+
+.moto-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.moto-id {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.moto-status {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 10px;
+  letter-spacing: 1px;
+}
+
+.status-moving { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.status-stopped { background: rgba(255,140,0,0.15); color: var(--orange); border: 1px solid rgba(255,140,0,0.3); }
+.status-alert { background: rgba(255,51,85,0.15); color: var(--red); border: 1px solid rgba(255,51,85,0.3); }
+.status-offline { background: rgba(74,96,128,0.15); color: var(--muted); border: 1px solid rgba(74,96,128,0.3); }
+
+.moto-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.moto-info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.moto-info-label {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.moto-info-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.moto-owner {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.owner-name {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.btn-cut {
+  background: rgba(255,51,85,0.15);
+  border: 1px solid rgba(255,51,85,0.4);
+  color: var(--red);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Exo 2', sans-serif;
+  transition: .2s;
+}
+
+.btn-cut:hover { background: rgba(255,51,85,0.3); }
+.btn-cut.cut { background: rgba(255,140,0,0.15); border-color: rgba(255,140,0,0.4); color: var(--orange); }
+
+/* ═══ MAP AREA ═══ */
+#map-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+#map {
+  flex: 1;
+  background: #050a0f;
+}
+
+/* Leaflet dark override */
+.leaflet-tile { filter: brightness(0.7) saturate(0.8) hue-rotate(180deg); }
+
+/* ═══ MAP OVERLAY INFO ═══ */
+#map-overlay {
+  position: absolute;
+  top: 12px; right: 12px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-widget {
+  background: rgba(10,21,32,0.92);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  backdrop-filter: blur(10px);
+  min-width: 160px;
+}
+
+.mw-title {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.mw-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.mw-stat-n {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mw-stat-l {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* ═══ BOTTOM BAR ═══ */
+#bottom-bar {
+  height: 44px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.bb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.bb-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+/* ═══ DETAIL PANEL ═══ */
+#detail-panel {
+  position: absolute;
+  bottom: 44px; left: 300px; right: 0;
+  background: rgba(10,21,32,0.96);
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  display: none;
+  z-index: 400;
+  backdrop-filter: blur(20px);
+}
+
+#detail-panel.open { display: flex; gap: 24px; align-items: center; }
+
+.dp-close {
+  position: absolute;
+  top: 10px; right: 16px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.dp-id {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1;
+}
+
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 20px;
+  flex: 1;
+}
+
+.dp-item { text-align: center; }
+.dp-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.dp-label {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.dp-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dp-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid;
+  transition: .2s;
+  letter-spacing: 0.5px;
+}
+
+.dp-btn.primary { background: rgba(0,210,255,0.15); border-color: var(--cyan); color: var(--cyan); }
+.dp-btn.danger { background: rgba(255,51,85,0.15); border-color: var(--red); color: var(--red); }
+.dp-btn:hover { transform: translateY(-1px); }
+
+/* ═══ MODAL ═══ */
+#modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  width: 420px;
+  position: relative;
+}
+
+.modal-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: none; border: none;
+  color: var(--muted); cursor: pointer; font-size: 18px;
+}
+
+.form-group { margin-bottom: 14px; }
+
+.form-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--white);
+  font-family: 'Exo 2', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: .2s;
+}
+
+.form-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,210,255,0.1); }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn-submit {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--cyan), var(--cyan2));
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: .2s;
+}
+
+.btn-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,210,255,0.4); }
+
+/* Alert notification */
+#alert-notif {
+  position: fixed;
+  top: 70px; right: 20px;
+  z-index: 3000;
+  display: none;
+  background: rgba(255,51,85,0.15);
+  border: 1px solid var(--red);
+  border-radius: 10px;
+  padding: 12px 16px;
+  min-width: 280px;
+  animation: slideIn .3s ease;
+}
+
+@keyframes slideIn { from{transform:translateX(100px);opacity:0;} to{transform:translateX(0);opacity:1;} }
+
+.alert-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.alert-body { font-size: 11px; color: var(--text); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Custom leaflet marker */
+.moto-marker {
+  background: var(--bg2);
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 0 10px rgba(0,210,255,0.5);
+}
+
+.moto-marker.moving { border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,136,0.5); }
+.moto-marker.stopped { border-color: var(--orange); box-shadow: 0 0 10px rgba(255,140,0,0.5); }
+.moto-marker.alert { border-color: var(--red); box-shadow: 0 0 10px rgba(255,51,85,0.5); animation: markerBlink 0.5s infinite; }
+.moto-marker.offline { border-color: var(--muted); box-shadow: none; opacity: 0.6; }
+
+@keyframes markerBlink { 0%,100%{box-shadow: 0 0 10px rgba(255,51,85,0.8);} 50%{box-shadow: 0 0 20px rgba(255,51,85,0.2);} }
+
+@media(max-width:768px) {
+  #sidebar { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 50vh; z-index: 500; border-right: none; border-top: 1px solid var(--border); }
+  #map-area { height: 50vh; }
+  .hdr-stats { display: none; }
+  #detail-panel { left: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo">
+    PST<span>-TRAX</span>
+    <small>GÉOLOCALISATION & TRACKING</small>
+  </div>
+  <div class="hdr-center">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      TEMPS RÉEL
+    </div>
+    <div class="hdr-stats">
+      <div class="hdr-stat">
+        <div class="hdr-stat-n" id="stat-total">0</div>
+        <div class="hdr-stat-l">Motos</div>
+      </div>
+      <div class="hdr-stat">
+        <div class="hdr-stat-n" style="color:var(--green)" id="stat-moving">0</div>
+        <div class="hdr-stat-l">En route</div>
+      </div>
+      <div class="hdr-stat">
+        <div class="hdr-stat-n" style="color:var(--orange)" id="stat-stopped">0</div>
+        <div class="hdr-stat-l">Arrêtées</div>
+      </div>
+      <div class="hdr-stat">
+        <div class="hdr-stat-n" style="color:var(--red)" id="stat-alert">0</div>
+        <div class="hdr-stat-l">Alertes</div>
+      </div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <a href="/trax-driver" target="_blank" style="background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.3);color:var(--green);padding:7px 14px;border-radius:6px;font-size:11px;font-weight:800;text-decoration:none;margin-right:8px;">📱 App Chauffeur</a>
+    <button class="btn-add" onclick="openModal()">+ Ajouter moto</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-header">
+      <div class="sb-title">Flotte Véhicules</div>
+      <div class="sb-count" id="sb-count">0</div>
+    </div>
+    <div class="filter-tabs">
+      <button class="ftab on" onclick="filterMotos('all',this)">Tout</button>
+      <button class="ftab" onclick="filterMotos('moving',this)">🟢 Route</button>
+      <button class="ftab" onclick="filterMotos('stopped',this)">🟠 Arrêt</button>
+      <button class="ftab" onclick="filterMotos('alert',this)">🔴 Alerte</button>
+    </div>
+    <div id="moto-list"></div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-area">
+    <div id="map"></div>
+
+    <!-- Map overlay widgets -->
+    <div id="map-overlay">
+      <div class="map-widget">
+        <div class="mw-title">Statut Flotte</div>
+        <div class="mw-stats">
+          <div>
+            <div class="mw-stat-n" style="color:var(--green)" id="ov-moving">0</div>
+            <div class="mw-stat-l">En route</div>
+          </div>
+          <div>
+            <div class="mw-stat-n" style="color:var(--orange)" id="ov-stopped">0</div>
+            <div class="mw-stat-l">Arrêtées</div>
+          </div>
+          <div>
+            <div class="mw-stat-n" style="color:var(--red)" id="ov-alert">0</div>
+            <div class="mw-stat-l">Alertes</div>
+          </div>
+        </div>
+      </div>
+      <div class="map-widget">
+        <div class="mw-title">Dernière mise à jour</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--cyan)" id="last-update">--:--:--</div>
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail-panel">
+      <button class="dp-close" onclick="closeDetail()">✕</button>
+      <div>
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;">MOTO</div>
+        <div class="dp-id" id="dp-id">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="dp-owner">—</div>
+      </div>
+      <div class="dp-grid">
+        <div class="dp-item">
+          <div class="dp-val" id="dp-speed">—</div>
+          <div class="dp-label">Vitesse</div>
+        </div>
+        <div class="dp-item">
+          <div class="dp-val" id="dp-status">—</div>
+          <div class="dp-label">Statut</div>
+        </div>
+        <div class="dp-item">
+          <div class="dp-val" id="dp-distance">—</div>
+          <div class="dp-label">Distance/jour</div>
+        </div>
+        <div class="dp-item">
+          <div class="dp-val" id="dp-hours">—</div>
+          <div class="dp-label">Heures actif</div>
+        </div>
+        <div class="dp-item">
+          <div class="dp-val" id="dp-battery">—</div>
+          <div class="dp-label">Batterie GPS</div>
+        </div>
+      </div>
+      <div class="dp-actions">
+        <button class="dp-btn primary" onclick="centerOnMoto()">📍 Centrer</button>
+        <button class="dp-btn primary" onclick="showHistory()">📋 Historique</button>
+        <button class="dp-btn danger" id="dp-cut-btn" onclick="cutEngine()">⚡ Couper moteur</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottom-bar">
+  <div class="bb-item"><div class="bb-dot" style="background:var(--green)"></div> En route</div>
+  <div class="bb-item"><div class="bb-dot" style="background:var(--orange)"></div> Arrêtée +5min</div>
+  <div class="bb-item"><div class="bb-dot" style="background:var(--red)"></div> Hors zone / Alerte</div>
+  <div class="bb-item"><div class="bb-dot" style="background:var(--muted)"></div> Hors ligne</div>
+  <div style="margin-left:auto;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">PST-TRAX v1.0 — Touba, Sénégal</div>
+</div>
+
+<!-- ALERT NOTIFICATION -->
+<div id="alert-notif">
+  <div class="alert-title">⚠️ ALERTE MOTO</div>
+  <div class="alert-body" id="alert-body">—</div>
+</div>
+
+<!-- ADD MOTO MODAL -->
+<div id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">🏍️ Ajouter une moto</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ID / Plaque</label>
+        <input class="form-input" id="f-id" placeholder="ex: TBA-001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type de véhicule</label>
+        <select class="form-input" id="f-type">
+          <option value="moto">🏍️ Moto Jakarta</option>
+          <option value="voiture">🚗 Voiture</option>
+          <option value="camion">🚚 Camion</option>
+          <option value="bus">🚌 Bus / Car rapide</option>
+          <option value="taxi">🚕 Taxi / VTC</option>
+          <option value="ambulance">🚑 Ambulance</option>
+          <option value="tracteur">🚜 Tracteur / Engin</option>
+          <option value="velo">🚲 Vélo / Tricycle</option>
+          <option value="bateau">⛵ Bateau / Pirogue</option>
+          <option value="autre">📦 Autre</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Propriétaire</label>
+      <input class="form-input" id="f-owner" placeholder="Nom du propriétaire">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input class="form-input" id="f-phone" placeholder="+221 77 xxx xx xx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Modèle précis</label>
+        <input class="form-input" id="f-model" placeholder="ex: Jakarta 125, Toyota Hilux...">
+      </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Zone autorisée</label>
+        <input class="form-input" id="f-zone" placeholder="ex: Touba">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Latitude (GPS)</label>
+        <input class="form-input" id="f-lat" placeholder="14.8500" value="14.8500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Longitude (GPS)</label>
+        <input class="form-input" id="f-lng" placeholder="-15.8833" value="-15.8833">
+      </div>
+    </div>
+    <button class="btn-submit" onclick="addMoto()">✅ Enregistrer la moto</button>
+  </div>
+</div>
+
+<script>
+// ═══ DATA ═══
+var MOTOS = [];
+var MARKERS = {};
+var MAP = null;
+var selectedMoto = null;
+var filterMode = 'all';
+var LS_KEY = 'pst_trax_motos_v1';
+
+// Statuts possibles
+var STATUSES = ['moving','moving','moving','stopped','alert','offline'];
+
+// ═══ INIT MAP ═══
+function initMap() {
+  MAP = L.map('map', {
+    center: [14.8500, -15.8833], // Touba, Sénégal
+    zoom: 13,
+    zoomControl: false
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(MAP);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(MAP);
+}
+
+// ═══ LOAD/SAVE ═══
+function saveMotos() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(MOTOS)); } catch(e){}
+}
+
+function loadMotos() {
+  try {
+    var saved = localStorage.getItem(LS_KEY);
+    if(saved) MOTOS = JSON.parse(saved);
+  } catch(e) { MOTOS = []; }
+
+  // Add demo motos if empty
+  if(MOTOS.length === 0) {
+    MOTOS = [
+      { id:'TBA-001', type:'moto', model:'Jakarta 125', owner:'Modou Fall', phone:'+221 77 123 45 67', zone:'Touba', lat:14.8521, lng:-15.8845, status:'moving', speed:42, distance:28, hours:6.5, battery:87, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-002', type:'taxi', model:'Toyota Corolla', owner:'Ibrahima Sy', phone:'+221 76 234 56 78', zone:'Touba', lat:14.8490, lng:-15.8810, status:'stopped', speed:0, distance:85, hours:8.2, battery:65, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-003', type:'camion', model:'Mercedes Actros', owner:'Cheikh Diop', phone:'+221 78 345 67 89', zone:'Touba', lat:14.8560, lng:-15.8900, status:'alert', speed:0, distance:152, hours:9.1, battery:23, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-004', type:'bus', model:'Tata Bus 40pl', owner:'Fatou Ndiaye', phone:'+221 70 456 78 90', zone:'Touba', lat:14.8470, lng:-15.8780, status:'moving', speed:35, distance:41, hours:7.8, battery:91, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-005', type:'voiture', model:'Toyota Hilux', owner:'Mamadou Ba', phone:'+221 77 567 89 01', zone:'Touba', lat:14.8530, lng:-15.8950, status:'offline', speed:0, distance:0, hours:0, battery:0, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-006', type:'moto', model:'Jakarta 150', owner:'Aminata Diallo', phone:'+221 78 678 90 12', zone:'Touba', lat:14.8505, lng:-15.8860, status:'moving', speed:28, distance:19, hours:3.5, battery:78, cut:false, createdAt: new Date().toISOString() },
+      { id:'TBA-007', type:'ambulance', model:'Renault Master', owner:'Clinique PST', phone:'+221 77 789 01 23', zone:'Touba', lat:14.8545, lng:-15.8825, status:'moving', speed:67, distance:33, hours:5.2, battery:95, cut:false, createdAt: new Date().toISOString() },
+    ];
+    saveMotos();
+  }
+}
+
+// ═══ RENDER ═══
+function render() {
+  renderList();
+  renderMarkers();
+  updateStats();
+  updateTime();
+}
+
+function renderList() {
+  var list = document.getElementById('moto-list');
+  var filtered = MOTOS.filter(function(m) {
+    if(filterMode === 'all') return true;
+    return m.status === filterMode;
+  });
+
+  document.getElementById('sb-count').textContent = filtered.length;
+
+  if(filtered.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Aucune moto</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(m) {
+    var statusLabel = { moving:'EN ROUTE', stopped:'ARRÊTÉE', alert:'ALERTE', offline:'HORS LIGNE' }[m.status] || m.status;
+    var statusClass = 'status-' + m.status;
+    return '<div class="moto-card ' + m.status + (selectedMoto && selectedMoto.id===m.id?' selected':'') + '" onclick="selectMoto(\''+m.id+'\')">'+
+      '<div class="moto-top">'+
+        '<div class="moto-id">🏍️ ' + m.id + '</div>'+
+        '<div class="moto-status ' + statusClass + '">' + statusLabel + '</div>'+
+      '</div>'+
+      '<div class="moto-info">'+
+        '<div class="moto-info-item"><span class="moto-info-label">Vitesse</span><span class="moto-info-val">' + m.speed + ' km/h</span></div>'+
+        '<div class="moto-info-item"><span class="moto-info-label">Modèle</span><span class="moto-info-val">' + m.model + '</span></div>'+
+        '<div class="moto-info-item"><span class="moto-info-label">Distance</span><span class="moto-info-val">' + m.distance + ' km</span></div>'+
+        '<div class="moto-info-item"><span class="moto-info-label">Batterie GPS</span><span class="moto-info-val">' + (m.battery>0?m.battery+'%':'—') + '</span></div>'+
+      '</div>'+
+      '<div class="moto-owner">'+
+        '<span class="owner-name">👤 ' + m.owner + '</span>'+
+        '<button class="btn-cut'+(m.cut?' cut':'') + '" onclick="event.stopPropagation();toggleCut(\''+m.id+'\')">' + (m.cut?'🔴 COUPÉ':'⚡ Couper') + '</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderMarkers() {
+  // Remove old markers
+  Object.keys(MARKERS).forEach(function(id) {
+    if(!MOTOS.find(function(m){return m.id===id;})) {
+      MAP.removeLayer(MARKERS[id]);
+      delete MARKERS[id];
+    }
+  });
+
+  MOTOS.forEach(function(m) {
+    var icon = L.divIcon({
+      className: '',
+      var vehicleIcon = {moto:"🏍️",voiture:"🚗",camion:"🚚",bus:"🚌",taxi:"🚕",ambulance:"🚑",tracteur:"🚜",velo:"🚲",bateau:"⛵",autre:"📦"}[m.type||"moto"]||"🏍️";
+      html: '<div class="moto-marker ' + m.status + '">'+vehicleIcon+'</div>',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    if(MARKERS[m.id]) {
+      MARKERS[m.id].setLatLng([m.lat, m.lng]);
+      MARKERS[m.id].setIcon(icon);
+    } else {
+      var marker = L.marker([m.lat, m.lng], { icon: icon })
+        .addTo(MAP)
+        .bindPopup(
+          '<div style="font-family:Exo 2,sans-serif;min-width:160px;">'+
+          '<div style="font-weight:800;font-size:14px;margin-bottom:6px;">🏍️ ' + m.id + '</div>'+
+          '<div style="font-size:11px;color:#666;">Type: ' + ({moto:"🏍️ Moto",voiture:"🚗 Voiture",camion:"🚚 Camion",bus:"🚌 Bus",taxi:"🚕 Taxi",ambulance:"🚑 Ambulance",tracteur:"🚜 Tracteur",velo:"🚲 Vélo",bateau:"⛵ Bateau",autre:"📦 Autre"}[m.type||"moto"]||"Véhicule") + '</div>'+
+          '<div style="font-size:11px;color:#666;">Propriétaire: ' + m.owner + '</div>'+
+          '<div style="font-size:11px;color:#666;">Vitesse: ' + m.speed + ' km/h</div>'+
+          '<div style="font-size:11px;color:#666;">Batterie: ' + (m.battery>0?m.battery+'%':'—') + '</div>'+
+          '</div>'
+        )
+        .on('click', function(){ selectMoto(m.id); });
+      MARKERS[m.id] = marker;
+    }
+  });
+}
+
+function updateStats() {
+  var moving = MOTOS.filter(function(m){return m.status==='moving';}).length;
+  var stopped = MOTOS.filter(function(m){return m.status==='stopped';}).length;
+  var alert = MOTOS.filter(function(m){return m.status==='alert';}).length;
+
+  document.getElementById('stat-total').textContent = MOTOS.length;
+  document.getElementById('stat-moving').textContent = moving;
+  document.getElementById('stat-stopped').textContent = stopped;
+  document.getElementById('stat-alert').textContent = alert;
+  document.getElementById('ov-moving').textContent = moving;
+  document.getElementById('ov-stopped').textContent = stopped;
+  document.getElementById('ov-alert').textContent = alert;
+}
+
+function updateTime() {
+  document.getElementById('last-update').textContent = new Date().toLocaleTimeString('fr-FR');
+}
+
+// ═══ SELECT MOTO ═══
+function selectMoto(id) {
+  selectedMoto = MOTOS.find(function(m){return m.id===id;});
+  if(!selectedMoto) return;
+
+  // Center map
+  MAP.setView([selectedMoto.lat, selectedMoto.lng], 15);
+  if(MARKERS[id]) MARKERS[id].openPopup();
+
+  // Show detail panel
+  var statusLabel = { moving:'🟢 EN ROUTE', stopped:'🟠 ARRÊTÉE', alert:'🔴 ALERTE', offline:'⚫ HORS LIGNE' }[selectedMoto.status];
+  document.getElementById('dp-id').textContent = selectedMoto.id;
+  document.getElementById('dp-owner').textContent = '👤 ' + selectedMoto.owner + ' — 📞 ' + selectedMoto.phone;
+  document.getElementById('dp-speed').textContent = selectedMoto.speed + ' km/h';
+  document.getElementById('dp-status').textContent = statusLabel;
+  document.getElementById('dp-distance').textContent = selectedMoto.distance + ' km';
+  document.getElementById('dp-hours').textContent = selectedMoto.hours + 'h';
+  document.getElementById('dp-battery').textContent = selectedMoto.battery > 0 ? selectedMoto.battery + '%' : '—';
+  document.getElementById('dp-cut-btn').textContent = selectedMoto.cut ? '🔓 Redémarrer' : '⚡ Couper moteur';
+
+  document.getElementById('detail-panel').classList.add('open');
+  renderList();
+}
+
+function closeDetail() {
+  selectedMoto = null;
+  document.getElementById('detail-panel').classList.remove('open');
+  renderList();
+}
+
+function centerOnMoto() {
+  if(!selectedMoto) return;
+  MAP.setView([selectedMoto.lat, selectedMoto.lng], 16);
+}
+
+function showHistory() {
+  if(!selectedMoto) return;
+  alert('📋 Historique de ' + selectedMoto.id + '\n\nFonctionnalité disponible dans PST-TRAX Pro\nContactez PST Telecom pour activer.');
+}
+
+function cutEngine() {
+  if(!selectedMoto) return;
+  toggleCut(selectedMoto.id);
+}
+
+function toggleCut(id) {
+  var moto = MOTOS.find(function(m){return m.id===id;});
+  if(!moto) return;
+  moto.cut = !moto.cut;
+  if(moto.cut) {
+    moto.status = 'alert';
+    moto.speed = 0;
+    showAlert('🔴 Moteur coupé à distance — ' + moto.id + ' (' + moto.owner + ')');
+  } else {
+    moto.status = 'stopped';
+    showAlert('🟢 Moteur redémarré — ' + moto.id + ' (' + moto.owner + ')');
+  }
+  // Send to API
+  fetch('/api/trax/cut/' + id, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ cut: moto.cut })
+  }).catch(function(){});
+  saveMotos();
+  if(selectedMoto && selectedMoto.id === id) {
+    selectedMoto = moto;
+    document.getElementById('dp-cut-btn').textContent = moto.cut ? '🔓 Redémarrer' : '⚡ Couper moteur';
+  }
+  render();
+}
+
+// ═══ FILTER ═══
+function filterMotos(mode, btn) {
+  filterMode = mode;
+  document.querySelectorAll('.ftab').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderList();
+}
+
+// ═══ ADD MOTO ═══
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function addMoto() {
+  var id = document.getElementById('f-id').value.trim();
+  var model = document.getElementById('f-model').value.trim();
+  var owner = document.getElementById('f-owner').value.trim();
+  var phone = document.getElementById('f-phone').value.trim();
+  var zone = document.getElementById('f-zone').value.trim();
+  var lat = parseFloat(document.getElementById('f-lat').value) || 14.8500;
+  var lng = parseFloat(document.getElementById('f-lng').value) || -15.8833;
+
+  if(!id || !owner) { alert('ID et propriétaire requis !'); return; }
+  if(MOTOS.find(function(m){return m.id===id;})) { alert('ID déjà utilisé !'); return; }
+
+  var vtype = document.getElementById('f-type') ? document.getElementById('f-type').value : 'moto';
+  MOTOS.push({
+    id, type: vtype, model: model||'Véhicule', owner, phone: phone||'—', zone: zone||'Touba',
+    lat, lng, status:'offline', speed:0, distance:0, hours:0, battery:0, cut:false,
+    createdAt: new Date().toISOString()
+  });
+
+  saveMotos();
+  closeModal();
+  render();
+  showAlert('Nouvelle moto enregistrée — ' + id + ' (' + owner + ')');
+
+  // Clear form
+  ['f-id','f-model','f-owner','f-phone','f-zone'].forEach(function(i){
+    document.getElementById(i).value='';
+  });
+}
+
+// ═══ ALERT ═══
+function showAlert(msg) {
+  var notif = document.getElementById('alert-notif');
+  document.getElementById('alert-body').textContent = msg;
+  notif.style.display = 'block';
+  setTimeout(function(){ notif.style.display = 'none'; }, 5000);
+}
+
+// ═══ LIVE API FETCH ═══
+function fetchLivePositions() {
+  fetch('/api/trax/vehicles')
+    .then(function(r){ return r.json(); })
+    .then(function(vehicles) {
+      if(!vehicles || !vehicles.length) return;
+      
+      vehicles.forEach(function(v) {
+        // Check if 2+ minutes without update → offline
+        var lastSeen = v.lastSeen ? new Date(v.lastSeen) : null;
+        var isOffline = lastSeen ? (Date.now() - lastSeen.getTime() > 120000) : true;
+        if(isOffline && v.status !== 'offline') v.status = 'offline';
+
+        // Find existing moto or add new
+        var existing = MOTOS.find(function(m){ return m.id === v.vehicleId; });
+        if(existing) {
+          existing.lat = v.lat || existing.lat;
+          existing.lng = v.lng || existing.lng;
+          existing.speed = v.speed || 0;
+          existing.status = isOffline ? 'offline' : (v.cut ? 'alert' : (v.status || 'offline'));
+          existing.distance = v.distance || existing.distance;
+          existing.battery = v.battery || existing.battery;
+        } else {
+          // New vehicle from API
+          MOTOS.push({
+            id: v.vehicleId,
+            type: v.type || 'moto',
+            model: v.model || 'Véhicule',
+            owner: v.driverName || 'Chauffeur',
+            phone: v.ownerPhone || '—',
+            zone: v.zone || 'Zone',
+            lat: v.lat || 14.8500,
+            lng: v.lng || -15.8833,
+            status: isOffline ? 'offline' : (v.status || 'offline'),
+            speed: v.speed || 0,
+            distance: v.distance || 0,
+            hours: 0,
+            battery: v.battery || 0,
+            cut: v.cut || false,
+            createdAt: v.createdAt || new Date().toISOString()
+          });
+        }
+      });
+
+      render();
+    })
+    .catch(function(){
+      // Fallback simulation if API not available
+      simulateFallback();
+    });
+}
+
+function simulateFallback() {
+  MOTOS.forEach(function(m) {
+    if(m.status === 'moving' && !m.cut) {
+      m.lat += (Math.random() - 0.5) * 0.001;
+      m.lng += (Math.random() - 0.5) * 0.001;
+      m.speed = Math.floor(20 + Math.random() * 50);
+      m.distance = Math.min(150, m.distance + Math.random() * 0.3);
+    }
+  });
+  render();
+}
+
+// ═══ INIT ═══
+document.addEventListener('DOMContentLoaded', function() {
+  initMap();
+  loadMotos();
+  render();
+
+  // Fetch live positions every 3 seconds
+  setInterval(fetchLivePositions, 3000);
+  fetchLivePositions(); // immediate first fetch
+  setInterval(updateTime, 1000);
+
+  // Show initial alert for demo
+  setTimeout(function(){
+    showAlert('⚠️ TBA-003 — Hors zone détecté ! Dernier emplacement: Route Dakar');
+  }, 2000);
+});
+</script>
+</body>
+</html>
