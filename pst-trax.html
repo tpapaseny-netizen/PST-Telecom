@@ -2,820 +2,989 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PST-TRAX — Géolocalisation & Tracking</title>
-
-<!-- Leaflet CSS -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PST-TRAX</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;PST-TRAX&quot;,&quot;short_name&quot;:&quot;TRAX&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#0a0e1a&quot;}">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0a0e1a;
-    --panel: #111827;
-    --border: #1e2d47;
-    --accent: #00e5ff;
-    --green: #22c55e;
-    --orange: #f97316;
-    --red: #ef4444;
-    --text: #e2e8f0;
-    --muted: #64748b;
-  }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0e1a;--panel:#111827;--border:#1e2d47;
+  --accent:#00e5ff;--green:#22c55e;--orange:#f97316;--red:#ef4444;
+  --text:#e2e8f0;--muted:#64748b;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;}
 
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+/* ── LOGIN SCREEN ── */
+#screen-login{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+}
+.login-logo{font-size:36px;font-weight:900;letter-spacing:4px;color:var(--accent);margin-bottom:4px;}
+.login-sub{font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:40px;}
+.login-card{
+  width:100%;max-width:360px;
+  background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;
+}
+.login-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.login-desc{font-size:12px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+.role-picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+.role-btn{
+  padding:16px 8px;border:2px solid var(--border);background:var(--bg);
+  color:var(--muted);border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;
+}
+.role-btn .ri{font-size:28px;display:block;margin-bottom:6px;}
+.role-btn .rl{font-size:12px;font-weight:700;}
+.role-btn.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+.fi{
+  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:12px 14px;border-radius:10px;font-size:14px;outline:none;margin-bottom:12px;
+  transition:border-color .2s;
+}
+.fi:focus{border-color:var(--accent);}
+.btn-go{
+  width:100%;padding:14px;background:var(--accent);color:#000;
+  border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;
+  letter-spacing:.5px;transition:background .2s;
+}
+.btn-go:active{background:#00bcd4;}
 
-  /* TOP BAR */
-  .topbar {
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-shrink: 0;
-    z-index: 1000;
-  }
-  .logo { display: flex; flex-direction: column; }
-  .logo-title { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: var(--accent); }
-  .logo-sub { font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
-  .live-badge {
-    background: rgba(34,197,94,0.15);
-    border: 1px solid var(--green);
-    color: var(--green);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .live-dot {
-    width: 7px; height: 7px;
-    background: var(--green);
-    border-radius: 50%;
-    animation: pulse 1.5s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.3)} }
+/* ── OWNER DASHBOARD ── */
+#screen-owner{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;}
 
-  .stats-bar {
-    display: flex;
-    gap: 24px;
-    margin-left: auto;
-  }
-  .stat-item { text-align: center; }
-  .stat-num { font-size: 20px; font-weight: 800; }
-  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .stat-item.green .stat-num { color: var(--green); }
-  .stat-item.orange .stat-num { color: var(--orange); }
-  .stat-item.red .stat-num { color: var(--red); }
+.topbar{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.tlogo{font-size:18px;font-weight:900;letter-spacing:2px;color:var(--accent);}
+.tlive{
+  background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);
+  padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;
+  display:flex;align-items:center;gap:5px;
+}
+.ldot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tstats{display:flex;gap:16px;margin-left:auto;}
+.ts{text-align:center;}
+.ts-n{font-size:18px;font-weight:800;}
+.ts-l{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.ts.g .ts-n{color:var(--green);}
+.ts.o .ts-n{color:var(--orange);}
+.ts.r .ts-n{color:var(--red);}
+.tbtn{
+  padding:8px 14px;border-radius:8px;border:none;cursor:pointer;
+  font-size:12px;font-weight:700;background:var(--accent);color:#000;
+  white-space:nowrap;
+}
 
-  .topbar-btns { display: flex; gap: 10px; }
-  .btn {
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    transition: all .2s;
-  }
-  .btn-outline {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-primary:hover { background: #00bcd4; }
+.owner-body{flex:1;display:flex;overflow:hidden;}
 
-  /* MAIN LAYOUT */
-  .main { display: flex; flex: 1; overflow: hidden; }
+/* sidebar */
+.sidebar{
+  width:270px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+}
+@media(max-width:700px){.sidebar{display:none;}}
+.sb-head{
+  padding:12px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sb-title{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.sb-count{background:var(--accent);color:#000;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;}
+.sb-search{padding:10px 12px;border-bottom:1px solid var(--border);}
+.sb-si{
+  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:8px 12px;border-radius:8px;font-size:12px;outline:none;
+}
+.sb-si:focus{border-color:var(--accent);}
+.sb-tabs{display:flex;padding:8px 12px;gap:4px;border-bottom:1px solid var(--border);}
+.stab{
+  flex:1;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;
+  border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--muted);
+  transition:all .2s;border-radius:6px;
+}
+.stab.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.vlist{flex:1;overflow-y:auto;padding:8px;}
+.vlist::-webkit-scrollbar{width:3px;}
+.vlist::-webkit-scrollbar-thumb{background:var(--border);}
 
-  /* SIDEBAR */
-  .sidebar {
-    width: 280px;
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .sidebar-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .sidebar-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-  .count-badge {
-    background: var(--accent);
-    color: #000;
-    font-size: 11px;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 10px;
-  }
+.vcard{
+  background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s;
+  border-left:3px solid var(--muted);
+}
+.vcard.online{border-left-color:var(--green);}
+.vcard.stopped{border-left-color:var(--orange);}
+.vcard.alert{border-left-color:var(--red);}
+.vcard:hover{border-color:var(--accent);}
+.vcard.sel{border-color:var(--accent);background:rgba(0,229,255,.05);}
+.vc-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.vc-ico{font-size:20px;}
+.vc-inf{flex:1;}
+.vc-nm{font-size:13px;font-weight:700;}
+.vc-id{font-size:10px;color:var(--muted);}
+.vc-st{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
+.st-online{background:rgba(34,197,94,.15);color:var(--green);}
+.st-stopped{background:rgba(249,115,22,.15);color:var(--orange);}
+.st-alert{background:rgba(239,68,68,.15);color:var(--red);animation:blink .8s infinite;}
+.st-offline{background:rgba(100,116,139,.15);color:var(--muted);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.vc-meta{display:flex;gap:10px;font-size:10px;color:var(--muted);margin-bottom:8px;}
+.vc-meta b{color:var(--text);}
+.vc-acts{display:flex;gap:6px;}
+.vab{
+  flex:1;padding:5px;font-size:10px;font-weight:700;border:1px solid var(--border);
+  background:transparent;color:var(--text);border-radius:6px;cursor:pointer;transition:all .2s;
+}
+.vab:hover{border-color:var(--accent);color:var(--accent);}
+.vab.danger{color:var(--red);border-color:rgba(239,68,68,.3);}
+.vab.danger:hover{background:rgba(239,68,68,.1);}
 
-  .filter-tabs {
-    display: flex;
-    gap: 0;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .tab {
-    flex: 1;
-    padding: 6px;
-    font-size: 10px;
-    font-weight: 700;
-    text-align: center;
-    border: 1px solid var(--border);
-    cursor: pointer;
-    background: transparent;
-    color: var(--muted);
-    transition: all .2s;
-  }
-  .tab:first-child { border-radius: 6px 0 0 6px; }
-  .tab:last-child { border-radius: 0 6px 6px 0; }
-  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+/* map */
+.map-wrap{flex:1;position:relative;}
+#map{width:100%;height:100%;}
+.map-info{
+  position:absolute;bottom:20px;right:12px;z-index:1000;
+  background:rgba(17,24,39,.9);border:1px solid var(--border);
+  border-radius:10px;padding:8px 14px;font-size:11px;color:var(--muted);
+  backdrop-filter:blur(8px);
+}
+.map-info span{color:var(--accent);font-weight:700;}
 
-  .vehicles-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .vehicles-list::-webkit-scrollbar { width: 4px; }
-  .vehicles-list::-webkit-scrollbar-track { background: var(--bg); }
-  .vehicles-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* mobile bottom nav for owner */
+.mob-nav{
+  display:none;background:var(--panel);border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+@media(max-width:700px){.mob-nav{display:flex;}}
+.mn-btn{
+  flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:none;background:transparent;
+  color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;
+  transition:color .2s;
+}
+.mn-btn .mni{font-size:20px;display:block;margin-bottom:2px;}
+.mn-btn.active,.mn-btn:hover{color:var(--accent);}
 
-  .vehicle-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all .2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .vehicle-card::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    border-radius: 3px 0 0 3px;
-  }
-  .vehicle-card.online::before { background: var(--green); }
-  .vehicle-card.stopped::before { background: var(--orange); }
-  .vehicle-card.alert::before { background: var(--red); }
-  .vehicle-card.offline::before { background: var(--muted); }
-  .vehicle-card:hover { border-color: var(--accent); transform: translateX(2px); }
-  .vehicle-card.selected { border-color: var(--accent); background: rgba(0,229,255,0.05); }
+/* mobile list overlay */
+#mob-list{
+  position:fixed;inset:0;z-index:500;background:var(--panel);
+  display:none;flex-direction:column;
+  padding-top:60px;
+}
+#mob-list.open{display:flex;}
+.mob-list-head{
+  position:fixed;top:0;left:0;right:0;z-index:501;
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+}
+.mob-close{
+  background:transparent;border:1px solid var(--border);color:var(--text);
+  padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;
+}
+.mob-vlist{flex:1;overflow-y:auto;padding:12px;}
 
-  .vc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .vc-icon { font-size: 20px; }
-  .vc-info { flex: 1; }
-  .vc-name { font-size: 13px; font-weight: 700; }
-  .vc-id { font-size: 10px; color: var(--muted); }
-  .vc-status {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 10px;
-    text-transform: uppercase;
-  }
-  .status-online { background: rgba(34,197,94,0.15); color: var(--green); }
-  .status-stopped { background: rgba(249,115,22,0.15); color: var(--orange); }
-  .status-alert { background: rgba(239,68,68,0.15); color: var(--red); animation: blink .8s infinite; }
-  .status-offline { background: rgba(100,116,139,0.15); color: var(--muted); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+/* ── DRIVER APP ── */
+#screen-driver{
+  position:fixed;inset:0;z-index:100;display:none;flex-direction:column;
+  background:var(--bg);
+}
+.drv-top{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.drv-logo{font-size:16px;font-weight:900;color:var(--accent);letter-spacing:2px;}
+.drv-name{font-size:13px;font-weight:700;flex:1;}
+.live-tag{
+  background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);
+  padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;
+}
+.offline-tag{
+  background:rgba(100,116,139,.15);border:1px solid var(--muted);color:var(--muted);
+  padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;
+}
 
-  .vc-details { display: flex; gap: 12px; }
-  .vc-detail { font-size: 10px; color: var(--muted); }
-  .vc-detail span { color: var(--text); font-weight: 600; }
+.drv-body{flex:1;overflow-y:auto;padding:16px;}
 
-  .vc-actions { display: flex; gap: 6px; margin-top: 8px; }
-  .vc-btn {
-    flex: 1;
-    padding: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .vc-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .vc-btn.danger { color: var(--red); border-color: rgba(239,68,68,0.3); }
-  .vc-btn.danger:hover { background: rgba(239,68,68,0.1); }
+.drv-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.drv-stat{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:14px 10px;text-align:center;
+}
+.drv-stat-n{font-size:24px;font-weight:800;color:var(--accent);}
+.drv-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
 
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--muted);
-  }
-  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
-  .empty-text { font-size: 13px; line-height: 1.6; }
+.drv-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:16px;margin-bottom:12px;
+}
+.drv-card-title{
+  font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.gps-coords{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.coord-box{background:var(--bg);border-radius:8px;padding:10px;}
+.coord-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.coord-val{font-size:15px;font-weight:700;color:var(--accent);}
+.precision-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
+.precision-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s;}
+.gps-status{font-size:11px;color:var(--muted);margin-top:6px;}
+.gps-status.good{color:var(--green);}
 
-  /* MAP */
-  .map-container { flex: 1; position: relative; }
-  #map { width: 100%; height: 100%; }
+.big-btn{
+  width:100%;padding:18px;border:none;border-radius:14px;
+  font-size:16px;font-weight:800;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-bottom:12px;
+}
+.btn-start{background:var(--green);color:#fff;}
+.btn-start:active{background:#16a34a;}
+.btn-stop{background:var(--red);color:#fff;}
+.btn-stop:active{background:#dc2626;}
 
-  /* Map overlays */
-  .map-overlay {
-    position: absolute;
-    z-index: 1000;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-  }
-  .map-status { bottom: 30px; right: 16px; font-size: 11px; color: var(--muted); }
-  .map-status span { color: var(--accent); font-weight: 700; }
+.freq-btns{display:flex;gap:8px;}
+.freq-btn{
+  flex:1;padding:10px;border:1px solid var(--border);background:var(--bg);
+  color:var(--muted);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;
+  transition:all .2s;
+}
+.freq-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
 
-  /* Search */
-  .search-bar {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .search-input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    outline: none;
-    transition: border-color .2s;
-  }
-  .search-input:focus { border-color: var(--accent); }
+.notif-list{max-height:120px;overflow-y:auto;}
+.notif-item{
+  display:flex;align-items:flex-start;gap:8px;padding:8px 0;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.notif-item:last-child{border-bottom:none;}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;}
+.notif-dot.orange{background:var(--orange);}
+.notif-dot.red{background:var(--red);}
+.notif-msg{flex:1;}
+.notif-time{font-size:10px;color:var(--muted);}
 
-  /* Modal */
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    display: none;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 28px;
-    width: 420px;
-    max-width: 95vw;
-  }
-  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
-  .form-group { margin-bottom: 14px; }
-  .form-label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: block; }
-  .form-input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    outline: none;
-    transition: border-color .2s;
-  }
-  .form-input:focus { border-color: var(--accent); }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-  .modal-actions .btn { flex: 1; padding: 12px; font-size: 13px; }
+.hist-item{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;font-size:12px;
+}
+.hist-top{display:flex;justify-content:space-between;margin-bottom:4px;}
+.hist-date{font-weight:700;}
+.hist-dist{color:var(--accent);font-weight:700;}
 
-  /* Alert popup */
-  .alert-popup {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    z-index: 9999;
-    background: rgba(239,68,68,0.15);
-    border: 1px solid var(--red);
-    color: var(--text);
-    padding: 14px 20px;
-    border-radius: 12px;
-    font-size: 13px;
-    max-width: 320px;
-    transform: translateX(400px);
-    transition: transform .4s;
-    backdrop-filter: blur(10px);
-  }
-  .alert-popup.show { transform: translateX(0); }
-  .alert-popup-title { font-weight: 800; color: var(--red); margin-bottom: 4px; }
+.drv-bottom{
+  background:var(--panel);border-top:1px solid var(--border);
+  display:flex;flex-shrink:0;
+}
+.drv-tab{
+  flex:1;padding:12px 6px;text-align:center;cursor:pointer;
+  border:none;background:transparent;color:var(--muted);font-size:9px;
+  font-weight:700;text-transform:uppercase;transition:color .2s;
+}
+.drv-tab .dti{font-size:18px;display:block;margin-bottom:2px;}
+.drv-tab.active,.drv-tab:hover{color:var(--accent);}
 
-  /* Bottom bar */
-  .bottombar {
-    background: var(--panel);
-    border-top: 1px solid var(--border);
-    padding: 6px 20px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    font-size: 10px;
-    flex-shrink: 0;
-  }
-  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .ml-auto { margin-left: auto; color: var(--muted); }
+/* tab panels */
+.dtab-panel{display:none;}
+.dtab-panel.active{display:block;}
 
-  /* Leaflet custom markers */
-  .custom-marker {
-    background: var(--panel);
-    border: 2px solid var(--green);
-    border-radius: 50%;
-    width: 36px !important;
-    height: 36px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    box-shadow: 0 0 0 4px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.5);
-  }
-  .custom-marker.stopped { border-color: var(--orange); box-shadow: 0 0 0 4px rgba(249,115,22,0.2), 0 4px 12px rgba(0,0,0,0.5); }
-  .custom-marker.alert { border-color: var(--red); box-shadow: 0 0 0 4px rgba(239,68,68,0.3), 0 4px 12px rgba(0,0,0,0.5); animation: markerPulse 1s infinite; }
-  .custom-marker.offline { border-color: var(--muted); box-shadow: none; opacity: .6; }
-  @keyframes markerPulse { 0%,100%{box-shadow:0 0 0 4px rgba(239,68,68,0.3)} 50%{box-shadow:0 0 0 10px rgba(239,68,68,0.1)} }
+/* modal */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+.modal-bg.open{display:flex;}
+.modal{
+  background:var(--panel);border:1px solid var(--border);border-radius:16px;
+  padding:24px;width:100%;max-width:400px;
+}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:18px;}
+.fl{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;display:block;}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.tg-btn{
+  padding:10px 4px;border:1px solid var(--border);background:var(--bg);
+  color:var(--muted);border-radius:8px;cursor:pointer;text-align:center;
+  font-size:9px;transition:all .2s;
+}
+.tg-btn .ti{font-size:22px;display:block;margin-bottom:3px;}
+.tg-btn.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-acts{display:flex;gap:10px;margin-top:16px;}
+.modal-acts button{flex:1;padding:12px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:700;}
+.btn-cancel{background:var(--border);color:var(--text);}
+.btn-save{background:var(--accent);color:#000;}
 
-  .vehicle-types { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .type-btn {
-    padding: 10px 6px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--muted);
-    border-radius: 8px;
-    cursor: pointer;
-    text-align: center;
-    font-size: 10px;
-    transition: all .2s;
-  }
-  .type-btn:hover, .type-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
-  .type-btn .type-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+/* alert toast */
+.toast{
+  position:fixed;top:70px;right:16px;z-index:9999;
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;font-size:13px;max-width:300px;
+  transform:translateX(350px);transition:transform .35s;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.toast.show{transform:translateX(0);}
+.toast-title{font-weight:800;margin-bottom:3px;}
+
+/* leaflet custom */
+.mk{
+  background:var(--panel);border:2px solid var(--green);border-radius:50%;
+  width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  box-shadow:0 0 0 4px rgba(34,197,94,.2),0 4px 12px rgba(0,0,0,.5);
+}
+.mk.stopped{border-color:var(--orange);box-shadow:0 0 0 4px rgba(249,115,22,.2),0 4px 12px rgba(0,0,0,.5);}
+.mk.alert{border-color:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.3),0 4px 12px rgba(0,0,0,.5);}
+.mk.offline{border-color:var(--muted);opacity:.6;box-shadow:none;}
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="logo">
-    <div class="logo-title">PST-TRAX</div>
-    <div class="logo-sub">Géolocalisation & Tracking</div>
-  </div>
-  <div class="live-badge">
-    <div class="live-dot"></div>
-    TEMPS RÉEL
-  </div>
-  <div class="stats-bar">
-    <div class="stat-item">
-      <div class="stat-num" id="stat-total">0</div>
-      <div class="stat-label">Véhicules</div>
-    </div>
-    <div class="stat-item green">
-      <div class="stat-num" id="stat-route">0</div>
-      <div class="stat-label">En route</div>
-    </div>
-    <div class="stat-item orange">
-      <div class="stat-num" id="stat-arret">0</div>
-      <div class="stat-label">Arrêtés</div>
-    </div>
-    <div class="stat-item red">
-      <div class="stat-num" id="stat-alerte">0</div>
-      <div class="stat-label">Alertes</div>
-    </div>
-  </div>
-  <div class="topbar-btns">
-    <button class="btn btn-outline" onclick="window.open('/trax-driver','_blank')">📱 App Chauffeur</button>
-    <button class="btn btn-primary" onclick="openAddModal()">＋ Ajouter véhicule</button>
-  </div>
-</div>
-
-<!-- MAIN -->
-<div class="main">
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <span class="sidebar-title">Flotte véhicules</span>
-      <span class="count-badge" id="sidebar-count">0</span>
-    </div>
-    <div class="search-bar">
-      <input type="text" class="search-input" placeholder="🔍 Rechercher un véhicule..." oninput="filterVehicles(this.value)">
-    </div>
-    <div class="filter-tabs">
-      <button class="tab active" onclick="setFilter('all',this)">Tout</button>
-      <button class="tab" onclick="setFilter('online',this)">🟢 Route</button>
-      <button class="tab" onclick="setFilter('stopped',this)">🟠 Arrêt</button>
-      <button class="tab" onclick="setFilter('alert',this)">🔴 Alerte</button>
-    </div>
-    <div class="vehicles-list" id="vehicles-list">
-      <div class="empty-state">
-        <div class="empty-icon">🏍️</div>
-        <div class="empty-text">Aucun véhicule<br>Cliquez sur <strong>+ Ajouter véhicule</strong><br>pour commencer</div>
+<!-- ══ LOGIN ══════════════════════════════════════ -->
+<div id="screen-login">
+  <div class="login-logo">PST-TRAX</div>
+  <div class="login-sub">Géolocalisation & Tracking</div>
+  <div class="login-card">
+    <div class="login-title">Qui êtes-vous ?</div>
+    <div class="login-desc">Choisissez votre rôle pour accéder à l'application adaptée.</div>
+    <div class="role-picker">
+      <div class="role-btn selected" onclick="pickRole(this,'owner')">
+        <span class="ri">👨‍💼</span>
+        <span class="rl">Propriétaire<br><small style="font-weight:400;font-size:9px">Voir ma flotte</small></span>
+      </div>
+      <div class="role-btn" onclick="pickRole(this,'driver')">
+        <span class="ri">🏍️</span>
+        <span class="rl">Chauffeur<br><small style="font-weight:400;font-size:9px">Activer mon GPS</small></span>
       </div>
     </div>
-  </div>
-
-  <!-- MAP -->
-  <div class="map-container">
-    <div id="map"></div>
-    <div class="map-overlay map-status">
-      Centré sur <span>Touba, Sénégal</span> · Dernière MàJ : <span id="last-update">--:--:--</span>
+    <div id="login-owner-fields">
+      <input class="fi" id="li-owner-name" placeholder="Votre nom (propriétaire)">
+      <input class="fi" id="li-owner-pass" type="password" placeholder="Mot de passe admin (ex: pst2026)">
+    </div>
+    <div id="login-driver-fields" style="display:none">
+      <input class="fi" id="li-driver-name" placeholder="Votre prénom et nom">
+      <input class="fi" id="li-driver-id" placeholder="ID de votre véhicule (ex: TBA-001)">
+    </div>
+    <button class="btn-go" onclick="doLogin()">▶ Accéder</button>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:14px;">
+      PST-TRAX · Touba, Sénégal
     </div>
   </div>
 </div>
 
-<!-- BOTTOM BAR -->
-<div class="bottombar">
-  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> En route</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Arrêtée +5min</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Hors zone / Alerte</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div> Hors ligne</div>
-  <div class="ml-auto">PST-TRAX v1.0 — Touba, Sénégal</div>
+<!-- ══ OWNER DASHBOARD ════════════════════════════ -->
+<div id="screen-owner">
+  <div class="topbar">
+    <div class="tlogo">PST-TRAX</div>
+    <div class="tlive"><div class="ldot"></div>TEMPS RÉEL</div>
+    <div class="tstats">
+      <div class="ts"><div class="ts-n" id="st-tot">0</div><div class="ts-l">Total</div></div>
+      <div class="ts g"><div class="ts-n" id="st-on">0</div><div class="ts-l">Route</div></div>
+      <div class="ts o"><div class="ts-n" id="st-st">0</div><div class="ts-l">Arrêt</div></div>
+      <div class="ts r"><div class="ts-n" id="st-al">0</div><div class="ts-l">Alerte</div></div>
+    </div>
+    <button class="tbtn" onclick="openAdd()">＋ Véhicule</button>
+  </div>
+  <div class="owner-body">
+    <div class="sidebar">
+      <div class="sb-head">
+        <span class="sb-title">Flotte</span>
+        <span class="sb-count" id="sb-cnt">0</span>
+      </div>
+      <div class="sb-search"><input class="sb-si" placeholder="🔍 Rechercher..." oninput="renderSidebar()"></div>
+      <div class="sb-tabs">
+        <button class="stab active" onclick="setFilter('all',this)">Tout</button>
+        <button class="stab" onclick="setFilter('online',this)">🟢</button>
+        <button class="stab" onclick="setFilter('stopped',this)">🟠</button>
+        <button class="stab" onclick="setFilter('alert',this)">🔴</button>
+      </div>
+      <div class="vlist" id="sb-list"></div>
+    </div>
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-info">Centré sur <span>Touba</span> · MàJ <span id="last-upd">--:--</span></div>
+    </div>
+  </div>
+  <div class="mob-nav">
+    <button class="mn-btn active" onclick="mobTab('map',this)"><span class="mni">🗺️</span>Carte</button>
+    <button class="mn-btn" onclick="mobTab('list',this)"><span class="mni">📋</span>Flotte</button>
+    <button class="mn-btn" onclick="openAdd()"><span class="mni">➕</span>Ajouter</button>
+    <button class="mn-btn" onclick="logout()"><span class="mni">🚪</span>Quitter</button>
+  </div>
 </div>
 
-<!-- ADD VEHICLE MODAL -->
-<div class="modal-overlay" id="add-modal">
+<!-- mobile list overlay -->
+<div id="mob-list">
+  <div class="mob-list-head">
+    <div class="tlogo" style="font-size:15px">FLOTTE</div>
+    <button class="mob-close" onclick="closeMobList()">✕ Fermer</button>
+  </div>
+  <div class="mob-vlist" id="mob-vlist"></div>
+</div>
+
+<!-- ══ DRIVER APP ══════════════════════════════════ -->
+<div id="screen-driver">
+  <div class="drv-top">
+    <div class="drv-logo">PST-TRAX</div>
+    <div class="drv-name" id="drv-name">Chauffeur</div>
+    <div class="live-tag" id="drv-live-tag" style="display:none">● EN DIRECT</div>
+    <div class="offline-tag" id="drv-off-tag">● HORS LIGNE</div>
+    <button style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:11px;" onclick="logout()">Quitter</button>
+  </div>
+  <div class="drv-body" id="drv-body">
+    <!-- Tracking tab -->
+    <div class="dtab-panel active" id="dtab-tracking">
+      <div class="drv-stats">
+        <div class="drv-stat"><div class="drv-stat-n" id="drv-speed">0</div><div class="drv-stat-l">KM/H</div></div>
+        <div class="drv-stat"><div class="drv-stat-n" id="drv-dist">0</div><div class="drv-stat-l">KM AUJOURD'HUI</div></div>
+        <div class="drv-stat"><div class="drv-stat-n" id="drv-time">0h</div><div class="drv-stat-l">TEMPS ACTIF</div></div>
+      </div>
+
+      <div class="drv-card">
+        <div class="drv-card-title">📍 POSITION GPS</div>
+        <div class="gps-coords">
+          <div class="coord-box"><div class="coord-label">Latitude</div><div class="coord-val" id="gps-lat">--</div></div>
+          <div class="coord-box"><div class="coord-label">Longitude</div><div class="coord-val" id="gps-lng">--</div></div>
+        </div>
+        <div class="precision-bar"><div class="precision-fill" id="prec-fill" style="width:0%"></div></div>
+        <div class="gps-status" id="gps-st">En attente du GPS...</div>
+      </div>
+
+      <button class="big-btn btn-start" id="btn-track" onclick="toggleTracking()">
+        ▶ DÉMARRER LE TRACKING
+      </button>
+
+      <div class="drv-card">
+        <div class="drv-card-title">⏱ FRÉQUENCE D'ENVOI</div>
+        <div class="freq-btns">
+          <button class="freq-btn active" onclick="setFreq(5000,this)">5 sec</button>
+          <button class="freq-btn" onclick="setFreq(10000,this)">10 sec</button>
+          <button class="freq-btn" onclick="setFreq(30000,this)">30 sec</button>
+        </div>
+      </div>
+
+      <div class="drv-card">
+        <div class="drv-card-title">🔔 NOTIFICATIONS</div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-item">
+            <div class="notif-dot"></div>
+            <div class="notif-msg">PST-TRAX prêt. Appuyez sur Démarrer.</div>
+            <div class="notif-time">Maintenant</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History tab -->
+    <div class="dtab-panel" id="dtab-history">
+      <div class="drv-card">
+        <div class="drv-card-title">📅 HISTORIQUE DES TRAJETS</div>
+        <div id="hist-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet enregistré</div></div>
+      </div>
+    </div>
+
+    <!-- Owner contact tab -->
+    <div class="dtab-panel" id="dtab-owner">
+      <div class="drv-card">
+        <div class="drv-card-title">👨‍💼 VOTRE PROPRIÉTAIRE</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+          <div>📱 Propriétaire PST-TRAX</div>
+          <div>📞 <a href="tel:+221771520959" style="color:var(--accent)">+221 77 152 09 59</a></div>
+          <div style="margin-top:12px;font-size:11px;">Votre ID véhicule : <b id="drv-vid" style="color:var(--accent)">--</b></div>
+        </div>
+      </div>
+      <button class="big-btn" style="background:var(--panel);border:1px solid var(--border);color:var(--text);" onclick="logout()">
+        🚪 Se déconnecter
+      </button>
+    </div>
+  </div>
+  <div class="drv-bottom">
+    <button class="drv-tab active" onclick="drvTab('tracking',this)"><span class="dti">📡</span>Tracking</button>
+    <button class="drv-tab" onclick="drvTab('history',this)"><span class="dti">📅</span>Historique</button>
+    <button class="drv-tab" onclick="drvTab('owner',this)"><span class="dti">📞</span>Propriétaire</button>
+  </div>
+</div>
+
+<!-- ══ ADD VEHICLE MODAL ══════════════════════════ -->
+<div class="modal-bg" id="add-modal">
   <div class="modal">
-    <div class="modal-title">➕ Ajouter un véhicule</div>
-    <div class="form-group">
-      <label class="form-label">Type de véhicule</label>
-      <div class="vehicle-types">
-        <div class="type-btn selected" onclick="selectType(this,'🏍️','Moto Jakarta')">
-          <span class="type-icon">🏍️</span>Moto Jakarta
-        </div>
-        <div class="type-btn" onclick="selectType(this,'🚗','Voiture')">
-          <span class="type-icon">🚗</span>Voiture
-        </div>
-        <div class="type-btn" onclick="selectType(this,'🚕','Taxi / VTC')">
-          <span class="type-icon">🚕</span>Taxi / VTC
-        </div>
-        <div class="type-btn" onclick="selectType(this,'🚚','Camion')">
-          <span class="type-icon">🚚</span>Camion
-        </div>
-        <div class="type-btn" onclick="selectType(this,'🚌','Bus')">
-          <span class="type-icon">🚌</span>Bus
-        </div>
-        <div class="type-btn" onclick="selectType(this,'🚑','Ambulance')">
-          <span class="type-icon">🚑</span>Ambulance
-        </div>
-      </div>
+    <div class="modal-title">➕ Nouveau véhicule</div>
+    <label class="fl">Type de véhicule</label>
+    <div class="type-grid">
+      <div class="tg-btn sel" onclick="selType(this,'🏍️','Moto Jakarta')"><span class="ti">🏍️</span>Jakarta</div>
+      <div class="tg-btn" onclick="selType(this,'🚗','Voiture')"><span class="ti">🚗</span>Voiture</div>
+      <div class="tg-btn" onclick="selType(this,'🚕','Taxi')"><span class="ti">🚕</span>Taxi</div>
+      <div class="tg-btn" onclick="selType(this,'🚚','Camion')"><span class="ti">🚚</span>Camion</div>
+      <div class="tg-btn" onclick="selType(this,'🚌','Bus')"><span class="ti">🚌</span>Bus</div>
+      <div class="tg-btn" onclick="selType(this,'🚑','Ambulance')"><span class="ti">🚑</span>Ambulance</div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Nom du chauffeur</label>
-        <input type="text" class="form-input" id="f-driver" placeholder="Ex: Moussa Fall">
-      </div>
-      <div class="form-group">
-        <label class="form-label">ID / Plaque</label>
-        <input type="text" class="form-input" id="f-id" placeholder="Ex: TBA-001">
-      </div>
+    <div class="modal-row">
+      <div><label class="fl">Nom chauffeur</label><input class="fi" id="f-drv" placeholder="Moussa Fall" style="margin:0"></div>
+      <div><label class="fl">ID / Plaque</label><input class="fi" id="f-vid" placeholder="TBA-001" style="margin:0"></div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Téléphone chauffeur</label>
-      <input type="text" class="form-input" id="f-phone" placeholder="+221 77 XXX XX XX">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Zone autorisée (rayon en km)</label>
-      <input type="number" class="form-input" id="f-zone" placeholder="Ex: 10" value="10">
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeAddModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="addVehicle()">✅ Ajouter</button>
+    <label class="fl" style="margin-top:10px">Téléphone</label>
+    <input class="fi" id="f-tel" placeholder="+221 77 XXX XX XX" style="margin-bottom:0">
+    <div class="modal-acts">
+      <button class="modal-acts btn-cancel" onclick="closeAdd()">Annuler</button>
+      <button class="modal-acts btn-save" onclick="addVehicle()">✅ Ajouter</button>
     </div>
   </div>
 </div>
 
-<!-- ALERT POPUP -->
-<div class="alert-popup" id="alert-popup">
-  <div class="alert-popup-title" id="alert-title">⚠️ Alerte</div>
-  <div id="alert-msg">Message d'alerte</div>
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-title" id="toast-title"></div>
+  <div id="toast-msg"></div>
 </div>
 
 <script>
-// ─── STATE ───────────────────────────────────────
-let vehicles = JSON.parse(localStorage.getItem('pst_trax_vehicles') || '[]');
+// ══════════════════════════════════════════════
+// CONFIG
+const API = 'https://pst-telecom-production.up.railway.app';
+const TOUBA = [14.8503, -15.8832];
+const ADMIN_PASS = 'pst2026';
+
+// ══════════════════════════════════════════════
+// STATE
+let role = null;
+let currentUser = {};
+let vehicles = [];
 let markers = {};
-let map;
-let currentFilter = 'all';
-let selectedType = { icon: '🏍️', label: 'Moto Jakarta' };
-let selectedVehicleId = null;
+let map = null;
+let vFilter = 'all';
+let selVehicle = null;
 
-// TOUBA coordinates — precise
-const TOUBA_LAT = 14.8503;
-const TOUBA_LNG = -15.8832;
+// Driver state
+let isTracking = false;
+let trackInterval = null;
+let gpsFreq = 5000;
+let watchId = null;
+let currentPos = null;
+let startTime = null;
+let totalDist = 0;
+let lastPos = null;
+let sessions = JSON.parse(localStorage.getItem('pst_trax_sessions') || '[]');
+let notifs = [];
 
-// ─── MAP INIT ────────────────────────────────────
+// ══════════════════════════════════════════════
+// LOGIN
+let loginRole = 'owner';
+function pickRole(el, r) {
+  loginRole = r;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('login-owner-fields').style.display = r === 'owner' ? 'block' : 'none';
+  document.getElementById('login-driver-fields').style.display = r === 'driver' ? 'block' : 'none';
+}
+
+function doLogin() {
+  if (loginRole === 'owner') {
+    const pass = document.getElementById('li-owner-pass').value;
+    const name = document.getElementById('li-owner-name').value.trim();
+    if (!name) { toast('⚠️ Erreur','Entrez votre nom'); return; }
+    if (pass !== ADMIN_PASS) { toast('❌ Accès refusé','Mot de passe incorrect'); return; }
+    currentUser = { role: 'owner', name };
+    localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
+    showOwner();
+  } else {
+    const name = document.getElementById('li-driver-name').value.trim();
+    const vid = document.getElementById('li-driver-id').value.trim().toUpperCase();
+    if (!name || !vid) { toast('⚠️ Erreur','Remplissez tous les champs'); return; }
+    currentUser = { role: 'driver', name, vid };
+    localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
+    showDriver();
+  }
+}
+
+function logout() {
+  if (isTracking) stopTracking();
+  localStorage.removeItem('pst_trax_session');
+  location.reload();
+}
+
+// Auto-login
 window.addEventListener('load', () => {
-  // Init Leaflet map centered on Touba with high zoom
-  map = L.map('map', {
-    center: [TOUBA_LAT, TOUBA_LNG],
-    zoom: 14,  // Street-level zoom like Yango
-    zoomControl: true,
-    preferCanvas: false
-  });
-
-  // OpenStreetMap tiles — detailed street maps
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-    minZoom: 5
-  }).addTo(map);
-
-  // Center marker for Touba
-  const centerIcon = L.divIcon({
-    html: '<div style="background:#00e5ff;width:12px;height:12px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 3px rgba(0,229,255,0.4)"></div>',
-    className: '',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6]
-  });
-  L.marker([TOUBA_LAT, TOUBA_LNG], { icon: centerIcon })
-    .bindPopup('<b>📍 Touba, Sénégal</b><br>Centre de votre flotte')
-    .addTo(map);
-
-  // Load saved vehicles
-  renderVehicles();
-  renderMarkers();
-  updateStats();
-
-  // Refresh from API every 10s
-  setInterval(fetchPositions, 10000);
-  fetchPositions();
+  const saved = localStorage.getItem('pst_trax_session');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      if (currentUser.role === 'owner') showOwner();
+      else if (currentUser.role === 'driver') showDriver();
+      else showLogin();
+    } catch(e) { showLogin(); }
+  } else { showLogin(); }
 });
 
-// ─── API FETCH ───────────────────────────────────
-async function fetchPositions() {
+function showLogin() {
+  document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('screen-owner').style.display = 'none';
+  document.getElementById('screen-driver').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// OWNER
+function showOwner() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-owner').style.display = 'flex';
+  document.getElementById('screen-driver').style.display = 'none';
+  initMap();
+  loadVehicles();
+  setInterval(loadVehicles, 8000);
+}
+
+function initMap() {
+  if (map) return;
+  map = L.map('map', { center: TOUBA, zoom: 14, zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+  // Center dot
+  L.circleMarker(TOUBA, { radius: 6, color: '#00e5ff', fillColor: '#00e5ff', fillOpacity: 1, weight: 2 })
+    .bindPopup('<b>📍 Touba</b>')
+    .addTo(map);
+}
+
+async function loadVehicles() {
   try {
-    const res = await fetch('/api/trax/vehicles');
+    const res = await fetch(API + '/api/trax/vehicles');
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.length > 0) {
-        // Merge server data with local
-        data.forEach(sv => {
-          const idx = vehicles.findIndex(v => v.id === sv.id);
-          if (idx >= 0) {
-            vehicles[idx] = { ...vehicles[idx], ...sv };
-          } else {
-            vehicles.push(sv);
-          }
-        });
-        saveVehicles();
-        renderVehicles();
-        renderMarkers();
-        updateStats();
-      }
+      vehicles = await res.json();
+      renderSidebar();
+      renderMarkers();
+      updateStats();
     }
-  } catch(e) { /* API not ready yet, use local data */ }
-  document.getElementById('last-update').textContent = new Date().toLocaleTimeString('fr-FR');
+  } catch(e) {}
+  document.getElementById('last-upd').textContent = new Date().toLocaleTimeString('fr-FR').slice(0,5);
 }
 
-// ─── VEHICLE MANAGEMENT ──────────────────────────
-function addVehicle() {
-  const driver = document.getElementById('f-driver').value.trim();
-  const vid = document.getElementById('f-id').value.trim();
-  const phone = document.getElementById('f-phone').value.trim();
-  const zone = parseFloat(document.getElementById('f-zone').value) || 10;
-
-  if (!driver || !vid) {
-    alert('Veuillez remplir le nom du chauffeur et l\'ID du véhicule');
-    return;
-  }
-
-  // Random offset near Touba for demo
-  const lat = TOUBA_LAT + (Math.random() - 0.5) * 0.04;
-  const lng = TOUBA_LNG + (Math.random() - 0.5) * 0.04;
-
-  const vehicle = {
-    id: vid.toUpperCase().replace(/\s/g, '-'),
-    driver,
-    phone,
-    type: selectedType.icon,
-    typeLabel: selectedType.label,
-    status: 'online',
-    lat, lng,
-    speed: 0,
-    zone,
-    createdAt: Date.now(),
-    lastSeen: Date.now(),
-    engineOff: false
-  };
-
-  vehicles.push(vehicle);
-  saveVehicles();
-  renderVehicles();
-  renderMarkers();
-  updateStats();
-  closeAddModal();
-
-  // Fly to new vehicle
-  map.flyTo([lat, lng], 15, { duration: 1.5 });
-  showAlert('✅ Véhicule ajouté', `${vehicle.typeLabel} — ${driver} (${vid}) ajouté à la flotte`);
+function updateStats() {
+  document.getElementById('st-tot').textContent = vehicles.length;
+  document.getElementById('st-on').textContent = vehicles.filter(v=>v.status==='online').length;
+  document.getElementById('st-st').textContent = vehicles.filter(v=>v.status==='stopped').length;
+  document.getElementById('st-al').textContent = vehicles.filter(v=>v.status==='alert').length;
+  document.getElementById('sb-cnt').textContent = vehicles.length;
 }
 
-function removeVehicle(id) {
-  if (!confirm('Supprimer ce véhicule de la flotte ?')) return;
-  vehicles = vehicles.filter(v => v.id !== id);
-  if (markers[id]) { markers[id].remove(); delete markers[id]; }
-  saveVehicles();
-  renderVehicles();
-  updateStats();
-}
-
-function toggleEngine(id) {
-  const v = vehicles.find(v => v.id === id);
-  if (!v) return;
-  v.engineOff = !v.engineOff;
-  if (v.engineOff) {
-    v.status = 'alert';
-    showAlert('🔴 Moteur coupé', `${v.typeLabel} ${v.id} — moteur coupé à distance`);
-  } else {
-    v.status = 'stopped';
-    showAlert('🟢 Moteur réactivé', `${v.typeLabel} ${v.id} — moteur réactivé`);
-  }
-  saveVehicles();
-  renderVehicles();
-  renderMarkers();
-}
-
-function locateVehicle(id) {
-  const v = vehicles.find(v => v.id === id);
-  if (!v) return;
-  map.flyTo([v.lat, v.lng], 16, { duration: 1.5 });
-  if (markers[id]) markers[id].openPopup();
-  selectedVehicleId = id;
-  renderVehicles();
-}
-
-function saveVehicles() {
-  localStorage.setItem('pst_trax_vehicles', JSON.stringify(vehicles));
-  // Send to API
-  fetch('/api/trax/vehicles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(vehicles)
-  }).catch(() => {});
-}
-
-// ─── RENDER ──────────────────────────────────────
-function renderVehicles() {
-  const list = document.getElementById('vehicles-list');
-  const search = document.querySelector('.search-input').value.toLowerCase();
-
-  let filtered = vehicles.filter(v => {
-    if (currentFilter !== 'all' && v.status !== currentFilter) return false;
-    if (search && !v.driver.toLowerCase().includes(search) && !v.id.toLowerCase().includes(search)) return false;
+function renderSidebar() {
+  const q = document.querySelector('.sb-si').value.toLowerCase();
+  const filtered = vehicles.filter(v => {
+    if (vFilter !== 'all' && v.status !== vFilter) return false;
+    if (q && !v.driver?.toLowerCase().includes(q) && !v.id?.toLowerCase().includes(q)) return false;
     return true;
   });
+  const html = filtered.length ? filtered.map(vCard).join('') :
+    `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Aucun véhicule</div>`;
+  document.getElementById('sb-list').innerHTML = html;
+  document.getElementById('mob-vlist').innerHTML = html;
+}
 
-  document.getElementById('sidebar-count').textContent = vehicles.length;
+function vCard(v) {
+  const st = {online:'En route',stopped:'Arrêtée',alert:'ALERTE',offline:'Hors ligne'};
+  const sc = {online:'st-online',stopped:'st-stopped',alert:'st-alert',offline:'st-offline'};
+  const since = Math.floor((Date.now()-(v.lastSeen||Date.now()))/60000);
+  return `<div class="vcard ${v.status||'offline'}${selVehicle===v.id?' sel':''}" onclick="focusVehicle('${v.id}')">
+    <div class="vc-top">
+      <div class="vc-ico">${v.type||'🏍️'}</div>
+      <div class="vc-inf"><div class="vc-nm">${v.driver||'—'}</div><div class="vc-id">${v.id} · ${v.typeLabel||''}</div></div>
+      <div class="vc-st ${sc[v.status]||'st-offline'}">${st[v.status]||'Hors ligne'}</div>
+    </div>
+    <div class="vc-meta">
+      <span>Vitesse <b>${v.speed||0} km/h</b></span>
+      <span>Vu <b>${since<1?'maintenant':since+'min'}</b></span>
+    </div>
+    <div class="vc-acts">
+      <button class="vab" onclick="event.stopPropagation();focusVehicle('${v.id}')">📍 Localiser</button>
+      <button class="vab danger" onclick="event.stopPropagation();cutEngine('${v.id}')">${v.engineOff?'🟢 Allumer':'🔴 Couper'}</button>
+      <button class="vab danger" onclick="event.stopPropagation();delVehicle('${v.id}')">🗑</button>
+    </div>
+  </div>`;
+}
 
-  if (filtered.length === 0) {
-    list.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">🔍</div>
-      <div class="empty-text">${vehicles.length === 0 ? 'Aucun véhicule<br>Cliquez <strong>+ Ajouter véhicule</strong>' : 'Aucun résultat'}</div>
-    </div>`;
-    return;
+function focusVehicle(id) {
+  selVehicle = id;
+  const v = vehicles.find(x => x.id === id);
+  if (v && v.lat && v.lng) {
+    map.flyTo([v.lat, v.lng], 16, { duration: 1.2 });
+    if (markers[id]) markers[id].openPopup();
   }
-
-  list.innerHTML = filtered.map(v => {
-    const statusLabel = { online: 'En route', stopped: 'Arrêtée', alert: 'ALERTE', offline: 'Hors ligne' };
-    const statusClass = { online: 'status-online', stopped: 'status-stopped', alert: 'status-alert', offline: 'status-offline' };
-    const selected = selectedVehicleId === v.id ? ' selected' : '';
-    const since = Math.floor((Date.now() - v.lastSeen) / 60000);
-    const sinceText = since < 1 ? 'Maintenant' : `${since} min`;
-
-    return `<div class="vehicle-card ${v.status}${selected}" onclick="locateVehicle('${v.id}')">
-      <div class="vc-top">
-        <div class="vc-icon">${v.type}</div>
-        <div class="vc-info">
-          <div class="vc-name">${v.driver}</div>
-          <div class="vc-id">${v.id} · ${v.typeLabel}</div>
-        </div>
-        <div class="vc-status ${statusClass[v.status]}">${statusLabel[v.status]}</div>
-      </div>
-      <div class="vc-details">
-        <div class="vc-detail">Vitesse <span>${v.speed} km/h</span></div>
-        <div class="vc-detail">Vu <span>${sinceText}</span></div>
-        <div class="vc-detail">Zone <span>${v.zone}km</span></div>
-      </div>
-      <div class="vc-actions">
-        <button class="vc-btn" onclick="event.stopPropagation();locateVehicle('${v.id}')">📍 Localiser</button>
-        <button class="vc-btn danger" onclick="event.stopPropagation();toggleEngine('${v.id}')">${v.engineOff ? '🟢 Allumer' : '🔴 Couper'}</button>
-        <button class="vc-btn" onclick="event.stopPropagation();removeVehicle('${v.id}')">🗑</button>
-      </div>
-    </div>`;
-  }).join('');
+  renderSidebar();
+  closeMobList();
 }
 
 function renderMarkers() {
   vehicles.forEach(v => {
-    const statusClass = { online: 'online', stopped: 'stopped', alert: 'alert', offline: 'offline' }[v.status] || 'online';
+    if (!v.lat || !v.lng) return;
+    const sc = {online:'',stopped:'stopped',alert:'alert',offline:'offline'}[v.status]||'offline';
     const icon = L.divIcon({
-      html: `<div class="custom-marker ${statusClass}">${v.type}</div>`,
-      className: '',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      popupAnchor: [0, -20]
+      html:`<div class="mk ${sc}">${v.type||'🏍️'}</div>`,
+      className:'', iconSize:[40,40], iconAnchor:[20,20], popupAnchor:[0,-22]
     });
-
-    const popupContent = `
-      <div style="font-family:Segoe UI;min-width:180px">
-        <div style="font-weight:800;font-size:14px;margin-bottom:6px">${v.type} ${v.driver}</div>
-        <div style="font-size:12px;color:#666;margin-bottom:4px">ID: ${v.id}</div>
-        <div style="font-size:12px">Vitesse: <b>${v.speed} km/h</b></div>
-        <div style="font-size:12px">Statut: <b>${v.status === 'online' ? '🟢 En route' : v.status === 'stopped' ? '🟠 Arrêté' : '🔴 Alerte'}</b></div>
-        ${v.phone ? `<div style="font-size:12px;margin-top:4px">📞 ${v.phone}</div>` : ''}
-      </div>`;
-
+    const pop = `<div style="font-family:Segoe UI;min-width:160px">
+      <b style="font-size:14px">${v.type} ${v.driver}</b><br>
+      <span style="color:#666;font-size:12px">${v.id}</span><br>
+      Vitesse: <b>${v.speed||0} km/h</b><br>
+      Statut: <b>${v.status==='online'?'🟢 En route':v.status==='stopped'?'🟠 Arrêté':'🔴 Alerte'}</b>
+      ${v.phone?`<br>📞 ${v.phone}`:''}
+    </div>`;
     if (markers[v.id]) {
-      markers[v.id].setLatLng([v.lat, v.lng]);
-      markers[v.id].setIcon(icon);
-      markers[v.id].setPopupContent(popupContent);
+      markers[v.id].setLatLng([v.lat, v.lng]).setIcon(icon).setPopupContent(pop);
     } else {
-      markers[v.id] = L.marker([v.lat, v.lng], { icon })
-        .bindPopup(popupContent)
-        .addTo(map);
+      markers[v.id] = L.marker([v.lat,v.lng],{icon}).bindPopup(pop).addTo(map);
     }
   });
 }
 
-function updateStats() {
-  document.getElementById('stat-total').textContent = vehicles.length;
-  document.getElementById('stat-route').textContent = vehicles.filter(v => v.status === 'online').length;
-  document.getElementById('stat-arret').textContent = vehicles.filter(v => v.status === 'stopped').length;
-  document.getElementById('stat-alerte').textContent = vehicles.filter(v => v.status === 'alert').length;
+async function cutEngine(id) {
+  const v = vehicles.find(x=>x.id===id);
+  if (!v) return;
+  v.engineOff = !v.engineOff;
+  v.status = v.engineOff ? 'alert' : 'stopped';
+  toast(v.engineOff?'🔴 Moteur coupé':'🟢 Moteur réactivé', `${v.id} — ${v.driver}`);
+  await fetch(API+'/api/trax/vehicles', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(vehicles)
+  }).catch(()=>{});
+  renderSidebar(); renderMarkers();
 }
 
-// ─── FILTERS ─────────────────────────────────────
-function setFilter(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+async function delVehicle(id) {
+  if (!confirm('Supprimer ce véhicule ?')) return;
+  vehicles = vehicles.filter(v=>v.id!==id);
+  if (markers[id]) { markers[id].remove(); delete markers[id]; }
+  await fetch(API+'/api/trax/vehicles', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(vehicles)
+  }).catch(()=>{});
+  renderSidebar(); updateStats();
+}
+
+function setFilter(f, btn) {
+  vFilter = f;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  renderVehicles();
+  renderSidebar();
 }
 
-function filterVehicles(val) { renderVehicles(); }
-
-// ─── MODAL ───────────────────────────────────────
-function openAddModal() {
-  document.getElementById('add-modal').classList.add('open');
-  document.getElementById('f-driver').focus();
+// mobile tabs
+function mobTab(tab, btn) {
+  document.querySelectorAll('.mn-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'list') openMobList();
+  else closeMobList();
 }
-function closeAddModal() {
-  document.getElementById('add-modal').classList.remove('open');
-  document.getElementById('f-driver').value = '';
-  document.getElementById('f-id').value = '';
-  document.getElementById('f-phone').value = '';
-  document.getElementById('f-zone').value = '10';
-}
-document.getElementById('add-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeAddModal();
-});
+function openMobList() { document.getElementById('mob-list').classList.add('open'); }
+function closeMobList() { document.getElementById('mob-list').classList.remove('open'); }
 
-function selectType(el, icon, label) {
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedType = { icon, label };
+// ADD VEHICLE
+let selType = { icon:'🏍️', label:'Moto Jakarta' };
+function openAdd() { document.getElementById('add-modal').classList.add('open'); }
+function closeAdd() { document.getElementById('add-modal').classList.remove('open'); }
+document.getElementById('add-modal').addEventListener('click', function(e){ if(e.target===this) closeAdd(); });
+function selType(el, icon, label) {
+  document.querySelectorAll('.tg-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  selType = { icon, label };
 }
 
-// ─── ALERT ───────────────────────────────────────
-let alertTimeout;
-function showAlert(title, msg) {
-  const popup = document.getElementById('alert-popup');
-  document.getElementById('alert-title').textContent = title;
-  document.getElementById('alert-msg').textContent = msg;
-  popup.classList.add('show');
-  clearTimeout(alertTimeout);
-  alertTimeout = setTimeout(() => popup.classList.remove('show'), 5000);
+async function addVehicle() {
+  const driver = document.getElementById('f-drv').value.trim();
+  const vid = document.getElementById('f-vid').value.trim().toUpperCase();
+  const phone = document.getElementById('f-tel').value.trim();
+  if (!driver || !vid) { toast('⚠️ Erreur','Nom et ID obligatoires'); return; }
+
+  const v = {
+    id: vid,
+    driver,
+    phone,
+    type: selType?.icon || '🏍️',
+    typeLabel: selType?.label || 'Moto',
+    status: 'offline',
+    lat: TOUBA[0] + (Math.random()-.5)*.02,
+    lng: TOUBA[1] + (Math.random()-.5)*.02,
+    speed: 0,
+    lastSeen: Date.now(),
+    engineOff: false
+  };
+  vehicles.push(v);
+  await fetch(API+'/api/trax/vehicles', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(vehicles)
+  }).catch(()=>{});
+  renderSidebar(); renderMarkers(); updateStats();
+  closeAdd();
+  toast('✅ Véhicule ajouté', `${v.typeLabel} — ${driver} (${vid})`);
+  map.flyTo([v.lat, v.lng], 15, {duration:1.2});
+  document.getElementById('f-drv').value='';
+  document.getElementById('f-vid').value='';
+  document.getElementById('f-tel').value='';
 }
 
-// ─── SIMULATE MOVEMENT (demo) ────────────────────
-// Simulates vehicles moving when no GPS tracker is connected
-setInterval(() => {
-  let changed = false;
-  vehicles.forEach(v => {
-    if (v.status === 'online' && !v.engineOff) {
-      // Small movement simulation
-      v.lat += (Math.random() - 0.5) * 0.0005;
-      v.lng += (Math.random() - 0.5) * 0.0005;
-      v.speed = Math.floor(20 + Math.random() * 40);
-      v.lastSeen = Date.now();
-      changed = true;
-    }
+// ══════════════════════════════════════════════
+// DRIVER
+function showDriver() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-owner').style.display = 'none';
+  document.getElementById('screen-driver').style.display = 'flex';
+  document.getElementById('drv-name').textContent = currentUser.name;
+  document.getElementById('drv-vid').textContent = currentUser.vid;
+  loadHistory();
+  startGPSWatch();
+}
+
+function startGPSWatch() {
+  if (!navigator.geolocation) { addNotif('❌ GPS non disponible sur cet appareil','red'); return; }
+  watchId = navigator.geolocation.watchPosition(onGPS, onGPSErr, {
+    enableHighAccuracy: true, maximumAge: 3000, timeout: 10000
   });
-  if (changed) {
-    renderMarkers();
-    renderVehicles();
+}
+
+function onGPS(pos) {
+  currentPos = pos;
+  const { latitude: lat, longitude: lng, speed, accuracy } = pos.coords;
+  document.getElementById('gps-lat').textContent = lat.toFixed(6);
+  document.getElementById('gps-lng').textContent = lng.toFixed(6);
+  const spd = speed ? Math.round(speed * 3.6) : 0;
+  document.getElementById('drv-speed').textContent = spd;
+  // precision bar
+  const prec = Math.min(100, Math.max(0, 100 - accuracy));
+  document.getElementById('prec-fill').style.width = prec + '%';
+  const st = document.getElementById('gps-st');
+  if (accuracy < 20) { st.textContent = `✅ GPS actif — Précision: ${Math.round(accuracy)}m`; st.className='gps-status good'; }
+  else { st.textContent = `⏳ GPS: précision ${Math.round(accuracy)}m...`; st.className='gps-status'; }
+
+  if (isTracking) {
+    if (lastPos) {
+      const d = haversine(lastPos[0],lastPos[1],lat,lng);
+      totalDist += d;
+      document.getElementById('drv-dist').textContent = totalDist.toFixed(1);
+    }
+    lastPos = [lat, lng];
+    if (startTime) {
+      const h = ((Date.now()-startTime)/3600000).toFixed(1);
+      document.getElementById('drv-time').textContent = h+'h';
+    }
+    sendPosition(lat, lng, spd, accuracy);
   }
-}, 5000);
+}
+
+function onGPSErr(err) {
+  document.getElementById('gps-st').textContent = '⚠️ GPS indisponible: ' + err.message;
+}
+
+async function sendPosition(lat, lng, speed, accuracy) {
+  try {
+    await fetch(API + '/api/trax/position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: currentUser.vid,
+        driver: currentUser.name,
+        lat, lng, speed, accuracy,
+        status: speed > 2 ? 'online' : 'stopped',
+        lastSeen: Date.now()
+      })
+    });
+  } catch(e) {}
+}
+
+function toggleTracking() {
+  if (!isTracking) startTracking();
+  else stopTracking();
+}
+
+function startTracking() {
+  if (!currentPos) { toast('⚠️ GPS','Attendez que le GPS soit actif'); return; }
+  isTracking = true;
+  startTime = Date.now();
+  totalDist = 0; lastPos = null;
+  document.getElementById('btn-track').className = 'big-btn btn-stop';
+  document.getElementById('btn-track').innerHTML = '⏹ ARRÊTER LE TRACKING';
+  document.getElementById('drv-live-tag').style.display = 'block';
+  document.getElementById('drv-off-tag').style.display = 'none';
+  addNotif('🟢 Tracking démarré','green');
+  toast('✅ Tracking','Votre position est maintenant envoyée');
+}
+
+function stopTracking() {
+  isTracking = false;
+  clearInterval(trackInterval);
+  document.getElementById('btn-track').className = 'big-btn btn-start';
+  document.getElementById('btn-track').innerHTML = '▶ DÉMARRER LE TRACKING';
+  document.getElementById('drv-live-tag').style.display = 'none';
+  document.getElementById('drv-off-tag').style.display = 'block';
+  // Save session
+  if (startTime) {
+    sessions.unshift({
+      date: new Date().toLocaleDateString('fr-FR'),
+      start: new Date(startTime).toLocaleTimeString('fr-FR').slice(0,5),
+      end: new Date().toLocaleTimeString('fr-FR').slice(0,5),
+      dist: totalDist.toFixed(1),
+      dur: ((Date.now()-startTime)/3600000).toFixed(1)
+    });
+    sessions = sessions.slice(0,20);
+    localStorage.setItem('pst_trax_sessions', JSON.stringify(sessions));
+    loadHistory();
+    startTime = null;
+  }
+  addNotif('⏹ Tracking arrêté','orange');
+}
+
+function setFreq(ms, btn) {
+  gpsFreq = ms;
+  document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addNotif(msg, color='green') {
+  notifs.unshift({ msg, color, time: new Date().toLocaleTimeString('fr-FR').slice(0,5) });
+  renderNotifs();
+}
+function renderNotifs() {
+  document.getElementById('notif-list').innerHTML = notifs.slice(0,5).map(n =>
+    `<div class="notif-item">
+      <div class="notif-dot ${n.color}"></div>
+      <div class="notif-msg">${n.msg}</div>
+      <div class="notif-time">${n.time}</div>
+    </div>`
+  ).join('') || '<div style="color:var(--muted);font-size:12px">Aucune notification</div>';
+}
+
+function loadHistory() {
+  document.getElementById('hist-list').innerHTML = sessions.length ?
+    sessions.map(s=>`<div class="hist-item">
+      <div class="hist-top"><span class="hist-date">📅 ${s.date}</span><span class="hist-dist">${s.dist} km</span></div>
+      <div style="color:var(--muted);font-size:11px">${s.start} → ${s.end} · ${s.dur}h de conduite</div>
+    </div>`).join('') :
+    '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet enregistré</div>';
+}
+
+function drvTab(tab, btn) {
+  document.querySelectorAll('.dtab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.drv-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('dtab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+let toastTimer;
+function toast(title, msg) {
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-msg').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 4000);
+}
 </script>
 </body>
 </html>
