@@ -324,6 +324,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
             <div class="vt-btn" onclick="selVtype(this,'🚑','Ambulance')"><span class="vti">🚑</span>Ambulance</div>
           </div>
         </div>
+        <label class="lbl">Mot de passe (6 chiffres minimum)</label>
+        <input class="fi" id="r-pass" type="password" placeholder="••••••" autocomplete="new-password">
         <button class="btn-main" onclick="sendOTP('register')">📱 Recevoir le code SMS</button>
       </div>
 
@@ -334,6 +336,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <div class="phone-flag">🇸🇳 +221</div>
           <input class="fi" id="l-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
         </div>
+        <label class="lbl">Mot de passe</label>
+        <input class="fi" id="l-pass" type="password" placeholder="••••••" autocomplete="current-password">
         <button class="btn-main" onclick="sendOTP('login')">📱 Recevoir le code SMS</button>
       </div>
     </div>
@@ -370,6 +374,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="ts r"><div class="tsn" id="st-al">0</div><div class="tsl">Alerte</div></div>
     </div>
     <button class="tbtn" onclick="openAddModal()">＋</button>
+    <button class="tbtn" style="background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="doLogout()">🚪</button>
   </div>
   <div class="owner-body">
     <div class="sidebar">
@@ -396,6 +401,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <button class="mn-btn" onclick="mobTab('list',this)"><span class="mni">📋</span>Flotte</button>
     <button class="mn-btn" onclick="openAddModal()"><span class="mni">➕</span>Ajouter</button>
     <button class="mn-btn" onclick="openProfile()"><span class="mni">👤</span>Profil</button>
+    <button class="mn-btn" onclick="doLogout()"><span class="mni">🚪</span>Quitter</button>
   </div>
 </div>
 
@@ -585,17 +591,21 @@ function sendOTP(mode) {
   if (mode === 'register') {
     name = document.getElementById('r-name').value.trim();
     phone = document.getElementById('r-phone').value.trim();
+    const pass = document.getElementById('r-pass').value;
     if (!name) { toast('⚠️ Erreur','Entrez votre nom complet','error'); return; }
     if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide (9 chiffres)','error'); return; }
+    if (!pass || pass.length < 6) { toast('⚠️ Erreur','Mot de passe: 6 caractères minimum','error'); return; }
     if (currentRole === 'driver') {
       vid = document.getElementById('r-vid').value.trim().toUpperCase();
       if (!vid) { toast('⚠️ Erreur','Entrez votre ID véhicule','error'); return; }
     }
-    pendingData = { name, phone: '+221'+phone, role: currentRole, vid, vType: vTypeSelected };
+    pendingData = { name, phone: '+221'+phone, role: currentRole, vid, vType: vTypeSelected, password: pass };
   } else {
     phone = document.getElementById('l-phone').value.trim();
+    const pass = document.getElementById('l-pass').value;
     if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
-    pendingData = { phone: '+221'+phone };
+    if (!pass) { toast('⚠️ Erreur','Entrez votre mot de passe','error'); return; }
+    pendingData = { phone: '+221'+phone, password: pass };
   }
 
   pendingPhone = '+221' + (phone.startsWith('221') ? phone.slice(3) : phone);
@@ -642,10 +652,11 @@ async function registerUser(data) {
     const json = await res.json();
     if (json.success || json.user) {
       currentUser = json.user || { ...data, id: 'U-'+Date.now() };
-    } else if (json.error && json.error.includes('existe')) {
-      // Phone already exists, log them in
-      currentUser = json.existing || { ...data };
+    } else if (json.exists || (json.error && json.error.includes('déjà inscrit'))) {
+      toast('⚠️ Numéro déjà utilisé','Ce numéro a déjà un compte. Cliquez sur Se connecter.','error');
+      return;
     } else {
+      // Offline fallback
       currentUser = { ...data, id: 'U-'+Date.now() };
     }
   } catch(e) {
@@ -661,11 +672,14 @@ async function loginUser(phone) {
     const res = await fetch(API + '/api/trax/login', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ phone, role: currentRole })
+      body: JSON.stringify({ phone, password: pendingData.password, role: currentRole })
     });
     const json = await res.json();
     if (json.user) {
       currentUser = json.user;
+    } else if (json.error === 'wrong_password') {
+      toast('❌ Mot de passe incorrect','Réessayez','error');
+      return;
     } else {
       toast('❌ Compte introuvable','Créez un compte d\'abord','error');
       return;
