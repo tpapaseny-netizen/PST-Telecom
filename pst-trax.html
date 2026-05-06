@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PST-TRAX | Géolocalisation Flotte</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;800;900&display=swap');
 
@@ -350,11 +350,17 @@ body {
 
 #map {
   flex: 1;
-  background: #050a0f;
+  background: #0a1520;
+  min-height: 400px;
+}
+
+/* Force leaflet tiles to show */
+.leaflet-container {
+  background: #0a1520 !important;
 }
 
 /* Leaflet dark override */
-.leaflet-tile { filter: brightness(0.7) saturate(0.8) hue-rotate(180deg); }
+.leaflet-tile { filter: brightness(0.85) saturate(0.9); }
 
 /* ═══ MAP OVERLAY INFO ═══ */
 #map-overlay {
@@ -856,17 +862,35 @@ var STATUSES = ['moving','moving','moving','stopped','alert','offline'];
 
 // ═══ INIT MAP ═══
 function initMap() {
-  MAP = L.map('map', {
-    center: [14.8500, -15.8833], // Touba, Sénégal
-    zoom: 13,
-    zoomControl: false
-  });
+  try {
+    MAP = L.map('map', {
+      center: [14.8500, -15.8833],
+      zoom: 13,
+      zoomControl: false,
+      preferCanvas: true
+    });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(MAP);
+    // Try multiple tile sources
+    var tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    
+    L.tileLayer(tileUrl, {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19,
+      crossOrigin: true
+    }).addTo(MAP);
 
-  L.control.zoom({ position: 'bottomright' }).addTo(MAP);
+    // Fallback tile layer
+    L.control.zoom({ position: 'bottomright' }).addTo(MAP);
+    
+    // Force map to render
+    setTimeout(function(){ MAP.invalidateSize(); }, 500);
+    setTimeout(function(){ MAP.invalidateSize(); }, 1500);
+    
+    console.log('Map initialized OK');
+  } catch(e) {
+    console.error('Map init error:', e);
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#4a6080;font-size:14px;flex-direction:column;gap:10px;"><div style="font-size:2rem;">🗺️</div><div>Carte en chargement...</div></div>';
+  }
 }
 
 // ═══ LOAD/SAVE ═══
@@ -1191,6 +1215,11 @@ document.addEventListener('DOMContentLoaded', function() {
   initMap();
   loadMotos();
   render();
+
+  // Fix map size
+  window.addEventListener('resize', function(){
+    if(MAP) MAP.invalidateSize();
+  });
 
   // Fetch live positions every 3 seconds
   setInterval(fetchLivePositions, 3000);
