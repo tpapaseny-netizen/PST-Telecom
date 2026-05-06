@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!-- PST-TRAX v2.1 -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -513,12 +513,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="modal-title">➕ Nouveau véhicule</div>
     <label class="fl">Type de véhicule</label>
     <div class="type-grid">
-      <div class="tg-btn sel" onclick="selType(this,'🏍️','Moto Jakarta')"><span class="ti">🏍️</span>Jakarta</div>
-      <div class="tg-btn" onclick="selType(this,'🚗','Voiture')"><span class="ti">🚗</span>Voiture</div>
-      <div class="tg-btn" onclick="selType(this,'🚕','Taxi')"><span class="ti">🚕</span>Taxi</div>
-      <div class="tg-btn" onclick="selType(this,'🚚','Camion')"><span class="ti">🚚</span>Camion</div>
-      <div class="tg-btn" onclick="selType(this,'🚌','Bus')"><span class="ti">🚌</span>Bus</div>
-      <div class="tg-btn" onclick="selType(this,'🚑','Ambulance')"><span class="ti">🚑</span>Ambulance</div>
+      <div class="tg-btn sel" onclick="pickVehicleType(this,'🏍️','Moto Jakarta')"><span class="ti">🏍️</span>Jakarta</div>
+      <div class="tg-btn" onclick="pickVehicleType(this,'🚗','Voiture')"><span class="ti">🚗</span>Voiture</div>
+      <div class="tg-btn" onclick="pickVehicleType(this,'🚕','Taxi')"><span class="ti">🚕</span>Taxi</div>
+      <div class="tg-btn" onclick="pickVehicleType(this,'🚚','Camion')"><span class="ti">🚚</span>Camion</div>
+      <div class="tg-btn" onclick="pickVehicleType(this,'🚌','Bus')"><span class="ti">🚌</span>Bus</div>
+      <div class="tg-btn" onclick="pickVehicleType(this,'🚑','Ambulance')"><span class="ti">🚑</span>Ambulance</div>
     </div>
     <div class="modal-row">
       <div><label class="fl">Nom chauffeur</label><input class="fi" id="f-drv" placeholder="Moussa Fall" style="margin:0"></div>
@@ -580,22 +580,28 @@ function pickRole(el, r) {
 }
 
 function doLogin() {
-  if (loginRole === 'owner') {
-    const pass = document.getElementById('li-owner-pass').value;
-    const name = document.getElementById('li-owner-name').value.trim();
-    if (!name) { toast('⚠️ Erreur','Entrez votre nom'); return; }
-    if (pass !== ADMIN_PASS) { toast('❌ Accès refusé','Mot de passe incorrect'); return; }
-    currentUser = { role: 'owner', name };
-    localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
-    showOwner();
-  } else {
-    const name = document.getElementById('li-driver-name').value.trim();
-    const vid = document.getElementById('li-driver-id').value.trim().toUpperCase();
-    if (!name || !vid) { toast('⚠️ Erreur','Remplissez tous les champs'); return; }
-    currentUser = { role: 'driver', name, vid };
-    localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
-    showDriver();
-  }
+  try {
+    if (loginRole === 'owner') {
+      const passEl = document.getElementById('li-owner-pass');
+      const nameEl = document.getElementById('li-owner-name');
+      const pass = passEl ? passEl.value : '';
+      const name = nameEl ? nameEl.value.trim() : '';
+      if (!name) { alert('Entrez votre nom'); return; }
+      if (pass !== ADMIN_PASS) { alert('Mot de passe incorrect. Essayez: pst2026'); return; }
+      currentUser = { role: 'owner', name };
+      localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
+      showOwner();
+    } else {
+      const nameEl = document.getElementById('li-driver-name');
+      const vidEl = document.getElementById('li-driver-id');
+      const name = nameEl ? nameEl.value.trim() : '';
+      const vid = vidEl ? vidEl.value.trim().toUpperCase() : '';
+      if (!name || !vid) { alert('Remplissez votre nom et votre ID'); return; }
+      currentUser = { role: 'driver', name, vid };
+      localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
+      showDriver();
+    }
+  } catch(e) { alert('Erreur: ' + e.message); }
 }
 
 function logout() {
@@ -779,14 +785,18 @@ function openMobList() { document.getElementById('mob-list').classList.add('open
 function closeMobList() { document.getElementById('mob-list').classList.remove('open'); }
 
 // ADD VEHICLE
-let selType = { icon:'🏍️', label:'Moto Jakarta' };
-function openAdd() { document.getElementById('add-modal').classList.add('open'); }
+let selectedVType = { icon:'🏍️', label:'Moto Jakarta' };
+function openAdd() { 
+  const m = document.getElementById('add-modal');
+  m.classList.add('open');
+  m.onclick = function(e){ if(e.target===m) closeAdd(); };
+}
 function closeAdd() { document.getElementById('add-modal').classList.remove('open'); }
-document.getElementById('add-modal').addEventListener('click', function(e){ if(e.target===this) closeAdd(); });
-function selType(el, icon, label) {
+// modal close on bg click handled in openAdd
+function pickVehicleType(el, icon, label) {
   document.querySelectorAll('.tg-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
-  selType = { icon, label };
+  selectedVType = { icon, label };
 }
 
 async function addVehicle() {
@@ -799,8 +809,8 @@ async function addVehicle() {
     id: vid,
     driver,
     phone,
-    type: selType?.icon || '🏍️',
-    typeLabel: selType?.label || 'Moto',
+    type: selectedVType?.icon || '🏍️',
+    typeLabel: selectedVType?.label || 'Moto',
     status: 'offline',
     lat: TOUBA[0] + (Math.random()-.5)*.02,
     lng: TOUBA[1] + (Math.random()-.5)*.02,
