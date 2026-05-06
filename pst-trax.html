@@ -1,124 +1,164 @@
-<!DOCTYPE html><!-- PST-TRAX v2.1 -->
+<!DOCTYPE html><!-- PST-TRAX v3.0 -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>PST-TRAX</title>
-<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;PST-TRAX&quot;,&quot;short_name&quot;:&quot;TRAX&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#0a0e1a&quot;}">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
-  --bg:#0a0e1a;--panel:#111827;--border:#1e2d47;
+  --bg:#0a0e1a;--panel:#111827;--card:#162032;--border:#1e2d47;
   --accent:#00e5ff;--green:#22c55e;--orange:#f97316;--red:#ef4444;
   --text:#e2e8f0;--muted:#64748b;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;}
 
-/* ── LOGIN SCREEN ── */
-#screen-login{
-  position:fixed;inset:0;z-index:9999;
-  background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:24px;
-}
-.login-logo{font-size:36px;font-weight:900;letter-spacing:4px;color:var(--accent);margin-bottom:4px;}
-.login-sub{font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:40px;}
-.login-card{
-  width:100%;max-width:360px;
-  background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;
-}
-.login-title{font-size:16px;font-weight:700;margin-bottom:6px;}
-.login-desc{font-size:12px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
-.role-picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
-.role-btn{
-  padding:16px 8px;border:2px solid var(--border);background:var(--bg);
-  color:var(--muted);border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;
-}
-.role-btn .ri{font-size:28px;display:block;margin-bottom:6px;}
-.role-btn .rl{font-size:12px;font-weight:700;}
-.role-btn.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+/* ── SHARED ── */
+.screen{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;}
+.screen.active{display:flex;}
 .fi{
-  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-  padding:12px 14px;border-radius:10px;font-size:14px;outline:none;margin-bottom:12px;
-  transition:border-color .2s;
+  width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);
+  padding:13px 16px;border-radius:10px;font-size:15px;outline:none;
+  transition:border-color .2s;margin-bottom:12px;
 }
 .fi:focus{border-color:var(--accent);}
-.btn-go{
-  width:100%;padding:14px;background:var(--accent);color:#000;
-  border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;
+.fi::placeholder{color:var(--muted);}
+.lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:6px;display:block;}
+.btn-main{
+  width:100%;padding:15px;background:var(--accent);color:#000;
+  border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;
   letter-spacing:.5px;transition:background .2s;
 }
-.btn-go:active{background:#00bcd4;}
+.btn-main:active{background:#00bcd4;}
+.btn-sec{
+  width:100%;padding:13px;background:transparent;color:var(--muted);
+  border:1px solid var(--border);border-radius:12px;font-size:14px;
+  font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px;
+}
+.btn-sec:hover{border-color:var(--accent);color:var(--accent);}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;
+}
+.pill.green{background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);}
+.pill.orange{background:rgba(249,115,22,.15);border:1px solid var(--orange);color:var(--orange);}
+.pill.red{background:rgba(239,68,68,.15);border:1px solid var(--red);color:var(--red);}
+.pill.muted{background:rgba(100,116,139,.15);border:1px solid var(--muted);color:var(--muted);}
+.ldot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── OWNER DASHBOARD ── */
-#screen-owner{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;}
+/* ── TOAST ── */
+.toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-120px);
+  z-index:99999;background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;padding:14px 20px;font-size:13px;min-width:260px;max-width:340px;
+  text-align:center;transition:transform .35s;box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast-title{font-weight:800;margin-bottom:3px;}
+.toast.success .toast-title{color:var(--green);}
+.toast.error .toast-title{color:var(--red);}
+.toast.info .toast-title{color:var(--accent);}
 
+/* ══ SCREEN: WELCOME ══════════════════════════════ */
+#screen-welcome{
+  background:var(--bg);align-items:center;justify-content:center;padding:24px;
+}
+.wlc-logo{font-size:42px;font-weight:900;letter-spacing:4px;color:var(--accent);margin-bottom:4px;}
+.wlc-sub{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:48px;}
+.wlc-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px;}
+.wlc-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+.wlc-desc{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.7;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;}
+.role-card{
+  padding:20px 12px;border:2px solid var(--border);background:var(--card);
+  border-radius:14px;cursor:pointer;text-align:center;transition:all .2s;
+}
+.role-card:hover,.role-card.sel{border-color:var(--accent);background:rgba(0,229,255,.05);}
+.role-card .rc-icon{font-size:36px;margin-bottom:8px;}
+.role-card .rc-title{font-size:14px;font-weight:800;color:var(--text);}
+.role-card .rc-desc{font-size:11px;color:var(--muted);margin-top:4px;}
+.role-card.sel .rc-title{color:var(--accent);}
+
+/* ══ SCREEN: AUTH (Register/Login) ════════════════ */
+#screen-auth{background:var(--bg);align-items:center;justify-content:center;padding:24px;}
+.auth-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:28px;}
+.auth-back{
+  display:flex;align-items:center;gap:8px;color:var(--muted);
+  background:transparent;border:none;cursor:pointer;font-size:13px;
+  margin-bottom:20px;padding:0;
+}
+.auth-back:hover{color:var(--accent);}
+.auth-tabs{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.auth-tab{
+  flex:1;padding:10px;font-size:13px;font-weight:700;text-align:center;
+  cursor:pointer;background:transparent;color:var(--muted);border:none;transition:all .2s;
+}
+.auth-tab.active{background:var(--accent);color:#000;}
+.phone-row{display:flex;gap:8px;}
+.phone-flag{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:13px 12px;font-size:15px;white-space:nowrap;color:var(--text);
+  margin-bottom:12px;display:flex;align-items:center;gap:6px;
+  min-width:90px;
+}
+.otp-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:16px;}
+.otp-box{
+  width:50px;height:58px;background:var(--card);border:2px solid var(--border);
+  border-radius:12px;text-align:center;font-size:24px;font-weight:800;
+  color:var(--text);outline:none;transition:border-color .2s;
+}
+.otp-box:focus{border-color:var(--accent);}
+.otp-hint{text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px;}
+.otp-resend{text-align:center;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;}
+.otp-resend span{color:var(--accent);font-weight:700;}
+.vehicle-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.vt-btn{
+  padding:12px 6px;border:1px solid var(--border);background:var(--card);
+  color:var(--muted);border-radius:10px;cursor:pointer;text-align:center;
+  font-size:10px;font-weight:700;transition:all .2s;
+}
+.vt-btn .vti{font-size:24px;display:block;margin-bottom:4px;}
+.vt-btn.sel,.vt-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted);font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ══ SCREEN: OWNER ════════════════════════════════ */
+#screen-owner{background:var(--bg);}
 .topbar{
   background:var(--panel);border-bottom:1px solid var(--border);
   padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;
 }
-.tlogo{font-size:18px;font-weight:900;letter-spacing:2px;color:var(--accent);}
-.tlive{
-  background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);
-  padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;
-  display:flex;align-items:center;gap:5px;
-}
-.ldot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tlogo{font-size:16px;font-weight:900;letter-spacing:2px;color:var(--accent);}
 .tstats{display:flex;gap:16px;margin-left:auto;}
 .ts{text-align:center;}
-.ts-n{font-size:18px;font-weight:800;}
-.ts-l{font-size:9px;color:var(--muted);text-transform:uppercase;}
-.ts.g .ts-n{color:var(--green);}
-.ts.o .ts-n{color:var(--orange);}
-.ts.r .ts-n{color:var(--red);}
-.tbtn{
-  padding:8px 14px;border-radius:8px;border:none;cursor:pointer;
-  font-size:12px;font-weight:700;background:var(--accent);color:#000;
-  white-space:nowrap;
-}
-
+.tsn{font-size:18px;font-weight:800;}
+.tsl{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.ts.g .tsn{color:var(--green);}
+.ts.o .tsn{color:var(--orange);}
+.ts.r .tsn{color:var(--red);}
+.tbtn{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:var(--accent);color:#000;white-space:nowrap;}
 .owner-body{flex:1;display:flex;overflow:hidden;}
-
-/* sidebar */
-.sidebar{
-  width:270px;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0;
-}
+.sidebar{width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
 @media(max-width:700px){.sidebar{display:none;}}
-.sb-head{
-  padding:12px 14px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-}
+.sb-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .sb-title{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
-.sb-count{background:var(--accent);color:#000;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;}
+.sb-cnt{background:var(--accent);color:#000;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;}
 .sb-search{padding:10px 12px;border-bottom:1px solid var(--border);}
-.sb-si{
-  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-  padding:8px 12px;border-radius:8px;font-size:12px;outline:none;
-}
+.sb-si{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12px;outline:none;}
 .sb-si:focus{border-color:var(--accent);}
-.sb-tabs{display:flex;padding:8px 12px;gap:4px;border-bottom:1px solid var(--border);}
-.stab{
-  flex:1;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;
-  border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--muted);
-  transition:all .2s;border-radius:6px;
-}
+.stabs{display:flex;padding:8px 12px;gap:4px;border-bottom:1px solid var(--border);}
+.stab{flex:1;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--muted);transition:all .2s;border-radius:6px;}
 .stab.active{background:var(--accent);color:#000;border-color:var(--accent);}
 .vlist{flex:1;overflow-y:auto;padding:8px;}
 .vlist::-webkit-scrollbar{width:3px;}
 .vlist::-webkit-scrollbar-thumb{background:var(--border);}
-
-.vcard{
-  background:var(--bg);border:1px solid var(--border);border-radius:10px;
-  padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s;
-  border-left:3px solid var(--muted);
-}
+.vcard{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s;border-left:3px solid var(--muted);}
 .vcard.online{border-left-color:var(--green);}
 .vcard.stopped{border-left-color:var(--orange);}
 .vcard.alert{border-left-color:var(--red);}
@@ -129,212 +169,91 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .vc-inf{flex:1;}
 .vc-nm{font-size:13px;font-weight:700;}
 .vc-id{font-size:10px;color:var(--muted);}
-.vc-st{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
-.st-online{background:rgba(34,197,94,.15);color:var(--green);}
-.st-stopped{background:rgba(249,115,22,.15);color:var(--orange);}
-.st-alert{background:rgba(239,68,68,.15);color:var(--red);animation:blink .8s infinite;}
-.st-offline{background:rgba(100,116,139,.15);color:var(--muted);}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .vc-meta{display:flex;gap:10px;font-size:10px;color:var(--muted);margin-bottom:8px;}
 .vc-meta b{color:var(--text);}
 .vc-acts{display:flex;gap:6px;}
-.vab{
-  flex:1;padding:5px;font-size:10px;font-weight:700;border:1px solid var(--border);
-  background:transparent;color:var(--text);border-radius:6px;cursor:pointer;transition:all .2s;
-}
+.vab{flex:1;padding:5px;font-size:10px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:6px;cursor:pointer;transition:all .2s;}
 .vab:hover{border-color:var(--accent);color:var(--accent);}
-.vab.danger{color:var(--red);border-color:rgba(239,68,68,.3);}
-.vab.danger:hover{background:rgba(239,68,68,.1);}
-
-/* map */
+.vab.red{color:var(--red);border-color:rgba(239,68,68,.3);}
+.vab.red:hover{background:rgba(239,68,68,.1);}
 .map-wrap{flex:1;position:relative;}
 #map{width:100%;height:100%;}
-.map-info{
-  position:absolute;bottom:20px;right:12px;z-index:1000;
-  background:rgba(17,24,39,.9);border:1px solid var(--border);
-  border-radius:10px;padding:8px 14px;font-size:11px;color:var(--muted);
-  backdrop-filter:blur(8px);
-}
+.map-info{position:absolute;bottom:20px;right:12px;z-index:1000;background:rgba(17,24,39,.9);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:11px;color:var(--muted);backdrop-filter:blur(8px);}
 .map-info span{color:var(--accent);font-weight:700;}
-
-/* mobile bottom nav for owner */
-.mob-nav{
-  display:none;background:var(--panel);border-top:1px solid var(--border);
-  flex-shrink:0;
-}
+.mob-nav{display:none;background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;}
 @media(max-width:700px){.mob-nav{display:flex;}}
-.mn-btn{
-  flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:none;background:transparent;
-  color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;
-  transition:color .2s;
-}
+.mn-btn{flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;transition:color .2s;}
 .mn-btn .mni{font-size:20px;display:block;margin-bottom:2px;}
 .mn-btn.active,.mn-btn:hover{color:var(--accent);}
-
-/* mobile list overlay */
-#mob-list{
-  position:fixed;inset:0;z-index:500;background:var(--panel);
-  display:none;flex-direction:column;
-  padding-top:60px;
-}
-#mob-list.open{display:flex;}
-.mob-list-head{
-  position:fixed;top:0;left:0;right:0;z-index:501;
-  background:var(--panel);border-bottom:1px solid var(--border);
-  padding:14px 16px;display:flex;align-items:center;gap:12px;
-}
-.mob-close{
-  background:transparent;border:1px solid var(--border);color:var(--text);
-  padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;
-}
+#mob-overlay{position:fixed;inset:0;z-index:500;background:var(--panel);display:none;flex-direction:column;padding-top:56px;}
+#mob-overlay.open{display:flex;}
+.mob-ol-head{position:fixed;top:0;left:0;right:0;z-index:501;background:var(--panel);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.mob-close{background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;}
 .mob-vlist{flex:1;overflow-y:auto;padding:12px;}
 
-/* ── DRIVER APP ── */
-#screen-driver{
-  position:fixed;inset:0;z-index:100;display:none;flex-direction:column;
-  background:var(--bg);
-}
-.drv-top{
-  background:var(--panel);border-bottom:1px solid var(--border);
-  padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;
-}
-.drv-logo{font-size:16px;font-weight:900;color:var(--accent);letter-spacing:2px;}
+/* ══ SCREEN: DRIVER ═══════════════════════════════ */
+#screen-driver{background:var(--bg);}
+.drv-top{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.drv-logo{font-size:15px;font-weight:900;color:var(--accent);letter-spacing:2px;}
 .drv-name{font-size:13px;font-weight:700;flex:1;}
-.live-tag{
-  background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);
-  padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;
-}
-.offline-tag{
-  background:rgba(100,116,139,.15);border:1px solid var(--muted);color:var(--muted);
-  padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;
-}
-
 .drv-body{flex:1;overflow-y:auto;padding:16px;}
-
-.drv-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
-.drv-stat{
-  background:var(--panel);border:1px solid var(--border);border-radius:12px;
-  padding:14px 10px;text-align:center;
-}
-.drv-stat-n{font-size:24px;font-weight:800;color:var(--accent);}
-.drv-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
-
-.drv-card{
-  background:var(--panel);border:1px solid var(--border);border-radius:12px;
-  padding:16px;margin-bottom:12px;
-}
-.drv-card-title{
-  font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;
-  text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;
-}
+.drv-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;}
+.drv-card-title{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.drv-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.ds{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;}
+.dsn{font-size:26px;font-weight:800;color:var(--accent);}
+.dsl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
 .gps-coords{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.coord-box{background:var(--bg);border-radius:8px;padding:10px;}
-.coord-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
-.coord-val{font-size:15px;font-weight:700;color:var(--accent);}
-.precision-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
-.precision-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s;}
-.gps-status{font-size:11px;color:var(--muted);margin-top:6px;}
-.gps-status.good{color:var(--green);}
-
-.big-btn{
-  width:100%;padding:18px;border:none;border-radius:14px;
-  font-size:16px;font-weight:800;cursor:pointer;transition:all .2s;
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  margin-bottom:12px;
-}
+.coord-box{background:var(--bg);border-radius:10px;padding:12px;}
+.coord-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.coord-val{font-size:16px;font-weight:700;color:var(--accent);}
+.prec-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
+.prec-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s;}
+.gps-st{font-size:11px;color:var(--muted);margin-top:6px;}
+.gps-st.good{color:var(--green);}
+.big-btn{width:100%;padding:18px;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;transition:all .2s;}
 .btn-start{background:var(--green);color:#fff;}
 .btn-start:active{background:#16a34a;}
 .btn-stop{background:var(--red);color:#fff;}
 .btn-stop:active{background:#dc2626;}
-
 .freq-btns{display:flex;gap:8px;}
-.freq-btn{
-  flex:1;padding:10px;border:1px solid var(--border);background:var(--bg);
-  color:var(--muted);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;
-  transition:all .2s;
-}
+.freq-btn{flex:1;padding:10px;border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;transition:all .2s;}
 .freq-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
-
-.notif-list{max-height:120px;overflow-y:auto;}
-.notif-item{
-  display:flex;align-items:flex-start;gap:8px;padding:8px 0;
-  border-bottom:1px solid var(--border);font-size:12px;
-}
+.notif-list{max-height:140px;overflow-y:auto;}
+.notif-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
 .notif-item:last-child{border-bottom:none;}
-.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;}
-.notif-dot.orange{background:var(--orange);}
-.notif-dot.red{background:var(--red);}
-.notif-msg{flex:1;}
-.notif-time{font-size:10px;color:var(--muted);}
-
-.hist-item{
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  padding:10px 12px;margin-bottom:8px;font-size:12px;
-}
+.ndot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;}
+.ndot.or{background:var(--orange);}
+.ndot.rd{background:var(--red);}
+.hist-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;}
 .hist-top{display:flex;justify-content:space-between;margin-bottom:4px;}
-.hist-date{font-weight:700;}
-.hist-dist{color:var(--accent);font-weight:700;}
-
-.drv-bottom{
-  background:var(--panel);border-top:1px solid var(--border);
-  display:flex;flex-shrink:0;
-}
-.drv-tab{
-  flex:1;padding:12px 6px;text-align:center;cursor:pointer;
-  border:none;background:transparent;color:var(--muted);font-size:9px;
-  font-weight:700;text-transform:uppercase;transition:color .2s;
-}
-.drv-tab .dti{font-size:18px;display:block;margin-bottom:2px;}
-.drv-tab.active,.drv-tab:hover{color:var(--accent);}
-
-/* tab panels */
+.drv-bottom{background:var(--panel);border-top:1px solid var(--border);display:flex;flex-shrink:0;}
+.dtab{flex:1;padding:12px 6px;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;transition:color .2s;}
+.dtab .dti{font-size:18px;display:block;margin-bottom:2px;}
+.dtab.active,.dtab:hover{color:var(--accent);}
 .dtab-panel{display:none;}
 .dtab-panel.active{display:block;}
 
+/* profile badge */
+.profile-badge{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+.pb-avatar{width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#000;flex-shrink:0;}
+.pb-info{flex:1;}
+.pb-name{font-size:15px;font-weight:700;}
+.pb-phone{font-size:12px;color:var(--muted);}
+.pb-role{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;}
+
 /* modal */
-.modal-bg{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
-  display:none;align-items:center;justify-content:center;padding:16px;
-}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.open{display:flex;}
-.modal{
-  background:var(--panel);border:1px solid var(--border);border-radius:16px;
-  padding:24px;width:100%;max-width:400px;
-}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:400px;}
 .modal-title{font-size:17px;font-weight:800;margin-bottom:18px;}
-.fl{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;display:block;}
-.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
-.tg-btn{
-  padding:10px 4px;border:1px solid var(--border);background:var(--bg);
-  color:var(--muted);border-radius:8px;cursor:pointer;text-align:center;
-  font-size:9px;transition:all .2s;
-}
-.tg-btn .ti{font-size:22px;display:block;margin-bottom:3px;}
-.tg-btn.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
-.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modal-acts{display:flex;gap:10px;margin-top:16px;}
 .modal-acts button{flex:1;padding:12px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:700;}
 .btn-cancel{background:var(--border);color:var(--text);}
 .btn-save{background:var(--accent);color:#000;}
 
-/* alert toast */
-.toast{
-  position:fixed;top:70px;right:16px;z-index:9999;
-  background:var(--panel);border:1px solid var(--border);border-radius:12px;
-  padding:12px 16px;font-size:13px;max-width:300px;
-  transform:translateX(350px);transition:transform .35s;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
-}
-.toast.show{transform:translateX(0);}
-.toast-title{font-weight:800;margin-bottom:3px;}
-
-/* leaflet custom */
-.mk{
-  background:var(--panel);border:2px solid var(--green);border-radius:50%;
-  width:38px;height:38px;display:flex;align-items:center;justify-content:center;
-  font-size:18px;
-  box-shadow:0 0 0 4px rgba(34,197,94,.2),0 4px 12px rgba(0,0,0,.5);
-}
+/* Leaflet marker */
+.mk{background:var(--panel);border:2px solid var(--green);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 0 4px rgba(34,197,94,.2),0 4px 12px rgba(0,0,0,.5);}
 .mk.stopped{border-color:var(--orange);box-shadow:0 0 0 4px rgba(249,115,22,.2),0 4px 12px rgba(0,0,0,.5);}
 .mk.alert{border-color:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.3),0 4px 12px rgba(0,0,0,.5);}
 .mk.offline{border-color:var(--muted);opacity:.6;box-shadow:none;}
@@ -342,59 +261,124 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </head>
 <body>
 
-<!-- ══ LOGIN ══════════════════════════════════════ -->
-<div id="screen-login">
-  <div class="login-logo">PST-TRAX</div>
-  <div class="login-sub">Géolocalisation & Tracking</div>
-  <div class="login-card">
-    <div class="login-title">Qui êtes-vous ?</div>
-    <div class="login-desc">Choisissez votre rôle pour accéder à l'application adaptée.</div>
-    <div class="role-picker">
-      <div class="role-btn selected" onclick="pickRole(this,'owner')">
-        <span class="ri">👨‍💼</span>
-        <span class="rl">Propriétaire<br><small style="font-weight:400;font-size:9px">Voir ma flotte</small></span>
+<!-- TOAST -->
+<div class="toast" id="toast"><div class="toast-title" id="toast-t"></div><div id="toast-m"></div></div>
+
+<!-- ══ WELCOME ════════════════════════════════════ -->
+<div id="screen-welcome" class="screen active">
+  <div class="wlc-logo">PST-TRAX</div>
+  <div class="wlc-sub">Géolocalisation & Tracking</div>
+  <div class="wlc-card">
+    <div class="wlc-title">Bienvenue 👋</div>
+    <div class="wlc-desc">Choisissez votre rôle pour créer votre compte ou vous connecter.</div>
+    <div class="role-grid">
+      <div class="role-card sel" id="rc-owner" onclick="pickRole('owner')">
+        <div class="rc-icon">👨‍💼</div>
+        <div class="rc-title">Propriétaire</div>
+        <div class="rc-desc">Gérer ma flotte</div>
       </div>
-      <div class="role-btn" onclick="pickRole(this,'driver')">
-        <span class="ri">🏍️</span>
-        <span class="rl">Chauffeur<br><small style="font-weight:400;font-size:9px">Activer mon GPS</small></span>
+      <div class="role-card" id="rc-driver" onclick="pickRole('driver')">
+        <div class="rc-icon">🏍️</div>
+        <div class="rc-title">Chauffeur</div>
+        <div class="rc-desc">Activer mon GPS</div>
       </div>
     </div>
-    <div id="login-owner-fields">
-      <input class="fi" id="li-owner-name" placeholder="Votre nom (propriétaire)">
-      <input class="fi" id="li-owner-pass" type="password" placeholder="Mot de passe admin (ex: pst2026)">
+    <button class="btn-main" onclick="goAuth()">▶ Continuer</button>
+  </div>
+</div>
+
+<!-- ══ AUTH ═══════════════════════════════════════ -->
+<div id="screen-auth" class="screen">
+  <div class="auth-card">
+    <button class="auth-back" onclick="showScreen('welcome')">← Retour</button>
+    <div id="auth-role-label" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+    <!-- Step 1: Phone -->
+    <div id="step-phone">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-register" onclick="switchAuthTab('register')">Créer un compte</button>
+        <button class="auth-tab" id="tab-login" onclick="switchAuthTab('login')">Se connecter</button>
+      </div>
+
+      <!-- Register fields -->
+      <div id="fields-register">
+        <label class="lbl">Votre prénom et nom</label>
+        <input class="fi" id="r-name" placeholder="Ex: Moussa Diallo" autocomplete="name">
+        <label class="lbl">Numéro de téléphone</label>
+        <div class="phone-row">
+          <div class="phone-flag">🇸🇳 +221</div>
+          <input class="fi" id="r-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+        </div>
+
+        <!-- Driver extra fields -->
+        <div id="driver-extra" style="display:none">
+          <label class="lbl">ID de votre véhicule</label>
+          <input class="fi" id="r-vid" placeholder="Ex: TBA-001 (donné par le propriétaire)">
+          <label class="lbl">Type de véhicule</label>
+          <div class="vehicle-type-grid">
+            <div class="vt-btn sel" onclick="selVtype(this,'🏍️','Moto Jakarta')"><span class="vti">🏍️</span>Jakarta</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚗','Voiture')"><span class="vti">🚗</span>Voiture</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚕','Taxi')"><span class="vti">🚕</span>Taxi</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚚','Camion')"><span class="vti">🚚</span>Camion</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚌','Bus')"><span class="vti">🚌</span>Bus</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚑','Ambulance')"><span class="vti">🚑</span>Ambulance</div>
+          </div>
+        </div>
+        <button class="btn-main" onclick="sendOTP('register')">📱 Recevoir le code SMS</button>
+      </div>
+
+      <!-- Login fields -->
+      <div id="fields-login" style="display:none">
+        <label class="lbl">Numéro de téléphone</label>
+        <div class="phone-row">
+          <div class="phone-flag">🇸🇳 +221</div>
+          <input class="fi" id="l-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+        </div>
+        <button class="btn-main" onclick="sendOTP('login')">📱 Recevoir le code SMS</button>
+      </div>
     </div>
-    <div id="login-driver-fields" style="display:none">
-      <input class="fi" id="li-driver-name" placeholder="Votre prénom et nom">
-      <input class="fi" id="li-driver-id" placeholder="ID de votre véhicule (ex: TBA-001)">
-    </div>
-    <button class="btn-go" onclick="doLogin()">▶ Accéder</button>
-    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:14px;">
-      PST-TRAX · Touba, Sénégal
+
+    <!-- Step 2: OTP -->
+    <div id="step-otp" style="display:none">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:32px;margin-bottom:8px;">📩</div>
+        <div style="font-size:15px;font-weight:700;">Code de vérification</div>
+        <div class="otp-hint" id="otp-hint">Entrez le code envoyé au +221 XX XXX XX XX</div>
+      </div>
+      <div class="otp-inputs">
+        <input class="otp-box" id="o1" maxlength="1" type="number" oninput="otpNext(this,'o2')">
+        <input class="otp-box" id="o2" maxlength="1" type="number" oninput="otpNext(this,'o3')">
+        <input class="otp-box" id="o3" maxlength="1" type="number" oninput="otpNext(this,'o4')">
+        <input class="otp-box" id="o4" maxlength="1" type="number" oninput="otpNext(this,null)">
+      </div>
+      <button class="btn-main" onclick="verifyOTP()">✅ Vérifier</button>
+      <div class="otp-resend" onclick="resendOTP()">Pas reçu ? <span>Renvoyer le code</span></div>
+      <button class="btn-sec" onclick="backToPhone()">← Changer de numéro</button>
     </div>
   </div>
 </div>
 
 <!-- ══ OWNER DASHBOARD ════════════════════════════ -->
-<div id="screen-owner">
+<div id="screen-owner" class="screen">
   <div class="topbar">
     <div class="tlogo">PST-TRAX</div>
-    <div class="tlive"><div class="ldot"></div>TEMPS RÉEL</div>
+    <div class="pill green"><div class="ldot"></div>LIVE</div>
     <div class="tstats">
-      <div class="ts"><div class="ts-n" id="st-tot">0</div><div class="ts-l">Total</div></div>
-      <div class="ts g"><div class="ts-n" id="st-on">0</div><div class="ts-l">Route</div></div>
-      <div class="ts o"><div class="ts-n" id="st-st">0</div><div class="ts-l">Arrêt</div></div>
-      <div class="ts r"><div class="ts-n" id="st-al">0</div><div class="ts-l">Alerte</div></div>
+      <div class="ts"><div class="tsn" id="st-tot">0</div><div class="tsl">Total</div></div>
+      <div class="ts g"><div class="tsn" id="st-on">0</div><div class="tsl">Route</div></div>
+      <div class="ts o"><div class="tsn" id="st-st">0</div><div class="tsl">Arrêt</div></div>
+      <div class="ts r"><div class="tsn" id="st-al">0</div><div class="tsl">Alerte</div></div>
     </div>
-    <button class="tbtn" onclick="openAdd()">＋ Véhicule</button>
+    <button class="tbtn" onclick="openAddModal()">＋</button>
   </div>
   <div class="owner-body">
     <div class="sidebar">
       <div class="sb-head">
         <span class="sb-title">Flotte</span>
-        <span class="sb-count" id="sb-cnt">0</span>
+        <span class="sb-cnt" id="sb-cnt">0</span>
       </div>
       <div class="sb-search"><input class="sb-si" placeholder="🔍 Rechercher..." oninput="renderSidebar()"></div>
-      <div class="sb-tabs">
+      <div class="stabs">
         <button class="stab active" onclick="setFilter('all',this)">Tout</button>
         <button class="stab" onclick="setFilter('online',this)">🟢</button>
         <button class="stab" onclick="setFilter('stopped',this)">🟠</button>
@@ -410,52 +394,45 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div class="mob-nav">
     <button class="mn-btn active" onclick="mobTab('map',this)"><span class="mni">🗺️</span>Carte</button>
     <button class="mn-btn" onclick="mobTab('list',this)"><span class="mni">📋</span>Flotte</button>
-    <button class="mn-btn" onclick="openAdd()"><span class="mni">➕</span>Ajouter</button>
-    <button class="mn-btn" onclick="logout()"><span class="mni">🚪</span>Quitter</button>
+    <button class="mn-btn" onclick="openAddModal()"><span class="mni">➕</span>Ajouter</button>
+    <button class="mn-btn" onclick="openProfile()"><span class="mni">👤</span>Profil</button>
   </div>
 </div>
 
-<!-- mobile list overlay -->
-<div id="mob-list">
-  <div class="mob-list-head">
-    <div class="tlogo" style="font-size:15px">FLOTTE</div>
-    <button class="mob-close" onclick="closeMobList()">✕ Fermer</button>
+<!-- mobile list -->
+<div id="mob-overlay">
+  <div class="mob-ol-head">
+    <div class="tlogo" style="font-size:14px">FLOTTE</div>
+    <button class="mob-close" onclick="closeMobOverlay()">✕</button>
   </div>
   <div class="mob-vlist" id="mob-vlist"></div>
 </div>
 
 <!-- ══ DRIVER APP ══════════════════════════════════ -->
-<div id="screen-driver">
+<div id="screen-driver" class="screen">
   <div class="drv-top">
     <div class="drv-logo">PST-TRAX</div>
-    <div class="drv-name" id="drv-name">Chauffeur</div>
-    <div class="live-tag" id="drv-live-tag" style="display:none">● EN DIRECT</div>
-    <div class="offline-tag" id="drv-off-tag">● HORS LIGNE</div>
-    <button style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:11px;" onclick="logout()">Quitter</button>
+    <div class="drv-name" id="drv-nm">Chauffeur</div>
+    <div class="pill green" id="drv-live" style="display:none"><div class="ldot"></div>LIVE</div>
+    <div class="pill muted" id="drv-off">HORS LIGNE</div>
   </div>
-  <div class="drv-body" id="drv-body">
-    <!-- Tracking tab -->
+  <div class="drv-body">
     <div class="dtab-panel active" id="dtab-tracking">
       <div class="drv-stats">
-        <div class="drv-stat"><div class="drv-stat-n" id="drv-speed">0</div><div class="drv-stat-l">KM/H</div></div>
-        <div class="drv-stat"><div class="drv-stat-n" id="drv-dist">0</div><div class="drv-stat-l">KM AUJOURD'HUI</div></div>
-        <div class="drv-stat"><div class="drv-stat-n" id="drv-time">0h</div><div class="drv-stat-l">TEMPS ACTIF</div></div>
+        <div class="ds"><div class="dsn" id="d-spd">0</div><div class="dsl">KM/H</div></div>
+        <div class="ds"><div class="dsn" id="d-dist">0</div><div class="dsl">KM Aujourd'hui</div></div>
+        <div class="ds"><div class="dsn" id="d-time">0h</div><div class="dsl">Temps actif</div></div>
       </div>
-
       <div class="drv-card">
         <div class="drv-card-title">📍 POSITION GPS</div>
         <div class="gps-coords">
-          <div class="coord-box"><div class="coord-label">Latitude</div><div class="coord-val" id="gps-lat">--</div></div>
-          <div class="coord-box"><div class="coord-label">Longitude</div><div class="coord-val" id="gps-lng">--</div></div>
+          <div class="coord-box"><div class="coord-lbl">Latitude</div><div class="coord-val" id="g-lat">--</div></div>
+          <div class="coord-box"><div class="coord-lbl">Longitude</div><div class="coord-val" id="g-lng">--</div></div>
         </div>
-        <div class="precision-bar"><div class="precision-fill" id="prec-fill" style="width:0%"></div></div>
-        <div class="gps-status" id="gps-st">En attente du GPS...</div>
+        <div class="prec-bar"><div class="prec-fill" id="prec-f" style="width:0%"></div></div>
+        <div class="gps-st" id="g-st">En attente du GPS...</div>
       </div>
-
-      <button class="big-btn btn-start" id="btn-track" onclick="toggleTracking()">
-        ▶ DÉMARRER LE TRACKING
-      </button>
-
+      <button class="big-btn btn-start" id="btn-trk" onclick="toggleTracking()">▶ DÉMARRER LE TRACKING</button>
       <div class="drv-card">
         <div class="drv-card-title">⏱ FRÉQUENCE D'ENVOI</div>
         <div class="freq-btns">
@@ -464,205 +441,316 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <button class="freq-btn" onclick="setFreq(30000,this)">30 sec</button>
         </div>
       </div>
-
       <div class="drv-card">
         <div class="drv-card-title">🔔 NOTIFICATIONS</div>
-        <div class="notif-list" id="notif-list">
-          <div class="notif-item">
-            <div class="notif-dot"></div>
-            <div class="notif-msg">PST-TRAX prêt. Appuyez sur Démarrer.</div>
-            <div class="notif-time">Maintenant</div>
-          </div>
-        </div>
+        <div class="notif-list" id="notif-list"><div style="color:var(--muted);font-size:12px">Aucune notification</div></div>
       </div>
     </div>
-
-    <!-- History tab -->
     <div class="dtab-panel" id="dtab-history">
       <div class="drv-card">
         <div class="drv-card-title">📅 HISTORIQUE DES TRAJETS</div>
-        <div id="hist-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet enregistré</div></div>
+        <div id="hist-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet</div></div>
       </div>
     </div>
-
-    <!-- Owner contact tab -->
-    <div class="dtab-panel" id="dtab-owner">
+    <div class="dtab-panel" id="dtab-profile">
+      <div class="profile-badge" id="drv-profile-badge"></div>
       <div class="drv-card">
-        <div class="drv-card-title">👨‍💼 VOTRE PROPRIÉTAIRE</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.8;">
-          <div>📱 Propriétaire PST-TRAX</div>
+        <div class="drv-card-title">📞 CONTACT PROPRIÉTAIRE</div>
+        <div style="font-size:13px;color:var(--muted);line-height:2;">
+          <div>📱 PST Telecom</div>
           <div>📞 <a href="tel:+221771520959" style="color:var(--accent)">+221 77 152 09 59</a></div>
-          <div style="margin-top:12px;font-size:11px;">Votre ID véhicule : <b id="drv-vid" style="color:var(--accent)">--</b></div>
+          <div>🌐 <a href="https://pst-telecom.vercel.app" style="color:var(--accent)">pst-telecom.vercel.app</a></div>
         </div>
       </div>
-      <button class="big-btn" style="background:var(--panel);border:1px solid var(--border);color:var(--text);" onclick="logout()">
-        🚪 Se déconnecter
-      </button>
+      <button class="big-btn" style="background:var(--panel);border:1px solid var(--border);color:var(--text);" onclick="doLogout()">🚪 Se déconnecter</button>
     </div>
   </div>
   <div class="drv-bottom">
-    <button class="drv-tab active" onclick="drvTab('tracking',this)"><span class="dti">📡</span>Tracking</button>
-    <button class="drv-tab" onclick="drvTab('history',this)"><span class="dti">📅</span>Historique</button>
-    <button class="drv-tab" onclick="drvTab('owner',this)"><span class="dti">📞</span>Propriétaire</button>
+    <button class="dtab active" onclick="drvTab('tracking',this)"><span class="dti">📡</span>Tracking</button>
+    <button class="dtab" onclick="drvTab('history',this)"><span class="dti">📅</span>Historique</button>
+    <button class="dtab" onclick="drvTab('profile',this)"><span class="dti">👤</span>Profil</button>
   </div>
 </div>
 
 <!-- ══ ADD VEHICLE MODAL ══════════════════════════ -->
 <div class="modal-bg" id="add-modal">
   <div class="modal">
-    <div class="modal-title">➕ Nouveau véhicule</div>
-    <label class="fl">Type de véhicule</label>
-    <div class="type-grid">
-      <div class="tg-btn sel" onclick="pickVehicleType(this,'🏍️','Moto Jakarta')"><span class="ti">🏍️</span>Jakarta</div>
-      <div class="tg-btn" onclick="pickVehicleType(this,'🚗','Voiture')"><span class="ti">🚗</span>Voiture</div>
-      <div class="tg-btn" onclick="pickVehicleType(this,'🚕','Taxi')"><span class="ti">🚕</span>Taxi</div>
-      <div class="tg-btn" onclick="pickVehicleType(this,'🚚','Camion')"><span class="ti">🚚</span>Camion</div>
-      <div class="tg-btn" onclick="pickVehicleType(this,'🚌','Bus')"><span class="ti">🚌</span>Bus</div>
-      <div class="tg-btn" onclick="pickVehicleType(this,'🚑','Ambulance')"><span class="ti">🚑</span>Ambulance</div>
+    <div class="modal-title">➕ Ajouter un véhicule</div>
+    <label class="lbl">Type</label>
+    <div class="vehicle-type-grid" id="modal-vtype">
+      <div class="vt-btn sel" onclick="selModalVtype(this,'🏍️','Moto Jakarta')"><span class="vti">🏍️</span>Jakarta</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚗','Voiture')"><span class="vti">🚗</span>Voiture</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚕','Taxi')"><span class="vti">🚕</span>Taxi</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚚','Camion')"><span class="vti">🚚</span>Camion</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚌','Bus')"><span class="vti">🚌</span>Bus</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚑','Ambulance')"><span class="vti">🚑</span>Ambulance</div>
     </div>
-    <div class="modal-row">
-      <div><label class="fl">Nom chauffeur</label><input class="fi" id="f-drv" placeholder="Moussa Fall" style="margin:0"></div>
-      <div><label class="fl">ID / Plaque</label><input class="fi" id="f-vid" placeholder="TBA-001" style="margin:0"></div>
-    </div>
-    <label class="fl" style="margin-top:10px">Téléphone</label>
-    <input class="fi" id="f-tel" placeholder="+221 77 XXX XX XX" style="margin-bottom:0">
+    <label class="lbl">Nom du chauffeur</label>
+    <input class="fi" id="m-drv" placeholder="Moussa Fall">
+    <label class="lbl">ID / Plaque</label>
+    <input class="fi" id="m-vid" placeholder="TBA-001">
+    <label class="lbl">Téléphone chauffeur</label>
+    <input class="fi" id="m-tel" placeholder="+221 77 XXX XX XX">
     <div class="modal-acts">
-      <button class="modal-acts btn-cancel" onclick="closeAdd()">Annuler</button>
-      <button class="modal-acts btn-save" onclick="addVehicle()">✅ Ajouter</button>
+      <button class="btn-cancel" onclick="closeAddModal()">Annuler</button>
+      <button class="btn-save" onclick="addVehicle()">✅ Ajouter</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast">
-  <div class="toast-title" id="toast-title"></div>
-  <div id="toast-msg"></div>
+<!-- PROFILE MODAL -->
+<div class="modal-bg" id="profile-modal">
+  <div class="modal">
+    <div class="modal-title">👤 Mon Profil</div>
+    <div id="profile-content"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeProfile()">Fermer</button>
+      <button class="btn-save" style="background:var(--red);color:#fff;" onclick="doLogout()">🚪 Déconnexion</button>
+    </div>
+  </div>
 </div>
 
 <script>
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // CONFIG
-const API = 'https://pst-telecom-production.up.railway.app';
+const API = '';  // same origin
 const TOUBA = [14.8503, -15.8832];
-const ADMIN_PASS = 'pst2026';
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // STATE
-let role = null;
-let currentUser = {};
+let currentRole = 'owner';
+let authMode = 'register';
+let currentUser = null;
+let otpCode = null;
+let pendingPhone = '';
+let pendingData = {};
+let vTypeSelected = { icon:'🏍️', label:'Moto Jakarta' };
+let modalVType = { icon:'🏍️', label:'Moto Jakarta' };
+
+// Owner state
 let vehicles = [];
 let markers = {};
-let map = null;
+let mapObj = null;
 let vFilter = 'all';
-let selVehicle = null;
+let selVehicleId = null;
 
 // Driver state
 let isTracking = false;
-let trackInterval = null;
 let gpsFreq = 5000;
-let watchId = null;
+let trackTimer = null;
 let currentPos = null;
 let startTime = null;
 let totalDist = 0;
 let lastPos = null;
-let sessions = JSON.parse(localStorage.getItem('pst_trax_sessions') || '[]');
+let sessions = [];
 let notifs = [];
 
-// ══════════════════════════════════════════════
-// LOGIN
-let loginRole = 'owner';
-function pickRole(el, r) {
-  loginRole = r;
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('login-owner-fields').style.display = r === 'owner' ? 'block' : 'none';
-  document.getElementById('login-driver-fields').style.display = r === 'driver' ? 'block' : 'none';
+// ══════════════════════════════════════════════════
+// SCREEN MANAGER
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
 }
 
-function doLogin() {
-  try {
-    if (loginRole === 'owner') {
-      const passEl = document.getElementById('li-owner-pass');
-      const nameEl = document.getElementById('li-owner-name');
-      const pass = passEl ? passEl.value : '';
-      const name = nameEl ? nameEl.value.trim() : '';
-      if (!name) { alert('Entrez votre nom'); return; }
-      if (pass !== ADMIN_PASS) { alert('Mot de passe incorrect. Essayez: pst2026'); return; }
-      currentUser = { role: 'owner', name };
-      localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
-      showOwner();
-    } else {
-      const nameEl = document.getElementById('li-driver-name');
-      const vidEl = document.getElementById('li-driver-id');
-      const name = nameEl ? nameEl.value.trim() : '';
-      const vid = vidEl ? vidEl.value.trim().toUpperCase() : '';
-      if (!name || !vid) { alert('Remplissez votre nom et votre ID'); return; }
-      currentUser = { role: 'driver', name, vid };
-      localStorage.setItem('pst_trax_session', JSON.stringify(currentUser));
-      showDriver();
+// ══════════════════════════════════════════════════
+// WELCOME
+function pickRole(role) {
+  currentRole = role;
+  document.getElementById('rc-owner').classList.toggle('sel', role==='owner');
+  document.getElementById('rc-driver').classList.toggle('sel', role==='driver');
+}
+function goAuth() {
+  document.getElementById('auth-role-label').textContent =
+    currentRole === 'owner' ? '👨‍💼 Espace Propriétaire' : '🏍️ Espace Chauffeur';
+  document.getElementById('driver-extra').style.display = currentRole === 'driver' ? 'block' : 'none';
+  showScreen('auth');
+}
+
+// ══════════════════════════════════════════════════
+// AUTH TABS
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-register').classList.toggle('active', mode==='register');
+  document.getElementById('tab-login').classList.toggle('active', mode==='login');
+  document.getElementById('fields-register').style.display = mode==='register' ? 'block' : 'none';
+  document.getElementById('fields-login').style.display = mode==='login' ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════════
+// OTP FLOW
+function sendOTP(mode) {
+  authMode = mode;
+  let phone, name, vid, vType;
+
+  if (mode === 'register') {
+    name = document.getElementById('r-name').value.trim();
+    phone = document.getElementById('r-phone').value.trim();
+    if (!name) { toast('⚠️ Erreur','Entrez votre nom complet','error'); return; }
+    if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide (9 chiffres)','error'); return; }
+    if (currentRole === 'driver') {
+      vid = document.getElementById('r-vid').value.trim().toUpperCase();
+      if (!vid) { toast('⚠️ Erreur','Entrez votre ID véhicule','error'); return; }
     }
-  } catch(e) { alert('Erreur: ' + e.message); }
+    pendingData = { name, phone: '+221'+phone, role: currentRole, vid, vType: vTypeSelected };
+  } else {
+    phone = document.getElementById('l-phone').value.trim();
+    if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+    pendingData = { phone: '+221'+phone };
+  }
+
+  pendingPhone = '+221' + (phone.startsWith('221') ? phone.slice(3) : phone);
+
+  // Generate OTP (4 digits) — in production this would be sent via AT SMS
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+  // Show OTP in toast for testing (remove in production)
+  toast('📱 Code envoyé', `Votre code: ${otpCode} (test)`, 'info');
+
+  document.getElementById('otp-hint').textContent = `Code envoyé au ${pendingPhone}`;
+  document.getElementById('step-phone').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  setTimeout(() => document.getElementById('o1').focus(), 100);
 }
 
-function logout() {
+function otpNext(el, nextId) {
+  el.value = el.value.slice(-1);
+  if (el.value && nextId) document.getElementById(nextId).focus();
+  // Auto verify when all 4 filled
+  const code = ['o1','o2','o3','o4'].map(id=>document.getElementById(id).value).join('');
+  if (code.length === 4) verifyOTP();
+}
+
+function verifyOTP() {
+  const entered = ['o1','o2','o3','o4'].map(id=>document.getElementById(id).value).join('');
+  if (entered.length < 4) { toast('⚠️','Entrez les 4 chiffres','error'); return; }
+  if (entered !== otpCode) { toast('❌ Code incorrect','Réessayez','error'); return; }
+
+  if (authMode === 'register') {
+    registerUser(pendingData);
+  } else {
+    loginUser(pendingData.phone);
+  }
+}
+
+async function registerUser(data) {
+  try {
+    const res = await fetch(API + '/api/trax/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (json.success || json.user) {
+      currentUser = json.user || { ...data, id: 'U-'+Date.now() };
+    } else if (json.error && json.error.includes('existe')) {
+      // Phone already exists, log them in
+      currentUser = json.existing || { ...data };
+    } else {
+      currentUser = { ...data, id: 'U-'+Date.now() };
+    }
+  } catch(e) {
+    // Offline mode — create local user
+    currentUser = { ...data, id: 'U-'+Date.now() };
+  }
+  saveSession();
+  enterApp();
+}
+
+async function loginUser(phone) {
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = json.user;
+    } else {
+      toast('❌ Compte introuvable','Créez un compte d\'abord','error');
+      return;
+    }
+  } catch(e) {
+    toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+    return;
+  }
+  saveSession();
+  enterApp();
+}
+
+function resendOTP() {
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+  toast('📱 Code renvoyé','Votre code: '+otpCode+' (test)','info');
+}
+
+function backToPhone() {
+  document.getElementById('step-phone').style.display = 'block';
+  document.getElementById('step-otp').style.display = 'none';
+  ['o1','o2','o3','o4'].forEach(id => document.getElementById(id).value = '');
+}
+
+function selVtype(el, icon, label) {
+  document.querySelectorAll('#driver-extra .vt-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  vTypeSelected = { icon, label };
+}
+
+// ══════════════════════════════════════════════════
+// SESSION
+function saveSession() {
+  localStorage.setItem('pst_trax_user', JSON.stringify(currentUser));
+}
+function loadSession() {
+  try {
+    const s = localStorage.getItem('pst_trax_user');
+    if (s) {
+      currentUser = JSON.parse(s);
+      currentRole = currentUser.role || 'owner';
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+function doLogout() {
   if (isTracking) stopTracking();
-  localStorage.removeItem('pst_trax_session');
+  localStorage.removeItem('pst_trax_user');
+  currentUser = null;
   location.reload();
 }
 
-// Auto-login
-window.addEventListener('load', () => {
-  const saved = localStorage.getItem('pst_trax_session');
-  if (saved) {
-    try {
-      currentUser = JSON.parse(saved);
-      if (currentUser.role === 'owner') showOwner();
-      else if (currentUser.role === 'driver') showDriver();
-      else showLogin();
-    } catch(e) { showLogin(); }
-  } else { showLogin(); }
-});
-
-function showLogin() {
-  document.getElementById('screen-login').style.display = 'flex';
-  document.getElementById('screen-owner').style.display = 'none';
-  document.getElementById('screen-driver').style.display = 'none';
+function enterApp() {
+  toast('✅ Bienvenue','Connexion réussie !','success');
+  if (currentUser.role === 'driver') initDriver();
+  else initOwner();
 }
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // OWNER
-function showOwner() {
-  document.getElementById('screen-login').style.display = 'none';
-  document.getElementById('screen-owner').style.display = 'flex';
-  document.getElementById('screen-driver').style.display = 'none';
+function initOwner() {
+  showScreen('owner');
   initMap();
   loadVehicles();
   setInterval(loadVehicles, 8000);
 }
 
 function initMap() {
-  if (map) return;
-  map = L.map('map', { center: TOUBA, zoom: 14, zoomControl: true });
+  if (mapObj) return;
+  mapObj = L.map('map', { center: TOUBA, zoom: 14, zoomControl: true });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 19
-  }).addTo(map);
-  // Center dot
-  L.circleMarker(TOUBA, { radius: 6, color: '#00e5ff', fillColor: '#00e5ff', fillOpacity: 1, weight: 2 })
-    .bindPopup('<b>📍 Touba</b>')
-    .addTo(map);
+    attribution:'© OpenStreetMap', maxZoom:19
+  }).addTo(mapObj);
+  L.circleMarker(TOUBA, {radius:6,color:'#00e5ff',fillColor:'#00e5ff',fillOpacity:1,weight:2})
+    .bindPopup('<b>📍 Touba, Sénégal</b>').addTo(mapObj);
 }
 
 async function loadVehicles() {
   try {
     const res = await fetch(API + '/api/trax/vehicles');
-    if (res.ok) {
-      vehicles = await res.json();
-      renderSidebar();
-      renderMarkers();
-      updateStats();
-    }
+    if (res.ok) vehicles = await res.json();
   } catch(e) {}
+  renderSidebar();
+  renderMarkers();
+  updateStats();
   document.getElementById('last-upd').textContent = new Date().toLocaleTimeString('fr-FR').slice(0,5);
 }
 
@@ -675,71 +763,65 @@ function updateStats() {
 }
 
 function renderSidebar() {
-  const q = document.querySelector('.sb-si').value.toLowerCase();
-  const filtered = vehicles.filter(v => {
-    if (vFilter !== 'all' && v.status !== vFilter) return false;
+  const q = document.querySelector('.sb-si')?.value.toLowerCase() || '';
+  const filtered = vehicles.filter(v=>{
+    if (vFilter!=='all' && v.status!==vFilter) return false;
     if (q && !v.driver?.toLowerCase().includes(q) && !v.id?.toLowerCase().includes(q)) return false;
     return true;
   });
-  const html = filtered.length ? filtered.map(vCard).join('') :
+  const html = filtered.length ? filtered.map(vCardHtml).join('') :
     `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Aucun véhicule</div>`;
-  document.getElementById('sb-list').innerHTML = html;
-  document.getElementById('mob-vlist').innerHTML = html;
+  const el = document.getElementById('sb-list');
+  const mob = document.getElementById('mob-vlist');
+  if (el) el.innerHTML = html;
+  if (mob) mob.innerHTML = html;
 }
 
-function vCard(v) {
-  const st = {online:'En route',stopped:'Arrêtée',alert:'ALERTE',offline:'Hors ligne'};
-  const sc = {online:'st-online',stopped:'st-stopped',alert:'st-alert',offline:'st-offline'};
+function vCardHtml(v) {
+  const stl = {online:'En route',stopped:'Arrêtée',alert:'ALERTE',offline:'Hors ligne'};
+  const stc = {online:'st-online',stopped:'st-stopped',alert:'st-alert',offline:'st-offline'};
   const since = Math.floor((Date.now()-(v.lastSeen||Date.now()))/60000);
-  return `<div class="vcard ${v.status||'offline'}${selVehicle===v.id?' sel':''}" onclick="focusVehicle('${v.id}')">
+  const sel = selVehicleId===v.id?' sel':'';
+  return `<div class="vcard ${v.status||'offline'}${sel}" onclick="focusV('${v.id}')">
     <div class="vc-top">
       <div class="vc-ico">${v.type||'🏍️'}</div>
-      <div class="vc-inf"><div class="vc-nm">${v.driver||'—'}</div><div class="vc-id">${v.id} · ${v.typeLabel||''}</div></div>
-      <div class="vc-st ${sc[v.status]||'st-offline'}">${st[v.status]||'Hors ligne'}</div>
+      <div class="vc-inf"><div class="vc-nm">${v.driver||'—'}</div><div class="vc-id">${v.id}${v.typeLabel?' · '+v.typeLabel:''}</div></div>
+      <div class="pill ${v.status==='online'?'green':v.status==='stopped'?'orange':v.status==='alert'?'red':'muted'}">${stl[v.status]||'Hors ligne'}</div>
     </div>
     <div class="vc-meta">
       <span>Vitesse <b>${v.speed||0} km/h</b></span>
       <span>Vu <b>${since<1?'maintenant':since+'min'}</b></span>
+      ${v.phone?`<span>📞 <b>${v.phone}</b></span>`:''}
     </div>
     <div class="vc-acts">
-      <button class="vab" onclick="event.stopPropagation();focusVehicle('${v.id}')">📍 Localiser</button>
-      <button class="vab danger" onclick="event.stopPropagation();cutEngine('${v.id}')">${v.engineOff?'🟢 Allumer':'🔴 Couper'}</button>
-      <button class="vab danger" onclick="event.stopPropagation();delVehicle('${v.id}')">🗑</button>
+      <button class="vab" onclick="event.stopPropagation();focusV('${v.id}')">📍 Localiser</button>
+      <button class="vab red" onclick="event.stopPropagation();cutEngine('${v.id}')">${v.engineOff?'🟢 Allumer':'🔴 Couper'}</button>
+      <button class="vab red" onclick="event.stopPropagation();delV('${v.id}')">🗑</button>
     </div>
   </div>`;
 }
 
-function focusVehicle(id) {
-  selVehicle = id;
-  const v = vehicles.find(x => x.id === id);
-  if (v && v.lat && v.lng) {
-    map.flyTo([v.lat, v.lng], 16, { duration: 1.2 });
-    if (markers[id]) markers[id].openPopup();
-  }
+function focusV(id) {
+  selVehicleId = id;
+  const v = vehicles.find(x=>x.id===id);
+  if (v?.lat && v?.lng) { mapObj.flyTo([v.lat,v.lng],16,{duration:1.2}); if(markers[id]) markers[id].openPopup(); }
   renderSidebar();
-  closeMobList();
+  closeMobOverlay();
 }
 
 function renderMarkers() {
   vehicles.forEach(v => {
-    if (!v.lat || !v.lng) return;
+    if (!v.lat||!v.lng) return;
     const sc = {online:'',stopped:'stopped',alert:'alert',offline:'offline'}[v.status]||'offline';
-    const icon = L.divIcon({
-      html:`<div class="mk ${sc}">${v.type||'🏍️'}</div>`,
-      className:'', iconSize:[40,40], iconAnchor:[20,20], popupAnchor:[0,-22]
-    });
-    const pop = `<div style="font-family:Segoe UI;min-width:160px">
-      <b style="font-size:14px">${v.type} ${v.driver}</b><br>
+    const ico = L.divIcon({html:`<div class="mk ${sc}">${v.type||'🏍️'}</div>`,className:'',iconSize:[40,40],iconAnchor:[20,20],popupAnchor:[0,-22]});
+    const pop = `<div style="font-family:Segoe UI;min-width:160px"><b style="font-size:14px">${v.type} ${v.driver}</b><br>
       <span style="color:#666;font-size:12px">${v.id}</span><br>
       Vitesse: <b>${v.speed||0} km/h</b><br>
-      Statut: <b>${v.status==='online'?'🟢 En route':v.status==='stopped'?'🟠 Arrêté':'🔴 Alerte'}</b>
+      ${v.status==='online'?'🟢 En route':v.status==='stopped'?'🟠 Arrêté':'🔴 Alerte'}
       ${v.phone?`<br>📞 ${v.phone}`:''}
     </div>`;
-    if (markers[v.id]) {
-      markers[v.id].setLatLng([v.lat, v.lng]).setIcon(icon).setPopupContent(pop);
-    } else {
-      markers[v.id] = L.marker([v.lat,v.lng],{icon}).bindPopup(pop).addTo(map);
-    }
+    if (markers[v.id]) markers[v.id].setLatLng([v.lat,v.lng]).setIcon(ico).setPopupContent(pop);
+    else markers[v.id] = L.marker([v.lat,v.lng],{icon:ico}).bindPopup(pop).addTo(mapObj);
   });
 }
 
@@ -748,152 +830,159 @@ async function cutEngine(id) {
   if (!v) return;
   v.engineOff = !v.engineOff;
   v.status = v.engineOff ? 'alert' : 'stopped';
-  toast(v.engineOff?'🔴 Moteur coupé':'🟢 Moteur réactivé', `${v.id} — ${v.driver}`);
-  await fetch(API+'/api/trax/vehicles', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(vehicles)
-  }).catch(()=>{});
+  toast(v.engineOff?'🔴 Moteur coupé':'🟢 Moteur allumé', `${v.id} — ${v.driver}`,'info');
+  await saveVehicles();
   renderSidebar(); renderMarkers();
 }
 
-async function delVehicle(id) {
+async function delV(id) {
   if (!confirm('Supprimer ce véhicule ?')) return;
   vehicles = vehicles.filter(v=>v.id!==id);
   if (markers[id]) { markers[id].remove(); delete markers[id]; }
-  await fetch(API+'/api/trax/vehicles', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(vehicles)
-  }).catch(()=>{});
+  await saveVehicles();
   renderSidebar(); updateStats();
 }
 
-function setFilter(f, btn) {
-  vFilter = f;
+async function saveVehicles() {
+  try {
+    await fetch(API+'/api/trax/vehicles', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(vehicles)
+    });
+  } catch(e) {}
+}
+
+function setFilter(f,btn) {
+  vFilter=f;
   document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   renderSidebar();
 }
-
-// mobile tabs
-function mobTab(tab, btn) {
+function mobTab(tab,btn) {
   document.querySelectorAll('.mn-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  if (tab === 'list') openMobList();
-  else closeMobList();
+  if (tab==='list') openMobOverlay();
+  else closeMobOverlay();
 }
-function openMobList() { document.getElementById('mob-list').classList.add('open'); }
-function closeMobList() { document.getElementById('mob-list').classList.remove('open'); }
+function openMobOverlay() { document.getElementById('mob-overlay').classList.add('open'); }
+function closeMobOverlay() { document.getElementById('mob-overlay').classList.remove('open'); }
 
 // ADD VEHICLE
-let selectedVType = { icon:'🏍️', label:'Moto Jakarta' };
-function openAdd() { 
+function openAddModal() {
   const m = document.getElementById('add-modal');
   m.classList.add('open');
-  m.onclick = function(e){ if(e.target===m) closeAdd(); };
+  m.onclick = e => { if(e.target===m) closeAddModal(); };
 }
-function closeAdd() { document.getElementById('add-modal').classList.remove('open'); }
-// modal close on bg click handled in openAdd
-function pickVehicleType(el, icon, label) {
-  document.querySelectorAll('.tg-btn').forEach(b=>b.classList.remove('sel'));
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+function selModalVtype(el,icon,label) {
+  document.querySelectorAll('#modal-vtype .vt-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
-  selectedVType = { icon, label };
+  modalVType = {icon,label};
 }
-
 async function addVehicle() {
-  const driver = document.getElementById('f-drv').value.trim();
-  const vid = document.getElementById('f-vid').value.trim().toUpperCase();
-  const phone = document.getElementById('f-tel').value.trim();
-  if (!driver || !vid) { toast('⚠️ Erreur','Nom et ID obligatoires'); return; }
-
+  const driver = document.getElementById('m-drv').value.trim();
+  const vid = document.getElementById('m-vid').value.trim().toUpperCase();
+  const phone = document.getElementById('m-tel').value.trim();
+  if (!driver||!vid) { toast('⚠️ Erreur','Nom et ID obligatoires','error'); return; }
   const v = {
-    id: vid,
-    driver,
-    phone,
-    type: selectedVType?.icon || '🏍️',
-    typeLabel: selectedVType?.label || 'Moto',
-    status: 'offline',
-    lat: TOUBA[0] + (Math.random()-.5)*.02,
-    lng: TOUBA[1] + (Math.random()-.5)*.02,
-    speed: 0,
-    lastSeen: Date.now(),
-    engineOff: false
+    id:vid, driver, phone,
+    type:modalVType.icon, typeLabel:modalVType.label,
+    status:'offline',
+    lat:TOUBA[0]+(Math.random()-.5)*.02,
+    lng:TOUBA[1]+(Math.random()-.5)*.02,
+    speed:0, lastSeen:Date.now(), engineOff:false
   };
   vehicles.push(v);
-  await fetch(API+'/api/trax/vehicles', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(vehicles)
-  }).catch(()=>{});
+  await saveVehicles();
   renderSidebar(); renderMarkers(); updateStats();
-  closeAdd();
-  toast('✅ Véhicule ajouté', `${v.typeLabel} — ${driver} (${vid})`);
-  map.flyTo([v.lat, v.lng], 15, {duration:1.2});
-  document.getElementById('f-drv').value='';
-  document.getElementById('f-vid').value='';
-  document.getElementById('f-tel').value='';
+  closeAddModal();
+  toast('✅ Ajouté',`${v.typeLabel} — ${driver}`,'success');
+  mapObj.flyTo([v.lat,v.lng],15,{duration:1.2});
+  document.getElementById('m-drv').value='';
+  document.getElementById('m-vid').value='';
+  document.getElementById('m-tel').value='';
 }
 
-// ══════════════════════════════════════════════
+// PROFILE
+function openProfile() {
+  const u = currentUser;
+  document.getElementById('profile-content').innerHTML = `
+    <div class="profile-badge" style="margin-bottom:14px">
+      <div class="pb-avatar">${u?.name?.[0]?.toUpperCase()||'?'}</div>
+      <div class="pb-info">
+        <div class="pb-name">${u?.name||'—'}</div>
+        <div class="pb-phone">${u?.phone||'—'}</div>
+        <div class="pb-role">${u?.role==='owner'?'👨‍💼 Propriétaire':'🏍️ Chauffeur'}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Flotte : <b style="color:var(--text)">${vehicles.length} véhicule(s)</b></div>`;
+  const m = document.getElementById('profile-modal');
+  m.classList.add('open');
+  m.onclick = e => { if(e.target===m) closeProfile(); };
+}
+function closeProfile() { document.getElementById('profile-modal').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════
 // DRIVER
-function showDriver() {
-  document.getElementById('screen-login').style.display = 'none';
-  document.getElementById('screen-owner').style.display = 'none';
-  document.getElementById('screen-driver').style.display = 'flex';
-  document.getElementById('drv-name').textContent = currentUser.name;
-  document.getElementById('drv-vid').textContent = currentUser.vid;
-  loadHistory();
+function initDriver() {
+  showScreen('driver');
+  const u = currentUser;
+  document.getElementById('drv-nm').textContent = u?.name || 'Chauffeur';
+  // Profile badge
+  document.getElementById('drv-profile-badge').innerHTML = `
+    <div class="pb-avatar">${u?.name?.[0]?.toUpperCase()||'?'}</div>
+    <div class="pb-info">
+      <div class="pb-name">${u?.name||'—'}</div>
+      <div class="pb-phone">${u?.phone||'—'}</div>
+      <div class="pb-role">🏍️ ${u?.typeLabel||'Chauffeur'} · ${u?.vid||'—'}</div>
+    </div>`;
+  sessions = JSON.parse(localStorage.getItem('pst_trax_sessions_'+u?.phone)||'[]');
+  renderHistory();
   startGPSWatch();
 }
 
 function startGPSWatch() {
-  if (!navigator.geolocation) { addNotif('❌ GPS non disponible sur cet appareil','red'); return; }
-  watchId = navigator.geolocation.watchPosition(onGPS, onGPSErr, {
-    enableHighAccuracy: true, maximumAge: 3000, timeout: 10000
+  if (!navigator.geolocation) { addNotif('❌ GPS non disponible','rd'); return; }
+  navigator.geolocation.watchPosition(onGPS, onGPSErr, {
+    enableHighAccuracy:true, maximumAge:3000, timeout:15000
   });
 }
 
 function onGPS(pos) {
   currentPos = pos;
-  const { latitude: lat, longitude: lng, speed, accuracy } = pos.coords;
-  document.getElementById('gps-lat').textContent = lat.toFixed(6);
-  document.getElementById('gps-lng').textContent = lng.toFixed(6);
-  const spd = speed ? Math.round(speed * 3.6) : 0;
-  document.getElementById('drv-speed').textContent = spd;
-  // precision bar
-  const prec = Math.min(100, Math.max(0, 100 - accuracy));
-  document.getElementById('prec-fill').style.width = prec + '%';
-  const st = document.getElementById('gps-st');
-  if (accuracy < 20) { st.textContent = `✅ GPS actif — Précision: ${Math.round(accuracy)}m`; st.className='gps-status good'; }
-  else { st.textContent = `⏳ GPS: précision ${Math.round(accuracy)}m...`; st.className='gps-status'; }
+  const { latitude:lat, longitude:lng, speed, accuracy } = pos.coords;
+  document.getElementById('g-lat').textContent = lat.toFixed(6);
+  document.getElementById('g-lng').textContent = lng.toFixed(6);
+  const spd = speed ? Math.round(speed*3.6) : 0;
+  document.getElementById('d-spd').textContent = spd;
+  const prec = Math.min(100, Math.max(0, 100-accuracy));
+  document.getElementById('prec-f').style.width = prec+'%';
+  const gst = document.getElementById('g-st');
+  if (accuracy<20) { gst.textContent=`✅ GPS actif — Précision: ${Math.round(accuracy)}m`; gst.className='gps-st good'; }
+  else { gst.textContent=`⏳ Précision: ${Math.round(accuracy)}m`; gst.className='gps-st'; }
 
   if (isTracking) {
-    if (lastPos) {
-      const d = haversine(lastPos[0],lastPos[1],lat,lng);
-      totalDist += d;
-      document.getElementById('drv-dist').textContent = totalDist.toFixed(1);
-    }
-    lastPos = [lat, lng];
-    if (startTime) {
-      const h = ((Date.now()-startTime)/3600000).toFixed(1);
-      document.getElementById('drv-time').textContent = h+'h';
-    }
-    sendPosition(lat, lng, spd, accuracy);
+    if (lastPos) totalDist += haversine(lastPos[0],lastPos[1],lat,lng);
+    lastPos = [lat,lng];
+    document.getElementById('d-dist').textContent = totalDist.toFixed(1);
+    if (startTime) document.getElementById('d-time').textContent = ((Date.now()-startTime)/3600000).toFixed(1)+'h';
+    sendPos(lat,lng,spd,accuracy);
   }
 }
-
 function onGPSErr(err) {
-  document.getElementById('gps-st').textContent = '⚠️ GPS indisponible: ' + err.message;
+  document.getElementById('g-st').textContent = '⚠️ GPS: '+err.message;
 }
 
-async function sendPosition(lat, lng, speed, accuracy) {
+async function sendPos(lat,lng,speed,accuracy) {
   try {
-    await fetch(API + '/api/trax/position', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch(API+'/api/trax/position', {
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        id: currentUser.vid,
-        driver: currentUser.name,
+        id: currentUser?.vid || 'UNKNOWN',
+        driver: currentUser?.name,
+        phone: currentUser?.phone,
         lat, lng, speed, accuracy,
-        status: speed > 2 ? 'online' : 'stopped',
+        status: speed>2?'online':'stopped',
         lastSeen: Date.now()
       })
     });
@@ -904,29 +993,23 @@ function toggleTracking() {
   if (!isTracking) startTracking();
   else stopTracking();
 }
-
 function startTracking() {
-  if (!currentPos) { toast('⚠️ GPS','Attendez que le GPS soit actif'); return; }
-  isTracking = true;
-  startTime = Date.now();
-  totalDist = 0; lastPos = null;
-  document.getElementById('btn-track').className = 'big-btn btn-stop';
-  document.getElementById('btn-track').innerHTML = '⏹ ARRÊTER LE TRACKING';
-  document.getElementById('drv-live-tag').style.display = 'block';
-  document.getElementById('drv-off-tag').style.display = 'none';
-  addNotif('🟢 Tracking démarré','green');
-  toast('✅ Tracking','Votre position est maintenant envoyée');
+  if (!currentPos) { toast('⚠️ GPS','Attendez que le GPS soit actif','error'); return; }
+  isTracking=true; startTime=Date.now(); totalDist=0; lastPos=null;
+  document.getElementById('btn-trk').className='big-btn btn-stop';
+  document.getElementById('btn-trk').innerHTML='⏹ ARRÊTER LE TRACKING';
+  document.getElementById('drv-live').style.display='inline-flex';
+  document.getElementById('drv-off').style.display='none';
+  addNotif('🟢 Tracking démarré','');
+  toast('✅ Tracking','Position envoyée en temps réel','success');
 }
-
 function stopTracking() {
-  isTracking = false;
-  clearInterval(trackInterval);
-  document.getElementById('btn-track').className = 'big-btn btn-start';
-  document.getElementById('btn-track').innerHTML = '▶ DÉMARRER LE TRACKING';
-  document.getElementById('drv-live-tag').style.display = 'none';
-  document.getElementById('drv-off-tag').style.display = 'block';
-  // Save session
-  if (startTime) {
+  isTracking=false;
+  document.getElementById('btn-trk').className='big-btn btn-start';
+  document.getElementById('btn-trk').innerHTML='▶ DÉMARRER LE TRACKING';
+  document.getElementById('drv-live').style.display='none';
+  document.getElementById('drv-off').style.display='inline-flex';
+  if (startTime && totalDist>0) {
     sessions.unshift({
       date: new Date().toLocaleDateString('fr-FR'),
       start: new Date(startTime).toLocaleTimeString('fr-FR').slice(0,5),
@@ -934,67 +1017,69 @@ function stopTracking() {
       dist: totalDist.toFixed(1),
       dur: ((Date.now()-startTime)/3600000).toFixed(1)
     });
-    sessions = sessions.slice(0,20);
-    localStorage.setItem('pst_trax_sessions', JSON.stringify(sessions));
-    loadHistory();
-    startTime = null;
+    sessions=sessions.slice(0,30);
+    localStorage.setItem('pst_trax_sessions_'+(currentUser?.phone||''), JSON.stringify(sessions));
+    renderHistory();
   }
-  addNotif('⏹ Tracking arrêté','orange');
+  startTime=null;
+  addNotif('⏹ Tracking arrêté','or');
 }
-
-function setFreq(ms, btn) {
-  gpsFreq = ms;
+function setFreq(ms,btn) {
+  gpsFreq=ms;
   document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 }
-
-function addNotif(msg, color='green') {
-  notifs.unshift({ msg, color, time: new Date().toLocaleTimeString('fr-FR').slice(0,5) });
-  renderNotifs();
+function addNotif(msg,type) {
+  notifs.unshift({msg,type,time:new Date().toLocaleTimeString('fr-FR').slice(0,5)});
+  const el = document.getElementById('notif-list');
+  if (el) el.innerHTML = notifs.slice(0,6).map(n=>
+    `<div class="notif-item"><div class="ndot ${n.type}"></div><div style="flex:1">${n.msg}</div><div style="font-size:10px;color:var(--muted)">${n.time}</div></div>`
+  ).join('');
 }
-function renderNotifs() {
-  document.getElementById('notif-list').innerHTML = notifs.slice(0,5).map(n =>
-    `<div class="notif-item">
-      <div class="notif-dot ${n.color}"></div>
-      <div class="notif-msg">${n.msg}</div>
-      <div class="notif-time">${n.time}</div>
-    </div>`
-  ).join('') || '<div style="color:var(--muted);font-size:12px">Aucune notification</div>';
-}
-
-function loadHistory() {
-  document.getElementById('hist-list').innerHTML = sessions.length ?
-    sessions.map(s=>`<div class="hist-item">
-      <div class="hist-top"><span class="hist-date">📅 ${s.date}</span><span class="hist-dist">${s.dist} km</span></div>
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!el) return;
+  el.innerHTML = sessions.length ? sessions.map(s=>
+    `<div class="hist-item">
+      <div class="hist-top"><span style="font-weight:700">📅 ${s.date}</span><span style="color:var(--accent);font-weight:700">${s.dist} km</span></div>
       <div style="color:var(--muted);font-size:11px">${s.start} → ${s.end} · ${s.dur}h de conduite</div>
     </div>`).join('') :
     '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet enregistré</div>';
 }
-
-function drvTab(tab, btn) {
+function drvTab(tab,btn) {
   document.querySelectorAll('.dtab-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.drv-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.dtab').forEach(b=>b.classList.remove('active'));
   document.getElementById('dtab-'+tab).classList.add('active');
   btn.classList.add('active');
 }
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // UTILS
 function haversine(lat1,lon1,lat2,lon2) {
-  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const R=6371,dLa=(lat2-lat1)*Math.PI/180,dLo=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLo/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-
-let toastTimer;
-function toast(title, msg) {
-  document.getElementById('toast-title').textContent = title;
-  document.getElementById('toast-msg').textContent = msg;
-  const t = document.getElementById('toast');
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>t.classList.remove('show'), 4000);
+let toastT;
+function toast(title,msg,type='info') {
+  const el=document.getElementById('toast');
+  document.getElementById('toast-t').textContent=title;
+  document.getElementById('toast-m').textContent=msg;
+  el.className='toast show '+type;
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),4000);
 }
+
+// ══════════════════════════════════════════════════
+// BOOT
+window.addEventListener('load', () => {
+  if (loadSession()) {
+    currentRole = currentUser.role || 'owner';
+    if (currentUser.role==='driver') initDriver();
+    else initOwner();
+  }
+  // else stays on welcome screen
+});
 </script>
 </body>
 </html>
