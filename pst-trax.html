@@ -283,7 +283,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="rc-desc">Activer mon GPS</div>
       </div>
     </div>
-    <button class="btn-main" onclick="goAuth()">▶ Continuer</button>
+    <button class="btn-main" onclick="goToAuth()">▶ Continuer</button>
   </div>
 </div>
 
@@ -596,7 +596,7 @@ function pickRole(role) {
   document.getElementById('rc-owner').classList.toggle('sel', role==='owner');
   document.getElementById('rc-driver').classList.toggle('sel', role==='driver');
 }
-function goAuth() {
+function goToAuth() {
   document.getElementById('auth-role-label').textContent =
     currentRole === 'owner' ? '👨‍💼 Espace Propriétaire' : '🏍️ Espace Chauffeur';
   document.getElementById('driver-extra').style.display = currentRole === 'driver' ? 'block' : 'none';
@@ -718,7 +718,7 @@ async function loginUser(phone) {
       toast('❌ Mot de passe incorrect','Réessayez','error');
       return;
     } else {
-      toast('❌ Compte introuvable','Créez un compte d\'abord','error');
+      toast('❌ Compte introuvable','Créez un compte dabord','error');
       return;
     }
   } catch(e) {
@@ -1178,7 +1178,7 @@ async function doDirectLogin() {
     } else if (json.error === 'wrong_password') {
       toast('❌ Mot de passe incorrect','Réessayez ou réinitialisez','error');
     } else {
-      toast('❌ Compte introuvable','Créez un compte d'abord','error');
+      toast('❌ Compte introuvable','Créez un compte dabord','error');
     }
   } catch(e) {
     // Offline — check local session
