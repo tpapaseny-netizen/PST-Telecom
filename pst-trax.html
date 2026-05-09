@@ -338,8 +338,39 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         </div>
         <label class="lbl">Mot de passe</label>
         <input class="fi" id="l-pass" type="password" placeholder="••••••" autocomplete="current-password">
-        <button class="btn-main" onclick="sendOTP('login')">📱 Recevoir le code SMS</button>
+        <button class="btn-main" onclick="sendOTP('login')">▶ Se connecter</button>
+        <div class="divider">ou</div>
+        <button class="btn-sec" onclick="showForgotPass()" style="margin-top:0">🔑 Mot de passe oublié ?</button>
       </div>
+    </div>
+
+    <!-- Step: Forgot password -->
+    <div id="step-forgot" style="display:none">
+      <button class="auth-back" onclick="backToPhone()">← Retour</button>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🔑</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Réinitialiser le mot de passe</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">Entrez votre numéro de téléphone.<br>Vous recevrez un code pour créer un nouveau mot de passe.</div>
+      </div>
+      <label class="lbl">Numéro de téléphone</label>
+      <div class="phone-row">
+        <div class="phone-flag">🇸🇳 +221</div>
+        <input class="fi" id="fp-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+      </div>
+      <button class="btn-main" onclick="sendForgotOTP()">📱 Recevoir le code</button>
+    </div>
+
+    <!-- Step: New password after OTP -->
+    <div id="step-newpass" style="display:none">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:32px;margin-bottom:6px;">🔒</div>
+        <div style="font-size:15px;font-weight:700;">Nouveau mot de passe</div>
+      </div>
+      <label class="lbl">Nouveau mot de passe</label>
+      <input class="fi" id="np-pass1" type="password" placeholder="••••••  (6 caractères min)">
+      <label class="lbl">Confirmer le mot de passe</label>
+      <input class="fi" id="np-pass2" type="password" placeholder="••••••">
+      <button class="btn-main" onclick="resetPassword()">✅ Enregistrer le nouveau mot de passe</button>
     </div>
 
     <!-- Step 2: OTP -->
@@ -635,7 +666,9 @@ function verifyOTP() {
   if (entered.length < 4) { toast('⚠️','Entrez les 4 chiffres','error'); return; }
   if (entered !== otpCode) { toast('❌ Code incorrect','Réessayez','error'); return; }
 
-  if (authMode === 'register') {
+  if (forgotMode) {
+    verifyForgotOTP();
+  } else if (authMode === 'register') {
     registerUser(pendingData);
   } else {
     loginUser(pendingData.phone);
@@ -652,12 +685,15 @@ async function registerUser(data) {
     const json = await res.json();
     if (json.success || json.user) {
       currentUser = json.user || { ...data, id: 'U-'+Date.now() };
-    } else if (json.exists || (json.error && json.error.includes('déjà inscrit'))) {
-      toast('⚠️ Numéro déjà utilisé','Ce numéro a déjà un compte. Cliquez sur Se connecter.','error');
+    } else if (json.exists) {
+      // Account exists — try to login with same password
+      toast('ℹ️ Compte existant','Ce numéro a déjà un compte, connexion en cours...','info');
+      await loginUser(data.phone);
       return;
     } else {
-      // Offline fallback
+      // Offline fallback — store locally
       currentUser = { ...data, id: 'U-'+Date.now() };
+      delete currentUser.password;
     }
   } catch(e) {
     // Offline mode — create local user
@@ -700,6 +736,9 @@ function resendOTP() {
 function backToPhone() {
   document.getElementById('step-phone').style.display = 'block';
   document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-forgot').style.display = 'none';
+  document.getElementById('step-newpass').style.display = 'none';
+  forgotMode = false;
   ['o1','o2','o3','o4'].forEach(id => document.getElementById(id).value = '');
 }
 
@@ -1082,6 +1121,61 @@ function toast(title,msg,type='info') {
   el.className='toast show '+type;
   clearTimeout(toastT);
   toastT=setTimeout(()=>el.classList.remove('show'),4000);
+}
+
+// ══════════════════════════════════════════════════
+// FORGOT PASSWORD
+let forgotMode = false;
+function showForgotPass() {
+  document.getElementById('step-phone').style.display = 'none';
+  document.getElementById('step-forgot').style.display = 'block';
+  forgotMode = true;
+}
+function sendForgotOTP() {
+  const phone = document.getElementById('fp-phone').value.trim();
+  if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+  pendingPhone = '+221' + phone;
+  pendingData = { phone: pendingPhone };
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+  toast('📱 Code envoyé', 'Votre code: ' + otpCode + ' (test)', 'info');
+  document.getElementById('step-forgot').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  document.getElementById('otp-hint').textContent = 'Code envoyé au ' + pendingPhone;
+  setTimeout(() => document.getElementById('o1').focus(), 100);
+}
+function verifyForgotOTP() {
+  // Show new password form
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-newpass').style.display = 'block';
+}
+async function resetPassword() {
+  const p1 = document.getElementById('np-pass1').value;
+  const p2 = document.getElementById('np-pass2').value;
+  if (!p1 || p1.length < 6) { toast('⚠️ Erreur','Mot de passe trop court (6 min)','error'); return; }
+  if (p1 !== p2) { toast('⚠️ Erreur','Les mots de passe ne correspondent pas','error'); return; }
+  try {
+    const res = await fetch(API + '/api/trax/reset-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: pendingPhone, newPassword: p1 })
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast('✅ Mot de passe mis à jour','Connectez-vous avec votre nouveau mot de passe','success');
+      setTimeout(() => {
+        forgotMode = false;
+        document.getElementById('step-newpass').style.display = 'none';
+        document.getElementById('step-phone').style.display = 'block';
+        switchAuthTab('login');
+        // Pre-fill phone
+        document.getElementById('l-phone').value = pendingPhone.replace('+221','');
+      }, 1500);
+    } else {
+      toast('❌ Erreur',json.error || 'Impossible de réinitialiser','error');
+    }
+  } catch(e) {
+    toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+  }
 }
 
 // ══════════════════════════════════════════════════
