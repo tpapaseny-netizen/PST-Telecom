@@ -1592,6 +1592,12 @@ app.post('/api/channels', async (req, res) => {
 });
 // ═══════════════════════════════════════════════════════
 // PST-TRAX — Routes API Géolocalisation
+
+// ── Dashboard Crypto Admin ──
+app.get('/crypto-admin', (req, res) => {
+  res.sendFile(__dirname + '/crypto-dashboard.html');
+});
+
 // À coller dans server-at.js avant connectDB().then(
 // ═══════════════════════════════════════════════════════
 
