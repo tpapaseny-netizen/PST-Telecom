@@ -1919,6 +1919,299 @@ app.post('/api/trax/position', async (req,res) => {
     res.json({success:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
+// ═══════════════════════════════════════════════
+// PST TELECOM — izichangePay Routes
+// Coller dans server-at.js avant // ─── DÉMARRAGE
+// ═══════════════════════════════════════════════
+
+const IZIPAY_API_KEY = process.env.IZIPAY_API_KEY || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680';
+const IZIPAY_BASE = 'https://pay.izichange.com/api';
+const IZIPAY_POS  = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402';
+const IZIPAY_IPN_SECRET = process.env.IZIPAY_IPN_SECRET || 'Pstdiama@1';
+
+// Cryptos supportées par PST Telecom
+const CRYPTO_LIST = [
+  { id: 'USDT.BEP20', name: 'USDT (BEP20)', icon: '💚', stable: true },
+  { id: 'USDT.TRC20', name: 'USDT (TRC20)', icon: '💚', stable: true },
+  { id: 'BTC',        name: 'Bitcoin',       icon: '₿',  stable: false },
+  { id: 'ETH',        name: 'Ethereum',      icon: '◆',  stable: false },
+  { id: 'BNB',        name: 'BNB',           icon: '🟡', stable: false },
+  { id: 'TRX',        name: 'TRON',          icon: '🔴', stable: false },
+  { id: 'USDC.BEP20', name: 'USDC (BEP20)', icon: '🔵', stable: true },
+];
+
+// ── 1. Obtenir la liste des cryptos ─────────────
+app.get('/api/izipay/cryptos', (req, res) => {
+  res.json({ success: true, cryptos: CRYPTO_LIST });
+});
+
+// ── 2. Créer un paiement crypto ──────────────────
+// service: 'recharge' | 'sms' | 'appels' | 'trax' | 'noc' | 'stream'
+app.post('/api/izipay/create-payment', async (req, res) => {
+  try {
+    const { service, amount_usd, currency, description, user_phone, metadata } = req.body;
+    if (!service || !amount_usd || !currency) {
+      return res.status(400).json({ error: 'service, amount_usd et currency requis' });
+    }
+
+    const orderId = `PST-${service.toUpperCase()}-${Date.now()}`;
+
+    // Appel API izichangePay pour générer adresse
+    const iziRes = await fetch(`${IZIPAY_BASE}/deposit/address`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${IZIPAY_API_KEY}`
+      },
+      body: JSON.stringify({
+        currency,
+        order_id: orderId,
+        amount: amount_usd,
+        description: description || `PST Telecom - ${service}`
+      })
+    });
+
+    const iziData = await iziRes.json();
+
+    if (!iziRes.ok || !iziData.address) {
+      // Fallback: rediriger vers POS izichangePay
+      return res.json({
+        success: true,
+        method: 'pos',
+        pos_url: IZIPAY_POS,
+        order_id: orderId,
+        amount_usd,
+        currency,
+        message: 'Redirection vers izichangePay'
+      });
+    }
+
+    // Sauvegarder en DB pour vérification IPN
+    if (db) {
+      await db.collection('izipay_orders').insertOne({
+        order_id: orderId,
+        service,
+        amount_usd,
+        currency,
+        address: iziData.address,
+        user_phone,
+        metadata: metadata || {},
+        status: 'pending',
+        created_at: new Date()
+      });
+    }
+
+    res.json({
+      success: true,
+      method: 'address',
+      order_id: orderId,
+      address: iziData.address,
+      currency,
+      amount_usd,
+      network: iziData.network || currency,
+      qr_code: iziData.qr_code || null,
+      expires_at: iziData.expires_at || null
+    });
+
+  } catch(e) {
+    // En cas d'erreur réseau, POS de secours
+    const orderId = `PST-${Date.now()}`;
+    res.json({
+      success: true,
+      method: 'pos',
+      pos_url: IZIPAY_POS,
+      order_id: orderId,
+      message: 'Paiement via izichangePay'
+    });
+  }
+});
+
+// ── 3. Vérifier statut d'un paiement ────────────
+app.get('/api/izipay/status/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Vérifier en DB
+    if (db) {
+      const order = await db.collection('izipay_orders').findOne({ order_id: orderId });
+      if (order) return res.json({ success: true, order });
+    }
+
+    // Vérifier chez izichangePay
+    const iziRes = await fetch(`${IZIPAY_BASE}/transaction/${orderId}`, {
+      headers: { 'Authorization': `Bearer ${IZIPAY_API_KEY}` }
+    });
+    const data = await iziRes.json();
+    res.json({ success: true, ...data });
+
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── 4. Webhook IPN izichangePay ──────────────────
+app.post('/api/izipay/ipn', async (req, res) => {
+  try {
+    const payload = req.body;
+    const signature = req.headers['x-izipay-signature'] || req.headers['x-signature'];
+
+    // Validation signature
+    const crypto = require('crypto');
+    if (signature) {
+      const expected = crypto
+        .createHmac('sha256', IZIPAY_IPN_SECRET)
+        .update(JSON.stringify(payload))
+        .digest('hex');
+      if (expected !== signature) {
+        return res.status(401).json({ error: 'Signature invalide' });
+      }
+    }
+
+    const { order_id, status, amount, currency, transaction_id } = payload;
+    console.log(`[izichangePay IPN] Order: ${order_id} | Status: ${status} | ${amount} ${currency}`);
+
+    if (status === 'completed' || status === 'confirmed') {
+      if (db) {
+        // Mettre à jour la commande
+        await db.collection('izipay_orders').updateOne(
+          { order_id },
+          { $set: { status: 'paid', transaction_id, paid_at: new Date(), paid_amount: amount } }
+        );
+
+        // Récupérer la commande pour activer le service
+        const order = await db.collection('izipay_orders').findOne({ order_id });
+        if (order) {
+          await activateService(order);
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch(e) {
+    console.error('[izichangePay IPN Error]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── 5. Activer le service après paiement ─────────
+async function activateService(order) {
+  const { service, user_phone, metadata, amount_usd } = order;
+  console.log(`[PST] Activation service: ${service} pour ${user_phone}`);
+
+  try {
+    switch(service) {
+      case 'recharge':
+        // Déclencher la recharge mobile
+        if (metadata.numero && metadata.montant) {
+          const operator = metadata.operator || 'airtel';
+          await fetch(`https://pst-telecom-production.up.railway.app/api/recharge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber: metadata.numero, amount: metadata.montant, operator })
+          });
+        }
+        break;
+
+      case 'trax':
+        // Activer abonnement PST-TRAX
+        if (db && user_phone) {
+          await db.collection('trax_subscriptions').insertOne({
+            phone: user_phone,
+            plan: metadata.plan || 'starter',
+            amount_usd,
+            starts_at: new Date(),
+            expires_at: new Date(Date.now() + 30*24*60*60*1000), // 30 jours
+            order_id: order.order_id
+          });
+        }
+        break;
+
+      case 'noc':
+        // Activer abonnement PST NOC
+        if (db && user_phone) {
+          await db.collection('noc_subscriptions').insertOne({
+            phone: user_phone,
+            plan: metadata.plan || 'starter',
+            amount_usd,
+            starts_at: new Date(),
+            expires_at: new Date(Date.now() + 30*24*60*60*1000),
+            order_id: order.order_id
+          });
+        }
+        break;
+
+      case 'sms':
+        // Créditer SMS Marketing
+        if (db && user_phone) {
+          await db.collection('sms_credits').updateOne(
+            { phone: user_phone },
+            { $inc: { credits: metadata.credits || Math.floor(amount_usd * 10) } },
+            { upsert: true }
+          );
+        }
+        break;
+
+      case 'appels':
+        // Activer forfait appels VoIP
+        if (db && user_phone) {
+          await db.collection('appels_subscriptions').insertOne({
+            phone: user_phone,
+            plan: metadata.plan,
+            minutes: metadata.minutes || 200,
+            amount_usd,
+            starts_at: new Date(),
+            expires_at: new Date(Date.now() + 30*24*60*60*1000),
+            order_id: order.order_id
+          });
+        }
+        break;
+    }
+
+    // Notifier l'utilisateur par SMS
+    if (user_phone) {
+      const msg = `PST Telecom: Votre paiement crypto de $${amount_usd} a ete confirme. Service ${service} active. Merci!`;
+      // Envoi SMS via Africa's Talking (si wallet rechargé)
+      try {
+        const africastalking = require('africastalking')({
+          apiKey: process.env.AT_API_KEY,
+          username: process.env.AT_USERNAME || 'pst-telecom'
+        });
+        await africastalking.SMS.send({
+          to: [user_phone.startsWith('+') ? user_phone : '+221'+user_phone],
+          message: msg,
+          from: 'PST'
+        });
+      } catch(smsErr) {
+        console.log('[SMS notification skipped]', smsErr.message);
+      }
+    }
+
+  } catch(e) {
+    console.error('[activateService error]', e.message);
+  }
+}
+
+// ── 6. POS izichangePay (lien de paiement rapide) ─
+app.get('/api/izipay/pos-url', (req, res) => {
+  res.json({ success: true, url: IZIPAY_POS });
+});
+
+// ── 7. Historique paiements crypto d'un user ─────
+app.get('/api/izipay/history/:phone', async (req, res) => {
+  try {
+    if (!db) return res.json({ orders: [] });
+    const phone = req.params.phone;
+    const orders = await db.collection('izipay_orders')
+      .find({ user_phone: phone })
+      .sort({ created_at: -1 })
+      .limit(20)
+      .toArray();
+    res.json({ success: true, orders: orders.map(o => { delete o._id; return o; }) });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
