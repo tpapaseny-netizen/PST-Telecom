@@ -1749,8 +1749,15 @@ app.delete('/api/trax/vehicles/:vehicleId', async (req, res) => {
   }
 });
 // ═══════════════════════════════════════════════
-// PST-TRAX ROUTES v3.1 — avec mot de passe
+// PST-TRAX ROUTES v3.2 — robust phone + password
 // ═══════════════════════════════════════════════
+
+// Normalize phone: always store as digits only (e.g. "765596442")
+function normalizePhone(phone) {
+  let p = (phone || '').replace(/\s/g, '').replace(/[^\d]/g, '');
+  if (p.startsWith('221')) p = p.slice(3);
+  return p; // always 9 digits
+}
 
 // Register new user
 app.post('/api/trax/register', async (req, res) => {
@@ -1758,16 +1765,21 @@ app.post('/api/trax/register', async (req, res) => {
     const { name, phone, role, vid, vType, password } = req.body;
     if (!phone || !name) return res.status(400).json({ error: 'Données manquantes' });
 
+    const normalPhone = normalizePhone(phone);
+
     if (db) {
-      // Check if phone already exists
-      const existing = await db.collection('trax_users').findOne({ phone });
+      // Check if phone already exists (search both formats)
+      const existing = await db.collection('trax_users').findOne({
+        $or: [{ phone: normalPhone }, { phone: '+221'+normalPhone }, { phone: '221'+normalPhone }]
+      });
       if (existing) {
-        return res.status(409).json({ error: 'Ce numéro est déjà inscrit. Connectez-vous.', exists: true });
+        return res.status(409).json({ exists: true, error: 'Numero deja inscrit' });
       }
-      // Create new user
       const user = {
         id: 'U-' + Date.now(),
-        name, phone, role,
+        name,
+        phone: normalPhone,
+        role,
         password: password || '',
         vid: vid || null,
         typeLabel: vType?.label || null,
@@ -1775,11 +1787,10 @@ app.post('/api/trax/register', async (req, res) => {
         createdAt: new Date()
       };
       await db.collection('trax_users').insertOne(user);
-      // Return user without password
-      const { password: _, ...safeUser } = user;
+      const { password: _, _id, ...safeUser } = user;
       return res.json({ success: true, user: safeUser });
     } else {
-      const user = { id: 'U-'+Date.now(), name, phone, role, vid, typeLabel: vType?.label, typeIcon: vType?.icon };
+      const user = { id: 'U-'+Date.now(), name, phone: normalPhone, role, vid, typeLabel: vType?.label, typeIcon: vType?.icon };
       return res.json({ success: true, user });
     }
   } catch(e) {
@@ -1790,21 +1801,45 @@ app.post('/api/trax/register', async (req, res) => {
 // Login
 app.post('/api/trax/login', async (req, res) => {
   try {
-    const { phone, password, role } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Téléphone requis' });
+    const { phone, password } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Telephone requis' });
+
+    const normalPhone = normalizePhone(phone);
 
     if (db) {
-      const user = await db.collection('trax_users').findOne({ phone });
-      if (!user) return res.status(404).json({ error: 'Compte introuvable. Créez un compte.' });
-      // Check password
+      // Search all formats
+      const user = await db.collection('trax_users').findOne({
+        $or: [{ phone: normalPhone }, { phone: '+221'+normalPhone }, { phone: '221'+normalPhone }]
+      });
+      if (!user) return res.status(404).json({ error: 'Compte introuvable' });
       if (user.password && user.password !== password) {
         return res.status(401).json({ error: 'wrong_password' });
       }
-      const { password: _, ...safeUser } = user;
+      const { password: _, _id, ...safeUser } = user;
+      // Normalize stored phone before returning
+      safeUser.phone = normalPhone;
       return res.json({ success: true, user: safeUser });
     } else {
-      return res.status(404).json({ error: 'Service indisponible' });
+      return res.status(503).json({ error: 'DB indisponible' });
     }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Reset password
+app.post('/api/trax/reset-password', async (req, res) => {
+  try {
+    const { phone, newPassword } = req.body;
+    if (!phone || !newPassword) return res.status(400).json({ error: 'Donnees manquantes' });
+    const normalPhone = normalizePhone(phone);
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
+    const result = await db.collection('trax_users').updateOne(
+      { $or: [{ phone: normalPhone }, { phone: '+221'+normalPhone }] },
+      { $set: { password: newPassword, updatedAt: new Date() } }
+    );
+    if (result.matchedCount === 0) return res.status(404).json({ error: 'Compte introuvable' });
+    res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -1815,7 +1850,7 @@ app.get('/api/trax/vehicles', async (req, res) => {
   try {
     if (db) {
       const vehicles = await db.collection('trax_vehicles').find({}).toArray();
-      return res.json(vehicles);
+      return res.json(vehicles.map(v => { const {_id,...r}=v; return r; }));
     }
     res.json([]);
   } catch(e) { res.json([]); }
@@ -1828,24 +1863,26 @@ app.post('/api/trax/vehicles', async (req, res) => {
     if (!Array.isArray(vehicles)) return res.status(400).json({ error: 'Format invalide' });
     if (db) {
       await db.collection('trax_vehicles').deleteMany({});
-      if (vehicles.length > 0) await db.collection('trax_vehicles').insertMany(vehicles);
+      if (vehicles.length > 0) {
+        const clean = vehicles.map(v => { const {_id,...r}=v; return r; });
+        await db.collection('trax_vehicles').insertMany(clean);
+      }
     }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Update vehicle position (from driver GPS)
+// Update vehicle position
 app.post('/api/trax/position', async (req, res) => {
   try {
     const { id, driver, phone, lat, lng, speed, accuracy, status, lastSeen } = req.body;
-    if (!id || !lat || !lng) return res.status(400).json({ error: 'Données GPS manquantes' });
+    if (!id || !lat || !lng) return res.status(400).json({ error: 'Donnees GPS manquantes' });
     if (db) {
       await db.collection('trax_vehicles').updateOne(
         { id },
         { $set: { lat, lng, speed: speed||0, accuracy, status: status||'online', lastSeen: lastSeen||Date.now(), driver, phone } },
         { upsert: true }
       );
-      // Save position history
       await db.collection('trax_history').insertOne({
         vehicleId: id, lat, lng, speed: speed||0, status, timestamp: new Date()
       });
@@ -1853,27 +1890,6 @@ app.post('/api/trax/position', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
-// Reset password
-app.post('/api/trax/reset-password', async (req, res) => {
-  try {
-    const { phone, newPassword } = req.body;
-    if (!phone || !newPassword) return res.status(400).json({ error: 'Données manquantes' });
-    if (!db) return res.status(500).json({ error: 'Base de données indisponible' });
-    
-    const user = await db.collection('trax_users').findOne({ phone });
-    if (!user) return res.status(404).json({ error: 'Compte introuvable' });
-    
-    await db.collection('trax_users').updateOne(
-      { phone },
-      { $set: { password: newPassword, updatedAt: new Date() } }
-    );
-    res.json({ success: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {

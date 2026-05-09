@@ -630,7 +630,7 @@ function sendOTP(mode) {
       vid = document.getElementById('r-vid').value.trim().toUpperCase();
       if (!vid) { toast('⚠️ Erreur','Entrez votre ID véhicule','error'); return; }
     }
-    pendingData = { name, phone: '+221'+phone, role: currentRole, vid, vType: vTypeSelected, password: pass };
+    pendingData = { name, phone: normalizePhone(phone), role: currentRole, vid, vType: vTypeSelected, password: pass };
   } else {
     phone = document.getElementById('l-phone').value.trim();
     const pass = document.getElementById('l-pass').value;
@@ -1132,6 +1132,11 @@ function drvTab(tab,btn) {
 
 // ══════════════════════════════════════════════════
 // UTILS
+function normalizePhone(phone) {
+  let p = (phone || '').replace(/\s/g, '').replace(/[^\d]/g, '');
+  if (p.startsWith('221')) p = p.slice(3);
+  return p;
+}
 function haversine(lat1,lon1,lat2,lon2) {
   const R=6371,dLa=(lat2-lat1)*Math.PI/180,dLo=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLa/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLo/2)**2;
@@ -1155,7 +1160,8 @@ async function doDirectLogin() {
   if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
   if (!pass) { toast('⚠️ Erreur','Entrez votre mot de passe','error'); return; }
   
-  pendingData = { phone: '+221'+phone, password: pass };
+  const normPhone = normalizePhone(phone);
+  pendingData = { phone: normPhone, password: pass };
   
   // Show loading
   const btn = document.querySelector('#fields-login .btn-main');
@@ -1185,7 +1191,7 @@ async function doDirectLogin() {
     const saved = localStorage.getItem('pst_trax_user');
     if (saved) {
       const u = JSON.parse(saved);
-      if (u.phone === '+221'+phone && u._localPass === pass) {
+      if (normalizePhone(u.phone) === normPhone && u._localPass === pass) {
         currentUser = u;
         toast('✅ Connecté (hors ligne)','Session restaurée','success');
         enterApp();
@@ -1211,7 +1217,7 @@ function showForgotPass() {
 function sendForgotOTP() {
   const phone = document.getElementById('fp-phone').value.trim();
   if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
-  pendingPhone = '+221' + phone;
+  pendingPhone = normalizePhone(phone);
   pendingData = { phone: pendingPhone };
   otpCode = Math.floor(1000 + Math.random() * 9000).toString();
   toast('📱 Code envoyé', 'Votre code: ' + otpCode + ' (test)', 'info');
