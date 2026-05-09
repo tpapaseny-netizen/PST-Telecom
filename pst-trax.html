@@ -338,7 +338,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         </div>
         <label class="lbl">Mot de passe</label>
         <input class="fi" id="l-pass" type="password" placeholder="••••••" autocomplete="current-password">
-        <button class="btn-main" onclick="sendOTP('login')">▶ Se connecter</button>
+        <button class="btn-main" onclick="doDirectLogin()">▶ Se connecter</button>
         <div class="divider">ou</div>
         <button class="btn-sec" onclick="showForgotPass()" style="margin-top:0">🔑 Mot de passe oublié ?</button>
       </div>
@@ -685,6 +685,8 @@ async function registerUser(data) {
     const json = await res.json();
     if (json.success || json.user) {
       currentUser = json.user || { ...data, id: 'U-'+Date.now() };
+      // Store password locally for offline reconnection
+      if (data.password) currentUser._localPass = data.password;
     } else if (json.exists) {
       // Account exists — try to login with same password
       toast('ℹ️ Compte existant','Ce numéro a déjà un compte, connexion en cours...','info');
@@ -693,7 +695,6 @@ async function registerUser(data) {
     } else {
       // Offline fallback — store locally
       currentUser = { ...data, id: 'U-'+Date.now() };
-      delete currentUser.password;
     }
   } catch(e) {
     // Offline mode — create local user
@@ -724,6 +725,10 @@ async function loginUser(phone) {
     toast('❌ Erreur réseau','Vérifiez votre connexion','error');
     return;
   }
+  // Store password locally for offline reconnection
+  if (currentUser && pendingData.password) {
+    currentUser._localPass = pendingData.password;
+  }
   saveSession();
   enterApp();
 }
@@ -751,6 +756,7 @@ function selVtype(el, icon, label) {
 // ══════════════════════════════════════════════════
 // SESSION
 function saveSession() {
+  // Save full user including phone for re-login
   localStorage.setItem('pst_trax_user', JSON.stringify(currentUser));
 }
 function loadSession() {
@@ -759,6 +765,24 @@ function loadSession() {
     if (s) {
       currentUser = JSON.parse(s);
       currentRole = currentUser.role || 'owner';
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// Quick re-login with saved credentials (no OTP needed)
+async function quickLogin(phone, password) {
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, password, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = { ...json.user, _localPass: password };
+      saveSession();
       return true;
     }
   } catch(e) {}
@@ -1121,6 +1145,59 @@ function toast(title,msg,type='info') {
   el.className='toast show '+type;
   clearTimeout(toastT);
   toastT=setTimeout(()=>el.classList.remove('show'),4000);
+}
+
+// ══════════════════════════════════════════════════
+// DIRECT LOGIN (no OTP — phone + password only)
+async function doDirectLogin() {
+  const phone = document.getElementById('l-phone').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+  if (!pass) { toast('⚠️ Erreur','Entrez votre mot de passe','error'); return; }
+  
+  pendingData = { phone: '+221'+phone, password: pass };
+  
+  // Show loading
+  const btn = document.querySelector('#fields-login .btn-main');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Connexion...';
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: '+221'+phone, password: pass, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = { ...json.user, _localPass: pass };
+      saveSession();
+      toast('✅ Connecté','Bienvenue !','success');
+      enterApp();
+    } else if (json.error === 'wrong_password') {
+      toast('❌ Mot de passe incorrect','Réessayez ou réinitialisez','error');
+    } else {
+      toast('❌ Compte introuvable','Créez un compte d'abord','error');
+    }
+  } catch(e) {
+    // Offline — check local session
+    const saved = localStorage.getItem('pst_trax_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      if (u.phone === '+221'+phone && u._localPass === pass) {
+        currentUser = u;
+        toast('✅ Connecté (hors ligne)','Session restaurée','success');
+        enterApp();
+      } else {
+        toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+      }
+    } else {
+      toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+    }
+  }
+  btn.innerHTML = orig;
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════════════
