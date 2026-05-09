@@ -149,6 +149,13 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:16px 3
       <div class="field"><label>Votre téléphone (pour le reçu)</label><input type="tel" id="payer-tel" placeholder="+221 77 000 00 00"></div>
       <div class="pay-opts">
         <button class="pay-opt selected" id="payopt-wave" onclick="selPay('wave')">💚 Wave</button>
+<button onclick="openCryptoPayment('recharge', 1.65, 'Recharge mobile PST Telecom', '')" 
+  style="background:linear-gradient(135deg,#0a1628,#1e3a5f);border:2px solid #00e5ff;color:#00e5ff;
+  padding:12px 20px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700;
+  display:inline-flex;align-items:center;gap:8px;transition:all .2s;width:100%;
+  justify-content:center;margin-top:8px;">
+  ⚡ Crypto (Bitcoin, USDT...)
+</button>
         <button class="pay-opt" id="payopt-card" onclick="selPay('card')">💳 Carte Visa</button>
       </div>
     </div>
