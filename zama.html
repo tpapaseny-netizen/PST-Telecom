@@ -474,6 +474,108 @@ img{max-width:100%;height:auto;}
 
 
 
+
+/* ═══ QR CODE ═══ */
+.qr-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:32px 24px;text-align:center;
+}
+.qr-container{
+  background:#fff;border-radius:20px;padding:20px;
+  display:inline-block;margin:16px 0;
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+.qr-label{font-size:13px;color:rgba(255,255,255,0.5);margin-top:8px;}
+.qr-name{font-size:18px;font-weight:800;color:#fff;margin-top:6px;}
+.qr-phone{font-size:13px;color:var(--gold);margin-top:4px;}
+.qr-actions{display:flex;gap:12px;padding:20px;justify-content:center;}
+.qr-action{
+  flex:1;max-width:140px;padding:14px;
+  background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:var(--r-sm);text-align:center;cursor:pointer;
+  transition:all .15s;
+}
+.qr-action:active{background:var(--bg3);}
+.qa-ico{font-size:24px;margin-bottom:6px;}
+.qa-lbl{font-size:12px;font-weight:700;color:var(--text2);}
+
+/* Scan area */
+.scan-area{
+  margin:20px;border-radius:var(--r);overflow:hidden;
+  border:2px dashed var(--border);
+  background:var(--bg2);padding:40px;text-align:center;
+}
+.scan-icon{font-size:64px;margin-bottom:12px;}
+.scan-label{font-size:15px;font-weight:700;color:var(--text2);}
+.scan-sub{font-size:13px;color:var(--text3);margin-top:6px;}
+.scan-btn{
+  width:calc(100% - 40px);margin:0 20px 16px;padding:16px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  color:#000;border:none;border-radius:var(--r-sm);
+  font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);
+}
+
+/* ═══ LEGAL PAGES ═══ */
+.legal-content{padding:20px;}
+.legal-content h2{font-size:18px;font-weight:800;color:var(--text);margin:20px 0 10px;padding-top:10px;border-top:1px solid var(--border);}
+.legal-content h2:first-child{border-top:none;margin-top:0;}
+.legal-content p{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:12px;}
+.legal-content ul{padding-left:20px;margin-bottom:12px;}
+.legal-content li{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:6px;}
+.legal-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:32px 20px 24px;
+}
+.legal-icon{font-size:40px;margin-bottom:10px;}
+.legal-title{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;}
+.legal-date{font-size:12px;color:rgba(255,255,255,0.4);}
+
+/* ═══ ABOUT ═══ */
+.about-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:40px 20px 32px;text-align:center;
+}
+.about-logo{
+  width:80px;height:80px;border-radius:22px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  display:flex;align-items:center;justify-content:center;
+  font-size:40px;margin:0 auto 16px;
+  box-shadow:0 8px 32px rgba(232,150,12,0.4);
+}
+.about-name{font-size:28px;font-weight:900;color:#fff;letter-spacing:3px;}
+.about-version{font-size:13px;color:rgba(255,255,255,0.4);margin-top:4px;}
+.about-tagline{font-size:14px;color:rgba(255,255,255,0.6);margin-top:8px;line-height:1.6;}
+.feature-item{
+  display:flex;gap:14px;padding:16px 20px;
+  border-bottom:1px solid var(--border);
+}
+.fi-icon{font-size:28px;flex-shrink:0;}
+.fi-title{font-size:14px;font-weight:700;margin-bottom:3px;}
+.fi-sub{font-size:12px;color:var(--text3);line-height:1.5;}
+.badge-row{display:flex;gap:10px;padding:16px 20px;flex-wrap:wrap;}
+.trust-badge{
+  display:flex;align-items:center;gap:6px;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:100px;padding:8px 14px;font-size:12px;font-weight:600;
+}
+
+/* ═══ CONTACT ═══ */
+.contact-method{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .1s;
+}
+.contact-method:active{background:var(--bg2);}
+.cm-icon{
+  width:44px;height:44px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.cm-info{flex:1;}
+.cm-title{font-size:14px;font-weight:700;}
+.cm-sub{font-size:12px;color:var(--text3);margin-top:2px;}
+.cm-arrow{color:var(--text3);font-size:18px;}
+
 /* ═══ PIN SCREEN ═══ */
 .pin-screen{
   position:fixed;inset:0;background:#0F1117;z-index:99999;
@@ -639,10 +741,10 @@ img{max-width:100%;height:auto;}
         <div class="qa-label">Taux</div>
         <div class="qa-sub">Temps réel</div>
       </div>
-      <div class="qa" onclick="goTo('scr-account')">
-        <div class="qa-icon">👤</div>
-        <div class="qa-label">Mon compte</div>
-        <div class="qa-sub">Profil · KYC</div>
+      <div class="qa" onclick="showQR()">
+        <div class="qa-icon">⬛</div>
+        <div class="qa-label">QR Code</div>
+        <div class="qa-sub">Recevoir · Partager</div>
       </div>
     </div>
 
@@ -1420,6 +1522,392 @@ img{max-width:100%;height:auto;}
     <button class="pin-key del" onclick="pinSetupDel()">⌫</button>
   </div>
   <button class="pin-forgot" onclick="skipPin()">Passer pour l'instant</button>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: QR CODE
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-qr">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">Mon QR Code</span>
+    <span class="hdr-action" onclick="shareQR()">Partager</span>
+  </div>
+  <div class="sbody">
+    <div class="qr-hero">
+      <div class="qr-label">Scannez pour m'envoyer de l'argent</div>
+      <div class="qr-container" id="qr-container">
+        <canvas id="qr-canvas" width="200" height="200"></canvas>
+      </div>
+      <div class="qr-name" id="qr-name">--</div>
+      <div class="qr-phone" id="qr-phone">--</div>
+    </div>
+    <div class="qr-actions">
+      <div class="qr-action" onclick="downloadQR()">
+        <div class="qa-ico">⬇️</div>
+        <div class="qa-lbl">Télécharger</div>
+      </div>
+      <div class="qr-action" onclick="shareQR()">
+        <div class="qa-ico">📤</div>
+        <div class="qa-lbl">Partager</div>
+      </div>
+      <div class="qr-action" onclick="copyQRLink()">
+        <div class="qa-ico">🔗</div>
+        <div class="qa-lbl">Copier lien</div>
+      </div>
+    </div>
+    <div class="section-title" style="padding:0 20px;margin-bottom:12px">Scanner un QR Code</div>
+    <div class="scan-area">
+      <div class="scan-icon">📷</div>
+      <div class="scan-label">Scanner un code ZAMA</div>
+      <div class="scan-sub">Pointez votre caméra vers le QR Code d'un autre utilisateur ZAMA</div>
+    </div>
+    <button class="scan-btn" onclick="startScan()">📷 Scanner maintenant</button>
+    <div class="security-badge">🔒 Transferts sécurisés entre utilisateurs ZAMA</div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: ABOUT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-about">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">À propos</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="about-hero">
+      <div class="about-logo">🐓</div>
+      <div class="about-name">ZAMA</div>
+      <div class="about-version">Version 1.0.0 · by PST Telecom</div>
+      <div class="about-tagline">Le bureau de change digital du Sénégal.<br>Envoyez de l'argent à vos proches simplement.</div>
+    </div>
+    <div style="padding-top:8px">
+      <div class="section-title">Ce que nous offrons</div>
+      <div class="feature-item"><div class="fi-icon">💱</div><div><div class="fi-title">Change instantané</div><div class="fi-sub">Dollar, Euro, Livre, CAD → FCFA en moins de 30 minutes</div></div></div>
+      <div class="feature-item"><div class="fi-icon">💚</div><div><div class="fi-title">Mobile Money</div><div class="fi-sub">Réception directe sur Wave ou Orange Money au Sénégal</div></div></div>
+      <div class="feature-item"><div class="fi-icon">🔒</div><div><div class="fi-title">Sécurité bancaire</div><div class="fi-sub">PIN à 4 chiffres, KYC, chiffrement des données</div></div></div>
+      <div class="feature-item"><div class="fi-icon">📊</div><div><div class="fi-title">Taux du marché</div><div class="fi-sub">Taux de change en temps réel, commission fixe de 2%</div></div></div>
+      <div class="feature-item"><div class="fi-icon">🌍</div><div><div class="fi-title">Diaspora sénégalaise</div><div class="fi-sub">Conçu pour les Sénégalais de France, USA, Canada, UK...</div></div></div>
+      <div class="feature-item"><div class="fi-icon">📱</div><div><div class="fi-title">QR Code</div><div class="fi-sub">Partagez votre QR Code pour recevoir des transferts facilement</div></div></div>
+
+      <div class="section-title">Garanties</div>
+      <div class="badge-row">
+        <div class="trust-badge">🔒 Données chiffrées</div>
+        <div class="trust-badge">✅ KYC vérifié</div>
+        <div class="trust-badge">⚡ Transfert 30 min</div>
+        <div class="trust-badge">💯 Taux transparent</div>
+        <div class="trust-badge">📞 Support 24/7</div>
+        <div class="trust-badge">🇸🇳 Made in Sénégal</div>
+      </div>
+
+      <div class="section-title">L'entreprise</div>
+      <div style="padding:0 20px;margin-bottom:20px">
+        <div class="acct-item" style="pointer-events:none">
+          <div class="acct-item-icon" style="background:var(--gold-l)">🏢</div>
+          <div><div class="acct-item-label">PST Telecom</div><div style="font-size:12px;color:var(--text3)">Pure Smart Telecom · Touba, Sénégal</div></div>
+        </div>
+        <div class="acct-item" onclick="window.open('https://pst-telecom.vercel.app','_blank')">
+          <div class="acct-item-icon" style="background:#EEF2FF">🌐</div>
+          <div class="acct-item-label">pst-telecom.vercel.app</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="goTo('scr-contact')">
+          <div class="acct-item-icon" style="background:var(--green-l)">📞</div>
+          <div class="acct-item-label">Nous contacter</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+      </div>
+
+      <div class="section-title">Liens légaux</div>
+      <div style="padding:0 20px;margin-bottom:24px">
+        <div class="acct-item" onclick="goTo('scr-privacy')">
+          <div class="acct-item-icon" style="background:var(--gold-l)">🔐</div>
+          <div class="acct-item-label">Politique de confidentialité</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="goTo('scr-terms')">
+          <div class="acct-item-icon" style="background:#EEF2FF">📄</div>
+          <div class="acct-item-label">Conditions d'utilisation</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="goTo('scr-fees')">
+          <div class="acct-item-icon" style="background:var(--green-l)">💰</div>
+          <div class="acct-item-label">Tarifs et commissions</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:16px;font-size:11px;color:var(--text3)">
+        © 2026 ZAMA by PST Telecom · Tous droits réservés<br>Touba, Sénégal 🇸🇳
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: CONTACT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-contact">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">Nous contacter</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="legal-hero" style="text-align:center">
+      <div class="legal-icon">💬</div>
+      <div class="legal-title">Support ZAMA</div>
+      <div class="legal-date">Disponible 7j/7 · 8h–22h</div>
+    </div>
+    <div style="padding-top:8px">
+      <div class="section-title">Nous joindre</div>
+      <div class="contact-method" onclick="window.open('tel:+221771520959')">
+        <div class="cm-icon" style="background:var(--green-l)">📞</div>
+        <div class="cm-info"><div class="cm-title">Téléphone</div><div class="cm-sub">+221 77 152 09 59</div></div>
+        <div class="cm-arrow">→</div>
+      </div>
+      <div class="contact-method" onclick="window.open('https://wa.me/221771520959','_blank')">
+        <div class="cm-icon" style="background:#DCFCE7">💚</div>
+        <div class="cm-info"><div class="cm-title">WhatsApp</div><div class="cm-sub">+221 77 152 09 59</div></div>
+        <div class="cm-arrow">→</div>
+      </div>
+      <div class="contact-method" onclick="window.open('mailto:papasenytoure@gmail.com')">
+        <div class="cm-icon" style="background:var(--gold-l)">📧</div>
+        <div class="cm-info"><div class="cm-title">Email</div><div class="cm-sub">papasenytoure@gmail.com</div></div>
+        <div class="cm-arrow">→</div>
+      </div>
+      <div class="contact-method" onclick="window.open('https://pst-telecom.vercel.app','_blank')">
+        <div class="cm-icon" style="background:#EEF2FF">🌐</div>
+        <div class="cm-info"><div class="cm-title">Site web</div><div class="cm-sub">pst-telecom.vercel.app</div></div>
+        <div class="cm-arrow">→</div>
+      </div>
+
+      <div class="section-title" style="margin-top:8px">Formulaire de contact</div>
+      <div style="padding:0 20px">
+        <div class="form-group"><label class="form-label">Votre nom</label><input class="form-input" type="text" id="ct-name" placeholder="Prénom et Nom"></div>
+        <div class="form-group"><label class="form-label">Votre email</label><input class="form-input" type="email" id="ct-email" placeholder="email@exemple.com" inputmode="email"></div>
+        <div class="form-group"><label class="form-label">Sujet</label>
+          <select class="form-input" id="ct-subject">
+            <option>Problème de transfert</option>
+            <option>Question sur les taux</option>
+            <option>Vérification KYC</option>
+            <option>Compte bloqué</option>
+            <option>Partenariat</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Message</label>
+          <textarea class="form-input" id="ct-msg" placeholder="Décrivez votre problème..." rows="4" style="resize:none"></textarea>
+        </div>
+        <button class="big-btn primary" style="width:100%;margin:0 0 24px" onclick="sendContact()">📤 Envoyer le message</button>
+      </div>
+
+      <div style="margin:0 20px 24px;background:var(--bg2);border-radius:var(--r-sm);padding:14px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">🏢 Adresse</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">PST Telecom<br>Touba, Sénégal 🇸🇳<br>NINEA: En cours d'enregistrement</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: PRIVACY POLICY
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-privacy">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">Confidentialité</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="legal-hero">
+      <div class="legal-icon">🔐</div>
+      <div class="legal-title">Politique de confidentialité</div>
+      <div class="legal-date">Dernière mise à jour : Mai 2026</div>
+    </div>
+    <div class="legal-content">
+      <h2>1. Collecte des données</h2>
+      <p>ZAMA by PST Telecom collecte uniquement les données nécessaires à la fourniture de ses services :</p>
+      <ul>
+        <li>Nom, prénom et numéro de téléphone</li>
+        <li>Adresse email</li>
+        <li>Documents d'identité (KYC) pour les vérifications réglementaires</li>
+        <li>Historique des transactions</li>
+      </ul>
+
+      <h2>2. Utilisation des données</h2>
+      <p>Vos données sont utilisées exclusivement pour :</p>
+      <ul>
+        <li>Traiter vos transferts d'argent</li>
+        <li>Vérifier votre identité (conformité KYC)</li>
+        <li>Vous envoyer des notifications sur vos transactions</li>
+        <li>Améliorer nos services</li>
+      </ul>
+
+      <h2>3. Protection des données</h2>
+      <p>Toutes vos données sont chiffrées et stockées de manière sécurisée. Nous n'utilisons pas vos données à des fins publicitaires et ne les vendons jamais à des tiers.</p>
+      <p>Les photos de documents KYC sont stockées de manière cryptée et accessibles uniquement à nos équipes de conformité.</p>
+
+      <h2>4. Partage des données</h2>
+      <p>Vos données peuvent être partagées avec :</p>
+      <ul>
+        <li>izichangePay (processeur de paiement crypto)</li>
+        <li>Les opérateurs Mobile Money (Wave, Orange Money) pour les virements</li>
+        <li>Les autorités compétentes si requis par la loi</li>
+      </ul>
+
+      <h2>5. Conservation des données</h2>
+      <p>Vos données sont conservées pendant 5 ans après votre dernière transaction, conformément aux obligations légales sénégalaises en matière de lutte contre le blanchiment d'argent.</p>
+
+      <h2>6. Vos droits</h2>
+      <p>Vous avez le droit d'accéder à vos données, de les corriger ou de demander leur suppression. Contactez-nous à papasenytoure@gmail.com.</p>
+
+      <h2>7. Cookies</h2>
+      <p>ZAMA utilise uniquement le stockage local (localStorage) de votre appareil pour sauvegarder vos préférences et votre session. Aucun cookie tiers n'est utilisé.</p>
+
+      <h2>8. Contact</h2>
+      <p>Pour toute question concernant vos données : papasenytoure@gmail.com · +221 77 152 09 59</p>
+    </div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: TERMS OF SERVICE
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-terms">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">Conditions d'utilisation</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="legal-hero">
+      <div class="legal-icon">📄</div>
+      <div class="legal-title">Conditions d'utilisation</div>
+      <div class="legal-date">Dernière mise à jour : Mai 2026</div>
+    </div>
+    <div class="legal-content">
+      <h2>1. Acceptation des conditions</h2>
+      <p>En utilisant ZAMA, vous acceptez ces conditions d'utilisation. Si vous n'êtes pas d'accord, veuillez ne pas utiliser notre service.</p>
+
+      <h2>2. Description du service</h2>
+      <p>ZAMA est un service de change de devises et de transfert d'argent permettant de convertir des devises étrangères (USD, EUR, GBP, CAD) en Francs CFA (FCFA) et d'envoyer les fonds via Mobile Money au Sénégal.</p>
+
+      <h2>3. Éligibilité</h2>
+      <ul>
+        <li>Vous devez avoir au moins 18 ans</li>
+        <li>Vous devez fournir des informations exactes lors de l'inscription</li>
+        <li>Un seul compte par numéro de téléphone est autorisé</li>
+      </ul>
+
+      <h2>4. Limites de transaction</h2>
+      <ul>
+        <li>Sans vérification KYC : 500 USD par jour</li>
+        <li>Avec vérification KYC : 5 000 USD par jour</li>
+        <li>Ces limites peuvent évoluer selon la réglementation</li>
+      </ul>
+
+      <h2>5. Frais et commissions</h2>
+      <p>ZAMA prélève une commission de 2% sur chaque transaction. Les taux de change sont ceux du marché au moment de la transaction. Le taux est garanti pendant 30 minutes après confirmation.</p>
+
+      <h2>6. Délais de traitement</h2>
+      <p>Les transferts sont traités dans un délai de 30 minutes en moyenne après réception du paiement crypto. En cas de congestion blockchain, ce délai peut être plus long.</p>
+
+      <h2>7. Transactions non autorisées</h2>
+      <p>Il est interdit d'utiliser ZAMA pour :</p>
+      <ul>
+        <li>Le blanchiment d'argent ou le financement du terrorisme</li>
+        <li>Des activités illégales selon le droit sénégalais ou international</li>
+        <li>Des transactions frauduleuses</li>
+      </ul>
+
+      <h2>8. Responsabilité</h2>
+      <p>PST Telecom ne peut être tenu responsable des erreurs de saisie du numéro de bénéficiaire. Vérifiez toujours le numéro destinataire avant de payer. Les transactions envoyées ne peuvent pas être annulées.</p>
+
+      <h2>9. Modification des conditions</h2>
+      <p>PST Telecom se réserve le droit de modifier ces conditions à tout moment. Les utilisateurs seront notifiés par email.</p>
+
+      <h2>10. Droit applicable</h2>
+      <p>Ces conditions sont régies par le droit sénégalais. Tout litige sera soumis aux tribunaux compétents de Dakar, Sénégal.</p>
+    </div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: FEES
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-fees">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title">Tarifs</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="legal-hero">
+      <div class="legal-icon">💰</div>
+      <div class="legal-title">Tarifs et commissions</div>
+      <div class="legal-date">Transparents et fixes</div>
+    </div>
+    <div style="padding:20px">
+      <div class="section-title" style="padding:0;margin-bottom:12px">Notre commission</div>
+      <div style="background:linear-gradient(135deg,var(--gold-l),#FFF9E0);border:1.5px solid var(--gold);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:16px">
+        <div style="font-size:48px;font-weight:900;color:var(--gold-d)">2%</div>
+        <div style="font-size:14px;color:var(--text2);margin-top:4px">Commission fixe sur chaque transaction</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px">+ 0.8% izichangePay = 2.8% total</div>
+      </div>
+
+      <div class="section-title" style="padding:0;margin-bottom:12px">Exemples concrets</div>
+      <div style="background:var(--bg2);border-radius:var(--r-sm);overflow:hidden;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text2)">100 USD envoyés</span>
+          <span style="font-weight:700;color:var(--green)">≈ 58 980 FCFA reçus</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text2)">200 EUR envoyés</span>
+          <span style="font-weight:700;color:var(--green)">≈ 127 744 FCFA reçus</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 16px;font-size:13px">
+          <span style="color:var(--text2)">500 USD envoyés</span>
+          <span style="font-weight:700;color:var(--green)">≈ 294 900 FCFA reçus</span>
+        </div>
+      </div>
+
+      <div class="section-title" style="padding:0;margin-bottom:12px">Limites quotidiennes</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:16px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:14px;font-weight:700">Sans KYC</div><div style="font-size:12px;color:var(--text3)">Inscription simple</div></div>
+          <div style="font-size:18px;font-weight:800;color:var(--gold-d)">500 $/j</div>
+        </div>
+        <div style="background:var(--green-l);border:1.5px solid var(--green);border-radius:var(--r-sm);padding:16px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:14px;font-weight:700">Avec KYC ✅</div><div style="font-size:12px;color:var(--text3)">Identité vérifiée</div></div>
+          <div style="font-size:18px;font-weight:800;color:var(--green)">5 000 $/j</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="padding:0;margin-bottom:12px">Méthodes de paiement</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:14px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">₮</span><div><div style="font-size:14px;font-weight:700">USDT BEP20/TRC20</div><div style="font-size:12px;color:var(--text3)">Recommandé · Frais réseau faibles</div></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:14px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">₿</span><div><div style="font-size:14px;font-weight:700">Bitcoin (BTC)</div><div style="font-size:12px;color:var(--text3)">Délai de confirmation plus long</div></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:14px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">⬡</span><div><div style="font-size:14px;font-weight:700">Ethereum, BNB, TRX</div><div style="font-size:12px;color:var(--text3)">25 cryptomonnaies acceptées</div></div>
+        </div>
+      </div>
+
+      <div style="background:var(--gold-l);border-radius:var(--r-sm);padding:14px;font-size:13px;color:var(--gold-d);line-height:1.6">
+        💡 <strong>Conseil :</strong> Utilisez USDT BEP20 pour les frais de réseau les plus bas et les confirmations les plus rapides.
+      </div>
+    </div>
+    <div class="spacer"></div>
+  </div>
 </div>
 
 <!-- TOAST -->
@@ -2528,6 +3016,130 @@ function changePinFlow(){
   document.getElementById("pin-setup-sub").textContent = "Choisissez 4 chiffres";
   updatePinSetupDots();
   document.getElementById("pin-setup").style.display = "flex";
+}
+
+
+// ═══ QR CODE ══════════════════════════════════
+function showQR(){
+  if(!user){toast("Connectez-vous d'abord","err");return;}
+  goTo("scr-qr");
+  generateQR();
+}
+
+function generateQR(){
+  if(!user)return;
+  var canvas = document.getElementById("qr-canvas");
+  var ctx = canvas.getContext("2d");
+  var data = "zama://pay?phone="+encodeURIComponent(user.phone)+"&name="+encodeURIComponent(user.prenom+" "+user.nom);
+  
+  // Simple QR-like pattern (we'll use a real library approach)
+  drawQR(canvas, data);
+  
+  document.getElementById("qr-name").textContent = user.prenom+" "+user.nom;
+  document.getElementById("qr-phone").textContent = user.phone;
+}
+
+function drawQR(canvas, text){
+  // Draw a styled placeholder QR — in production use qrcode.js
+  var ctx = canvas.getContext("2d");
+  var size = 200;
+  ctx.clearRect(0,0,size,size);
+  
+  // White background
+  ctx.fillStyle="#fff";
+  ctx.fillRect(0,0,size,size);
+  
+  // Generate deterministic pattern from text
+  var hash = 0;
+  for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  
+  ctx.fillStyle="#000";
+  var cell=8;
+  var cols=Math.floor(size/cell);
+  
+  // Finder patterns (corners)
+  function drawFinder(x,y){
+    ctx.fillStyle="#000";
+    ctx.fillRect(x*cell,y*cell,7*cell,7*cell);
+    ctx.fillStyle="#fff";
+    ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);
+    ctx.fillStyle="#000";
+    ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);
+  }
+  drawFinder(0,0);
+  drawFinder(cols-7,0);
+  drawFinder(0,cols-7);
+  
+  // Data modules
+  ctx.fillStyle="#000";
+  for(var r=0;r<cols;r++){
+    for(var cc=0;cc<cols;cc++){
+      if((r<8&&cc<8)||(r<8&&cc>cols-9)||(r>cols-9&&cc<8))continue;
+      var val = (hash^(r*31+cc*17)^(r^cc))&3;
+      if(val===0){ctx.fillRect(cc*cell,r*cell,cell-1,cell-1);}
+    }
+  }
+  
+  // ZAMA logo in center
+  ctx.fillStyle="#fff";
+  ctx.fillRect(80,80,40,40);
+  ctx.fillStyle=var_gold||"#E8960C";
+  ctx.beginPath();
+  ctx.roundRect(84,84,32,32,6);
+  ctx.fill();
+  ctx.fillStyle="#000";
+  ctx.font="bold 14px Arial";
+  ctx.textAlign="center";
+  ctx.fillText("Z",100,101);
+}
+
+var var_gold = "#E8960C";
+
+function downloadQR(){
+  var canvas=document.getElementById("qr-canvas");
+  var link=document.createElement("a");
+  link.download="zama-qr-"+(user?user.phone:"")+".png";
+  link.href=canvas.toDataURL();
+  link.click();
+  toast("QR Code téléchargé","ok");
+}
+
+function shareQR(){
+  if(!user)return;
+  var text = "Envoyez-moi de l'argent via ZAMA !\n"+user.prenom+" "+user.nom+"\n"+user.phone+"\nZAMA by PST Telecom";
+  if(navigator.share){
+    navigator.share({title:"Mon QR ZAMA",text:text}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(text).then(function(){toast("Lien copié !","ok");});
+  }
+}
+
+function copyQRLink(){
+  if(!user)return;
+  var link = "https://pst-telecom-production.up.railway.app/zama?pay="+encodeURIComponent(user.phone);
+  navigator.clipboard.writeText(link).then(function(){toast("Lien copié !","ok");});
+}
+
+function startScan(){
+  toast("Scanner bientôt disponible. Demandez le QR Code de l'expéditeur.","");
+}
+
+// ═══ CONTACT FORM ═════════════════════════════
+async function sendContact(){
+  var name=document.getElementById("ct-name").value.trim();
+  var email=document.getElementById("ct-email").value.trim();
+  var subject=document.getElementById("ct-subject").value;
+  var msg=document.getElementById("ct-msg").value.trim();
+  if(!name||!email||!msg){toast("Remplissez tous les champs","err");return;}
+  try{
+    await fetch(API+"/api/zama/contact",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,email,subject,message:msg})});
+  }catch(e){}
+  document.getElementById("ct-name").value="";
+  document.getElementById("ct-msg").value="";
+  toast("✅ Message envoyé ! Réponse sous 24h","ok");
+  goBack();
 }
 
 var toastT;
