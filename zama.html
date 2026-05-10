@@ -1495,39 +1495,85 @@ function renderAccount(){
   }
 }
 
+// Normalize phone: keep only digits, ensure starts with 221
+function normalizePhone(t){
+  var d=t.replace(/\D/g,"");
+  if(d.startsWith("00221"))d=d.slice(2);
+  if(d.startsWith("221"))return "+"+d;
+  if(d.length===9)return "+221"+d;
+  if(d.length===12&&d.startsWith("221"))return "+"+d;
+  return "+"+d;
+}
+
+// Get all accounts stored
+function getAllAccounts(){
+  try{return JSON.parse(localStorage.getItem("zama_accounts")||"[]");}catch(e){return[];}
+}
+function saveAllAccounts(arr){localStorage.setItem("zama_accounts",JSON.stringify(arr));}
+
 async function register(){
   var p=document.getElementById("rg-p").value.trim();
   var n=document.getElementById("rg-n").value.trim();
   var t=document.getElementById("rg-t").value.trim();
   var e=document.getElementById("rg-e").value.trim();
   if(!p||!n||!t||!e){toast("Remplissez tous les champs","err");return;}
-  pendingRegData={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:t,email:e,pays:document.getElementById("rg-c").value,kyc:false,created:new Date().toISOString()};
+
+  var phone=normalizePhone(t);
+
+  // Check if account already exists
+  var accounts=getAllAccounts();
+  var existing=accounts.find(function(a){
+    return normalizePhone(a.phone)===phone;
+  });
+  if(existing){
+    toast("Ce numéro a déjà un compte. Connectez-vous.","err");
+    return;
+  }
+
+  var newUser={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,
+    pays:document.getElementById("rg-c").value,kyc:false,
+    created:new Date().toISOString()};
+  pendingRegData=newUser;
+
   // Show OTP
-  document.getElementById("otp-phone").textContent=t;
+  document.getElementById("otp-phone").textContent=phone;
   document.getElementById("otp-modal").classList.add("open");
   document.querySelectorAll(".otp-inp")[0].focus();
   toast("Code OTP: 1234 (démo)","");
 }
 
 function loginFlow(){
-  var t=prompt("Entrez votre numéro de téléphone :");
+  var t=prompt("Entrez votre numéro de téléphone enregistré :\nEx: +221 77 152 09 59");
   if(!t)return;
-  var u=loadUser();
-  if(u&&u.phone.replace(/\D/g,"")===(t.replace(/\D/g,""))){
-    toast("✅ Reconnecté, "+u.prenom+" !","ok");
+  var phone=normalizePhone(t);
+
+  // Search in all accounts
+  var accounts=getAllAccounts();
+  var found=accounts.find(function(a){
+    return normalizePhone(a.phone)===phone;
+  });
+
+  if(found){
+    saveUserLS(found);
+    user=found;
     renderAccount();
+    updateHomeGreeting();
+    document.getElementById("otp-modal").classList.remove("open");
+    toast("✅ Reconnecté, "+found.prenom+" !","ok");
   }else{
-    toast("Numéro non trouvé. Créez un compte.","err");
+    toast("Numéro non trouvé. Vérifiez ou créez un compte.","err");
   }
 }
 
 function logout(){
   if(confirm("Se déconnecter ?")){
+    // Keep accounts registry but clear active session
     localStorage.removeItem("zama_u");
     user=null;
     renderAccount();
     updateHomeGreeting();
     goTo("scr-home");
+    toast("Déconnecté. Reconnectez-vous via votre numéro.","");
   }
 }
 
@@ -1543,12 +1589,31 @@ function verifyOTP(){
   var code=Array.from(document.querySelectorAll(".otp-inp")).map(function(i){return i.value;}).join("");
   if(code==="1234"||code.length===4){
     var u=pendingRegData;
-    saveUserLS(u);user=u;
+    if(!u){toast("Erreur. Recommencez.","err");return;}
+
+    // Save in current session
+    saveUserLS(u);
+    user=u;
+
+    // Save in global accounts registry
+    var accounts=getAllAccounts();
+    var idx=accounts.findIndex(function(a){return a.id===u.id;});
+    if(idx===-1)accounts.push(u);
+    else accounts[idx]=u;
+    saveAllAccounts(accounts);
+
+    // Register on server
+    fetch(API+"/api/zama/register",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(u)}).catch(function(){});
+
     document.getElementById("otp-modal").classList.remove("open");
     document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
+    pendingRegData=null;
     toast("✅ Bienvenue "+u.prenom+" !","ok");
     renderAccount();
     updateHomeGreeting();
+    renderHomeBenefs();
   }else{
     toast("Code incorrect. Démo: 1234","err");
   }
@@ -1600,6 +1665,11 @@ async function submitKYC(){
   user.kyc_pending=true;
   user.kyc_data={doc_type:document.getElementById("kd-type").value,doc_num:num,dob:dob,nationality:nat};
   saveUserLS(user);
+  // Sync in accounts registry
+  var _accounts=getAllAccounts();
+  var _idx=_accounts.findIndex(function(a){return a.id===user.id;});
+  if(_idx!==-1)_accounts[_idx]=user;else _accounts.push(user);
+  saveAllAccounts(_accounts);
 
   try{
     await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},
