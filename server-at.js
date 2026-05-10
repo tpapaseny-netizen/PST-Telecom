@@ -2430,6 +2430,171 @@ app.get('/api/zama/orders', async (req, res) => {
     res.json(orders.map(function(o){ const {_id,...r}=o; return r; }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+// ═══════════════════════════════════════════════
+// ZAMA ROUTES v2
+// ═══════════════════════════════════════════════
+
+app.get('/zama', (req, res) => res.sendFile(__dirname + '/zama.html'));
+
+// Register user
+app.post('/api/zama/register', async (req, res) => {
+  try {
+    if (db) await db.collection('zama_users').updateOne(
+      { phone: req.body.phone },
+      { $set: { ...req.body, updated_at: new Date() } },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// KYC submission
+app.post('/api/zama/kyc', async (req, res) => {
+  try {
+    if (db) await db.collection('zama_users').updateOne(
+      { id: req.body.user_id },
+      { $set: { kyc: true, kyc_data: req.body, kyc_submitted_at: new Date() } }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Create exchange order
+app.post('/api/zama/create', async (req, res) => {
+  try {
+    const { src_currency, amount, rate_fcfa, net_fcfa, receiver_name, receiver_phone, receiver_mm, sender_name, sender_email, sender_phone, message, user_id } = req.body;
+    const orderId = 'ZAMA-' + Date.now();
+    const amtUsdt = parseFloat((amount * (606 / (rate_fcfa || 606))).toFixed(4));
+
+    let address = null;
+    try {
+      const iziRes = await fetch('https://pay.izichange.com/api/deposit/address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (process.env.IZIPAY_API_KEY || '') },
+        body: JSON.stringify({ currency: 'USDT.BEP20', order_id: orderId, amount: amtUsdt, description: 'ZAMA ' + amount + ' ' + src_currency })
+      });
+      const d = await iziRes.json();
+      address = d.address || null;
+    } catch(e) { console.log('iziPay error:', e.message); }
+
+    if (db) {
+      await db.collection('zama_orders').insertOne({
+        order_id: orderId, src_currency, amount, rate_fcfa, net_fcfa,
+        crypto_amount: amtUsdt, receiver_name, receiver_phone, receiver_mm,
+        sender_name, sender_email, sender_phone, message, user_id,
+        address, status: 'pending', created_at: new Date()
+      });
+    }
+
+    // Send confirmation email
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+      });
+      await transporter.sendMail({
+        from: '"ZAMA by PST Telecom" <' + process.env.GMAIL_USER + '>',
+        to: sender_email,
+        subject: 'ZAMA - Confirmation de votre échange REF: ' + orderId,
+        html: `<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px">
+          <h2 style="color:#F59E0B">ZAMA — Confirmation</h2>
+          <p>Bonjour ${sender_name},</p>
+          <p>Votre demande d'échange a bien été enregistrée.</p>
+          <table style="width:100%;border-collapse:collapse;margin:16px 0">
+            <tr><td style="padding:8px;color:#666">Référence</td><td style="padding:8px;font-weight:bold">${orderId}</td></tr>
+            <tr style="background:#f9f9f9"><td style="padding:8px;color:#666">Vous envoyez</td><td style="padding:8px;font-weight:bold">${amount} ${src_currency}</td></tr>
+            <tr><td style="padding:8px;color:#666">Destinataire reçoit</td><td style="padding:8px;font-weight:bold;color:#F59E0B">${(net_fcfa||0).toLocaleString('fr-FR')} FCFA</td></tr>
+            <tr style="background:#f9f9f9"><td style="padding:8px;color:#666">Via</td><td style="padding:8px;font-weight:bold">${receiver_mm === 'wave' ? 'Wave' : 'Orange Money'}</td></tr>
+            <tr><td style="padding:8px;color:#666">Numéro</td><td style="padding:8px;font-weight:bold">${receiver_phone}</td></tr>
+          </table>
+          <p style="color:#666;font-size:13px">Délai de traitement: moins de 30 minutes après réception de votre paiement.</p>
+          <p style="color:#666;font-size:13px">Support: +221 77 152 09 59 | papasenytoure@gmail.com</p>
+          <p style="color:#F59E0B;font-weight:bold">ZAMA by PST Telecom 🇸🇳</p>
+        </div>`
+      });
+    } catch(emailErr) { console.log('Email error:', emailErr.message); }
+
+    res.json({ success: true, order_id: orderId, address, net_fcfa, crypto_amount: amtUsdt });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Check status
+app.get('/api/zama/status/:orderId', async (req, res) => {
+  try {
+    if (!db) return res.json({ status: 'pending' });
+    const order = await db.collection('zama_orders').findOne({ order_id: req.params.orderId });
+    if (!order) return res.status(404).json({ error: 'Non trouve' });
+    const { _id, ...safe } = order;
+    res.json(safe);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// History by user
+app.get('/api/zama/history/:userId', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const orders = await db.collection('zama_orders')
+      .find({ user_id: req.params.userId })
+      .sort({ created_at: -1 }).limit(20).toArray();
+    res.json(orders.map(function(o){ const {_id,...r}=o; return r; }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// IPN webhook
+app.post('/api/zama/ipn', async (req, res) => {
+  try {
+    const { order_id, status } = req.body;
+    if ((status === 'completed' || status === 'confirmed') && db) {
+      const order = await db.collection('zama_orders').findOne({ order_id });
+      if (order && order.status === 'pending') {
+        await db.collection('zama_orders').updateOne(
+          { order_id }, { $set: { status: 'paid', paid_at: new Date() } }
+        );
+        // SMS notification
+        try {
+          const at = require('africastalking')({ apiKey: process.env.AT_API_KEY, username: process.env.AT_USERNAME || 'pst-telecom' });
+          const phone = order.receiver_phone.startsWith('+') ? order.receiver_phone : '+221' + order.receiver_phone;
+          await at.SMS.send({
+            to: [phone],
+            message: 'ZAMA: Vous allez recevoir ' + (order.net_fcfa||0).toLocaleString() + ' FCFA via ' + (order.receiver_mm==='wave'?'Wave':'Orange Money') + '. Ref: ' + order_id + '. PST Telecom +221771520959',
+            from: 'PST'
+          });
+        } catch(e) { console.log('SMS err:', e.message); }
+        console.log('[ZAMA PAYOUT]', order.net_fcfa, 'FCFA ->', order.receiver_phone, 'via', order.receiver_mm);
+      }
+    }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin - all orders
+app.get('/api/zama/orders', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const orders = await db.collection('zama_orders').find({}).sort({ created_at: -1 }).limit(200).toArray();
+    res.json(orders.map(function(o){ const {_id,...r}=o; return r; }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get all users (admin)
+app.get('/api/zama/users', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const users = await db.collection('zama_users').find({}).sort({created:-1}).limit(200).toArray();
+    res.json(users.map(function(u){ const {_id,...r}=u; delete r.password; return r; }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get pending KYC
+app.get('/api/zama/kyc/pending', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const users = await db.collection('zama_users').find({kyc_pending:true}).sort({kyc_submitted_at:-1}).toArray();
+    res.json(users.map(function(u){ const {_id,...r}=u; delete r.password; return r; }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {

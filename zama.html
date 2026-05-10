@@ -549,7 +549,7 @@ img{max-width:100%;height:auto;}
   <div class="sbody">
     <div class="home-top">
       <div class="home-logo">
-        <div class="logo-mark">
+        <div class="logo-mark" onclick="logoClick()" id="logo-mark" style="cursor:pointer">
           <svg class="logo-rooster" viewBox="0 0 28 28" fill="none">
             <path d="M14 22C18.4183 22 22 18.4183 22 14C22 9.58172 18.4183 6 14 6C9.58172 6 6 9.58172 6 14C6 18.4183 9.58172 22 14 22Z" fill="rgba(0,0,0,0.15)"/>
             <path d="M20 8 C20 5 22 4 23 6 C24 4 26 5 24 8" stroke="#000" stroke-width="1.5" stroke-linecap="round" fill="none"/>
@@ -1129,15 +1129,21 @@ img{max-width:100%;height:auto;}
       <!-- LOGIN PANEL -->
       <div id="login-panel">
         <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
-          Entrez votre numéro de téléphone pour vous reconnecter.
+          Connectez-vous avec votre numéro et mot de passe.
         </div>
         <div class="phone-input-wrap">
           <span class="phone-flag">🇸🇳</span>
           <input class="phone-inp" type="tel" id="login-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
         </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <div style="position:relative">
+            <input class="form-input" type="password" id="login-pwd" placeholder="Mot de passe" style="padding-right:48px">
+            <button onclick="togglePwd('login-pwd','eye-login')" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px" id="eye-login">👁</button>
+          </div>
+        </div>
         <button class="big-btn primary" style="width:100%;margin:0" onclick="doLogin()">Se connecter →</button>
-        <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--text3)">
-          Votre numéro enregistré vous reconnecte instantanément
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text3)">
+          Mot de passe oublié ? <span style="color:var(--gold);cursor:pointer" onclick="resetPwdFlow()">Réinitialiser</span>
         </div>
       </div>
 
@@ -1154,6 +1160,12 @@ img{max-width:100%;height:auto;}
           </div>
         </div>
         <div class="form-group"><label class="form-label">Email *</label><input class="form-input" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
+        <div class="form-group"><label class="form-label">Mot de passe *</label>
+          <div style="position:relative">
+            <input class="form-input" type="password" id="rg-pwd" placeholder="Minimum 6 caractères" style="padding-right:48px">
+            <button onclick="togglePwd('rg-pwd','eye-rg')" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px" id="eye-rg">👁</button>
+          </div>
+        </div>
         <div class="form-group"><label class="form-label">Pays</label>
           <select class="form-input" id="rg-c">
             <option value="SN">🇸🇳 Sénégal</option>
@@ -1170,6 +1182,137 @@ img{max-width:100%;height:auto;}
         <button class="big-btn primary" style="width:100%;margin:0" onclick="register()">Créer mon compte →</button>
       </div>
     </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: ADMIN PANEL
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-admin">
+  <div class="hdr" style="background:linear-gradient(135deg,#1A1A2E,#16213E)">
+    <button class="hdr-back" onclick="goBack()" style="color:rgba(255,255,255,0.7)"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
+    <span class="hdr-title" style="color:#fff">⚙️ Admin ZAMA</span>
+    <span class="hdr-action" style="color:rgba(255,255,255,0.5);font-size:11px" id="admin-email-display"></span>
+  </div>
+  <div class="sbody">
+    <div style="padding:16px 20px 0">
+
+      <!-- STATS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px" id="admin-stats">
+        <div style="background:linear-gradient(135deg,#1A1A2E,#16213E);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:var(--gold)" id="stat-orders">--</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Transactions</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#16213E,#0F3460);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:var(--green)" id="stat-revenue">--</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Revenus FCFA</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#1A2E1A,#163016);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:var(--green)" id="stat-paid">--</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Complétés</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#2E1A1A,#301616);border-radius:14px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:var(--gold)" id="stat-pending">--</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">En attente</div>
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="section-title">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        <div class="acct-item" onclick="adminLoadOrders()">
+          <div class="acct-item-icon" style="background:var(--gold-l)">📋</div>
+          <div class="acct-item-label">Voir toutes les transactions</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="adminLoadUsers()">
+          <div class="acct-item-icon" style="background:#EEF2FF">👥</div>
+          <div class="acct-item-label">Gérer les utilisateurs</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="adminLoadKYC()">
+          <div class="acct-item-icon" style="background:var(--green-l)">🪪</div>
+          <div class="acct-item-label">Dossiers KYC à vérifier</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="showChangePwd()">
+          <div class="acct-item-icon" style="background:var(--gold-l)">🔑</div>
+          <div class="acct-item-label">Changer le mot de passe admin</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+        <div class="acct-item" onclick="showAddAdmin()">
+          <div class="acct-item-icon" style="background:#EEF2FF">➕</div>
+          <div class="acct-item-label">Ajouter un email admin</div>
+          <div class="acct-item-arrow">→</div>
+        </div>
+      </div>
+
+      <!-- TRANSACTIONS LIST -->
+      <div id="admin-orders-section" style="display:none">
+        <div class="section-title">Transactions récentes</div>
+        <div id="admin-orders-list"></div>
+      </div>
+
+      <!-- USERS LIST -->
+      <div id="admin-users-section" style="display:none">
+        <div class="section-title">Utilisateurs</div>
+        <div id="admin-users-list"></div>
+      </div>
+
+      <!-- KYC LIST -->
+      <div id="admin-kyc-section" style="display:none">
+        <div class="section-title">Dossiers KYC</div>
+        <div id="admin-kyc-list"></div>
+      </div>
+
+      <!-- CHANGE PASSWORD -->
+      <div id="admin-pwd-section" style="display:none">
+        <div class="section-title">Changer le mot de passe admin</div>
+        <div class="form-group"><label class="form-label">Mot de passe actuel</label><input class="form-input" type="password" id="pwd-old" placeholder="Mot de passe actuel"></div>
+        <div class="form-group"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" id="pwd-new" placeholder="Minimum 8 caractères"></div>
+        <div class="form-group"><label class="form-label">Confirmer</label><input class="form-input" type="password" id="pwd-confirm" placeholder="Répétez le nouveau mot de passe"></div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="changeAdminPwd()">🔑 Changer le mot de passe</button>
+        <button class="big-btn secondary" style="width:100%;margin:8px 0 0" onclick="document.getElementById('admin-pwd-section').style.display='none'">Annuler</button>
+      </div>
+
+      <!-- ADD ADMIN EMAIL -->
+      <div id="admin-add-section" style="display:none">
+        <div class="section-title">Ajouter un email admin</div>
+        <div class="form-group"><label class="form-label">Email admin</label><input class="form-input" type="email" id="new-admin-email" placeholder="email@exemple.com" inputmode="email"></div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="addAdminEmail()">➕ Ajouter</button>
+        <button class="big-btn secondary" style="width:100%;margin:8px 0 0" onclick="document.getElementById('admin-add-section').style.display='none'">Annuler</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN MODAL -->
+<div class="otp-modal" id="admin-modal">
+  <div class="otp-sheet">
+    <div class="otp-handle"></div>
+    <div style="text-align:center;font-size:28px;margin-bottom:8px">⚙️</div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px;text-align:center">Accès Admin ZAMA</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px;text-align:center">Réservé aux administrateurs</div>
+    <div id="admin-step1">
+      <div class="form-group"><label class="form-label">Email administrateur</label>
+        <input class="form-input" type="email" id="admin-email-inp" placeholder="votre@email.com" inputmode="email">
+      </div>
+      <button class="big-btn primary" style="width:100%;margin:0" onclick="adminCheckEmail()">Continuer →</button>
+    </div>
+    <div id="admin-step2" style="display:none">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Bienvenue ! Entrez votre mot de passe.</div>
+      <div class="form-group">
+        <div style="position:relative">
+          <input class="form-input" type="password" id="admin-pwd-inp" placeholder="Mot de passe admin" style="padding-right:48px">
+          <button onclick="togglePwd('admin-pwd-inp','eye-admin')" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px" id="eye-admin">👁</button>
+        </div>
+      </div>
+      <button class="big-btn primary" style="width:100%;margin:0" onclick="adminCheckPwd()">Accéder →</button>
+      <button class="big-btn secondary" style="width:100%;margin:8px 0 0" onclick="document.getElementById('admin-step1').style.display='block';document.getElementById('admin-step2').style.display='none'">← Retour</button>
+    </div>
+    <button class="big-btn secondary" style="width:100%;margin:8px 0 0" onclick="document.getElementById('admin-modal').classList.remove('open')">Annuler</button>
   </div>
 </div>
 
@@ -1590,7 +1733,9 @@ async function register(){
     return;
   }
 
-  var newUser={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,
+  var pwd=document.getElementById("rg-pwd").value;
+  if(!pwd||pwd.length<6){toast("Mot de passe trop court (min 6 caractères)","err");return;}
+  var newUser={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,password:pwd,
     pays:document.getElementById("rg-c").value,kyc:false,
     created:new Date().toISOString()};
   pendingRegData=newUser;
@@ -1616,24 +1761,22 @@ function switchLoginTab(tab){
 
 function doLogin(){
   var t=document.getElementById("login-phone").value.trim();
-  if(!t){toast("Entrez votre numéro de téléphone","err");return;}
+  var pwd=document.getElementById("login-pwd").value;
+  if(!t){toast("Entrez votre numéro","err");return;}
+  if(!pwd){toast("Entrez votre mot de passe","err");return;}
   var phone=normalizePhone(t);
   var accounts=getAllAccounts();
-  var found=accounts.find(function(a){
-    return normalizePhone(a.phone)===phone;
-  });
-  if(found){
-    saveUserLS(found);
-    user=found;
-    renderAccount();
-    updateHomeGreeting();
-    renderHomeBenefs();
-    toast("✅ Reconnecté, "+found.prenom+" !","ok");
-    goTo("scr-account");
-  }else{
-    toast("Numéro non trouvé. Créez un compte.","err");
-    switchLoginTab("register");
-  }
+  var found=accounts.find(function(a){return normalizePhone(a.phone)===phone;});
+  if(!found){toast("Numéro non trouvé. Créez un compte.","err");switchLoginTab("register");return;}
+  if(found.password&&found.password!==pwd){toast("Mot de passe incorrect","err");return;}
+  if(!found.password){toast("Mot de passe incorrect","err");return;}
+  saveUserLS(found);
+  user=found;
+  renderAccount();
+  updateHomeGreeting();
+  renderHomeBenefs();
+  toast("✅ Reconnecté, "+found.prenom+" !","ok");
+  goTo("scr-account");
 }
 
 function logout(){
@@ -1847,6 +1990,237 @@ function renderHistory(){
 }
 
 // ── TOAST ─────────────────────────────────────────
+// ── PASSWORD TOGGLE ──────────────────────────────
+function togglePwd(inputId, eyeId){
+  var inp=document.getElementById(inputId);
+  var eye=document.getElementById(eyeId);
+  if(inp.type==="password"){inp.type="text";eye.textContent="🙈";}
+  else{inp.type="password";eye.textContent="👁";}
+}
+
+// ── RESET PASSWORD FLOW ───────────────────────────
+function resetPwdFlow(){
+  var phone=document.getElementById("login-phone").value.trim();
+  if(!phone){toast("Entrez d'abord votre numéro","err");return;}
+  var ph=normalizePhone(phone);
+  var accounts=getAllAccounts();
+  var found=accounts.find(function(a){return normalizePhone(a.phone)===ph;});
+  if(!found){toast("Numéro non trouvé","err");return;}
+  var newPwd=window.prompt("Entrez votre nouveau mot de passe (min 6 caractères):");
+  if(!newPwd||newPwd.length<6){toast("Mot de passe trop court","err");return;}
+  found.password=newPwd;
+  var idx=accounts.findIndex(function(a){return a.id===found.id;});
+  accounts[idx]=found;
+  saveAllAccounts(accounts);
+  if(user&&user.id===found.id){saveUserLS(found);}
+  toast("✅ Mot de passe mis à jour","ok");
+}
+
+// ── ADMIN SYSTEM ──────────────────────────────────
+var ADMIN_EMAILS_KEY="zama_admin_emails";
+var ADMIN_PWD_KEY="zama_admin_pwd";
+var logoClickCount=0, logoClickTimer=null;
+
+function getAdminEmails(){
+  try{return JSON.parse(localStorage.getItem(ADMIN_EMAILS_KEY)||"[]");}catch(e){return[];}
+}
+function getAdminPwd(){
+  return localStorage.getItem(ADMIN_PWD_KEY)||"Pstdiama@1";
+}
+function saveAdminPwd(pwd){localStorage.setItem(ADMIN_PWD_KEY,pwd);}
+function saveAdminEmails(arr){localStorage.setItem(ADMIN_EMAILS_KEY,JSON.stringify(arr));}
+
+var BASE_ADMINS=["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+
+function isAdminEmail(email){
+  var extras=getAdminEmails();
+  var all=BASE_ADMINS.concat(extras);
+  return all.map(function(e){return e.toLowerCase();}).indexOf(email.toLowerCase().trim())!==-1;
+}
+
+function logoClick(){
+  logoClickCount++;
+  clearTimeout(logoClickTimer);
+  logoClickTimer=setTimeout(function(){logoClickCount=0;},2000);
+  if(logoClickCount>=5){
+    logoClickCount=0;
+    document.getElementById("admin-step1").style.display="block";
+    document.getElementById("admin-step2").style.display="none";
+    document.getElementById("admin-email-inp").value="";
+    document.getElementById("admin-pwd-inp").value="";
+    document.getElementById("admin-modal").classList.add("open");
+  }
+}
+
+function adminCheckEmail(){
+  var email=document.getElementById("admin-email-inp").value.trim();
+  if(!email){toast("Entrez votre email","err");return;}
+  if(!isAdminEmail(email)){
+    toast("Email non autorisé","err");return;
+  }
+  document.getElementById("admin-step1").style.display="none";
+  document.getElementById("admin-step2").style.display="block";
+}
+
+function adminCheckPwd(){
+  var pwd=document.getElementById("admin-pwd-inp").value;
+  var correct=getAdminPwd();
+  if(pwd!==correct){toast("Mot de passe incorrect","err");return;}
+  var email=document.getElementById("admin-email-inp").value.trim();
+  document.getElementById("admin-email-display").textContent=email;
+  document.getElementById("admin-modal").classList.remove("open");
+  adminLoadStats();
+  goTo("scr-admin");
+}
+
+function showChangePwd(){
+  document.getElementById("admin-pwd-section").style.display="block";
+  document.getElementById("admin-orders-section").style.display="none";
+  document.getElementById("admin-users-section").style.display="none";
+  document.getElementById("admin-kyc-section").style.display="none";
+  document.getElementById("admin-add-section").style.display="none";
+}
+
+function changeAdminPwd(){
+  var old=document.getElementById("pwd-old").value;
+  var nw=document.getElementById("pwd-new").value;
+  var conf=document.getElementById("pwd-confirm").value;
+  var correct=getAdminPwd();
+  if(old!==correct){toast("Mot de passe actuel incorrect","err");return;}
+  if(nw.length<8){toast("Minimum 8 caractères","err");return;}
+  if(nw!==conf){toast("Les mots de passe ne correspondent pas","err");return;}
+  saveAdminPwd(nw);
+  document.getElementById("pwd-old").value="";
+  document.getElementById("pwd-new").value="";
+  document.getElementById("pwd-confirm").value="";
+  document.getElementById("admin-pwd-section").style.display="none";
+  toast("✅ Mot de passe admin changé !","ok");
+}
+
+function showAddAdmin(){
+  document.getElementById("admin-add-section").style.display="block";
+  document.getElementById("admin-orders-section").style.display="none";
+  document.getElementById("admin-users-section").style.display="none";
+  document.getElementById("admin-kyc-section").style.display="none";
+  document.getElementById("admin-pwd-section").style.display="none";
+}
+
+function addAdminEmail(){
+  var email=document.getElementById("new-admin-email").value.trim();
+  if(!email||!email.includes("@")){toast("Email invalide","err");return;}
+  var extras=getAdminEmails();
+  if(extras.indexOf(email)!==-1||BASE_ADMINS.indexOf(email)!==-1){toast("Email déjà admin","err");return;}
+  extras.push(email);
+  saveAdminEmails(extras);
+  document.getElementById("new-admin-email").value="";
+  document.getElementById("admin-add-section").style.display="none";
+  toast("✅ "+email+" ajouté comme admin","ok");
+}
+
+async function adminLoadStats(){
+  try{
+    var r=await fetch(API+"/api/zama/orders");
+    var orders=await r.json();
+    var paid=orders.filter(function(o){return o.status==="paid";});
+    var pending=orders.filter(function(o){return o.status==="pending";});
+    var revenue=paid.reduce(function(s,o){return s+(o.net_fcfa||0);},0);
+    document.getElementById("stat-orders").textContent=orders.length;
+    document.getElementById("stat-paid").textContent=paid.length;
+    document.getElementById("stat-pending").textContent=pending.length;
+    document.getElementById("stat-revenue").textContent=revenue.toLocaleString("fr-FR");
+  }catch(e){
+    document.getElementById("stat-orders").textContent="--";
+  }
+}
+
+function adminLoadOrders(){
+  document.getElementById("admin-orders-section").style.display="block";
+  document.getElementById("admin-users-section").style.display="none";
+  document.getElementById("admin-kyc-section").style.display="none";
+  document.getElementById("admin-pwd-section").style.display="none";
+  document.getElementById("admin-add-section").style.display="none";
+  var el=document.getElementById("admin-orders-list");
+  el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Chargement...</div>";
+  fetch(API+"/api/zama/orders").then(function(r){return r.json();}).then(function(orders){
+    if(!orders.length){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Aucune transaction</div>";return;}
+    el.innerHTML=orders.slice(0,50).map(function(o){
+      var dt=new Date(o.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+      var stColor=o.status==="paid"?"var(--green)":o.status==="failed"?"var(--red)":"var(--gold-d)";
+      var stLabel=o.status==="paid"?"✅ Payé":o.status==="failed"?"❌ Échoué":"⏳ En attente";
+      return "<div style='background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:8px;font-size:13px'>"
+        +"<div style='display:flex;justify-content:space-between;margin-bottom:6px'>"
+        +"<span style='font-weight:700'>"+o.sender_name+"</span>"
+        +"<span style='font-weight:800;color:var(--gold-d)'>"+o.amount+" "+o.src_currency+"</span></div>"
+        +"<div style='display:flex;justify-content:space-between;margin-bottom:4px'>"
+        +"<span style='color:var(--text2)'>→ "+o.receiver_name+"</span>"
+        +"<span style='font-weight:700;color:var(--green)'>"+((o.net_fcfa||0).toLocaleString("fr-FR"))+" FCFA</span></div>"
+        +"<div style='display:flex;justify-content:space-between'>"
+        +"<span style='color:var(--text3)'>"+dt+"</span>"
+        +"<span style='font-weight:700;color:"+stColor+"'>"+stLabel+"</span></div>"
+        +"</div>";
+    }).join("");
+  }).catch(function(){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--red)'>Erreur de chargement</div>";});
+}
+
+function adminLoadUsers(){
+  document.getElementById("admin-users-section").style.display="block";
+  document.getElementById("admin-orders-section").style.display="none";
+  document.getElementById("admin-kyc-section").style.display="none";
+  document.getElementById("admin-pwd-section").style.display="none";
+  document.getElementById("admin-add-section").style.display="none";
+  var el=document.getElementById("admin-users-list");
+  el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Chargement...</div>";
+  fetch(API+"/api/zama/users").then(function(r){return r.json();}).then(function(users){
+    if(!users.length){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Aucun utilisateur</div>";return;}
+    el.innerHTML=users.map(function(u){
+      return "<div style='background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:8px;font-size:13px'>"
+        +"<div style='display:flex;justify-content:space-between;margin-bottom:4px'>"
+        +"<span style='font-weight:700'>"+u.prenom+" "+u.nom+"</span>"
+        +"<span style='color:"+(u.kyc?"var(--green)":"var(--gold-d)")+"'>"+(u.kyc?"✅ KYC":"⚠️ No KYC")+"</span></div>"
+        +"<div style='color:var(--text2)'>"+u.phone+"</div>"
+        +"<div style='color:var(--text3);margin-top:2px'>"+u.email+" · "+u.pays+"</div>"
+        +"</div>";
+    }).join("");
+  }).catch(function(){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--red)'>Erreur</div>";});
+}
+
+function adminLoadKYC(){
+  document.getElementById("admin-kyc-section").style.display="block";
+  document.getElementById("admin-orders-section").style.display="none";
+  document.getElementById("admin-users-section").style.display="none";
+  document.getElementById("admin-pwd-section").style.display="none";
+  document.getElementById("admin-add-section").style.display="none";
+  var el=document.getElementById("admin-kyc-list");
+  el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Chargement...</div>";
+  fetch(API+"/api/zama/kyc/pending").then(function(r){return r.json();}).then(function(users){
+    if(!users.length){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--text3)'>Aucun dossier en attente ✅</div>";return;}
+    el.innerHTML=users.map(function(u){
+      var kd=u.kyc_data||{};
+      return "<div style='background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:10px;font-size:13px'>"
+        +"<div style='font-weight:700;margin-bottom:6px'>"+u.prenom+" "+u.nom+"</div>"
+        +"<div style='color:var(--text2);margin-bottom:4px'>"+kd.doc_type+" · "+kd.doc_num+"</div>"
+        +"<div style='color:var(--text3);margin-bottom:8px'>"+kd.nationality+" · Né le "+kd.dob+"</div>"
+        +(u.kyc_photos&&u.kyc_photos.recto?"<div style='display:flex;gap:6px;margin-bottom:8px'>"
+          +"<img src='"+u.kyc_photos.recto+"' style='width:30%;border-radius:6px;object-fit:cover'>"
+          +(u.kyc_photos.verso?"<img src='"+u.kyc_photos.verso+"' style='width:30%;border-radius:6px;object-fit:cover'>":"")
+          +(u.kyc_photos.selfie?"<img src='"+u.kyc_photos.selfie+"' style='width:30%;border-radius:6px;object-fit:cover'>":"")
+          +"</div>":"")
+        +"<div style='display:flex;gap:8px'>"
+        +"<button onclick='approveKYC(""+u.id+"",true)' style='flex:1;padding:10px;background:var(--green);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer'>✅ Approuver</button>"
+        +"<button onclick='approveKYC(""+u.id+"",false)' style='flex:1;padding:10px;background:var(--red);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer'>❌ Rejeter</button>"
+        +"</div></div>";
+    }).join("");
+  }).catch(function(){el.innerHTML="<div style='padding:20px;text-align:center;color:var(--red)'>Erreur</div>";});
+}
+
+function approveKYC(userId, approved){
+  fetch(API+"/api/zama/kyc/approve",{method:"POST",
+    headers:{"Content-Type":"application/json","x-admin-token":"pst-admin-2026"},
+    body:JSON.stringify({user_id:userId,approved:approved})})
+  .then(function(){toast(approved?"✅ KYC approuvé":"❌ KYC rejeté",approved?"ok":"err");adminLoadKYC();})
+  .catch(function(){toast("Erreur","err");});
+}
+
 var toastT;
 function toast(msg,type){
   var t=document.getElementById("toast");
