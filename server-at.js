@@ -2219,6 +2219,10 @@ app.get('/api/izipay/history/:phone', async (req, res) => {
 });
 
 
+app.get('/izipay-widget.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(__dirname + '/izipay-widget.js');
+});
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {

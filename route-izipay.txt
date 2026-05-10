@@ -1,0 +1,6 @@
+
+// Route pour widget crypto externe
+app.get('/izipay-widget.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(__dirname + '/izipay-widget.js');
+});
