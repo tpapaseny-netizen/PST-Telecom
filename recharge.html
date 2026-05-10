@@ -416,9 +416,7 @@ updateSummary();
 var _iziSvc='',_iziAmt=0,_iziDesc='',_iziPhone='',_iziCrypto='USDT.BEP20',_iziOrder='',_iziAutoT=null,_iziCdT=null;
 function openCryptoPayment(svc,amt,desc,phone){
   _iziSvc=svc;_iziAmt=amt;_iziDesc=desc;_iziPhone=phone||'';
-  document.getElementById('izi-amt').textContent='
-</html>
-+amt.toFixed(2)+' USD';
+  document.getElementById('izi-amt').textContent='$'+amt.toFixed(2)+' USD';
   iziStep(1);
   document.getElementById('izipay-overlay').style.display='flex';
 }
@@ -459,5 +457,6 @@ async function iziAutoCheck(){
 </script>
 </body>
 </html>
-   
+  
+ 
  
