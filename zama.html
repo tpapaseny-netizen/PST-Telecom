@@ -2,1093 +2,1591 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>ZAMA — Change Dollar Euro FCFA Sénégal</title>
-<meta name="description" content="ZAMA - Échangez vos dollars et euros en francs CFA instantanément via Wave ou Orange Money au Sénégal.">
-<meta name="keywords" content="change dollar fcfa, change euro fcfa, transfert argent sénégal, wave sénégal, orange money, bureau de change dakar, diaspora sénégal, zama, pst telecom">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>ZAMA — Envoyez de l'argent au Sénégal</title>
+<meta name="description" content="Envoyez des dollars et euros en FCFA instantanément via Wave ou Orange Money. Alternative Western Union. Diaspora sénégalaise.">
+<meta name="keywords" content="transfert argent sénégal,change dollar fcfa,euro fcfa,wave sénégal,orange money,diaspora sénégal,zama,pst telecom,western union alternative,envoyer argent afrique">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 :root{
-  --bg:#0A0A0F;--card:#141420;--card2:#1A1A28;--border:rgba(255,255,255,0.08);
-  --gold:#F5A623;--gold2:#FFD700;--green:#25D366;--red:#EF4444;--blue:#3B82F6;
-  --text:#F0F0F0;--muted:#6B7280;--orange:#FF6B35;
+  --bg:#FFFFFF;
+  --bg2:#F7F8FA;
+  --bg3:#EEF0F4;
+  --border:#E8EAED;
+  --gold:#E8960C;
+  --gold-l:#FFF4E0;
+  --gold-d:#C47A00;
+  --green:#16A34A;
+  --green-l:#F0FDF4;
+  --red:#DC2626;
+  --red-l:#FEF2F2;
+  --blue:#2563EB;
+  --text:#0F1117;
+  --text2:#4B5563;
+  --text3:#9CA3AF;
+  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.08);
+  --r:16px;--r-sm:10px;
+  --font:'Inter',sans-serif;
 }
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);}
+#root{display:flex;flex-direction:column;height:100%;max-width:430px;margin:0 auto;position:relative;background:var(--bg);overflow:hidden;}
 
-/* ── APP SHELL ── */
-#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;
-  background:var(--bg);position:relative;overflow:hidden;}
+/* ═══ SCREENS ═══ */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);
+  transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;pointer-events:none;opacity:0;transform:translateX(100%);}
+.screen.active{pointer-events:all;opacity:1;transform:translateX(0);}
+.screen.slide-back{transform:translateX(-30%);opacity:.5;}
 
-/* ── TOP BAR ── */
-.topbar{
-  background:linear-gradient(135deg,#1A1A28,#0F0F1A);
-  border-bottom:1px solid var(--border);
-  padding:12px 16px;flex-shrink:0;
+/* ═══ HEADER ═══ */
+.hdr{
+  flex-shrink:0;padding:16px 20px 14px;
   display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);background:var(--bg);
+  position:relative;z-index:10;
 }
-.tb-logo{display:flex;align-items:center;gap:10px;}
-.rooster{font-size:32px;line-height:1;}
-.tb-brand{display:flex;flex-direction:column;}
-.tb-name{font-size:22px;font-weight:900;letter-spacing:2px;
-  background:linear-gradient(135deg,var(--gold),var(--gold2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.tb-sub{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
-.tb-rate{background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.3);
-  color:var(--gold);font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;
-  display:flex;align-items:center;gap:5px;}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);animation:blink 1.5s infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-back{width:36px;height:36px;border-radius:50%;background:var(--bg2);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:18px;}
+.hdr-title{font-size:16px;font-weight:700;color:var(--text);}
+.hdr-action{font-size:14px;font-weight:600;color:var(--gold);cursor:pointer;}
 
-/* ── TICKER ── */
-.ticker{background:rgba(245,166,35,0.05);border-bottom:1px solid rgba(245,166,35,0.1);
-  padding:7px 0;overflow:hidden;flex-shrink:0;}
-.tick-inner{display:flex;gap:40px;animation:tick 25s linear infinite;white-space:nowrap;
-  padding-left:16px;}
-@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.ti{font-size:11px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:5px;}
+/* ═══ SCROLL BODY ═══ */
+.sbody{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.sbody::-webkit-scrollbar{display:none;}
 
-/* ── CONTENT ── */
-.content{flex:1;overflow-y:auto;overflow-x:hidden;}
-.content::-webkit-scrollbar{display:none;}
-
-/* ── SCREENS ── */
-.screen{display:none;padding:16px;padding-bottom:80px;}
-.screen.active{display:block;}
-
-/* ── SECTION TITLES ── */
-.section-title{font-size:11px;font-weight:700;color:var(--muted);
-  text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;
-  display:flex;align-items:center;gap:8px;}
-.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
-
-/* ── CARDS ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;
-  padding:16px;margin-bottom:14px;}
-.card.gold-border{border-color:rgba(245,166,35,0.3);}
-
-/* ── CURRENCY SELECTOR ── */
-.curr-scroll{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;
-  padding-bottom:4px;}
-.curr-scroll::-webkit-scrollbar{display:none;}
-.curr-btn{flex-shrink:0;display:flex;flex-direction:column;align-items:center;
-  gap:4px;padding:10px 14px;border:2px solid var(--border);
-  background:var(--card2);border-radius:14px;cursor:pointer;transition:all .2s;min-width:72px;}
-.curr-btn.sel{border-color:var(--gold);background:rgba(245,166,35,0.1);}
-.curr-flag{font-size:24px;}
-.curr-code{font-size:12px;font-weight:800;color:var(--text);}
-.curr-name{font-size:9px;color:var(--muted);}
-
-/* ── AMOUNT INPUT ── */
-.amt-box{background:var(--card2);border:2px solid var(--border);border-radius:14px;
-  padding:4px;display:flex;align-items:center;margin-bottom:12px;overflow:hidden;}
-.amt-box:focus-within{border-color:var(--gold);}
-.amt-flag-box{padding:10px 12px;font-size:22px;border-right:1px solid var(--border);}
-.amt-input{flex:1;background:transparent;border:none;padding:12px;color:#fff;
-  font-size:28px;font-weight:800;outline:none;width:100%;font-family:inherit;}
-.amt-code{padding:12px;font-size:13px;font-weight:700;color:var(--muted);}
-
-/* ── RESULT BOX ── */
-.result-box{background:linear-gradient(135deg,rgba(245,166,35,0.12),rgba(245,166,35,0.04));
-  border:1px solid rgba(245,166,35,0.25);border-radius:14px;padding:14px;margin-bottom:12px;}
-.result-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
-.result-amount{font-size:34px;font-weight:900;color:var(--gold);}
-.result-sub{font-size:11px;color:var(--muted);margin-top:4px;}
-
-/* ── FEES ── */
-.fees-box{background:var(--card2);border-radius:12px;padding:12px;margin-bottom:12px;}
-.fee-row{display:flex;justify-content:space-between;padding:6px 0;
-  border-bottom:1px solid var(--border);font-size:12px;}
-.fee-row:last-child{border-bottom:none;font-weight:700;font-size:13px;}
-.fee-lbl{color:var(--muted);}
-.fee-row.total .fee-val{color:var(--gold);}
-
-/* ── MM SELECTOR ── */
-.mm-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.mm-btn{padding:12px;border:2px solid var(--border);background:var(--card2);
-  border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;}
-.mm-btn.sel{border-color:var(--green);background:rgba(37,211,102,0.07);}
-.mm-icon{font-size:24px;display:block;margin-bottom:3px;}
-.mm-label{font-size:12px;font-weight:700;}
-.mm-sub{font-size:10px;color:var(--muted);}
-
-/* ── FORM ── */
-.fi{margin-bottom:12px;}
-.fi label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
-  margin-bottom:5px;display:block;}
-.fi input,.fi select{width:100%;background:var(--card2);border:1.5px solid var(--border);
-  border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;outline:none;
-  font-family:inherit;transition:border-color .2s;-webkit-appearance:none;}
-.fi input:focus,.fi select:focus{border-color:var(--gold);}
-.fi select option{background:#1A1A28;}
-.fi-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-
-/* ── STEPS ── */
-.steps{display:flex;margin-bottom:16px;}
-.step{flex:1;text-align:center;position:relative;}
-.step::after{content:'';position:absolute;top:13px;left:50%;width:100%;height:2px;background:var(--border);}
-.step:last-child::after{display:none;}
-.step-dot{width:26px;height:26px;border-radius:50%;background:var(--card2);border:2px solid var(--border);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:10px;font-weight:700;
-  position:relative;z-index:1;transition:all .3s;}
-.step.on .step-dot{background:var(--gold);border-color:var(--gold);color:#000;}
-.step.done .step-dot{background:var(--green);border-color:var(--green);color:#fff;}
-.step-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;}
-.step.on .step-lbl{color:var(--gold);}
-
-/* ── BUTTONS ── */
-.btn-gold{width:100%;background:linear-gradient(135deg,#F5A623,#E8940A);color:#000;
-  border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:800;
-  cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
-.btn-gold:active{transform:scale(.98);}
-.btn-gold:disabled{opacity:.4;cursor:not-allowed;}
-.btn-outline{width:100%;background:transparent;color:var(--muted);border:1px solid var(--border);
-  border-radius:14px;padding:14px;font-size:14px;cursor:pointer;margin-top:8px;}
-.btn-2col{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:8px;}
-
-/* ── MODAL ── */
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;
-  display:none;flex-direction:column;justify-content:flex-end;}
-.modal.open{display:flex;}
-.modal-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:20px;
-  max-height:90vh;overflow-y:auto;}
-.modal-handle{width:36px;height:4px;border-radius:2px;background:var(--border);
-  margin:0 auto 16px;}
-.modal-step{display:none;} .modal-step.on{display:block;}
-
-/* ── PAYMENT MODAL CONTENT ── */
-.pay-header{font-size:18px;font-weight:800;margin-bottom:4px;}
-.pay-amount{font-size:28px;font-weight:900;color:var(--gold);margin-bottom:14px;}
-.pos-btn{width:100%;padding:16px;background:linear-gradient(135deg,#F5A623,#E8940A);
-  color:#000;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0;}
-.addr-box{background:#0A0A14;border:1px solid rgba(245,166,35,0.3);border-radius:12px;
-  padding:12px;word-break:break-all;font-family:monospace;font-size:12px;
-  color:var(--gold);margin:10px 0;}
-.copy-btn{width:100%;padding:11px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
-  color:var(--gold);border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:8px;}
-.warn-box{background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.2);
-  border-radius:10px;padding:11px;font-size:12px;color:var(--gold);margin:8px 0;}
-.recv-confirm{background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);
-  border-radius:10px;padding:12px;margin:8px 0;}
-.recv-confirm .rc-amount{font-size:20px;font-weight:800;color:var(--green);}
-.recv-confirm .rc-sub{font-size:12px;color:var(--muted);margin-top:2px;}
-.timer{text-align:center;font-size:12px;color:var(--muted);margin:8px 0;}
-.check-btn{width:100%;padding:14px;background:var(--card2);border:1px solid var(--border);
-  color:var(--text);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
-.spinner{display:inline-block;animation:sp 1s linear infinite;font-size:28px;}
-@keyframes sp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-
-/* ── SUCCESS ── */
-.success-screen{text-align:center;padding:32px 0;}
-.success-icon{font-size:56px;margin-bottom:12px;}
-.success-title{font-size:22px;font-weight:800;color:var(--green);margin-bottom:8px;}
-.success-ref{font-family:monospace;background:var(--card2);padding:8px 14px;
-  border-radius:8px;font-size:12px;color:var(--gold);margin:10px 0;display:inline-block;}
-
-/* ── HISTORY ── */
-.hist-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
-  padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
-.hc-icon{width:42px;height:42px;border-radius:12px;background:rgba(245,166,35,0.1);
-  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
-.hc-info{flex:1;min-width:0;}
-.hc-top{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hc-bot{font-size:11px;color:var(--muted);}
-.hc-right{text-align:right;flex-shrink:0;}
-.hc-amount{font-size:14px;font-weight:800;color:var(--gold);}
-.hc-status{font-size:10px;padding:2px 8px;border-radius:10px;margin-top:2px;display:inline-block;}
-.st-paid{background:rgba(37,211,102,0.15);color:var(--green);}
-.st-pending{background:rgba(245,166,35,0.15);color:var(--gold);}
-
-/* ── ACCOUNT ── */
-.avatar{width:64px;height:64px;border-radius:50%;
-  background:linear-gradient(135deg,var(--gold),#E8940A);
+/* ═══ HOME SCREEN ═══ */
+.home-top{
+  background:linear-gradient(160deg,#1A1A2E 0%,#16213E 50%,#0F3460 100%);
+  padding:20px 20px 28px;
+}
+.home-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px;}
+.logo-mark{
+  width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
   display:flex;align-items:center;justify-content:center;
-  font-size:28px;font-weight:800;color:#000;margin:0 auto 12px;}
-.acct-name{font-size:18px;font-weight:800;text-align:center;margin-bottom:2px;}
-.acct-phone{font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px;}
-.kyc-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;
-  border-radius:20px;font-size:11px;font-weight:700;margin-bottom:16px;}
-.kyc-no{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);}
-.kyc-yes{background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);color:var(--green);}
-.limit-card{background:var(--card2);border-radius:12px;padding:14px;margin-bottom:14px;}
-.lc-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;}
-.lc-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
-.lc-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));
-  border-radius:3px;transition:width .5s;}
-.acct-btn{width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
-  font-size:14px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
-.acct-btn.gold{background:linear-gradient(135deg,#F5A623,#E8940A);color:#000;}
-.acct-btn.outline{background:var(--card2);border:1px solid var(--border);color:var(--text);}
-.acct-btn.danger{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);}
-.benef-item{display:flex;align-items:center;justify-content:space-between;
-  padding:12px;background:var(--card2);border-radius:12px;margin-bottom:8px;}
-.bi-left{display:flex;align-items:center;gap:10px;}
-.bi-avatar{width:36px;height:36px;border-radius:50%;background:rgba(245,166,35,0.15);
-  display:flex;align-items:center;justify-content:center;font-size:16px;}
-.bi-name{font-size:13px;font-weight:700;}
-.bi-phone{font-size:11px;color:var(--muted);}
-.bi-use{background:transparent;border:1px solid var(--gold);color:var(--gold);
-  padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:700;}
-
-/* ── RATES SCREEN ── */
-.rate-item{display:flex;align-items:center;justify-content:space-between;
-  padding:14px;background:var(--card);border:1px solid var(--border);
-  border-radius:14px;margin-bottom:10px;}
-.ri-left{display:flex;align-items:center;gap:10px;}
-.ri-flag{font-size:28px;}
-.ri-name{font-size:14px;font-weight:700;}
-.ri-code{font-size:11px;color:var(--muted);}
-.ri-right{text-align:right;}
-.ri-rate{font-size:18px;font-weight:800;color:var(--gold);}
-.ri-change{font-size:11px;color:var(--green);}
-
-/* ── BOTTOM NAV (WhatsApp style) ── */
-.bottom-nav{
-  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:480px;
-  background:var(--card);border-top:1px solid var(--border);
-  display:flex;z-index:100;
+  box-shadow:0 4px 12px rgba(232,150,12,0.4);
 }
-.bn-btn{flex:1;padding:10px 8px 14px;display:flex;flex-direction:column;align-items:center;
-  gap:3px;cursor:pointer;border:none;background:transparent;color:var(--muted);
-  transition:color .2s;position:relative;}
-.bn-btn.active{color:var(--gold);}
-.bn-btn .bn-icon{font-size:22px;line-height:1;}
-.bn-btn .bn-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-.bn-badge{position:absolute;top:6px;right:18px;background:var(--red);color:#fff;
-  font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;}
+.logo-rooster{
+  width:28px;height:28px;
+}
+.logo-name{font-size:22px;font-weight:900;color:#fff;letter-spacing:2px;}
+.logo-tagline{font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
+.home-rate-bar{
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);
+  border-radius:100px;padding:8px 16px;
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12px;color:rgba(255,255,255,0.8);font-weight:500;
+}
+.rate-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.home-balance-label{font-size:12px;color:rgba(255,255,255,0.5);margin-top:20px;margin-bottom:4px;}
+.home-greeting{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;}
+.home-sub{font-size:13px;color:rgba(255,255,255,0.5);}
 
-/* ── KYC MODAL ── */
-.kyc-modal{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;
-  display:none;flex-direction:column;justify-content:flex-end;}
-.kyc-modal.open{display:flex;}
-.kyc-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:20px;
-  max-height:85vh;overflow-y:auto;}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px;}
+.qa{
+  background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:18px 16px;cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;gap:8px;
+  box-shadow:var(--shadow);
+}
+.qa:active{transform:scale(.97);background:var(--bg2);}
+.qa-icon{font-size:28px;line-height:1;}
+.qa-label{font-size:13px;font-weight:700;color:var(--text);}
+.qa-sub{font-size:11px;color:var(--text3);}
 
-/* ── TOAST ── */
-.toast{position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-100px);
-  background:var(--card);border:1px solid var(--border);border-radius:12px;
-  padding:12px 20px;font-size:13px;font-weight:600;z-index:99999;
-  transition:transform .3s;max-width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.5);}
-.toast.show{transform:translateX(-50%) translateY(0);}
-.toast.success{border-color:rgba(37,211,102,.4);color:var(--green);}
-.toast.error{border-color:rgba(239,68,68,.4);color:var(--red);}
+.section-title{font-size:13px;font-weight:700;color:var(--text2);padding:0 20px;margin-bottom:12px;
+  display:flex;align-items:center;justify-content:space-between;}
+.section-title a{font-size:12px;color:var(--gold);cursor:pointer;font-weight:600;}
 
-/* ── RECEIPT TABLE ── */
-.receipt{background:var(--card2);border-radius:12px;padding:14px;margin:12px 0;}
-.rr{display:flex;justify-content:space-between;padding:7px 0;
-  border-bottom:1px solid var(--border);font-size:13px;}
-.rr:last-child{border-bottom:none;font-weight:700;}
-.rr .rl{color:var(--muted);}
-.rr.big .rv{color:var(--gold);font-size:16px;}
+.rate-strip{padding:0 20px;margin-bottom:20px;display:flex;gap:10px;overflow-x:auto;}
+.rate-strip::-webkit-scrollbar{display:none;}
+.rate-chip{
+  flex-shrink:0;background:var(--bg2);border-radius:100px;
+  padding:8px 14px;display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;
+}
+.rate-chip .flag{font-size:16px;}
+.rate-chip .val{color:var(--gold);font-weight:700;}
+
+/* ═══ SEND SCREEN ═══ */
+.send-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:20px;
+}
+.send-label{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px;}
+.send-amount-wrap{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.send-flag{font-size:28px;}
+.send-input{
+  flex:1;background:transparent;border:none;outline:none;
+  font-size:40px;font-weight:800;color:#fff;font-family:var(--font);
+  min-width:0;
+}
+.send-curr{font-size:16px;font-weight:700;color:rgba(255,255,255,0.5);align-self:flex-end;padding-bottom:8px;}
+.send-convert{
+  background:rgba(255,255,255,0.08);border-radius:100px;
+  padding:8px 14px;font-size:13px;color:#fff;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+}
+.send-convert .arrow{opacity:.5;}
+
+.curr-pills{display:flex;gap:8px;padding:16px 20px;overflow-x:auto;}
+.curr-pills::-webkit-scrollbar{display:none;}
+.cp{
+  flex-shrink:0;padding:8px 14px;border-radius:100px;
+  border:1.5px solid var(--border);background:var(--bg);
+  font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all .15s;
+}
+.cp.on{background:var(--gold-l);border-color:var(--gold);color:var(--gold-d);}
+
+.fee-card{
+  margin:0 20px 16px;
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+}
+.fee-row{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.fee-row:last-child{border-bottom:none;font-weight:700;font-size:14px;}
+.fee-row .lbl{color:var(--text2);}
+.fee-row.highlight{background:var(--gold-l);margin:0 -16px;padding:10px 16px;border-radius:8px;border-bottom:none;}
+.fee-row.highlight .val{color:var(--gold-d);font-weight:800;font-size:16px;}
+
+/* ═══ MM SELECTOR ═══ */
+.mm-selector{padding:0 20px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mms{
+  padding:14px;border-radius:var(--r);border:2px solid var(--border);
+  cursor:pointer;transition:all .15s;text-align:center;background:var(--bg);
+}
+.mms:active{transform:scale(.97);}
+.mms.on{border-color:var(--green);background:var(--green-l);}
+.mms-icon{font-size:28px;display:block;margin-bottom:4px;}
+.mms-name{font-size:13px;font-weight:700;color:var(--text);}
+.mms-sub{font-size:10px;color:var(--text3);}
+
+/* ═══ FORM ═══ */
+.form-section{padding:0 20px;margin-bottom:16px;}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:6px;display:block;}
+.form-input{
+  width:100%;background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:var(--r-sm);padding:14px 16px;
+  font-size:15px;font-family:var(--font);color:var(--text);outline:none;
+  transition:border-color .15s;-webkit-appearance:none;
+}
+.form-input:focus{border-color:var(--gold);}
+.form-input::placeholder{color:var(--text3);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.form-group{margin-bottom:12px;}
+
+/* ═══ RECEIPT ═══ */
+.receipt-card{
+  margin:0 20px 16px;
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.rc-row{display:flex;justify-content:space-between;align-items:center;
+  padding:13px 16px;border-bottom:1px solid var(--border);font-size:14px;}
+.rc-row:last-child{border-bottom:none;}
+.rc-row .rc-lbl{color:var(--text2);}
+.rc-row.rc-total{background:var(--gold-l);}
+.rc-row.rc-total .rc-val{color:var(--gold-d);font-weight:800;font-size:17px;}
+
+/* ═══ PAYMENT SCREEN ═══ */
+.pay-card{
+  margin:20px;
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md);
+}
+.pay-card-top{
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  padding:24px 20px;text-align:center;
+}
+.pay-card-label{font-size:12px;font-weight:600;color:rgba(0,0,0,0.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.pay-card-amount{font-size:36px;font-weight:900;color:#000;}
+.pay-card-sub{font-size:13px;color:rgba(0,0,0,0.5);margin-top:4px;}
+.pay-card-body{padding:20px;}
+.pay-pos-btn{
+  width:100%;padding:16px;border-radius:var(--r-sm);border:none;cursor:pointer;
+  background:#000;color:#fff;font-size:16px;font-weight:700;
+  font-family:var(--font);transition:opacity .15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.pay-pos-btn:active{opacity:.85;}
+.pay-divider{text-align:center;font-size:12px;color:var(--text3);margin:14px 0;position:relative;}
+.pay-divider::before,.pay-divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+.pay-divider::before{left:0;} .pay-divider::after{right:0;}
+.addr-box{
+  background:var(--bg2);border:1.5px dashed var(--border);
+  border-radius:var(--r-sm);padding:14px;
+  font-family:monospace;font-size:12px;color:var(--text2);
+  word-break:break-all;line-height:1.6;margin-bottom:10px;
+}
+.copy-btn{
+  width:100%;padding:12px;border-radius:var(--r-sm);
+  background:var(--bg2);border:1.5px solid var(--border);
+  font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.pay-info-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.pay-info-row:last-child{border-bottom:none;}
+.pay-info-row .il{color:var(--text2);}
+.pay-timer{
+  text-align:center;padding:10px;
+  background:var(--red-l);border-radius:var(--r-sm);
+  font-size:13px;font-weight:600;color:var(--red);margin:12px 0;
+}
+
+/* ═══ TRACKING ═══ */
+.track-card{margin:20px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md);}
+.track-top{background:linear-gradient(135deg,#16213E,#0F3460);padding:24px;text-align:center;}
+.track-icon{font-size:48px;margin-bottom:8px;}
+.track-title{font-size:18px;font-weight:800;color:#fff;}
+.track-ref{font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;font-family:monospace;}
+.track-steps{padding:20px;}
+.ts{display:flex;gap:14px;margin-bottom:0;position:relative;}
+.ts::after{content:'';position:absolute;left:15px;top:32px;bottom:-20px;width:2px;background:var(--border);}
+.ts:last-child::after{display:none;}
+.ts{margin-bottom:20px;}
+.ts-dot{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;border:2px solid var(--border);background:var(--bg2);
+  position:relative;z-index:1;transition:all .4s;
+}
+.ts.done .ts-dot{background:var(--green);border-color:var(--green);color:#fff;}
+.ts.active .ts-dot{background:var(--gold);border-color:var(--gold);color:#fff;
+  animation:pulse-dot 1.5s infinite;}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(232,150,12,.4)}50%{box-shadow:0 0 0 8px rgba(232,150,12,0)}}
+.ts-body{flex:1;padding-top:4px;}
+.ts-label{font-size:14px;font-weight:700;color:var(--text);}
+.ts-sub{font-size:12px;color:var(--text3);margin-top:2px;}
+.ts.active .ts-label{color:var(--gold-d);}
+.ts.pending .ts-label{color:var(--text3);}
+.ts.pending .ts-dot{opacity:.4;}
+
+/* ═══ SUCCESS ═══ */
+.success-screen{padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;}
+.succ-circle{
+  width:80px;height:80px;border-radius:50%;background:var(--green-l);
+  border:2px solid var(--green);display:flex;align-items:center;justify-content:center;
+  font-size:36px;margin-bottom:20px;
+  animation:succ-in .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes succ-in{from{transform:scale(0)}to{transform:scale(1)}}
+.succ-title{font-size:24px;font-weight:900;color:var(--text);margin-bottom:8px;}
+.succ-sub{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:20px;}
+.succ-ref{
+  background:var(--bg2);border-radius:var(--r-sm);padding:10px 20px;
+  font-family:monospace;font-size:13px;color:var(--text2);margin-bottom:24px;
+}
+
+/* ═══ HISTORY ═══ */
+.hist-item{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;
+  transition:background .1s;
+}
+.hist-item:active{background:var(--bg2);}
+.hi-icon{
+  width:44px;height:44px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.hi-icon.ok{background:var(--green-l);}
+.hi-icon.pend{background:var(--gold-l);}
+.hi-icon.fail{background:var(--red-l);}
+.hi-info{flex:1;min-width:0;}
+.hi-top{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hi-bot{font-size:12px;color:var(--text3);margin-top:2px;}
+.hi-right{text-align:right;flex-shrink:0;}
+.hi-amt{font-size:15px;font-weight:800;}
+.hi-st{font-size:11px;font-weight:600;margin-top:2px;}
+.hi-st.ok{color:var(--green);}
+.hi-st.pend{color:var(--gold-d);}
+.hi-st.fail{color:var(--red);}
+.hi-empty{padding:60px 20px;text-align:center;color:var(--text3);}
+.hi-empty .ei{font-size:48px;margin-bottom:12px;}
+
+/* ═══ ACCOUNT ═══ */
+.acct-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:28px 20px;
+}
+.acct-avatar{
+  width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:800;color:#000;margin-bottom:12px;
+}
+.acct-name{font-size:20px;font-weight:800;color:#fff;}
+.acct-phone{font-size:13px;color:rgba(255,255,255,0.5);margin-top:2px;}
+.kyc-badge{
+  display:inline-flex;align-items:center;gap:5px;margin-top:10px;
+  padding:5px 12px;border-radius:100px;font-size:11px;font-weight:700;
+}
+.kyc-badge.no{background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#FCA5A5;}
+.kyc-badge.yes{background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);color:#86EFAC;}
+
+.acct-section{padding:20px 20px 0;}
+.acct-section-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+.acct-item{
+  display:flex;align-items:center;gap:14px;padding:14px;
+  background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);
+  margin-bottom:8px;cursor:pointer;transition:all .15s;
+}
+.acct-item:active{background:var(--bg2);}
+.acct-item-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.acct-item-label{font-size:14px;font-weight:600;flex:1;}
+.acct-item-arrow{font-size:18px;color:var(--text3);}
+.acct-item.danger .acct-item-label{color:var(--red);}
+.acct-item.danger .acct-item-icon{background:var(--red-l);}
+
+/* ═══ GUEST ═══ */
+.guest-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:40px 20px 32px;text-align:center;
+}
+.guest-logo{display:inline-flex;align-items:center;justify-content:center;
+  width:72px;height:72px;border-radius:20px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  box-shadow:0 8px 24px rgba(232,150,12,0.4);margin-bottom:16px;}
+.guest-title{font-size:28px;font-weight:900;color:#fff;letter-spacing:3px;margin-bottom:6px;}
+.guest-sub{font-size:13px;color:rgba(255,255,255,0.5);}
+.guest-form{padding:24px 20px;}
+.guest-login-link{text-align:center;font-size:14px;color:var(--text2);margin-top:16px;}
+.guest-login-link b{color:var(--gold);cursor:pointer;}
+
+/* ═══ LIMIT BAR ═══ */
+.limit-bar{margin:0 20px 16px;background:var(--bg2);border-radius:var(--r-sm);padding:14px;}
+.lb-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;}
+.lb-top .ll{color:var(--text2);}
+.lb-top .lr{font-weight:700;}
+.lb-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.lb-fill{height:100%;background:linear-gradient(90deg,var(--gold),#F5C518);border-radius:3px;}
+.lb-sub{font-size:11px;color:var(--text3);margin-top:6px;}
+
+/* ═══ BENEF ═══ */
+.benef-item{
+  display:flex;align-items:center;gap:12px;padding:12px 20px;
+  border-bottom:1px solid var(--border);
+}
+.bi-ava{width:40px;height:40px;border-radius:50%;background:var(--bg2);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.bi-info{flex:1;}
+.bi-name{font-size:14px;font-weight:700;}
+.bi-phone{font-size:12px;color:var(--text3);}
+.bi-use{padding:6px 14px;background:var(--gold-l);border:none;border-radius:100px;
+  font-size:12px;font-weight:700;color:var(--gold-d);cursor:pointer;font-family:var(--font);}
+
+/* ═══ BIG BTN ═══ */
+.big-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:calc(100% - 40px);margin:0 20px;padding:16px;
+  border-radius:var(--r-sm);border:none;cursor:pointer;
+  font-size:16px;font-weight:700;font-family:var(--font);
+  transition:all .15s;
+}
+.big-btn:active{transform:scale(.98);}
+.big-btn.primary{background:linear-gradient(135deg,var(--gold),#F5C518);color:#000;}
+.big-btn.secondary{background:var(--bg2);border:1.5px solid var(--border);color:var(--text);}
+.big-btn.black{background:#111;color:#fff;}
+.big-btn.danger{background:var(--red-l);border:1.5px solid rgba(220,38,38,.2);color:var(--red);}
+.big-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+.btn-row{display:grid;grid-template-columns:1fr 2fr;gap:10px;padding:0 20px;margin-bottom:4px;}
+.btn-row .big-btn{width:100%;margin:0;}
+
+/* ═══ BOTTOM NAV ═══ */
+.bnav{
+  flex-shrink:0;height:62px;
+  background:var(--bg);border-top:1px solid var(--border);
+  display:grid;grid-template-columns:repeat(4,1fr);
+}
+.bn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;border:none;background:transparent;
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text3);font-family:var(--font);transition:color .15s;
+  padding:8px 4px 10px;
+}
+.bn svg{width:22px;height:22px;transition:all .15s;}
+.bn.on{color:var(--gold-d);}
+.bn.on svg{stroke:var(--gold-d);}
+
+/* ═══ TOAST ═══ */
+.toast{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:#111;color:#fff;
+  padding:12px 20px;border-radius:100px;
+  font-size:13px;font-weight:600;
+  opacity:0;transition:all .3s;z-index:9999;
+  white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{background:var(--green);}
+.toast.err{background:var(--red);}
+
+/* ═══ LOADING BTN ═══ */
+.loading-ring{
+  width:18px;height:18px;border-radius:50%;
+  border:2.5px solid rgba(0,0,0,.2);border-top-color:#000;
+  animation:spin .7s linear infinite;display:inline-block;
+}
+.loading-ring.white{border-color:rgba(255,255,255,.2);border-top-color:#fff;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══ OTP MODAL ═══ */
+.otp-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;
+  display:none;align-items:flex-end;justify-content:center;
+  max-width:430px;margin:0 auto;
+}
+.otp-modal.open{display:flex;}
+.otp-sheet{
+  background:var(--bg);border-radius:24px 24px 0 0;
+  padding:24px 20px 36px;width:100%;
+}
+.otp-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;}
+.otp-inputs{display:flex;gap:10px;justify-content:center;margin:20px 0;}
+.otp-inp{
+  width:52px;height:56px;border:2px solid var(--border);
+  border-radius:var(--r-sm);font-size:24px;font-weight:800;
+  text-align:center;font-family:var(--font);color:var(--text);
+  background:var(--bg2);outline:none;transition:border-color .15s;
+}
+.otp-inp:focus{border-color:var(--gold);}
+
+/* ═══ MISC ═══ */
+.spacer{height:20px;}
+.divider{height:1px;background:var(--border);margin:0;}
+.empty-state{padding:48px 20px;text-align:center;color:var(--text3);}
+.empty-state .ei{font-size:40px;margin-bottom:12px;}
+.warn-box{
+  margin:0 20px 14px;
+  background:var(--gold-l);border:1px solid rgba(232,150,12,.2);
+  border-radius:var(--r-sm);padding:12px 14px;
+  font-size:13px;color:var(--gold-d);line-height:1.5;
+}
+.security-badge{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 20px;font-size:12px;color:var(--text3);
+  justify-content:center;
+}
 </style>
 </head>
 <body>
-<div id="app">
+<div id="root">
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="tb-logo">
-    <div class="rooster">🐓</div>
-    <div class="tb-brand">
-      <div class="tb-name">ZAMA</div>
-      <div class="tb-sub">Bureau de change · PST</div>
-    </div>
-  </div>
-  <div class="tb-rate">
-    <div class="live-dot"></div>
-    1$ = <span id="nav-rate">--</span> FCFA
-  </div>
-</div>
-
-<!-- TICKER -->
-<div class="ticker">
-  <div class="tick-inner">
-    <span class="ti">🇺🇸 <span id="t1">606</span> FCFA</span>
-    <span class="ti">🇪🇺 <span id="t2">656</span> FCFA</span>
-    <span class="ti">🇬🇧 <span id="t3">770</span> FCFA</span>
-    <span class="ti">🇨🇦 <span id="t4">445</span> FCFA</span>
-    <span class="ti">💚 Wave · 🟠 Orange Money</span>
-    <span class="ti">⚡ Moins de 30 minutes</span>
-    <span class="ti">🐓 ZAMA by PST Telecom</span>
-    <span class="ti">🇺🇸 <span id="t1b">606</span> FCFA</span>
-    <span class="ti">🇪🇺 <span id="t2b">656</span> FCFA</span>
-    <span class="ti">🇬🇧 <span id="t3b">770</span> FCFA</span>
-    <span class="ti">🇨🇦 <span id="t4b">445</span> FCFA</span>
-    <span class="ti">💚 Wave · 🟠 Orange Money</span>
-    <span class="ti">⚡ Moins de 30 minutes</span>
-    <span class="ti">🐓 ZAMA by PST Telecom</span>
-  </div>
-</div>
-
-<!-- CONTENT -->
-<div class="content">
-
-  <!-- SCREEN: CHANGE -->
-  <div class="screen active" id="scr-change">
-    <!-- Steps -->
-    <div class="steps" id="steps-bar">
-      <div class="step on" id="st1"><div class="step-dot">1</div><div class="step-lbl">Montant</div></div>
-      <div class="step" id="st2"><div class="step-dot">2</div><div class="step-lbl">Destinataire</div></div>
-      <div class="step" id="st3"><div class="step-dot">3</div><div class="step-lbl">Résumé</div></div>
-      <div class="step" id="st4"><div class="step-dot">✓</div><div class="step-lbl">Confirmé</div></div>
-    </div>
-
-    <!-- STEP 1 -->
-    <div id="p1">
-      <div class="section-title">Choisir la devise</div>
-      <div class="curr-scroll">
-        <div class="curr-btn sel" onclick="selCurr(this,'USD','🇺🇸','usd')"><span class="curr-flag">🇺🇸</span><div class="curr-code">USD</div><div class="curr-name">Dollar</div></div>
-        <div class="curr-btn" onclick="selCurr(this,'EUR','🇪🇺','eur')"><span class="curr-flag">🇪🇺</span><div class="curr-code">EUR</div><div class="curr-name">Euro</div></div>
-        <div class="curr-btn" onclick="selCurr(this,'GBP','🇬🇧','gbp')"><span class="curr-flag">🇬🇧</span><div class="curr-code">GBP</div><div class="curr-name">Livre</div></div>
-        <div class="curr-btn" onclick="selCurr(this,'CAD','🇨🇦','cad')"><span class="curr-flag">🇨🇦</span><div class="curr-code">CAD</div><div class="curr-name">CAD</div></div>
-        <div class="curr-btn" onclick="selCurr(this,'CHF','🇨🇭','chf')"><span class="curr-flag">🇨🇭</span><div class="curr-code">CHF</div><div class="curr-name">CHF</div></div>
-      </div>
-
-      <div class="section-title">Montant à changer</div>
-      <div class="amt-box">
-        <div class="amt-flag-box" id="af">🇺🇸</div>
-        <input type="number" class="amt-input" id="amt" placeholder="100" min="1" inputmode="decimal" oninput="calc()">
-        <div class="amt-code" id="ac">USD</div>
-      </div>
-
-      <div class="result-box">
-        <div class="result-label">Vous recevrez</div>
-        <div class="result-amount" id="res-fcfa">-- FCFA</div>
-        <div class="result-sub">Taux: 1 <span id="res-curr">USD</span> = <span id="res-rate">--</span> FCFA · Commission 2%</div>
-      </div>
-
-      <div class="fees-box">
-        <div class="fee-row"><span class="fee-lbl">Montant</span><span id="f1">--</span></div>
-        <div class="fee-row"><span class="fee-lbl">Taux</span><span id="f2">--</span></div>
-        <div class="fee-row"><span class="fee-lbl">Commission (2%)</span><span id="f3">--</span></div>
-        <div class="fee-row total"><span class="fee-lbl">Vous recevez</span><span id="f4">-- FCFA</span></div>
-      </div>
-
-      <button class="btn-gold" onclick="goP(2)">Continuer →</button>
-    </div>
-
-    <!-- STEP 2 -->
-    <div id="p2" style="display:none">
-      <div class="section-title">Recevoir via</div>
-      <div class="mm-row">
-        <div class="mm-btn sel" id="mm-wave" onclick="selMM('wave',this)"><span class="mm-icon">💚</span><div class="mm-label">Wave</div><div class="mm-sub">Sénégal</div></div>
-        <div class="mm-btn" id="mm-om" onclick="selMM('om',this)"><span class="mm-icon">🟠</span><div class="mm-label">Orange Money</div><div class="mm-sub">Sénégal</div></div>
-      </div>
-
-      <div class="section-title">Destinataire</div>
-      <div class="fi-2col">
-        <div class="fi"><label>Prénom *</label><input type="text" id="r-prenom" placeholder="Prénom"></div>
-        <div class="fi"><label>Nom *</label><input type="text" id="r-nom" placeholder="Nom"></div>
-      </div>
-      <div class="fi"><label>Numéro Mobile Money *</label><input type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
-
-      <div class="section-title">Expéditeur</div>
-      <div class="fi"><label>Votre nom complet *</label><input type="text" id="s-name" placeholder="Votre prénom et nom"></div>
-      <div class="fi"><label>Votre email *</label><input type="email" id="s-email" placeholder="email@exemple.com" inputmode="email"></div>
-      <div class="fi"><label>Votre téléphone</label><input type="tel" id="s-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
-      <div class="fi"><label>Message (optionnel)</label><input type="text" id="s-msg" placeholder="Ex: Loyer mai 2026"></div>
-
-      <!-- Beneficiaires rapides -->
-      <div id="quick-benefs" style="display:none">
-        <div class="section-title">Bénéficiaires récents</div>
-        <div id="quick-benef-list"></div>
-      </div>
-
-      <div class="btn-2col">
-        <button class="btn-outline" onclick="goP(1)">← Retour</button>
-        <button class="btn-gold" onclick="goP(3)">Continuer →</button>
-      </div>
-    </div>
-
-    <!-- STEP 3: SUMMARY -->
-    <div id="p3" style="display:none">
-      <div class="section-title">Vérifiez avant de payer</div>
-      <div class="receipt" id="receipt-content"></div>
-      <div class="warn-box">⚠️ Vérifiez que le numéro et le nom du destinataire sont corrects avant de continuer.</div>
-      <div class="btn-2col">
-        <button class="btn-outline" onclick="goP(2)">← Modifier</button>
-        <button class="btn-gold" id="confirm-btn" onclick="createOrder()">💳 Payer</button>
-      </div>
-    </div>
-
-    <!-- STEP 4: SUCCESS -->
-    <div id="p4" style="display:none">
-      <div class="success-screen">
-        <div class="success-icon">✅</div>
-        <div class="success-title">Échange initié !</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:12px">
-          <strong id="s4-fcfa" style="color:var(--gold)"></strong> seront envoyés<br>
-          à <strong id="s4-name"></strong><br>
-          via <strong id="s4-mm"></strong> · <strong id="s4-phone"></strong><br>
-          dans moins de <strong>30 minutes</strong>
+<!-- ═══════════════════════════════════════════
+     SCREEN 1: HOME
+══════════════════════════════════════════════ -->
+<div class="screen active" id="scr-home">
+  <div class="sbody">
+    <div class="home-top">
+      <div class="home-logo">
+        <div class="logo-mark">
+          <svg class="logo-rooster" viewBox="0 0 28 28" fill="none">
+            <path d="M14 22C18.4183 22 22 18.4183 22 14C22 9.58172 18.4183 6 14 6C9.58172 6 6 9.58172 6 14C6 18.4183 9.58172 22 14 22Z" fill="rgba(0,0,0,0.15)"/>
+            <path d="M20 8 C20 5 22 4 23 6 C24 4 26 5 24 8" stroke="#000" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <ellipse cx="20" cy="12" rx="5" ry="5" fill="#000" opacity=".85"/>
+            <path d="M25 12 L28 11 L27 13Z" fill="#000"/>
+            <circle cx="22" cy="11" r="1" fill="white"/>
+            <path d="M24 16 C26 16 26 18 24 18" stroke="#8B0000" stroke-width="1.5" stroke-linecap="round"/>
+            <ellipse cx="14" cy="20" rx="8" ry="7" fill="#000" opacity=".85"/>
+            <path d="M7 18 Q4 14 8 12 Q12 10 14 16" fill="#000" opacity=".7"/>
+            <path d="M7 21 Q2 18 5 25 Q7 28 10 26" fill="#000" opacity=".6"/>
+            <line x1="12" y1="26" x2="11" y2="28" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="16" y1="26" x2="17" y2="28" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
         </div>
-        <div class="success-ref" id="s4-ref">REF: --</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Reçu envoyé à votre email</div>
-        <button class="btn-gold" onclick="resetChange()">Nouveau échange</button>
+        <div>
+          <div class="logo-name">ZAMA</div>
+          <div class="logo-tagline">Transfert international</div>
+        </div>
+      </div>
+      <div class="home-greeting" id="home-greeting">Bonjour 👋</div>
+      <div class="home-sub">Envoyez de l'argent au Sénégal</div>
+      <div style="margin-top:14px">
+        <div class="home-rate-bar">
+          <div class="rate-dot"></div>
+          <span>1 USD = <strong id="home-rate">--</strong> FCFA · taux du marché</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <div class="qa" onclick="goTo('scr-send')">
+        <div class="qa-icon">💸</div>
+        <div class="qa-label">Envoyer</div>
+        <div class="qa-sub">Dollar · Euro · Livre</div>
+      </div>
+      <div class="qa" onclick="goTo('scr-history')">
+        <div class="qa-icon">📋</div>
+        <div class="qa-label">Historique</div>
+        <div class="qa-sub">Mes transactions</div>
+      </div>
+      <div class="qa" onclick="goTo('scr-rates')">
+        <div class="qa-icon">📊</div>
+        <div class="qa-label">Taux</div>
+        <div class="qa-sub">Temps réel</div>
+      </div>
+      <div class="qa" onclick="goTo('scr-account')">
+        <div class="qa-icon">👤</div>
+        <div class="qa-label">Mon compte</div>
+        <div class="qa-sub">Profil · KYC</div>
+      </div>
+    </div>
+
+    <div class="section-title">Taux en direct <a onclick="goTo('scr-rates')">Voir tout →</a></div>
+    <div class="rate-strip">
+      <div class="rate-chip"><span class="flag">🇺🇸</span>USD <span class="val" id="rs-usd">--</span> FCFA</div>
+      <div class="rate-chip"><span class="flag">🇪🇺</span>EUR <span class="val" id="rs-eur">--</span> FCFA</div>
+      <div class="rate-chip"><span class="flag">🇬🇧</span>GBP <span class="val" id="rs-gbp">--</span> FCFA</div>
+      <div class="rate-chip"><span class="flag">🇨🇦</span>CAD <span class="val" id="rs-cad">--</span> FCFA</div>
+    </div>
+
+    <div class="section-title">Bénéficiaires récents <a onclick="goTo('scr-account')">Gérer</a></div>
+    <div id="home-benefs">
+      <div class="empty-state"><div class="ei">👥</div>Ajoutez des bénéficiaires</div>
+    </div>
+
+    <div class="security-badge">🔒 Transactions sécurisées · izichangePay certifié</div>
+    <div class="spacer"></div>
+  </div>
+  <div class="bnav">
+    <button class="bn on" onclick="goTo('scr-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+      Accueil
+    </button>
+    <button class="bn" onclick="goTo('scr-send')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>
+      Envoyer
+    </button>
+    <button class="bn" onclick="goTo('scr-history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      Historique
+    </button>
+    <button class="bn" onclick="goTo('scr-account')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Compte
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2: SEND — STEP 1 AMOUNT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-send">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Envoyer de l'argent</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="send-hero">
+      <div class="send-label">Je veux envoyer</div>
+      <div class="send-amount-wrap">
+        <div class="send-flag" id="s-flag">🇺🇸</div>
+        <input class="send-input" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()">
+        <div class="send-curr" id="s-curr">USD</div>
+      </div>
+      <div class="send-convert" id="s-convert">
+        <span class="arrow">↓</span>
+        <span id="s-fcfa-preview">-- FCFA</span>
+        <span style="opacity:.5;font-size:11px">via Wave/OM</span>
+      </div>
+    </div>
+
+    <div class="curr-pills">
+      <div class="cp on" onclick="selCurr(this,'USD','🇺🇸','usd')"><span>🇺🇸</span> USD</div>
+      <div class="cp" onclick="selCurr(this,'EUR','🇪🇺','eur')"><span>🇪🇺</span> EUR</div>
+      <div class="cp" onclick="selCurr(this,'GBP','🇬🇧','gbp')"><span>🇬🇧</span> GBP</div>
+      <div class="cp" onclick="selCurr(this,'CAD','🇨🇦','cad')"><span>🇨🇦</span> CAD</div>
+      <div class="cp" onclick="selCurr(this,'CHF','🇨🇭','chf')"><span>🇨🇭</span> CHF</div>
+    </div>
+
+    <div class="fee-card">
+      <div class="fee-row"><span class="lbl">Taux de change</span><span id="fc-rate">--</span></div>
+      <div class="fee-row"><span class="lbl">Commission ZAMA (2%)</span><span id="fc-comm">--</span></div>
+      <div class="fee-row highlight"><span class="lbl" style="font-weight:700">Le destinataire reçoit</span><span class="val" id="fc-net">-- FCFA</span></div>
+    </div>
+
+    <div class="spacer"></div>
+  </div>
+  <div style="padding:12px 0 16px;background:var(--bg);border-top:1px solid var(--border)">
+    <button class="big-btn primary" onclick="step2()">Continuer →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 3: SEND — STEP 2 RECIPIENT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-recipient">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Destinataire</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div style="padding:16px 0 0">
+      <div style="padding:0 20px;margin-bottom:14px">
+        <div class="section-title" style="padding:0;margin-bottom:10px">Recevoir via</div>
+        <div class="mm-selector" style="padding:0;margin:0">
+          <div class="mms on" id="mm-wave" onclick="selMM('wave',this)">
+            <span class="mms-icon">💚</span>
+            <div class="mms-name">Wave</div>
+            <div class="mms-sub">Sénégal</div>
+          </div>
+          <div class="mms" id="mm-om" onclick="selMM('om',this)">
+            <span class="mms-icon">🟠</span>
+            <div class="mms-name">Orange Money</div>
+            <div class="mms-sub">Sénégal</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div style="padding:14px 20px 0">
+        <div class="section-title" style="padding:0;margin-bottom:10px">Informations destinataire</div>
+      </div>
+
+      <!-- Quick benefs -->
+      <div id="qb-wrap" style="display:none">
+        <div id="qb-list"></div>
+        <div class="divider" style="margin-bottom:14px"></div>
+      </div>
+
+      <div class="form-row" style="padding:0 20px">
+        <div class="form-group"><label class="form-label">Prénom *</label><input class="form-input" type="text" id="r-prenom" placeholder="Prénom"></div>
+        <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" type="text" id="r-nom" placeholder="Nom"></div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Numéro Mobile Money *</label>
+        <input class="form-input" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
+      </div>
+
+      <div class="divider"></div>
+      <div style="padding:14px 20px 0">
+        <div class="section-title" style="padding:0;margin-bottom:10px">Expéditeur</div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Votre nom complet *</label>
+        <input class="form-input" type="text" id="s-name" placeholder="Prénom et Nom">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Votre email *</label>
+        <input class="form-input" type="email" id="s-email" placeholder="email@exemple.com" inputmode="email">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Message (optionnel)</label>
+        <input class="form-input" type="text" id="s-msg" placeholder="Ex: Loyer mai 2026">
+      </div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+  <div style="padding:12px 0 16px;background:var(--bg);border-top:1px solid var(--border)">
+    <div class="btn-row">
+      <button class="big-btn secondary" onclick="goBack()">← Retour</button>
+      <button class="big-btn primary" onclick="step3()">Continuer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 4: SEND — STEP 3 SUMMARY
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-summary">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Récapitulatif</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div style="padding-top:16px">
+      <div class="receipt-card" id="receipt-box"></div>
+      <div class="warn-box">⚠️ Vérifiez attentivement le numéro du destinataire. PST ne peut pas annuler un transfert envoyé.</div>
+      <div class="security-badge">🔒 Paiement sécurisé · izichangePay</div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+  <div style="padding:12px 0 16px;background:var(--bg);border-top:1px solid var(--border)">
+    <div class="btn-row">
+      <button class="big-btn secondary" onclick="goBack()">← Modifier</button>
+      <button class="big-btn primary" id="confirm-btn" onclick="createOrder()">💳 Payer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 5: PAYMENT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-payment">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Paiement</span>
+    <span class="hdr-action" id="pay-help" onclick="window.open('tel:+221771520959')">Aide</span>
+  </div>
+  <div class="sbody">
+    <div class="pay-card">
+      <div class="pay-card-top">
+        <div class="pay-card-label">Montant à envoyer</div>
+        <div class="pay-card-amount" id="pay-card-amt">--</div>
+        <div class="pay-card-sub" id="pay-card-sub">≈ -- USDT</div>
+      </div>
+      <div class="pay-card-body">
+        <button class="pay-pos-btn" onclick="openPOS()">
+          💳 Payer sur izichangePay →
+        </button>
+        <div class="pay-divider">ou envoyez directement</div>
+        <div id="addr-wrap" style="display:none">
+          <div class="addr-box" id="pay-addr">--</div>
+          <button class="copy-btn" onclick="copyAddr()">📋 Copier l'adresse</button>
+        </div>
+        <div class="pay-timer" id="pay-timer">⏱ Taux garanti encore 30:00</div>
+        <div style="margin-top:14px">
+          <div class="pay-info-row"><span class="il">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div>
+          <div class="pay-info-row"><span class="il">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div>
+          <div class="pay-info-row"><span class="il">Via</span><span id="pi-mm">--</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 20px;margin-bottom:12px">
+      <button class="big-btn black" onclick="checkPay()" id="check-btn">
+        🔄 J'ai payé — Vérifier
+      </button>
+    </div>
+    <div class="security-badge">🔒 Réseau Binance Smart Chain (BEP20)</div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 6: TRACKING
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-tracking">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('scr-home')">✕</button>
+    <span class="hdr-title">Suivi du transfert</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div class="track-card">
+      <div class="track-top">
+        <div class="track-icon" id="track-icon">⏳</div>
+        <div class="track-title" id="track-title">Traitement en cours</div>
+        <div class="track-ref" id="track-ref">REF: --</div>
+      </div>
+      <div class="track-steps">
+        <div class="ts active" id="ts1">
+          <div class="ts-dot">💳</div>
+          <div class="ts-body">
+            <div class="ts-label">Paiement reçu</div>
+            <div class="ts-sub">Crypto confirmée sur la blockchain</div>
+          </div>
+        </div>
+        <div class="ts pending" id="ts2">
+          <div class="ts-dot">⚡</div>
+          <div class="ts-body">
+            <div class="ts-label">Conversion en cours</div>
+            <div class="ts-sub">Conversion en FCFA au taux du marché</div>
+          </div>
+        </div>
+        <div class="ts pending" id="ts3">
+          <div class="ts-dot">📱</div>
+          <div class="ts-body">
+            <div class="ts-label">Envoi Mobile Money</div>
+            <div class="ts-sub">Virement vers <span id="ts-mm">Wave</span></div>
+          </div>
+        </div>
+        <div class="ts pending" id="ts4">
+          <div class="ts-dot">✓</div>
+          <div class="ts-body">
+            <div class="ts-label">Transaction terminée</div>
+            <div class="ts-sub">Fonds crédités sur le compte du destinataire</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 20px;margin-bottom:12px">
+      <button class="big-btn primary" onclick="goTo('scr-home')">Retour à l'accueil</button>
+    </div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 7: RATES
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-rates">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Taux de change</span>
+    <span class="hdr-action" id="rates-updated">...</span>
+  </div>
+  <div class="sbody">
+    <div style="padding-top:12px">
+      <div class="section-title">Devises vs FCFA</div>
+      <div class="hist-item" style="cursor:default"><div class="hi-icon ok" style="font-size:24px">🇺🇸</div><div class="hi-info"><div class="hi-top">Dollar américain</div><div class="hi-bot">USD</div></div><div class="hi-right"><div class="hi-amt" id="r-usd">-- FCFA</div><div class="hi-st ok">Temps réel</div></div></div>
+      <div class="hist-item" style="cursor:default"><div class="hi-icon ok" style="font-size:24px">🇪🇺</div><div class="hi-info"><div class="hi-top">Euro</div><div class="hi-bot">EUR</div></div><div class="hi-right"><div class="hi-amt" id="r-eur">-- FCFA</div><div class="hi-st ok">Temps réel</div></div></div>
+      <div class="hist-item" style="cursor:default"><div class="hi-icon ok" style="font-size:24px">🇬🇧</div><div class="hi-info"><div class="hi-top">Livre sterling</div><div class="hi-bot">GBP</div></div><div class="hi-right"><div class="hi-amt" id="r-gbp">-- FCFA</div><div class="hi-st ok">Temps réel</div></div></div>
+      <div class="hist-item" style="cursor:default"><div class="hi-icon ok" style="font-size:24px">🇨🇦</div><div class="hi-info"><div class="hi-top">Dollar canadien</div><div class="hi-bot">CAD</div></div><div class="hi-right"><div class="hi-amt" id="r-cad">-- FCFA</div><div class="hi-st ok">Temps réel</div></div></div>
+      <div class="hist-item" style="cursor:default"><div class="hi-icon ok" style="font-size:24px">🇨🇭</div><div class="hi-info"><div class="hi-top">Franc suisse</div><div class="hi-bot">CHF</div></div><div class="hi-right"><div class="hi-amt" id="r-chf">-- FCFA</div><div class="hi-st ok">Temps réel</div></div></div>
+
+      <div class="section-title" style="margin-top:8px">Comment ça marche</div>
+      <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <div class="acct-item" style="pointer-events:none"><div class="acct-item-icon" style="background:var(--gold-l);font-size:18px">1️⃣</div><div class="acct-item-label" style="font-size:13px;color:var(--text2);font-weight:500"><strong style="color:var(--text)">Choisissez la devise</strong> et entrez le montant</div></div>
+        <div class="acct-item" style="pointer-events:none"><div class="acct-item-icon" style="background:var(--gold-l);font-size:18px">2️⃣</div><div class="acct-item-label" style="font-size:13px;color:var(--text2);font-weight:500"><strong style="color:var(--text)">Entrez le numéro</strong> Wave/OM du destinataire</div></div>
+        <div class="acct-item" style="pointer-events:none"><div class="acct-item-icon" style="background:var(--gold-l);font-size:18px">3️⃣</div><div class="acct-item-label" style="font-size:13px;color:var(--text2);font-weight:500"><strong style="color:var(--text)">Payez en USDT</strong> (= vos dollars/euros) via izichangePay</div></div>
+        <div class="acct-item" style="pointer-events:none"><div class="acct-item-icon" style="background:var(--green-l);font-size:18px">✅</div><div class="acct-item-label" style="font-size:13px;color:var(--text2);font-weight:500"><strong style="color:var(--text)">Le destinataire reçoit</strong> les FCFA en moins de 30 min</div></div>
+      </div>
+
+      <div class="section-title">Contact</div>
+      <div style="padding:0 20px;margin-bottom:24px">
+        <div class="acct-item" onclick="window.open('tel:+221771520959')"><div class="acct-item-icon" style="background:var(--green-l)">📞</div><div class="acct-item-label">+221 77 152 09 59</div><div class="acct-item-arrow">→</div></div>
+        <div class="acct-item" onclick="window.open('mailto:papasenytoure@gmail.com')"><div class="acct-item-icon" style="background:var(--gold-l)">📧</div><div class="acct-item-label">papasenytoure@gmail.com</div><div class="acct-item-arrow">→</div></div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- SCREEN: RATES -->
-  <div class="screen" id="scr-rates">
-    <div class="section-title">Taux en direct · CFA</div>
-    <div class="rate-item"><div class="ri-left"><span class="ri-flag">🇺🇸</span><div><div class="ri-name">Dollar américain</div><div class="ri-code">USD</div></div></div><div class="ri-right"><div class="ri-rate" id="rr-usd">-- FCFA</div><div class="ri-change">Temps réel</div></div></div>
-    <div class="rate-item"><div class="ri-left"><span class="ri-flag">🇪🇺</span><div><div class="ri-name">Euro</div><div class="ri-code">EUR</div></div></div><div class="ri-right"><div class="ri-rate" id="rr-eur">-- FCFA</div><div class="ri-change">Temps réel</div></div></div>
-    <div class="rate-item"><div class="ri-left"><span class="ri-flag">🇬🇧</span><div><div class="ri-name">Livre sterling</div><div class="ri-code">GBP</div></div></div><div class="ri-right"><div class="ri-rate" id="rr-gbp">-- FCFA</div><div class="ri-change">Temps réel</div></div></div>
-    <div class="rate-item"><div class="ri-left"><span class="ri-flag">🇨🇦</span><div><div class="ri-name">Dollar canadien</div><div class="ri-code">CAD</div></div></div><div class="ri-right"><div class="ri-rate" id="rr-cad">-- FCFA</div><div class="ri-change">Temps réel</div></div></div>
-    <div class="rate-item"><div class="ri-left"><span class="ri-flag">🇨🇭</span><div><div class="ri-name">Franc suisse</div><div class="ri-code">CHF</div></div></div><div class="ri-right"><div class="ri-rate" id="rr-chf">-- FCFA</div><div class="ri-change">Temps réel</div></div></div>
-    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:12px;">Source: ExchangeRate-API · Mis à jour toutes les 60 secondes</div>
-
-    <div class="section-title" style="margin-top:20px">Comment ça marche</div>
-    <div class="card">
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;gap:12px;align-items:flex-start"><div style="width:28px;height:28px;border-radius:50%;background:rgba(245,166,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">1</div><div style="font-size:13px;color:var(--muted);line-height:1.5"><strong style="color:var(--text)">Choisissez la devise</strong> et entrez le montant à changer</div></div>
-        <div style="display:flex;gap:12px;align-items:flex-start"><div style="width:28px;height:28px;border-radius:50%;background:rgba(245,166,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">2</div><div style="font-size:13px;color:var(--muted);line-height:1.5"><strong style="color:var(--text)">Entrez le numéro Wave/OM</strong> du destinataire au Sénégal</div></div>
-        <div style="display:flex;gap:12px;align-items:flex-start"><div style="width:28px;height:28px;border-radius:50%;background:rgba(245,166,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">3</div><div style="font-size:13px;color:var(--muted);line-height:1.5"><strong style="color:var(--text)">Payez en USDT</strong> via izichangePay (équivalent à vos dollars/euros)</div></div>
-        <div style="display:flex;gap:12px;align-items:flex-start"><div style="width:28px;height:28px;border-radius:50%;background:rgba(37,211,102,0.15);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">✓</div><div style="font-size:13px;color:var(--muted);line-height:1.5"><strong style="color:var(--text)">Le destinataire reçoit</strong> les FCFA via Wave ou Orange Money en moins de 30 min</div></div>
-      </div>
-    </div>
-    <div class="card" style="text-align:center">
-      <div style="font-size:13px;color:var(--muted);line-height:2">
-        📞 <a href="tel:+221771520959" style="color:var(--gold)">+221 77 152 09 59</a><br>
-        📧 <a href="mailto:papasenytoure@gmail.com" style="color:var(--gold)">papasenytoure@gmail.com</a><br>
-        🌐 <a href="https://pst-telecom.vercel.app" style="color:var(--gold)">pst-telecom.vercel.app</a>
-      </div>
-    </div>
+<!-- ═══════════════════════════════════════════
+     SCREEN 8: HISTORY
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-history">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Historique</span>
+    <span></span>
   </div>
-
-  <!-- SCREEN: HISTORY -->
-  <div class="screen" id="scr-history">
-    <div class="section-title">Mes transactions</div>
-    <div id="hist-content"><div style="text-align:center;padding:48px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">📋</div>Connectez-vous pour voir votre historique</div></div>
+  <div class="sbody">
+    <div id="hist-content" style="padding-top:8px"></div>
   </div>
+</div>
 
-  <!-- SCREEN: ACCOUNT -->
-  <div class="screen" id="scr-account">
-    <!-- Guest -->
+<!-- ═══════════════════════════════════════════
+     SCREEN 9: ACCOUNT
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-account">
+  <div class="sbody">
+    <!-- GUEST -->
     <div id="acct-guest">
-      <div style="text-align:center;padding:20px 0 24px">
-        <div style="font-size:48px;margin-bottom:8px">🐓</div>
-        <div style="font-family:inherit;font-weight:800;font-size:20px;background:linear-gradient(135deg,var(--gold),var(--gold2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ZAMA</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:4px">Créez un compte pour suivre vos échanges</div>
+      <div class="guest-hero">
+        <div class="guest-logo">
+          <svg width="44" height="44" viewBox="0 0 28 28" fill="none">
+            <path d="M20 8 C20 5 22 4 23 6 C24 4 26 5 24 8" stroke="rgba(0,0,0,0.6)" stroke-width="1.5" stroke-linecap="round"/>
+            <ellipse cx="20" cy="12" rx="5" ry="5" fill="rgba(0,0,0,0.7)"/>
+            <path d="M25 12 L28 11 L27 13Z" fill="rgba(0,0,0,0.7)"/>
+            <circle cx="22" cy="11" r="1" fill="white"/>
+            <ellipse cx="14" cy="20" rx="8" ry="7" fill="rgba(0,0,0,0.7)"/>
+            <path d="M7 18 Q4 14 8 12 Q12 10 14 16" fill="rgba(0,0,0,0.5)"/>
+          </svg>
+        </div>
+        <div class="guest-title">ZAMA</div>
+        <div class="guest-sub">Bureau de change digital · PST Telecom</div>
       </div>
-      <div class="section-title">Créer mon compte</div>
-      <div class="fi-2col">
-        <div class="fi"><label>Prénom *</label><input type="text" id="rg-prenom" placeholder="Prénom"></div>
-        <div class="fi"><label>Nom *</label><input type="text" id="rg-nom" placeholder="Nom"></div>
+      <div class="guest-form">
+        <div class="section-title" style="padding:0;margin-bottom:14px">Créer mon compte</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Prénom *</label><input class="form-input" type="text" id="rg-p" placeholder="Prénom"></div>
+          <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" type="text" id="rg-n" placeholder="Nom"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+        <div class="form-group"><label class="form-label">Email *</label><input class="form-input" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
+        <div class="form-group"><label class="form-label">Pays</label>
+          <select class="form-input" id="rg-c">
+            <option value="SN">🇸🇳 Sénégal</option>
+            <option value="FR">🇫🇷 France</option>
+            <option value="US">🇺🇸 États-Unis</option>
+            <option value="CA">🇨🇦 Canada</option>
+            <option value="GB">🇬🇧 Royaume-Uni</option>
+            <option value="IT">🇮🇹 Italie</option>
+            <option value="ES">🇪🇸 Espagne</option>
+            <option value="BE">🇧🇪 Belgique</option>
+            <option value="DE">🇩🇪 Allemagne</option>
+          </select>
+        </div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="register()">🐓 Créer mon compte ZAMA</button>
+        <div class="guest-login-link">Déjà un compte ? <b onclick="loginFlow()">Se connecter</b></div>
       </div>
-      <div class="fi"><label>Téléphone *</label><input type="tel" id="rg-tel" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
-      <div class="fi"><label>Email *</label><input type="email" id="rg-email" placeholder="email@exemple.com" inputmode="email"></div>
-      <div class="fi"><label>Pays de résidence</label>
-        <select id="rg-pays">
-          <option value="SN">🇸🇳 Sénégal</option>
-          <option value="FR">🇫🇷 France</option>
-          <option value="US">🇺🇸 États-Unis</option>
-          <option value="CA">🇨🇦 Canada</option>
-          <option value="GB">🇬🇧 Royaume-Uni</option>
-          <option value="IT">🇮🇹 Italie</option>
-          <option value="ES">🇪🇸 Espagne</option>
-          <option value="BE">🇧🇪 Belgique</option>
-          <option value="DE">🇩🇪 Allemagne</option>
-          <option value="OTHER">Autre</option>
+    </div>
+
+    <!-- LOGGED -->
+    <div id="acct-logged" style="display:none">
+      <div class="acct-hero">
+        <div class="acct-avatar" id="acct-av">?</div>
+        <div class="acct-name" id="acct-nm">--</div>
+        <div class="acct-phone" id="acct-ph">--</div>
+        <span class="kyc-badge no" id="kyc-tag">⚠️ Identité non vérifiée</span>
+      </div>
+
+      <div style="padding-top:16px">
+        <div class="section-title">Limite quotidienne</div>
+        <div class="limit-bar">
+          <div class="lb-top"><span class="ll">Utilisé aujourd'hui</span><span class="lr" id="lb-txt">0 / 500 USD</span></div>
+          <div class="lb-track"><div class="lb-fill" id="lb-fill" style="width:0%"></div></div>
+          <div class="lb-sub">Sans KYC: 500$/j · Avec KYC: 5 000$/j</div>
+        </div>
+
+        <div class="section-title">Mon compte</div>
+        <div style="padding:0 20px">
+          <div class="acct-item" id="kyc-item" onclick="goTo('scr-kyc')">
+            <div class="acct-item-icon" style="background:var(--gold-l)">🪪</div>
+            <div class="acct-item-label">Vérifier mon identité (KYC)</div>
+            <div class="acct-item-arrow">→</div>
+          </div>
+          <div class="acct-item" onclick="goTo('scr-benefs')">
+            <div class="acct-item-icon" style="background:#EEF2FF">👥</div>
+            <div class="acct-item-label">Mes bénéficiaires</div>
+            <div class="acct-item-arrow">→</div>
+          </div>
+          <div class="acct-item" onclick="goTo('scr-history')">
+            <div class="acct-item-icon" style="background:var(--green-l)">📋</div>
+            <div class="acct-item-label">Historique des transactions</div>
+            <div class="acct-item-arrow">→</div>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:8px">Support</div>
+        <div style="padding:0 20px">
+          <div class="acct-item" onclick="window.open('tel:+221771520959')"><div class="acct-item-icon" style="background:var(--green-l)">📞</div><div class="acct-item-label">+221 77 152 09 59</div><div class="acct-item-arrow">→</div></div>
+        </div>
+
+        <div class="section-title" style="margin-top:8px"></div>
+        <div style="padding:0 20px;margin-bottom:24px">
+          <div class="acct-item danger" onclick="logout()">
+            <div class="acct-item-icon">🚪</div>
+            <div class="acct-item-label">Se déconnecter</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <button class="bn" onclick="goTo('scr-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+      Accueil
+    </button>
+    <button class="bn" onclick="goTo('scr-send')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>
+      Envoyer
+    </button>
+    <button class="bn" onclick="goTo('scr-history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      Historique
+    </button>
+    <button class="bn on" onclick="goTo('scr-account')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Compte
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 10: KYC
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-kyc">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Vérification d'identité</span>
+    <span></span>
+  </div>
+  <div class="sbody">
+    <div style="padding:20px 20px 0">
+      <div style="background:var(--gold-l);border-radius:var(--r-sm);padding:14px;margin-bottom:20px;font-size:13px;color:var(--gold-d);line-height:1.6">
+        🔐 <strong>Pourquoi le KYC ?</strong><br>La vérification d'identité vous permet d'augmenter votre limite à <strong>5 000$/jour</strong> et renforce la sécurité de votre compte.
+      </div>
+      <div class="form-group"><label class="form-label">Type de document</label>
+        <select class="form-input" id="kd-type">
+          <option>Carte Nationale d'Identité</option>
+          <option>Passeport</option>
+          <option>Permis de conduire</option>
         </select>
       </div>
-      <button class="btn-gold" onclick="register()">🐓 Créer mon compte ZAMA</button>
-      <div style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted)">
-        Déjà un compte ? <span style="color:var(--gold);cursor:pointer;font-weight:700" onclick="loginPrompt()">Se connecter</span>
-      </div>
+      <div class="form-group"><label class="form-label">Numéro du document</label><input class="form-input" type="text" id="kd-num" placeholder="Ex: 1234567890"></div>
+      <div class="form-group"><label class="form-label">Date de naissance</label><input class="form-input" type="date" id="kd-dob"></div>
+      <div class="form-group"><label class="form-label">Nationalité</label><input class="form-input" type="text" id="kd-nat" placeholder="Sénégalaise"></div>
     </div>
-
-    <!-- Logged in -->
-    <div id="acct-logged" style="display:none">
-      <div style="text-align:center;padding:16px 0 20px">
-        <div class="avatar" id="acct-avatar">?</div>
-        <div class="acct-name" id="acct-name">--</div>
-        <div class="acct-phone" id="acct-phone">--</div>
-        <div><span class="kyc-tag kyc-no" id="kyc-tag">⚠️ KYC non vérifié</span></div>
-      </div>
-
-      <div class="limit-card">
-        <div class="lc-top">
-          <span style="color:var(--muted)">Limite quotidienne</span>
-          <span id="lc-text" style="font-weight:700">0 / 500 USD</span>
-        </div>
-        <div class="lc-bar"><div class="lc-fill" id="lc-fill" style="width:0%"></div></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Sans KYC: 500$/j · Avec KYC: 5 000$/j</div>
-      </div>
-
-      <button class="acct-btn gold" onclick="openKYC()" id="kyc-btn">🪪 Vérifier mon identité (KYC)</button>
-
-      <div class="section-title">Bénéficiaires sauvegardés</div>
-      <div id="benef-list"></div>
-      <button class="acct-btn outline" onclick="addBenef()">+ Ajouter un bénéficiaire</button>
-
-      <div class="section-title" style="margin-top:8px">Compte</div>
-      <button class="acct-btn danger" onclick="logout()">🚪 Se déconnecter</button>
-    </div>
+    <div class="spacer"></div>
   </div>
-
-</div><!-- end content -->
-
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <button class="bn-btn active" id="nav-change" onclick="showScreen('change',this)">
-    <span class="bn-icon">💱</span>
-    <span class="bn-label">Changer</span>
-  </button>
-  <button class="bn-btn" id="nav-rates" onclick="showScreen('rates',this)">
-    <span class="bn-icon">📊</span>
-    <span class="bn-label">Taux</span>
-  </button>
-  <button class="bn-btn" id="nav-history" onclick="showScreen('history',this)">
-    <span class="bn-icon">📋</span>
-    <span class="bn-label">Historique</span>
-  </button>
-  <button class="bn-btn" id="nav-account" onclick="showScreen('account',this)">
-    <span class="bn-icon">👤</span>
-    <span class="bn-label">Compte</span>
-  </button>
-</div>
-
-</div><!-- end app -->
-
-<!-- PAYMENT MODAL -->
-<div class="modal" id="pay-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-step on" id="ms1">
-      <div class="pay-header">Envoyez votre paiement</div>
-      <div class="pay-amount" id="m-amount">--</div>
-      <button class="pos-btn" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">
-        💳 Payer sur izichangePay →
-      </button>
-      <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px">Payez en USDT sur izichangePay.com · Sélectionnez USDT BEP20</div>
-      <div id="m-addr-section" style="display:none">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Ou envoyez directement à cette adresse :</div>
-        <div class="addr-box" id="m-addr">--</div>
-        <button class="copy-btn" onclick="copyAddr()">📋 Copier l'adresse</button>
-      </div>
-      <div class="warn-box" id="m-warn">⚠️ Envoyez exactement le montant indiqué en USDT BEP20 (réseau Binance Smart Chain).</div>
-      <div class="recv-confirm">
-        <div class="rc-amount" id="m-recv-fcfa">--</div>
-        <div class="rc-sub">seront envoyés via <span id="m-recv-mm"></span> au <span id="m-recv-phone"></span></div>
-      </div>
-      <div class="timer" id="m-timer">⏱ Taux garanti encore 30:00</div>
-      <button class="check-btn" onclick="checkPay()">🔄 J'ai payé — Vérifier</button>
-    </div>
-    <div class="modal-step" id="ms2">
-      <div style="text-align:center;padding:40px 0">
-        <div class="spinner">💱</div>
-        <div style="font-weight:800;font-size:17px;margin:16px 0 8px">Vérification...</div>
-        <div style="font-size:13px;color:var(--muted)">Nous vérifions votre paiement sur la blockchain.</div>
-      </div>
-    </div>
-    <div class="modal-step" id="ms3">
-      <div class="success-screen">
-        <div class="success-icon">✅</div>
-        <div class="success-title">Paiement confirmé !</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Votre virement sera crédité dans les 30 prochaines minutes.</div>
-        <div class="success-ref" id="ms-ref">REF: --</div>
-        <button class="btn-gold" onclick="closeModal();goP(4)" style="margin-top:16px">Voir la confirmation</button>
-      </div>
-    </div>
+  <div style="padding:12px 0 16px;background:var(--bg);border-top:1px solid var(--border)">
+    <button class="big-btn primary" onclick="submitKYC()">📤 Soumettre le KYC</button>
   </div>
 </div>
 
-<!-- KYC MODAL -->
-<div class="kyc-modal" id="kyc-modal">
-  <div class="kyc-sheet">
-    <div class="modal-handle"></div>
-    <div style="font-weight:800;font-size:18px;margin-bottom:4px">🪪 Vérification d'identité</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Augmentez votre limite à 5 000$/jour</div>
-    <div class="fi"><label>Type de document</label>
-      <select id="kyc-type">
-        <option>Carte Nationale d'Identité</option>
-        <option>Passeport</option>
-        <option>Permis de conduire</option>
-      </select>
-    </div>
-    <div class="fi"><label>Numéro du document</label><input type="text" id="kyc-num" placeholder="Ex: 1234567890"></div>
-    <div class="fi"><label>Date de naissance</label><input type="date" id="kyc-dob"></div>
-    <div class="fi"><label>Nationalité</label><input type="text" id="kyc-nat" placeholder="Sénégalaise"></div>
-    <button class="btn-gold" onclick="submitKYC()">📤 Soumettre le KYC</button>
-    <button class="btn-outline" onclick="document.getElementById('kyc-modal').classList.remove('open')" style="margin-top:8px">Annuler</button>
+<!-- ═══════════════════════════════════════════
+     SCREEN 11: BENEFICIAIRES
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-benefs">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goBack()">←</button>
+    <span class="hdr-title">Mes bénéficiaires</span>
+    <span class="hdr-action" onclick="addBenef()">+ Ajouter</span>
+  </div>
+  <div class="sbody">
+    <div id="benefs-list" style="padding-top:8px"></div>
   </div>
 </div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- OTP MODAL -->
+<div class="otp-modal" id="otp-modal">
+  <div class="otp-sheet">
+    <div class="otp-handle"></div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:6px">Entrez le code OTP</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Code envoyé au <span id="otp-phone">--</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:0">(Pour cette démo: code 1234)</div>
+    <div class="otp-inputs">
+      <input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpNext(this,0)">
+      <input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpNext(this,1)">
+      <input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpNext(this,2)">
+      <input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpNext(this,3)">
+    </div>
+    <button class="big-btn primary" style="width:100%;margin:0" onclick="verifyOTP()">Vérifier</button>
+    <button class="big-btn secondary" style="width:100%;margin:8px 0 0" onclick="closeOTP()">Annuler</button>
+  </div>
+</div>
+
 <script>
 const API = "https://pst-telecom-production.up.railway.app";
 const FEE = 0.02;
 const LIMIT_NO_KYC = 500;
 
-// State
-let curr = "USD", currFlag = "🇺🇸", currKey = "usd";
-let mm = "wave";
-let rates = {usd:606,eur:656,gbp:770,cad:445,chf:680};
-let user = null;
-let orderId = "";
-let checkTimer = null, cdTimer = null;
-let dailyUsed = 0;
+let curr="USD", currFlag="🇺🇸", currKey="usd";
+let selectedMM="wave";
+let rates={usd:606,eur:656,gbp:770,cad:445,chf:680};
+let user=null, orderId="", checkT=null, cdT=null;
+let history_stack=["scr-home"];
+let pendingRegData=null;
 
-// ── INIT ─────────────────────────────────────────
-window.addEventListener("load", function() {
-  user = loadUser();
+// ── BOOT ─────────────────────────────────────────
+window.addEventListener("load",function(){
+  user=loadUser();
   fetchRates();
-  setInterval(fetchRates, 60000);
-  loadQuickBenefs();
+  setInterval(fetchRates,60000);
+  updateHomeGreeting();
+  renderHomeBenefs();
 });
 
 // ── NAVIGATION ───────────────────────────────────
-function showScreen(id, btn) {
-  document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active");});
-  document.querySelectorAll(".bn-btn").forEach(function(b){b.classList.remove("active");});
-  document.getElementById("scr-"+id).classList.add("active");
-  btn.classList.add("active");
-  if (id === "history") loadHistory();
-  if (id === "account") renderAccount();
-  // Scroll to top
-  document.querySelector(".content").scrollTop = 0;
+function goTo(id){
+  var prev=document.querySelector(".screen.active");
+  var next=document.getElementById(id);
+  if(!next||prev===next)return;
+
+  // Track history
+  if(id!==history_stack[history_stack.length-1]){
+    history_stack.push(id);
+  }
+
+  prev.classList.add("slide-back");
+  next.classList.remove("slide-back");
+  next.classList.add("active");
+
+  setTimeout(function(){
+    prev.classList.remove("active","slide-back");
+  },300);
+
+  // Scroll new screen to top
+  var sb=next.querySelector(".sbody");
+  if(sb)sb.scrollTop=0;
+
+  // Load dynamic content
+  if(id==="scr-history")renderHistory();
+  if(id==="scr-account")renderAccount();
+  if(id==="scr-benefs")renderBenefs();
 }
 
-// ── RATES ────────────────────────────────────────
-async function fetchRates() {
-  try {
-    var r = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
-    var d = await r.json();
-    if (d.rates) {
-      var xof = d.rates.XOF || 606;
-      rates.usd = Math.round(xof);
-      rates.eur = Math.round(xof / d.rates.EUR);
-      rates.gbp = Math.round(xof / d.rates.GBP);
-      rates.cad = Math.round(xof / d.rates.CAD);
-      rates.chf = Math.round(xof / d.rates.CHF);
+function goBack(){
+  if(history_stack.length<=1){goTo("scr-home");return;}
+  history_stack.pop();
+  var target=history_stack[history_stack.length-1];
+
+  var prev=document.querySelector(".screen.active");
+  var next=document.getElementById(target);
+  if(!next)return;
+
+  prev.classList.remove("active");
+  next.classList.remove("slide-back");
+  next.classList.add("active");
+  var sb=next.querySelector(".sbody");
+  if(sb)sb.scrollTop=0;
+}
+
+// ── RATES ─────────────────────────────────────────
+async function fetchRates(){
+  try{
+    var r=await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+    var d=await r.json();
+    if(d.rates){
+      var x=d.rates.XOF||606;
+      rates.usd=Math.round(x);
+      rates.eur=Math.round(x/d.rates.EUR);
+      rates.gbp=Math.round(x/d.rates.GBP);
+      rates.cad=Math.round(x/d.rates.CAD);
+      rates.chf=Math.round(x/d.rates.CHF);
     }
-  } catch(e) {}
+  }catch(e){}
   updateRatesUI();
   calc();
 }
 
-function updateRatesUI() {
-  var fmt = function(v){ return v.toLocaleString("fr-FR")+" FCFA"; };
-  document.getElementById("nav-rate").textContent = rates.usd.toLocaleString("fr-FR");
-  var keys = ["usd","eur","gbp","cad","chf"];
-  var ids1 = ["t1","t2","t3","t4","t5"];
-  var ids2 = ["t1b","t2b","t3b","t4b","t5b"];
-  var rrIds = ["rr-usd","rr-eur","rr-gbp","rr-cad","rr-chf"];
-  keys.forEach(function(k,i) {
-    if (document.getElementById(ids1[i])) document.getElementById(ids1[i]).textContent = rates[k].toLocaleString("fr-FR");
-    if (document.getElementById(ids2[i])) document.getElementById(ids2[i]).textContent = rates[k].toLocaleString("fr-FR");
-    if (document.getElementById(rrIds[i])) document.getElementById(rrIds[i]).textContent = fmt(rates[k]);
-  });
+function updateRatesUI(){
+  var f=function(v){return v.toLocaleString("fr-FR")+" FCFA";};
+  var setTxt=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  setTxt("home-rate",rates.usd.toLocaleString("fr-FR"));
+  setTxt("rs-usd",rates.usd.toLocaleString("fr-FR"));
+  setTxt("rs-eur",rates.eur.toLocaleString("fr-FR"));
+  setTxt("rs-gbp",rates.gbp.toLocaleString("fr-FR"));
+  setTxt("rs-cad",rates.cad.toLocaleString("fr-FR"));
+  setTxt("r-usd",f(rates.usd));setTxt("r-eur",f(rates.eur));
+  setTxt("r-gbp",f(rates.gbp));setTxt("r-cad",f(rates.cad));setTxt("r-chf",f(rates.chf));
+  var ru=document.getElementById("rates-updated");
+  if(ru)ru.textContent=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
 }
 
-// ── CURRENCY ─────────────────────────────────────
-function selCurr(el, code, flag, key) {
-  document.querySelectorAll(".curr-btn").forEach(function(b){b.classList.remove("sel");});
-  el.classList.add("sel");
-  curr = code; currFlag = flag; currKey = key;
-  document.getElementById("af").textContent = flag;
-  document.getElementById("ac").textContent = code;
-  document.getElementById("res-curr").textContent = code;
+function updateHomeGreeting(){
+  var el=document.getElementById("home-greeting");
+  if(!el)return;
+  var h=new Date().getHours();
+  var g=h<12?"Bonjour":h<18?"Bon après-midi":"Bonsoir";
+  el.textContent=(user?g+", "+user.prenom+" 👋":g+" 👋");
+}
+
+// ── CURRENCY & CALC ───────────────────────────────
+function selCurr(el,code,flag,key){
+  document.querySelectorAll(".cp").forEach(function(b){b.classList.remove("on");});
+  el.classList.add("on");
+  curr=code;currFlag=flag;currKey=key;
+  document.getElementById("s-flag").textContent=flag;
+  document.getElementById("s-curr").textContent=code;
   calc();
 }
 
-function selMM(type, el) {
-  mm = type;
-  document.querySelectorAll(".mm-btn").forEach(function(b){b.classList.remove("sel");});
-  el.classList.add("sel");
+function selMM(type,el){
+  selectedMM=type;
+  document.querySelectorAll(".mms").forEach(function(b){b.classList.remove("on");});
+  el.classList.add("on");
 }
 
-// ── CALC ─────────────────────────────────────────
-function calc() {
-  var amt = parseFloat(document.getElementById("amt").value) || 0;
-  var rate = rates[currKey] || 606;
-  var gross = amt * rate;
-  var comm = gross * FEE;
-  var net = Math.round(gross - comm);
-  document.getElementById("res-fcfa").textContent = amt > 0 ? net.toLocaleString("fr-FR")+" FCFA" : "-- FCFA";
-  document.getElementById("res-rate").textContent = rate.toLocaleString("fr-FR");
-  document.getElementById("f1").textContent = amt > 0 ? amt.toFixed(2)+" "+curr : "--";
-  document.getElementById("f2").textContent = "1 "+curr+" = "+rate.toLocaleString("fr-FR")+" FCFA";
-  document.getElementById("f3").textContent = amt > 0 ? "-"+Math.round(comm).toLocaleString("fr-FR")+" FCFA" : "--";
-  document.getElementById("f4").textContent = amt > 0 ? net.toLocaleString("fr-FR")+" FCFA" : "-- FCFA";
+function calc(){
+  var a=parseFloat(document.getElementById("s-amt")?document.getElementById("s-amt").value:0)||0;
+  var rate=rates[currKey]||606;
+  var net=Math.round(a*rate*(1-FEE));
+  var setTxt=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  setTxt("s-fcfa-preview",a>0?net.toLocaleString("fr-FR")+" FCFA":"-- FCFA");
+  setTxt("fc-rate","1 "+curr+" = "+rate.toLocaleString("fr-FR")+" FCFA");
+  setTxt("fc-comm",a>0?"-"+Math.round(a*rate*FEE).toLocaleString("fr-FR")+" FCFA":"--");
+  setTxt("fc-net",a>0?net.toLocaleString("fr-FR")+" FCFA":"-- FCFA");
 }
 
-// ── STEPS ────────────────────────────────────────
-function goP(n) {
-  if (n === 2) {
-    var amt = parseFloat(document.getElementById("amt").value);
-    if (!amt || amt < 1) { toast("Entrez un montant valide","error"); return; }
-    var rate = rates[currKey]||606;
-    var amtUSD = amt * (rates.usd/rate);
-    var kyc = user && user.kyc;
-    var limit = kyc ? 5000 : LIMIT_NO_KYC;
-    if ((dailyUsed+amtUSD) > limit) {
-      toast("Limite "+limit+"$/jour dépassée. "+(kyc?"Contactez support.":"Vérifiez votre KYC."),"error");
-      return;
-    }
-    // Pre-fill sender from account
-    if (user) {
-      document.getElementById("s-name").value = user.prenom+" "+user.nom;
-      document.getElementById("s-email").value = user.email||"";
-      document.getElementById("s-phone").value = user.phone||"";
-    }
+// ── STEPS ─────────────────────────────────────────
+function step2(){
+  var a=parseFloat(document.getElementById("s-amt").value);
+  if(!a||a<1){toast("Entrez un montant valide","err");return;}
+  var rate=rates[currKey]||606;
+  var amtUSD=a*(rates.usd/rate);
+  var isKYC=user&&user.kyc;
+  if((amtUSD)>=(isKYC?5000:LIMIT_NO_KYC)){
+    toast("Limite "+(isKYC?5000:500)+"$/j dépassée"+(isKYC?"":" — vérifiez votre KYC"),"err");
+    return;
   }
-  if (n === 3) {
-    var rp = document.getElementById("r-prenom").value.trim();
-    var rn = document.getElementById("r-nom").value.trim();
-    var rph = document.getElementById("r-phone").value.trim();
-    var sn = document.getElementById("s-name").value.trim();
-    var se = document.getElementById("s-email").value.trim();
-    if (!rp||!rn||!rph||!sn||!se) { toast("Remplissez tous les champs obligatoires (*)","error"); return; }
-    buildReceipt();
+  if(user){
+    document.getElementById("s-name").value=user.prenom+" "+user.nom;
+    document.getElementById("s-email").value=user.email||"";
   }
-  for (var i=1;i<=4;i++) {
-    document.getElementById("p"+i).style.display = i===n?"block":"none";
-    var s = document.getElementById("st"+i);
-    s.className = "step"+(i<n?" done":i===n?" on":"");
-  }
-  document.querySelector(".content").scrollTop = 0;
+  renderQuickBenefs();
+  history_stack.push("scr-send");
+  goTo("scr-recipient");
 }
 
-function buildReceipt() {
-  var amt = parseFloat(document.getElementById("amt").value);
-  var rate = rates[currKey]||606;
-  var net = Math.round(amt*rate*(1-FEE));
-  var mmLabel = mm==="wave"?"💚 Wave":"🟠 Orange Money";
-  var rp = document.getElementById("r-prenom").value.trim();
-  var rn = document.getElementById("r-nom").value.trim();
-  var rph = document.getElementById("r-phone").value.trim();
-  var sn = document.getElementById("s-name").value.trim();
-  var msg = document.getElementById("s-msg").value.trim();
-  document.getElementById("receipt-content").innerHTML =
-    "<div class='rr'><span class='rl'>Vous envoyez</span><span class='rv'>"+amt.toFixed(2)+" "+curr+" "+currFlag+"</span></div>"+
-    "<div class='rr'><span class='rl'>Expéditeur</span><span class='rv'>"+sn+"</span></div>"+
-    "<div class='rr'><span class='rl'>Destinataire</span><span class='rv'>"+rp+" "+rn+"</span></div>"+
-    "<div class='rr'><span class='rl'>Numéro</span><span class='rv'>"+rph+"</span></div>"+
-    "<div class='rr'><span class='rl'>Via</span><span class='rv'>"+mmLabel+"</span></div>"+
-    (msg?"<div class='rr'><span class='rl'>Message</span><span class='rv'>"+msg+"</span></div>":"")+
-    "<div class='rr'><span class='rl'>Commission (2%)</span><span class='rv'>-"+Math.round(amt*rate*FEE).toLocaleString("fr-FR")+" FCFA</span></div>"+
-    "<div class='rr big'><span class='rl'>Le destinataire reçoit</span><span class='rv'>"+net.toLocaleString("fr-FR")+" FCFA</span></div>";
+function step3(){
+  var rp=document.getElementById("r-prenom").value.trim();
+  var rn=document.getElementById("r-nom").value.trim();
+  var rph=document.getElementById("r-phone").value.trim();
+  var sn=document.getElementById("s-name").value.trim();
+  var se=document.getElementById("s-email").value.trim();
+  if(!rp||!rn||!rph||!sn||!se){toast("Remplissez tous les champs (*)","err");return;}
+  buildReceipt();
+  history_stack.push("scr-recipient");
+  goTo("scr-summary");
 }
 
-// ── ORDER ────────────────────────────────────────
-async function createOrder() {
-  var btn = document.getElementById("confirm-btn");
-  btn.disabled=true; btn.innerHTML="⏳...";
-  var amt = parseFloat(document.getElementById("amt").value);
-  var rate = rates[currKey]||606;
-  var net = Math.round(amt*rate*(1-FEE));
-  var rph = document.getElementById("r-phone").value.trim();
-  var rname = document.getElementById("r-prenom").value.trim()+" "+document.getElementById("r-nom").value.trim();
-  var sname = document.getElementById("s-name").value.trim();
-  var semail = document.getElementById("s-email").value.trim();
-  var sphone = document.getElementById("s-phone").value.trim();
-  var msg = document.getElementById("s-msg").value.trim();
-  var amtUsdt = (amt*(rates.usd/(rate))).toFixed(4);
+function buildReceipt(){
+  var a=parseFloat(document.getElementById("s-amt").value);
+  var rate=rates[currKey]||606;
+  var net=Math.round(a*rate*(1-FEE));
+  var mmL=selectedMM==="wave"?"💚 Wave":"🟠 Orange Money";
+  var rn=document.getElementById("r-prenom").value.trim()+" "+document.getElementById("r-nom").value.trim();
+  var rph=document.getElementById("r-phone").value.trim();
+  var sn=document.getElementById("s-name").value.trim();
+  var msg=document.getElementById("s-msg").value.trim();
+  document.getElementById("receipt-box").innerHTML=
+    "<div class='rc-row'><span class='rc-lbl'>Vous envoyez</span><span style='font-weight:700'>"+a.toFixed(2)+" "+curr+" "+currFlag+"</span></div>"+
+    "<div class='rc-row'><span class='rc-lbl'>Expéditeur</span><span>"+sn+"</span></div>"+
+    "<div class='rc-row'><span class='rc-lbl'>Destinataire</span><span style='font-weight:600'>"+rn+"</span></div>"+
+    "<div class='rc-row'><span class='rc-lbl'>Numéro</span><span style='font-weight:600'>"+rph+"</span></div>"+
+    "<div class='rc-row'><span class='rc-lbl'>Via</span><span>"+mmL+"</span></div>"+
+    (msg?"<div class='rc-row'><span class='rc-lbl'>Message</span><span>"+msg+"</span></div>":"")+
+    "<div class='rc-row'><span class='rc-lbl'>Commission (2%)</span><span>-"+Math.round(a*rate*FEE).toLocaleString("fr-FR")+" FCFA</span></div>"+
+    "<div class='rc-row rc-total'><span class='rc-lbl' style='font-weight:700'>Le destinataire reçoit</span><span class='rc-val'>"+net.toLocaleString("fr-FR")+" FCFA</span></div>";
+}
 
-  try {
-    var res = await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({src_currency:curr,amount:amt,rate_fcfa:rate,net_fcfa:net,
-        receiver_name:rname,receiver_phone:rph,receiver_mm:mm,
-        sender_name:sname,sender_email:semail,sender_phone:sphone,message:msg,
-        user_id:user?user.id:null})});
-    var data = await res.json();
-    orderId = data.order_id||"ZAMA-"+Date.now();
-    if (data.address) {
-      document.getElementById("m-addr").textContent = data.address;
-      document.getElementById("m-addr-section").style.display = "block";
+// ── ORDER ─────────────────────────────────────────
+async function createOrder(){
+  var btn=document.getElementById("confirm-btn");
+  btn.disabled=true;
+  btn.innerHTML="<div class='loading-ring'></div>";
+
+  var a=parseFloat(document.getElementById("s-amt").value);
+  var rate=rates[currKey]||606;
+  var net=Math.round(a*rate*(1-FEE));
+  var rph=document.getElementById("r-phone").value.trim();
+  var rname=document.getElementById("r-prenom").value.trim()+" "+document.getElementById("r-nom").value.trim();
+  var sname=document.getElementById("s-name").value.trim();
+  var semail=document.getElementById("s-email").value.trim();
+  var msg=document.getElementById("s-msg").value.trim();
+  var amtU=(a*(rates.usd/rate)).toFixed(4);
+  var mmL=selectedMM==="wave"?"Wave 💚":"Orange Money 🟠";
+
+  try{
+    var res=await fetch(API+"/api/zama/create",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,
+        receiver_name:rname,receiver_phone:rph,receiver_mm:selectedMM,
+        sender_name:sname,sender_email:semail,message:msg,user_id:user?user.id:null})});
+    var data=await res.json();
+    orderId=data.order_id||"ZAMA-"+Date.now();
+    if(data.address){
+      document.getElementById("pay-addr").textContent=data.address;
+      document.getElementById("addr-wrap").style.display="block";
     }
-  } catch(e) { orderId = "ZAMA-"+Date.now(); }
+  }catch(e){orderId="ZAMA-"+Date.now();}
 
-  // Set modal content
-  document.getElementById("m-amount").textContent = amt.toFixed(2)+" "+curr+" ≈ "+amtUsdt+" USDT";
-  document.getElementById("m-recv-fcfa").textContent = net.toLocaleString("fr-FR")+" FCFA";
-  document.getElementById("m-recv-mm").textContent = mm==="wave"?"Wave 💚":"Orange Money 🟠";
-  document.getElementById("m-recv-phone").textContent = rph;
-  document.getElementById("m-warn").textContent = "⚠️ Envoyez exactement "+amtUsdt+" USDT BEP20 via izichangePay.";
-  document.getElementById("ms-ref").textContent = "REF: "+orderId;
+  // Setup payment screen
+  document.getElementById("pay-card-amt").textContent=a.toFixed(2)+" "+curr;
+  document.getElementById("pay-card-sub").textContent="≈ "+amtU+" USDT BEP20";
+  document.getElementById("pi-name").textContent=rname;
+  document.getElementById("pi-fcfa").textContent=net.toLocaleString("fr-FR")+" FCFA";
+  document.getElementById("pi-mm").textContent=mmL;
 
-  // Set success step content
-  document.getElementById("s4-fcfa").textContent = net.toLocaleString("fr-FR")+" FCFA";
-  document.getElementById("s4-name").textContent = rname;
-  document.getElementById("s4-mm").textContent = mm==="wave"?"Wave 💚":"Orange Money 🟠";
-  document.getElementById("s4-phone").textContent = rph;
-  document.getElementById("s4-ref").textContent = "REF: "+orderId;
+  // Save locally
+  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,
+    receiver_name:rname,receiver_phone:rph,receiver_mm:selectedMM,
+    status:"pending",created_at:new Date().toISOString()});
+  saveBenef(rname,rph,selectedMM);
 
-  // Save to history locally
-  saveLocalOrder({order_id:orderId,src_currency:curr,amount:amt,net_fcfa:net,
-    receiver_name:rname,receiver_phone:rph,receiver_mm:mm,status:"pending",
-    created_at:new Date().toISOString()});
+  // Setup tracking
+  document.getElementById("track-ref").textContent="REF: "+orderId;
+  document.getElementById("ts-mm").textContent=selectedMM==="wave"?"Wave":"Orange Money";
 
-  // Save beneficiary
-  saveBenefLocal(rname, rph, mm);
-
-  // Start modal
-  mStep(1);
-  document.getElementById("pay-modal").classList.add("open");
   startCountdown();
-  checkTimer = setInterval(autoCheck, 30000);
+  checkT=setInterval(autoCheck,30000);
 
-  btn.disabled=false; btn.innerHTML="💳 Payer";
+  btn.disabled=false;btn.innerHTML="💳 Payer";
+  history_stack.push("scr-summary");
+  goTo("scr-payment");
 }
 
-async function checkPay() {
-  mStep(2);
-  await new Promise(function(r){setTimeout(r,2000);});
-  try {
-    var r = await fetch(API+"/api/zama/status/"+orderId);
-    var d = await r.json();
-    if (d.status==="paid"||d.status==="completed") {
-      clearInterval(checkTimer); clearInterval(cdTimer);
-      updateLocalOrderStatus(orderId,"paid");
-      mStep(3);
+function openPOS(){
+  window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");
+}
+
+async function checkPay(){
+  var btn=document.getElementById("check-btn");
+  btn.disabled=true;
+  btn.innerHTML="<div class='loading-ring white'></div> Vérification...";
+
+  try{
+    var r=await fetch(API+"/api/zama/status/"+orderId);
+    var d=await r.json();
+    if(d.status==="paid"||d.status==="completed"){
+      clearInterval(checkT);clearInterval(cdT);
+      updateOrder(orderId,"paid");
+      startTracking();
       return;
     }
-  } catch(e) {}
-  mStep(1);
-  toast("Paiement non encore détecté. Attendez quelques minutes.","error");
+  }catch(e){}
+
+  btn.disabled=false;btn.innerHTML="🔄 J'ai payé — Vérifier";
+  toast("Paiement non encore détecté. Patientez quelques minutes.","");
 }
 
-async function autoCheck() {
-  if (!orderId) return;
-  try {
-    var r = await fetch(API+"/api/zama/status/"+orderId);
-    var d = await r.json();
-    if (d.status==="paid"||d.status==="completed") {
-      clearInterval(checkTimer); clearInterval(cdTimer);
-      updateLocalOrderStatus(orderId,"paid");
-      mStep(3);
+async function autoCheck(){
+  if(!orderId)return;
+  try{
+    var r=await fetch(API+"/api/zama/status/"+orderId);
+    var d=await r.json();
+    if(d.status==="paid"||d.status==="completed"){
+      clearInterval(checkT);clearInterval(cdT);
+      updateOrder(orderId,"paid");
+      startTracking();
     }
-  } catch(e) {}
+  }catch(e){}
 }
 
-function mStep(n) {
-  document.querySelectorAll(".modal-step").forEach(function(s){s.classList.remove("on");});
-  document.getElementById("ms"+n).classList.add("on");
+function copyAddr(){
+  navigator.clipboard.writeText(document.getElementById("pay-addr").textContent)
+    .then(function(){toast("Adresse copiée !","ok");});
 }
 
-function copyAddr() {
-  navigator.clipboard.writeText(document.getElementById("m-addr").textContent).then(function(){toast("Adresse copiée !","success");});
-}
-
-function closeModal() {
-  document.getElementById("pay-modal").classList.remove("open");
-  clearInterval(checkTimer); clearInterval(cdTimer);
-}
-
-function startCountdown() {
-  var secs = 1800;
-  cdTimer = setInterval(function() {
-    secs--;
-    var m = Math.floor(secs/60), s = secs%60;
-    var el = document.getElementById("m-timer");
-    if (el) el.textContent = "⏱ Taux garanti encore "+m+":"+(s<10?"0"+s:s);
-    if (secs<=0) clearInterval(cdTimer);
+function startCountdown(){
+  var s=1800;
+  cdT=setInterval(function(){
+    s--;
+    var m=Math.floor(s/60),sec=s%60;
+    var el=document.getElementById("pay-timer");
+    if(el)el.textContent="⏱ Taux garanti encore "+m+":"+(sec<10?"0"+sec:sec);
+    if(s<=0){clearInterval(cdT);if(el)el.textContent="⚠️ Taux expiré — recommencez la transaction";}
   },1000);
 }
 
-function resetChange() {
-  goP(1);
-  ["amt","r-prenom","r-nom","r-phone","s-name","s-email","s-phone","s-msg"].forEach(function(id){
-    document.getElementById(id).value="";
+// ── TRACKING ANIMATION ────────────────────────────
+function startTracking(){
+  history_stack.push("scr-payment");
+  goTo("scr-tracking");
+  animateTracking();
+}
+
+function animateTracking(){
+  var steps=["ts1","ts2","ts3","ts4"];
+  var delay=0;
+  steps.forEach(function(id,i){
+    setTimeout(function(){
+      // Mark prev as done
+      if(i>0){
+        var prev=document.getElementById(steps[i-1]);
+        if(prev){prev.className="ts done";prev.querySelector(".ts-dot").textContent="✓";}
+      }
+      // Mark current as active
+      var curr=document.getElementById(id);
+      if(curr)curr.className="ts active";
+
+      // When all done
+      if(i===steps.length-1){
+        setTimeout(function(){
+          curr.className="ts done";curr.querySelector(".ts-dot").textContent="✓";
+          document.getElementById("track-icon").textContent="✅";
+          document.getElementById("track-title").textContent="Transfert réussi !";
+          updateOrder(orderId,"paid");
+          renderHistory();
+        },2000);
+      }
+    },delay);
+    delay+=2500;
   });
-  orderId="";
-  calc();
 }
 
-// ── LOCAL STORAGE ────────────────────────────────
-function loadUser() {
-  try { return JSON.parse(localStorage.getItem("zama_user")); } catch(e) { return null; }
-}
-function saveUser(u) { localStorage.setItem("zama_user",JSON.stringify(u)); }
+// ── LOCAL STORAGE ─────────────────────────────────
+function loadUser(){try{return JSON.parse(localStorage.getItem("zama_u"));}catch(e){return null;}}
+function saveUserLS(u){localStorage.setItem("zama_u",JSON.stringify(u));}
+function saveOrder(o){var a=JSON.parse(localStorage.getItem("zama_ord")||"[]");a.unshift(o);localStorage.setItem("zama_ord",JSON.stringify(a.slice(0,50)));}
+function updateOrder(id,st){var a=JSON.parse(localStorage.getItem("zama_ord")||"[]");a.forEach(function(o){if(o.order_id===id)o.status=st;});localStorage.setItem("zama_ord",JSON.stringify(a));}
+function getOrders(){return JSON.parse(localStorage.getItem("zama_ord")||"[]");}
+function saveBenef(n,p,m){var a=JSON.parse(localStorage.getItem("zama_b")||"[]");if(!a.find(function(b){return b.phone===p;})){a.unshift({name:n,phone:p,mm:m});localStorage.setItem("zama_b",JSON.stringify(a.slice(0,10)));}}
+function getBenefs(){return JSON.parse(localStorage.getItem("zama_b")||"[]");}
 
-function saveLocalOrder(order) {
-  var orders = JSON.parse(localStorage.getItem("zama_orders")||"[]");
-  orders.unshift(order);
-  orders = orders.slice(0,50);
-  localStorage.setItem("zama_orders",JSON.stringify(orders));
-}
-
-function updateLocalOrderStatus(oid, status) {
-  var orders = JSON.parse(localStorage.getItem("zama_orders")||"[]");
-  orders.forEach(function(o){ if(o.order_id===oid) o.status=status; });
-  localStorage.setItem("zama_orders",JSON.stringify(orders));
-}
-
-function getLocalOrders() {
-  return JSON.parse(localStorage.getItem("zama_orders")||"[]");
-}
-
-function saveBenefLocal(name, phone, mm) {
-  var benefs = JSON.parse(localStorage.getItem("zama_benefs")||"[]");
-  var exists = benefs.find(function(b){ return b.phone===phone; });
-  if (!exists) {
-    benefs.unshift({name,phone,mm,added:new Date().toISOString()});
-    benefs = benefs.slice(0,10);
-    localStorage.setItem("zama_benefs",JSON.stringify(benefs));
-  }
-}
-
-// ── ACCOUNT ──────────────────────────────────────
-function renderAccount() {
-  user = loadUser();
-  if (user) {
-    document.getElementById("acct-guest").style.display = "none";
-    document.getElementById("acct-logged").style.display = "block";
-    var initials = ((user.prenom||"?")[0]+(user.nom||"?")[0]).toUpperCase();
-    document.getElementById("acct-avatar").textContent = initials;
-    document.getElementById("acct-name").textContent = user.prenom+" "+user.nom;
-    document.getElementById("acct-phone").textContent = user.phone;
-    var kycTag = document.getElementById("kyc-tag");
-    if (user.kyc) {
-      kycTag.className="kyc-tag kyc-yes"; kycTag.textContent="✅ KYC Vérifié";
-      document.getElementById("kyc-btn").style.display="none";
-    } else {
-      kycTag.className="kyc-tag kyc-no"; kycTag.textContent="⚠️ KYC non vérifié";
-      document.getElementById("kyc-btn").style.display="block";
+// ── ACCOUNT ───────────────────────────────────────
+function renderAccount(){
+  user=loadUser();
+  updateHomeGreeting();
+  if(user){
+    document.getElementById("acct-guest").style.display="none";
+    document.getElementById("acct-logged").style.display="block";
+    var ini=((user.prenom||"?")[0]+(user.nom||"?")[0]).toUpperCase();
+    document.getElementById("acct-av").textContent=ini;
+    document.getElementById("acct-nm").textContent=user.prenom+" "+user.nom;
+    document.getElementById("acct-ph").textContent=user.phone;
+    var kt=document.getElementById("kyc-tag");
+    var ki=document.getElementById("kyc-item");
+    if(user.kyc){
+      kt.className="kyc-badge yes";kt.textContent="✅ Identité vérifiée";
+      if(ki)ki.style.display="none";
+    }else{
+      kt.className="kyc-badge no";kt.textContent="⚠️ Identité non vérifiée";
+      if(ki)ki.style.display="flex";
     }
-    renderBenefs();
-  } else {
-    document.getElementById("acct-guest").style.display = "block";
-    document.getElementById("acct-logged").style.display = "none";
+  }else{
+    document.getElementById("acct-guest").style.display="block";
+    document.getElementById("acct-logged").style.display="none";
   }
 }
 
-async function register() {
-  var prenom = document.getElementById("rg-prenom").value.trim();
-  var nom = document.getElementById("rg-nom").value.trim();
-  var tel = document.getElementById("rg-tel").value.trim();
-  var email = document.getElementById("rg-email").value.trim();
-  var pays = document.getElementById("rg-pays").value;
-  if (!prenom||!nom||!tel||!email) { toast("Remplissez tous les champs","error"); return; }
-  var newUser = {id:"ZU-"+Date.now(),prenom,nom,phone:tel,email,pays,kyc:false,created:new Date().toISOString()};
-  saveUser(newUser);
-  user = newUser;
-  try {
-    await fetch(API+"/api/zama/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(newUser)});
-  } catch(e) {}
-  toast("✅ Bienvenue "+prenom+" !","success");
-  renderAccount();
+async function register(){
+  var p=document.getElementById("rg-p").value.trim();
+  var n=document.getElementById("rg-n").value.trim();
+  var t=document.getElementById("rg-t").value.trim();
+  var e=document.getElementById("rg-e").value.trim();
+  if(!p||!n||!t||!e){toast("Remplissez tous les champs","err");return;}
+  pendingRegData={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:t,email:e,pays:document.getElementById("rg-c").value,kyc:false,created:new Date().toISOString()};
+  // Show OTP
+  document.getElementById("otp-phone").textContent=t;
+  document.getElementById("otp-modal").classList.add("open");
+  document.querySelectorAll(".otp-inp")[0].focus();
+  toast("Code OTP: 1234 (démo)","");
 }
 
-function loginPrompt() {
-  var tel = prompt("Entrez votre numéro de téléphone :");
-  if (!tel) return;
-  var savedUser = loadUser();
-  if (savedUser && savedUser.phone === tel) {
-    toast("✅ Reconnecté !","success");
+function loginFlow(){
+  var t=prompt("Entrez votre numéro de téléphone :");
+  if(!t)return;
+  var u=loadUser();
+  if(u&&u.phone.replace(/\D/g,"")===(t.replace(/\D/g,""))){
+    toast("✅ Reconnecté, "+u.prenom+" !","ok");
     renderAccount();
-  } else {
-    toast("Numéro non trouvé. Créez un compte.","error");
+  }else{
+    toast("Numéro non trouvé. Créez un compte.","err");
   }
 }
 
-function logout() {
-  if (confirm("Se déconnecter ?")) {
-    localStorage.removeItem("zama_user");
-    user = null;
+function logout(){
+  if(confirm("Se déconnecter ?")){
+    localStorage.removeItem("zama_u");
+    user=null;
     renderAccount();
+    updateHomeGreeting();
+    goTo("scr-home");
   }
 }
 
-function openKYC() { document.getElementById("kyc-modal").classList.add("open"); }
-
-async function submitKYC() {
-  var num = document.getElementById("kyc-num").value.trim();
-  var dob = document.getElementById("kyc-dob").value;
-  var nat = document.getElementById("kyc-nat").value.trim();
-  if (!num||!dob||!nat) { toast("Remplissez tous les champs","error"); return; }
-  user.kyc = true;
-  user.kyc_data = {doc_type:document.getElementById("kyc-type").value,doc_num:num,dob,nationality:nat};
-  saveUser(user);
-  try {
-    await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({user_id:user.id,...user.kyc_data})});
-  } catch(e) {}
-  document.getElementById("kyc-modal").classList.remove("open");
-  toast("✅ KYC soumis ! Limite portée à 5 000$/j","success");
-  renderAccount();
+// ── OTP ───────────────────────────────────────────
+function otpNext(el,idx){
+  if(el.value.length===1){
+    var inputs=document.querySelectorAll(".otp-inp");
+    if(idx<3)inputs[idx+1].focus();
+  }
 }
 
-// ── BENEFICIAIRES ────────────────────────────────
-function renderBenefs() {
-  var benefs = JSON.parse(localStorage.getItem("zama_benefs")||"[]");
-  var el = document.getElementById("benef-list");
-  if (!benefs.length) { el.innerHTML="<div style='font-size:13px;color:var(--muted)'>Aucun bénéficiaire</div>"; return; }
-  el.innerHTML = benefs.map(function(b) {
-    return "<div class='benef-item'><div class='bi-left'><div class='bi-avatar'>"+(b.mm==="wave"?"💚":"🟠")+"</div><div><div class='bi-name'>"+b.name+"</div><div class='bi-phone'>"+b.phone+"</div></div></div><button class='bi-use' onclick='useBenef(\""+b.name+"\",\""+b.phone+"\",\""+b.mm+"\")'>Utiliser</button></div>";
+function verifyOTP(){
+  var code=Array.from(document.querySelectorAll(".otp-inp")).map(function(i){return i.value;}).join("");
+  if(code==="1234"||code.length===4){
+    var u=pendingRegData;
+    saveUserLS(u);user=u;
+    document.getElementById("otp-modal").classList.remove("open");
+    document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
+    toast("✅ Bienvenue "+u.prenom+" !","ok");
+    renderAccount();
+    updateHomeGreeting();
+  }else{
+    toast("Code incorrect. Démo: 1234","err");
+  }
+}
+
+function closeOTP(){document.getElementById("otp-modal").classList.remove("open");}
+
+// ── KYC ──────────────────────────────────────────
+async function submitKYC(){
+  var num=document.getElementById("kd-num").value.trim();
+  var dob=document.getElementById("kd-dob").value;
+  var nat=document.getElementById("kd-nat").value.trim();
+  if(!num||!dob||!nat){toast("Remplissez tous les champs","err");return;}
+  user.kyc=true;
+  user.kyc_data={doc_type:document.getElementById("kd-type").value,doc_num:num,dob,nationality:nat};
+  saveUserLS(user);
+  try{await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:user.id,...user.kyc_data})});}catch(e){}
+  toast("✅ KYC soumis ! Limite 5 000$/j","ok");
+  goBack();renderAccount();
+}
+
+// ── BENEFICIAIRES ─────────────────────────────────
+function renderBenefs(){
+  var benefs=getBenefs();
+  var el=document.getElementById("benefs-list");
+  if(!el)return;
+  if(!benefs.length){
+    el.innerHTML="<div class='empty-state'><div class='ei'>👥</div>Aucun bénéficiaire encore</div>";
+    return;
+  }
+  el.innerHTML=benefs.map(function(b){
+    return "<div class='benef-item'><div class='bi-ava'>"+(b.mm==="wave"?"💚":"🟠")+"</div><div class='bi-info'><div class='bi-name'>"+b.name+"</div><div class='bi-phone'>"+b.phone+"</div></div><button class='bi-use' onclick='useBenef(\""+b.name+"\",\""+b.phone+"\",\""+b.mm+"\")'>Utiliser</button></div>";
   }).join("");
 }
 
-function addBenef() {
-  showScreen("change",document.getElementById("nav-change"));
-  goP(2);
-}
-
-function useBenef(name, phone, mmType) {
-  showScreen("change",document.getElementById("nav-change"));
-  setTimeout(function() {
-    goP(2);
-    var parts = name.split(" ");
-    document.getElementById("r-prenom").value = parts[0]||name;
-    document.getElementById("r-nom").value = parts.slice(1).join(" ")||"";
-    document.getElementById("r-phone").value = phone;
-    selMM(mmType, document.getElementById("mm-"+mmType));
-  }, 100);
-}
-
-function loadQuickBenefs() {
-  var benefs = JSON.parse(localStorage.getItem("zama_benefs")||"[]");
-  var el = document.getElementById("quick-benefs");
-  var list = document.getElementById("quick-benef-list");
-  if (!benefs.length) { el.style.display="none"; return; }
-  el.style.display = "block";
-  list.innerHTML = benefs.slice(0,3).map(function(b) {
-    return "<div class='benef-item'><div class='bi-left'><div class='bi-avatar'>"+(b.mm==="wave"?"💚":"🟠")+"</div><div><div class='bi-name'>"+b.name+"</div><div class='bi-phone'>"+b.phone+"</div></div></div><button class='bi-use' onclick='fillBenef(\""+b.name+"\",\""+b.phone+"\",\""+b.mm+"\")'>Remplir</button></div>";
+function renderQuickBenefs(){
+  var benefs=getBenefs().slice(0,3);
+  var wrap=document.getElementById("qb-wrap");
+  var list=document.getElementById("qb-list");
+  if(!benefs.length){if(wrap)wrap.style.display="none";return;}
+  if(wrap)wrap.style.display="block";
+  if(list)list.innerHTML=benefs.map(function(b){
+    return "<div class='benef-item'><div class='bi-ava'>"+(b.mm==="wave"?"💚":"🟠")+"</div><div class='bi-info'><div class='bi-name'>"+b.name+"</div><div class='bi-phone'>"+b.phone+"</div></div><button class='bi-use' onclick='fillBenef(\""+b.name+"\",\""+b.phone+"\",\""+b.mm+"\")'>Remplir</button></div>";
   }).join("");
 }
 
-function fillBenef(name, phone, mmType) {
-  var parts = name.split(" ");
-  document.getElementById("r-prenom").value = parts[0]||name;
-  document.getElementById("r-nom").value = parts.slice(1).join(" ")||"";
-  document.getElementById("r-phone").value = phone;
-  selMM(mmType, document.getElementById("mm-"+mmType));
+function renderHomeBenefs(){
+  var benefs=getBenefs().slice(0,4);
+  var el=document.getElementById("home-benefs");
+  if(!el)return;
+  if(!benefs.length){el.innerHTML="<div class='empty-state' style='padding:24px 20px'><div class='ei' style='font-size:28px'>👥</div><div style='font-size:12px'>Ajoutez des bénéficiaires</div></div>";return;}
+  el.innerHTML=benefs.map(function(b){
+    return "<div class='benef-item'><div class='bi-ava'>"+(b.mm==="wave"?"💚":"🟠")+"</div><div class='bi-info'><div class='bi-name'>"+b.name+"</div><div class='bi-phone'>"+b.phone+"</div></div><button class='bi-use' onclick='quickSend(\""+b.name+"\",\""+b.phone+"\",\""+b.mm+"\")'>Envoyer</button></div>";
+  }).join("");
+}
+
+function fillBenef(name,phone,mmType){
+  var pts=name.split(" ");
+  document.getElementById("r-prenom").value=pts[0]||name;
+  document.getElementById("r-nom").value=pts.slice(1).join(" ")||"";
+  document.getElementById("r-phone").value=phone;
+  selMM(mmType,document.getElementById("mm-"+mmType));
+}
+
+function useBenef(name,phone,mmType){
+  goTo("scr-send");
+  setTimeout(function(){step2b(name,phone,mmType);},350);
+}
+
+function quickSend(name,phone,mmType){
+  goTo("scr-send");
+}
+
+function step2b(name,phone,mmType){
+  fillBenef(name,phone,mmType);
+}
+
+function addBenef(){
+  var name=prompt("Nom du bénéficiaire :");
+  if(!name)return;
+  var phone=prompt("Numéro Mobile Money :");
+  if(!phone)return;
+  var mmType=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";
+  saveBenef(name,phone,mmType);
+  renderBenefs();
+  renderHomeBenefs();
+  toast("Bénéficiaire ajouté","ok");
 }
 
 // ── HISTORY ──────────────────────────────────────
-function loadHistory() {
-  var orders = getLocalOrders();
-  var el = document.getElementById("hist-content");
-  if (!orders.length) {
-    el.innerHTML="<div style='text-align:center;padding:48px;color:var(--muted)'><div style='font-size:36px;margin-bottom:12px'>📋</div>Aucune transaction</div>";
+function renderHistory(){
+  var orders=getOrders();
+  var el=document.getElementById("hist-content");
+  if(!el)return;
+  if(!orders.length){
+    el.innerHTML="<div class='empty-state'><div class='ei'>📋</div>Aucune transaction encore</div>";
     return;
   }
-  el.innerHTML = orders.map(function(o) {
-    var date = new Date(o.created_at).toLocaleDateString("fr-FR");
-    var sc = o.status==="paid"?"st-paid":"st-pending";
-    var sl = o.status==="paid"?"✅ Complété":"⏳ En cours";
-    return "<div class='hist-card'><div class='hc-icon'>💱</div><div class='hc-info'><div class='hc-top'>"+o.amount+" "+o.src_currency+" → "+(o.net_fcfa||0).toLocaleString("fr-FR")+" FCFA</div><div class='hc-bot'>"+date+" · "+o.receiver_name+"</div></div><div class='hc-right'><div class='hc-amount'>"+(o.net_fcfa||0).toLocaleString("fr-FR")+" F</div><div class='hc-status "+sc+"'>"+sl+"</div></div></div>";
+  el.innerHTML=orders.map(function(o){
+    var dt=new Date(o.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+    var st=o.status==="paid"?"ok":o.status==="failed"?"fail":"pend";
+    var stl=o.status==="paid"?"✅ Complété":o.status==="failed"?"❌ Échoué":"⏳ En cours";
+    var mmI=o.receiver_mm==="wave"?"💚":"🟠";
+    return "<div class='hist-item'><div class='hi-icon "+st+"'>"+mmI+"</div><div class='hi-info'><div class='hi-top'>"+o.receiver_name+"</div><div class='hi-bot'>"+o.amount+" "+o.src_currency+" · "+dt+"</div></div><div class='hi-right'><div class='hi-amt'>"+o.net_fcfa.toLocaleString("fr-FR")+" F</div><div class='hi-st "+st+"'>"+stl+"</div></div></div>";
   }).join("");
 }
 
-// ── TOAST ────────────────────────────────────────
-var toastTimer;
-function toast(msg, type) {
-  var t = document.getElementById("toast");
-  t.textContent = msg;
-  t.className = "toast show"+(type?" "+type:"");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){t.classList.remove("show");},3500);
+// ── TOAST ─────────────────────────────────────────
+var toastT;
+function toast(msg,type){
+  var t=document.getElementById("toast");
+  t.textContent=msg;t.className="toast show"+(type?" "+type:"");
+  clearTimeout(toastT);
+  toastT=setTimeout(function(){t.classList.remove("show");},3000);
 }
 </script>
 </body>
