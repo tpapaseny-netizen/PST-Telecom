@@ -472,6 +472,34 @@ img{max-width:100%;height:auto;}
 .pz-sub{font-size:12px;color:var(--text3);margin-top:4px;}
 .photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
 
+
+/* ═══ LOGIN SCREEN ═══ */
+.login-hero{
+  background:linear-gradient(160deg,#1A1A2E,#16213E);
+  padding:40px 24px 32px;text-align:center;
+}
+.login-logo{
+  width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+  box-shadow:0 8px 24px rgba(232,150,12,0.4);
+  font-size:32px;
+}
+.login-title{font-size:26px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:4px;}
+.login-sub{font-size:13px;color:rgba(255,255,255,0.45);}
+.login-form{padding:28px 20px;}
+.login-tab{display:flex;background:var(--bg2);border-radius:10px;padding:3px;margin-bottom:24px;}
+.lt{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;
+  font-size:14px;font-weight:600;cursor:pointer;color:var(--text2);font-family:var(--font);}
+.lt.on{background:var(--bg);color:var(--text);box-shadow:var(--shadow);}
+.phone-input-wrap{position:relative;margin-bottom:12px;}
+.phone-flag{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:20px;}
+.phone-inp{width:100%;background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:var(--r-sm);padding:14px 16px 14px 50px;
+  font-size:16px;font-family:var(--font);color:var(--text);outline:none;}
+.phone-inp:focus{border-color:var(--gold);}
+
 /* ═══ OTP MODAL ═══ */
 .otp-modal{
   position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;
@@ -913,43 +941,11 @@ img{max-width:100%;height:auto;}
   <div class="sbody">
     <!-- GUEST -->
     <div id="acct-guest">
-      <div class="guest-hero">
-        <div class="guest-logo">
-          <svg width="44" height="44" viewBox="0 0 28 28" fill="none">
-            <path d="M20 8 C20 5 22 4 23 6 C24 4 26 5 24 8" stroke="rgba(0,0,0,0.6)" stroke-width="1.5" stroke-linecap="round"/>
-            <ellipse cx="20" cy="12" rx="5" ry="5" fill="rgba(0,0,0,0.7)"/>
-            <path d="M25 12 L28 11 L27 13Z" fill="rgba(0,0,0,0.7)"/>
-            <circle cx="22" cy="11" r="1" fill="white"/>
-            <ellipse cx="14" cy="20" rx="8" ry="7" fill="rgba(0,0,0,0.7)"/>
-            <path d="M7 18 Q4 14 8 12 Q12 10 14 16" fill="rgba(0,0,0,0.5)"/>
-          </svg>
-        </div>
-        <div class="guest-title">ZAMA</div>
-        <div class="guest-sub">Bureau de change digital · PST Telecom</div>
-      </div>
-      <div class="guest-form">
-        <div class="section-title" style="padding:0;margin-bottom:14px">Créer mon compte</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Prénom *</label><input class="form-input" type="text" id="rg-p" placeholder="Prénom"></div>
-          <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" type="text" id="rg-n" placeholder="Nom"></div>
-        </div>
-        <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
-        <div class="form-group"><label class="form-label">Email *</label><input class="form-input" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
-        <div class="form-group"><label class="form-label">Pays</label>
-          <select class="form-input" id="rg-c">
-            <option value="SN">🇸🇳 Sénégal</option>
-            <option value="FR">🇫🇷 France</option>
-            <option value="US">🇺🇸 États-Unis</option>
-            <option value="CA">🇨🇦 Canada</option>
-            <option value="GB">🇬🇧 Royaume-Uni</option>
-            <option value="IT">🇮🇹 Italie</option>
-            <option value="ES">🇪🇸 Espagne</option>
-            <option value="BE">🇧🇪 Belgique</option>
-            <option value="DE">🇩🇪 Allemagne</option>
-          </select>
-        </div>
-        <button class="big-btn primary" style="width:100%;margin:0" onclick="register()">🐓 Créer mon compte ZAMA</button>
-        <div class="guest-login-link">Déjà un compte ? <b onclick="loginFlow()">Se connecter</b></div>
+      <div class="acct-hero" style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:12px">🐓</div>
+        <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:6px">ZAMA</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:24px">Bureau de change digital</div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="goTo('scr-login')">Créer un compte ou se connecter →</button>
       </div>
     </div>
 
@@ -1110,6 +1106,70 @@ img{max-width:100%;height:auto;}
   </div>
   <div class="sbody">
     <div id="benefs-list" style="padding-top:8px"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     SCREEN: LOGIN
+══════════════════════════════════════════════ -->
+<div class="screen" id="scr-login">
+  <div class="sbody">
+    <div class="login-hero">
+      <div class="login-logo">🐓</div>
+      <div class="login-title">ZAMA</div>
+      <div class="login-sub">Bureau de change digital</div>
+    </div>
+    <div class="login-form">
+      <div class="login-tab" id="login-tabs">
+        <button class="lt on" id="tab-login" onclick="switchLoginTab('login')">Se connecter</button>
+        <button class="lt" id="tab-register" onclick="switchLoginTab('register')">Créer un compte</button>
+      </div>
+
+      <!-- LOGIN PANEL -->
+      <div id="login-panel">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          Entrez votre numéro de téléphone pour vous reconnecter.
+        </div>
+        <div class="phone-input-wrap">
+          <span class="phone-flag">🇸🇳</span>
+          <input class="phone-inp" type="tel" id="login-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
+        </div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="doLogin()">Se connecter →</button>
+        <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--text3)">
+          Votre numéro enregistré vous reconnecte instantanément
+        </div>
+      </div>
+
+      <!-- REGISTER PANEL -->
+      <div id="register-panel" style="display:none">
+        <div class="form-row" style="margin-bottom:0">
+          <div class="form-group"><label class="form-label">Prénom *</label><input class="form-input" type="text" id="rg-p" placeholder="Prénom"></div>
+          <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" type="text" id="rg-n" placeholder="Nom"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Téléphone *</label>
+          <div class="phone-input-wrap" style="margin-bottom:0">
+            <span class="phone-flag">🇸🇳</span>
+            <input class="phone-inp" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX" inputmode="tel">
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Email *</label><input class="form-input" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
+        <div class="form-group"><label class="form-label">Pays</label>
+          <select class="form-input" id="rg-c">
+            <option value="SN">🇸🇳 Sénégal</option>
+            <option value="FR">🇫🇷 France</option>
+            <option value="US">🇺🇸 États-Unis</option>
+            <option value="CA">🇨🇦 Canada</option>
+            <option value="GB">🇬🇧 Royaume-Uni</option>
+            <option value="IT">🇮🇹 Italie</option>
+            <option value="ES">🇪🇸 Espagne</option>
+            <option value="BE">🇧🇪 Belgique</option>
+            <option value="DE">🇩🇪 Allemagne</option>
+          </select>
+        </div>
+        <button class="big-btn primary" style="width:100%;margin:0" onclick="register()">Créer mon compte →</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1543,37 +1603,48 @@ async function register(){
 }
 
 function loginFlow(){
-  var t=prompt("Entrez votre numéro de téléphone enregistré :\nEx: +221 77 152 09 59");
-  if(!t)return;
-  var phone=normalizePhone(t);
+  goTo("scr-login");
+  setTimeout(function(){switchLoginTab("login");},50);
+}
 
-  // Search in all accounts
+function switchLoginTab(tab){
+  document.getElementById("login-panel").style.display = tab==="login"?"block":"none";
+  document.getElementById("register-panel").style.display = tab==="register"?"block":"none";
+  document.getElementById("tab-login").className = "lt"+(tab==="login"?" on":"");
+  document.getElementById("tab-register").className = "lt"+(tab==="register"?" on":"");
+}
+
+function doLogin(){
+  var t=document.getElementById("login-phone").value.trim();
+  if(!t){toast("Entrez votre numéro de téléphone","err");return;}
+  var phone=normalizePhone(t);
   var accounts=getAllAccounts();
   var found=accounts.find(function(a){
     return normalizePhone(a.phone)===phone;
   });
-
   if(found){
     saveUserLS(found);
     user=found;
     renderAccount();
     updateHomeGreeting();
-    document.getElementById("otp-modal").classList.remove("open");
+    renderHomeBenefs();
     toast("✅ Reconnecté, "+found.prenom+" !","ok");
+    goTo("scr-account");
   }else{
-    toast("Numéro non trouvé. Vérifiez ou créez un compte.","err");
+    toast("Numéro non trouvé. Créez un compte.","err");
+    switchLoginTab("register");
   }
 }
 
 function logout(){
   if(confirm("Se déconnecter ?")){
-    // Keep accounts registry but clear active session
     localStorage.removeItem("zama_u");
     user=null;
-    renderAccount();
     updateHomeGreeting();
-    goTo("scr-home");
-    toast("Déconnecté. Reconnectez-vous via votre numéro.","");
+    renderAccount();
+    goTo("scr-login");
+    setTimeout(function(){switchLoginTab("login");document.getElementById("login-phone").value="";},100);
+    toast("Déconnecté","");
   }
 }
 
@@ -1614,6 +1685,7 @@ function verifyOTP(){
     renderAccount();
     updateHomeGreeting();
     renderHomeBenefs();
+    goTo("scr-account");
   }else{
     toast("Code incorrect. Démo: 1234","err");
   }
