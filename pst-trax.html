@@ -7,93 +7,1270 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>PST-TRAX</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-#izm{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
-#izm.open{display:flex;}
-#izb{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;position:relative;max-height:85vh;overflow-y:auto;}
-.izs{display:none;}
-.izs.a{display:block;}
-.izg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.izc{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;}
-.izc.a{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
-.izci{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
-.izbn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;}
-.izb2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;}
-.iza{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-size:12px;color:#00e5ff;margin:10px 0;font-family:monospace;}
-.izw{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
-.izx{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;}
-.izsp{display:inline-block;font-size:32px;animation:izsp 1s linear infinite;}
-@keyframes izsp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0e1a;--panel:#111827;--card:#162032;--border:#1e2d47;
+  --accent:#00e5ff;--green:#22c55e;--orange:#f97316;--red:#ef4444;
+  --text:#e2e8f0;--muted:#64748b;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;}
+
+/* ── SHARED ── */
+.screen{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;}
+.screen.active{display:flex;}
+.fi{
+  width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);
+  padding:13px 16px;border-radius:10px;font-size:15px;outline:none;
+  transition:border-color .2s;margin-bottom:12px;
+}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--muted);}
+.lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:6px;display:block;}
+.btn-main{
+  width:100%;padding:15px;background:var(--accent);color:#000;
+  border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;
+  letter-spacing:.5px;transition:background .2s;
+}
+.btn-main:active{background:#00bcd4;}
+.btn-sec{
+  width:100%;padding:13px;background:transparent;color:var(--muted);
+  border:1px solid var(--border);border-radius:12px;font-size:14px;
+  font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px;
+}
+.btn-sec:hover{border-color:var(--accent);color:var(--accent);}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;
+}
+.pill.green{background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);}
+.pill.orange{background:rgba(249,115,22,.15);border:1px solid var(--orange);color:var(--orange);}
+.pill.red{background:rgba(239,68,68,.15);border:1px solid var(--red);color:var(--red);}
+.pill.muted{background:rgba(100,116,139,.15);border:1px solid var(--muted);color:var(--muted);}
+.ldot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-120px);
+  z-index:99999;background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;padding:14px 20px;font-size:13px;min-width:260px;max-width:340px;
+  text-align:center;transition:transform .35s;box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast-title{font-weight:800;margin-bottom:3px;}
+.toast.success .toast-title{color:var(--green);}
+.toast.error .toast-title{color:var(--red);}
+.toast.info .toast-title{color:var(--accent);}
+
+/* ══ SCREEN: WELCOME ══════════════════════════════ */
+#screen-welcome{
+  background:var(--bg);align-items:center;justify-content:center;padding:24px;
+}
+.wlc-logo{font-size:42px;font-weight:900;letter-spacing:4px;color:var(--accent);margin-bottom:4px;}
+.wlc-sub{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:48px;}
+.wlc-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px;}
+.wlc-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+.wlc-desc{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.7;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;}
+.role-card{
+  padding:20px 12px;border:2px solid var(--border);background:var(--card);
+  border-radius:14px;cursor:pointer;text-align:center;transition:all .2s;
+}
+.role-card:hover,.role-card.sel{border-color:var(--accent);background:rgba(0,229,255,.05);}
+.role-card .rc-icon{font-size:36px;margin-bottom:8px;}
+.role-card .rc-title{font-size:14px;font-weight:800;color:var(--text);}
+.role-card .rc-desc{font-size:11px;color:var(--muted);margin-top:4px;}
+.role-card.sel .rc-title{color:var(--accent);}
+
+/* ══ SCREEN: AUTH (Register/Login) ════════════════ */
+#screen-auth{background:var(--bg);align-items:center;justify-content:center;padding:24px;}
+.auth-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:28px;}
+.auth-back{
+  display:flex;align-items:center;gap:8px;color:var(--muted);
+  background:transparent;border:none;cursor:pointer;font-size:13px;
+  margin-bottom:20px;padding:0;
+}
+.auth-back:hover{color:var(--accent);}
+.auth-tabs{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.auth-tab{
+  flex:1;padding:10px;font-size:13px;font-weight:700;text-align:center;
+  cursor:pointer;background:transparent;color:var(--muted);border:none;transition:all .2s;
+}
+.auth-tab.active{background:var(--accent);color:#000;}
+.phone-row{display:flex;gap:8px;}
+.phone-flag{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:13px 12px;font-size:15px;white-space:nowrap;color:var(--text);
+  margin-bottom:12px;display:flex;align-items:center;gap:6px;
+  min-width:90px;
+}
+.otp-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:16px;}
+.otp-box{
+  width:50px;height:58px;background:var(--card);border:2px solid var(--border);
+  border-radius:12px;text-align:center;font-size:24px;font-weight:800;
+  color:var(--text);outline:none;transition:border-color .2s;
+}
+.otp-box:focus{border-color:var(--accent);}
+.otp-hint{text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px;}
+.otp-resend{text-align:center;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;}
+.otp-resend span{color:var(--accent);font-weight:700;}
+.vehicle-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.vt-btn{
+  padding:12px 6px;border:1px solid var(--border);background:var(--card);
+  color:var(--muted);border-radius:10px;cursor:pointer;text-align:center;
+  font-size:10px;font-weight:700;transition:all .2s;
+}
+.vt-btn .vti{font-size:24px;display:block;margin-bottom:4px;}
+.vt-btn.sel,.vt-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted);font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ══ SCREEN: OWNER ════════════════════════════════ */
+#screen-owner{background:var(--bg);}
+.topbar{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.tlogo{font-size:16px;font-weight:900;letter-spacing:2px;color:var(--accent);}
+.tstats{display:flex;gap:16px;margin-left:auto;}
+.ts{text-align:center;}
+.tsn{font-size:18px;font-weight:800;}
+.tsl{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.ts.g .tsn{color:var(--green);}
+.ts.o .tsn{color:var(--orange);}
+.ts.r .tsn{color:var(--red);}
+.tbtn{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:var(--accent);color:#000;white-space:nowrap;}
+.owner-body{flex:1;display:flex;overflow:hidden;}
+.sidebar{width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+@media(max-width:700px){.sidebar{display:none;}}
+.sb-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.sb-title{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.sb-cnt{background:var(--accent);color:#000;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;}
+.sb-search{padding:10px 12px;border-bottom:1px solid var(--border);}
+.sb-si{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12px;outline:none;}
+.sb-si:focus{border-color:var(--accent);}
+.stabs{display:flex;padding:8px 12px;gap:4px;border-bottom:1px solid var(--border);}
+.stab{flex:1;padding:5px 4px;font-size:10px;font-weight:700;text-align:center;border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--muted);transition:all .2s;border-radius:6px;}
+.stab.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.vlist{flex:1;overflow-y:auto;padding:8px;}
+.vlist::-webkit-scrollbar{width:3px;}
+.vlist::-webkit-scrollbar-thumb{background:var(--border);}
+.vcard{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s;border-left:3px solid var(--muted);}
+.vcard.online{border-left-color:var(--green);}
+.vcard.stopped{border-left-color:var(--orange);}
+.vcard.alert{border-left-color:var(--red);}
+.vcard:hover{border-color:var(--accent);}
+.vcard.sel{border-color:var(--accent);background:rgba(0,229,255,.05);}
+.vc-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.vc-ico{font-size:20px;}
+.vc-inf{flex:1;}
+.vc-nm{font-size:13px;font-weight:700;}
+.vc-id{font-size:10px;color:var(--muted);}
+.vc-meta{display:flex;gap:10px;font-size:10px;color:var(--muted);margin-bottom:8px;}
+.vc-meta b{color:var(--text);}
+.vc-acts{display:flex;gap:6px;}
+.vab{flex:1;padding:5px;font-size:10px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:6px;cursor:pointer;transition:all .2s;}
+.vab:hover{border-color:var(--accent);color:var(--accent);}
+.vab.red{color:var(--red);border-color:rgba(239,68,68,.3);}
+.vab.red:hover{background:rgba(239,68,68,.1);}
+.map-wrap{flex:1;position:relative;}
+#map{width:100%;height:100%;}
+.map-info{position:absolute;bottom:20px;right:12px;z-index:1000;background:rgba(17,24,39,.9);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:11px;color:var(--muted);backdrop-filter:blur(8px);}
+.map-info span{color:var(--accent);font-weight:700;}
+.mob-nav{display:none;background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;}
+@media(max-width:700px){.mob-nav{display:flex;}}
+.mn-btn{flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;transition:color .2s;}
+.mn-btn .mni{font-size:20px;display:block;margin-bottom:2px;}
+.mn-btn.active,.mn-btn:hover{color:var(--accent);}
+#mob-overlay{position:fixed;inset:0;z-index:500;background:var(--panel);display:none;flex-direction:column;padding-top:56px;}
+#mob-overlay.open{display:flex;}
+.mob-ol-head{position:fixed;top:0;left:0;right:0;z-index:501;background:var(--panel);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.mob-close{background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;}
+.mob-vlist{flex:1;overflow-y:auto;padding:12px;}
+
+/* ══ SCREEN: DRIVER ═══════════════════════════════ */
+#screen-driver{background:var(--bg);}
+.drv-top{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.drv-logo{font-size:15px;font-weight:900;color:var(--accent);letter-spacing:2px;}
+.drv-name{font-size:13px;font-weight:700;flex:1;}
+.drv-body{flex:1;overflow-y:auto;padding:16px;}
+.drv-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;}
+.drv-card-title{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.drv-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.ds{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;}
+.dsn{font-size:26px;font-weight:800;color:var(--accent);}
+.dsl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.gps-coords{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.coord-box{background:var(--bg);border-radius:10px;padding:12px;}
+.coord-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.coord-val{font-size:16px;font-weight:700;color:var(--accent);}
+.prec-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
+.prec-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s;}
+.gps-st{font-size:11px;color:var(--muted);margin-top:6px;}
+.gps-st.good{color:var(--green);}
+.big-btn{width:100%;padding:18px;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;transition:all .2s;}
+.btn-start{background:var(--green);color:#fff;}
+.btn-start:active{background:#16a34a;}
+.btn-stop{background:var(--red);color:#fff;}
+.btn-stop:active{background:#dc2626;}
+.freq-btns{display:flex;gap:8px;}
+.freq-btn{flex:1;padding:10px;border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;transition:all .2s;}
+.freq-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07);}
+.notif-list{max-height:140px;overflow-y:auto;}
+.notif-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.notif-item:last-child{border-bottom:none;}
+.ndot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;}
+.ndot.or{background:var(--orange);}
+.ndot.rd{background:var(--red);}
+.hist-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;}
+.hist-top{display:flex;justify-content:space-between;margin-bottom:4px;}
+.drv-bottom{background:var(--panel);border-top:1px solid var(--border);display:flex;flex-shrink:0;}
+.dtab{flex:1;padding:12px 6px;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;transition:color .2s;}
+.dtab .dti{font-size:18px;display:block;margin-bottom:2px;}
+.dtab.active,.dtab:hover{color:var(--accent);}
+.dtab-panel{display:none;}
+.dtab-panel.active{display:block;}
+
+/* profile badge */
+.profile-badge{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+.pb-avatar{width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#000;flex-shrink:0;}
+.pb-info{flex:1;}
+.pb-name{font-size:15px;font-weight:700;}
+.pb-phone{font-size:12px;color:var(--muted);}
+.pb-role{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:400px;}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:18px;}
+.modal-acts{display:flex;gap:10px;margin-top:16px;}
+.modal-acts button{flex:1;padding:12px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:700;}
+.btn-cancel{background:var(--border);color:var(--text);}
+.btn-save{background:var(--accent);color:#000;}
+
+/* Leaflet marker */
+.mk{background:var(--panel);border:2px solid var(--green);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 0 4px rgba(34,197,94,.2),0 4px 12px rgba(0,0,0,.5);}
+.mk.stopped{border-color:var(--orange);box-shadow:0 0 0 4px rgba(249,115,22,.2),0 4px 12px rgba(0,0,0,.5);}
+.mk.alert{border-color:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.3),0 4px 12px rgba(0,0,0,.5);}
+.mk.offline{border-color:var(--muted);opacity:.6;box-shadow:none;}
 </style>
-<div id="izm">
-<div id="izb">
-<button class="izx" onclick="document.getElementById('izm').classList.remove('open')">&#215;</button>
-<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#9889; Payer en Crypto</div>
-<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$24.75 USD</div>
-<div class="izs a" id="izs1">
-<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
-<div class="izg">
-<div class="izc a" onclick="izSel(this,'USDT.BEP20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-<div class="izc" onclick="izSel(this,'USDT.TRC20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-<div class="izc" onclick="izSel(this,'BTC')"><img class="izci" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-<div class="izc" onclick="izSel(this,'ETH')"><img class="izci" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-<div class="izc" onclick="izSel(this,'BNB')"><img class="izci" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-<div class="izc" onclick="izSel(this,'TRX')"><img class="izci" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><div class="toast-title" id="toast-t"></div><div id="toast-m"></div></div>
+
+<!-- ══ WELCOME ════════════════════════════════════ -->
+<div id="screen-welcome" class="screen active">
+  <div class="wlc-logo">PST-TRAX</div>
+  <div class="wlc-sub">Géolocalisation & Tracking</div>
+  <div class="wlc-card">
+    <div class="wlc-title">Bienvenue 👋</div>
+    <div class="wlc-desc">Choisissez votre rôle pour créer votre compte ou vous connecter.</div>
+    <div class="role-grid">
+      <div class="role-card sel" id="rc-owner" onclick="pickRole('owner')">
+        <div class="rc-icon">👨‍💼</div>
+        <div class="rc-title">Propriétaire</div>
+        <div class="rc-desc">Gérer ma flotte</div>
+      </div>
+      <div class="role-card" id="rc-driver" onclick="pickRole('driver')">
+        <div class="rc-icon">🏍️</div>
+        <div class="rc-title">Chauffeur</div>
+        <div class="rc-desc">Activer mon GPS</div>
+      </div>
+    </div>
+    <button class="btn-main" onclick="goToAuth()">▶ Continuer</button>
+  </div>
 </div>
-<div class="izw">&#9888; Envoyez le montant exact sur le bon reseau.</div>
-<button class="izbn" onclick="izGen()">Generer adresse</button>
-<button class="izb2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer sur izichangePay.com</button>
+
+<!-- ══ AUTH ═══════════════════════════════════════ -->
+<div id="screen-auth" class="screen">
+  <div class="auth-card">
+    <button class="auth-back" onclick="showScreen('welcome')">← Retour</button>
+    <div id="auth-role-label" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+    <!-- Step 1: Phone -->
+    <div id="step-phone">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-register" onclick="switchAuthTab('register')">Créer un compte</button>
+        <button class="auth-tab" id="tab-login" onclick="switchAuthTab('login')">Se connecter</button>
+      </div>
+
+      <!-- Register fields -->
+      <div id="fields-register">
+        <label class="lbl">Votre prénom et nom</label>
+        <input class="fi" id="r-name" placeholder="Ex: Moussa Diallo" autocomplete="name">
+        <label class="lbl">Numéro de téléphone</label>
+        <div class="phone-row">
+          <div class="phone-flag">🇸🇳 +221</div>
+          <input class="fi" id="r-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+        </div>
+
+        <!-- Driver extra fields -->
+        <div id="driver-extra" style="display:none">
+          <label class="lbl">ID de votre véhicule</label>
+          <input class="fi" id="r-vid" placeholder="Ex: TBA-001 (donné par le propriétaire)">
+          <label class="lbl">Type de véhicule</label>
+          <div class="vehicle-type-grid">
+            <div class="vt-btn sel" onclick="selVtype(this,'🏍️','Moto Jakarta')"><span class="vti">🏍️</span>Jakarta</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚗','Voiture')"><span class="vti">🚗</span>Voiture</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚕','Taxi')"><span class="vti">🚕</span>Taxi</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚚','Camion')"><span class="vti">🚚</span>Camion</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚌','Bus')"><span class="vti">🚌</span>Bus</div>
+            <div class="vt-btn" onclick="selVtype(this,'🚑','Ambulance')"><span class="vti">🚑</span>Ambulance</div>
+          </div>
+        </div>
+        <label class="lbl">Mot de passe (6 chiffres minimum)</label>
+        <input class="fi" id="r-pass" type="password" placeholder="••••••" autocomplete="new-password">
+        <button class="btn-main" onclick="sendOTP('register')">📱 Recevoir le code SMS</button>
+      </div>
+
+      <!-- Login fields -->
+      <div id="fields-login" style="display:none">
+        <label class="lbl">Numéro de téléphone</label>
+        <div class="phone-row">
+          <div class="phone-flag">🇸🇳 +221</div>
+          <input class="fi" id="l-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+        </div>
+        <label class="lbl">Mot de passe</label>
+        <input class="fi" id="l-pass" type="password" placeholder="••••••" autocomplete="current-password">
+        <button class="btn-main" onclick="doDirectLogin()">▶ Se connecter</button>
+        <div class="divider">ou</div>
+        <button class="btn-sec" onclick="showForgotPass()" style="margin-top:0">🔑 Mot de passe oublié ?</button>
+      </div>
+    </div>
+
+    <!-- Step: Forgot password -->
+    <div id="step-forgot" style="display:none">
+      <button class="auth-back" onclick="backToPhone()">← Retour</button>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🔑</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Réinitialiser le mot de passe</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">Entrez votre numéro de téléphone.<br>Vous recevrez un code pour créer un nouveau mot de passe.</div>
+      </div>
+      <label class="lbl">Numéro de téléphone</label>
+      <div class="phone-row">
+        <div class="phone-flag">🇸🇳 +221</div>
+        <input class="fi" id="fp-phone" placeholder="7X XXX XX XX" type="tel" maxlength="9" style="flex:1">
+      </div>
+      <button class="btn-main" onclick="sendForgotOTP()">📱 Recevoir le code</button>
+    </div>
+
+    <!-- Step: New password after OTP -->
+    <div id="step-newpass" style="display:none">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:32px;margin-bottom:6px;">🔒</div>
+        <div style="font-size:15px;font-weight:700;">Nouveau mot de passe</div>
+      </div>
+      <label class="lbl">Nouveau mot de passe</label>
+      <input class="fi" id="np-pass1" type="password" placeholder="••••••  (6 caractères min)">
+      <label class="lbl">Confirmer le mot de passe</label>
+      <input class="fi" id="np-pass2" type="password" placeholder="••••••">
+      <button class="btn-main" onclick="resetPassword()">✅ Enregistrer le nouveau mot de passe</button>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="step-otp" style="display:none">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:32px;margin-bottom:8px;">📩</div>
+        <div style="font-size:15px;font-weight:700;">Code de vérification</div>
+        <div class="otp-hint" id="otp-hint">Entrez le code envoyé au +221 XX XXX XX XX</div>
+      </div>
+      <div class="otp-inputs">
+        <input class="otp-box" id="o1" maxlength="1" type="number" oninput="otpNext(this,'o2')">
+        <input class="otp-box" id="o2" maxlength="1" type="number" oninput="otpNext(this,'o3')">
+        <input class="otp-box" id="o3" maxlength="1" type="number" oninput="otpNext(this,'o4')">
+        <input class="otp-box" id="o4" maxlength="1" type="number" oninput="otpNext(this,null)">
+      </div>
+      <button class="btn-main" onclick="verifyOTP()">✅ Vérifier</button>
+      <div class="otp-resend" onclick="resendOTP()">Pas reçu ? <span>Renvoyer le code</span></div>
+      <button class="btn-sec" onclick="backToPhone()">← Changer de numéro</button>
+    </div>
+  </div>
 </div>
-<div class="izs" id="izs2">
-<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izex" style="color:#00e5ff"></b> a :</div>
-<div class="iza" id="izad">--</div>
-<button class="izbn" style="background:#1e2d47;color:#e2e8f0;margin-bottom:8px" onclick="navigator.clipboard.writeText(document.getElementById('izad').textContent)">&#128203; Copier</button>
-<div style="font-size:11px;color:#64748b;margin-bottom:4px" id="iznet"></div>
-<div class="izw">&#8987; Confirmation automatique apres reception.</div>
-<button class="izbn" id="izchk" onclick="izChk()">&#128260; Verifier</button>
-<button class="izb2" onclick="izGo(1)">Changer de crypto</button>
+
+<!-- ══ OWNER DASHBOARD ════════════════════════════ -->
+<div id="screen-owner" class="screen">
+  <div class="topbar">
+    <div class="tlogo">PST-TRAX</div>
+    <div class="pill green"><div class="ldot"></div>LIVE</div>
+    <div class="tstats">
+      <div class="ts"><div class="tsn" id="st-tot">0</div><div class="tsl">Total</div></div>
+      <div class="ts g"><div class="tsn" id="st-on">0</div><div class="tsl">Route</div></div>
+      <div class="ts o"><div class="tsn" id="st-st">0</div><div class="tsl">Arrêt</div></div>
+      <div class="ts r"><div class="tsn" id="st-al">0</div><div class="tsl">Alerte</div></div>
+    </div>
+    <button class="tbtn" onclick="openAddModal()">＋</button>
+    <button class="tbtn" style="background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="doLogout()">🚪</button>
+  </div>
+  <div class="owner-body">
+    <div class="sidebar">
+      <div class="sb-head">
+        <span class="sb-title">Flotte</span>
+        <span class="sb-cnt" id="sb-cnt">0</span>
+      </div>
+      <div class="sb-search"><input class="sb-si" placeholder="🔍 Rechercher..." oninput="renderSidebar()"></div>
+      <div class="stabs">
+        <button class="stab active" onclick="setFilter('all',this)">Tout</button>
+        <button class="stab" onclick="setFilter('online',this)">🟢</button>
+        <button class="stab" onclick="setFilter('stopped',this)">🟠</button>
+        <button class="stab" onclick="setFilter('alert',this)">🔴</button>
+      </div>
+      <div class="vlist" id="sb-list"></div>
+    </div>
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-info">Centré sur <span>Touba</span> · MàJ <span id="last-upd">--:--</span></div>
+    </div>
+  </div>
+  <div class="mob-nav">
+    <button class="mn-btn active" onclick="mobTab('map',this)"><span class="mni">🗺️</span>Carte</button>
+    <button class="mn-btn" onclick="mobTab('list',this)"><span class="mni">📋</span>Flotte</button>
+    <button class="mn-btn" onclick="openAddModal()"><span class="mni">➕</span>Ajouter</button>
+    <button class="mn-btn" onclick="openProfile()"><span class="mni">👤</span>Profil</button>
+    <button class="mn-btn" onclick="doLogout()"><span class="mni">🚪</span>Quitter</button>
+  </div>
 </div>
-<div class="izs" id="izs3">
-<div style="text-align:center;padding:24px 0"><div class="izsp">&#9889;</div><div style="font-weight:700;margin:14px 0 6px">Verification...</div></div>
+
+<!-- mobile list -->
+<div id="mob-overlay">
+  <div class="mob-ol-head">
+    <div class="tlogo" style="font-size:14px">FLOTTE</div>
+    <button class="mob-close" onclick="closeMobOverlay()">✕</button>
+  </div>
+  <div class="mob-vlist" id="mob-vlist"></div>
 </div>
-<div class="izs" id="izs4">
-<div style="text-align:center;padding:24px 0">
-<div style="font-size:52px;margin-bottom:12px">&#9989;</div>
-<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme!</div>
-<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active.</div>
-<button class="izbn" onclick="document.getElementById('izm').classList.remove('open')">Fermer</button>
+
+<!-- ══ DRIVER APP ══════════════════════════════════ -->
+<div id="screen-driver" class="screen">
+  <div class="drv-top">
+    <div class="drv-logo">PST-TRAX</div>
+    <div class="drv-name" id="drv-nm">Chauffeur</div>
+    <div class="pill green" id="drv-live" style="display:none"><div class="ldot"></div>LIVE</div>
+    <div class="pill muted" id="drv-off">HORS LIGNE</div>
+  </div>
+  <div class="drv-body">
+    <div class="dtab-panel active" id="dtab-tracking">
+      <div class="drv-stats">
+        <div class="ds"><div class="dsn" id="d-spd">0</div><div class="dsl">KM/H</div></div>
+        <div class="ds"><div class="dsn" id="d-dist">0</div><div class="dsl">KM Aujourd'hui</div></div>
+        <div class="ds"><div class="dsn" id="d-time">0h</div><div class="dsl">Temps actif</div></div>
+      </div>
+      <div class="drv-card">
+        <div class="drv-card-title">📍 POSITION GPS</div>
+        <div class="gps-coords">
+          <div class="coord-box"><div class="coord-lbl">Latitude</div><div class="coord-val" id="g-lat">--</div></div>
+          <div class="coord-box"><div class="coord-lbl">Longitude</div><div class="coord-val" id="g-lng">--</div></div>
+        </div>
+        <div class="prec-bar"><div class="prec-fill" id="prec-f" style="width:0%"></div></div>
+        <div class="gps-st" id="g-st">En attente du GPS...</div>
+      </div>
+      <button class="big-btn btn-start" id="btn-trk" onclick="toggleTracking()">▶ DÉMARRER LE TRACKING</button>
+      <div class="drv-card">
+        <div class="drv-card-title">⏱ FRÉQUENCE D'ENVOI</div>
+        <div class="freq-btns">
+          <button class="freq-btn active" onclick="setFreq(5000,this)">5 sec</button>
+          <button class="freq-btn" onclick="setFreq(10000,this)">10 sec</button>
+          <button class="freq-btn" onclick="setFreq(30000,this)">30 sec</button>
+        </div>
+      </div>
+      <div class="drv-card">
+        <div class="drv-card-title">🔔 NOTIFICATIONS</div>
+        <div class="notif-list" id="notif-list"><div style="color:var(--muted);font-size:12px">Aucune notification</div></div>
+      </div>
+    </div>
+    <div class="dtab-panel" id="dtab-history">
+      <div class="drv-card">
+        <div class="drv-card-title">📅 HISTORIQUE DES TRAJETS</div>
+        <div id="hist-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet</div></div>
+      </div>
+    </div>
+    <div class="dtab-panel" id="dtab-profile">
+      <div class="profile-badge" id="drv-profile-badge"></div>
+      <div class="drv-card">
+        <div class="drv-card-title">📞 CONTACT PROPRIÉTAIRE</div>
+        <div style="font-size:13px;color:var(--muted);line-height:2;">
+          <div>📱 PST Telecom</div>
+          <div>📞 <a href="tel:+221771520959" style="color:var(--accent)">+221 77 152 09 59</a></div>
+          <div>🌐 <a href="https://pst-telecom.vercel.app" style="color:var(--accent)">pst-telecom.vercel.app</a></div>
+        </div>
+      </div>
+      <button class="big-btn" style="background:var(--panel);border:1px solid var(--border);color:var(--text);" onclick="doLogout()">🚪 Se déconnecter</button>
+    </div>
+  </div>
+  <div class="drv-bottom">
+    <button class="dtab active" onclick="drvTab('tracking',this)"><span class="dti">📡</span>Tracking</button>
+    <button class="dtab" onclick="drvTab('history',this)"><span class="dti">📅</span>Historique</button>
+    <button class="dtab" onclick="drvTab('profile',this)"><span class="dti">👤</span>Profil</button>
+  </div>
 </div>
+
+<!-- ══ ADD VEHICLE MODAL ══════════════════════════ -->
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">➕ Ajouter un véhicule</div>
+    <label class="lbl">Type</label>
+    <div class="vehicle-type-grid" id="modal-vtype">
+      <div class="vt-btn sel" onclick="selModalVtype(this,'🏍️','Moto Jakarta')"><span class="vti">🏍️</span>Jakarta</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚗','Voiture')"><span class="vti">🚗</span>Voiture</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚕','Taxi')"><span class="vti">🚕</span>Taxi</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚚','Camion')"><span class="vti">🚚</span>Camion</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚌','Bus')"><span class="vti">🚌</span>Bus</div>
+      <div class="vt-btn" onclick="selModalVtype(this,'🚑','Ambulance')"><span class="vti">🚑</span>Ambulance</div>
+    </div>
+    <label class="lbl">Nom du chauffeur</label>
+    <input class="fi" id="m-drv" placeholder="Moussa Fall">
+    <label class="lbl">ID / Plaque</label>
+    <input class="fi" id="m-vid" placeholder="TBA-001">
+    <label class="lbl">Téléphone chauffeur</label>
+    <input class="fi" id="m-tel" placeholder="+221 77 XXX XX XX">
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeAddModal()">Annuler</button>
+      <button class="btn-save" onclick="addVehicle()">✅ Ajouter</button>
+    </div>
+  </div>
 </div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-bg" id="profile-modal">
+  <div class="modal">
+    <div class="modal-title">👤 Mon Profil</div>
+    <div id="profile-content"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeProfile()">Fermer</button>
+      <button class="btn-save" style="background:var(--red);color:#fff;" onclick="doLogout()">🚪 Déconnexion</button>
+    </div>
+  </div>
 </div>
-</div>
+
 <script>
-var _zS="trax",_zA=24.75,_zD="Abonnement PST-TRAX",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
-function openCryptoPayment(s,a,d,p){_zS=s;_zA=a;_zD=d;_zP=p||"";document.getElementById("izam").textContent="$"+a.toFixed(2)+" USD";izGo(1);document.getElementById("izm").classList.add("open");}
-function izGo(n){for(var i=1;i<=4;i++){var e=document.getElementById("izs"+i);if(e)e.className="izs"+(n===i?" a":"");}};
-function izSel(el,id){document.querySelectorAll(".izc").forEach(function(b){b.className="izc";});el.className="izc a";_zC=id;}
-async function izGen(){
-  izGo(3);
-  try{
-    var r=await fetch("/api/izipay/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({service:_zS,amount_usd:_zA,currency:_zC,description:_zD,user_phone:_zP})});
-    var d=await r.json();
-    if(d.method==="pos"||!d.address){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");return;}
-    _zO=d.order_id;
-    document.getElementById("izex").textContent=_zA+" USD en "+_zC;
-    document.getElementById("izad").textContent=d.address;
-    document.getElementById("iznet").textContent="Reseau: "+(d.network||_zC);
-    izGo(2);_zT=setInterval(izAuto,30000);
-  }catch(e){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");}
+// ══════════════════════════════════════════════════
+// CONFIG
+const API = '';  // same origin
+const TOUBA = [14.8503, -15.8832];
+
+// ══════════════════════════════════════════════════
+// STATE
+let currentRole = 'owner';
+let authMode = 'register';
+let currentUser = null;
+let otpCode = null;
+let pendingPhone = '';
+let pendingData = {};
+let vTypeSelected = { icon:'🏍️', label:'Moto Jakarta' };
+let modalVType = { icon:'🏍️', label:'Moto Jakarta' };
+
+// Owner state
+let vehicles = [];
+let markers = {};
+let mapObj = null;
+let vFilter = 'all';
+let selVehicleId = null;
+
+// Driver state
+let isTracking = false;
+let gpsFreq = 5000;
+let trackTimer = null;
+let currentPos = null;
+let startTime = null;
+let totalDist = 0;
+let lastPos = null;
+let sessions = [];
+let notifs = [];
+
+// ══════════════════════════════════════════════════
+// SCREEN MANAGER
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
 }
-async function izChk(){
-  if(!_zO)return;
-  var b=document.getElementById("izchk");b.disabled=true;
-  try{var r=await fetch("/api/izipay/status/"+_zO);var d=await r.json();
-    if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}
-    else b.disabled=false;
-  }catch(e){b.disabled=false;}
+
+// ══════════════════════════════════════════════════
+// WELCOME
+function pickRole(role) {
+  currentRole = role;
+  document.getElementById('rc-owner').classList.toggle('sel', role==='owner');
+  document.getElementById('rc-driver').classList.toggle('sel', role==='driver');
 }
-function izAuto(){if(!_zO)return;fetch("/api/izipay/status/"+_zO).then(function(r){return r.json();}).then(function(d){if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}}).catch(function(){});}
+function goToAuth() {
+  document.getElementById('auth-role-label').textContent =
+    currentRole === 'owner' ? '👨‍💼 Espace Propriétaire' : '🏍️ Espace Chauffeur';
+  document.getElementById('driver-extra').style.display = currentRole === 'driver' ? 'block' : 'none';
+  showScreen('auth');
+}
+
+// ══════════════════════════════════════════════════
+// AUTH TABS
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-register').classList.toggle('active', mode==='register');
+  document.getElementById('tab-login').classList.toggle('active', mode==='login');
+  document.getElementById('fields-register').style.display = mode==='register' ? 'block' : 'none';
+  document.getElementById('fields-login').style.display = mode==='login' ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════════
+// OTP FLOW
+function sendOTP(mode) {
+  authMode = mode;
+  let phone, name, vid, vType;
+
+  if (mode === 'register') {
+    name = document.getElementById('r-name').value.trim();
+    phone = document.getElementById('r-phone').value.trim();
+    const pass = document.getElementById('r-pass').value;
+    if (!name) { toast('⚠️ Erreur','Entrez votre nom complet','error'); return; }
+    if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide (9 chiffres)','error'); return; }
+    if (!pass || pass.length < 6) { toast('⚠️ Erreur','Mot de passe: 6 caractères minimum','error'); return; }
+    if (currentRole === 'driver') {
+      vid = document.getElementById('r-vid').value.trim().toUpperCase();
+      if (!vid) { toast('⚠️ Erreur','Entrez votre ID véhicule','error'); return; }
+    }
+    pendingData = { name, phone: normalizePhone(phone), role: currentRole, vid, vType: vTypeSelected, password: pass };
+  } else {
+    phone = document.getElementById('l-phone').value.trim();
+    const pass = document.getElementById('l-pass').value;
+    if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+    if (!pass) { toast('⚠️ Erreur','Entrez votre mot de passe','error'); return; }
+    pendingData = { phone: '+221'+phone, password: pass };
+  }
+
+  pendingPhone = '+221' + (phone.startsWith('221') ? phone.slice(3) : phone);
+
+  // Generate OTP (4 digits) — in production this would be sent via AT SMS
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+  // Show OTP in toast for testing (remove in production)
+  toast('📱 Code envoyé', `Votre code: ${otpCode} (test)`, 'info');
+
+  document.getElementById('otp-hint').textContent = `Code envoyé au ${pendingPhone}`;
+  document.getElementById('step-phone').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  setTimeout(() => document.getElementById('o1').focus(), 100);
+}
+
+function otpNext(el, nextId) {
+  el.value = el.value.slice(-1);
+  if (el.value && nextId) document.getElementById(nextId).focus();
+  // Auto verify when all 4 filled
+  const code = ['o1','o2','o3','o4'].map(id=>document.getElementById(id).value).join('');
+  if (code.length === 4) verifyOTP();
+}
+
+function verifyOTP() {
+  const entered = ['o1','o2','o3','o4'].map(id=>document.getElementById(id).value).join('');
+  if (entered.length < 4) { toast('⚠️','Entrez les 4 chiffres','error'); return; }
+  if (entered !== otpCode) { toast('❌ Code incorrect','Réessayez','error'); return; }
+
+  if (forgotMode) {
+    verifyForgotOTP();
+  } else if (authMode === 'register') {
+    registerUser(pendingData);
+  } else {
+    loginUser(pendingData.phone);
+  }
+}
+
+async function registerUser(data) {
+  try {
+    const res = await fetch(API + '/api/trax/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (json.success || json.user) {
+      currentUser = json.user || { ...data, id: 'U-'+Date.now() };
+      // Store password locally for offline reconnection
+      if (data.password) currentUser._localPass = data.password;
+    } else if (json.exists) {
+      // Account exists — try to login with same password
+      toast('ℹ️ Compte existant','Ce numéro a déjà un compte, connexion en cours...','info');
+      await loginUser(data.phone);
+      return;
+    } else {
+      // Offline fallback — store locally
+      currentUser = { ...data, id: 'U-'+Date.now() };
+    }
+  } catch(e) {
+    // Offline mode — create local user
+    currentUser = { ...data, id: 'U-'+Date.now() };
+  }
+  saveSession();
+  enterApp();
+}
+
+async function loginUser(phone) {
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, password: pendingData.password, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = json.user;
+    } else if (json.error === 'wrong_password') {
+      toast('❌ Mot de passe incorrect','Réessayez','error');
+      return;
+    } else {
+      toast('❌ Compte introuvable','Créez un compte dabord','error');
+      return;
+    }
+  } catch(e) {
+    toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+    return;
+  }
+  // Store password locally for offline reconnection
+  if (currentUser && pendingData.password) {
+    currentUser._localPass = pendingData.password;
+  }
+  saveSession();
+  enterApp();
+}
+
+function resendOTP() {
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+  toast('📱 Code renvoyé','Votre code: '+otpCode+' (test)','info');
+}
+
+function backToPhone() {
+  document.getElementById('step-phone').style.display = 'block';
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-forgot').style.display = 'none';
+  document.getElementById('step-newpass').style.display = 'none';
+  forgotMode = false;
+  ['o1','o2','o3','o4'].forEach(id => document.getElementById(id).value = '');
+}
+
+function selVtype(el, icon, label) {
+  document.querySelectorAll('#driver-extra .vt-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  vTypeSelected = { icon, label };
+}
+
+// ══════════════════════════════════════════════════
+// SESSION
+function saveSession() {
+  // Save full user including phone for re-login
+  localStorage.setItem('pst_trax_user', JSON.stringify(currentUser));
+}
+function loadSession() {
+  try {
+    const s = localStorage.getItem('pst_trax_user');
+    if (s) {
+      currentUser = JSON.parse(s);
+      currentRole = currentUser.role || 'owner';
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// Quick re-login with saved credentials (no OTP needed)
+async function quickLogin(phone, password) {
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, password, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = { ...json.user, _localPass: password };
+      saveSession();
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+function doLogout() {
+  if (isTracking) stopTracking();
+  localStorage.removeItem('pst_trax_user');
+  currentUser = null;
+  location.reload();
+}
+
+function enterApp() {
+  toast('✅ Bienvenue','Connexion réussie !','success');
+  if (currentUser.role === 'driver') initDriver();
+  else initOwner();
+}
+
+// ══════════════════════════════════════════════════
+// OWNER
+function initOwner() {
+  showScreen('owner');
+  initMap();
+  loadVehicles();
+  setInterval(loadVehicles, 8000);
+}
+
+function initMap() {
+  if (mapObj) return;
+  mapObj = L.map('map', { center: TOUBA, zoom: 14, zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap', maxZoom:19
+  }).addTo(mapObj);
+  L.circleMarker(TOUBA, {radius:6,color:'#00e5ff',fillColor:'#00e5ff',fillOpacity:1,weight:2})
+    .bindPopup('<b>📍 Touba, Sénégal</b>').addTo(mapObj);
+}
+
+async function loadVehicles() {
+  try {
+    const res = await fetch(API + '/api/trax/vehicles');
+    if (res.ok) vehicles = await res.json();
+  } catch(e) {}
+  renderSidebar();
+  renderMarkers();
+  updateStats();
+  document.getElementById('last-upd').textContent = new Date().toLocaleTimeString('fr-FR').slice(0,5);
+}
+
+function updateStats() {
+  document.getElementById('st-tot').textContent = vehicles.length;
+  document.getElementById('st-on').textContent = vehicles.filter(v=>v.status==='online').length;
+  document.getElementById('st-st').textContent = vehicles.filter(v=>v.status==='stopped').length;
+  document.getElementById('st-al').textContent = vehicles.filter(v=>v.status==='alert').length;
+  document.getElementById('sb-cnt').textContent = vehicles.length;
+}
+
+function renderSidebar() {
+  const q = document.querySelector('.sb-si')?.value.toLowerCase() || '';
+  const filtered = vehicles.filter(v=>{
+    if (vFilter!=='all' && v.status!==vFilter) return false;
+    if (q && !v.driver?.toLowerCase().includes(q) && !v.id?.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const html = filtered.length ? filtered.map(vCardHtml).join('') :
+    `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Aucun véhicule</div>`;
+  const el = document.getElementById('sb-list');
+  const mob = document.getElementById('mob-vlist');
+  if (el) el.innerHTML = html;
+  if (mob) mob.innerHTML = html;
+}
+
+function vCardHtml(v) {
+  const stl = {online:'En route',stopped:'Arrêtée',alert:'ALERTE',offline:'Hors ligne'};
+  const stc = {online:'st-online',stopped:'st-stopped',alert:'st-alert',offline:'st-offline'};
+  const since = Math.floor((Date.now()-(v.lastSeen||Date.now()))/60000);
+  const sel = selVehicleId===v.id?' sel':'';
+  return `<div class="vcard ${v.status||'offline'}${sel}" onclick="focusV('${v.id}')">
+    <div class="vc-top">
+      <div class="vc-ico">${v.type||'🏍️'}</div>
+      <div class="vc-inf"><div class="vc-nm">${v.driver||'—'}</div><div class="vc-id">${v.id}${v.typeLabel?' · '+v.typeLabel:''}</div></div>
+      <div class="pill ${v.status==='online'?'green':v.status==='stopped'?'orange':v.status==='alert'?'red':'muted'}">${stl[v.status]||'Hors ligne'}</div>
+    </div>
+    <div class="vc-meta">
+      <span>Vitesse <b>${v.speed||0} km/h</b></span>
+      <span>Vu <b>${since<1?'maintenant':since+'min'}</b></span>
+      ${v.phone?`<span>📞 <b>${v.phone}</b></span>`:''}
+    </div>
+    <div class="vc-acts">
+      <button class="vab" onclick="event.stopPropagation();focusV('${v.id}')">📍 Localiser</button>
+      <button class="vab red" onclick="event.stopPropagation();cutEngine('${v.id}')">${v.engineOff?'🟢 Allumer':'🔴 Couper'}</button>
+      <button class="vab red" onclick="event.stopPropagation();delV('${v.id}')">🗑</button>
+    </div>
+  </div>`;
+}
+
+function focusV(id) {
+  selVehicleId = id;
+  const v = vehicles.find(x=>x.id===id);
+  if (v?.lat && v?.lng) { mapObj.flyTo([v.lat,v.lng],16,{duration:1.2}); if(markers[id]) markers[id].openPopup(); }
+  renderSidebar();
+  closeMobOverlay();
+}
+
+function renderMarkers() {
+  vehicles.forEach(v => {
+    if (!v.lat||!v.lng) return;
+    const sc = {online:'',stopped:'stopped',alert:'alert',offline:'offline'}[v.status]||'offline';
+    const ico = L.divIcon({html:`<div class="mk ${sc}">${v.type||'🏍️'}</div>`,className:'',iconSize:[40,40],iconAnchor:[20,20],popupAnchor:[0,-22]});
+    const pop = `<div style="font-family:Segoe UI;min-width:160px"><b style="font-size:14px">${v.type} ${v.driver}</b><br>
+      <span style="color:#666;font-size:12px">${v.id}</span><br>
+      Vitesse: <b>${v.speed||0} km/h</b><br>
+      ${v.status==='online'?'🟢 En route':v.status==='stopped'?'🟠 Arrêté':'🔴 Alerte'}
+      ${v.phone?`<br>📞 ${v.phone}`:''}
+    </div>`;
+    if (markers[v.id]) markers[v.id].setLatLng([v.lat,v.lng]).setIcon(ico).setPopupContent(pop);
+    else markers[v.id] = L.marker([v.lat,v.lng],{icon:ico}).bindPopup(pop).addTo(mapObj);
+  });
+}
+
+async function cutEngine(id) {
+  const v = vehicles.find(x=>x.id===id);
+  if (!v) return;
+  v.engineOff = !v.engineOff;
+  v.status = v.engineOff ? 'alert' : 'stopped';
+  toast(v.engineOff?'🔴 Moteur coupé':'🟢 Moteur allumé', `${v.id} — ${v.driver}`,'info');
+  await saveVehicles();
+  renderSidebar(); renderMarkers();
+}
+
+async function delV(id) {
+  if (!confirm('Supprimer ce véhicule ?')) return;
+  vehicles = vehicles.filter(v=>v.id!==id);
+  if (markers[id]) { markers[id].remove(); delete markers[id]; }
+  await saveVehicles();
+  renderSidebar(); updateStats();
+}
+
+async function saveVehicles() {
+  try {
+    await fetch(API+'/api/trax/vehicles', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(vehicles)
+    });
+  } catch(e) {}
+}
+
+function setFilter(f,btn) {
+  vFilter=f;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSidebar();
+}
+function mobTab(tab,btn) {
+  document.querySelectorAll('.mn-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab==='list') openMobOverlay();
+  else closeMobOverlay();
+}
+function openMobOverlay() { document.getElementById('mob-overlay').classList.add('open'); }
+function closeMobOverlay() { document.getElementById('mob-overlay').classList.remove('open'); }
+
+// ADD VEHICLE
+function openAddModal() {
+  const m = document.getElementById('add-modal');
+  m.classList.add('open');
+  m.onclick = e => { if(e.target===m) closeAddModal(); };
+}
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+function selModalVtype(el,icon,label) {
+  document.querySelectorAll('#modal-vtype .vt-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  modalVType = {icon,label};
+}
+async function addVehicle() {
+  const driver = document.getElementById('m-drv').value.trim();
+  const vid = document.getElementById('m-vid').value.trim().toUpperCase();
+  const phone = document.getElementById('m-tel').value.trim();
+  if (!driver||!vid) { toast('⚠️ Erreur','Nom et ID obligatoires','error'); return; }
+  const v = {
+    id:vid, driver, phone,
+    type:modalVType.icon, typeLabel:modalVType.label,
+    status:'offline',
+    lat:TOUBA[0]+(Math.random()-.5)*.02,
+    lng:TOUBA[1]+(Math.random()-.5)*.02,
+    speed:0, lastSeen:Date.now(), engineOff:false
+  };
+  vehicles.push(v);
+  await saveVehicles();
+  renderSidebar(); renderMarkers(); updateStats();
+  closeAddModal();
+  toast('✅ Ajouté',`${v.typeLabel} — ${driver}`,'success');
+  mapObj.flyTo([v.lat,v.lng],15,{duration:1.2});
+  document.getElementById('m-drv').value='';
+  document.getElementById('m-vid').value='';
+  document.getElementById('m-tel').value='';
+}
+
+// PROFILE
+function openProfile() {
+  const u = currentUser;
+  document.getElementById('profile-content').innerHTML = `
+    <div class="profile-badge" style="margin-bottom:14px">
+      <div class="pb-avatar">${u?.name?.[0]?.toUpperCase()||'?'}</div>
+      <div class="pb-info">
+        <div class="pb-name">${u?.name||'—'}</div>
+        <div class="pb-phone">${u?.phone||'—'}</div>
+        <div class="pb-role">${u?.role==='owner'?'👨‍💼 Propriétaire':'🏍️ Chauffeur'}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Flotte : <b style="color:var(--text)">${vehicles.length} véhicule(s)</b></div>`;
+  const m = document.getElementById('profile-modal');
+  m.classList.add('open');
+  m.onclick = e => { if(e.target===m) closeProfile(); };
+}
+function closeProfile() { document.getElementById('profile-modal').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════
+// DRIVER
+function initDriver() {
+  showScreen('driver');
+  const u = currentUser;
+  document.getElementById('drv-nm').textContent = u?.name || 'Chauffeur';
+  // Profile badge
+  document.getElementById('drv-profile-badge').innerHTML = `
+    <div class="pb-avatar">${u?.name?.[0]?.toUpperCase()||'?'}</div>
+    <div class="pb-info">
+      <div class="pb-name">${u?.name||'—'}</div>
+      <div class="pb-phone">${u?.phone||'—'}</div>
+      <div class="pb-role">🏍️ ${u?.typeLabel||'Chauffeur'} · ${u?.vid||'—'}</div>
+    </div>`;
+  sessions = JSON.parse(localStorage.getItem('pst_trax_sessions_'+u?.phone)||'[]');
+  renderHistory();
+  startGPSWatch();
+}
+
+function startGPSWatch() {
+  if (!navigator.geolocation) { addNotif('❌ GPS non disponible','rd'); return; }
+  navigator.geolocation.watchPosition(onGPS, onGPSErr, {
+    enableHighAccuracy:true, maximumAge:3000, timeout:15000
+  });
+}
+
+function onGPS(pos) {
+  currentPos = pos;
+  const { latitude:lat, longitude:lng, speed, accuracy } = pos.coords;
+  document.getElementById('g-lat').textContent = lat.toFixed(6);
+  document.getElementById('g-lng').textContent = lng.toFixed(6);
+  const spd = speed ? Math.round(speed*3.6) : 0;
+  document.getElementById('d-spd').textContent = spd;
+  const prec = Math.min(100, Math.max(0, 100-accuracy));
+  document.getElementById('prec-f').style.width = prec+'%';
+  const gst = document.getElementById('g-st');
+  if (accuracy<20) { gst.textContent=`✅ GPS actif — Précision: ${Math.round(accuracy)}m`; gst.className='gps-st good'; }
+  else { gst.textContent=`⏳ Précision: ${Math.round(accuracy)}m`; gst.className='gps-st'; }
+
+  if (isTracking) {
+    if (lastPos) totalDist += haversine(lastPos[0],lastPos[1],lat,lng);
+    lastPos = [lat,lng];
+    document.getElementById('d-dist').textContent = totalDist.toFixed(1);
+    if (startTime) document.getElementById('d-time').textContent = ((Date.now()-startTime)/3600000).toFixed(1)+'h';
+    sendPos(lat,lng,spd,accuracy);
+  }
+}
+function onGPSErr(err) {
+  document.getElementById('g-st').textContent = '⚠️ GPS: '+err.message;
+}
+
+async function sendPos(lat,lng,speed,accuracy) {
+  try {
+    await fetch(API+'/api/trax/position', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        id: currentUser?.vid || 'UNKNOWN',
+        driver: currentUser?.name,
+        phone: currentUser?.phone,
+        lat, lng, speed, accuracy,
+        status: speed>2?'online':'stopped',
+        lastSeen: Date.now()
+      })
+    });
+  } catch(e) {}
+}
+
+function toggleTracking() {
+  if (!isTracking) startTracking();
+  else stopTracking();
+}
+function startTracking() {
+  if (!currentPos) { toast('⚠️ GPS','Attendez que le GPS soit actif','error'); return; }
+  isTracking=true; startTime=Date.now(); totalDist=0; lastPos=null;
+  document.getElementById('btn-trk').className='big-btn btn-stop';
+  document.getElementById('btn-trk').innerHTML='⏹ ARRÊTER LE TRACKING';
+  document.getElementById('drv-live').style.display='inline-flex';
+  document.getElementById('drv-off').style.display='none';
+  addNotif('🟢 Tracking démarré','');
+  toast('✅ Tracking','Position envoyée en temps réel','success');
+}
+function stopTracking() {
+  isTracking=false;
+  document.getElementById('btn-trk').className='big-btn btn-start';
+  document.getElementById('btn-trk').innerHTML='▶ DÉMARRER LE TRACKING';
+  document.getElementById('drv-live').style.display='none';
+  document.getElementById('drv-off').style.display='inline-flex';
+  if (startTime && totalDist>0) {
+    sessions.unshift({
+      date: new Date().toLocaleDateString('fr-FR'),
+      start: new Date(startTime).toLocaleTimeString('fr-FR').slice(0,5),
+      end: new Date().toLocaleTimeString('fr-FR').slice(0,5),
+      dist: totalDist.toFixed(1),
+      dur: ((Date.now()-startTime)/3600000).toFixed(1)
+    });
+    sessions=sessions.slice(0,30);
+    localStorage.setItem('pst_trax_sessions_'+(currentUser?.phone||''), JSON.stringify(sessions));
+    renderHistory();
+  }
+  startTime=null;
+  addNotif('⏹ Tracking arrêté','or');
+}
+function setFreq(ms,btn) {
+  gpsFreq=ms;
+  document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function addNotif(msg,type) {
+  notifs.unshift({msg,type,time:new Date().toLocaleTimeString('fr-FR').slice(0,5)});
+  const el = document.getElementById('notif-list');
+  if (el) el.innerHTML = notifs.slice(0,6).map(n=>
+    `<div class="notif-item"><div class="ndot ${n.type}"></div><div style="flex:1">${n.msg}</div><div style="font-size:10px;color:var(--muted)">${n.time}</div></div>`
+  ).join('');
+}
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!el) return;
+  el.innerHTML = sessions.length ? sessions.map(s=>
+    `<div class="hist-item">
+      <div class="hist-top"><span style="font-weight:700">📅 ${s.date}</span><span style="color:var(--accent);font-weight:700">${s.dist} km</span></div>
+      <div style="color:var(--muted);font-size:11px">${s.start} → ${s.end} · ${s.dur}h de conduite</div>
+    </div>`).join('') :
+    '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Aucun trajet enregistré</div>';
+}
+function drvTab(tab,btn) {
+  document.querySelectorAll('.dtab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.dtab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('dtab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════
+// UTILS
+function normalizePhone(phone) {
+  let p = (phone || '').replace(/\s/g, '').replace(/[^\d]/g, '');
+  if (p.startsWith('221')) p = p.slice(3);
+  return p;
+}
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371,dLa=(lat2-lat1)*Math.PI/180,dLo=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+let toastT;
+function toast(title,msg,type='info') {
+  const el=document.getElementById('toast');
+  document.getElementById('toast-t').textContent=title;
+  document.getElementById('toast-m').textContent=msg;
+  el.className='toast show '+type;
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),4000);
+}
+
+// ══════════════════════════════════════════════════
+// DIRECT LOGIN (no OTP — phone + password only)
+async function doDirectLogin() {
+  const phone = document.getElementById('l-phone').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+  if (!pass) { toast('⚠️ Erreur','Entrez votre mot de passe','error'); return; }
+  
+  const normPhone = normalizePhone(phone);
+  pendingData = { phone: normPhone, password: pass };
+  
+  // Show loading
+  const btn = document.querySelector('#fields-login .btn-main');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Connexion...';
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch(API + '/api/trax/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: '+221'+phone, password: pass, role: currentRole })
+    });
+    const json = await res.json();
+    if (json.user) {
+      currentUser = { ...json.user, _localPass: pass };
+      saveSession();
+      toast('✅ Connecté','Bienvenue !','success');
+      enterApp();
+    } else if (json.error === 'wrong_password') {
+      toast('❌ Mot de passe incorrect','Réessayez ou réinitialisez','error');
+    } else {
+      toast('❌ Compte introuvable','Créez un compte dabord','error');
+    }
+  } catch(e) {
+    // Offline — check local session
+    const saved = localStorage.getItem('pst_trax_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      if (normalizePhone(u.phone) === normPhone && u._localPass === pass) {
+        currentUser = u;
+        toast('✅ Connecté (hors ligne)','Session restaurée','success');
+        enterApp();
+      } else {
+        toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+      }
+    } else {
+      toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+    }
+  }
+  btn.innerHTML = orig;
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════
+// FORGOT PASSWORD
+let forgotMode = false;
+function showForgotPass() {
+  document.getElementById('step-phone').style.display = 'none';
+  document.getElementById('step-forgot').style.display = 'block';
+  forgotMode = true;
+}
+function sendForgotOTP() {
+  const phone = document.getElementById('fp-phone').value.trim();
+  if (!phone || phone.length < 8) { toast('⚠️ Erreur','Numéro invalide','error'); return; }
+  pendingPhone = normalizePhone(phone);
+  pendingData = { phone: pendingPhone };
+  otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+  toast('📱 Code envoyé', 'Votre code: ' + otpCode + ' (test)', 'info');
+  document.getElementById('step-forgot').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  document.getElementById('otp-hint').textContent = 'Code envoyé au ' + pendingPhone;
+  setTimeout(() => document.getElementById('o1').focus(), 100);
+}
+function verifyForgotOTP() {
+  // Show new password form
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-newpass').style.display = 'block';
+}
+async function resetPassword() {
+  const p1 = document.getElementById('np-pass1').value;
+  const p2 = document.getElementById('np-pass2').value;
+  if (!p1 || p1.length < 6) { toast('⚠️ Erreur','Mot de passe trop court (6 min)','error'); return; }
+  if (p1 !== p2) { toast('⚠️ Erreur','Les mots de passe ne correspondent pas','error'); return; }
+  try {
+    const res = await fetch(API + '/api/trax/reset-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: pendingPhone, newPassword: p1 })
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast('✅ Mot de passe mis à jour','Connectez-vous avec votre nouveau mot de passe','success');
+      setTimeout(() => {
+        forgotMode = false;
+        document.getElementById('step-newpass').style.display = 'none';
+        document.getElementById('step-phone').style.display = 'block';
+        switchAuthTab('login');
+        // Pre-fill phone
+        document.getElementById('l-phone').value = pendingPhone.replace('+221','');
+      }, 1500);
+    } else {
+      toast('❌ Erreur',json.error || 'Impossible de réinitialiser','error');
+    }
+  } catch(e) {
+    toast('❌ Erreur réseau','Vérifiez votre connexion','error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// BOOT
+window.addEventListener('load', () => {
+  if (loadSession()) {
+    currentRole = currentUser.role || 'owner';
+    if (currentUser.role==='driver') initDriver();
+    else initOwner();
+  }
+  // else stays on welcome screen
+});
 </script>
 </body>
 </html>
