@@ -341,7 +341,7 @@ footer {
     <div class="stats">
       <div class="stat"><div class="stat-num">7</div><div class="stat-label">Services actifs</div></div>
       <div class="stat"><div class="stat-num">+221</div><div class="stat-label">Numéros sénégalais</div></div>
-      <div class="stat"><div class="stat-num">Wave</div><div class="stat-label">Paiement mobile</div></div>
+      <div class="stat"><div class="stat-num" style="font-size:22px">Wave+Crypto</div><div class="stat-label">Paiement mobile</div></div>
       <div class="stat"><div class="stat-num">24/7</div><div class="stat-label">Service client IA</div></div>
     </div>
   </div>
@@ -959,87 +959,5 @@ function aidaProcess(txt){
   });
 }
 </script>
-<!-- FIN AIDA CHAT PST -->
-
-<!-- ═══ izichangePay Crypto Widget ═══ -->
-
-
-
-
-
-<!-- ═══ Fin izichangePay Widget ═══ -->
-
-</body>
-</html>
-+amt.toFixed(2)+' USD';
-  iziStep(1);
-  document.getElementById('izipay-overlay').style.display='flex';
-}
-function iziClose(){
-  document.getElementById('izipay-overlay').style.display='none';
-  clearInterval(_iziAutoTimer);clearInterval(_iziCdTimer);
-}
-function iziStep(n){
-  for(var i=1;i<=4;i++) document.getElementById('izi-s'+i).classList.remove('active');
-  document.getElementById('izi-s'+n).classList.add('active');
-}
-function iziSelCrypto(el,id){
-  document.querySelectorAll('.crypto-btn').forEach(function(b){b.classList.remove('sel');});
-  el.classList.add('sel'); _iziCrypto=id;
-}
-async function iziGenerate(){
-  iziStep(3);
-  try{
-    var r=await fetch('/api/izipay/create-payment',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service:_iziSvc,amount_usd:_iziAmt,currency:_iziCrypto,description:_iziDesc,user_phone:_iziPhone})});
-    var d=await r.json();
-    if(d.method==='pos'||!d.address){iziPOS();return;}
-    _iziOrder=d.order_id;
-    document.getElementById('izi-exact').textContent=_iziAmt+' USD en '+_iziCrypto;
-    document.getElementById('izi-addr').innerHTML='<span id="izi-addr-txt">'+d.address+'</span><button class="izipay-copy-btn" onclick="iziCopy()">📋 Copier</button>';
-    document.getElementById('izi-net').textContent='Réseau: '+(d.network||_iziCrypto);
-    if(d.expires_at) iziCountdown(new Date(d.expires_at));
-    iziStep(2);
-    _iziAutoTimer=setInterval(iziAutoCheck,30000);
-  }catch(e){iziPOS();}
-}
-function iziPOS(){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');iziClose();}
-function iziCopy(){
-  var el=document.getElementById('izi-addr-txt');
-  if(el) navigator.clipboard.writeText(el.textContent.trim()).then(function(){
-    var b=document.querySelector('.izipay-copy-btn');
-    if(b){b.textContent='✅ Copié!';setTimeout(function(){b.textContent='📋 Copier';},2000);}
-  });
-}
-async function iziCheck(){
-  if(!_iziOrder)return;
-  var b=document.getElementById('izi-chk-btn');
-  b.textContent='⏳...';b.disabled=true;
-  try{
-    var r=await fetch('/api/izipay/status/'+_iziOrder);
-    var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iziAutoTimer);iziStep(4);}
-    else{b.textContent='🔄 Vérifier mon paiement';b.disabled=false;}
-  }catch(e){b.textContent='🔄 Réessayer';b.disabled=false;}
-}
-async function iziAutoCheck(){
-  if(!_iziOrder)return;
-  try{
-    var r=await fetch('/api/izipay/status/'+_iziOrder);
-    var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iziAutoTimer);iziStep(4);}
-  }catch(e){}
-}
-function iziCountdown(exp){
-  _iziCdTimer=setInterval(function(){
-    var diff=exp-new Date();
-    if(diff<=0){clearInterval(_iziCdTimer);document.getElementById('izi-tmr').textContent='⚠️ Session expirée';return;}
-    var m=Math.floor(diff/60000),s=Math.floor((diff%60000)/1000);
-    document.getElementById('izi-tmr').textContent='⏱ Expire dans '+m+'min '+s+'s';
-  },1000);
-}
-</script>
-<!-- ═══ Fin izichangePay Widget ═══ -->
-
 </body>
 </html>
