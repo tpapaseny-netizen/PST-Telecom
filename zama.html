@@ -36,9 +36,14 @@
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);}
 #root{display:flex;flex-direction:column;height:100%;max-width:430px;margin:0 auto;position:relative;background:var(--bg);overflow:hidden;}
 
+
+/* Global overflow fix */
+#root *{max-width:100%;word-break:break-word;}
+img{max-width:100%;height:auto;}
+
 /* ═══ SCREENS ═══ */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);
-  transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;pointer-events:none;opacity:0;transform:translateX(100%);}
+  pointer-events:none;opacity:0;}
 .screen.active{pointer-events:all;opacity:1;transform:translateX(0);}
 .screen.slide-back{transform:translateX(-30%);opacity:.5;}
 
@@ -49,8 +54,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   border-bottom:1px solid var(--border);background:var(--bg);
   position:relative;z-index:10;
 }
-.hdr-back{width:36px;height:36px;border-radius:50%;background:var(--bg2);border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;font-size:18px;}
+.hdr-back{
+  display:flex;align-items:center;gap:6px;
+  background:transparent;border:none;cursor:pointer;
+  font-size:14px;font-weight:700;color:var(--gold-d);padding:4px 8px;
+  border-radius:8px;transition:background .15s;
+}
+.hdr-back:active{background:var(--bg2);}
+.hdr-back-icon{font-size:18px;line-height:1;}
+.hdr-back-txt{font-size:13px;}
 .hdr-title{font-size:16px;font-weight:700;color:var(--text);}
 .hdr-action{font-size:14px;font-weight:600;color:var(--gold);cursor:pointer;}
 
@@ -441,6 +453,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .loading-ring.white{border-color:rgba(255,255,255,.2);border-top-color:#fff;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+
+/* ═══ KYC PHOTO ═══ */
+.photo-zone{
+  border:2px dashed var(--border);border-radius:var(--r);
+  padding:24px;text-align:center;cursor:pointer;
+  background:var(--bg2);transition:all .15s;margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.photo-zone:active{background:var(--bg3);}
+.photo-zone.has-photo{border-color:var(--green);border-style:solid;}
+.photo-preview{width:100%;max-height:160px;object-fit:cover;border-radius:8px;display:none;}
+.photo-zone.has-photo .photo-preview{display:block;}
+.photo-zone.has-photo .photo-placeholder{display:none;}
+.photo-placeholder{}
+.pz-icon{font-size:36px;margin-bottom:8px;}
+.pz-label{font-size:14px;font-weight:700;color:var(--text2);}
+.pz-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+.photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+
 /* ═══ OTP MODAL ═══ */
 .otp-modal{
   position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;
@@ -584,7 +615,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-send">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Envoyer de l'argent</span>
     <span></span>
   </div>
@@ -600,6 +631,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <span class="arrow">↓</span>
         <span id="s-fcfa-preview">-- FCFA</span>
         <span style="opacity:.5;font-size:11px">via Wave/OM</span>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,0.4)">
+        <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:16px;height:16px;border-radius:50%;object-fit:contain">
+        <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" style="width:16px;height:16px;border-radius:50%;object-fit:contain">
+        <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" style="width:16px;height:16px;border-radius:50%;object-fit:contain">
+        Paiement via USDT · BTC · ETH · izichangePay
       </div>
     </div>
 
@@ -629,7 +666,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-recipient">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Destinataire</span>
     <span></span>
   </div>
@@ -639,12 +676,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="section-title" style="padding:0;margin-bottom:10px">Recevoir via</div>
         <div class="mm-selector" style="padding:0;margin:0">
           <div class="mms on" id="mm-wave" onclick="selMM('wave',this)">
-            <span class="mms-icon">💚</span>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" style="width:40px;height:40px;object-fit:contain;margin-bottom:4px" onerror="this.style.display='none'">
             <div class="mms-name">Wave</div>
             <div class="mms-sub">Sénégal</div>
           </div>
           <div class="mms" id="mm-om" onclick="selMM('om',this)">
-            <span class="mms-icon">🟠</span>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" style="width:40px;height:40px;object-fit:contain;margin-bottom:4px" onerror="this.style.display='none'">
             <div class="mms-name">Orange Money</div>
             <div class="mms-sub">Sénégal</div>
           </div>
@@ -703,7 +740,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-summary">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Récapitulatif</span>
     <span></span>
   </div>
@@ -728,7 +765,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-payment">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Paiement</span>
     <span class="hdr-action" id="pay-help" onclick="window.open('tel:+221771520959')">Aide</span>
   </div>
@@ -771,7 +808,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-tracking">
   <div class="hdr">
-    <button class="hdr-back" onclick="goTo('scr-home')">✕</button>
+    <button class="hdr-back" onclick="goTo('scr-home')"><span class="hdr-back-icon">✕</span><span class="hdr-back-txt">Fermer</span></button>
     <span class="hdr-title">Suivi du transfert</span>
     <span></span>
   </div>
@@ -825,7 +862,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-rates">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Taux de change</span>
     <span class="hdr-action" id="rates-updated">...</span>
   </div>
@@ -860,7 +897,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-history">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Historique</span>
     <span></span>
   </div>
@@ -992,15 +1029,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-kyc">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Vérification d'identité</span>
     <span></span>
   </div>
   <div class="sbody">
-    <div style="padding:20px 20px 0">
-      <div style="background:var(--gold-l);border-radius:var(--r-sm);padding:14px;margin-bottom:20px;font-size:13px;color:var(--gold-d);line-height:1.6">
-        🔐 <strong>Pourquoi le KYC ?</strong><br>La vérification d'identité vous permet d'augmenter votre limite à <strong>5 000$/jour</strong> et renforce la sécurité de votre compte.
+    <div style="padding:16px 20px 0">
+      <div style="background:var(--gold-l);border-radius:var(--r-sm);padding:14px;margin-bottom:16px;font-size:13px;color:var(--gold-d);line-height:1.6">
+        🔐 <strong>Pourquoi le KYC ?</strong><br>Augmente votre limite à <strong>5 000$/jour</strong> et sécurise votre compte.
       </div>
+
       <div class="form-group"><label class="form-label">Type de document</label>
         <select class="form-input" id="kd-type">
           <option>Carte Nationale d'Identité</option>
@@ -1008,14 +1046,56 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <option>Permis de conduire</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Numéro du document</label><input class="form-input" type="text" id="kd-num" placeholder="Ex: 1234567890"></div>
-      <div class="form-group"><label class="form-label">Date de naissance</label><input class="form-input" type="date" id="kd-dob"></div>
-      <div class="form-group"><label class="form-label">Nationalité</label><input class="form-input" type="text" id="kd-nat" placeholder="Sénégalaise"></div>
+      <div class="form-group"><label class="form-label">Numéro du document</label>
+        <input class="form-input" type="text" id="kd-num" placeholder="Ex: 1234567890">
+      </div>
+      <div class="form-group"><label class="form-label">Date de naissance</label>
+        <input class="form-input" type="date" id="kd-dob">
+      </div>
+      <div class="form-group"><label class="form-label">Nationalité</label>
+        <input class="form-input" type="text" id="kd-nat" placeholder="Sénégalaise">
+      </div>
+
+      <label class="form-label" style="margin-bottom:8px;display:block">Photo recto du document *</label>
+      <div class="photo-zone" id="zone-recto">
+        <input type="file" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this,'zone-recto','prev-recto')">
+        <div class="photo-placeholder">
+          <div class="pz-icon">📷</div>
+          <div class="pz-label">Photo recto</div>
+          <div class="pz-sub">Appuyez pour photographier ou choisir</div>
+        </div>
+        <img class="photo-preview" id="prev-recto">
+        <canvas id="cv-recto" style="display:none"></canvas>
+      </div>
+
+      <label class="form-label" style="margin-bottom:8px;display:block">Photo verso du document *</label>
+      <div class="photo-zone" id="zone-verso">
+        <input type="file" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this,'zone-verso','prev-verso')">
+        <div class="photo-placeholder">
+          <div class="pz-icon">📷</div>
+          <div class="pz-label">Photo verso</div>
+          <div class="pz-sub">Appuyez pour photographier ou choisir</div>
+        </div>
+        <img class="photo-preview" id="prev-verso">
+        <canvas id="cv-verso" style="display:none"></canvas>
+      </div>
+
+      <label class="form-label" style="margin-bottom:8px;display:block">Selfie avec le document *</label>
+      <div class="photo-zone" id="zone-selfie">
+        <input type="file" class="photo-input" accept="image/*" capture="user" onchange="previewPhoto(this,'zone-selfie','prev-selfie')">
+        <div class="photo-placeholder">
+          <div class="pz-icon">🤳</div>
+          <div class="pz-label">Selfie avec document</div>
+          <div class="pz-sub">Tenez votre document visible à côté de votre visage</div>
+        </div>
+        <img class="photo-preview" id="prev-selfie">
+        <canvas id="cv-selfie" style="display:none"></canvas>
+      </div>
     </div>
     <div class="spacer"></div>
   </div>
   <div style="padding:12px 0 16px;background:var(--bg);border-top:1px solid var(--border)">
-    <button class="big-btn primary" onclick="submitKYC()">📤 Soumettre le KYC</button>
+    <button class="big-btn primary" id="kyc-submit-btn" onclick="submitKYC()">📤 Soumettre le KYC</button>
   </div>
 </div>
 
@@ -1024,7 +1104,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ══════════════════════════════════════════════ -->
 <div class="screen" id="scr-benefs">
   <div class="hdr">
-    <button class="hdr-back" onclick="goBack()">←</button>
+    <button class="hdr-back" onclick="goBack()"><span class="hdr-back-icon">‹</span><span class="hdr-back-txt">Retour</span></button>
     <span class="hdr-title">Mes bénéficiaires</span>
     <span class="hdr-action" onclick="addBenef()">+ Ajouter</span>
   </div>
@@ -1086,13 +1166,9 @@ function goTo(id){
     history_stack.push(id);
   }
 
-  prev.classList.add("slide-back");
+  prev.classList.remove("active","slide-back");
   next.classList.remove("slide-back");
   next.classList.add("active");
-
-  setTimeout(function(){
-    prev.classList.remove("active","slide-back");
-  },300);
 
   // Scroll new screen to top
   var sb=next.querySelector(".sbody");
@@ -1243,7 +1319,7 @@ function buildReceipt(){
 async function createOrder(){
   var btn=document.getElementById("confirm-btn");
   btn.disabled=true;
-  btn.innerHTML="<div class='loading-ring'></div>";
+  btn.innerHTML="⏳ En cours...";
 
   var a=parseFloat(document.getElementById("s-amt").value);
   var rate=rates[currKey]||606;
@@ -1481,16 +1557,64 @@ function verifyOTP(){
 function closeOTP(){document.getElementById("otp-modal").classList.remove("open");}
 
 // ── KYC ──────────────────────────────────────────
+var kycPhotos={recto:null,verso:null,selfie:null};
+
+function previewPhoto(input, zoneId, previewId) {
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=document.getElementById(previewId);
+    img.src=e.target.result;
+    document.getElementById(zoneId).classList.add("has-photo");
+    // Compress and store
+    var canvas=document.getElementById("cv-"+zoneId.replace("zone-",""));
+    var ctx=canvas.getContext("2d");
+    var imgEl=new Image();
+    imgEl.onload=function(){
+      var maxW=800;
+      var ratio=Math.min(maxW/imgEl.width,maxW/imgEl.height,1);
+      canvas.width=Math.round(imgEl.width*ratio);
+      canvas.height=Math.round(imgEl.height*ratio);
+      ctx.drawImage(imgEl,0,0,canvas.width,canvas.height);
+      kycPhotos[zoneId.replace("zone-","")]=canvas.toDataURL("image/jpeg",0.7);
+    };
+    imgEl.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 async function submitKYC(){
   var num=document.getElementById("kd-num").value.trim();
   var dob=document.getElementById("kd-dob").value;
   var nat=document.getElementById("kd-nat").value.trim();
   if(!num||!dob||!nat){toast("Remplissez tous les champs","err");return;}
+  if(!kycPhotos.recto){toast("Photographiez le recto du document","err");return;}
+  if(!kycPhotos.verso){toast("Photographiez le verso du document","err");return;}
+  if(!kycPhotos.selfie){toast("Prenez un selfie avec votre document","err");return;}
+
+  var btn=document.getElementById("kyc-submit-btn");
+  btn.disabled=true;btn.innerHTML="⏳ Envoi en cours...";
+
   user.kyc=true;
-  user.kyc_data={doc_type:document.getElementById("kd-type").value,doc_num:num,dob,nationality:nat};
+  user.kyc_pending=true;
+  user.kyc_data={doc_type:document.getElementById("kd-type").value,doc_num:num,dob:dob,nationality:nat};
   saveUserLS(user);
-  try{await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:user.id,...user.kyc_data})});}catch(e){}
-  toast("✅ KYC soumis ! Limite 5 000$/j","ok");
+
+  try{
+    await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        user_id:user.id,
+        ...user.kyc_data,
+        photo_recto:kycPhotos.recto,
+        photo_verso:kycPhotos.verso,
+        photo_selfie:kycPhotos.selfie
+      })});
+  }catch(e){console.log("KYC upload error:",e.message);}
+
+  btn.disabled=false;btn.innerHTML="📤 Soumettre le KYC";
+  kycPhotos={recto:null,verso:null,selfie:null};
+  toast("✅ KYC soumis ! Vérification sous 24h","ok");
   goBack();renderAccount();
 }
 

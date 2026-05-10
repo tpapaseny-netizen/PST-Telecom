@@ -2243,12 +2243,72 @@ app.post('/api/zama/register', async (req, res) => {
 });
 
 // KYC submission
+// KYC route update - handle photos
 app.post('/api/zama/kyc', async (req, res) => {
   try {
-    if (db) await db.collection('zama_users').updateOne(
-      { id: req.body.user_id },
-      { $set: { kyc: true, kyc_data: req.body, kyc_submitted_at: new Date() } }
-    );
+    const { user_id, doc_type, doc_num, dob, nationality, photo_recto, photo_verso, photo_selfie } = req.body;
+    
+    const kycData = {
+      kyc: true,
+      kyc_pending: true,
+      kyc_submitted_at: new Date(),
+      kyc_data: { doc_type, doc_num, dob, nationality },
+      // Store photos as base64 in MongoDB (compressed, ~50-100KB each)
+      kyc_photos: {
+        recto: photo_recto || null,
+        verso: photo_verso || null,
+        selfie: photo_selfie || null
+      }
+    };
+    
+    if (db) {
+      await db.collection('zama_users').updateOne(
+        { id: user_id },
+        { $set: kycData },
+        { upsert: true }
+      );
+      
+      // Notify admin by email
+      try {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+        });
+        await transporter.sendMail({
+          from: '"ZAMA KYC" <' + process.env.GMAIL_USER + '>',
+          to: process.env.GMAIL_USER,
+          subject: 'ZAMA KYC — Nouveau dossier à vérifier: ' + (doc_num || user_id),
+          html: `<h2>Nouveau KYC ZAMA</h2>
+            <p><strong>User ID:</strong> ${user_id}</p>
+            <p><strong>Document:</strong> ${doc_type} N° ${doc_num}</p>
+            <p><strong>Date naissance:</strong> ${dob}</p>
+            <p><strong>Nationalité:</strong> ${nationality}</p>
+            <p>Photos disponibles dans MongoDB collection zama_users.</p>
+            <p>Pour approuver: <a href="https://pst-telecom-production.up.railway.app/admin?token=pst-admin-2026">Admin PST</a></p>`
+        });
+      } catch(emailErr) { console.log('KYC email error:', emailErr.message); }
+    }
+    
+    res.json({ success: true, message: 'KYC soumis, vérification sous 24h' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: approve KYC
+app.post('/api/zama/kyc/approve', async (req, res) => {
+  try {
+    const { user_id, approved } = req.body;
+    const token = req.headers['x-admin-token'] || req.query.token;
+    if (token !== process.env.ADMIN_PASSWORD) return res.status(403).json({ error: 'Non autorisé' });
+    
+    if (db) {
+      await db.collection('zama_users').updateOne(
+        { id: user_id },
+        { $set: { kyc: approved, kyc_pending: false, kyc_approved: approved, kyc_reviewed_at: new Date() } }
+      );
+    }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
