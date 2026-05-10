@@ -438,21 +438,31 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:16px 3
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
         Envoyez exactement <strong id="m-crypto-amt" style="color:#fff"></strong> à cette adresse :
       </div>
-      <div class="addr-box" id="m-addr">--</div>
-      <button class="m-btn" style="background:#1e2d47;color:var(--text);margin-bottom:4px"
-        onclick="navigator.clipboard.writeText(document.getElementById('m-addr').textContent).then(function(){alert('Copié!');})">
-        📋 Copier l'adresse
-      </button>
-      <div class="warn" id="m-warn"></div>
+      <div id="m-addr-section" style="display:none">
+        <div class="addr-box" id="m-addr">--</div>
+        <button class="m-btn" style="background:#1e2d47;color:var(--text);margin-bottom:4px"
+          onclick="navigator.clipboard.writeText(document.getElementById('m-addr').textContent).then(function(){alert('Adresse copiee!');})">
+          📋 Copier l'adresse
+        </button>
+        <div class="warn" id="m-warn"></div>
+      </div>
+      <div id="m-pos-section">
+        <div style="text-align:center;padding:8px 0 16px">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Cliquez pour payer via izichangePay :</div>
+          <button onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')" 
+            style="width:100%;padding:16px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#000;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;">
+            💳 Payer sur izichangePay →
+          </button>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Vous serez redirigé vers izichangePay.com pour payer en USDT</div>
+        </div>
+      </div>
       <div style="margin:12px 0;padding:12px;background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);border-radius:10px;font-size:13px;">
         Vous recevrez <strong id="m-recv-fcfa" style="color:var(--gold)"></strong><br>
         sur <strong id="m-recv-mm"></strong> : <strong id="m-recv-phone"></strong>
       </div>
       <div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:10px" id="m-timer"></div>
       <button class="m-btn" onclick="checkStatus()">🔄 Vérifier mon paiement</button>
-      <button class="m-btn2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">
-        Payer via izichangePay.com
-      </button>
+
     </div>
 
     <!-- Step 2: Processing -->
@@ -636,8 +646,11 @@ function showModal(address, amt, netFcfa, phone) {
 
   if (address) {
     document.getElementById("m-addr").textContent = address;
+    document.getElementById("m-addr-section").style.display = "block";
+    document.getElementById("m-pos-section").style.display = "none";
   } else {
-    document.getElementById("m-addr").textContent = "Cliquez sur 'Payer via izichangePay.com' ci-dessous";
+    document.getElementById("m-addr-section").style.display = "none";
+    document.getElementById("m-pos-section").style.display = "block";
   }
 
   // Set success data
