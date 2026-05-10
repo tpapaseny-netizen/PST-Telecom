@@ -214,456 +214,93 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     </div>
   </div>
 </div>
-<script>
-const TOKEN=new URLSearchParams(location.search).get('token')||'';
-const IS_ADMIN = TOKEN === 'pst-admin-2026';
-const CLIENT_CODE = IS_ADMIN ? null : TOKEN;
-const API='';
-let cameras=[],clients=[],alerts=[],fType='all',fClient=null,camType='embed',editId=null,delId=null,rotOn=false,rotTimer=null;
-const HELPS={
-  embed:'Format YouTube : <code>https://www.youtube.com/embed/VIDEOID?autoplay=1&mute=1</code>',
-  rtsp:'Format RTSP : <code>rtsp://admin:pass@IP:554/stream</code> (converti via go2rtc)',
-  hikvision:'Format Hikvision : <code>rtsp://admin:pass@IP:554/h264/ch1/main/av_stream</code>',
-  dahua:'Format Dahua : <code>rtsp://admin:pass@IP:554/cam/realmonitor?channel=1&subtype=0</code>',
-  tapo:'Format Tapo : <code>rtsp://admin:pass@IP:554/stream1</code>',
-  reolink:'Format Reolink : <code>rtsp://admin:pass@IP:554/h264Preview_01_main</code>'
-};
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR',{hour12:false})+' — '+new Date().toLocaleDateString('fr-FR');},1000);
-async function init(){
-  document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR',{hour12:false});
-  await loadClients();
-  await loadCameras();
-  // no auto-reload: keeps video streams alive
-  setInterval(simulateAlert,60000);
-}
-async function loadClients(){
-  try{
-    const reqs=await Promise.allSettled([
-      fetch(API+'/api/securcam/clients?token='+TOKEN).then(r=>r.ok?r.json():[]),
-      fetch(API+'/api/noc/clients?token='+TOKEN).then(r=>r.ok?r.json():[])
-    ]);
-    const all=[];
-    reqs.forEach(r=>{if(r.status==='fulfilled')all.push(...r.value);});
-    const seen=new Set();
-    clients=[];
-    all.forEach(c=>{const n=(c.entreprise||c.name||c.nom||'').trim();if(n&&!seen.has(n.toLowerCase())){seen.add(n.toLowerCase());clients.push(n);}});
-    renderClientSelect();renderClientList();
-  }catch(e){console.warn('clients',e);}
-}
-function renderClientSelect(){
-  const sel=document.getElementById('f-client');
-  const prev=sel.value;
-  sel.innerHTML='<option value="">-- Optionnel --</option>'+clients.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
-  if(prev)sel.value=prev;
-}
-function renderClientList(){
-  const cnt={};
-  cameras.forEach(c=>{cnt[c.client]=(cnt[c.client]||0)+1;});
-  document.getElementById('cli-count').textContent=clients.length;
-  document.getElementById('cli-list').innerHTML=clients.map(n=>'<div class="cli-i '+(fClient===n?'act':'')+'" onclick="filterBy(\'client\',\''+n+'\')"><span>'+n+'</span><span class="cli-count">'+(cnt[n]||0)+'</span></div>').join('')||'<div style="padding:8px 14px;font-size:12px;color:var(--muted)">Aucun client</div>';
-}
-async function loadCameras(){
-  try{
-    const url=IS_ADMIN
-      ? API+'/api/noc/cameras?token='+TOKEN
-      : API+'/api/noc/cameras/client/'+CLIENT_CODE;
-    const r=await fetch(url);
-    if(!r.ok){cameras=[];renderAll();initMode();return;}
-    const data=await r.json();
-    cameras=Array.isArray(data)?data:(data.cameras||[]);
-    renderAll();
-    initMode();
-  }catch(e){console.warn('cameras',e);cameras=[];renderAll();initMode();}
-}
-function getFiltered(){
-  let c=[...cameras];
-  if(fType==='online')c=c.filter(x=>x.status!=='offline');
-  else if(fType==='offline')c=c.filter(x=>x.status==='offline');
-  if(fClient)c=c.filter(x=>x.client===fClient);
-  const s=document.getElementById('srch').value.toLowerCase();
-  if(s)c=c.filter(x=>(x.name||'').toLowerCase().includes(s)||(x.client||'').toLowerCase().includes(s));
-  return c;
-}
-function renderAll(){renderStats();renderGrid();renderClientList();}
-function renderStats(){
-  const on=cameras.filter(c=>c.status!=='offline').length,off=cameras.length-on;
-  document.getElementById('cnt-on').textContent=on;
-  document.getElementById('cnt-off').textContent=off;
-  document.getElementById('cnt-al').textContent=alerts.length;
-  document.getElementById('b-tot').textContent=cameras.length;
-  document.getElementById('b-on').textContent=on;
-  document.getElementById('b-off').textContent=off;
-  document.getElementById('b-al').textContent=alerts.length;
-}
-function buildCard(cam){
-  const id=String(cam._id||cam.id||'');
-  var adminBtns=IS_ADMIN?'<button class="ov-btn e" data-id="'+id+'">Modifier</button><button class="ov-btn d" data-id="'+id+'">Suppr.</button>':'';
-  return '<div class="cam-card '+(cam.status==='offline'?'offline':'')+'" id="card-'+id+'"><div class="cam-inner">'+buildVideo(cam)+'<div class="cam-ov"><button class="ov-btn z" data-id="'+id+'">Zoom</button>'+adminBtns+'</div><div class="cam-top"><span class="live-b">LIVE</span><span class="ts">'+new Date().toLocaleTimeString('fr-FR',{hour12:false})+'</span></div><div class="cam-bot"><div class="cam-n">'+(cam.name||'Camera')+'</div><div class="cam-c">'+(cam.client||'')+'</div></div></div></div>';
-}
-function attachEvents(){
-  document.querySelectorAll('.ov-btn.z').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)zoomCam(cam);});
-  document.querySelectorAll('.ov-btn.e').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)editCam(cam);});
-  document.querySelectorAll('.ov-btn.d').forEach(b=>b.onclick=e=>{e.stopPropagation();const cam=cameras.find(c=>String(c._id||c.id)===b.dataset.id);if(cam)askDelete(cam);});
-}
-function renderGrid(){
-  const grid=document.getElementById('grid');
-  const cams=getFiltered();
-  if(!cams.length){
-    if(IS_ADMIN){
-      grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera</h3><p>Cliquez sur Ajouter pour ajouter votre premiere camera.</p><button class="empty-add" onclick="openModal()">+ Ajouter une camera</button></div>';
-    } else {
-      grid.innerHTML='<div class="empty"><div class="eico">camera</div><h3>Aucune camera configuree</h3><p>Vos cameras ne sont pas encore configurees. Contactez PST Telecom au +221 77 152 09 59.</p></div>';
-    }
-    return;
-  }
-  const existingIds=new Set([...grid.querySelectorAll('.cam-card')].map(el=>el.id.replace('card-','')));
-  const newIds=new Set(cams.map(cam=>String(cam._id||cam.id||'')));
-  existingIds.forEach(id=>{if(!newIds.has(id)){const el=document.getElementById('card-'+id);if(el)el.remove();}});
-  cams.forEach((cam,i)=>{
-    const id=String(cam._id||cam.id||'');
-    if(!existingIds.has(id)){
-      const tmp=document.createElement('div');
-      tmp.innerHTML=buildCard(cam);
-      const card=tmp.firstChild;
-      const cards=[...grid.querySelectorAll('.cam-card')];
-      if(i>=cards.length)grid.appendChild(card);
-      else grid.insertBefore(card,cards[i]);
-    }
-  });
-  attachEvents();
-}
-function buildVideo(cam){
-  const url=cam.url||'';
-  if(!url)return '<div class="no-sig"><div class="ico">X</div><div style="font-size:11px">Pas URL</div></div>';
-  if(url.includes('youtube.com/embed')||url.includes('youtu.be'))return '<iframe src="'+url+'" allow="autoplay;encrypted-media" allowfullscreen loading="lazy"></iframe>';
-  if(url.endsWith('.m3u8')||url.includes('.m3u8?'))return '<video autoplay muted playsinline><source src="'+url+'" type="application/x-mpegURL"></video>';
-  if(url.startsWith('http'))return '<iframe src="'+url+'" allow="autoplay;camera;microphone" allowfullscreen loading="lazy" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>';
-  return '<div class="no-sig"><div class="ico">IP</div><div style="font-size:11px">Flux RTSP via go2rtc</div></div>';
-}
-function filterBy(type,client){
-  fType=type;fClient=client;
-  ['nall','non','noff','nal'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  if(type==='all'&&!client)document.getElementById('nall').classList.add('active');
-  else if(type==='online')document.getElementById('non').classList.add('active');
-  else if(type==='offline')document.getElementById('noff').classList.add('active');
-  else if(type==='alerts')document.getElementById('nal').classList.add('active');
-  renderAll();
-}
-function setGrid(n,cls,btn){
-  document.getElementById('grid').className='cam-grid '+cls;
-  document.querySelectorAll('.g-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-function toggleRotation(){
-  rotOn=!rotOn;
-  const b=document.getElementById('rot-btn');
-  if(rotOn){b.classList.add('act');rotTimer=setInterval(()=>{renderGrid();},8000);}
-  else{b.classList.remove('act');clearInterval(rotTimer);}
-}
-function toggleFS(){if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else document.exitFullscreen();}
-function zoomCam(cam){
-  document.getElementById('zc').innerHTML=buildVideo(cam)+'<button class="zcl" onclick="closeZoom()">x</button>';
-  document.getElementById('z-name').textContent=cam.name||'Camera';
-  document.getElementById('z-cli').textContent=cam.client||'';
-  document.getElementById('zov').classList.remove('hidden');
-}
-function closeZoom(){document.getElementById('zov').classList.add('hidden');document.getElementById('zc').innerHTML='<button class="zcl" onclick="closeZoom()">x</button>';}
-function editCam(cam){
-  editId=cam._id||cam.id;
-  document.getElementById('modal-title').textContent='Modifier la camera';
-  document.getElementById('b-save').textContent='Sauvegarder';
-  document.getElementById('f-client').value=cam.client||'';
-  document.getElementById('f-name').value=cam.name||'';
-  document.getElementById('f-url').value=cam.url||'';
-  document.getElementById('f-loc').value=cam.location||'';
-  document.getElementById('f-zone').value=cam.zone||'';
-  selTypeByVal(cam.type||'embed');updateHelp();
-  document.getElementById('mbg').classList.remove('hidden');
-}
-function askDelete(cam){
-  delId=cam._id||cam.id;
-  document.getElementById('c-txt').textContent='Supprimer "'+( cam.name||'cette camera')+'" ? Action irreversible.';
-  document.getElementById('cov').classList.remove('hidden');
-  document.getElementById('c-del').onclick=doDelete;
-}
-function closeConfirm(){document.getElementById('cov').classList.add('hidden');delId=null;}
-async function doDelete(){
-  if(!delId)return;
-  const id=delId;closeConfirm();
-  try{
-    const r=await fetch(API+'/api/noc/cameras/'+id+'?token='+TOKEN,{method:'DELETE'});
-    if(r.ok){cameras=cameras.filter(c=>String(c._id||c.id)!==String(id));const el=document.getElementById('card-'+id);if(el)el.remove();renderStats();renderClientList();}
-    else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.status));}
-  }catch(e){alert('Erreur: '+e.message);}
-}
-function openModal(){
-  editId=null;
-  document.getElementById('modal-title').textContent='Ajouter une camera';
-  document.getElementById('b-save').textContent='Ajouter au NOC';
-  ['f-client','f-name','f-url','f-loc','f-zone'].forEach(id=>{document.getElementById(id).value='';});
-  selTypeByVal('embed');updateHelp();
-  document.getElementById('mbg').classList.remove('hidden');
-}
-function closeModal(){document.getElementById('mbg').classList.add('hidden');}
-function selType(t,el){camType=t;document.querySelectorAll('.tc').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');updateHelp();}
-function selTypeByVal(t){camType=t;document.querySelectorAll('.tc').forEach(c=>c.classList.toggle('sel',c.dataset.t===t));}
-function updateHelp(){document.getElementById('u-help').innerHTML=HELPS[camType]||HELPS.embed;}
-async function saveCamera(){
-  const client=document.getElementById('f-client').value.trim();
-  const name=document.getElementById('f-name').value.trim();
-  const url=document.getElementById('f-url').value.trim();
-  // client optional
-  if(!name){alert('Entrer un nom de camera');return;}
-  if(!url){alert('Entrer une URL');return;}
-  const btn=document.getElementById('b-save');
-  btn.disabled=true;btn.textContent='Enregistrement...';
-  const payload={client,name,url,type:camType,location:document.getElementById('f-loc').value.trim(),zone:document.getElementById('f-zone').value.trim(),status:'online',token:TOKEN};
-  try{
-    let r;
-    if(editId){r=await fetch(API+'/api/noc/cameras/'+editId+'?token='+TOKEN,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
-    else{r=await fetch(API+'/api/noc/cameras?token='+TOKEN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
-    if(r.ok){const d=await r.json().catch(()=>({}));closeModal();if(client&&!clients.includes(client)){clients.push(client);renderClientSelect();}if(d.camera){cameras.unshift(d.camera);renderGrid();}else{await loadCameras();}renderStats();renderClientList();}
-    else{const err=await r.json().catch(()=>({}));alert('Erreur: '+(err.error||r.statusText));}
-  }catch(e){alert('Erreur reseau: '+e.message);}
-  finally{btn.disabled=false;btn.textContent=editId?'Sauvegarder':'Ajouter au NOC';}
-}
-function simulateAlert(){
-  if(!cameras.length)return;
-  const types=['motion','motion','reconnect'];
-  const t=types[Math.floor(Math.random()*types.length)];
-  const cam=cameras[Math.floor(Math.random()*cameras.length)];
-  const now=new Date().toLocaleTimeString('fr-FR',{hour12:false});
-  alerts.unshift({cam:cam.name||'Camera',cli:cam.client||'',type:t,time:now});
-  if(alerts.length>40)alerts.pop();
-  renderAlerts();renderStats();
-}
-function clearAlerts(){alerts=[];renderAlerts();renderStats();}
-function renderAlerts(){
-  const el=document.getElementById('apl-list');
-  if(!alerts.length){el.innerHTML='<div style="padding:18px;text-align:center;font-size:12px;color:var(--muted)">Aucune alerte</div>';return;}
-  el.innerHTML=alerts.map(a=>'<div class="al-item"><div class="al-row"><div><div class="al-cam">'+a.cam+'</div><div class="al-cli">'+a.cli+'</div></div><div class="al-t">'+a.time+'</div></div><div class="al-type '+a.type+'">'+(a.type==='motion'?'Mouvement detecte':a.type==='reconnect'?'Reconnectee':'Hors ligne')+'</div></div>').join('');
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeZoom();closeModal();closeConfirm();}});
-document.getElementById('mbg').addEventListener('click',function(e){if(e.target===this)closeModal();});
-init();
-
-function initMode(){
-  if(!IS_ADMIN){
-    // Hide all admin elements
-    document.querySelectorAll('#add-btn,#add-btn-sidebar,.add-side,[onclick*="openModal"],[onclick*="Admin"],#admin-btn').forEach(function(el){el.style.display='none';});
-    // Hide sidebar client list section
-    const cliSection=document.querySelector('.nav-group-label');
-    if(cliSection)cliSection.style.display='none';
-    const cliList=document.getElementById('cli-list');
-    if(cliList)cliList.parentElement.style.display='none';
-    // Hide filter buttons En ligne/Hors ligne/Alertes for cleaner view
-    // Change title
-    document.title='PST NOC — Mon espace';
-    // Add contact PST banner
-    const head=document.querySelector('.hd-right');
-    if(head){
-      const banner=document.createElement('div');
-      banner.style.cssText='font-size:12px;color:#64748b;display:flex;align-items:center;gap:6px';
-      banner.innerHTML='<span>&#x1F4DE;</span><a href="tel:+221771520959" style="color:#00d4ff;text-decoration:none;font-weight:600">+221 77 152 09 59</a>';
-      head.insertBefore(banner,head.firstChild);
-    }
-    // Remove Admin button
-    const adminBtn=document.getElementById('admin-btn');
-    if(adminBtn)adminBtn.style.display='none';
-  }
-}
-</script>
-
-<!-- ═══ izichangePay Crypto Widget ═══ -->
-
-<!-- ═══ Fin izichangePay Widget ═══ -->
-
-
-
-
-
-      <div class="izipay-warn">Envoyez le montant exact sur le bon reseau.</div>
-      <button class="izipay-btn" onclick="iziGenerate()">Generer adresse de paiement</button>
-
-
-      <button class="izipay-btn-sec" onclick="iziPOS()">Payer via izichangePay.com</button>
-    </div>
-    <div class="izipay-step" id="izi-s2">
-      <div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izi-exact" style="color:#00e5ff"></b> a :</div>
-      <div class="izipay-addr-box" id="izi-addr">--<button class="izipay-copy-btn" onclick="iziCopy()">Copier</button></div>
-      <div style="font-size:11px;color:#64748b" id="izi-net"></div>
-      <div class="izipay-timer" id="izi-tmr"></div>
-      <div class="izipay-warn">Paiement confirme automatiquement apres reception.</div>
-      <button class="izipay-btn" id="izi-chk-btn" onclick="iziCheck()">Verifier mon paiement</button>
-      <button class="izipay-btn-sec" onclick="iziStep(1)">Changer de crypto</button>
-    </div>
-    <div class="izipay-step" id="izi-s3">
-      <div style="text-align:center;padding:20px 0">
-        <div class="izipay-spinner">&#x26A1;</div>
-        <div style="font-weight:700;margin:12px 0 6px">Verification en cours...</div>
-      </div>
-    </div>
-    <div class="izipay-step" id="izi-s4">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-size:48px;margin-bottom:10px">&#x2705;</div>
-        <div style="font-size:18px;font-weight:800;color:#22c55e;margin-bottom:6px">Paiement confirme !</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:16px">Votre service a ete active.</div>
-        <button class="izipay-btn" onclick="iziClose()">Fermer</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-    <div class="izi-warn">&#x26A0; Envoyez le montant exact sur le bon reseau pour eviter toute perte.</div>
-    <button class="izi-btn" onclick="iziGen()">Generer adresse de paiement</button>
-    <button class="izi-btn2" onclick="iziPOS()">&#x1F517; Payer via izichangePay.com</button>
-  </div>
-  <div class="izi-step" id="izi-s2">
-    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez exactement <b id="izi-exact" style="color:#00e5ff"></b> a cette adresse :</div>
-    <div class="izi-addr" id="izi-addr">--</div>
-    <button onclick="iziCp()" style="background:#1e2d47;border:none;color:#e2e8f0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;width:100%;margin-bottom:8px;">&#x1F4CB; Copier l adresse</button>
-    <div style="font-size:11px;color:#64748b;margin-bottom:4px" id="izi-net"></div>
-    <div class="izi-warn">&#x23F3; Paiement confirme automatiquement apres reception blockchain.</div>
-    <button class="izi-btn" id="izi-chk" onclick="iziChk()">&#x1F504; Verifier mon paiement</button>
-    <button class="izi-btn2" onclick="iziStep(1)">Changer de crypto</button>
-  </div>
-  <div class="izi-step" id="izi-s3">
-    <div style="text-align:center;padding:24px 0">
-      <div class="izi-spin">&#x26A1;</div>
-      <div style="font-weight:700;margin:14px 0 6px;font-size:15px">Verification en cours...</div>
-      <div style="font-size:12px;color:#64748b">Confirmation sur la blockchain en attente.</div>
-    </div>
-  </div>
-  <div class="izi-step" id="izi-s4">
-    <div style="text-align:center;padding:24px 0">
-      <div style="font-size:52px;margin-bottom:12px">&#x2705;</div>
-      <div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme !</div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px">Votre service a ete active avec succes.</div>
-      <button class="izi-btn" onclick="iziClose()">Fermer</button>
-    </div>
-  </div>
-</div>
-</div>
-
-
-
-
-<style id="izi-css">
-#izi-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;}
-#izi-modal.show{display:flex;}
-#izi-box{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;font-family:Arial,sans-serif;position:relative;max-height:85vh;overflow-y:auto;}
-.izi-s{display:none;}
-.izi-s.ok{display:block;}
-.izi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.izi-c{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:border-color .2s;}
-.izi-c.ok{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
-.izi-cimg{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
-.izi-btn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;text-align:center;}
-.izi-btn2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;text-align:center;}
-.izi-addr{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-family:monospace;font-size:12px;color:#00e5ff;margin:10px 0;}
-.izi-warn{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
-.izi-x{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;}
-.izi-spin{display:inline-block;font-size:32px;animation:spin 1s linear infinite;}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+<style>
+#izm{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
+#izm.open{display:flex;}
+#izb{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;position:relative;max-height:85vh;overflow-y:auto;}
+.izs{display:none;}
+.izs.a{display:block;}
+.izg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.izc{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;}
+.izc.a{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
+.izci{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
+.izbn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;}
+.izb2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;}
+.iza{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-size:12px;color:#00e5ff;margin:10px 0;font-family:monospace;}
+.izw{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
+.izx{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;}
+.izsp{display:inline-block;font-size:32px;animation:izsp 1s linear infinite;}
+@keyframes izsp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
-
-<div id="izi-modal">
-<div id="izi-box">
-<button class="izi-x" onclick="document.getElementById('izi-modal').classList.remove('show')">&#x2715;</button>
-<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#x26A1; Payer en Crypto</div>
-<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izi-amt">$24.75 USD</div>
-
-<div class="izi-s ok" id="izi-s1">
-<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre cryptomonnaie :</div>
-<div class="izi-grid">
-<div class="izi-c ok" onclick="iziSel(this,'USDT.BEP20')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-<div class="izi-c" onclick="iziSel(this,'USDT.TRC20')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-<div class="izi-c" onclick="iziSel(this,'BTC')"><img class="izi-cimg" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-<div class="izi-c" onclick="iziSel(this,'ETH')"><img class="izi-cimg" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-<div class="izi-c" onclick="iziSel(this,'BNB')"><img class="izi-cimg" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-<div class="izi-c" onclick="iziSel(this,'TRX')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+<div id="izm">
+<div id="izb">
+<button class="izx" onclick="document.getElementById('izm').classList.remove('open')">&#215;</button>
+<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#9889; Payer en Crypto</div>
+<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$24.75 USD</div>
+<div class="izs a" id="izs1">
+<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
+<div class="izg">
+<div class="izc a" onclick="izSel(this,'USDT.BEP20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+<div class="izc" onclick="izSel(this,'USDT.TRC20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+<div class="izc" onclick="izSel(this,'BTC')"><img class="izci" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+<div class="izc" onclick="izSel(this,'ETH')"><img class="izci" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+<div class="izc" onclick="izSel(this,'BNB')"><img class="izci" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+<div class="izc" onclick="izSel(this,'TRX')"><img class="izci" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
 </div>
-<div class="izi-warn">&#x26A0; Envoyez le montant exact sur le bon reseau.</div>
-<button class="izi-btn" onclick="iziGen()">Generer adresse de paiement</button>
-<button class="izi-btn2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer via izichangePay.com</button>
+<div class="izw">&#9888; Envoyez le montant exact sur le bon reseau.</div>
+<button class="izbn" onclick="izGen()">Generer adresse</button>
+<button class="izb2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer sur izichangePay.com</button>
 </div>
-
-<div class="izi-s" id="izi-s2">
-<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izi-ex" style="color:#00e5ff"></b> a :</div>
-<div class="izi-addr" id="izi-addr">--</div>
-<button class="izi-btn" style="background:#1e2d47;color:#e2e8f0;" onclick="navigator.clipboard.writeText(document.getElementById('izi-addr').textContent).then(function(){alert('Copie!');})">&#x1F4CB; Copier l adresse</button>
-<div style="font-size:11px;color:#64748b;margin:6px 0" id="izi-net"></div>
-<div class="izi-warn">&#x23F3; Paiement confirme automatiquement apres reception.</div>
-<button class="izi-btn" id="izi-chk" onclick="iziChk()">&#x1F504; Verifier mon paiement</button>
-<button class="izi-btn2" onclick="iziGoStep(1)">Changer de crypto</button>
+<div class="izs" id="izs2">
+<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izex" style="color:#00e5ff"></b> a :</div>
+<div class="iza" id="izad">--</div>
+<button class="izbn" style="background:#1e2d47;color:#e2e8f0;margin-bottom:8px" onclick="navigator.clipboard.writeText(document.getElementById('izad').textContent)">&#128203; Copier</button>
+<div style="font-size:11px;color:#64748b;margin-bottom:4px" id="iznet"></div>
+<div class="izw">&#8987; Confirmation automatique apres reception.</div>
+<button class="izbn" id="izchk" onclick="izChk()">&#128260; Verifier</button>
+<button class="izb2" onclick="izGo(1)">Changer de crypto</button>
 </div>
-
-<div class="izi-s" id="izi-s3">
+<div class="izs" id="izs3">
+<div style="text-align:center;padding:24px 0"><div class="izsp">&#9889;</div><div style="font-weight:700;margin:14px 0 6px">Verification...</div></div>
+</div>
+<div class="izs" id="izs4">
 <div style="text-align:center;padding:24px 0">
-<div class="izi-spin">&#x26A1;</div>
-<div style="font-weight:700;margin:14px 0 6px;font-size:15px">Verification en cours...</div>
-</div>
-</div>
-
-<div class="izi-s" id="izi-s4">
-<div style="text-align:center;padding:24px 0">
-<div style="font-size:52px;margin-bottom:12px">&#x2705;</div>
-<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme !</div>
-<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active avec succes.</div>
-<button class="izi-btn" onclick="document.getElementById('izi-modal').classList.remove('show')">Fermer</button>
+<div style="font-size:52px;margin-bottom:12px">&#9989;</div>
+<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme!</div>
+<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active.</div>
+<button class="izbn" onclick="document.getElementById('izm').classList.remove('open')">Fermer</button>
 </div>
 </div>
 </div>
 </div>
-
 <script>
-var _iS='noc',_iA=24.75,_iD='Abonnement PST NOC',_iP='',_iC='USDT.BEP20',_iO='',_iT=null;
-function openCryptoPayment(s,a,d,p){
-  _iS=s;_iA=a;_iD=d;_iP=p||'';
-  document.getElementById('izi-amt').textContent='
-</html>+a.toFixed(2)+' USD';
-  iziGoStep(1);
-  document.getElementById('izi-modal').classList.add('show');
-}
-function iziGoStep(n){
-  for(var i=1;i<=4;i++){var e=document.getElementById('izi-s'+i);if(e)e.className='izi-s'+(n===i?' ok':'');}
-}
-function iziSel(el,id){
-  document.querySelectorAll('.izi-c').forEach(function(b){b.className='izi-c';});
-  el.className='izi-c ok';_iC=id;
-}
-async function iziGen(){
-  iziGoStep(3);
+var _zS="noc",_zA=24.75,_zD="Abonnement PST NOC",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
+function openCryptoPayment(s,a,d,p){_zS=s;_zA=a;_zD=d;_zP=p||"";document.getElementById("izam").textContent="$"+a.toFixed(2)+" USD";izGo(1);document.getElementById("izm").classList.add("open");}
+function izGo(n){for(var i=1;i<=4;i++){var e=document.getElementById("izs"+i);if(e)e.className="izs"+(n===i?" a":"");}};
+function izSel(el,id){document.querySelectorAll(".izc").forEach(function(b){b.className="izc";});el.className="izc a";_zC=id;}
+async function izGen(){
+  izGo(3);
   try{
-    var r=await fetch('/api/izipay/create-payment',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service:_iS,amount_usd:_iA,currency:_iC,description:_iD,user_phone:_iP})});
+    var r=await fetch("/api/izipay/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({service:_zS,amount_usd:_zA,currency:_zC,description:_zD,user_phone:_zP})});
     var d=await r.json();
-    if(d.method==='pos'||!d.address){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');document.getElementById('izi-modal').classList.remove('show');return;}
-    _iO=d.order_id;
-    document.getElementById('izi-ex').textContent=_iA+' USD en '+_iC;
-    document.getElementById('izi-addr').textContent=d.address;
-    document.getElementById('izi-net').textContent='Reseau: '+(d.network||_iC);
-    iziGoStep(2);
-    _iT=setInterval(iziAuto,30000);
-  }catch(e){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');document.getElementById('izi-modal').classList.remove('show');}
+    if(d.method==="pos"||!d.address){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");return;}
+    _zO=d.order_id;
+    document.getElementById("izex").textContent=_zA+" USD en "+_zC;
+    document.getElementById("izad").textContent=d.address;
+    document.getElementById("iznet").textContent="Reseau: "+(d.network||_zC);
+    izGo(2);_zT=setInterval(izAuto,30000);
+  }catch(e){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");}
 }
-async function iziChk(){
-  if(!_iO)return;
-  var b=document.getElementById('izi-chk');b.disabled=true;b.textContent='Verification...';
-  try{var r=await fetch('/api/izipay/status/'+_iO);var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iT);iziGoStep(4);}
-    else{b.disabled=false;b.innerHTML='&#x1F504; Verifier mon paiement';}
-  }catch(e){b.disabled=false;b.innerHTML='&#x1F504; Reessayer';}
+async function izChk(){
+  if(!_zO)return;
+  var b=document.getElementById("izchk");b.disabled=true;
+  try{var r=await fetch("/api/izipay/status/"+_zO);var d=await r.json();
+    if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}
+    else b.disabled=false;
+  }catch(e){b.disabled=false;}
 }
-function iziAuto(){
-  if(!_iO)return;
-  fetch('/api/izipay/status/'+_iO).then(function(r){return r.json();}).then(function(d){
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iT);iziGoStep(4);}
-  }).catch(function(){});
-}
+function izAuto(){if(!_zO)return;fetch("/api/izipay/status/"+_zO).then(function(r){return r.json();}).then(function(d){if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}}).catch(function(){});}
 </script>
 </body>
 </html>

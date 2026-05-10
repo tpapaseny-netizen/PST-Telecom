@@ -197,12 +197,12 @@ h1 .accent{color:#c77dff;}
         </div>
         <div class="pay-methods">
           <button class="pay-btn pay-wave" onclick="payerWave()">💚 Payer avec Wave</button>
-<div style="margin-top:10px;">
-<button onclick="openCryptoPayment('sms5sim',1.65,'Numero virtuel 5SIM','')" style="width:100%;padding:13px;background:linear-gradient(135deg,#0a1628,#162040);border:2px solid #00e5ff;color:#00e5ff;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
+<div style="margin-top:10px">
+<button onclick="openCryptoPayment(&quot;sms5sim&quot;,1.65,&quot;Numero virtuel 5SIM&quot;,&quot;&quot;)" style="width:100%;padding:13px;background:linear-gradient(135deg,#0a1628,#162040);border:2px solid #00e5ff;color:#00e5ff;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
 <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
 <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
 <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
-&#x26A1; Payer en Crypto
+&#9889; Payer en Crypto
 </button>
 </div>
 <div style="margin-top:10px">
@@ -226,407 +226,93 @@ h1 .accent{color:#c77dff;}
 
 <div class="toast" id="toast"></div>
 
-<script>
-const API='https://pst-telecom-production.up.railway.app';
-const WAVE_ID='M_rlEv9b4P3VtG';
-const PACK_PRIX={pack1:1000,pack2:2000,pack3:4500,pack4:9000};
-let compte=null, packChoisi='pack1', tousServices=[], activationEnCours=null, timerVerif=null;
-
-// ── TABS ──
-function changerTab(nom,btn){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('screen-'+nom).classList.add('active');
-  btn.classList.add('active');
-}
-
-// ── INSCRIPTION ──
-async function sInscrire(){
-  const nom=document.getElementById('ins-nom').value.trim();
-  const tel=document.getElementById('ins-tel').value.trim();
-  const err=document.getElementById('ins-error');
-  err.style.display='none';
-  if(!nom||!tel){err.textContent='Veuillez remplir tous les champs.';err.style.display='block';return;}
-  const btn=document.querySelector('#screen-inscrire .btn-purple');
-  btn.textContent='Création...';btn.disabled=true;
-  try{
-    const r=await fetch(API+'/api/sms/inscription',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom,telephone:tel})});
-    const d=await r.json();
-    if(d.success){
-      document.getElementById('ins-id').textContent=d.userId;
-      document.getElementById('ins-success').style.display='block';
-      document.querySelector('#screen-inscrire .form-card').querySelectorAll('.field,.btn-purple,.form-note').forEach(e=>e.style.display='none');
-      compte={userId:d.userId,nom,telephone:tel,pointsSMS:0,type:'sms_only'};
-      localStorage.setItem('pst_sms_user',JSON.stringify(compte));
-    }else{err.textContent=d.error||'Erreur';err.style.display='block';btn.textContent='Créer mon compte →';btn.disabled=false;}
-  }catch(e){err.textContent='Erreur de connexion.';err.style.display='block';btn.textContent='Créer mon compte →';btn.disabled=false;}
-}
-
-function allerAuDashboard(){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-dashboard').classList.add('active');
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  chargerDashboard();
-}
-
-// ── CONNEXION ──
-async function seConnecter(){
-  const userId=document.getElementById('con-id').value.trim().toUpperCase();
-  const tel=document.getElementById('con-tel').value.trim();
-  const err=document.getElementById('con-error');
-  err.style.display='none';
-  if(!userId||!tel){err.textContent='Veuillez remplir tous les champs.';err.style.display='block';return;}
-  try{
-    const r=await fetch(API+'/api/sms/connexion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,telephone:tel})});
-    const d=await r.json();
-    if(d.success){
-      compte=d.compte;
-      localStorage.setItem('pst_sms_user',JSON.stringify(compte));
-      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-      document.getElementById('screen-dashboard').classList.add('active');
-      chargerDashboard();
-    }else{err.textContent=d.error||'ID ou numéro incorrect.';err.style.display='block';}
-  }catch(e){err.textContent='Erreur de connexion.';err.style.display='block';}
-}
-
-// ── DASHBOARD ──
-function chargerDashboard(){
-  if(!compte)return;
-  document.getElementById('dash-points').textContent=compte.pointsSMS||0;
-  // Afficher nom dans topbar
-  const topbarUser=document.getElementById('topbar-user');
-  const topbarNom=document.getElementById('topbar-nom');
-  if(topbarUser){topbarUser.style.display='flex';}
-  if(topbarNom){topbarNom.textContent=compte.nom;}
-  chargerServices();
-  const params=new URLSearchParams(window.location.search);
-  if(params.get('paiement')==='success'){toast('✅ Paiement confirmé ! Vos points arrivent...');}
-}
-
-// ── SERVICES ──
-async function chargerServices(){
-  try{
-    const r=await fetch(API+'/api/sms/services');
-    tousServices=await r.json();
-    afficherServices(tousServices);
-  }catch(e){document.getElementById('services-grid').innerHTML='<div style="text-align:center;padding:2rem;color:#5a4f6a;grid-column:span 2">Erreur chargement.</div>';}
-}
-
-function afficherServices(liste){
-  const grid=document.getElementById('services-grid');
-  if(!liste.length){grid.innerHTML='<div style="text-align:center;padding:2rem;color:#5a4f6a;grid-column:span 2">Aucun résultat.</div>';return;}
-  grid.innerHTML=liste.slice(0,200).map(s=>{
-    const pts=s.prix_points||1;
-    const logoHtml=s.logo?`<img class="si-logo" src="${s.logo}" onerror="this.outerHTML='<span style=font-size:1.2rem>${s.icon||'📱'}</span>'"/>`:`<span style="font-size:1.2rem">${s.icon||'📱'}</span>`;
-    return`<div class="service-item" onclick="demanderNumero('${s.id}','${s.nom.replace(/'/g,"\\'")}',${pts})">${logoHtml}<div><div class="si-name">${s.nom}</div><div class="si-pts">${pts} pt${pts>1?'s':''}</div></div></div>`;
-  }).join('');
-}
-
-function filtrerServices(q){
-  if(!q){afficherServices(tousServices);return;}
-  afficherServices(tousServices.filter(s=>s.nom.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())));
-}
-
-// ── DEMANDER NUMÉRO ──
-async function demanderNumero(serviceId,nom,pts){
-  const points=compte?.pointsSMS||0;
-  if(points<pts){toast('Points insuffisants ! Achetez des points.');ouvrirAchat();return;}
-  if(!confirm(`Utiliser ${pts} point${pts>1?'s':''} pour ${nom} ?`))return;
-  try{
-    const r=await fetch(API+'/api/sms/demander-numero',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:compte.userId,serviceId})});
-    const d=await r.json();
-    if(d.success){
-      compte.pointsSMS=d.pointsRestants;
-      localStorage.setItem('pst_sms_user',JSON.stringify(compte));
-      document.getElementById('dash-points').textContent=d.pointsRestants;
-      activationEnCours={...d,nom};
-      afficherActivation();
-      toast('✅ Numéro obtenu pour '+nom);
-    }else{toast(d.error||'Erreur');}
-  }catch(e){toast('Erreur de connexion');}
-}
-
-function afficherActivation(){
-  if(!activationEnCours)return;
-  const a=activationEnCours;
-  const expire=new Date(a.expireAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('activation-zone').innerHTML=`
-    <div class="activation-card">
-      <div class="ac-service">📱 ${a.nom||a.service}</div>
-      <div class="ac-num">${a.numeroTemp}</div>
-      <div class="ac-timer">⏱ Expire à ${expire} — utilisez ce numéro sur ${a.nom||a.service} maintenant</div>
-      <div class="ac-sms" id="ac-sms">⏳ En attente du SMS de vérification...</div>
-      <button class="btn-refresh" onclick="verifierSMS()">🔄 Vérifier le SMS</button>
-    </div>`;
-  if(timerVerif)clearInterval(timerVerif);
-  timerVerif=setInterval(verifierSMS,10000);
-}
-
-async function verifierSMS(){
-  if(!activationEnCours)return;
-  try{
-    const r=await fetch(API+`/api/sms/verifier/${activationEnCours.activationId}?userId=${compte.userId}`);
-    const d=await r.json();
-    if(d.smsRecu){
-      const el=document.getElementById('ac-sms');
-      if(el){el.textContent='✅ '+d.smsRecu;el.classList.add('received');}
-      if(timerVerif)clearInterval(timerVerif);
-      toast('✅ SMS reçu !');
-    }
-  }catch(e){}
-}
-
-// ── PACKS ──
-function ouvrirAchat(){document.getElementById('achat-zone').style.display='block';document.getElementById('achat-zone').scrollIntoView({behavior:'smooth'});}
-function fermerAchat(){document.getElementById('achat-zone').style.display='none';}
-function choisirPack(p,el){packChoisi=p;document.querySelectorAll('.pack-card').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');}
-
-function payerWave(){
-  window.open(`https://pay.wave.com/m/${WAVE_ID}/c/sn/?amount=${PACK_PRIX[packChoisi]}`,'_blank');
-  toast('✅ Wave ouvert — contactez-nous après paiement pour activer vos points');
-}
-
-async function payerStripe(){
-  if(!compte){toast('Connectez-vous d\'abord');return;}
-  try{
-    const r=await fetch(API+'/api/paiement/stripe/creer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'sms',pack:packChoisi,userId:compte.userId,devise:'usd'})});
-    const d=await r.json();
-    if(d.success&&d.url){window.location.href=d.url;}
-    else{toast(d.error||'Stripe non configuré — utilisez Wave');}
-  }catch(e){toast('Erreur — utilisez Wave pour l\'instant');}
-}
-
-// ── TOAST ──
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
-
-// ── SAUVEGARDER SESSION ──
-function sauvegarderSession(){
-  if(compte) localStorage.setItem('pst_sms_user', JSON.stringify(compte));
-}
-
-function seDeconnecter(){
-  localStorage.removeItem('pst_sms_user');
-  compte=null;
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-inscrire').classList.add('active');
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>{b.classList.toggle('active',i===0);});
-  document.getElementById('topbar-user').style.display='none';
-  toast('Déconnecté');
-}
-
-// ── AUTO-LOGIN ──
-window.onload=()=>{
-  const saved=localStorage.getItem('pst_sms_user');
-  if(saved){
-    try{
-      compte=JSON.parse(saved);
-      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-      document.getElementById('screen-dashboard').classList.add('active');
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      // Afficher infos user dans topbar
-      const topbarUser=document.getElementById('topbar-user');
-      if(topbarUser){topbarUser.style.display='flex';document.getElementById('topbar-nom').textContent=compte.nom;}
-      // Rafraîchir les points depuis le serveur
-      fetch(API+'/api/sms/compte/'+compte.userId)
-        .then(r=>r.json())
-        .then(d=>{
-          if(d.pointsSMS!==undefined){compte.pointsSMS=d.pointsSMS;sauvegarderSession();}
-          chargerDashboard();
-        })
-        .catch(()=>chargerDashboard());
-    }catch(e){localStorage.removeItem('pst_sms_user');chargerDashboard();}
-  }
-};
-</script>
-
-<button class="izi-crypto-pay-btn" style="margin:8px 0" onclick="openCryptoPayment('sms5sim', 1.65, 'Numero virtuel SMS 5SIM - 1000 FCFA', '')">
-  ⚡ Payer en Crypto (1 000 FCFA)
-</button>
-
-
-
-
-      <div class="izipay-warn">Envoyez le montant exact sur le bon reseau.</div>
-      <button class="izipay-btn" onclick="iziGenerate()">Generer adresse de paiement</button>
-      <button class="izipay-btn-sec" onclick="iziPOS()">Payer via izichangePay.com</button>
-    </div>
-    <div class="izipay-step" id="izi-s2">
-      <div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izi-exact" style="color:#00e5ff"></b> a :</div>
-      <div class="izipay-addr-box" id="izi-addr">--<button class="izipay-copy-btn" onclick="iziCopy()">Copier</button></div>
-      <div style="font-size:11px;color:#64748b" id="izi-net"></div>
-      <div class="izipay-timer" id="izi-tmr"></div>
-      <div class="izipay-warn">Paiement confirme automatiquement apres reception.</div>
-      <button class="izipay-btn" id="izi-chk-btn" onclick="iziCheck()">Verifier mon paiement</button>
-      <button class="izipay-btn-sec" onclick="iziStep(1)">Changer de crypto</button>
-    </div>
-    <div class="izipay-step" id="izi-s3">
-      <div style="text-align:center;padding:20px 0">
-        <div class="izipay-spinner">&#x26A1;</div>
-        <div style="font-weight:700;margin:12px 0 6px">Verification en cours...</div>
-      </div>
-    </div>
-    <div class="izipay-step" id="izi-s4">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-size:48px;margin-bottom:10px">&#x2705;</div>
-        <div style="font-size:18px;font-weight:800;color:#22c55e;margin-bottom:6px">Paiement confirme !</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:16px">Votre service a ete active.</div>
-        <button class="izipay-btn" onclick="iziClose()">Fermer</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-    <div class="izi-warn">&#x26A0; Envoyez le montant exact sur le bon reseau pour eviter toute perte.</div>
-    <button class="izi-btn" onclick="iziGen()">Generer adresse de paiement</button>
-    <button class="izi-btn2" onclick="iziPOS()">&#x1F517; Payer via izichangePay.com</button>
-  </div>
-  <div class="izi-step" id="izi-s2">
-    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez exactement <b id="izi-exact" style="color:#00e5ff"></b> a cette adresse :</div>
-    <div class="izi-addr" id="izi-addr">--</div>
-    <button onclick="iziCp()" style="background:#1e2d47;border:none;color:#e2e8f0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;width:100%;margin-bottom:8px;">&#x1F4CB; Copier l adresse</button>
-    <div style="font-size:11px;color:#64748b;margin-bottom:4px" id="izi-net"></div>
-    <div class="izi-warn">&#x23F3; Paiement confirme automatiquement apres reception blockchain.</div>
-    <button class="izi-btn" id="izi-chk" onclick="iziChk()">&#x1F504; Verifier mon paiement</button>
-    <button class="izi-btn2" onclick="iziStep(1)">Changer de crypto</button>
-  </div>
-  <div class="izi-step" id="izi-s3">
-    <div style="text-align:center;padding:24px 0">
-      <div class="izi-spin">&#x26A1;</div>
-      <div style="font-weight:700;margin:14px 0 6px;font-size:15px">Verification en cours...</div>
-      <div style="font-size:12px;color:#64748b">Confirmation sur la blockchain en attente.</div>
-    </div>
-  </div>
-  <div class="izi-step" id="izi-s4">
-    <div style="text-align:center;padding:24px 0">
-      <div style="font-size:52px;margin-bottom:12px">&#x2705;</div>
-      <div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme !</div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px">Votre service a ete active avec succes.</div>
-      <button class="izi-btn" onclick="iziClose()">Fermer</button>
-    </div>
-  </div>
-</div>
-</div>
-
-
-
-
-<style id="izi-css">
-#izi-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;}
-#izi-modal.show{display:flex;}
-#izi-box{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;font-family:Arial,sans-serif;position:relative;max-height:85vh;overflow-y:auto;}
-.izi-s{display:none;}
-.izi-s.ok{display:block;}
-.izi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.izi-c{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:border-color .2s;}
-.izi-c.ok{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
-.izi-cimg{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
-.izi-btn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;text-align:center;}
-.izi-btn2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;text-align:center;}
-.izi-addr{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-family:monospace;font-size:12px;color:#00e5ff;margin:10px 0;}
-.izi-warn{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
-.izi-x{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;}
-.izi-spin{display:inline-block;font-size:32px;animation:spin 1s linear infinite;}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+<style>
+#izm{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
+#izm.open{display:flex;}
+#izb{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;position:relative;max-height:85vh;overflow-y:auto;}
+.izs{display:none;}
+.izs.a{display:block;}
+.izg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.izc{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;}
+.izc.a{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
+.izci{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
+.izbn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;}
+.izb2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;}
+.iza{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-size:12px;color:#00e5ff;margin:10px 0;font-family:monospace;}
+.izw{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
+.izx{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;}
+.izsp{display:inline-block;font-size:32px;animation:izsp 1s linear infinite;}
+@keyframes izsp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
-
-<div id="izi-modal">
-<div id="izi-box">
-<button class="izi-x" onclick="document.getElementById('izi-modal').classList.remove('show')">&#x2715;</button>
-<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#x26A1; Payer en Crypto</div>
-<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izi-amt">$1.65 USD</div>
-
-<div class="izi-s ok" id="izi-s1">
-<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre cryptomonnaie :</div>
-<div class="izi-grid">
-<div class="izi-c ok" onclick="iziSel(this,'USDT.BEP20')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-<div class="izi-c" onclick="iziSel(this,'USDT.TRC20')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-<div class="izi-c" onclick="iziSel(this,'BTC')"><img class="izi-cimg" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-<div class="izi-c" onclick="iziSel(this,'ETH')"><img class="izi-cimg" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-<div class="izi-c" onclick="iziSel(this,'BNB')"><img class="izi-cimg" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-<div class="izi-c" onclick="iziSel(this,'TRX')"><img class="izi-cimg" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+<div id="izm">
+<div id="izb">
+<button class="izx" onclick="document.getElementById('izm').classList.remove('open')">&#215;</button>
+<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#9889; Payer en Crypto</div>
+<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$1.65 USD</div>
+<div class="izs a" id="izs1">
+<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
+<div class="izg">
+<div class="izc a" onclick="izSel(this,'USDT.BEP20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+<div class="izc" onclick="izSel(this,'USDT.TRC20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+<div class="izc" onclick="izSel(this,'BTC')"><img class="izci" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+<div class="izc" onclick="izSel(this,'ETH')"><img class="izci" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+<div class="izc" onclick="izSel(this,'BNB')"><img class="izci" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+<div class="izc" onclick="izSel(this,'TRX')"><img class="izci" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
 </div>
-<div class="izi-warn">&#x26A0; Envoyez le montant exact sur le bon reseau.</div>
-<button class="izi-btn" onclick="iziGen()">Generer adresse de paiement</button>
-<button class="izi-btn2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer via izichangePay.com</button>
+<div class="izw">&#9888; Envoyez le montant exact sur le bon reseau.</div>
+<button class="izbn" onclick="izGen()">Generer adresse</button>
+<button class="izb2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer sur izichangePay.com</button>
 </div>
-
-<div class="izi-s" id="izi-s2">
-<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izi-ex" style="color:#00e5ff"></b> a :</div>
-<div class="izi-addr" id="izi-addr">--</div>
-<button class="izi-btn" style="background:#1e2d47;color:#e2e8f0;" onclick="navigator.clipboard.writeText(document.getElementById('izi-addr').textContent).then(function(){alert('Copie!');})">&#x1F4CB; Copier l adresse</button>
-<div style="font-size:11px;color:#64748b;margin:6px 0" id="izi-net"></div>
-<div class="izi-warn">&#x23F3; Paiement confirme automatiquement apres reception.</div>
-<button class="izi-btn" id="izi-chk" onclick="iziChk()">&#x1F504; Verifier mon paiement</button>
-<button class="izi-btn2" onclick="iziGoStep(1)">Changer de crypto</button>
+<div class="izs" id="izs2">
+<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izex" style="color:#00e5ff"></b> a :</div>
+<div class="iza" id="izad">--</div>
+<button class="izbn" style="background:#1e2d47;color:#e2e8f0;margin-bottom:8px" onclick="navigator.clipboard.writeText(document.getElementById('izad').textContent)">&#128203; Copier</button>
+<div style="font-size:11px;color:#64748b;margin-bottom:4px" id="iznet"></div>
+<div class="izw">&#8987; Confirmation automatique apres reception.</div>
+<button class="izbn" id="izchk" onclick="izChk()">&#128260; Verifier</button>
+<button class="izb2" onclick="izGo(1)">Changer de crypto</button>
 </div>
-
-<div class="izi-s" id="izi-s3">
+<div class="izs" id="izs3">
+<div style="text-align:center;padding:24px 0"><div class="izsp">&#9889;</div><div style="font-weight:700;margin:14px 0 6px">Verification...</div></div>
+</div>
+<div class="izs" id="izs4">
 <div style="text-align:center;padding:24px 0">
-<div class="izi-spin">&#x26A1;</div>
-<div style="font-weight:700;margin:14px 0 6px;font-size:15px">Verification en cours...</div>
-</div>
-</div>
-
-<div class="izi-s" id="izi-s4">
-<div style="text-align:center;padding:24px 0">
-<div style="font-size:52px;margin-bottom:12px">&#x2705;</div>
-<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme !</div>
-<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active avec succes.</div>
-<button class="izi-btn" onclick="document.getElementById('izi-modal').classList.remove('show')">Fermer</button>
+<div style="font-size:52px;margin-bottom:12px">&#9989;</div>
+<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme!</div>
+<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active.</div>
+<button class="izbn" onclick="document.getElementById('izm').classList.remove('open')">Fermer</button>
 </div>
 </div>
 </div>
 </div>
-
 <script>
-var _iS='sms5sim',_iA=1.65,_iD='Numero virtuel 5SIM',_iP='',_iC='USDT.BEP20',_iO='',_iT=null;
-function openCryptoPayment(s,a,d,p){
-  _iS=s;_iA=a;_iD=d;_iP=p||'';
-  document.getElementById('izi-amt').textContent='
-</html>
-+a.toFixed(2)+' USD';
-  iziGoStep(1);
-  document.getElementById('izi-modal').classList.add('show');
-}
-function iziGoStep(n){
-  for(var i=1;i<=4;i++){var e=document.getElementById('izi-s'+i);if(e)e.className='izi-s'+(n===i?' ok':'');}
-}
-function iziSel(el,id){
-  document.querySelectorAll('.izi-c').forEach(function(b){b.className='izi-c';});
-  el.className='izi-c ok';_iC=id;
-}
-async function iziGen(){
-  iziGoStep(3);
+var _zS="sms5sim",_zA=1.65,_zD="Numero virtuel 5SIM",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
+function openCryptoPayment(s,a,d,p){_zS=s;_zA=a;_zD=d;_zP=p||"";document.getElementById("izam").textContent="$"+a.toFixed(2)+" USD";izGo(1);document.getElementById("izm").classList.add("open");}
+function izGo(n){for(var i=1;i<=4;i++){var e=document.getElementById("izs"+i);if(e)e.className="izs"+(n===i?" a":"");}};
+function izSel(el,id){document.querySelectorAll(".izc").forEach(function(b){b.className="izc";});el.className="izc a";_zC=id;}
+async function izGen(){
+  izGo(3);
   try{
-    var r=await fetch('/api/izipay/create-payment',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service:_iS,amount_usd:_iA,currency:_iC,description:_iD,user_phone:_iP})});
+    var r=await fetch("/api/izipay/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({service:_zS,amount_usd:_zA,currency:_zC,description:_zD,user_phone:_zP})});
     var d=await r.json();
-    if(d.method==='pos'||!d.address){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');document.getElementById('izi-modal').classList.remove('show');return;}
-    _iO=d.order_id;
-    document.getElementById('izi-ex').textContent=_iA+' USD en '+_iC;
-    document.getElementById('izi-addr').textContent=d.address;
-    document.getElementById('izi-net').textContent='Reseau: '+(d.network||_iC);
-    iziGoStep(2);
-    _iT=setInterval(iziAuto,30000);
-  }catch(e){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');document.getElementById('izi-modal').classList.remove('show');}
+    if(d.method==="pos"||!d.address){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");return;}
+    _zO=d.order_id;
+    document.getElementById("izex").textContent=_zA+" USD en "+_zC;
+    document.getElementById("izad").textContent=d.address;
+    document.getElementById("iznet").textContent="Reseau: "+(d.network||_zC);
+    izGo(2);_zT=setInterval(izAuto,30000);
+  }catch(e){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");}
 }
-async function iziChk(){
-  if(!_iO)return;
-  var b=document.getElementById('izi-chk');b.disabled=true;b.textContent='Verification...';
-  try{var r=await fetch('/api/izipay/status/'+_iO);var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iT);iziGoStep(4);}
-    else{b.disabled=false;b.innerHTML='&#x1F504; Verifier mon paiement';}
-  }catch(e){b.disabled=false;b.innerHTML='&#x1F504; Reessayer';}
+async function izChk(){
+  if(!_zO)return;
+  var b=document.getElementById("izchk");b.disabled=true;
+  try{var r=await fetch("/api/izipay/status/"+_zO);var d=await r.json();
+    if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}
+    else b.disabled=false;
+  }catch(e){b.disabled=false;}
 }
-function iziAuto(){
-  if(!_iO)return;
-  fetch('/api/izipay/status/'+_iO).then(function(r){return r.json();}).then(function(d){
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iT);iziGoStep(4);}
-  }).catch(function(){});
-}
+function izAuto(){if(!_zO)return;fetch("/api/izipay/status/"+_zO).then(function(r){return r.json();}).then(function(d){if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}}).catch(function(){});}
 </script>
 </body>
 </html>

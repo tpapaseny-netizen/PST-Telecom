@@ -1,13 +1,41 @@
-<!DOCTYPE html><!-- PST-TRAX v3.0 -->
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>PST-TRAX</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>
+const fs = require('fs');
+
+// Read file and find ALL apostrophe issues in script tags
+function fixFile(filename, svc, amt, desc) {
+  if (!fs.existsSync(filename)) { console.log('Not found:', filename); return; }
+  
+  let content = fs.readFileSync(filename, 'utf8');
+  
+  // Step 1: Find the LAST </script> before </body> and check what's there
+  // Step 2: Remove everything crypto related
+  
+  // Remove old widget script blocks (any that contain _iS or _iziSvc or openCryptoPayment definition)
+  content = content.replace(/<script[^>]*>[\s\S]*?function openCryptoPayment[\s\S]*?<\/script>/g, '<!-- crypto removed -->');
+  content = content.replace(/<script[^>]*>[\s\S]*?var _iS=[\s\S]*?<\/script>/g, '<!-- crypto removed -->');
+  content = content.replace(/<script[^>]*>[\s\S]*?var _iziSvc[\s\S]*?<\/script>/g, '<!-- crypto removed -->');
+  
+  // Remove old modal divs
+  content = content.replace(/<div id="izi-modal"[\s\S]*?<\/div>\s*\n?<\/div>/g, '<!-- modal removed -->');
+  content = content.replace(/<style id="izi-css">[\s\S]*?<\/style>/g, '<!-- style removed -->');
+  
+  // Remove old crypto buttons
+  content = content.replace(/<div style="margin-top:10px;">[\s\S]*?openCryptoPayment[\s\S]*?<\/div>/g, '<!-- btn removed -->');
+  content = content.replace(/<button onclick="openCryptoPayment[^>]*>[\s\S]*?<\/button>/g, '<!-- btn removed -->');
+  
+  // Remove external widget script tags
+  content = content.replace(/<script src="\/izipay-widget\.js"><\/script>/g, '');
+  
+  // Clean up comment artifacts
+  content = content.replace(/<!-- crypto removed -->\s*/g, '');
+  content = content.replace(/<!-- modal removed -->\s*/g, '');
+  content = content.replace(/<!-- style removed -->\s*/g, '');
+  content = content.replace(/<!-- btn removed -->\s*/g, '');
+  
+  // Step 3: Build clean code using NO apostrophes in JS strings
+  // Use double quotes everywhere in JS
+  var amtFixed = parseFloat(amt).toFixed(2);
+  
+  var cryptoCSS = `<style>
 #izm{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #izm.open{display:flex;}
 #izb{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;position:relative;max-height:85vh;overflow-y:auto;}
@@ -24,12 +52,13 @@
 .izx{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;}
 .izsp{display:inline-block;font-size:32px;animation:izsp 1s linear infinite;}
 @keyframes izsp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-</style>
-<div id="izm">
+</style>`;
+
+  var cryptoModal = `<div id="izm">
 <div id="izb">
 <button class="izx" onclick="document.getElementById('izm').classList.remove('open')">&#215;</button>
 <div style="font-size:17px;font-weight:800;margin-bottom:4px">&#9889; Payer en Crypto</div>
-<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$24.75 USD</div>
+<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$${amtFixed} USD</div>
 <div class="izs a" id="izs1">
 <div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
 <div class="izg">
@@ -65,9 +94,11 @@
 </div>
 </div>
 </div>
-</div>
-<script>
-var _zS="trax",_zA=24.75,_zD="Abonnement PST-TRAX",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
+</div>`;
+
+  // JS with NO apostrophes - using double quotes and concatenation
+  var cryptoJS = `<script>
+var _zS="${svc}",_zA=${amt},_zD="${desc}",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
 function openCryptoPayment(s,a,d,p){_zS=s;_zA=a;_zD=d;_zP=p||"";document.getElementById("izam").textContent="$"+a.toFixed(2)+" USD";izGo(1);document.getElementById("izm").classList.add("open");}
 function izGo(n){for(var i=1;i<=4;i++){var e=document.getElementById("izs"+i);if(e)e.className="izs"+(n===i?" a":"");}};
 function izSel(el,id){document.querySelectorAll(".izc").forEach(function(b){b.className="izc";});el.className="izc a";_zC=id;}
@@ -94,6 +125,41 @@ async function izChk(){
   }catch(e){b.disabled=false;}
 }
 function izAuto(){if(!_zO)return;fetch("/api/izipay/status/"+_zO).then(function(r){return r.json();}).then(function(d){if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}}).catch(function(){});}
-</script>
-</body>
-</html>
+</script>`;
+
+  var cryptoBtn = `<div style="margin-top:10px">
+<button onclick="openCryptoPayment(&quot;${svc}&quot;,${amt},&quot;${desc}&quot;,&quot;&quot;)" style="width:100%;padding:13px;background:linear-gradient(135deg,#0a1628,#162040);border:2px solid #00e5ff;color:#00e5ff;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
+<img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+<img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+<img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+&#9889; Payer en Crypto
+</button>
+</div>`;
+
+  // Add modal+CSS+JS before </body>
+  content = content.replace('</body>', cryptoCSS + '\n' + cryptoModal + '\n' + cryptoJS + '\n</body>');
+  
+  // Add button after Wave
+  var waveEnd = -1;
+  var patterns = ['Wave</button>', '>Wave</', 'wave</button>'];
+  for (var p of patterns) {
+    var idx = content.indexOf(p);
+    if (idx !== -1) { waveEnd = idx + p.length; break; }
+  }
+  if (waveEnd !== -1) {
+    content = content.slice(0, waveEnd) + '\n' + cryptoBtn + content.slice(waveEnd);
+    console.log('Button added after Wave in:', filename);
+  }
+  
+  fs.writeFileSync(filename, content, 'utf8');
+  console.log('Fixed:', filename, content.split('\n').length, 'lines');
+}
+
+fixFile('recharge.html',      'recharge', 1.65,  'Recharge mobile PST');
+fixFile('sms.html',           'sms5sim',  1.65,  'Numero virtuel 5SIM');
+fixFile('appel.html',         'appels',   4.95,  'Forfait Appels VoIP');
+fixFile('sms-marketing.html', 'sms',      8.25,  'Credits SMS Marketing');
+fixFile('noc.html',           'noc',      24.75, 'Abonnement PST NOC');
+fixFile('pst-trax.html',      'trax',     24.75, 'Abonnement PST-TRAX');
+
+console.log('\ngit add . && git commit -m "Crypto fix definitif double quotes" && git push');
