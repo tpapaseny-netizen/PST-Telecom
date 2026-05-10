@@ -197,6 +197,21 @@ h1 .accent{color:#c77dff;}
         </div>
         <div class="pay-methods">
           <button class="pay-btn pay-wave" onclick="payerWave()">💚 Payer avec Wave</button>
+<div style="margin-top:10px">
+<button onclick="openCryptoPayment('sms5sim', 1.65, 'Numero virtuel SMS 5SIM', '')" 
+  style="width:100%;margin-top:10px;padding:13px;
+  background:linear-gradient(135deg,#0a1628,#162040);
+  border:2px solid #00e5ff;color:#00e5ff;border-radius:12px;
+  cursor:pointer;font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:all .2s;" 
+  onmouseover="this.style.background='rgba(0,229,255,0.1)'"
+  onmouseout="this.style.background='linear-gradient(135deg,#0a1628,#162040)'">
+  <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:18px;height:18px;border-radius:50%">
+  <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" style="width:18px;height:18px;border-radius:50%">
+  <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" style="width:18px;height:18px;border-radius:50%">
+  ⚡ Payer en Crypto
+</button></div>
           <button class="pay-btn pay-stripe" onclick="payerStripe()">💳 Payer par carte</button>
         </div>
         <button style="width:100%;padding:0.6rem;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#9a8fa8;border-radius:10px;cursor:pointer;margin-top:0.5rem;font-size:0.82rem" onclick="fermerAchat()">Annuler</button>
@@ -433,42 +448,9 @@ window.onload=()=>{
   ⚡ Payer en Crypto (1 000 FCFA)
 </button>
 
-<!-- izichangePay Widget -->
-<style>
-.izipay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;}
-.izipay-modal{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;font-family:Segoe UI,sans-serif;position:relative;}
-.izipay-title{font-size:17px;font-weight:800;margin-bottom:4px;}
-.izipay-amount{font-size:30px;font-weight:900;color:#00e5ff;margin-bottom:20px;}
-.izipay-step{display:none;} .izipay-step.active{display:block;}
-.crypto-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.crypto-btn{padding:13px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#64748b;border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;font-size:11px;font-weight:700;}
-.crypto-btn:hover,.crypto-btn.sel{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
-.crypto-icon{font-size:20px;display:block;margin-bottom:3px;}
-.izipay-btn{width:100%;padding:14px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-top:10px;}
-.izipay-btn-sec{width:100%;padding:11px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:13px;cursor:pointer;margin-top:8px;}
-.izipay-addr-box{background:#0a0e1a;border:1px solid #1e2d47;border-radius:12px;padding:14px;padding-right:80px;margin:12px 0;word-break:break-all;font-family:monospace;font-size:12px;color:#00e5ff;position:relative;}
-.izipay-copy-btn{position:absolute;top:10px;right:10px;background:#1e2d47;border:none;color:#e2e8f0;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;}
-.izipay-warn{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:10px;padding:11px;font-size:11px;color:#f97316;margin-top:10px;}
-.izipay-close{position:absolute;top:16px;right:16px;background:transparent;border:none;color:#64748b;font-size:20px;cursor:pointer;}
-.izipay-timer{text-align:center;font-size:11px;color:#64748b;margin-top:8px;}
-.izipay-spinner{display:inline-block;font-size:36px;animation:iziSpin 1.5s linear infinite;}
-@keyframes iziSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-</style>
-<div id="izipay-overlay" class="izipay-overlay" style="display:none">
-  <div class="izipay-modal">
-    <button class="izipay-close" onclick="iziClose()">x</button>
-    <div class="izipay-title">Payer en Cryptomonnaie</div>
-    <div class="izipay-amount" id="izi-amt">$0.00 USD</div>
-    <div class="izipay-step active" id="izi-s1">
-      <div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
-      <div class="crypto-grid">
-        <div class="crypto-btn sel" onclick="iziSelCrypto(this,'USDT.BEP20')"><span class="crypto-icon">&#x1F49A;</span>USDT BEP20</div>
-        <div class="crypto-btn" onclick="iziSelCrypto(this,'USDT.TRC20')"><span class="crypto-icon">&#x1F49A;</span>USDT TRC20</div>
-        <div class="crypto-btn" onclick="iziSelCrypto(this,'BTC')"><span class="crypto-icon">&#x20BF;</span>Bitcoin</div>
-        <div class="crypto-btn" onclick="iziSelCrypto(this,'ETH')"><span class="crypto-icon">&#x25C6;</span>Ethereum</div>
-        <div class="crypto-btn" onclick="iziSelCrypto(this,'BNB')"><span class="crypto-icon">&#x1F7E1;</span>BNB</div>
-        <div class="crypto-btn" onclick="iziSelCrypto(this,'TRX')"><span class="crypto-icon">&#x1F534;</span>TRON</div>
-      </div>
+
+
+
       <div class="izipay-warn">Envoyez le montant exact sur le bon reseau.</div>
       <button class="izipay-btn" onclick="iziGenerate()">Generer adresse de paiement</button>
       <button class="izipay-btn-sec" onclick="iziPOS()">Payer via izichangePay.com</button>
@@ -498,48 +480,120 @@ window.onload=()=>{
     </div>
   </div>
 </div>
+
+
+<style>
+.izipay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;}
+.izipay-modal{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:460px;color:#e2e8f0;font-family:sans-serif;position:relative;max-height:90vh;overflow-y:auto;}
+.izi-title{font-size:17px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.izi-amount{font-size:28px;font-weight:900;color:#00e5ff;margin-bottom:18px;}
+.izi-step{display:none;} .izi-step.active{display:block;}
+.izi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.izi-cbtn{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:all .2s;}
+.izi-cbtn:hover,.izi-cbtn.sel{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
+.izi-clogo{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
+.izi-btn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;}
+.izi-btn2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;}
+.izi-addr{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-family:monospace;font-size:12px;color:#00e5ff;margin:10px 0;}
+.izi-warn{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
+.izi-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;}
+.izi-spin{display:inline-block;animation:iziSp 1s linear infinite;font-size:32px;}
+@keyframes iziSp{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+<div id="izipay-overlay" class="izipay-overlay" style="display:none">
+<div class="izipay-modal">
+  <button class="izi-close" onclick="iziClose()">&#x2715;</button>
+  <div class="izi-title">&#x26A1; Payer en Cryptomonnaie</div>
+  <div class="izi-amount" id="izi-amt">$0.00 USD</div>
+  <div class="izi-step active" id="izi-s1">
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre cryptomonnaie :</div>
+    <div class="izi-grid">
+      <div class="izi-cbtn sel" onclick="iziSel(this,'USDT.BEP20')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+      <div class="izi-cbtn" onclick="iziSel(this,'USDT.TRC20')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+      <div class="izi-cbtn" onclick="iziSel(this,'BTC')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+      <div class="izi-cbtn" onclick="iziSel(this,'ETH')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+      <div class="izi-cbtn" onclick="iziSel(this,'BNB')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+      <div class="izi-cbtn" onclick="iziSel(this,'TRX')">
+        <img class="izi-clogo" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+    </div>
+    <div class="izi-warn">&#x26A0; Envoyez le montant exact sur le bon reseau pour eviter toute perte.</div>
+    <button class="izi-btn" onclick="iziGen()">Generer adresse de paiement</button>
+    <button class="izi-btn2" onclick="iziPOS()">&#x1F517; Payer via izichangePay.com</button>
+  </div>
+  <div class="izi-step" id="izi-s2">
+    <div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez exactement <b id="izi-exact" style="color:#00e5ff"></b> a cette adresse :</div>
+    <div class="izi-addr" id="izi-addr">--</div>
+    <button onclick="iziCp()" style="background:#1e2d47;border:none;color:#e2e8f0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;width:100%;margin-bottom:8px;">&#x1F4CB; Copier l adresse</button>
+    <div style="font-size:11px;color:#64748b;margin-bottom:4px" id="izi-net"></div>
+    <div class="izi-warn">&#x23F3; Paiement confirme automatiquement apres reception blockchain.</div>
+    <button class="izi-btn" id="izi-chk" onclick="iziChk()">&#x1F504; Verifier mon paiement</button>
+    <button class="izi-btn2" onclick="iziStep(1)">Changer de crypto</button>
+  </div>
+  <div class="izi-step" id="izi-s3">
+    <div style="text-align:center;padding:24px 0">
+      <div class="izi-spin">&#x26A1;</div>
+      <div style="font-weight:700;margin:14px 0 6px;font-size:15px">Verification en cours...</div>
+      <div style="font-size:12px;color:#64748b">Confirmation sur la blockchain en attente.</div>
+    </div>
+  </div>
+  <div class="izi-step" id="izi-s4">
+    <div style="text-align:center;padding:24px 0">
+      <div style="font-size:52px;margin-bottom:12px">&#x2705;</div>
+      <div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme !</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">Votre service a ete active avec succes.</div>
+      <button class="izi-btn" onclick="iziClose()">Fermer</button>
+    </div>
+  </div>
+</div>
+</div>
 <script>
-var _iziSvc='',_iziAmt=0,_iziDesc='',_iziPhone='',_iziCrypto='USDT.BEP20',_iziOrder='',_iziAutoT=null,_iziCdT=null;
-function openCryptoPayment(svc,amt,desc,phone){
-  _iziSvc=svc;_iziAmt=amt;_iziDesc=desc;_iziPhone=phone||'';
+var _IS='',_IA=0,_ID='',_IP='',_IC='USDT.BEP20',_IO='',_IT=null;
+function openCryptoPayment(s,a,d,p){
+  _IS=s;_IA=a;_ID=d;_IP=p||'';
   document.getElementById('izi-amt').textContent='
 </html>
-+amt.toFixed(2)+' USD';
++a.toFixed(2)+' USD';
   iziStep(1);
   document.getElementById('izipay-overlay').style.display='flex';
 }
-function iziClose(){document.getElementById('izipay-overlay').style.display='none';clearInterval(_iziAutoT);clearInterval(_iziCdT);}
+function iziClose(){document.getElementById('izipay-overlay').style.display='none';clearInterval(_IT);}
 function iziStep(n){for(var i=1;i<=4;i++)document.getElementById('izi-s'+i).classList.remove('active');document.getElementById('izi-s'+n).classList.add('active');}
-function iziSelCrypto(el,id){document.querySelectorAll('.crypto-btn').forEach(function(b){b.classList.remove('sel');});el.classList.add('sel');_iziCrypto=id;}
-async function iziGenerate(){
+function iziSel(el,id){document.querySelectorAll('.izi-cbtn').forEach(function(b){b.classList.remove('sel');});el.classList.add('sel');_IC=id;}
+function iziPOS(){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');iziClose();}
+function iziCp(){var el=document.getElementById('izi-addr');if(el)navigator.clipboard.writeText(el.textContent.trim()).then(function(){alert('Adresse copiee !');});}
+async function iziGen(){
   iziStep(3);
   try{
     var r=await fetch('/api/izipay/create-payment',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service:_iziSvc,amount_usd:_iziAmt,currency:_iziCrypto,description:_iziDesc,user_phone:_iziPhone})});
+      body:JSON.stringify({service:_IS,amount_usd:_IA,currency:_IC,description:_ID,user_phone:_IP})});
     var d=await r.json();
     if(d.method==='pos'||!d.address){iziPOS();return;}
-    _iziOrder=d.order_id;
-    document.getElementById('izi-exact').textContent=_iziAmt+' USD en '+_iziCrypto;
-    document.getElementById('izi-addr').innerHTML='<span id="izi-addr-txt">'+d.address+'</span><button class="izipay-copy-btn" onclick="iziCopy()">Copier</button>';
-    document.getElementById('izi-net').textContent='Reseau: '+(d.network||_iziCrypto);
+    _IO=d.order_id;
+    document.getElementById('izi-exact').textContent=_IA+' USD en '+_IC;
+    document.getElementById('izi-addr').textContent=d.address;
+    document.getElementById('izi-net').textContent='Reseau: '+(d.network||_IC);
     iziStep(2);
-    _iziAutoT=setInterval(iziAutoCheck,30000);
+    _IT=setInterval(iziAuto,30000);
   }catch(e){iziPOS();}
 }
-function iziPOS(){window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank');iziClose();}
-function iziCopy(){var el=document.getElementById('izi-addr-txt');if(el)navigator.clipboard.writeText(el.textContent.trim());}
-async function iziCheck(){
-  if(!_iziOrder)return;
-  var b=document.getElementById('izi-chk-btn');b.disabled=true;
-  try{var r=await fetch('/api/izipay/status/'+_iziOrder);var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iziAutoT);iziStep(4);}
-    else{b.disabled=false;}
-  }catch(e){b.disabled=false;}
+async function iziChk(){
+  if(!_IO)return;
+  var b=document.getElementById('izi-chk');b.disabled=true;b.textContent='Verification...';
+  try{
+    var r=await fetch('/api/izipay/status/'+_IO);var d=await r.json();
+    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_IT);iziStep(4);}
+    else{b.disabled=false;b.textContent='Verifier mon paiement';}
+  }catch(e){b.disabled=false;b.textContent='Reessayer';}
 }
-async function iziAutoCheck(){
-  if(!_iziOrder)return;
-  try{var r=await fetch('/api/izipay/status/'+_iziOrder);var d=await r.json();
-    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_iziAutoT);iziStep(4);}
+async function iziAuto(){
+  if(!_IO)return;
+  try{var r=await fetch('/api/izipay/status/'+_IO);var d=await r.json();
+    if(d.order&&(d.order.status==='paid'||d.order.status==='completed')){clearInterval(_IT);iziStep(4);}
   }catch(e){}
 }
 </script>
