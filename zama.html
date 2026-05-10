@@ -473,6 +473,50 @@ img{max-width:100%;height:auto;}
 .photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
 
 
+
+/* ═══ PIN SCREEN ═══ */
+.pin-screen{
+  position:fixed;inset:0;background:#0F1117;z-index:99999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px;
+}
+.pin-logo{
+  width:72px;height:72px;border-radius:20px;
+  background:linear-gradient(135deg,var(--gold),#F5C518);
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;margin-bottom:20px;
+  box-shadow:0 8px 32px rgba(232,150,12,0.4);
+}
+.pin-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:3px;margin-bottom:6px;}
+.pin-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:36px;text-align:center;}
+.pin-dots{display:flex;gap:16px;margin-bottom:40px;}
+.pin-dot{
+  width:16px;height:16px;border-radius:50%;
+  border:2px solid rgba(255,255,255,0.2);
+  transition:all .2s;
+}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold);}
+.pin-dot.error{background:var(--red);border-color:var(--red);}
+.pin-pad{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:12px;width:100%;max-width:280px;
+}
+.pin-key{
+  height:70px;background:rgba(255,255,255,0.06);
+  border:none;border-radius:16px;font-size:24px;font-weight:700;
+  color:#fff;cursor:pointer;transition:all .15s;font-family:var(--font);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.pin-key:active{background:rgba(255,255,255,0.15);transform:scale(.95);}
+.pin-key.del{font-size:20px;}
+.pin-key.empty{background:transparent;border:none;cursor:default;}
+.pin-letters{font-size:8px;color:rgba(255,255,255,0.3);letter-spacing:1px;margin-top:2px;}
+.pin-forgot{margin-top:24px;font-size:13px;color:var(--gold);cursor:pointer;}
+
+/* ═══ PIN SETUP ═══ */
+.pin-setup-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;text-align:center;}
+.pin-setup-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:32px;text-align:center;}
+
 /* ═══ LOGIN SCREEN ═══ */
 .login-hero{
   background:linear-gradient(160deg,#1A1A2E,#16213E);
@@ -973,6 +1017,11 @@ img{max-width:100%;height:auto;}
             <div class="acct-item-label">Vérifier mon identité (KYC)</div>
             <div class="acct-item-arrow">→</div>
           </div>
+          <div class="acct-item" onclick="changePinFlow()">
+            <div class="acct-item-icon" style="background:var(--gold-l)">🔢</div>
+            <div class="acct-item-label">Changer le code PIN</div>
+            <div class="acct-item-arrow">→</div>
+          </div>
           <div class="acct-item" onclick="goTo('scr-benefs')">
             <div class="acct-item-icon" style="background:#EEF2FF">👥</div>
             <div class="acct-item-label">Mes bénéficiaires</div>
@@ -1316,6 +1365,63 @@ img{max-width:100%;height:auto;}
   </div>
 </div>
 
+
+<!-- ═══ PIN LOCK SCREEN ═══ -->
+<div id="pin-screen" class="pin-screen" style="display:none">
+  <div class="pin-logo">🐓</div>
+  <div class="pin-title">ZAMA</div>
+  <div class="pin-sub" id="pin-sub">Entrez votre code PIN</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1<span class="pin-letters"></span></button>
+    <button class="pin-key" onclick="pinKey('2')">2<span class="pin-letters">ABC</span></button>
+    <button class="pin-key" onclick="pinKey('3')">3<span class="pin-letters">DEF</span></button>
+    <button class="pin-key" onclick="pinKey('4')">4<span class="pin-letters">GHI</span></button>
+    <button class="pin-key" onclick="pinKey('5')">5<span class="pin-letters">JKL</span></button>
+    <button class="pin-key" onclick="pinKey('6')">6<span class="pin-letters">MNO</span></button>
+    <button class="pin-key" onclick="pinKey('7')">7<span class="pin-letters">PQRS</span></button>
+    <button class="pin-key" onclick="pinKey('8')">8<span class="pin-letters">TUV</span></button>
+    <button class="pin-key" onclick="pinKey('9')">9<span class="pin-letters">WXYZ</span></button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <button class="pin-key del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-forgot" onclick="pinForgot()">Code oublié ?</div>
+</div>
+
+<!-- ═══ PIN SETUP SCREEN ═══ -->
+<div id="pin-setup" class="pin-screen" style="display:none">
+  <div class="pin-logo">🔑</div>
+  <div id="pin-setup-title" class="pin-setup-title">Créez votre code PIN</div>
+  <div id="pin-setup-sub" class="pin-setup-sub">Ce code protège l'accès à ZAMA</div>
+  <div class="pin-dots" id="pin-setup-dots">
+    <div class="pin-dot" id="psd0"></div>
+    <div class="pin-dot" id="psd1"></div>
+    <div class="pin-dot" id="psd2"></div>
+    <div class="pin-dot" id="psd3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinSetupKey('1')">1</button>
+    <button class="pin-key" onclick="pinSetupKey('2')">2<span class="pin-letters">ABC</span></button>
+    <button class="pin-key" onclick="pinSetupKey('3')">3<span class="pin-letters">DEF</span></button>
+    <button class="pin-key" onclick="pinSetupKey('4')">4<span class="pin-letters">GHI</span></button>
+    <button class="pin-key" onclick="pinSetupKey('5')">5<span class="pin-letters">JKL</span></button>
+    <button class="pin-key" onclick="pinSetupKey('6')">6<span class="pin-letters">MNO</span></button>
+    <button class="pin-key" onclick="pinSetupKey('7')">7<span class="pin-letters">PQRS</span></button>
+    <button class="pin-key" onclick="pinSetupKey('8')">8<span class="pin-letters">TUV</span></button>
+    <button class="pin-key" onclick="pinSetupKey('9')">9<span class="pin-letters">WXYZ</span></button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinSetupKey('0')">0</button>
+    <button class="pin-key del" onclick="pinSetupDel()">⌫</button>
+  </div>
+  <button class="pin-forgot" onclick="skipPin()">Passer pour l'instant</button>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1356,6 +1462,8 @@ window.addEventListener("load",function(){
   setInterval(fetchRates,60000);
   updateHomeGreeting();
   renderHomeBenefs();
+  // Show PIN lock if user exists
+  showPinOnLaunch();
 });
 
 // ── NAVIGATION ───────────────────────────────────
@@ -1788,6 +1896,7 @@ function logout(){
     goTo("scr-login");
     setTimeout(function(){switchLoginTab("login");document.getElementById("login-phone").value="";},100);
     toast("Déconnecté","");
+    localStorage.removeItem(PIN_KEY);
   }
 }
 
@@ -1829,6 +1938,14 @@ function verifyOTP(){
     updateHomeGreeting();
     renderHomeBenefs();
     goTo("scr-account");
+    // Ask to set PIN after registration
+    setTimeout(function(){
+      pinSetupStep=1;pinSetupEntry="";pinSetupFirst="";
+      document.getElementById("pin-setup-title").textContent = "Sécurisez votre compte";
+      document.getElementById("pin-setup-sub").textContent = "Créez un code PIN à 4 chiffres";
+      updatePinSetupDots();
+      document.getElementById("pin-setup").style.display="flex";
+    },600);
   }else{
     toast("Code incorrect. Démo: 1234","err");
   }
@@ -2235,6 +2352,183 @@ document.addEventListener("click", function(e){
     approveKYC(uid, ok);
   }
 });
+
+
+// ═══ PIN SYSTEM ═══════════════════════════════
+var PIN_KEY = "zama_pin";
+var pinEntry = "";
+var pinAttempts = 0;
+var pinSetupEntry = "";
+var pinSetupFirst = "";
+var pinSetupStep = 1; // 1=create, 2=confirm
+
+function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
+function savePin(p){ localStorage.setItem(PIN_KEY, p); }
+
+function showPinOnLaunch(){
+  var pin = getPin();
+  var u = loadUser();
+  if(!u){
+    // No user — go straight to app
+    return;
+  }
+  if(!pin){
+    // User exists but no PIN — ask to set one
+    pinSetupStep = 1;
+    pinSetupEntry = "";
+    pinSetupFirst = "";
+    updatePinSetupDots();
+    document.getElementById("pin-setup-title").textContent = "Créez votre code PIN";
+    document.getElementById("pin-setup-sub").textContent = "Ce code protège l'accès à ZAMA";
+    document.getElementById("pin-setup").style.display = "flex";
+    return;
+  }
+  // Show lock screen
+  pinEntry = "";
+  pinAttempts = 0;
+  updatePinDots();
+  document.getElementById("pin-sub").textContent = "Entrez votre code PIN";
+  document.getElementById("pin-screen").style.display = "flex";
+}
+
+function pinKey(k){
+  if(pinEntry.length >= 4) return;
+  pinEntry += k;
+  updatePinDots();
+  if(pinEntry.length === 4){
+    setTimeout(checkPin, 150);
+  }
+}
+
+function pinDel(){
+  pinEntry = pinEntry.slice(0,-1);
+  updatePinDots();
+}
+
+function updatePinDots(){
+  for(var i=0;i<4;i++){
+    var d=document.getElementById("pd"+i);
+    if(d) d.className = "pin-dot" + (i < pinEntry.length ? " filled" : "");
+  }
+}
+
+function checkPin(){
+  var correct = getPin();
+  if(pinEntry === correct){
+    // Success
+    document.getElementById("pin-screen").style.display = "none";
+    pinEntry = "";
+    pinAttempts = 0;
+  } else {
+    // Wrong PIN
+    pinAttempts++;
+    pinEntry = "";
+    for(var i=0;i<4;i++){
+      var d=document.getElementById("pd"+i);
+      if(d) d.className = "pin-dot error";
+    }
+    document.getElementById("pin-sub").textContent = 
+      pinAttempts >= 3 ? "⚠️ "+pinAttempts+" tentatives incorrectes" : "Code incorrect. Réessayez.";
+    setTimeout(function(){
+      updatePinDots();
+      document.getElementById("pin-sub").textContent = "Entrez votre code PIN";
+    }, 800);
+    if(pinAttempts >= 5){
+      // Lock for 30 seconds
+      document.getElementById("pin-sub").textContent = "🔒 Trop de tentatives. Attendez 30s.";
+      var allKeys = document.querySelectorAll("#pin-screen .pin-key");
+      allKeys.forEach(function(k){k.disabled=true;});
+      setTimeout(function(){
+        pinAttempts=0;
+        allKeys.forEach(function(k){k.disabled=false;});
+        document.getElementById("pin-sub").textContent = "Entrez votre code PIN";
+      }, 30000);
+    }
+  }
+}
+
+function pinForgot(){
+  // Verify with password then allow reset
+  var pwd = window.prompt("Entrez votre mot de passe ZAMA pour réinitialiser le PIN:");
+  if(!pwd) return;
+  var u = loadUser();
+  if(!u||u.password!==pwd){toast("Mot de passe incorrect","err");return;}
+  // Reset PIN
+  localStorage.removeItem(PIN_KEY);
+  document.getElementById("pin-screen").style.display = "none";
+  toast("PIN réinitialisé. Créez-en un nouveau.","ok");
+  setTimeout(function(){
+    pinSetupStep=1;pinSetupEntry="";pinSetupFirst="";
+    updatePinSetupDots();
+    document.getElementById("pin-setup-title").textContent = "Créez votre nouveau PIN";
+    document.getElementById("pin-setup-sub").textContent = "Choisissez 4 chiffres";
+    document.getElementById("pin-setup").style.display = "flex";
+  }, 500);
+}
+
+// PIN SETUP
+function pinSetupKey(k){
+  if(pinSetupEntry.length >= 4) return;
+  pinSetupEntry += k;
+  updatePinSetupDots();
+  if(pinSetupEntry.length === 4){
+    setTimeout(function(){
+      if(pinSetupStep === 1){
+        // First entry done — ask confirmation
+        pinSetupFirst = pinSetupEntry;
+        pinSetupEntry = "";
+        pinSetupStep = 2;
+        document.getElementById("pin-setup-title").textContent = "Confirmez votre PIN";
+        document.getElementById("pin-setup-sub").textContent = "Entrez à nouveau le même code";
+        updatePinSetupDots();
+      } else {
+        // Confirm
+        if(pinSetupEntry === pinSetupFirst){
+          savePin(pinSetupEntry);
+          document.getElementById("pin-setup").style.display = "none";
+          pinSetupEntry = ""; pinSetupFirst = ""; pinSetupStep = 1;
+          toast("✅ PIN créé avec succès !","ok");
+        } else {
+          // Mismatch
+          pinSetupEntry = "";
+          for(var i=0;i<4;i++){var d=document.getElementById("psd"+i);if(d)d.className="pin-dot error";}
+          document.getElementById("pin-setup-sub").textContent = "Codes différents. Réessayez.";
+          setTimeout(function(){
+            pinSetupStep=1;pinSetupFirst="";
+            document.getElementById("pin-setup-title").textContent = "Créez votre PIN";
+            document.getElementById("pin-setup-sub").textContent = "Choisissez 4 chiffres";
+            updatePinSetupDots();
+          },800);
+        }
+      }
+    }, 150);
+  }
+}
+
+function pinSetupDel(){
+  pinSetupEntry = pinSetupEntry.slice(0,-1);
+  updatePinSetupDots();
+}
+
+function updatePinSetupDots(){
+  for(var i=0;i<4;i++){
+    var d=document.getElementById("psd"+i);
+    if(d) d.className = "pin-dot"+(i<pinSetupEntry.length?" filled":"");
+  }
+}
+
+function skipPin(){
+  document.getElementById("pin-setup").style.display = "none";
+}
+
+// Change PIN from account screen
+function changePinFlow(){
+  pinSetupStep=1;pinSetupEntry="";pinSetupFirst="";
+  document.getElementById("pin-setup-title").textContent = "Nouveau code PIN";
+  document.getElementById("pin-setup-sub").textContent = "Choisissez 4 chiffres";
+  updatePinSetupDots();
+  document.getElementById("pin-setup").style.display = "flex";
+}
 
 var toastT;
 function toast(msg,type){
