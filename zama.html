@@ -78,9 +78,14 @@ img{max-width:100%;height:auto;}
 .home-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px;}
 .logo-mark{
   width:42px;height:42px;border-radius:12px;
-  background:linear-gradient(135deg,var(--gold),#F5C518);
+  background:linear-gradient(135deg,#F5A623,#F7C35F);
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 12px rgba(232,150,12,0.4);
+  box-shadow:0 4px 16px rgba(245,166,35,0.5);
+  position:relative;overflow:hidden;
+}
+.logo-mark::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.2),transparent);
 }
 .logo-rooster{
   width:28px;height:28px;
@@ -475,6 +480,18 @@ img{max-width:100%;height:auto;}
 
 
 
+
+/* ═══ CRYPTO PILLS ═══ */
+.crypto-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border:1.5px solid var(--border);
+  background:var(--bg2);border-radius:10px;cursor:pointer;
+  font-size:11px;font-weight:700;color:var(--text2);
+  transition:all .15s;white-space:nowrap;
+}
+.crypto-pill:active{transform:scale(.96);}
+.crypto-pill.on{border-color:var(--gold);background:var(--gold-l);color:var(--gold-d);}
+
 /* ═══ QR CODE ═══ */
 .qr-hero{
   background:linear-gradient(160deg,#1A1A2E,#16213E);
@@ -846,57 +863,44 @@ img{max-width:100%;height:auto;}
   </div>
   <div class="sbody">
     <div style="padding:16px 0 0">
-      <div style="padding:0 20px;margin-bottom:14px">
-        <div class="section-title" style="padding:0;margin-bottom:10px">Recevoir via</div>
-        <div class="mm-selector" style="padding:0;margin:0">
-          <div class="mms on" id="mm-wave" onclick="selMM('wave',this)">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" style="width:40px;height:40px;object-fit:contain;margin-bottom:4px" onerror="this.style.display='none'">
-            <div class="mms-name">Wave</div>
-            <div class="mms-sub">Sénégal</div>
+
+      <!-- QUICK BENEFS -->
+      <div id="qb-wrap" style="display:none;padding:0 20px;margin-bottom:14px">
+        <div class="section-title" style="padding:0;margin-bottom:10px">Bénéficiaires récents</div>
+        <div id="qb-list"></div>
+      </div>
+
+      <!-- PHONE INPUT - BIG & SIMPLE -->
+      <div style="padding:0 20px;margin-bottom:16px">
+        <div class="section-title" style="padding:0;margin-bottom:10px">Numéro Mobile Money *</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="display:flex;gap:6px">
+            <div class="mms on" id="mm-wave" onclick="selMM('wave',this)" style="padding:10px 12px;min-width:0;width:auto;flex-direction:row;gap:6px;align-items:center">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" style="width:28px;height:28px;object-fit:contain" onerror="this.style.display='none'">
+              <span style="font-size:12px;font-weight:700">Wave</span>
+            </div>
+            <div class="mms" id="mm-om" onclick="selMM('om',this)" style="padding:10px 12px;min-width:0;width:auto;flex-direction:row;gap:6px;align-items:center">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" style="width:28px;height:28px;object-fit:contain" onerror="this.style.display='none'">
+              <span style="font-size:12px;font-weight:700">OM</span>
+            </div>
           </div>
-          <div class="mms" id="mm-om" onclick="selMM('om',this)">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" style="width:40px;height:40px;object-fit:contain;margin-bottom:4px" onerror="this.style.display='none'">
-            <div class="mms-name">Orange Money</div>
-            <div class="mms-sub">Sénégal</div>
-          </div>
+          <input class="form-input" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel" style="flex:1">
         </div>
       </div>
 
-      <div class="divider"></div>
-      <div style="padding:14px 20px 0">
-        <div class="section-title" style="padding:0;margin-bottom:10px">Informations destinataire</div>
-      </div>
-
-      <!-- Quick benefs -->
-      <div id="qb-wrap" style="display:none">
-        <div id="qb-list"></div>
-        <div class="divider" style="margin-bottom:14px"></div>
-      </div>
-
-      <div class="form-row" style="padding:0 20px">
-        <div class="form-group"><label class="form-label">Prénom *</label><input class="form-input" type="text" id="r-prenom" placeholder="Prénom"></div>
-        <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" type="text" id="r-nom" placeholder="Nom"></div>
-      </div>
-      <div class="form-section">
-        <label class="form-label">Numéro Mobile Money *</label>
-        <input class="form-input" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
-      </div>
-
-      <div class="divider"></div>
-      <div style="padding:14px 20px 0">
-        <div class="section-title" style="padding:0;margin-bottom:10px">Expéditeur</div>
-      </div>
-      <div class="form-section">
-        <label class="form-label">Votre nom complet *</label>
-        <input class="form-input" type="text" id="s-name" placeholder="Prénom et Nom">
-      </div>
-      <div class="form-section">
-        <label class="form-label">Votre email *</label>
-        <input class="form-input" type="email" id="s-email" placeholder="email@exemple.com" inputmode="email">
-      </div>
-      <div class="form-section">
-        <label class="form-label">Message (optionnel)</label>
-        <input class="form-input" type="text" id="s-msg" placeholder="Ex: Loyer mai 2026">
+      <div style="padding:0 20px;margin-bottom:12px">
+        <div class="form-group"><label class="form-label">Nom du destinataire *</label>
+          <input class="form-input" type="text" id="r-fullname" placeholder="Prénom et Nom">
+        </div>
+        <div class="form-group"><label class="form-label">Votre nom (expéditeur) *</label>
+          <input class="form-input" type="text" id="s-name" placeholder="Prénom et Nom">
+        </div>
+        <div class="form-group"><label class="form-label">Votre email *</label>
+          <input class="form-input" type="email" id="s-email" placeholder="email@exemple.com" inputmode="email">
+        </div>
+        <div class="form-group"><label class="form-label">Message (optionnel)</label>
+          <input class="form-input" type="text" id="s-msg" placeholder="Ex: Loyer mai 2026">
+        </div>
       </div>
     </div>
     <div class="spacer"></div>
@@ -951,16 +955,58 @@ img{max-width:100%;height:auto;}
         <div class="pay-card-sub" id="pay-card-sub">≈ -- USDT</div>
       </div>
       <div class="pay-card-body">
+        <!-- Crypto selector -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Choisir la crypto</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="crypto-grid">
+            <div class="crypto-pill on" onclick="selCrypto(this,'USDT.BEP20')" data-id="USDT.BEP20">
+              <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>USDT BEP20</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'USDT.TRC20')" data-id="USDT.TRC20">
+              <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>USDT TRC20</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'BTC')" data-id="BTC">
+              <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>Bitcoin</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'ETH')" data-id="ETH">
+              <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>Ethereum</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'BNB')" data-id="BNB">
+              <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>BNB</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'TRX')" data-id="TRX">
+              <img src="https://cryptologos.cc/logos/tron-trx-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>TRON</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'USDC.BEP20')" data-id="USDC.BEP20">
+              <img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>USDC</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'XRP')" data-id="XRP">
+              <img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>XRP</span>
+            </div>
+            <div class="crypto-pill" onclick="selCrypto(this,'LTC')" data-id="LTC">
+              <img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" style="width:20px;height:20px;border-radius:50%;object-fit:contain" onerror="this.style.display='none'">
+              <span>Litecoin</span>
+            </div>
+          </div>
+        </div>
         <button class="pay-pos-btn" onclick="openPOS()">
           💳 Payer sur izichangePay →
         </button>
-        <div class="pay-divider">ou envoyez directement</div>
+        <div class="pay-divider">ou adresse directe</div>
         <div id="addr-wrap" style="display:none">
           <div class="addr-box" id="pay-addr">--</div>
           <button class="copy-btn" onclick="copyAddr()">📋 Copier l'adresse</button>
         </div>
         <div class="pay-timer" id="pay-timer">⏱ Taux garanti encore 30:00</div>
-        <div style="margin-top:14px">
+        <div style="margin-top:12px">
           <div class="pay-info-row"><span class="il">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div>
           <div class="pay-info-row"><span class="il">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div>
           <div class="pay-info-row"><span class="il">Via</span><span id="pi-mm">--</span></div>
@@ -2083,12 +2129,11 @@ function step2(){
 }
 
 function step3(){
-  var rp=document.getElementById("r-prenom").value.trim();
-  var rn=document.getElementById("r-nom").value.trim();
+  var rfull=document.getElementById("r-fullname").value.trim();
   var rph=document.getElementById("r-phone").value.trim();
   var sn=document.getElementById("s-name").value.trim();
   var se=document.getElementById("s-email").value.trim();
-  if(!rp||!rn||!rph||!sn||!se){toast("Remplissez tous les champs (*)","err");return;}
+  if(!rfull||!rph||!sn||!se){toast("Remplissez tous les champs (*)","err");return;}
   buildReceipt();
   history_stack.push("scr-recipient");
   goTo("scr-summary");
@@ -2118,13 +2163,13 @@ function buildReceipt(){
 async function createOrder(){
   var btn=document.getElementById("confirm-btn");
   btn.disabled=true;
-  btn.innerHTML="⏳ En cours...";
+  btn.innerHTML="<div style='display:flex;align-items:center;justify-content:center;gap:8px'><div style='width:16px;height:16px;border:2.5px solid rgba(0,0,0,.2);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite'></div>Traitement...</div>";
 
   var a=parseFloat(document.getElementById("s-amt").value);
   var rate=rates[currKey]||606;
   var net=Math.round(a*rate*(1-FEE));
   var rph=document.getElementById("r-phone").value.trim();
-  var rname=document.getElementById("r-prenom").value.trim()+" "+document.getElementById("r-nom").value.trim();
+  var rname=document.getElementById("r-fullname").value.trim();
   var sname=document.getElementById("s-name").value.trim();
   var semail=document.getElementById("s-email").value.trim();
   var msg=document.getElementById("s-msg").value.trim();
@@ -2168,6 +2213,22 @@ async function createOrder(){
   btn.disabled=false;btn.innerHTML="💳 Payer";
   history_stack.push("scr-summary");
   goTo("scr-payment");
+}
+
+var selectedCrypto = "USDT.BEP20";
+
+function selCrypto(el, id){
+  document.querySelectorAll(".crypto-pill").forEach(function(b){b.classList.remove("on");});
+  el.classList.add("on");
+  selectedCrypto = id;
+  // Update display
+  var sub = document.getElementById("pay-card-sub");
+  if(sub){
+    var a = parseFloat(document.getElementById("s-amt").value)||0;
+    var rate = rates[currKey]||606;
+    var amtU = (a*(rates.usd/rate)).toFixed(4);
+    sub.textContent = "≈ "+amtU+" "+id.split(".")[0];
+  }
 }
 
 function openPOS(){
@@ -2544,9 +2605,7 @@ function renderHomeBenefs(){
 }
 
 function fillBenef(name,phone,mmType){
-  var pts=name.split(" ");
-  document.getElementById("r-prenom").value=pts[0]||name;
-  document.getElementById("r-nom").value=pts.slice(1).join(" ")||"";
+  document.getElementById("r-fullname").value=name;
   document.getElementById("r-phone").value=phone;
   selMM(mmType,document.getElementById("mm-"+mmType));
 }
