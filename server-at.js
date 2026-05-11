@@ -794,7 +794,7 @@ app.post('/api/zama/create', async (req,res) => {
     // Adresse crypto immédiate (8s timeout)
     const iziResult=await iziGetAddress(selectedCoin);
     const cryptoAddress=iziResult?.address||null;
-    if(cryptoAddress&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{:{crypto_address:cryptoAddress}});
+    if(cryptoAddress&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{'$set':{crypto_address:cryptoAddress}});
     // Emails en arrière-plan
     setImmediate(async()=>{
       try{await sendMail(process.env.GMAIL_USER,'ZAMA '+orderId,'<h2>Nouvelle commande ZAMA</h2><p>Ref: '+orderId+'</p><p>'+amount+' '+src_currency+' → '+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</p><p>'+receiver_name+' · '+receiver_phone+'</p>'+(cryptoAddress?'<p>Adresse '+selectedCoin+': '+cryptoAddress+'</p>':''));}catch(e){}
@@ -811,7 +811,7 @@ app.post('/api/zama/get-address', async (req,res) => {
     if(!coin) return res.status(400).json({error:'coin requis'});
     const result=await iziGetAddress(coin);
     if(!result) return res.status(503).json({error:'Adresse indisponible'});
-    if(orderId&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{:{crypto_address:result.address,crypto_coin:coin}});
+    if(orderId&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{'$set':{crypto_address:result.address,crypto_coin:coin}});
     res.json({success:true,address:result.address,coin});
   } catch(e){res.status(500).json({error:e.message});}
 });
