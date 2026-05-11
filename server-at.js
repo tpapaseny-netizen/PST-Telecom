@@ -2595,6 +2595,295 @@ app.get('/api/zama/kyc/pending', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ═══════════════════════════════════════════════════════
+// IZICHANGE PAY — Intégration complète pour ZAMA
+// À coller dans server-at.js avant // ─── DÉMARRAGE
+// ═══════════════════════════════════════════════════════
+
+const crypto = require('crypto');
+const axios = require('axios');
+
+// ── CONFIG izichangePay ───────────────────────────────
+const IZIPAY_CONFIG = {
+  domain: 'https://pay.izichange.com', // Production (sandbox: https://sandbox-pay.izichange.com)
+  apiKey: process.env.IZIPAY_API_KEY || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680',
+  secretKey: process.env.IZIPAY_SECRET_KEY || process.env.IZIPAY_IPN_SECRET || 'Pstdiama@1',
+};
+
+// ── SIGNER ────────────────────────────────────────────
+function signData(data) {
+  let str = '';
+  for (const [key, value] of Object.entries(data)) {
+    str += `${key}=${Array.isArray(value) ? value.join('') : value}`;
+  }
+  return crypto.createHmac('sha256', IZIPAY_CONFIG.secretKey).update(str).digest('hex');
+}
+
+// ── AXIOS CLIENT ──────────────────────────────────────
+const iziClient = axios.create({
+  baseURL: IZIPAY_CONFIG.domain,
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+});
+
+// ── GENERATE PAYMENT URL ──────────────────────────────
+async function generateIziPayUrl(options) {
+  const {
+    amount,          // Montant en USD
+    orderId,         // ID de commande ZAMA
+    senderName,
+    senderEmail,
+    coin = 'trx',
+    acceptedCoins = ['trx', 'usdt.trc20', 'usdt.bep20', 'btc', 'eth', 'bnb'],
+  } = options;
+
+  const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : 'https://pst-telecom-production.up.railway.app';
+
+  const toSignData = {
+    coin,
+    acceptedCoins,
+    amount: String(amount),
+    successUrl: `${baseUrl}/api/zama/pay-success?order=${orderId}`,
+    canceledUrl: `${baseUrl}/api/zama/pay-cancel?order=${orderId}`,
+    failedUrl: `${baseUrl}/api/zama/pay-failed?order=${orderId}`,
+  };
+
+  const data = {
+    ...toSignData,
+    firstname: senderName.split(' ')[0] || senderName,
+    lastname: senderName.split(' ').slice(1).join(' ') || '',
+    email: senderEmail || '',
+    memo: `ZAMA-${orderId}`,
+  };
+
+  const signature = signData(toSignData);
+
+  try {
+    const response = await iziClient.post(
+      '/api/payements/init_operation_with_customer_data',
+      data,
+      { headers: { 'x-api-key': IZIPAY_CONFIG.apiKey, 'x-signature': signature } }
+    );
+    return response.data;
+  } catch (err) {
+    console.error('iziPay error:', err.response?.data || err.message);
+    // Fallback vers le POS si l'API échoue
+    return { url: `https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-${orderId}` };
+  }
+}
+
+// ── IPN WEBHOOK HANDLER ────────────────────────────────
+function verifyIziIPN(payload, signature) {
+  const expected = crypto
+    .createHmac('sha256', IZIPAY_CONFIG.secretKey)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  return signature === expected;
+}
+
+// ═══════════════════════════════════════════════════════
+// ROUTES À AJOUTER dans server-at.js
+// ═══════════════════════════════════════════════════════
+
+// ── Créer order + générer URL paiement ────────────────
+app.post('/api/zama/create', async (req, res) => {
+  try {
+    const {
+      src_currency, amount, rate_fcfa, net_fcfa,
+      receiver_name, receiver_phone, receiver_mm,
+      sender_name, sender_email, message, user_id
+    } = req.body;
+
+    const orderId = 'ZAMA-' + Date.now();
+
+    // Calculer montant USD équivalent
+    const amountUSD = src_currency === 'USD'
+      ? amount
+      : parseFloat((amount * (rate_fcfa / (rate_fcfa || 606))).toFixed(2));
+
+    // Sauvegarder la commande en DB
+    const order = {
+      order_id: orderId,
+      src_currency, amount, rate_fcfa, net_fcfa,
+      receiver_name, receiver_phone, receiver_mm,
+      sender_name, sender_email, message,
+      user_id: user_id || null,
+      status: 'pending',
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (db) {
+      await db.collection('zama_orders').insertOne(order);
+    }
+
+    // Générer URL izichangePay
+    let paymentUrl = null;
+    let paymentData = null;
+    try {
+      paymentData = await generateIziPayUrl({
+        amount: amountUSD,
+        orderId,
+        senderName: sender_name || 'Client ZAMA',
+        senderEmail: sender_email || '',
+      });
+      paymentUrl = paymentData?.url || paymentData?.data?.url;
+    } catch (e) {
+      console.log('iziPay URL generation failed:', e.message);
+    }
+
+    // Notification email admin
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+      });
+      await transporter.sendMail({
+        from: `"ZAMA Transfert" <${process.env.GMAIL_USER}>`,
+        to: process.env.GMAIL_USER,
+        subject: `💸 Nouvelle commande ZAMA: ${orderId}`,
+        html: `
+          <h2>Nouvelle commande ZAMA</h2>
+          <p><strong>Référence:</strong> ${orderId}</p>
+          <p><strong>Montant:</strong> ${amount} ${src_currency}</p>
+          <p><strong>Destinataire reçoit:</strong> ${(net_fcfa || 0).toLocaleString('fr-FR')} FCFA</p>
+          <p><strong>Via:</strong> ${receiver_mm === 'wave' ? 'Wave' : 'Orange Money'}</p>
+          <p><strong>Destinataire:</strong> ${receiver_name} · ${receiver_phone}</p>
+          <p><strong>Expéditeur:</strong> ${sender_name} · ${sender_email}</p>
+          ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
+        `
+      });
+    } catch (emailErr) {
+      console.log('Admin email error:', emailErr.message);
+    }
+
+    res.json({
+      success: true,
+      order_id: orderId,
+      payment_url: paymentUrl,
+      // Adresses crypto fixes comme fallback
+      address: 'TNxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // Ton adresse TRC20
+      payment_data: paymentData
+    });
+
+  } catch (e) {
+    console.error('Create order error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Vérifier statut commande ──────────────────────────
+app.get('/api/zama/status/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    if (!db) return res.json({ status: 'pending', order_id: orderId });
+
+    const order = await db.collection('zama_orders').findOne({ order_id: orderId });
+    if (!order) return res.json({ status: 'not_found' });
+
+    res.json({ status: order.status, order_id: orderId, net_fcfa: order.net_fcfa });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── IPN Webhook izichangePay ──────────────────────────
+app.post('/api/zama/ipn', async (req, res) => {
+  try {
+    const signature = req.headers['x-signature'] || '';
+    const payload = req.body;
+
+    console.log('IPN received:', JSON.stringify(payload));
+
+    // Extraire l'orderId depuis le memo
+    const memo = payload.memo || payload.data?.memo || '';
+    const orderId = memo.replace('ZAMA-', '').trim();
+
+    if (!orderId) {
+      console.log('IPN: No orderId found in memo');
+      return res.json({ received: true });
+    }
+
+    // Mettre à jour le statut
+    if (db) {
+      await db.collection('zama_orders').updateOne(
+        { order_id: orderId },
+        { $set: { status: 'paid', paid_at: new Date(), ipn_data: payload } }
+      );
+    }
+
+    // Notifier l'admin
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransporter({
+        service: 'gmail',
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+      });
+
+      // Récupérer les détails de la commande
+      const order = db ? await db.collection('zama_orders').findOne({ order_id: orderId }) : null;
+
+      await transporter.sendMail({
+        from: `"ZAMA Transfert" <${process.env.GMAIL_USER}>`,
+        to: process.env.GMAIL_USER,
+        subject: `✅ Paiement reçu! ZAMA ${orderId}`,
+        html: `
+          <h2 style="color:green">✅ Paiement confirmé!</h2>
+          <p><strong>Référence:</strong> ${orderId}</p>
+          ${order ? `
+            <p><strong>Montant:</strong> ${order.amount} ${order.src_currency}</p>
+            <p><strong>Destinataire reçoit:</strong> ${(order.net_fcfa||0).toLocaleString('fr-FR')} FCFA</p>
+            <p><strong>Destinataire:</strong> ${order.receiver_name} · ${order.receiver_phone}</p>
+            <p><strong>Via:</strong> ${order.receiver_mm === 'wave' ? 'Wave' : 'Orange Money'}</p>
+            <p><strong>⚡ ACTION REQUISE: Envoyer ${(order.net_fcfa||0).toLocaleString('fr-FR')} FCFA sur ${order.receiver_phone}</strong></p>
+          ` : ''}
+        `
+      });
+    } catch (emailErr) {
+      console.log('IPN email error:', emailErr.message);
+    }
+
+    res.json({ received: true, order_id: orderId });
+  } catch (e) {
+    console.error('IPN error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Redirections après paiement ───────────────────────
+app.get('/api/zama/pay-success', async (req, res) => {
+  const { order } = req.query;
+  if (order && db) {
+    await db.collection('zama_orders').updateOne(
+      { order_id: order },
+      { $set: { status: 'paid', paid_at: new Date() } }
+    ).catch(() => {});
+  }
+  res.redirect(`https://pst-telecom-production.up.railway.app/zama?paid=${order}`);
+});
+
+app.get('/api/zama/pay-cancel', async (req, res) => {
+  res.redirect(`https://pst-telecom-production.up.railway.app/zama?cancelled=${req.query.order}`);
+});
+
+app.get('/api/zama/pay-failed', async (req, res) => {
+  res.redirect(`https://pst-telecom-production.up.railway.app/zama?failed=${req.query.order}`);
+});
+
+// ── Toutes les commandes (admin) ──────────────────────
+app.get('/api/zama/orders', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const orders = await db.collection('zama_orders')
+      .find({}).sort({ created_at: -1 }).limit(200).toArray();
+    res.json(orders.map(o => { const { _id, ...r } = o; return r; }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
 
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
