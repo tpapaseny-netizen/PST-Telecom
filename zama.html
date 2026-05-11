@@ -1106,6 +1106,11 @@ img{max-width:100%;height:auto;}
       <div class="section-title">Contact</div>
       <div style="padding:0 20px;margin-bottom:24px">
         <div class="acct-item" onclick="window.open('tel:+221771520959')"><div class="acct-item-icon" style="background:var(--green-l)">📞</div><div class="acct-item-label">+221 77 152 09 59</div><div class="acct-item-arrow">→</div></div>
+          <div class="acct-item" onclick="goTo('scr-contact')"><div class="acct-item-icon" style="background:#DCFCE7">💬</div><div class="acct-item-label">Nous contacter</div><div class="acct-item-arrow">→</div></div>
+          <div class="acct-item" onclick="goTo('scr-about')"><div class="acct-item-icon" style="background:#EEF2FF">ℹ️</div><div class="acct-item-label">À propos de ZAMA</div><div class="acct-item-arrow">→</div></div>
+          <div class="acct-item" onclick="goTo('scr-privacy')"><div class="acct-item-icon" style="background:#FFF4E0">🔐</div><div class="acct-item-label">Confidentialité</div><div class="acct-item-arrow">→</div></div>
+          <div class="acct-item" onclick="goTo('scr-terms')"><div class="acct-item-icon" style="background:#EEF2FF">📄</div><div class="acct-item-label">Conditions d'utilisation</div><div class="acct-item-arrow">→</div></div>
+          <div class="acct-item" onclick="goTo('scr-fees')"><div class="acct-item-icon" style="background:#F0FDF4">💰</div><div class="acct-item-label">Tarifs et commissions</div><div class="acct-item-arrow">→</div></div>
         <div class="acct-item" onclick="window.open('mailto:papasenytoure@gmail.com')"><div class="acct-item-icon" style="background:var(--gold-l)">📧</div><div class="acct-item-label">papasenytoure@gmail.com</div><div class="acct-item-arrow">→</div></div>
       </div>
     </div>
@@ -2144,7 +2149,7 @@ function buildReceipt(){
   var rate=rates[currKey]||606;
   var net=Math.round(a*rate*(1-FEE));
   var mmL=selectedMM==="wave"?"💚 Wave":"🟠 Orange Money";
-  var rn=document.getElementById("r-prenom").value.trim()+" "+document.getElementById("r-nom").value.trim();
+  var rn=document.getElementById("r-fullname")?document.getElementById("r-fullname").value.trim():"";
   var rph=document.getElementById("r-phone").value.trim();
   var sn=document.getElementById("s-name").value.trim();
   var msg=document.getElementById("s-msg").value.trim();
