@@ -1214,7 +1214,7 @@ async function checkPay(){
       updateOrder(orderId,'paid');startTracking();return;
     }
   }catch(e){}
-  btn.disabled=false;btn.innerHTML='✅ J'ai payé — Vérifier';
+  btn.disabled=false;btn.innerHTML='✅ J\u0027ai payé — Vérifier';
   toast('Paiement non encore détecté. Patientez.','info');
 }
 
