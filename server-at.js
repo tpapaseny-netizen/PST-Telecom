@@ -71,74 +71,38 @@ async function deleteAbonne(userId) {
 const IZIPAY_CONFIG = {
   domain:    process.env.IZIPAY_DOMAIN     || 'https://pay.izichange.com',
   apiKey:    process.env.IZIPAY_API_KEY    || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680',
-  secretKey: process.env.IZIPAY_SECRET_KEY || 'Pstdiama@1',
+  secretKey: process.env.IZIPAY_SECRET_KEY || 'kRx1HjF(WLp6BJ0FZ:Ty{#NmO0=9%fWO46]4A3k}',
 };
 
-class DataSigner {
-  static signDataAsString(data, secretKey) {
-    return crypto.createHmac('sha256', secretKey).update(data).digest('hex');
-  }
-  static validateSignature(data, signature, secretKey) {
-    const expected = this.signDataAsString(data, secretKey);
-    try { return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected)); }
-    catch { return false; }
-  }
-}
-
-class IziPayment {
-  constructor(config) {
-    this.domain    = config.domain;
-    this.apiKey    = config.apiKey;
-    this.secretKey = config.secretKey;
-    this.client    = axios.create({ baseURL: this.domain, timeout: 30000 });
-  }
-  _dataToString(data) {
-    let s = '';
-    for (const [key, value] of Object.entries(data)) s += `${key}=${Array.isArray(value) ? value.join('') : value}`;
-    return s;
-  }
-  async _request(url, data = {}, signature, method = 'POST') {
-    try {
-      const cfg = { method, url, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'x-api-key': this.apiKey, 'x-signature': signature } };
-      if (method === 'POST') cfg.data = data;
-      const response = await this.client(cfg);
-      return response.data;
-    } catch (error) {
-      console.error('[iziPay] error:', error.message);
-      if (error.response) console.error('[iziPay] response:', error.response.data);
-      throw error;
-    }
-  }
-  async generatePayinRedirectUrlWithCustomer(options = {}) {
-    const { coin='trx', acceptedCoins=['trx','usdt.trc20','usdt.bep20','btc','eth','bnb'], amount='10', successUrl, canceledUrl, failedUrl, firstname='', lastname='', email='', memo='' } = options;
-    const toSignData = { coin, acceptedCoins, amount, successUrl, canceledUrl, failedUrl };
-    const data = { ...toSignData, firstname, lastname, email, memo };
-    const signature = DataSigner.signDataAsString(this._dataToString(toSignData), this.secretKey);
-    return await this._request('/api/payements/init_operation_with_customer_data', data, signature);
-  }
-}
-
-const iziPay = new IziPayment(IZIPAY_CONFIG);
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://pst-telecom-production.up.railway.app';
 
-async function generateZamaPayUrl({ orderId, amountUSD, senderName, senderEmail }) {
+// ── SDK izichangePay — endpoint /api/payements/address ──
+async function iziGetAddress(coin) {
   try {
-    const result = await iziPay.generatePayinRedirectUrlWithCustomer({
-      coin: 'trx',
-      acceptedCoins: ['trx', 'usdt.trc20', 'usdt.bep20', 'btc', 'eth', 'bnb'],
-      amount: String(parseFloat(amountUSD).toFixed(2)),
-      successUrl:  `${BASE_URL}/api/zama/pay-success?order=${orderId}`,
-      canceledUrl: `${BASE_URL}/api/zama/pay-cancel?order=${orderId}`,
-      failedUrl:   `${BASE_URL}/api/zama/pay-failed?order=${orderId}`,
-      firstname: (senderName || 'Client').split(' ')[0],
-      lastname:  (senderName || '').split(' ').slice(1).join(' '),
-      email:     senderEmail || '',
-      memo:      `ZAMA-${orderId}`,
-    });
-    return result?.url || result?.data?.url || null;
+    const key = IZIPAY_CONFIG.secretKey;
+    const dataToSign = `coin=${coin}`;
+    const signature = crypto.createHmac('sha256', key).update(dataToSign).digest('hex');
+    const response = await axios.post(
+      `${IZIPAY_CONFIG.domain}/api/payements/address`,
+      { coin },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-api-key': IZIPAY_CONFIG.apiKey,
+          'x-signature': signature,
+        },
+        timeout: 8000,
+      }
+    );
+    const data = response.data;
+    if (data?.status && data?.data?.address) {
+      return { address: data.data.address, signature: data.signature };
+    }
+    return null;
   } catch (e) {
-    console.error('[ZAMA] iziPay URL error:', e.message);
-    return `https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-${orderId}`;
+    console.error('[iziPay address] error:', e.message);
+    return null;
   }
 }
 
@@ -818,27 +782,38 @@ app.post('/api/zama/kyc/approve', async (req,res) => {
   } catch(e){res.status(500).json({error:e.message});}
 });
 
-// Create order — SDK officiel izichangePay
+// Create order — adresse crypto immédiate
 app.post('/api/zama/create', async (req,res) => {
   try {
-    const {src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,sender_phone,message,user_id}=req.body;
+    const {src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,sender_phone,message,user_id,coin}=req.body;
     if(!amount||!src_currency) return res.status(400).json({error:'Données manquantes'});
     const orderId='ZAMA-'+Date.now();
-    const amountUSD=src_currency==='USD'?parseFloat(amount):parseFloat((amount/(rate_fcfa/606)).toFixed(2));
-    const order={order_id:orderId,src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,sender_phone,message,user_id:user_id||null,status:'pending',created_at:new Date(),updated_at:new Date()};
+    const selectedCoin=coin||'usdt.trc20';
+    const order={order_id:orderId,src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,sender_phone,message,user_id:user_id||null,status:'pending',crypto_coin:selectedCoin,created_at:new Date(),updated_at:new Date()};
     if(db) await db.collection('zama_orders').insertOne(order);
-
-    // Générer URL paiement via SDK officiel izichangePay
-    const paymentUrl=await generateZamaPayUrl({orderId,amountUSD,senderName:sender_name||'Client ZAMA',senderEmail:sender_email||''});
-
-    // Email admin
-    try { await sendMail(process.env.GMAIL_USER,`💸 Nouvelle commande ZAMA: ${orderId}`,`<h2>Nouvelle commande ZAMA</h2><p><strong>Ref:</strong> ${orderId}</p><p><strong>Montant:</strong> ${amount} ${src_currency} (≈ $${amountUSD})</p><p><strong>Destinataire reçoit:</strong> ${(net_fcfa||0).toLocaleString('fr-FR')} FCFA</p><p><strong>Via:</strong> ${receiver_mm==='wave'?'Wave':'Orange Money'}</p><p><strong>Destinataire:</strong> ${receiver_name} · ${receiver_phone}</p><p><strong>Expéditeur:</strong> ${sender_name} · ${sender_email}</p>${paymentUrl?`<p><a href="${paymentUrl}">Lien paiement</a></p>`:''}`); } catch(e){}
-
-    // Email client
-    if(sender_email){ try { await sendMail(sender_email,`ZAMA - Confirmation REF: ${orderId}`,`<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px"><h2 style="color:#F59E0B">ZAMA — Confirmation</h2><p>Bonjour ${sender_name},</p><table style="width:100%;border-collapse:collapse;margin:16px 0"><tr><td style="padding:8px;color:#666">Référence</td><td style="padding:8px;font-weight:bold">${orderId}</td></tr><tr style="background:#f9f9f9"><td style="padding:8px;color:#666">Vous envoyez</td><td style="padding:8px;font-weight:bold">${amount} ${src_currency}</td></tr><tr><td style="padding:8px;color:#666">Destinataire reçoit</td><td style="padding:8px;font-weight:bold;color:#F59E0B">${(net_fcfa||0).toLocaleString('fr-FR')} FCFA</td></tr><tr style="background:#f9f9f9"><td style="padding:8px;color:#666">Via</td><td style="padding:8px;font-weight:bold">${receiver_mm==='wave'?'Wave':'Orange Money'}</td></tr><tr><td style="padding:8px;color:#666">Numéro</td><td style="padding:8px;font-weight:bold">${receiver_phone}</td></tr></table>${paymentUrl?`<p><a href="${paymentUrl}" style="display:inline-block;padding:14px 28px;background:#F59E0B;color:#000;text-decoration:none;border-radius:8px;font-weight:bold">Payer maintenant</a></p>`:''}<p style="color:#F59E0B;font-weight:bold">ZAMA by PST Telecom 🇸🇳</p></div>`); } catch(e){} }
-
-    res.json({success:true,order_id:orderId,payment_url:paymentUrl,net_fcfa});
+    // Adresse crypto immédiate (8s timeout)
+    const iziResult=await iziGetAddress(selectedCoin);
+    const cryptoAddress=iziResult?.address||null;
+    if(cryptoAddress&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{:{crypto_address:cryptoAddress}});
+    // Emails en arrière-plan
+    setImmediate(async()=>{
+      try{await sendMail(process.env.GMAIL_USER,'ZAMA '+orderId,'<h2>Nouvelle commande ZAMA</h2><p>Ref: '+orderId+'</p><p>'+amount+' '+src_currency+' → '+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</p><p>'+receiver_name+' · '+receiver_phone+'</p>'+(cryptoAddress?'<p>Adresse '+selectedCoin+': '+cryptoAddress+'</p>':''));}catch(e){}
+      if(sender_email){try{await sendMail(sender_email,'ZAMA Confirmation REF: '+orderId,'<div style="font-family:Arial;padding:24px"><h2 style="color:#F59E0B">ZAMA — Confirmation</h2><p>Bonjour '+sender_name+',</p><p>Ref: <strong>'+orderId+'</strong></p><p>Vous envoyez <strong>'+amount+' '+src_currency+'</strong></p><p>Destinataire reçoit <strong style="color:#F59E0B">'+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</strong> via '+(receiver_mm==='wave'?'Wave':'Orange Money')+'</p>'+(cryptoAddress?'<p>Adresse ('+selectedCoin+'): <strong>'+cryptoAddress+'</strong></p>':'')+'<p style="color:#F59E0B">ZAMA by PST Telecom</p></div>');}catch(e){}}
+    });
+    res.json({success:true,order_id:orderId,net_fcfa,crypto_address:cryptoAddress,crypto_coin:selectedCoin,payment_url:cryptoAddress?null:'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId});
   } catch(e){console.error('[ZAMA create]',e.message); res.status(500).json({error:e.message});}
+});
+
+// Récupérer adresse crypto
+app.post('/api/zama/get-address', async (req,res) => {
+  try {
+    const {coin,orderId}=req.body;
+    if(!coin) return res.status(400).json({error:'coin requis'});
+    const result=await iziGetAddress(coin);
+    if(!result) return res.status(503).json({error:'Adresse indisponible'});
+    if(orderId&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{:{crypto_address:result.address,crypto_coin:coin}});
+    res.json({success:true,address:result.address,coin});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 
 // Status
