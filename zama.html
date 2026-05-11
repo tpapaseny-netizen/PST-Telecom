@@ -608,10 +608,22 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding:16px 20px 0">
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisissez votre crypto</div>
       <div class="cpx-grid" id="cpx-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <div class="cpx-new on" id="cx-usdt-trc20" onclick="selCrypto2('usdt.trc20',this)">
-          <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''">
-          <div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div>
-        </div>
+        <div class="cpx-new on" onclick="selCrypto2('usdt.trc20',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('usdt.bep20',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('usdc.trc20',this)"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('usdc.bep20',this)"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('btc',this)"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Bitcoin</div><div style="font-size:10px;color:var(--text3)">BTC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('eth',this)"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Ethereum</div><div style="font-size:10px;color:var(--text3)">ETH</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('bnb',this)"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('trx',this)"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TRON</div><div style="font-size:10px;color:var(--text3)">TRX</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('xrp.bep20',this)"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">XRP BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('sol.bep20',this)"><img src="https://cryptologos.cc/logos/solana-sol-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">SOL BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('ada.bep20',this)"><img src="https://cryptologos.cc/logos/cardano-ada-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">ADA BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('doge.bep20',this)"><img src="https://cryptologos.cc/logos/dogecoin-doge-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">DOGE BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('ltc',this)"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Litecoin</div><div style="font-size:10px;color:var(--text3)">LTC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('shib.bep20',this)"><img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">SHIB BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selCrypto2('dot.bep20',this)"><img src="https://cryptologos.cc/logos/polkadot-new-dot-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">DOT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+      </div>
         <div class="cpx-new" id="cx-usdt-bep20" onclick="selCrypto2('usdt.bep20',this)">
           <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''">
           <div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div>
@@ -1113,7 +1125,7 @@ function selCrypto2(coin,el){
   document.querySelectorAll('.cpx-new').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
   // Labels
-  var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON'};
+  var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20'};
   var lbl=document.getElementById('p-coin-label');
   if(lbl)lbl.textContent=labels[coin]||coin.toUpperCase();
 }
@@ -1167,7 +1179,7 @@ async function genAddress(){
     if(data.address){
       document.getElementById('p-addr').textContent=data.address;
       drawPayQR(data.address);
-      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON'};
+      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20'};
       var lbl=document.getElementById('p-coin-label');if(lbl)lbl.textContent=labels[selCoin]||selCoin.toUpperCase();
       document.getElementById('addr-zone').style.display='block';
       btn.style.display='none';
