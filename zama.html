@@ -408,6 +408,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 /* ══ SEC BADGE ══ */
 .sec-badge{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--text3);padding:10px 20px;}
+.cpx-new{display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);background:var(--s2);border-radius:var(--rsm);cursor:pointer;transition:all .15s;}
+.cpx-new:active{transform:scale(.97);}
+.cpx-new.on{border-color:var(--gold);background:var(--gold-l);}
+.cpx-new img{width:28px;height:28px;border-radius:50%;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;}
 .sec-badge svg{width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2;}
 
 /* ══ EMPTY STATE ══ */
@@ -591,31 +595,101 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <!-- PAYMENT -->
 <div class="scr" id="scr-pay">
-  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement crypto</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
   <div class="sb">
-    <div class="pay-card">
-      <div class="pay-top"><div class="pay-lbl">Montant à envoyer</div><div class="pay-amt" id="p-amt">--</div><div class="pay-sub" id="p-sub">--</div></div>
-      <div class="pay-body">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer avec</div>
-        <div class="cpx-grid" id="cpx-grid">
-          <div class="cpx on" onclick="selCX(this,'USDT.BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-          <div class="cpx" onclick="selCX(this,'USDT.TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-          <div class="cpx" onclick="selCX(this,'BTC')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-          <div class="cpx" onclick="selCX(this,'ETH')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-          <div class="cpx" onclick="selCX(this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-          <div class="cpx" onclick="selCX(this,'TRX')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
-          <div class="cpx" onclick="selCX(this,'USDC.BEP20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC</div>
-          <div class="cpx" onclick="selCX(this,'XRP')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP</div>
-          <div class="cpx" onclick="selCX(this,'LTC')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
+    <!-- Montant -->
+    <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:20px;text-align:center">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Vous envoyez</div>
+      <div class="pay-amt" id="p-amt" style="font-size:36px;font-weight:800;color:#fff">--</div>
+      <div id="p-sub" style="font-size:13px;color:rgba(255,255,255,.4);margin-top:4px">--</div>
+    </div>
+
+    <!-- Choix crypto -->
+    <div style="padding:16px 20px 0">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisissez votre crypto</div>
+      <div class="cpx-grid" id="cpx-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="cpx-new on" id="cx-usdt-trc20" onclick="selCrypto2('usdt.trc20',this)">
+          <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div>
         </div>
-        <button class="pos-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay</button>
-        <div id="addr-wrap" style="display:none"><div class="addr-box" id="p-addr">--</div><button class="copy-btn" onclick="copyAddr()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier l'adresse</button></div>
-        <div class="pay-timer" id="p-timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti encore 30:00</div>
-        <div class="pay-info"><div class="pir"><span class="pl">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div><div class="pir"><span class="pl">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div><div class="pir"><span class="pl">Via</span><span id="pi-mm">--</span></div></div>
+        <div class="cpx-new" id="cx-usdt-bep20" onclick="selCrypto2('usdt.bep20',this)">
+          <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div>
+        </div>
+        <div class="cpx-new" id="cx-btc" onclick="selCrypto2('btc',this)">
+          <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">Bitcoin</div><div style="font-size:10px;color:var(--text3)">BTC</div></div>
+        </div>
+        <div class="cpx-new" id="cx-eth" onclick="selCrypto2('eth',this)">
+          <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">Ethereum</div><div style="font-size:10px;color:var(--text3)">ETH</div></div>
+        </div>
+        <div class="cpx-new" id="cx-bnb" onclick="selCrypto2('bnb',this)">
+          <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div>
+        </div>
+        <div class="cpx-new" id="cx-trx" onclick="selCrypto2('trx',this)">
+          <img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.src=''">
+          <div><div style="font-weight:700;font-size:13px">TRON</div><div style="font-size:10px;color:var(--text3)">TRX</div></div>
+        </div>
+      </div>
+
+      <!-- Bouton générer adresse -->
+      <button class="btn-p" style="width:100%;margin:0 0 16px" id="gen-addr-btn" onclick="genAddress()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Générer mon adresse de paiement
+      </button>
+
+      <!-- Zone adresse (cachée au départ) -->
+      <div id="addr-zone" style="display:none">
+        <!-- Résumé transaction -->
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0"><span style="color:var(--text2)">Via</span><span id="pi-mm">--</span></div>
+        </div>
+
+        <!-- Countdown -->
+        <div class="pay-timer" id="p-timer" style="margin-bottom:14px">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+          Adresse valide encore <strong id="cd-time">30:00</strong>
+        </div>
+
+        <!-- QR Code -->
+        <div style="text-align:center;margin-bottom:14px">
+          <canvas id="pay-qr" width="180" height="180" style="border-radius:12px;background:#fff;padding:8px"></canvas>
+        </div>
+
+        <!-- Adresse -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Adresse <span id="p-coin-label">USDT TRC20</span></div>
+          <div class="addr-box" id="p-addr" style="font-size:12px;line-height:1.8;word-break:break-all;background:var(--bg);border:1.5px dashed var(--gold);border-radius:var(--rsm);padding:12px;color:var(--gold)">--</div>
+        </div>
+        <button class="copy-btn" onclick="copyAddr()" style="width:100%;margin-bottom:14px">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copier l'adresse
+        </button>
+
+        <!-- Instructions -->
+        <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:var(--rsm);padding:12px;font-size:12px;color:var(--gold);line-height:1.7;margin-bottom:14px">
+          <strong>Comment payer :</strong><br>
+          1. Copiez l'adresse ci-dessus<br>
+          2. Ouvrez votre exchange (Binance, Coinbase...)<br>
+          3. Envoyez exactement le montant indiqué<br>
+          4. Cliquez <strong>J'ai payé</strong> pour confirmer
+        </div>
+
+        <!-- Bouton J'ai payé -->
+        <button class="btn-p" style="width:100%;margin:0 0 14px" id="check-btn" onclick="checkPay()">
+          ✅ J'ai payé — Vérifier
+        </button>
+
+        <div class="sec-badge">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Paiement sécurisé · izichangePay certifié
+        </div>
       </div>
     </div>
-    <div style="padding:0 20px 14px"><button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">J'ai payé — Vérifier</button></div>
-    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Réseau Binance Smart Chain (BEP20)</div>
   </div>
 </div>
 
@@ -1032,59 +1106,135 @@ function buildRcpt(){
 }
 
 // ORDER
+// Sélection crypto
+var selCoin='usdt.trc20';
+function selCrypto2(coin,el){
+  selCoin=coin;
+  document.querySelectorAll('.cpx-new').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  // Labels
+  var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON'};
+  var lbl=document.getElementById('p-coin-label');
+  if(lbl)lbl.textContent=labels[coin]||coin.toUpperCase();
+}
+
+// Créer commande + aller sur scr-pay
 async function createOrder(){
-  var btn=document.getElementById("pay-btn");btn.disabled=true;
-  btn.innerHTML="<div class='spin'></div> Traitement en cours...";
-  var a=parseFloat(document.getElementById("s-amt").value);
+  var btn=document.getElementById('pay-btn');btn.disabled=true;
+  btn.innerHTML="<div class='spin'></div> Création...";
+  var a=parseFloat(document.getElementById('s-amt').value);
   var rate=rates[cK]||606;var net=Math.round(a*rate*(1-FEE));
-  var rn=document.getElementById("r-name").value.trim();
-  var rph=document.getElementById("r-phone").value.trim();
-  var sn=document.getElementById("s-name").value.trim();
-  var se=document.getElementById("s-email").value.trim();
-  var msg=document.getElementById("s-msg").value.trim();
+  var rn=document.getElementById('r-name').value.trim();
+  var rph=document.getElementById('r-phone').value.trim();
+  var sn=document.getElementById('s-name').value.trim();
+  var se=document.getElementById('s-email').value.trim();
+  var msg=document.getElementById('s-msg').value.trim();
   var amtU=(a*(rates.usd/rate)).toFixed(4);
-  var mL=MM==="wave"?"Wave":"Orange Money";
+  var mL=MM==='wave'?'Wave':'Orange Money';
   try{
-    var res=await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null})});
+    var res=await fetch(API+'/api/zama/create',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null,coin:selCoin})});
     var data=await res.json();
-    orderId=data.order_id||"ZAMA-"+Date.now();
-    if(data.address){document.getElementById("p-addr").textContent=data.address;document.getElementById("addr-wrap").style.display="block";}
-  }catch(e){orderId="ZAMA-"+Date.now();}
+    orderId=data.order_id||'ZAMA-'+Date.now();
+    if(data.crypto_address){
+      document.getElementById('p-addr').textContent=data.crypto_address;
+      drawPayQR(data.crypto_address);
+      document.getElementById('addr-zone').style.display='block';
+      document.getElementById('gen-addr-btn').style.display='none';
+      startCD2();
+    }
+  }catch(e){orderId='ZAMA-'+Date.now();}
   var sv=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
-  sv("p-amt",a.toFixed(2)+" "+curr);sv("p-sub","≈ "+amtU+" "+selCrypto.split(".")[0]);
-  sv("pi-name",rn||"--");sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");sv("pi-mm",mL);
-  sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
-  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
+  sv('p-amt',a.toFixed(2)+' '+curr);
+  sv('p-sub','≈ '+amtU+' '+selCoin.split('.')[0].toUpperCase());
+  sv('pi-name',rn||'--');sv('pi-fcfa',net.toLocaleString('fr-FR')+' FCFA');sv('pi-mm',mL);
+  sv('tk-ref','REF: '+orderId);sv('ts-mm',mL);
+  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:'pending',created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
-  startCD();checkT=setInterval(autoCheck,30000);
-  btn.disabled=false;btn.innerHTML="Payer maintenant";
-  goto("scr-pay");
+  checkT=setInterval(autoCheck,30000);
+  btn.disabled=false;btn.innerHTML='Payer maintenant';
+  goto('scr-pay');
 }
-function openPOS(){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");}
-function copyAddr(){navigator.clipboard.writeText(document.getElementById("p-addr").textContent).then(function(){toast("Adresse copiée","ok");});}
+
+// Générer adresse depuis l'écran de paiement
+async function genAddress(){
+  var btn=document.getElementById('gen-addr-btn');
+  btn.disabled=true;btn.innerHTML="<div class='spin spin-w'></div> Génération en cours...";
+  try{
+    var res=await fetch(API+'/api/zama/get-address',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({coin:selCoin,orderId:orderId})});
+    var data=await res.json();
+    if(data.address){
+      document.getElementById('p-addr').textContent=data.address;
+      drawPayQR(data.address);
+      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON'};
+      var lbl=document.getElementById('p-coin-label');if(lbl)lbl.textContent=labels[selCoin]||selCoin.toUpperCase();
+      document.getElementById('addr-zone').style.display='block';
+      btn.style.display='none';
+      startCD2();
+      toast('Adresse générée !','ok');
+    } else {
+      btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
+      toast('Erreur génération. Réessayez.','err');
+    }
+  }catch(e){
+    btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
+    toast('Connexion impossible','err');
+  }
+}
+
+// Dessiner QR code simple
+function drawPayQR(text){
+  var cv=document.getElementById('pay-qr');if(!cv)return;
+  var ctx=cv.getContext('2d');var sz=180;
+  ctx.clearRect(0,0,sz,sz);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,sz,sz);
+  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  var cell=5,cols=Math.floor(sz/cell);
+  ctx.fillStyle='#000';
+  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
+    if((hash^(r*31+c*17)^(r^c))%3===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
+  }}
+  // Coin blanc central pour logo
+  ctx.fillStyle='#fff';ctx.fillRect(75,75,30,30);
+  ctx.fillStyle='#F5B014';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText('Z',90,89);
+}
+
+function copyAddr(){
+  var addr=document.getElementById('p-addr').textContent;
+  navigator.clipboard.writeText(addr).then(function(){toast('Adresse copiée !','ok');});
+}
+
 async function checkPay(){
-  var btn=document.getElementById("check-btn");btn.disabled=true;
-  btn.innerHTML="<div class='spin'></div> Vérification...";
-  try{var r=await fetch(API+"/api/zama/status/"+orderId);var d=await r.json();
-    if(d.status==="paid"||d.status==="completed"){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,"paid");startTracking();return;}
+  var btn=document.getElementById('check-btn');btn.disabled=true;
+  btn.innerHTML="<div class='spin spin-w'></div> Vérification...";
+  try{var r=await fetch(API+'/api/zama/status/'+orderId);var d=await r.json();
+    if(d.status==='paid'||d.status==='completed'){
+      clearInterval(checkT);clearInterval(cdT);
+      updateOrder(orderId,'paid');startTracking();return;
+    }
   }catch(e){}
-  btn.disabled=false;btn.innerHTML="J'ai payé — Vérifier";toast("Paiement non détecté. Patientez.","info");
+  btn.disabled=false;btn.innerHTML='✅ J'ai payé — Vérifier';
+  toast('Paiement non encore détecté. Patientez.','info');
 }
+
 async function autoCheck(){
   if(!orderId)return;
-  try{var r=await fetch(API+"/api/zama/status/"+orderId);var d=await r.json();
-    if(d.status==="paid"||d.status==="completed"){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,"paid");startTracking();}
+  try{var r=await fetch(API+'/api/zama/status/'+orderId);var d=await r.json();
+    if(d.status==='paid'||d.status==='completed'){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,'paid');startTracking();}
   }catch(e){}
 }
-function startCD(){
+
+function startCD2(){
   var s=1800;
-  cdT=setInterval(function(){s--;var m=Math.floor(s/60),sc=s%60;
-    var el=document.getElementById("p-timer");
-    if(el)el.innerHTML="<svg viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='var(--red)' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12,6 12,12 16,14'/></svg> Taux garanti encore "+m+":"+(sc<10?"0"+sc:sc);
-    if(s<=0)clearInterval(cdT);
+  cdT=setInterval(function(){
+    s--;var m=Math.floor(s/60),sc=s%60;
+    var el=document.getElementById('cd-time');
+    if(el)el.textContent=m+':'+(sc<10?'0'+sc:sc);
+    if(s<=0){clearInterval(cdT);var el2=document.getElementById('p-timer');if(el2)el2.style.background='var(--red-l)';}
   },1000);
 }
+function startCD(){startCD2();}
 function startTracking(){
   goto("scr-track");
   var steps=["ts1","ts2","ts3","ts4"],delay=0;
