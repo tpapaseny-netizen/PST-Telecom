@@ -573,8 +573,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding-top:14px">
       <div class="slbl" style="margin-top:0">Recevoir via</div>
       <div class="mm-row">
-        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
-        <div class="mm" id="mm-om" onclick="selMM('om',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div class="mm-logo" style="background:#1D9BF0;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 36 36" width="28" height="28"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="16" font-weight="900" fill="white" font-family="Arial">W</text></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 36 36" width="28" height="28"><circle cx="18" cy="18" r="18" fill="#FF6600"/><text x="18" y="23" text-anchor="middle" font-size="12" font-weight="900" fill="white" font-family="Arial">OM</text></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
       </div>
       <div class="slbl" style="margin-top:4px">Informations</div>
       <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
@@ -1161,23 +1161,15 @@ async function genAddress(){
   var btn=document.getElementById('gen-addr-btn');
   btn.disabled=true;btn.innerHTML="<div class='spin spin-w'></div> Génération en cours...";
   try{
-    // Appel DIRECT depuis le navigateur vers izichangePay (évite le blocage Railway)
-    var apiKey='14|6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680';
-    // Signature calculée côté serveur PST pour éviter d'exposer la secretKey
-    var sigRes=await fetch(API+'/api/zama/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coin:selCoin})});
-    var sigData=await sigRes.json();
-    if(!sigData.signature){throw new Error('Signature impossible');}
-    
-    var res=await fetch('https://pay.izichange.com/api/payements/address',{
+    // Demander adresse via notre backend PST (proxy vers izichange)
+    var res=await fetch(API+'/api/zama/get-address',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json','x-api-key':apiKey,'x-signature':sigData.signature},
-      body:JSON.stringify({coin:selCoin})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({coin:selCoin,orderId:orderId})
     });
     var data=await res.json();
-    var address=data?.data?.address||null;
+    var address=data?.address||null;
     if(address){
-      // Sauvegarder adresse dans DB via notre backend
-      fetch(API+'/api/zama/save-address',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:orderId,address:address,coin:selCoin})}).catch(function(){});
       document.getElementById('p-addr').textContent=address;
       drawPayQR(address);
       var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20','btc.bep20':'BTC BEP20','eth.bep20':'ETH BEP20','usdt.erc20':'USDT ERC20','usdc.erc20':'USDC ERC20','ton':'TON','usdt.ton':'USDT TON','busd.bep20':'BUSD BEP20','twt.bep20':'TWT BEP20'};
@@ -1187,12 +1179,13 @@ async function genAddress(){
       startCD2();
       toast('Adresse générée !','ok');
     } else {
+      // Fallback: montrer message pour contacter le support
       btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-      toast('Erreur izichange: '+JSON.stringify(data),'err');
+      toast(data.error||'Service temporairement indisponible','err');
     }
   }catch(e){
     btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-    toast('Erreur: '+e.message,'err');
+    toast('Erreur connexion: '+e.message,'err');
   }
 }
 

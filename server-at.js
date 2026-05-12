@@ -82,6 +82,7 @@ async function iziGetAddress(coin) {
     const key = IZIPAY_CONFIG.secretKey;
     const dataToSign = `coin=${coin}`;
     const signature = crypto.createHmac('sha256', key).update(dataToSign).digest('hex');
+    console.log(`[iziPay] Requesting address for ${coin}, sig: ${signature.slice(0,16)}...`);
     const response = await axios.post(
       `${IZIPAY_CONFIG.domain}/api/payements/address`,
       { coin },
@@ -91,17 +92,27 @@ async function iziGetAddress(coin) {
           'Accept': 'application/json',
           'x-api-key': IZIPAY_CONFIG.apiKey,
           'x-signature': signature,
+          'Origin': 'https://pst-telecom-production.up.railway.app',
+          'Referer': 'https://pst-telecom-production.up.railway.app/zama',
         },
-        timeout: 8000,
+        timeout: 10000,
       }
     );
     const data = response.data;
+    console.log('[iziPay] Response:', JSON.stringify(data).slice(0,200));
     if (data?.status && data?.data?.address) {
       return { address: data.data.address, signature: data.signature };
     }
+    // Essayer aussi data.address direct
+    if (data?.address) return { address: data.address };
+    console.error('[iziPay] No address in response:', JSON.stringify(data));
     return null;
   } catch (e) {
-    console.error('[iziPay address] error:', e.message);
+    if (e.response) {
+      console.error('[iziPay address] HTTP', e.response.status, ':', JSON.stringify(e.response.data));
+    } else {
+      console.error('[iziPay address] error:', e.message);
+    }
     return null;
   }
 }
