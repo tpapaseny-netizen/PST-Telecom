@@ -76,43 +76,81 @@ const IZIPAY_CONFIG = {
 
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://pst-telecom-production.up.railway.app';
 
-// ── SDK izichangePay — endpoint /api/payements/address ──
+// ── SDK izichangePay officiel (payment.js) ──
+function iziDataToString(data) {
+  let s = '';
+  for (const [key, value] of Object.entries(data)) {
+    s += key + '=' + (Array.isArray(value) ? value.join('') : value);
+  }
+  return s;
+}
+function iziSign(data) {
+  return crypto.createHmac('sha256', IZIPAY_CONFIG.secretKey).update(iziDataToString(data)).digest('hex');
+}
+async function iziRequest(endpoint, data, signature) {
+  const response = await axios.post(IZIPAY_CONFIG.domain + endpoint, data, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'x-api-key': IZIPAY_CONFIG.apiKey,
+      'x-signature': signature,
+    },
+    timeout: 15000,
+  });
+  return response.data;
+}
+
+// generatePayinRedirectUrlWithCustomer — lien de paiement avec données client
+async function iziGeneratePaymentUrl({orderId, amountUSD, coin, acceptedCoins, firstname, lastname, email}) {
+  try {
+    const toSign = {
+      coin: coin || 'trx',
+      acceptedCoins: acceptedCoins || ['trx','usdt.trc20','usdt.bep20','btc','eth','bnb'],
+      amount: String(parseFloat(amountUSD).toFixed(2)),
+      successUrl:  BASE_URL + '/api/zama/pay-success?order=' + orderId,
+      canceledUrl: BASE_URL + '/api/zama/pay-cancel?order=' + orderId,
+      failedUrl:   BASE_URL + '/api/zama/pay-failed?order=' + orderId,
+    };
+    const data = Object.assign({}, toSign, {
+      firstname: firstname || 'Client',
+      lastname:  lastname  || 'ZAMA',
+      email:     email     || '',
+      memo:      'ZAMA-' + orderId,
+    });
+    const signature = iziSign(toSign);
+    console.log('[iziPay] Generating URL order=' + orderId + ' amount=$' + amountUSD);
+    const result = await iziRequest('/api/payements/init_operation_with_customer_data', data, signature);
+    console.log('[iziPay] Result:', JSON.stringify(result).slice(0, 300));
+    return (result && result.data && result.data.url) ? result.data.url :
+           (result && result.url) ? result.url : null;
+  } catch(e) {
+    if(e.response) console.error('[iziPay URL] HTTP', e.response.status, JSON.stringify(e.response.data));
+    else console.error('[iziPay URL]', e.message);
+    return null;
+  }
+}
+
+// Fallback: adresse directe
 async function iziGetAddress(coin) {
   try {
-    const key = IZIPAY_CONFIG.secretKey;
-    const dataToSign = `coin=${coin}`;
-    const signature = crypto.createHmac('sha256', key).update(dataToSign).digest('hex');
-    console.log(`[iziPay] Requesting address for ${coin}, sig: ${signature.slice(0,16)}...`);
-    const response = await axios.post(
-      `${IZIPAY_CONFIG.domain}/api/payements/address`,
-      { coin },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-api-key': IZIPAY_CONFIG.apiKey,
-          'x-signature': signature,
-          'Origin': 'https://pst-telecom-production.up.railway.app',
-          'Referer': 'https://pst-telecom-production.up.railway.app/zama',
-        },
-        timeout: 10000,
-      }
-    );
+    const toSign = { coin };
+    const signature = iziSign(toSign);
+    const response = await axios.post(IZIPAY_CONFIG.domain + '/api/payements/address', { coin }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-api-key': IZIPAY_CONFIG.apiKey,
+        'x-signature': signature,
+      },
+      timeout: 10000,
+    });
     const data = response.data;
-    console.log('[iziPay] Response:', JSON.stringify(data).slice(0,200));
-    if (data?.status && data?.data?.address) {
-      return { address: data.data.address, signature: data.signature };
-    }
-    // Essayer aussi data.address direct
-    if (data?.address) return { address: data.address };
-    console.error('[iziPay] No address in response:', JSON.stringify(data));
+    if(data && data.status && data.data && data.data.address) return { address: data.data.address };
+    if(data && data.address) return { address: data.address };
     return null;
-  } catch (e) {
-    if (e.response) {
-      console.error('[iziPay address] HTTP', e.response.status, ':', JSON.stringify(e.response.data));
-    } else {
-      console.error('[iziPay address] error:', e.message);
-    }
+  } catch(e) {
+    if(e.response) console.error('[iziPay addr] HTTP', e.response.status, JSON.stringify(e.response.data));
+    else console.error('[iziPay addr]', e.message);
     return null;
   }
 }
@@ -800,21 +838,26 @@ app.post('/api/zama/create', async (req,res) => {
     if(!amount||!src_currency) return res.status(400).json({error:'Données manquantes'});
     const orderId='ZAMA-'+Date.now();
     const selectedCoin=coin||'usdt.trc20';
+    const amountUSD=src_currency==='USD'?parseFloat(amount):parseFloat((amount/(rate_fcfa/606)).toFixed(2));
     const order={order_id:orderId,src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,sender_phone,message,user_id:user_id||null,status:'pending',crypto_coin:selectedCoin,created_at:new Date(),updated_at:new Date()};
     if(db) await db.collection('zama_orders').insertOne(order);
-    // Adresse crypto immédiate (8s timeout)
-    const iziResult=await iziGetAddress(selectedCoin);
-    const cryptoAddress=iziResult?.address||null;
-    if(cryptoAddress&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{'$set':{crypto_address:cryptoAddress}});
-    // Emails en arrière-plan
-    setImmediate(async()=>{
-      try{await sendMail(process.env.GMAIL_USER,'ZAMA '+orderId,'<h2>Nouvelle commande ZAMA</h2><p>Ref: '+orderId+'</p><p>'+amount+' '+src_currency+' → '+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</p><p>'+receiver_name+' · '+receiver_phone+'</p>'+(cryptoAddress?'<p>Adresse '+selectedCoin+': '+cryptoAddress+'</p>':''));}catch(e){}
-      if(sender_email){try{await sendMail(sender_email,'ZAMA Confirmation REF: '+orderId,'<div style="font-family:Arial;padding:24px"><h2 style="color:#F59E0B">ZAMA — Confirmation</h2><p>Bonjour '+sender_name+',</p><p>Ref: <strong>'+orderId+'</strong></p><p>Vous envoyez <strong>'+amount+' '+src_currency+'</strong></p><p>Destinataire reçoit <strong style="color:#F59E0B">'+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</strong> via '+(receiver_mm==='wave'?'Wave':'Orange Money')+'</p>'+(cryptoAddress?'<p>Adresse ('+selectedCoin+'): <strong>'+cryptoAddress+'</strong></p>':'')+'<p style="color:#F59E0B">ZAMA by PST Telecom</p></div>');}catch(e){}}
+    // Générer URL de paiement via generatePayinRedirectUrlWithCustomer (SDK officiel)
+    const paymentUrl=await iziGeneratePaymentUrl({
+      orderId,amountUSD,coin:selectedCoin,
+      acceptedCoins:['trx','usdt.trc20','usdt.bep20','btc','eth','bnb'],
+      firstname:(sender_name||'Client').split(' ')[0],
+      lastname:(sender_name||'ZAMA').split(' ').slice(1).join(' ')||'ZAMA',
+      email:sender_email||'',
     });
-    res.json({success:true,order_id:orderId,net_fcfa,crypto_address:cryptoAddress,crypto_coin:selectedCoin,payment_url:cryptoAddress?null:'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId});
+    if(paymentUrl&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{'$set':{payment_url:paymentUrl}});
+    // Emails arrière-plan
+    setImmediate(async()=>{
+      try{await sendMail(process.env.GMAIL_USER,'ZAMA '+orderId,'<h2>Nouvelle commande ZAMA</h2><p>Ref: '+orderId+'</p><p>'+amount+' '+src_currency+' vers '+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</p><p>'+receiver_name+' - '+receiver_phone+'</p>'+(paymentUrl?'<p><a href="'+paymentUrl+'">Lien paiement izichange</a></p>':''));}catch(e){}
+      if(sender_email){try{await sendMail(sender_email,'ZAMA Confirmation REF: '+orderId,'<div style="font-family:Arial;padding:24px"><h2 style="color:#F59E0B">ZAMA - Confirmation</h2><p>Bonjour '+sender_name+',</p><p>Ref: <strong>'+orderId+'</strong></p><p>Vous envoyez <strong>'+amount+' '+src_currency+'</strong></p><p>Destinataire recoit <strong style="color:#F59E0B">'+(net_fcfa||0).toLocaleString('fr-FR')+' FCFA</strong></p><p style="color:#F59E0B">ZAMA by PST Telecom</p></div>');}catch(e){}}
+    });
+    res.json({success:true,order_id:orderId,net_fcfa,payment_url:paymentUrl||('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId)});
   } catch(e){console.error('[ZAMA create]',e.message); res.status(500).json({error:e.message});}
 });
-
 // Récupérer adresse crypto
 app.post('/api/zama/get-address', async (req,res) => {
   try {

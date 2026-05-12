@@ -632,6 +632,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <div class="cpx" onclick="selCX(this,'LTC')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
         </div>
         <button class="pos-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay</button>
+        <a id="pos-link-btn" href="#" target="_blank" style="display:none;width:100%;padding:15px;background:linear-gradient(135deg,#00b4d8,#0077b6);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;align-items:center;justify-content:center;gap:8px;font-family:var(--font);margin-bottom:14px">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Payer maintenant sur izichangePay ↗
+        </a>
         <div id="addr-wrap" style="display:none"><div class="addr-box" id="p-addr">--</div><button class="copy-btn" onclick="copyAddr()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier l'adresse</button></div>
         <div class="pay-timer" id="p-timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti encore 30:00</div>
         <div class="pay-info"><div class="pir"><span class="pl">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div><div class="pir"><span class="pl">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div><div class="pir"><span class="pl">Via</span><span id="pi-mm">--</span></div></div>
@@ -1116,19 +1120,28 @@ async function createOrder(){
   var msg=document.getElementById("s-msg").value.trim();
   var amtU=(a*(rates.usd/rate)).toFixed(4);
   var mL=MM==="wave"?"Wave":"Orange Money";
+  var paymentUrl=null;
   try{
     var res=await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null})});
     var data=await res.json();
     orderId=data.order_id||"ZAMA-"+Date.now();
-    if(data.address){document.getElementById("p-addr").textContent=data.address;document.getElementById("addr-wrap").style.display="block";}
+    paymentUrl=data.payment_url||null;
   }catch(e){orderId="ZAMA-"+Date.now();}
   var sv=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
-  sv("p-amt",a.toFixed(2)+" "+curr);sv("p-sub","≈ "+amtU+" "+selCrypto.split(".")[0]);
+  sv("p-amt",a.toFixed(2)+" "+curr);sv("p-sub","≈ "+amtU+" USDT");
   sv("pi-name",rn||"--");sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");sv("pi-mm",mL);
   sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
   saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
+  // Afficher le lien izichange dans une iframe si disponible
+  if(paymentUrl){
+    var posBtn=document.getElementById("pos-link-btn");
+    if(posBtn){posBtn.href=paymentUrl;posBtn.style.display="flex";}
+    // Masquer le bouton POS générique
+    var oldPos=document.querySelector(".pos-btn");
+    if(oldPos) oldPos.style.display="none";
+  }
   startCD();checkT=setInterval(autoCheck,30000);
   btn.disabled=false;btn.innerHTML="Payer maintenant";
   goto("scr-pay");
