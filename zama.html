@@ -539,6 +539,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <!-- SEND -->
 <div class="scr" id="scr-send">
+  <div class="hdr"><button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
   <div class="send-hero">
     <div class="amt-lbl">Je veux envoyer</div>
     <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
@@ -568,8 +569,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding-top:14px">
       <div class="slbl" style="margin-top:0">Recevoir via</div>
       <div class="mm-row">
-        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
-        <div class="mm" id="mm-om" onclick="selMM('om',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div class="mm-logo" style="background:#1C8EF9;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#1C8EF9"/><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#FF6600"/><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
       </div>
       <div class="slbl" style="margin-top:4px">Informations</div>
       <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
@@ -621,15 +622,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="pay-body">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisir la crypto</div>
         <div class="cpx-grid" id="cpx-grid">
-          <div class="cpx on" onclick="selCX(this,'USDT.BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-          <div class="cpx" onclick="selCX(this,'USDT.TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-          <div class="cpx" onclick="selCX(this,'BTC')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-          <div class="cpx" onclick="selCX(this,'ETH')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-          <div class="cpx" onclick="selCX(this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-          <div class="cpx" onclick="selCX(this,'TRX')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
-          <div class="cpx" onclick="selCX(this,'USDC.BEP20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC</div>
-          <div class="cpx" onclick="selCX(this,'XRP')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP</div>
-          <div class="cpx" onclick="selCX(this,'LTC')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
+          <div class="cpx on" onclick="selCX(this,'usdt.trc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+          <div class="cpx" onclick="selCX(this,'usdt.bep20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+          <div class="cpx" onclick="selCX(this,'usdt.erc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT ERC20</div>
+          <div class="cpx" onclick="selCX(this,'usdt.opbnb')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT OPBNB</div>
+          <div class="cpx" onclick="selCX(this,'usdt.ton')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TON</div>
+          <div class="cpx" onclick="selCX(this,'usdc.trc20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC TRC20</div>
+          <div class="cpx" onclick="selCX(this,'usdc.bep20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC BEP20</div>
+          <div class="cpx" onclick="selCX(this,'usdc.erc20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC ERC20</div>
+          <div class="cpx" onclick="selCX(this,'btc')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+          <div class="cpx" onclick="selCX(this,'btc.bep20')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">BTC BEP20</div>
+          <div class="cpx" onclick="selCX(this,'eth')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+          <div class="cpx" onclick="selCX(this,'eth.bep20')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">ETH BEP20</div>
+          <div class="cpx" onclick="selCX(this,'bnb')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+          <div class="cpx" onclick="selCX(this,'opbnb')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">OPBNB</div>
+          <div class="cpx" onclick="selCX(this,'trx')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+          <div class="cpx" onclick="selCX(this,'xrp.bep20')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP BEP20</div>
+          <div class="cpx" onclick="selCX(this,'sol.bep20')"><img src="https://cryptologos.cc/logos/solana-sol-logo.png" onerror="this.style.display='none'">SOL BEP20</div>
+          <div class="cpx" onclick="selCX(this,'ada.bep20')"><img src="https://cryptologos.cc/logos/cardano-ada-logo.png" onerror="this.style.display='none'">ADA BEP20</div>
+          <div class="cpx" onclick="selCX(this,'doge.bep20')"><img src="https://cryptologos.cc/logos/dogecoin-doge-logo.png" onerror="this.style.display='none'">DOGE BEP20</div>
+          <div class="cpx" onclick="selCX(this,'dot.bep20')"><img src="https://cryptologos.cc/logos/polkadot-new-dot-logo.png" onerror="this.style.display='none'">DOT BEP20</div>
+          <div class="cpx" onclick="selCX(this,'shib.bep20')"><img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png" onerror="this.style.display='none'">SHIB BEP20</div>
+          <div class="cpx" onclick="selCX(this,'ltc')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
+          <div class="cpx" onclick="selCX(this,'busd.bep20')"><img src="https://cryptologos.cc/logos/binance-usd-busd-logo.png" onerror="this.style.display='none'">BUSD BEP20</div>
+          <div class="cpx" onclick="selCX(this,'ton')"><img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" onerror="this.style.display='none'">TON</div>
+          <div class="cpx" onclick="selCX(this,'twt.bep20')"><img src="https://cryptologos.cc/logos/trust-wallet-token-twt-logo.png" onerror="this.style.display='none'">TWT BEP20</div>
         </div>
         <button class="pos-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay</button>
         <a id="pos-link-btn" href="#" target="_blank" style="display:none;width:100%;padding:15px;background:linear-gradient(135deg,#00b4d8,#0077b6);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;align-items:center;justify-content:center;gap:8px;font-family:var(--font);margin-bottom:14px">
