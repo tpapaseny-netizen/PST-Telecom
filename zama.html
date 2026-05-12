@@ -409,6 +409,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* ══ SEC BADGE ══ */
 .sec-badge{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--text3);padding:10px 20px;}
 .sec-badge svg{width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2;}
+.logo-upload-btn{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--s3);border:1px solid var(--border2);border-radius:20px;cursor:pointer;font-size:10px;font-weight:600;color:var(--text3);transition:all .15s;}
+.logo-upload-btn:active{background:var(--s4);}
+.logo-upload-btn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;}
+.logo-img-preview{width:36px;height:36px;border-radius:10px;object-fit:cover;}
 
 /* ══ EMPTY STATE ══ */
 .empty-st{padding:48px 20px;text-align:center;}
@@ -493,10 +497,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="home-hero">
       <div class="hero-top">
         <div class="logo-row">
+          <div style="position:relative">
           <div class="logo-mark" id="logo-mark">
             <svg viewBox="0 0 40 40" fill="none"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><path d="M25 7C26 4 28 3 29 6C30 3 32 4 31 7" stroke="rgba(0,0,0,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M34 14L37 13L36 15Z" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg>
           </div>
-          <div class="logo-text"><div class="lname">ZAMA</div><div class="lsub">Transfert</div></div>
+          </div>
+          <div class="logo-text"><div class="lname" id="brand-name">ZAMA</div><div class="lsub">Transfert</div></div>
         </div>
         <div class="hero-actions">
           <div class="hero-icon-btn" onclick="showQR()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div>
@@ -567,10 +573,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div class="sb">
     <div id="qb-wrap" style="display:none;padding-top:8px"><div class="slbl" style="margin-top:8px">Récents</div><div id="qb-list"></div><div class="divider" style="margin:8px 0"></div></div>
     <div style="padding-top:14px">
-      <div class="slbl" style="margin-top:0">Recevoir via</div>
+      <div class="slbl" style="margin-top:0">Recevoir via <span style="float:right;font-size:10px;color:var(--text3);cursor:pointer" onclick="document.getElementById('logo-upload-panel').style.display=document.getElementById('logo-upload-panel').style.display==='none'?'block':'none'">⚙ Logos</span></div>
+      <div id="logo-upload-panel" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Personnaliser les logos</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-zama" class="logo-mark" style="width:32px;height:32px;cursor:default"><svg viewBox="0 0 40 40" fill="none" width="20"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo ZAMA</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'logo-mark','prev-zama')"></label>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-wave" style="width:32px;height:32px;border-radius:8px;background:#1C8EF9;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 40 40" width="22" height="22" fill="none"><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo Wave</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'mm-wave-logo','prev-wave')"></label>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-om" style="width:32px;height:32px;border-radius:8px;background:#FF6600;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 40 40" width="22" height="22" fill="none"><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo Orange Money</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'mm-om-logo','prev-om')"></label>
+          </div>
+          <button onclick="resetLogos()" style="padding:8px;background:var(--red-l);border:1px solid rgba(239,68,68,.2);border-radius:var(--rsm);color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Réinitialiser les logos par défaut</button>
+        </div>
+      </div>
       <div class="mm-row">
-        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div class="mm-logo" style="background:#1C8EF9;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#1C8EF9"/><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
-        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#FF6600"/><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div id="mm-wave-logo" class="mm-logo" style="background:#1C8EF9;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#1C8EF9"/><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div id="mm-om-logo" class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#FF6600"/><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
       </div>
       <div class="slbl" style="margin-top:4px">Informations</div>
       <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
@@ -1017,6 +1041,7 @@ let selCrypto="USDT.BEP20";
 let pinE="",psE="",psF="",psStep=1;
 
 window.addEventListener("load",function(){
+  loadSavedLogos();
   user=loadU();
   fetchRates();
   setInterval(fetchRates,60000);
@@ -1621,6 +1646,56 @@ async function loadRecvHistory() {
       }).join('');
     }
   } catch(e) {}
+}
+
+
+// ── GESTION LOGOS PERSONNALISÉS ──
+function uploadLogo(input, targetId, previewId) {
+  if(!input.files||!input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var imgData = e.target.result;
+    var target = document.getElementById(targetId);
+    var preview = document.getElementById(previewId);
+    if(!target) return;
+    // Remplacer le contenu par une image
+    target.innerHTML = '<img src="'+imgData+'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+    target.style.background = 'transparent';
+    target.style.padding = '0';
+    if(preview) preview.innerHTML = '<img src="'+imgData+'" class="logo-img-preview">';
+    // Sauvegarder en localStorage
+    localStorage.setItem('zama_logo_'+targetId, imgData);
+    toast('Logo mis à jour !', 'ok');
+    document.getElementById('logo-upload-panel').style.display = 'none';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function resetLogos() {
+  ['logo-mark','mm-wave-logo','mm-om-logo'].forEach(function(id) {
+    localStorage.removeItem('zama_logo_'+id);
+  });
+  toast('Logos réinitialisés — rechargez la page', 'info');
+  setTimeout(function(){ location.reload(); }, 1500);
+}
+
+function loadSavedLogos() {
+  var logos = {
+    'logo-mark': null,
+    'mm-wave-logo': null,
+    'mm-om-logo': null
+  };
+  Object.keys(logos).forEach(function(id) {
+    var saved = localStorage.getItem('zama_logo_'+id);
+    if(saved) {
+      var el = document.getElementById(id);
+      if(el) {
+        el.innerHTML = '<img src="'+saved+'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+        el.style.background = 'transparent';
+        el.style.padding = '0';
+      }
+    }
+  });
 }
 
 // TOAST
