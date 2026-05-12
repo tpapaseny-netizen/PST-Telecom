@@ -827,6 +827,15 @@ app.post('/api/zama/get-address', async (req,res) => {
   } catch(e){res.status(500).json({error:e.message});}
 });
 
+// Historique réceptions d'un user
+app.get('/api/zama/recv-history/:userId', async (req,res) => {
+  try {
+    if(!db) return res.json([]);
+    const orders = await db.collection('zama_recv').find({user_id:req.params.userId}).sort({created_at:-1}).limit(20).toArray();
+    res.json(orders.map(o=>{const{_id,...r}=o;return r;}));
+  } catch(e){res.json([]);}
+});
+
 // Route sign — calcule signature HMAC sans exposer la secretKey au client
 app.post('/api/zama/sign', (req,res) => {
   try {

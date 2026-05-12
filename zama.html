@@ -408,10 +408,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 /* ══ SEC BADGE ══ */
 .sec-badge{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--text3);padding:10px 20px;}
-.cpx-new{display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);background:var(--s2);border-radius:var(--rsm);cursor:pointer;transition:all .15s;}
-.cpx-new:active{transform:scale(.97);}
-.cpx-new.on{border-color:var(--gold);background:var(--gold-l);}
-.cpx-new img{width:28px;height:28px;border-radius:50%;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;}
 .sec-badge svg{width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2;}
 
 /* ══ EMPTY STATE ══ */
@@ -514,9 +510,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
     <div class="qa-grid">
       <div class="qa" onclick="goto('scr-send')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg></div><div class="qa-lbl">Envoyer</div></div>
+      <div class="qa" onclick="goto('scr-recv-crypto')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="2" y1="22" x2="13" y2="11"/><polygon points="2,22 9,2 13,11 22,6 2,22"/></svg></div><div class="qa-lbl">Recevoir</div></div>
       <div class="qa" onclick="goto('scr-hist')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><div class="qa-lbl">Historique</div></div>
-      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
-      <div class="qa" onclick="showQR()"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="qa-lbl">QR Code</div></div>
+      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
     </div>
 
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
@@ -543,7 +539,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <!-- SEND -->
 <div class="scr" id="scr-send">
-  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
   <div class="send-hero">
     <div class="amt-lbl">Je veux envoyer</div>
     <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
@@ -573,8 +568,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding-top:14px">
       <div class="slbl" style="margin-top:0">Recevoir via</div>
       <div class="mm-row">
-        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div class="mm-logo" style="background:#1D9BF0;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 36 36" width="28" height="28"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="16" font-weight="900" fill="white" font-family="Arial">W</text></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
-        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 36 36" width="28" height="28"><circle cx="18" cy="18" r="18" fill="#FF6600"/><text x="18" y="23" text-anchor="middle" font-size="12" font-weight="900" fill="white" font-family="Arial">OM</text></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Wave_logo.svg/512px-Wave_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm" id="mm-om" onclick="selMM('om',this)"><img class="mm-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Orange_Money_logo.svg/512px-Orange_Money_logo.svg.png" onerror="this.style.background='var(--s4)'"><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
       </div>
       <div class="slbl" style="margin-top:4px">Informations</div>
       <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
@@ -596,100 +591,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <!-- PAYMENT -->
 <div class="scr" id="scr-pay">
-  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement crypto</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
   <div class="sb">
-    <!-- Montant -->
-    <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:20px;text-align:center">
-      <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Vous envoyez</div>
-      <div class="pay-amt" id="p-amt" style="font-size:36px;font-weight:800;color:#fff">--</div>
-      <div id="p-sub" style="font-size:13px;color:rgba(255,255,255,.4);margin-top:4px">--</div>
-    </div>
-
-    <!-- Choix crypto -->
-    <div style="padding:16px 20px 0">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisissez votre crypto</div>
-            <div class="cpx-grid" id="cpx-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <div class="cpx-new on" onclick="selCrypto2('usdt.trc20',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdt.bep20',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdt.erc20',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT ERC20</div><div style="font-size:10px;color:var(--text3)">Réseau ETH</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdc.trc20',this)"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdc.bep20',this)"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdc.erc20',this)"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC ERC20</div><div style="font-size:10px;color:var(--text3)">Réseau ETH</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('btc',this)"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Bitcoin</div><div style="font-size:10px;color:var(--text3)">BTC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('btc.bep20',this)"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BTC BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('eth',this)"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Ethereum</div><div style="font-size:10px;color:var(--text3)">ETH</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('eth.bep20',this)"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">ETH BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('bnb',this)"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('trx',this)"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TRON</div><div style="font-size:10px;color:var(--text3)">TRX</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('xrp.bep20',this)"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">XRP BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('sol.bep20',this)"><img src="https://cryptologos.cc/logos/solana-sol-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">SOL BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('ada.bep20',this)"><img src="https://cryptologos.cc/logos/cardano-ada-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">ADA BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('doge.bep20',this)"><img src="https://cryptologos.cc/logos/dogecoin-doge-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">DOGE BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('dot.bep20',this)"><img src="https://cryptologos.cc/logos/polkadot-new-dot-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">DOT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('shib.bep20',this)"><img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">SHIB BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('ltc',this)"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Litecoin</div><div style="font-size:10px;color:var(--text3)">LTC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('busd.bep20',this)"><img src="https://cryptologos.cc/logos/binance-usd-busd-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BUSD BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('twt.bep20',this)"><img src="https://cryptologos.cc/logos/trust-wallet-token-twt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TWT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('ton',this)"><img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TON</div><div style="font-size:10px;color:var(--text3)">Réseau TON</div></div></div>
-        <div class="cpx-new" onclick="selCrypto2('usdt.ton',this)"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT TON</div><div style="font-size:10px;color:var(--text3)">Réseau TON</div></div></div>
-      </div>
-
-      <!-- Bouton générer adresse -->
-      <button class="btn-p" style="width:100%;margin:0 0 16px" id="gen-addr-btn" onclick="genAddress()">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Générer mon adresse de paiement
-      </button>
-
-      <!-- Zone adresse (cachée au départ) -->
-      <div id="addr-zone" style="display:none">
-        <!-- Résumé transaction -->
-        <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0"><span style="color:var(--text2)">Via</span><span id="pi-mm">--</span></div>
+    <div class="pay-card">
+      <div class="pay-top"><div class="pay-lbl">Montant à envoyer</div><div class="pay-amt" id="p-amt">--</div><div class="pay-sub" id="p-sub">--</div></div>
+      <div class="pay-body">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer avec</div>
+        <div class="cpx-grid" id="cpx-grid">
+          <div class="cpx on" onclick="selCX(this,'USDT.BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+          <div class="cpx" onclick="selCX(this,'USDT.TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+          <div class="cpx" onclick="selCX(this,'BTC')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+          <div class="cpx" onclick="selCX(this,'ETH')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+          <div class="cpx" onclick="selCX(this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+          <div class="cpx" onclick="selCX(this,'TRX')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+          <div class="cpx" onclick="selCX(this,'USDC.BEP20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC</div>
+          <div class="cpx" onclick="selCX(this,'XRP')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP</div>
+          <div class="cpx" onclick="selCX(this,'LTC')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
         </div>
-
-        <!-- Countdown -->
-        <div class="pay-timer" id="p-timer" style="margin-bottom:14px">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-          Adresse valide encore <strong id="cd-time">30:00</strong>
-        </div>
-
-        <!-- QR Code -->
-        <div style="text-align:center;margin-bottom:14px">
-          <canvas id="pay-qr" width="180" height="180" style="border-radius:12px;background:#fff;padding:8px"></canvas>
-        </div>
-
-        <!-- Adresse -->
-        <div style="margin-bottom:10px">
-          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Adresse <span id="p-coin-label">USDT TRC20</span></div>
-          <div class="addr-box" id="p-addr" style="font-size:12px;line-height:1.8;word-break:break-all;background:var(--bg);border:1.5px dashed var(--gold);border-radius:var(--rsm);padding:12px;color:var(--gold)">--</div>
-        </div>
-        <button class="copy-btn" onclick="copyAddr()" style="width:100%;margin-bottom:14px">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copier l'adresse
-        </button>
-
-        <!-- Instructions -->
-        <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:var(--rsm);padding:12px;font-size:12px;color:var(--gold);line-height:1.7;margin-bottom:14px">
-          <strong>Comment payer :</strong><br>
-          1. Copiez l'adresse ci-dessus<br>
-          2. Ouvrez votre exchange (Binance, Coinbase...)<br>
-          3. Envoyez exactement le montant indiqué<br>
-          4. Cliquez <strong>J'ai payé</strong> pour confirmer
-        </div>
-
-        <!-- Bouton J'ai payé -->
-        <button class="btn-p" style="width:100%;margin:0 0 14px" id="check-btn" onclick="checkPay()">
-          ✅ J'ai payé — Vérifier
-        </button>
-
-        <div class="sec-badge">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Paiement sécurisé · izichangePay certifié
-        </div>
+        <button class="pos-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay</button>
+        <div id="addr-wrap" style="display:none"><div class="addr-box" id="p-addr">--</div><button class="copy-btn" onclick="copyAddr()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier l'adresse</button></div>
+        <div class="pay-timer" id="p-timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti encore 30:00</div>
+        <div class="pay-info"><div class="pir"><span class="pl">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div><div class="pir"><span class="pl">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div><div class="pir"><span class="pl">Via</span><span id="pi-mm">--</span></div></div>
       </div>
     </div>
+    <div style="padding:0 20px 14px"><button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">J'ai payé — Vérifier</button></div>
+    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Réseau Binance Smart Chain (BEP20)</div>
   </div>
 </div>
 
@@ -709,6 +635,89 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding:0 20px 14px"><button class="btn-p" style="width:100%;margin:0" onclick="goto('scr-home')">Retour à l'accueil</button></div>
   </div>
 </div>
+
+<!-- RECEVOIR CRYPTO -->
+<div class="scr" id="scr-recv-crypto">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Recevoir</span><span class="hact" onclick="shareRecvAddr()">Partager</span></div>
+  <div class="sb">
+    <!-- Hero -->
+    <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:20px;text-align:center">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mon adresse de réception</div>
+      <div style="font-size:20px;font-weight:800;color:var(--green)" id="recv-coin-title">USDT TRC20</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:4px">Partagez votre adresse pour recevoir des cryptos</div>
+    </div>
+
+    <div style="padding:16px 20px 0">
+      <!-- Choix crypto -->
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisissez la crypto à recevoir</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="recv-coins">
+        <div class="cpx-new on" onclick="selRecvCoin('usdt.trc20',this,'USDT TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('usdt.bep20',this,'USDT BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('btc',this,'Bitcoin')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Bitcoin</div><div style="font-size:10px;color:var(--text3)">BTC</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('eth',this,'Ethereum')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Ethereum</div><div style="font-size:10px;color:var(--text3)">ETH</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('bnb',this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('trx',this,'TRON')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TRON</div><div style="font-size:10px;color:var(--text3)">TRX</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('usdt.erc20',this,'USDT ERC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT ERC20</div><div style="font-size:10px;color:var(--text3)">Réseau ETH</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('usdc.trc20',this,'USDC TRC20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
+      </div>
+
+      <!-- Bouton générer -->
+      <button class="btn-p" style="width:100%;margin:0 0 16px" id="recv-gen-btn" onclick="genRecvAddress()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Générer mon adresse
+      </button>
+
+      <!-- Zone adresse -->
+      <div id="recv-addr-zone" style="display:none">
+        <!-- QR Code -->
+        <div style="text-align:center;margin-bottom:16px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:20px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Scannez pour m'envoyer des fonds</div>
+          <canvas id="recv-qr" width="180" height="180" style="border-radius:12px;background:#fff;padding:8px"></canvas>
+          <div style="margin-top:12px;font-size:13px;font-weight:700;color:var(--text)" id="recv-coin-lbl">USDT TRC20</div>
+        </div>
+
+        <!-- Adresse -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Adresse</div>
+          <div id="recv-addr" style="background:var(--bg);border:1.5px dashed var(--green);border-radius:var(--rsm);padding:12px;font-family:monospace;font-size:12px;color:var(--green);word-break:break-all;line-height:1.8">--</div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <button onclick="copyRecvAddr()" style="padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copier
+          </button>
+          <button onclick="shareRecvAddr()" style="padding:12px;background:var(--green-l);border:1px solid rgba(34,197,94,.2);border-radius:var(--rsm);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Partager
+          </button>
+        </div>
+
+        <!-- Warning réseau -->
+        <div style="background:var(--amber-l);border:1px solid rgba(245,158,11,.2);border-radius:var(--rsm);padding:12px;font-size:12px;color:var(--amber);line-height:1.7;margin-bottom:14px">
+          <strong>⚠️ Important :</strong> Envoyez uniquement <strong id="recv-warn-coin">USDT TRC20</strong> sur cette adresse. Tout autre token sera perdu.
+        </div>
+
+        <!-- Historique réceptions -->
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Réceptions récentes</div>
+        <div id="recv-history">
+          <div class="empty-st" style="padding:20px">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            <div class="et">En attente de réceptions</div>
+            <div class="es">Les fonds reçus apparaîtront ici automatiquement</div>
+          </div>
+        </div>
+
+        <div class="sec-badge">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Adresse sécurisée · izichangePay
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- HISTORY -->
 <div class="scr" id="scr-hist">
   <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Historique</span><span></span></div>
@@ -1106,141 +1115,59 @@ function buildRcpt(){
 }
 
 // ORDER
-// Sélection crypto
-var selCoin='usdt.trc20';
-function selCrypto2(coin,el){
-  selCoin=coin;
-  document.querySelectorAll('.cpx-new').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  // Labels
-  var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20'};
-  var lbl=document.getElementById('p-coin-label');
-  if(lbl)lbl.textContent=labels[coin]||coin.toUpperCase();
-}
-
-// Créer commande + aller sur scr-pay
 async function createOrder(){
-  var btn=document.getElementById('pay-btn');btn.disabled=true;
-  btn.innerHTML="<div class='spin'></div> Création...";
-  var a=parseFloat(document.getElementById('s-amt').value);
+  var btn=document.getElementById("pay-btn");btn.disabled=true;
+  btn.innerHTML="<div class='spin'></div> Traitement en cours...";
+  var a=parseFloat(document.getElementById("s-amt").value);
   var rate=rates[cK]||606;var net=Math.round(a*rate*(1-FEE));
-  var rn=document.getElementById('r-name').value.trim();
-  var rph=document.getElementById('r-phone').value.trim();
-  var sn=document.getElementById('s-name').value.trim();
-  var se=document.getElementById('s-email').value.trim();
-  var msg=document.getElementById('s-msg').value.trim();
+  var rn=document.getElementById("r-name").value.trim();
+  var rph=document.getElementById("r-phone").value.trim();
+  var sn=document.getElementById("s-name").value.trim();
+  var se=document.getElementById("s-email").value.trim();
+  var msg=document.getElementById("s-msg").value.trim();
   var amtU=(a*(rates.usd/rate)).toFixed(4);
-  var mL=MM==='wave'?'Wave':'Orange Money';
+  var mL=MM==="wave"?"Wave":"Orange Money";
   try{
-    var res=await fetch(API+'/api/zama/create',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null,coin:selCoin})});
+    var res=await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null})});
     var data=await res.json();
-    orderId=data.order_id||'ZAMA-'+Date.now();
-    if(data.crypto_address){
-      document.getElementById('p-addr').textContent=data.crypto_address;
-      drawPayQR(data.crypto_address);
-      document.getElementById('addr-zone').style.display='block';
-      document.getElementById('gen-addr-btn').style.display='none';
-      startCD2();
-    }
-  }catch(e){orderId='ZAMA-'+Date.now();}
+    orderId=data.order_id||"ZAMA-"+Date.now();
+    if(data.address){document.getElementById("p-addr").textContent=data.address;document.getElementById("addr-wrap").style.display="block";}
+  }catch(e){orderId="ZAMA-"+Date.now();}
   var sv=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
-  sv('p-amt',a.toFixed(2)+' '+curr);
-  sv('p-sub','≈ '+amtU+' '+selCoin.split('.')[0].toUpperCase());
-  sv('pi-name',rn||'--');sv('pi-fcfa',net.toLocaleString('fr-FR')+' FCFA');sv('pi-mm',mL);
-  sv('tk-ref','REF: '+orderId);sv('ts-mm',mL);
-  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:'pending',created_at:new Date().toISOString()});
+  sv("p-amt",a.toFixed(2)+" "+curr);sv("p-sub","≈ "+amtU+" "+selCrypto.split(".")[0]);
+  sv("pi-name",rn||"--");sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");sv("pi-mm",mL);
+  sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
+  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
-  checkT=setInterval(autoCheck,30000);
-  btn.disabled=false;btn.innerHTML='Payer maintenant';
-  goto('scr-pay');
+  startCD();checkT=setInterval(autoCheck,30000);
+  btn.disabled=false;btn.innerHTML="Payer maintenant";
+  goto("scr-pay");
 }
-
-// Générer adresse depuis l'écran de paiement
-async function genAddress(){
-  var btn=document.getElementById('gen-addr-btn');
-  btn.disabled=true;btn.innerHTML="<div class='spin spin-w'></div> Génération en cours...";
-  try{
-    // Demander adresse via notre backend PST (proxy vers izichange)
-    var res=await fetch(API+'/api/zama/get-address',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({coin:selCoin,orderId:orderId})
-    });
-    var data=await res.json();
-    var address=data?.address||null;
-    if(address){
-      document.getElementById('p-addr').textContent=address;
-      drawPayQR(address);
-      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20','btc.bep20':'BTC BEP20','eth.bep20':'ETH BEP20','usdt.erc20':'USDT ERC20','usdc.erc20':'USDC ERC20','ton':'TON','usdt.ton':'USDT TON','busd.bep20':'BUSD BEP20','twt.bep20':'TWT BEP20'};
-      var lbl=document.getElementById('p-coin-label');if(lbl)lbl.textContent=labels[selCoin]||selCoin.toUpperCase();
-      document.getElementById('addr-zone').style.display='block';
-      btn.style.display='none';
-      startCD2();
-      toast('Adresse générée !','ok');
-    } else {
-      // Fallback: montrer message pour contacter le support
-      btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-      toast(data.error||'Service temporairement indisponible','err');
-    }
-  }catch(e){
-    btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-    toast('Erreur connexion: '+e.message,'err');
-  }
-}
-
-// Dessiner QR code simple
-function drawPayQR(text){
-  var cv=document.getElementById('pay-qr');if(!cv)return;
-  var ctx=cv.getContext('2d');var sz=180;
-  ctx.clearRect(0,0,sz,sz);
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,sz,sz);
-  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
-  var cell=5,cols=Math.floor(sz/cell);
-  ctx.fillStyle='#000';
-  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
-    if((hash^(r*31+c*17)^(r^c))%3===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
-  }}
-  // Coin blanc central pour logo
-  ctx.fillStyle='#fff';ctx.fillRect(75,75,30,30);
-  ctx.fillStyle='#F5B014';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText('Z',90,89);
-}
-
-function copyAddr(){
-  var addr=document.getElementById('p-addr').textContent;
-  navigator.clipboard.writeText(addr).then(function(){toast('Adresse copiée !','ok');});
-}
-
+function openPOS(){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");}
+function copyAddr(){navigator.clipboard.writeText(document.getElementById("p-addr").textContent).then(function(){toast("Adresse copiée","ok");});}
 async function checkPay(){
-  var btn=document.getElementById('check-btn');btn.disabled=true;
-  btn.innerHTML="<div class='spin spin-w'></div> Vérification...";
-  try{var r=await fetch(API+'/api/zama/status/'+orderId);var d=await r.json();
-    if(d.status==='paid'||d.status==='completed'){
-      clearInterval(checkT);clearInterval(cdT);
-      updateOrder(orderId,'paid');startTracking();return;
-    }
+  var btn=document.getElementById("check-btn");btn.disabled=true;
+  btn.innerHTML="<div class='spin'></div> Vérification...";
+  try{var r=await fetch(API+"/api/zama/status/"+orderId);var d=await r.json();
+    if(d.status==="paid"||d.status==="completed"){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,"paid");startTracking();return;}
   }catch(e){}
-  btn.disabled=false;btn.innerHTML='✅ J\u0027ai payé — Vérifier';
-  toast('Paiement non encore détecté. Patientez.','info');
+  btn.disabled=false;btn.innerHTML="J'ai payé — Vérifier";toast("Paiement non détecté. Patientez.","info");
 }
-
 async function autoCheck(){
   if(!orderId)return;
-  try{var r=await fetch(API+'/api/zama/status/'+orderId);var d=await r.json();
-    if(d.status==='paid'||d.status==='completed'){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,'paid');startTracking();}
+  try{var r=await fetch(API+"/api/zama/status/"+orderId);var d=await r.json();
+    if(d.status==="paid"||d.status==="completed"){clearInterval(checkT);clearInterval(cdT);updateOrder(orderId,"paid");startTracking();}
   }catch(e){}
 }
-
-function startCD2(){
+function startCD(){
   var s=1800;
-  cdT=setInterval(function(){
-    s--;var m=Math.floor(s/60),sc=s%60;
-    var el=document.getElementById('cd-time');
-    if(el)el.textContent=m+':'+(sc<10?'0'+sc:sc);
-    if(s<=0){clearInterval(cdT);var el2=document.getElementById('p-timer');if(el2)el2.style.background='var(--red-l)';}
+  cdT=setInterval(function(){s--;var m=Math.floor(s/60),sc=s%60;
+    var el=document.getElementById("p-timer");
+    if(el)el.innerHTML="<svg viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='var(--red)' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12,6 12,12 16,14'/></svg> Taux garanti encore "+m+":"+(sc<10?"0"+sc:sc);
+    if(s<=0)clearInterval(cdT);
   },1000);
 }
-function startCD(){startCD2();}
 function startTracking(){
   goto("scr-track");
   var steps=["ts1","ts2","ts3","ts4"],delay=0;
@@ -1550,6 +1477,119 @@ function admChangePwd(){document.getElementById("adm-content").innerHTML="<div s
 function savePwd(){var o=document.getElementById("pwd-old").value;var n=document.getElementById("pwd-new").value;var c=document.getElementById("pwd-conf").value;if(o!==getAdmPwd()){toast("Mot de passe actuel incorrect","err");return;}if(n.length<8){toast("Minimum 8 caractères","err");return;}if(n!==c){toast("Mots de passe différents","err");return;}localStorage.setItem("z_adm_pwd",n);document.getElementById("adm-content").innerHTML="";toast("Mot de passe changé !","ok");}
 function admAddEmail(){document.getElementById("adm-content").innerHTML="<div style='padding:16px 20px'><div class='slbl' style='padding:0;margin-bottom:14px'>Ajouter un email admin</div><div class='fg' style='padding:0;margin-bottom:14px'><label>Email</label><input class='finp' type='email' id='new-adm-em' placeholder='admin@exemple.com' inputmode='email'></div><button onclick='saveAdmEm()' class='btn-p' style='width:100%;margin:0'>Ajouter</button></div>";}
 function saveAdmEm(){var e=document.getElementById("new-adm-em").value.trim();if(!e||!e.includes("@")){toast("Email invalide","err");return;}var x=getXAdm();if(BASE_ADM.includes(e)||x.includes(e)){toast("Déjà admin","err");return;}x.push(e);localStorage.setItem("z_adm_em",JSON.stringify(x));document.getElementById("adm-content").innerHTML="";toast(e+" ajouté comme admin","ok");}
+
+
+// ══ RECEVOIR CRYPTO ══
+var recvCoin = 'usdt.trc20';
+var recvCoinLabel = 'USDT TRC20';
+var recvAddresses = {}; // cache adresses par coin
+
+function selRecvCoin(coin, el, label) {
+  recvCoin = coin;
+  recvCoinLabel = label;
+  document.querySelectorAll('#recv-coins .cpx-new').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  var t = document.getElementById('recv-coin-title');
+  if(t) t.textContent = label;
+  // Si adresse déjà générée pour cette coin
+  if(recvAddresses[coin]) {
+    showRecvAddr(recvAddresses[coin], coin, label);
+  } else {
+    document.getElementById('recv-addr-zone').style.display = 'none';
+    var btn = document.getElementById('recv-gen-btn');
+    if(btn) { btn.style.display = 'flex'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Générer mon adresse'; }
+  }
+}
+
+async function genRecvAddress() {
+  if(!user) { toast('Connectez-vous pour recevoir', 'err'); goto('scr-login'); return; }
+  var btn = document.getElementById('recv-gen-btn');
+  btn.disabled = true;
+  btn.innerHTML = "<div class='spin'></div> Génération...";
+  try {
+    var res = await fetch(API + '/api/zama/get-address', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({coin: recvCoin, orderId: 'RECV-' + user.id})
+    });
+    var data = await res.json();
+    if(data.address) {
+      recvAddresses[recvCoin] = data.address;
+      showRecvAddr(data.address, recvCoin, recvCoinLabel);
+      toast('Adresse générée !', 'ok');
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Générer mon adresse';
+      toast(data.error || 'Service indisponible', 'err');
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Générer mon adresse';
+    toast('Erreur: ' + e.message, 'err');
+  }
+}
+
+function showRecvAddr(address, coin, label) {
+  document.getElementById('recv-addr').textContent = address;
+  document.getElementById('recv-coin-lbl').textContent = label;
+  document.getElementById('recv-warn-coin').textContent = label;
+  document.getElementById('recv-addr-zone').style.display = 'block';
+  var btn = document.getElementById('recv-gen-btn');
+  if(btn) btn.style.display = 'none';
+  // Dessiner QR
+  drawRecvQR(address);
+  // Charger historique réceptions
+  loadRecvHistory();
+}
+
+function drawRecvQR(text) {
+  var cv = document.getElementById('recv-qr'); if(!cv) return;
+  var ctx = cv.getContext('2d'); var sz = 180;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,sz,sz);
+  var hash = 0;
+  for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  var cell = 5, cols = Math.floor(sz/cell);
+  ctx.fillStyle = '#000';
+  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
+    if((hash^(r*31+c*17)^(r^c))%3===0) ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
+  }}
+  ctx.fillStyle='#fff';ctx.fillRect(75,75,30,30);
+  ctx.fillStyle='#22C55E';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('Z',90,89);
+}
+
+function copyRecvAddr() {
+  var addr = document.getElementById('recv-addr').textContent;
+  navigator.clipboard.writeText(addr).then(function(){ toast('Adresse copiée !', 'ok'); });
+}
+
+function shareRecvAddr() {
+  var addr = document.getElementById('recv-addr').textContent;
+  if(addr === '--' || !addr) { toast('Générez d\'abord votre adresse', 'err'); return; }
+  var text = 'Mon adresse ZAMA (' + recvCoinLabel + ') :\n' + addr + '\n\nPST Telecom · Bureau de change digital';
+  if(navigator.share) {
+    navigator.share({title: 'Mon adresse ZAMA', text: text}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(text).then(function(){ toast('Copié !', 'ok'); });
+  }
+}
+
+async function loadRecvHistory() {
+  if(!user) return;
+  var el = document.getElementById('recv-history');
+  try {
+    var res = await fetch(API + '/api/zama/recv-history/' + user.id);
+    var data = await res.json();
+    if(data && data.length > 0) {
+      el.innerHTML = data.map(function(r){
+        return "<div style='display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px'>" +
+          "<div><div style='font-weight:600;color:var(--green)'>+" + (r.amount||'--') + " " + (r.coin||'').toUpperCase() + "</div>" +
+          "<div style='font-size:11px;color:var(--text3);margin-top:2px'>" + new Date(r.created_at).toLocaleDateString('fr-FR') + "</div></div>" +
+          "<div style='font-size:11px;padding:3px 8px;border-radius:100px;background:var(--green-l);color:var(--green);font-weight:600'>Reçu</div>" +
+          "</div>";
+      }).join('');
+    }
+  } catch(e) {}
+}
 
 // TOAST
 var _toastT;
