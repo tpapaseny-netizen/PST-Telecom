@@ -639,85 +639,50 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <!-- RECEVOIR CRYPTO -->
 <div class="scr" id="scr-recv-crypto">
   <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Recevoir</span><span class="hact" onclick="shareRecvAddr()">Partager</span></div>
-  <div class="sb">
-    <!-- Hero -->
+  <div class="sb" style="padding-bottom:20px">
     <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:20px;text-align:center">
       <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mon adresse de réception</div>
       <div style="font-size:20px;font-weight:800;color:var(--green)" id="recv-coin-title">USDT TRC20</div>
       <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:4px">Partagez votre adresse pour recevoir des cryptos</div>
     </div>
-
     <div style="padding:16px 20px 0">
-      <!-- Choix crypto -->
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisissez la crypto à recevoir</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="recv-coins">
         <div class="cpx-new on" onclick="selRecvCoin('usdt.trc20',this,'USDT TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('usdt.bep20',this,'USDT BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT BEP20</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('btc',this,'Bitcoin')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Bitcoin</div><div style="font-size:10px;color:var(--text3)">BTC</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('eth',this,'Ethereum')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">Ethereum</div><div style="font-size:10px;color:var(--text3)">ETH</div></div></div>
-        <div class="cpx-new" onclick="selRecvCoin('bnb',this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">Réseau BSC</div></div></div>
+        <div class="cpx-new" onclick="selRecvCoin('bnb',this,'BNB')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">BNB</div><div style="font-size:10px;color:var(--text3)">BSC</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('trx',this,'TRON')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">TRON</div><div style="font-size:10px;color:var(--text3)">TRX</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('usdt.erc20',this,'USDT ERC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDT ERC20</div><div style="font-size:10px;color:var(--text3)">Réseau ETH</div></div></div>
         <div class="cpx-new" onclick="selRecvCoin('usdc.trc20',this,'USDC TRC20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.src=''"><div><div style="font-weight:700;font-size:13px">USDC TRC20</div><div style="font-size:10px;color:var(--text3)">Réseau TRON</div></div></div>
       </div>
-
-      <!-- Bouton générer -->
       <button class="btn-p" style="width:100%;margin:0 0 16px" id="recv-gen-btn" onclick="genRecvAddress()">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Générer mon adresse
       </button>
-
-      <!-- Zone adresse -->
       <div id="recv-addr-zone" style="display:none">
-        <!-- QR Code -->
         <div style="text-align:center;margin-bottom:16px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:20px">
           <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Scannez pour m'envoyer des fonds</div>
-          <canvas id="recv-qr" width="180" height="180" style="border-radius:12px;background:#fff;padding:8px"></canvas>
+          <canvas id="recv-qr" width="180" height="180" style="border-radius:12px;background:#fff;padding:8px;display:block;margin:0 auto"></canvas>
           <div style="margin-top:12px;font-size:13px;font-weight:700;color:var(--text)" id="recv-coin-lbl">USDT TRC20</div>
         </div>
-
-        <!-- Adresse -->
         <div style="margin-bottom:10px">
           <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Adresse</div>
           <div id="recv-addr" style="background:var(--bg);border:1.5px dashed var(--green);border-radius:var(--rsm);padding:12px;font-family:monospace;font-size:12px;color:var(--green);word-break:break-all;line-height:1.8">--</div>
         </div>
-
-        <!-- Actions -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-          <button onclick="copyRecvAddr()" style="padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copier
-          </button>
-          <button onclick="shareRecvAddr()" style="padding:12px;background:var(--green-l);border:1px solid rgba(34,197,94,.2);border-radius:var(--rsm);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Partager
-          </button>
+          <button onclick="copyRecvAddr()" style="padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</button>
+          <button onclick="shareRecvAddr()" style="padding:12px;background:var(--green-l);border:1px solid rgba(34,197,94,.2);border-radius:var(--rsm);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partager</button>
         </div>
-
-        <!-- Warning réseau -->
         <div style="background:var(--amber-l);border:1px solid rgba(245,158,11,.2);border-radius:var(--rsm);padding:12px;font-size:12px;color:var(--amber);line-height:1.7;margin-bottom:14px">
-          <strong>⚠️ Important :</strong> Envoyez uniquement <strong id="recv-warn-coin">USDT TRC20</strong> sur cette adresse. Tout autre token sera perdu.
+          <strong>⚠️ Important :</strong> Envoyez uniquement <strong id="recv-warn-coin">USDT TRC20</strong> sur cette adresse. Tout autre token sera perdu définitivement.
         </div>
-
-        <!-- Historique réceptions -->
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Réceptions récentes</div>
-        <div id="recv-history">
-          <div class="empty-st" style="padding:20px">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-            <div class="et">En attente de réceptions</div>
-            <div class="es">Les fonds reçus apparaîtront ici automatiquement</div>
-          </div>
-        </div>
-
-        <div class="sec-badge">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Adresse sécurisée · izichangePay
-        </div>
+        <div class="sec-badge"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Adresse sécurisée · izichangePay</div>
       </div>
     </div>
   </div>
 </div>
-
 <!-- HISTORY -->
 <div class="scr" id="scr-hist">
   <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Historique</span><span></span></div>
