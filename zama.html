@@ -1160,13 +1160,26 @@ async function genAddress(){
   var btn=document.getElementById('gen-addr-btn');
   btn.disabled=true;btn.innerHTML="<div class='spin spin-w'></div> Génération en cours...";
   try{
-    var res=await fetch(API+'/api/zama/get-address',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({coin:selCoin,orderId:orderId})});
+    // Appel DIRECT depuis le navigateur vers izichangePay (évite le blocage Railway)
+    var apiKey='14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680';
+    // Signature calculée côté serveur PST pour éviter d'exposer la secretKey
+    var sigRes=await fetch(API+'/api/zama/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coin:selCoin})});
+    var sigData=await sigRes.json();
+    if(!sigData.signature){throw new Error('Signature impossible');}
+    
+    var res=await fetch('https://pay.izichange.com/api/payements/address',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json','x-api-key':apiKey,'x-signature':sigData.signature},
+      body:JSON.stringify({coin:selCoin})
+    });
     var data=await res.json();
-    if(data.address){
-      document.getElementById('p-addr').textContent=data.address;
-      drawPayQR(data.address);
-      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20'};
+    var address=data?.data?.address||null;
+    if(address){
+      // Sauvegarder adresse dans DB via notre backend
+      fetch(API+'/api/zama/save-address',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:orderId,address:address,coin:selCoin})}).catch(function(){});
+      document.getElementById('p-addr').textContent=address;
+      drawPayQR(address);
+      var labels={'usdt.trc20':'USDT TRC20','usdt.bep20':'USDT BEP20','usdc.trc20':'USDC TRC20','usdc.bep20':'USDC BEP20','btc':'Bitcoin','eth':'Ethereum','bnb':'BNB','trx':'TRON','xrp.bep20':'XRP BEP20','sol.bep20':'SOL BEP20','ada.bep20':'ADA BEP20','doge.bep20':'DOGE BEP20','ltc':'Litecoin','shib.bep20':'SHIB BEP20','dot.bep20':'DOT BEP20','btc.bep20':'BTC BEP20','eth.bep20':'ETH BEP20','usdt.erc20':'USDT ERC20','usdc.erc20':'USDC ERC20','ton':'TON','usdt.ton':'USDT TON','busd.bep20':'BUSD BEP20','twt.bep20':'TWT BEP20'};
       var lbl=document.getElementById('p-coin-label');if(lbl)lbl.textContent=labels[selCoin]||selCoin.toUpperCase();
       document.getElementById('addr-zone').style.display='block';
       btn.style.display='none';
@@ -1174,11 +1187,11 @@ async function genAddress(){
       toast('Adresse générée !','ok');
     } else {
       btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-      toast('Erreur génération. Réessayez.','err');
+      toast('Erreur izichange: '+JSON.stringify(data),'err');
     }
   }catch(e){
     btn.disabled=false;btn.innerHTML='Générer mon adresse de paiement';
-    toast('Connexion impossible','err');
+    toast('Erreur: '+e.message,'err');
   }
 }
 

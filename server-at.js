@@ -816,6 +816,26 @@ app.post('/api/zama/get-address', async (req,res) => {
   } catch(e){res.status(500).json({error:e.message});}
 });
 
+// Route sign — calcule signature HMAC sans exposer la secretKey au client
+app.post('/api/zama/sign', (req,res) => {
+  try {
+    const {coin}=req.body;
+    if(!coin) return res.status(400).json({error:'coin requis'});
+    const key=process.env.IZIPAY_SECRET_KEY||'kRx1HjF(WLp6BJ0FZ:Ty{#NmO0=9%fWO46]4A3k}';
+    const signature=crypto.createHmac('sha256',key).update('coin='+coin).digest('hex');
+    res.json({success:true,signature});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+
+// Route save-address — sauvegarde adresse générée côté client
+app.post('/api/zama/save-address', async (req,res) => {
+  try {
+    const {orderId,address,coin}=req.body;
+    if(orderId&&db) await db.collection('zama_orders').updateOne({order_id:orderId},{'$set':{crypto_address:address,crypto_coin:coin}});
+    res.json({success:true});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+
 // Status
 app.get('/api/zama/status/:orderId', async (req,res) => {
   try {
