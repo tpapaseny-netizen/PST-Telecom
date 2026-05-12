@@ -593,10 +593,33 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div class="scr" id="scr-pay">
   <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
   <div class="sb">
-    <div class="pay-card">
-      <div class="pay-top"><div class="pay-lbl">Montant à envoyer</div><div class="pay-amt" id="p-amt">--</div><div class="pay-sub" id="p-sub">--</div></div>
+    <!-- Montant -->
+    <div style="background:linear-gradient(135deg,#D4900F,#F5B014,#FCD34D);padding:20px;text-align:center">
+      <div style="font-size:11px;font-weight:700;color:rgba(0,0,0,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Montant à envoyer</div>
+      <div class="pay-amt" id="p-amt" style="color:#000;font-size:36px;font-weight:800">--</div>
+      <div id="p-sub" style="font-size:12px;color:rgba(0,0,0,.45);margin-top:4px">--</div>
+    </div>
+
+    <!-- Option 1 : Wave Business -->
+    <div style="padding:16px 20px 0">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Paiement rapide</div>
+      <button onclick="payWave()" style="width:100%;padding:15px;background:linear-gradient(135deg,#1D9BF0,#0A7CCF);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px">
+        <div style="width:30px;height:30px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 36 36" width="22" height="22"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="16" font-weight="900" fill="white" font-family="Arial">W</text></svg></div>
+        Payer avec Wave
+      </button>
+
+      <!-- Séparateur -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <div style="font-size:11px;color:var(--text3);font-weight:600">OU PAYER EN CRYPTO</div>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+    </div>
+
+    <!-- Option 2 : Crypto -->
+    <div class="pay-card" style="margin:0 20px 14px">
       <div class="pay-body">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer avec</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisir la crypto</div>
         <div class="cpx-grid" id="cpx-grid">
           <div class="cpx on" onclick="selCX(this,'USDT.BEP20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
           <div class="cpx" onclick="selCX(this,'USDT.TRC20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
@@ -614,8 +637,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="pay-info"><div class="pir"><span class="pl">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div><div class="pir"><span class="pl">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div><div class="pir"><span class="pl">Via</span><span id="pi-mm">--</span></div></div>
       </div>
     </div>
+
     <div style="padding:0 20px 14px"><button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">J'ai payé — Vérifier</button></div>
-    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Réseau Binance Smart Chain (BEP20)</div>
+    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · ZAMA by PST Telecom</div>
   </div>
 </div>
 
@@ -1110,6 +1134,19 @@ async function createOrder(){
   goto("scr-pay");
 }
 function openPOS(){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");}
+function payWave(){
+  var a=parseFloat(document.getElementById("s-amt")?document.getElementById("s-amt").value:0)||0;
+  var rate=rates[cK]||606;
+  var net=Math.round(a*rate*(1-FEE));
+  if(!net||net<1){toast("Montant invalide","err");return;}
+  var url="https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount="+net;
+  window.open(url,"_blank");
+  toast("Wave ouvert — revenez après paiement","info");
+  if(!orderId) orderId="ZAMA-"+Date.now();
+  var rn=document.getElementById("r-name")?document.getElementById("r-name").value.trim():"";
+  var rph=document.getElementById("r-phone")?document.getElementById("r-phone").value.trim():"";
+  saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"wave_pending",created_at:new Date().toISOString()});
+}
 function copyAddr(){navigator.clipboard.writeText(document.getElementById("p-addr").textContent).then(function(){toast("Adresse copiée","ok");});}
 async function checkPay(){
   var btn=document.getElementById("check-btn");btn.disabled=true;
