@@ -2,261 +2,644 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>PST — Appels</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>PST Appels — VoIP International</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0A0A0A; color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-.phone { width: 100%; max-width: 380px; padding: 24px 20px; }
-.header { text-align: center; margin-bottom: 24px; }
-.logo { display: inline-block; background: #185FA5; color: white; font-size: 13px; font-weight: 600; padding: 5px 16px; border-radius: 20px; letter-spacing: 2px; margin-bottom: 8px; }
-.mon-num { font-size: 13px; color: #888; }
-.mon-num span { color: #4A9EFF; }
-.statut { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
-.statut-dot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; }
-.statut-dot.rouge { background: #EF4444; }
-.statut-dot.orange { background: #F59E0B; animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-.statut-txt { font-size: 13px; color: #888; }
-.ecran { background: #1A1A1A; border-radius: 16px; padding: 24px 20px; margin-bottom: 16px; min-height: 110px; text-align: center; border: 1px solid #222; }
-.numero-display { font-size: 30px; font-weight: 300; color: white; letter-spacing: 4px; min-height: 44px; }
-.contact-info { font-size: 13px; color: #888; margin-top: 6px; }
-.duree-display { font-size: 15px; color: #4A9EFF; margin-top: 8px; font-weight: 500; }
-.en-appel-nom { font-size: 22px; font-weight: 300; color: white; }
-.en-appel-statut { font-size: 13px; color: #4A9EFF; margin-top: 6px; }
-.clavier { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-.key { background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 14px; padding: 16px 8px; text-align: center; cursor: pointer; transition: background 0.1s; user-select: none; }
-.key:hover { background: #252525; }
-.key:active { background: #2A2A2A; transform: scale(0.95); }
-.key-num { font-size: 22px; font-weight: 300; color: white; }
-.key-sub { font-size: 10px; color: #555; margin-top: 2px; letter-spacing: 1px; }
-.btns-bas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: center; margin-bottom: 24px; }
-.btn-rond { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto; transition: transform 0.1s; }
-.btn-rond:active { transform: scale(0.93); }
-.btn-rond svg { width: 22px; height: 22px; }
-.btn-appel { background: #22C55E; }
-.btn-appel svg { fill: white; }
-.btn-raccrocher { background: #EF4444; display: none; }
-.btn-raccrocher svg { fill: white; }
-.btn-mute { background: #2A2A2A; }
-.btn-mute svg { stroke: #888; fill: none; stroke-width: 2; }
-.btn-mute.actif { background: #185FA5; }
-.btn-mute.actif svg { stroke: white; }
-.btn-del { background: #2A2A2A; }
-.btn-del svg { stroke: #888; fill: none; stroke-width: 2; }
-.btn-label { font-size: 11px; color: #555; text-align: center; margin-top: 6px; }
-.historique { border-top: 1px solid #1A1A1A; padding-top: 16px; }
-.hist-titre { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-.hist-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #111; cursor: pointer; }
-.hist-item:last-child { border-bottom: none; }
-.hist-avatar { width: 36px; height: 36px; border-radius: 50%; background: #1A1A1A; border: 1px solid #2A2A2A; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: #888; flex-shrink: 0; }
-.hist-info { flex: 1; }
-.hist-nom { font-size: 14px; color: white; }
-.hist-num { font-size: 12px; color: #555; margin-top: 2px; }
-.hist-meta { text-align: right; }
-.hist-type { font-size: 11px; }
-.hist-type.out { color: #4A9EFF; }
-.hist-type.in { color: #22C55E; }
-.hist-type.miss { color: #EF4444; }
-.hist-dur { font-size: 11px; color: #555; margin-top: 2px; }
-.notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 12px; padding: 16px 24px; text-align: center; display: none; z-index: 99; min-width: 280px; }
-.notif-nom { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
-.notif-num { font-size: 13px; color: #888; margin-bottom: 16px; }
-.notif-btns { display: flex; gap: 12px; justify-content: center; }
-.notif-btn { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.notif-btn svg { width: 22px; height: 22px; fill: white; }
-.notif-btn.accepter { background: #22C55E; }
-.notif-btn.refuser { background: #EF4444; }
-.connexion-form { text-align: center; padding: 20px 0; }
-.connexion-form input { width: 100%; padding: 12px; background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 10px; color: white; font-size: 14px; margin-bottom: 10px; outline: none; }
-.connexion-form button { width: 100%; padding: 12px; background: #185FA5; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#070A10;
+  --s1:#0C1018;
+  --s2:#111620;
+  --s3:#182030;
+  --s4:#1E2A3E;
+  --border:rgba(255,255,255,0.06);
+  --border2:rgba(255,255,255,0.12);
+  --blue:#185FA5;
+  --blue-l:rgba(24,95,165,0.15);
+  --blue-b:#4A9EFF;
+  --green:#22C55E;
+  --green-l:rgba(34,197,94,0.12);
+  --red:#EF4444;
+  --red-l:rgba(239,68,68,0.12);
+  --gold:#F5B014;
+  --gold-l:rgba(245,176,20,0.10);
+  --text:#E2E8F0;
+  --text2:#94A3B8;
+  --text3:#475569;
+  --font:'DM Sans',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);}
+#app{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+
+/* ── HEADER ── */
+.hdr{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;background:var(--s1);border-bottom:1px solid var(--border);}
+.hdr-logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:36px;height:36px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:20px;height:20px;fill:white;}
+.logo-txt{font-size:15px;font-weight:700;letter-spacing:.5px;}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;}
+.status-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--s2);border:1px solid var(--border);border-radius:100px;font-size:11px;font-weight:600;}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sdot.on{background:var(--green);box-shadow:0 0 6px var(--green);}
+.sdot.off{background:var(--red);}
+.sdot.connecting{background:var(--gold);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--s1);border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:12px;text-align:center;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.tab.on{color:var(--blue-b);border-bottom-color:var(--blue-b);}
+
+/* ── SCREENS ── */
+.scr{display:none;flex:1;flex-direction:column;}
+.scr.on{display:flex;}
+
+/* ── DIAL SCREEN ── */
+.dial-num{background:linear-gradient(160deg,#080D18,#0C1525);padding:28px 20px 20px;text-align:center;flex-shrink:0;}
+.num-display{font-family:var(--mono);font-size:32px;font-weight:500;color:#fff;letter-spacing:6px;min-height:48px;word-break:break-all;}
+.num-sub{font-size:12px;color:var(--text3);margin-top:6px;min-height:18px;}
+
+.dialpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 20px;flex-shrink:0;}
+.dk{background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .1s;user-select:none;}
+.dk:active{background:var(--s3);transform:scale(.96);}
+.dk-n{font-size:22px;font-weight:300;color:var(--text);}
+.dk-s{font-size:9px;color:var(--text3);letter-spacing:1.5px;margin-top:2px;}
+
+.dial-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:0 20px 20px;align-items:center;flex-shrink:0;}
+.da-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.da-btn{width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;flex-shrink:0;}
+.da-btn:active{transform:scale(.93);}
+.da-btn svg{width:22px;height:22px;}
+.da-call{background:var(--green);box-shadow:0 4px 20px rgba(34,197,94,.3);}
+.da-call svg{stroke:#fff;fill:none;stroke-width:2;}
+.da-hang{background:var(--red);box-shadow:0 4px 20px rgba(239,68,68,.3);}
+.da-hang svg{stroke:#fff;fill:none;stroke-width:2;}
+.da-mute{background:var(--s2);border:1px solid var(--border);}
+.da-mute svg{stroke:var(--text2);fill:none;stroke-width:2;}
+.da-mute.on{background:var(--blue);border-color:var(--blue);}
+.da-mute.on svg{stroke:#fff;}
+.da-del{background:var(--s2);border:1px solid var(--border);}
+.da-del svg{stroke:var(--text2);fill:none;stroke-width:2;}
+.da-lbl{font-size:10px;font-weight:600;color:var(--text3);}
+
+/* ── IN CALL ── */
+.in-call{background:linear-gradient(160deg,#071428,#0a1e3a);padding:32px 20px 24px;text-align:center;flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;}
+.in-call.on{display:flex;}
+.call-avatar{width:80px;height:80px;border-radius:50%;background:var(--blue-l);border:2px solid rgba(74,158,255,.3);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--blue-b);margin:0 auto 16px;animation:callpulse 2s infinite;}
+@keyframes callpulse{0%,100%{box-shadow:0 0 0 0 rgba(74,158,255,.3)}50%{box-shadow:0 0 0 16px rgba(74,158,255,0)}}
+.call-name{font-size:24px;font-weight:600;color:#fff;margin-bottom:6px;}
+.call-status{font-size:13px;color:var(--blue-b);margin-bottom:4px;}
+.call-timer{font-family:var(--mono);font-size:20px;color:var(--text2);font-weight:500;}
+
+/* ── HISTORY ── */
+.hist-sb{flex:1;overflow-y:auto;padding-bottom:20px;}
+.hist-sb::-webkit-scrollbar{display:none;}
+.hi{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.hi:active{background:var(--s2);}
+.hi-av{width:42px;height:42px;border-radius:14px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--text2);flex-shrink:0;}
+.hi-info{flex:1;min-width:0;}
+.hi-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hi-num{font-size:12px;color:var(--text3);margin-top:2px;font-family:var(--mono);}
+.hi-right{text-align:right;flex-shrink:0;}
+.hi-type{font-size:11px;font-weight:600;margin-bottom:3px;}
+.out{color:var(--blue-b);}
+.inc{color:var(--green);}
+.mis{color:var(--red);}
+.hi-dur{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.hi-time{font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* ── FORFAITS ── */
+.forf-sb{flex:1;overflow-y:auto;padding:16px 20px;padding-bottom:20px;}
+.forf-sb::-webkit-scrollbar{display:none;}
+.forf-card{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden;}
+.forf-card.popular{border-color:var(--blue);}
+.forf-card.popular::before{content:'POPULAIRE';position:absolute;top:12px;right:12px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:3px 8px;border-radius:100px;letter-spacing:1px;}
+.forf-name{font-size:16px;font-weight:700;margin-bottom:4px;}
+.forf-price{font-size:28px;font-weight:800;color:var(--gold);line-height:1;margin-bottom:4px;}
+.forf-price span{font-size:14px;font-weight:400;color:var(--text3);}
+.forf-mins{font-size:13px;color:var(--blue-b);margin-bottom:12px;}
+.forf-feats{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.forf-feat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
+.forf-feat svg{width:14px;height:14px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0;}
+.forf-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.forf-card.popular .forf-btn{background:linear-gradient(135deg,var(--blue),var(--blue-b));;color:#fff;}
+
+/* ── CONNEXION FORM ── */
+.conn-wrap{padding:24px 20px;flex:1;}
+.conn-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.conn-sub{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6;}
+.finp{width:100%;background:var(--s2);border:1.5px solid var(--border);border-radius:10px;padding:13px 16px;color:var(--text);font-size:14px;font-family:var(--font);outline:none;margin-bottom:10px;transition:border-color .15s;}
+.finp:focus{border-color:var(--blue-b);}
+.finp::placeholder{color:var(--text3);}
+.conn-btn{width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:4px;}
+.conn-note{font-size:12px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6;}
+.conn-note a{color:var(--blue-b);text-decoration:none;}
+
+/* ── WAVE PROMO ── */
+.wave-promo{margin:0 20px 14px;background:linear-gradient(135deg,rgba(29,155,240,.15),rgba(29,155,240,.05));border:1px solid rgba(29,155,240,.25);border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;}
+.wave-ico{width:44px;height:44px;border-radius:12px;background:#1D9BF0;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;font-weight:900;color:#fff;}
+.wave-txt{flex:1;}
+.wave-ttl{font-size:14px;font-weight:700;margin-bottom:2px;}
+.wave-sub{font-size:12px;color:var(--text2);}
+.wave-btn{padding:8px 14px;background:#1D9BF0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;}
+
+/* ── EMPTY ── */
+.empty{padding:48px 20px;text-align:center;}
+.empty svg{width:44px;height:44px;stroke:var(--text3);fill:none;stroke-width:1.5;display:block;margin:0 auto 12px;}
+.empty-t{font-size:15px;font-weight:600;color:var(--text2);}
+.empty-s{font-size:13px;color:var(--text3);margin-top:4px;line-height:1.6;}
+
+/* ── TOAST ── */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--s2);border:1px solid var(--border);border-radius:100px;padding:11px 20px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all .3s;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:rgba(34,197,94,.3);color:var(--green);}
+.toast.err{border-color:rgba(239,68,68,.3);color:var(--red);}
+.toast.info{border-color:rgba(74,158,255,.3);color:var(--blue-b);}
+
+/* ── INCOMING ── */
+.incoming{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.incoming.on{display:flex;}
+.inc-avatar{width:90px;height:90px;border-radius:50%;background:var(--blue-l);border:2px solid var(--blue-b);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:var(--blue-b);}
+.inc-name{font-size:22px;font-weight:600;color:#fff;}
+.inc-num{font-size:14px;color:var(--text2);font-family:var(--mono);}
+.inc-sub{font-size:13px;color:var(--text3);}
+.inc-btns{display:flex;gap:32px;margin-top:8px;}
+.inc-btn{width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.inc-btn svg{width:28px;height:28px;stroke:#fff;fill:none;stroke-width:2;}
+.inc-acc{background:var(--green);box-shadow:0 4px 24px rgba(34,197,94,.4);}
+.inc-ref{background:var(--red);box-shadow:0 4px 24px rgba(239,68,68,.4);}
 </style>
 </head>
 <body>
+<div id="app">
 
-<div class="notification" id="notif-appel">
-  <div class="notif-nom" id="notif-nom">Appel entrant</div>
-  <div class="notif-num" id="notif-num">+221 77 000 00 00</div>
-  <div class="notif-btns">
-    <button class="notif-btn refuser" onclick="refuserAppel()">
-      <svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 17.29 7.76 15.57 6.32 13.62A19.79 19.79 0 0 1 3.25 5 2 2 0 0 1 5.23 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.32 10.79"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
-    </button>
-    <button class="notif-btn accepter" onclick="accepterAppel()">
-      <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-    </button>
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- INCOMING CALL -->
+<div class="incoming" id="incoming">
+  <div class="inc-avatar" id="inc-av">?</div>
+  <div class="inc-name" id="inc-name">Appel entrant</div>
+  <div class="inc-num" id="inc-num">--</div>
+  <div class="inc-sub">Appel VoIP PST</div>
+  <div class="inc-btns">
+    <div><button class="inc-btn inc-ref" onclick="refuser()"><svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.79 19.79 0 0 1 3.25 5 2 2 0 0 1 5.23 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.32 10.79"/><line x1="23" y1="1" x2="1" y2="23"/></svg></button><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:6px">Refuser</div></div>
+    <div><button class="inc-btn inc-acc" onclick="accepter()"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.27-.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:6px">Accepter</div></div>
   </div>
 </div>
 
-<div class="phone">
-  <div class="header">
-    <div class="logo">PST</div><br>
-    <div class="mon-num" id="mon-num-display">Connexion...</div>
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.27-.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+    <div><div class="logo-txt">PST Appels</div><div class="logo-sub">VoIP International</div></div>
+  </div>
+  <div class="status-pill">
+    <div class="sdot off" id="sdot"></div>
+    <span id="statut-txt" style="color:var(--text3)">Non connecté</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab on" id="tab-dial" onclick="showTab('dial')">Clavier</div>
+  <div class="tab" id="tab-hist" onclick="showTab('hist')">Récents</div>
+  <div class="tab" id="tab-forf" onclick="showTab('forf')">Forfaits</div>
+</div>
+
+<!-- ── DIAL ── -->
+<div class="scr on" id="scr-dial">
+  <!-- En appel -->
+  <div class="in-call" id="in-call">
+    <div class="call-avatar" id="call-av">?</div>
+    <div class="call-name" id="call-name">--</div>
+    <div class="call-status" id="call-status">Appel en cours...</div>
+    <div class="call-timer" id="call-timer">00:00</div>
   </div>
 
-  <div class="statut">
-    <div class="statut-dot rouge" id="dot"></div>
-    <span class="statut-txt" id="statut">Non connecté</span>
-  </div>
-
-  <div id="form-connexion" class="connexion-form">
-    <input type="text" id="inp-userid" placeholder="Votre UserID PST (ex: PST-ABCD1234)" />
-    <input type="text" id="inp-num" placeholder="Votre numéro virtuel PST" />
-    <button onclick="seConnecter()">Se connecter à PST</button>
-  </div>
-
-  <div id="interface-appel" style="display:none;">
-    <div class="ecran" id="ecran">
-      <div class="numero-display" id="num-display">+221</div>
-      <div class="contact-info" id="contact-info"></div>
-      <div class="duree-display" id="duree-display"></div>
+  <!-- Clavier -->
+  <div id="dial-main">
+    <div class="dial-num">
+      <div class="num-display" id="num-disp">+221</div>
+      <div class="num-sub" id="num-sub">Entrez un numéro international</div>
     </div>
 
-    <div class="clavier" id="clavier">
-      <div class="key" onclick="key('1')"><div class="key-num">1</div><div class="key-sub"></div></div>
-      <div class="key" onclick="key('2')"><div class="key-num">2</div><div class="key-sub">ABC</div></div>
-      <div class="key" onclick="key('3')"><div class="key-num">3</div><div class="key-sub">DEF</div></div>
-      <div class="key" onclick="key('4')"><div class="key-num">4</div><div class="key-sub">GHI</div></div>
-      <div class="key" onclick="key('5')"><div class="key-num">5</div><div class="key-sub">JKL</div></div>
-      <div class="key" onclick="key('6')"><div class="key-num">6</div><div class="key-sub">MNO</div></div>
-      <div class="key" onclick="key('7')"><div class="key-num">7</div><div class="key-sub">PQRS</div></div>
-      <div class="key" onclick="key('8')"><div class="key-num">8</div><div class="key-sub">TUV</div></div>
-      <div class="key" onclick="key('9')"><div class="key-num">9</div><div class="key-sub">WXYZ</div></div>
-      <div class="key" onclick="key('*')"><div class="key-num">*</div></div>
-      <div class="key" onclick="key('0')"><div class="key-num">0</div><div class="key-sub">+</div></div>
-      <div class="key" onclick="key('#')"><div class="key-num">#</div></div>
+    <div class="dialpad">
+      <div class="dk" onclick="kp('1')"><div class="dk-n">1</div><div class="dk-s"></div></div>
+      <div class="dk" onclick="kp('2')"><div class="dk-n">2</div><div class="dk-s">ABC</div></div>
+      <div class="dk" onclick="kp('3')"><div class="dk-n">3</div><div class="dk-s">DEF</div></div>
+      <div class="dk" onclick="kp('4')"><div class="dk-n">4</div><div class="dk-s">GHI</div></div>
+      <div class="dk" onclick="kp('5')"><div class="dk-n">5</div><div class="dk-s">JKL</div></div>
+      <div class="dk" onclick="kp('6')"><div class="dk-n">6</div><div class="dk-s">MNO</div></div>
+      <div class="dk" onclick="kp('7')"><div class="dk-n">7</div><div class="dk-s">PQRS</div></div>
+      <div class="dk" onclick="kp('8')"><div class="dk-n">8</div><div class="dk-s">TUV</div></div>
+      <div class="dk" onclick="kp('9')"><div class="dk-n">9</div><div class="dk-s">WXYZ</div></div>
+      <div class="dk" onclick="kp('*')"><div class="dk-n">*</div></div>
+      <div class="dk" onclick="kp('0')"><div class="dk-n">0</div><div class="dk-s">+</div></div>
+      <div class="dk" onclick="kp('#')"><div class="dk-n">#</div></div>
     </div>
 
-    <div class="btns-bas">
-      <div>
-        <div class="btn-rond btn-mute" id="btn-mute" onclick="toggleMute()">
-          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-        </div>
-        <div class="btn-label">Muet</div>
+    <div class="dial-actions">
+      <div class="da-wrap">
+        <button class="da-btn da-mute" id="btn-mute" onclick="toggleMute()">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <div class="da-lbl" id="lbl-mute">Muet</div>
       </div>
-
-      <div>
-        <div class="btn-rond btn-appel" id="btn-appel" onclick="appeler()">
-          <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-        </div>
-        <div class="btn-rond btn-raccrocher" id="btn-raccrocher" onclick="raccrocher()">
-          <svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 17.29 7.76 15.57 6.32 13.62A19.79 19.79 0 0 1 3.25 5 2 2 0 0 1 5.23 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.32 10.79"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
-        </div>
-        <div class="btn-label" id="label-btn">Appeler</div>
+      <div class="da-wrap">
+        <button class="da-btn da-call" id="btn-call" onclick="appeler()" style="display:flex">
+          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.27-.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </button>
+        <button class="da-btn da-hang" id="btn-hang" onclick="raccrocher()" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.79 19.79 0 0 1 3.25 5 2 2 0 0 1 5.23 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.32 10.79"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+        </button>
+        <div class="da-lbl" id="lbl-call">Appeler</div>
       </div>
-
-      <div>
-        <div class="btn-rond btn-del" onclick="del()">
+      <div class="da-wrap">
+        <button class="da-btn da-del" onclick="del()">
           <svg viewBox="0 0 24 24"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
-        </div>
-        <div class="btn-label">Effacer</div>
-      </div>
-    </div>
-
-    <div class="historique">
-      <div class="hist-titre">Appels récents</div>
-      <div id="historique-liste">
-        <div class="hist-item" onclick="setNum('+221771520959')">
-          <div class="hist-avatar">PS</div>
-          <div class="hist-info"><div class="hist-nom">Papa Seny</div><div class="hist-num">+221 77 152 09 59</div></div>
-          <div class="hist-meta"><div class="hist-type out">Sortant</div><div class="hist-dur">4:32</div></div>
-        </div>
-        <div class="hist-item" onclick="setNum('+221765596442')">
-          <div class="hist-avatar">NG</div>
-          <div class="hist-info"><div class="hist-nom">Ngathie Toure</div><div class="hist-num">+221 76 559 64 42</div></div>
-          <div class="hist-meta"><div class="hist-type in">Entrant</div><div class="hist-dur">2:10</div></div>
-        </div>
+        </button>
+        <div class="da-lbl">Effacer</div>
       </div>
     </div>
   </div>
+
+  <!-- Form connexion -->
+  <div class="conn-wrap" id="conn-form" style="display:none">
+    <div class="conn-title">Connexion VoIP PST</div>
+    <div class="conn-sub">Entrez vos identifiants PST pour activer les appels VoIP internationaux.</div>
+    <input class="finp" type="text" id="inp-user" placeholder="UserID PST (ex: PST-ABCD1234)">
+    <input class="finp" type="tel" id="inp-num" placeholder="Numéro virtuel PST (+221...)">
+    <button class="conn-btn" onclick="seConnecter()">Se connecter</button>
+    <div class="conn-note">Pas encore de compte ? <a href="/appel#forfaits" onclick="showTab('forf')">Voir les forfaits</a></div>
+  </div>
 </div>
 
-<style>
-#izm{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:999999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
-#izm.open{display:flex;}
-#izb{background:#111827;border:1px solid #1e2d47;border-radius:20px;padding:28px;width:100%;max-width:440px;color:#e2e8f0;position:relative;max-height:85vh;overflow-y:auto;}
-.izs{display:none;}
-.izs.a{display:block;}
-.izg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.izc{padding:12px 8px;border:2px solid #1e2d47;background:#0a0e1a;color:#94a3b8;border-radius:12px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;}
-.izc.a{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,.07);}
-.izci{width:28px;height:28px;border-radius:50%;display:block;margin:0 auto 5px;object-fit:contain;}
-.izbn{width:100%;padding:13px;background:#00e5ff;color:#000;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin-top:10px;display:block;}
-.izb2{width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #1e2d47;border-radius:12px;font-size:12px;cursor:pointer;margin-top:8px;display:block;}
-.iza{background:#0a0e1a;border:1px solid #1e2d47;border-radius:10px;padding:12px;word-break:break-all;font-size:12px;color:#00e5ff;margin:10px 0;font-family:monospace;}
-.izw{background:rgba(249,115,22,.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:11px;color:#f97316;margin-top:8px;}
-.izx{position:absolute;top:14px;right:14px;background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;}
-.izsp{display:inline-block;font-size:32px;animation:izsp 1s linear infinite;}
-@keyframes izsp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-</style>
-<div id="izm">
-<div id="izb">
-<button class="izx" onclick="document.getElementById('izm').classList.remove('open')">&#215;</button>
-<div style="font-size:17px;font-weight:800;margin-bottom:4px">&#9889; Payer en Crypto</div>
-<div style="font-size:26px;font-weight:900;color:#00e5ff;margin-bottom:16px" id="izam">$4.95 USD</div>
-<div class="izs a" id="izs1">
-<div style="font-size:12px;color:#64748b;margin-bottom:10px">Choisissez votre crypto :</div>
-<div class="izg">
-<div class="izc a" onclick="izSel(this,'USDT.BEP20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-<div class="izc" onclick="izSel(this,'USDT.TRC20')"><img class="izci" src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-<div class="izc" onclick="izSel(this,'BTC')"><img class="izci" src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-<div class="izc" onclick="izSel(this,'ETH')"><img class="izci" src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-<div class="izc" onclick="izSel(this,'BNB')"><img class="izci" src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-<div class="izc" onclick="izSel(this,'TRX')"><img class="izci" src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+<!-- ── HISTORIQUE ── -->
+<div class="scr" id="scr-hist">
+  <div class="hist-sb">
+    <div id="hist-list"></div>
+  </div>
 </div>
-<div class="izw">&#9888; Envoyez le montant exact sur le bon reseau.</div>
-<button class="izbn" onclick="izGen()">Generer adresse</button>
-<button class="izb2" onclick="window.open('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402','_blank')">Payer sur izichangePay.com</button>
+
+<!-- ── FORFAITS ── -->
+<div class="scr" id="scr-forf">
+  <div class="forf-sb">
+    <!-- Wave promo -->
+    <div class="wave-promo">
+      <div class="wave-ico">W</div>
+      <div class="wave-txt">
+        <div class="wave-ttl">Payer avec Wave</div>
+        <div class="wave-sub">Rapide · Sécurisé · Sénégal</div>
+      </div>
+      <button class="wave-btn" onclick="payerWaveForfait()">Payer Wave</button>
+    </div>
+
+    <div class="forf-card">
+      <div class="forf-name">Starter</div>
+      <div class="forf-price">4.95 <span>USD / mois</span></div>
+      <div class="forf-mins">60 minutes d'appels</div>
+      <div class="forf-feats">
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Appels Sénégal & international</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Numéro virtuel PST inclus</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Qualité HD</div>
+      </div>
+      <button class="forf-btn" onclick="acheterForfait('starter',4.95,60)">Acheter — 4.95$</button>
+    </div>
+
+    <div class="forf-card popular">
+      <div class="forf-name">Pro</div>
+      <div class="forf-price">9.95 <span>USD / mois</span></div>
+      <div class="forf-mins">150 minutes d'appels</div>
+      <div class="forf-feats">
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Appels Sénégal & international</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>2 numéros virtuels PST</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Qualité HD + enregistrement</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Support prioritaire</div>
+      </div>
+      <button class="forf-btn" onclick="acheterForfait('pro',9.95,150)">Acheter — 9.95$</button>
+    </div>
+
+    <div class="forf-card">
+      <div class="forf-name">Business</div>
+      <div class="forf-price">24.95 <span>USD / mois</span></div>
+      <div class="forf-mins">Appels illimités</div>
+      <div class="forf-feats">
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Appels illimités monde entier</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>5 numéros virtuels PST</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>API access + webhook</div>
+        <div class="forf-feat"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Tableau de bord entreprise</div>
+      </div>
+      <button class="forf-btn" onclick="acheterForfait('business',24.95,0)">Acheter — 24.95$</button>
+    </div>
+
+    <div style="text-align:center;font-size:12px;color:var(--text3);padding:14px">Paiement sécurisé · Wave · Crypto · izichangePay</div>
+  </div>
 </div>
-<div class="izs" id="izs2">
-<div style="font-size:12px;color:#64748b;margin-bottom:6px">Envoyez <b id="izex" style="color:#00e5ff"></b> a :</div>
-<div class="iza" id="izad">--</div>
-<button class="izbn" style="background:#1e2d47;color:#e2e8f0;margin-bottom:8px" onclick="navigator.clipboard.writeText(document.getElementById('izad').textContent)">&#128203; Copier</button>
-<div style="font-size:11px;color:#64748b;margin-bottom:4px" id="iznet"></div>
-<div class="izw">&#8987; Confirmation automatique apres reception.</div>
-<button class="izbn" id="izchk" onclick="izChk()">&#128260; Verifier</button>
-<button class="izb2" onclick="izGo(1)">Changer de crypto</button>
-</div>
-<div class="izs" id="izs3">
-<div style="text-align:center;padding:24px 0"><div class="izsp">&#9889;</div><div style="font-weight:700;margin:14px 0 6px">Verification...</div></div>
-</div>
-<div class="izs" id="izs4">
-<div style="text-align:center;padding:24px 0">
-<div style="font-size:52px;margin-bottom:12px">&#9989;</div>
-<div style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">Paiement confirme!</div>
-<div style="font-size:13px;color:#64748b;margin-bottom:20px">Service active.</div>
-<button class="izbn" onclick="document.getElementById('izm').classList.remove('open')">Fermer</button>
-</div>
-</div>
-</div>
-</div>
+
+</div><!-- #app -->
+
 <script>
-var _zS="appels",_zA=4.95,_zD="Forfait Appels VoIP",_zP="",_zC="USDT.BEP20",_zO="",_zT=null;
-function openCryptoPayment(s,a,d,p){_zS=s;_zA=a;_zD=d;_zP=p||"";document.getElementById("izam").textContent="$"+a.toFixed(2)+" USD";izGo(1);document.getElementById("izm").classList.add("open");}
-function izGo(n){for(var i=1;i<=4;i++){var e=document.getElementById("izs"+i);if(e)e.className="izs"+(n===i?" a":"");}};
-function izSel(el,id){document.querySelectorAll(".izc").forEach(function(b){b.className="izc";});el.className="izc a";_zC=id;}
-async function izGen(){
-  izGo(3);
-  try{
-    var r=await fetch("/api/izipay/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({service:_zS,amount_usd:_zA,currency:_zC,description:_zD,user_phone:_zP})});
-    var d=await r.json();
-    if(d.method==="pos"||!d.address){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");return;}
-    _zO=d.order_id;
-    document.getElementById("izex").textContent=_zA+" USD en "+_zC;
-    document.getElementById("izad").textContent=d.address;
-    document.getElementById("iznet").textContent="Reseau: "+(d.network||_zC);
-    izGo(2);_zT=setInterval(izAuto,30000);
-  }catch(e){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");document.getElementById("izm").classList.remove("open");}
+const API = 'https://pst-telecom-production.up.railway.app';
+const VONAGE_KEY = '3aba9072';
+const WAVE_LINK = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/';
+
+let num = '+221';
+let connected = false;
+let inCall = false;
+let muted = false;
+let callTimer = null;
+let callSecs = 0;
+let userId = localStorage.getItem('pst_uid') || '';
+let userNum = localStorage.getItem('pst_num') || '';
+let callHist = JSON.parse(localStorage.getItem('pst_hist') || '[]');
+
+// ── INIT ──
+window.addEventListener('load', function() {
+  if (userId && userNum) {
+    seConnecter(true);
+  } else {
+    showConnForm();
+  }
+  renderHist();
+  upNum();
+});
+
+// ── TABS ──
+function showTab(t) {
+  ['dial','hist','forf'].forEach(function(id) {
+    document.getElementById('tab-'+id).className = 'tab' + (id===t?' on':'');
+    document.getElementById('scr-'+id).className = 'scr' + (id===t?' on':'');
+  });
+  if (t === 'hist') renderHist();
 }
-async function izChk(){
-  if(!_zO)return;
-  var b=document.getElementById("izchk");b.disabled=true;
-  try{var r=await fetch("/api/izipay/status/"+_zO);var d=await r.json();
-    if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}
-    else b.disabled=false;
-  }catch(e){b.disabled=false;}
+
+// ── CONNEXION ──
+function showConnForm() {
+  document.getElementById('dial-main').style.display = 'none';
+  document.getElementById('conn-form').style.display = 'block';
 }
-function izAuto(){if(!_zO)return;fetch("/api/izipay/status/"+_zO).then(function(r){return r.json();}).then(function(d){if(d.order&&(d.order.status==="paid"||d.order.status==="completed")){clearInterval(_zT);izGo(4);}}).catch(function(){});}
+
+function seConnecter(auto) {
+  var uid = auto ? userId : document.getElementById('inp-user').value.trim();
+  var num2 = auto ? userNum : document.getElementById('inp-num').value.trim();
+  if (!uid || !num2) { toast('Remplissez vos identifiants', 'err'); return; }
+  userId = uid; userNum = num2;
+  localStorage.setItem('pst_uid', uid);
+  localStorage.setItem('pst_num', num2);
+  // Init Vonage
+  initVonage(uid, num2);
+}
+
+function initVonage(uid, num2) {
+  var dot = document.getElementById('sdot');
+  var txt = document.getElementById('statut-txt');
+  dot.className = 'sdot connecting';
+  txt.textContent = 'Connexion...';
+  txt.style.color = 'var(--gold)';
+  // Appel au backend pour token JWT Vonage
+  fetch(API + '/api/appel/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({user_id: uid, number: num2})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.token) {
+      // Initialiser Vonage Client SDK
+      if (typeof NexmoClient !== 'undefined') {
+        var client = new NexmoClient({debug: false});
+        client.login(d.token).then(function(app) {
+          connected = true;
+          dot.className = 'sdot on';
+          txt.textContent = num2;
+          txt.style.color = 'var(--green)';
+          document.getElementById('dial-main').style.display = 'block';
+          document.getElementById('conn-form').style.display = 'none';
+          // Écouter appels entrants
+          app.on('member:call', function(member, call) {
+            showIncoming(call.from || 'Inconnu', call);
+          });
+        }).catch(function(e) {
+          fallbackConnected(num2, dot, txt);
+        });
+      } else {
+        fallbackConnected(num2, dot, txt);
+      }
+    } else {
+      fallbackConnected(num2, dot, txt);
+    }
+  })
+  .catch(function() {
+    fallbackConnected(num2, dot, txt);
+  });
+}
+
+function fallbackConnected(num2, dot, txt) {
+  // Mode démo si SDK non disponible
+  connected = true;
+  dot.className = 'sdot on';
+  txt.textContent = num2 || userNum;
+  txt.style.color = 'var(--green)';
+  document.getElementById('dial-main').style.display = 'block';
+  document.getElementById('conn-form').style.display = 'none';
+  toast('Connecté (mode démo)', 'info');
+}
+
+// ── CLAVIER ──
+function kp(k) {
+  if (num.length >= 18) return;
+  if (k === '0' && num === '') { num = '+'; } else { num += k; }
+  upNum();
+}
+function del() {
+  if (num.length > 0) num = num.slice(0, -1);
+  if (num === '') num = '';
+  upNum();
+}
+function upNum() {
+  var el = document.getElementById('num-disp');
+  var sub = document.getElementById('num-sub');
+  if (el) el.textContent = num || '+221';
+  // Détection pays
+  var info = '';
+  if (num.startsWith('+221')) info = '🇸🇳 Sénégal';
+  else if (num.startsWith('+33')) info = '🇫🇷 France';
+  else if (num.startsWith('+1')) info = '🇺🇸 États-Unis / Canada';
+  else if (num.startsWith('+44')) info = '🇬🇧 Royaume-Uni';
+  else if (num.startsWith('+39')) info = '🇮🇹 Italie';
+  else if (num.startsWith('+34')) info = '🇪🇸 Espagne';
+  else if (num.startsWith('+32')) info = '🇧🇪 Belgique';
+  else if (num.startsWith('+49')) info = '🇩🇪 Allemagne';
+  else if (num.startsWith('+212')) info = '🇲🇦 Maroc';
+  else if (num.startsWith('+225')) info = '🇨🇮 Côte d\'Ivoire';
+  else if (num.startsWith('+229')) info = '🇧🇯 Bénin';
+  if (sub) sub.textContent = info || 'Entrez un numéro international';
+}
+function setNum(n) {
+  num = n; upNum(); showTab('dial');
+}
+
+// ── APPEL ──
+async function appeler() {
+  if (!connected) { toast('Connectez-vous d\'abord', 'err'); showConnForm(); return; }
+  if (inCall) return;
+  if (!num || num.length < 8) { toast('Numéro incomplet', 'err'); return; }
+  inCall = true;
+  // UI appel sortant
+  var av = num.replace(/\D/g,'').slice(-2) || '??';
+  document.getElementById('call-av').textContent = av;
+  document.getElementById('call-name').textContent = num;
+  document.getElementById('call-status').textContent = 'Appel en cours...';
+  document.getElementById('call-timer').textContent = '00:00';
+  document.getElementById('in-call').classList.add('on');
+  document.getElementById('dial-main').querySelector('.dial-num').style.display = 'none';
+  document.getElementById('btn-call').style.display = 'none';
+  document.getElementById('btn-hang').style.display = 'flex';
+  document.getElementById('lbl-call').textContent = 'Raccrocher';
+  // API Vonage
+  try {
+    await fetch(API + '/api/appel/call', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: userId, to: num, from: userNum})
+    });
+  } catch(e) {}
+  startTimer();
+  addHist(num, 'out');
+}
+
+function raccrocher() {
+  inCall = false;
+  stopTimer();
+  document.getElementById('in-call').classList.remove('on');
+  document.getElementById('dial-main').querySelector('.dial-num').style.display = '';
+  document.getElementById('btn-call').style.display = 'flex';
+  document.getElementById('btn-hang').style.display = 'none';
+  document.getElementById('lbl-call').textContent = 'Appeler';
+  document.getElementById('call-status').textContent = '';
+  toast('Appel terminé · ' + fmtTime(callSecs), 'info');
+  callSecs = 0;
+  try { fetch(API + '/api/appel/hangup', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:userId})}); } catch(e) {}
+}
+
+// ── MUTE ──
+function toggleMute() {
+  muted = !muted;
+  var btn = document.getElementById('btn-mute');
+  var lbl = document.getElementById('lbl-mute');
+  btn.className = 'da-btn da-mute' + (muted ? ' on' : '');
+  lbl.textContent = muted ? 'Son coupé' : 'Muet';
+  toast(muted ? 'Micro coupé' : 'Micro activé', 'info');
+}
+
+// ── INCOMING ──
+function showIncoming(fromNum, callObj) {
+  var inc = document.getElementById('incoming');
+  var av = (fromNum||'?').replace(/\D/g,'').slice(-2)||'??';
+  document.getElementById('inc-av').textContent = av;
+  document.getElementById('inc-name').textContent = fromNum || 'Inconnu';
+  document.getElementById('inc-num').textContent = fromNum || '--';
+  inc._call = callObj;
+  inc.classList.add('on');
+}
+function accepter() {
+  var inc = document.getElementById('incoming');
+  var fromNum = document.getElementById('inc-num').textContent;
+  inc.classList.remove('on');
+  inCall = true;
+  num = fromNum;
+  document.getElementById('call-av').textContent = (fromNum||'?').slice(-2);
+  document.getElementById('call-name').textContent = fromNum;
+  document.getElementById('call-status').textContent = 'En appel';
+  document.getElementById('in-call').classList.add('on');
+  document.getElementById('btn-call').style.display = 'none';
+  document.getElementById('btn-hang').style.display = 'flex';
+  startTimer();
+  addHist(fromNum, 'in');
+  if (inc._call && inc._call.answer) inc._call.answer();
+}
+function refuser() {
+  var inc = document.getElementById('incoming');
+  var fromNum = document.getElementById('inc-num').textContent;
+  inc.classList.remove('on');
+  addHist(fromNum, 'mis');
+  toast('Appel refusé', '');
+  if (inc._call && inc._call.reject) inc._call.reject();
+}
+
+// ── TIMER ──
+function startTimer() {
+  callSecs = 0;
+  callTimer = setInterval(function() {
+    callSecs++;
+    var el = document.getElementById('call-timer');
+    if (el) el.textContent = fmtTime(callSecs);
+    var st = document.getElementById('call-status');
+    if (st && callSecs === 1) st.textContent = 'En appel';
+  }, 1000);
+}
+function stopTimer() { clearInterval(callTimer); }
+function fmtTime(s) {
+  var m = Math.floor(s/60), sc = s%60;
+  return (m<10?'0'+m:m) + ':' + (sc<10?'0'+sc:sc);
+}
+
+// ── HISTORIQUE ──
+function addHist(n, type) {
+  callHist.unshift({num:n, type:type, dur:callSecs, ts:new Date().toISOString()});
+  callHist = callHist.slice(0,50);
+  localStorage.setItem('pst_hist', JSON.stringify(callHist));
+  renderHist();
+}
+function renderHist() {
+  var el = document.getElementById('hist-list');
+  if (!el) return;
+  if (!callHist.length) {
+    el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg><div class="empty-t">Aucun appel récent</div><div class="empty-s">Vos appels VoIP PST apparaîtront ici</div></div>';
+    return;
+  }
+  el.innerHTML = callHist.map(function(h) {
+    var typeLabel = h.type==='out'?'Sortant':h.type==='in'?'Entrant':'Manqué';
+    var typeCls = h.type==='out'?'out':h.type==='in'?'inc':'mis';
+    var av = (h.num||'?').replace(/\D/g,'').slice(-2)||'??';
+    var dt = new Date(h.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return '<div class="hi" onclick="setNum(\''+h.num+'\')">' +
+      '<div class="hi-av">'+av+'</div>' +
+      '<div class="hi-info"><div class="hi-name">'+h.num+'</div><div class="hi-num">'+dt+'</div></div>' +
+      '<div class="hi-right"><div class="hi-type '+typeCls+'">'+typeLabel+'</div><div class="hi-dur">'+(h.dur?fmtTime(h.dur):'--')+'</div></div>' +
+      '</div>';
+  }).join('');
+}
+
+// ── FORFAITS & PAIEMENT ──
+function acheterForfait(nom, prix, mins) {
+  // Calculer montant Wave en FCFA (1 USD ≈ 606 FCFA)
+  var fcfa = Math.round(prix * 606);
+  var waveUrl = WAVE_LINK + '?amount=' + fcfa;
+  // Ouvrir Wave si disponible, sinon page izichange
+  if (confirm('Payer ' + prix + '$ (' + fcfa.toLocaleString('fr-FR') + ' FCFA) via Wave ?')) {
+    window.open(waveUrl, '_blank');
+    toast('Wave ouvert — revenez après paiement', 'info');
+  }
+}
+
+function payerWaveForfait() {
+  // Lien Wave général pour forfait
+  window.open(WAVE_LINK, '_blank');
+}
+
+// ── TOAST ──
+var _tt;
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(_tt);
+  _tt = setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
 </script>
 </body>
 </html>
