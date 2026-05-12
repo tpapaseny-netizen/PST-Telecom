@@ -70,7 +70,7 @@ async function deleteAbonne(userId) {
 // ═══════════════════════════════════════════════════════
 const IZIPAY_CONFIG = {
   domain:    process.env.IZIPAY_DOMAIN     || 'https://pay.izichange.com',
-  apiKey:    process.env.IZIPAY_API_KEY    || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680',
+  apiKey:    process.env.IZIPAY_API_KEY    || '14|6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680',
   secretKey: process.env.IZIPAY_SECRET_KEY || 'kRx1HjF(WLp6BJ0FZ:Ty{#NmO0=9%fWO46]4A3k}',
 };
 
