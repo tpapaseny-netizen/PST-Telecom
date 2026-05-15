@@ -652,6 +652,39 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .ac-dot.blue{background:var(--blue);color:var(--blue);}
 .ac-txt{flex:1;font-size:12px;color:var(--text2);}
 .ac-time{font-size:10px;color:var(--text3);}
+
+/* ══ SLOGAN ANIMÉ ══ */
+.slogan-strip{display:flex;align-items:center;gap:8px;margin-top:12px;overflow:hidden;}
+.slogan-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap;}
+.sp-crypto{background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);color:#818CF8;}
+.sp-arrow{color:rgba(255,255,255,.3);font-size:14px;}
+.sp-zama{background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.2);color:var(--gold);}
+.sp-mm{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--green);}
+.sp-time{font-size:10px;color:rgba(255,255,255,.3);margin-left:4px;}
+
+/* ══ NOTIF TOAST PREMIUM ══ */
+.notif-pop{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-120px);z-index:99999;background:rgba(13,21,37,.98);border:1px solid rgba(34,197,94,.3);border-radius:16px;padding:12px 18px;display:flex;align-items:center;gap:12px;min-width:260px;max-width:calc(100% - 40px);box-shadow:0 8px 32px rgba(0,0,0,.6);transition:transform .4s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
+.notif-pop.show{transform:translateX(-50%) translateY(0);}
+.notif-ico{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.notif-txt{flex:1;}
+.notif-title{font-size:13px;font-weight:700;color:#fff;}
+.notif-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
+
+/* ══ USERNAME ══ */
+.username-badge{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.15);border-radius:100px;font-size:12px;font-weight:700;color:var(--gold);cursor:pointer;}
+.username-badge svg{width:12px;height:12px;stroke:var(--gold);fill:none;stroke-width:2;}
+.username-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto;}
+.username-modal.open{display:flex;}
+.username-sheet{background:var(--s1);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid var(--border);}
+.un-preview{font-size:28px;font-weight:800;color:var(--gold);text-align:center;margin:16px 0;letter-spacing:1px;}
+.un-avail{text-align:center;font-size:12px;margin-bottom:16px;}
+.un-avail.ok{color:var(--green);}
+.un-avail.err{color:var(--red);}
+
+/* ══ SEND FULLSCREEN ══ */
+#scr-send{display:flex !important;flex-direction:column !important;}
+#scr-send .send-hero{flex:1;display:flex;flex-direction:column;justify-content:center;}
+#scr-send .btn-foot{margin-top:auto;flex-shrink:0;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
 // ══ PREMIUM ANIMATIONS ══
@@ -749,6 +782,99 @@ document.addEventListener('click', function(e) {
   if(qa) vibrate([30]);
   var btn = e.target.closest('.btn-p');
   if(btn) vibrate([50, 30, 50]);
+});
+
+
+// ══ NOTIF PREMIUM ══
+var _notifT = null;
+function showNotif(title, sub, ico, color) {
+  var pop = document.getElementById('notif-pop');
+  var ti = document.getElementById('notif-title');
+  var si = document.getElementById('notif-sub');
+  var ic = document.getElementById('notif-ico');
+  if(!pop) return;
+  if(ti) ti.textContent = title || 'ZAMA';
+  if(si) si.textContent = sub || '';
+  if(ic) ic.textContent = ico || '\u{1F4B8}';
+  pop.style.borderColor = color ? 'rgba(' + color + ',.3)' : 'rgba(34,197,94,.3)';
+  pop.classList.add('show');
+  if(navigator.vibrate) navigator.vibrate([50, 30, 80]);
+  clearTimeout(_notifT);
+  _notifT = setTimeout(function(){ pop.classList.remove('show'); }, 4000);
+}
+
+// ══ USERNAME ══
+function getUsername() {
+  return localStorage.getItem('zama_username') || '';
+}
+function openUsernameModal() {
+  var modal = document.getElementById('username-modal');
+  if(modal) modal.classList.add('open');
+  var inp = document.getElementById('un-input');
+  if(inp) { inp.value = getUsername().replace('@',''); inp.focus(); }
+  checkUsername(getUsername().replace('@',''));
+}
+function checkUsername(val) {
+  var prev = document.getElementById('un-preview');
+  var avail = document.getElementById('un-avail');
+  val = val.toLowerCase().replace(/[^a-z0-9._]/g,'');
+  var inp = document.getElementById('un-input');
+  if(inp) inp.value = val;
+  if(prev) prev.textContent = '@' + (val || 'tonnom');
+  if(!val || val.length < 3) {
+    if(avail) { avail.textContent = 'Minimum 3 caractères'; avail.className = 'un-avail err'; }
+    return;
+  }
+  if(val.length > 20) {
+    if(avail) { avail.textContent = 'Maximum 20 caractères'; avail.className = 'un-avail err'; }
+    return;
+  }
+  if(avail) { avail.textContent = '@' + val + ' est disponible ✓'; avail.className = 'un-avail ok'; }
+}
+function saveUsername() {
+  var inp = document.getElementById('un-input');
+  if(!inp || inp.value.length < 3) { toast('Username trop court','err'); return; }
+  var username = '@' + inp.value.toLowerCase();
+  localStorage.setItem('zama_username', username);
+  if(user) { user.username = username; saveULS(user); }
+  var disp = document.getElementById('un-display');
+  if(disp) disp.textContent = username;
+  document.getElementById('username-modal').classList.remove('open');
+  toast('Username ' + username + ' sauvegardé !', 'ok');
+  showNotif('Username créé !', username + ' · ZAMA', '\u2728', '245,176,20');
+  renderAcct();
+}
+function renderUsername() {
+  var badge = document.getElementById('un-badge');
+  var disp = document.getElementById('un-display');
+  if(!badge) return;
+  if(user) {
+    badge.style.display = 'inline-flex';
+    var un = getUsername() || user.username || '';
+    if(disp) disp.textContent = un || '+ Ajouter @username';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ══ SLOGAN ANIMATION ══
+function animateSlogan() {
+  var pills = document.querySelectorAll('.slogan-pill');
+  if(!pills.length) return;
+  pills.forEach(function(p, i) {
+    p.style.opacity = '0';
+    p.style.transform = 'translateY(6px)';
+    setTimeout(function() {
+      p.style.transition = 'all .4s cubic-bezier(.34,1.56,.64,1)';
+      p.style.opacity = '1';
+      p.style.transform = 'translateY(0)';
+    }, i * 150);
+  });
+}
+
+// Appeler animateSlogan au chargement
+window.addEventListener('load', function() {
+  setTimeout(animateSlogan, 800);
 });
 
 </script>
@@ -1229,6 +1355,10 @@ document.addEventListener('click', function(e) {
         <div class="acct-av" id="a-av">?</div>
         <div class="acct-name" id="a-name">--</div>
         <div class="acct-phone" id="a-phone">--</div>
+        <div class="username-badge" id="un-badge" onclick="openUsernameModal()" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="un-display">@ajouter username</span>
+        </div>
         <div><span class="kyc-tag kyc-no" id="a-kyc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Identité non vérifiée</span></div>
       </div>
       <div style="padding-top:4px">
@@ -1934,7 +2064,7 @@ function doLogin(){
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
   saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
-  toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
+  toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");showNotif("Bienvenue "+( found.prenom||"")+" \uD83D\uDC4B","Connexion r\u00E9ussie","\uD83D\uDC4B","245,176,20");goto("scr-acct");
 }
 function resetPwd(){
   var t=document.getElementById("lg-phone").value.trim();
