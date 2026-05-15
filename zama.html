@@ -548,6 +548,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 .scr.on .sb{animation:slideUp .2s ease;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -2087,21 +2088,18 @@ function renderQR(){
   drawQR("zama://pay?phone="+encodeURIComponent(user.phone||"")+"&name="+encodeURIComponent((user.prenom||"")+" "+(user.nom||"")));
 }
 function drawQR(text){
-  var cv=document.getElementById("qr-cv");if(!cv)return;
-  var ctx=cv.getContext("2d");var sz=200;ctx.clearRect(0,0,sz,sz);
-  ctx.fillStyle="#111D30";ctx.fillRect(0,0,sz,sz);
-  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
-  var cell=7,cols=Math.floor(sz/cell);
-  function finder(x,y){ctx.fillStyle="#F5B014";ctx.fillRect(x*cell,y*cell,7*cell,7*cell);ctx.fillStyle="#111D30";ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);ctx.fillStyle="#F5B014";ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);}
-  finder(0,0);finder(cols-7,0);finder(0,cols-7);
-  ctx.fillStyle="#F5B014";
-  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
-    if((r<8&&c<8)||(r<8&&c>cols-9)||(r>cols-9&&c<8))continue;
-    if((hash^(r*31+c*17)^(r^c))%4===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
-  }}
-  ctx.fillStyle="#111D30";ctx.fillRect(82,82,36,36);
-  ctx.fillStyle="#F5B014";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(86,86,28,28,6);else ctx.rect(86,86,28,28);ctx.fill();
-  ctx.fillStyle="#0D1525";ctx.font="bold 13px Inter,Arial";ctx.textAlign="center";ctx.fillText("Z",100,99);
+  var wrap=document.getElementById("qr-cv");
+  if(!wrap) return;
+  // Remplacer le canvas par un div pour QRCode.js
+  var parent=wrap.parentNode;
+  var div=document.createElement("div");
+  div.id="qr-cv-div";
+  div.style.cssText="display:inline-block;background:#fff;padding:8px;border-radius:8px;";
+  parent.replaceChild(div,wrap);
+  div.innerHTML="";
+  try {
+    new QRCode(div,{text:text,width:184,height:184,colorDark:"#070D1A",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  } catch(e){ div.innerHTML="<canvas width=184 height=184></canvas>"; }
 }
 function dlQR(){var cv=document.getElementById("qr-cv");if(!cv)return;var a=document.createElement("a");a.download="zama-qr.png";a.href=cv.toDataURL();a.click();toast("Téléchargé","ok");}
 function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(user.prenom||"")+" "+(user.nom||"")+"\n"+(user.phone||"");if(navigator.share)navigator.share({title:"Mon QR ZAMA",text:t}).catch(function(){});else navigator.clipboard.writeText(t).then(function(){toast("Copié !","ok");});}
@@ -2443,19 +2441,18 @@ function showActivePL(data) {
 }
 
 function drawPLQR(text) {
-  var cv = document.getElementById('pl-qr'); if(!cv) return;
-  var ctx = cv.getContext('2d'); var sz = 160;
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,sz,sz);
-  var hash = 0; for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
-  var cell = 4, cols = Math.floor(sz/cell);
-  ctx.fillStyle = '#070D1A';
-  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
-    if((hash^(r*31+c*17)^(r^c))%3===0) ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
-  }}
-  // Logo centre
-  ctx.fillStyle='#fff'; ctx.fillRect(65,65,30,30);
-  ctx.fillStyle='#F5B014'; if(ctx.roundRect)ctx.roundRect(68,68,24,24,5); else ctx.rect(68,68,24,24); ctx.fill();
-  ctx.fillStyle='#000'; ctx.font='bold 12px Inter,Arial'; ctx.textAlign='center'; ctx.fillText('Z',80,83);
+  var wrap = document.getElementById('pl-qr');
+  if(!wrap) return;
+  var parent = wrap.parentNode;
+  var existing = document.getElementById('pl-qr-div');
+  if(existing) existing.innerHTML = '';
+  var div = existing || document.createElement('div');
+  div.id = 'pl-qr-div';
+  div.style.cssText = 'display:inline-block;background:#fff;padding:8px;border-radius:8px;margin:0 auto;';
+  if(!existing) parent.replaceChild(div, wrap);
+  try {
+    new QRCode(div, {text:text, width:180, height:180, colorDark:'#070D1A', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
+  } catch(e) {}
 }
 
 function copyPaylink() {
