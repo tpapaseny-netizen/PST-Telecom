@@ -507,7 +507,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tx-title{font-size:20px;font-weight:700;}
 .tx-ref{font-size:11px;color:var(--text3);margin-top:4px;font-family:monospace;}
 .tx-eta{font-size:13px;color:var(--text2);margin-top:6px;}
-</style>
+ + repr(patches['extra_css']) + </style>
 </head>
 <body>
 <div id="app">
@@ -579,6 +579,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="hero-greeting" id="h-greeting">Bonjour</div>
       <div class="hero-sub">Envoyez de l'argent au Sénégal</div>
       <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
+ + repr(patches['hero_slogan']) + 
     </div>
 
     <div class="qa-grid">
@@ -588,6 +589,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
     </div>
 
+     + repr(patches['home_additions']) + 
+
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
       <div class="rc"><span class="rc-flag">🇺🇸</span><div class="rc-code">USD</div><div class="rc-val" id="rs1">--</div></div>
@@ -595,6 +598,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="rc"><span class="rc-flag">🇬🇧</span><div class="rc-code">GBP</div><div class="rc-val" id="rs3">--</div></div>
       <div class="rc"><span class="rc-flag">🇨🇦</span><div class="rc-code">CAD</div><div class="rc-val" id="rs4">--</div></div>
     </div>
+
+     + repr(patches['trust_row']) + 
 
     <div class="slbl" id="hb-lbl" style="display:none">Bénéficiaires récents <span class="slbl-act" onclick="goto('scr-benefs')">Gérer</span></div>
     <div id="h-benefs"></div>
@@ -615,9 +620,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div class="hdr"><button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
   <div class="send-hero">
     <div class="amt-lbl">Je veux envoyer</div>
-    <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
+    <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc();checkAmtLimits()"><div class="amt-curr" id="sc">USD</div></div>
     <div class="convert-box"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><div class="conv-fcfa" id="cf">-- FCFA</div><div class="conv-rate" id="cr">1 USD = -- FCFA</div></div>
   </div>
+ + repr(patches['amt_limits_html']) + 
   <div class="curr-row">
     <div class="cpill on" onclick="selC(this,'USD','🇺🇸','usd')"><span>🇺🇸</span>USD</div>
     <div class="cpill" onclick="selC(this,'EUR','🇪🇺','eur')"><span>🇪🇺</span>EUR</div>
@@ -1189,6 +1195,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+ + repr(patches['tx_detail_overlay']) + 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 <script>
@@ -1205,13 +1212,14 @@ let lgC=0,lgT=null;
 let selCrypto="USDT.BEP20";
 let pinE="",psE="",psF="",psStep=1;
 
+ + repr(patches['js_additions']) + 
 window.addEventListener("load",function(){
   loadSavedLogos();
   user=loadU();
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();
+  renderHBenefs();updateUserStats();renderLastTx();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
