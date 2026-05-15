@@ -1,0 +1,41 @@
+{
+  "name": "ZAMA — Bureau de change digital",
+  "short_name": "ZAMA",
+  "description": "Envoyez de l'argent au Sénégal via crypto. USD, EUR, GBP → FCFA en 30 min sur Wave et Orange Money.",
+  "start_url": "/zama",
+  "scope": "/zama",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070D1A",
+  "theme_color": "#F5B014",
+  "lang": "fr",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    { "src": "/icons/zama-72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-128.png",  "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-144.png",  "sizes": "144x144", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-152.png",  "sizes": "152x152", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-192.png",  "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-384.png",  "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/zama-512.png",  "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "ZAMA — Accueil"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Envoyer de l'argent",
+      "short_name": "Envoyer",
+      "description": "Envoyer des fonds via ZAMA",
+      "url": "/zama",
+      "icons": [{ "src": "/icons/zama-96.png", "sizes": "96x96" }]
+    }
+  ]
+}
