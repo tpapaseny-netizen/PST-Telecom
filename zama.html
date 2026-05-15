@@ -616,74 +616,92 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <!-- PAYMENT -->
 <div class="scr" id="scr-pay">
-  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
+  <div class="hdr"><button class="hbk" onclick="closeIframe()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Paiement</span><span class="hact" onclick="window.open('tel:+221771520959')">Aide</span></div>
   <div class="sb">
-    <!-- Montant -->
-    <div style="background:linear-gradient(135deg,#D4900F,#F5B014,#FCD34D);padding:20px;text-align:center">
-      <div style="font-size:11px;font-weight:700;color:rgba(0,0,0,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Montant à envoyer</div>
-      <div class="pay-amt" id="p-amt" style="color:#000;font-size:36px;font-weight:800">--</div>
-      <div id="p-sub" style="font-size:12px;color:rgba(0,0,0,.45);margin-top:4px">--</div>
+
+    <!-- Résumé montant -->
+    <div style="background:linear-gradient(135deg,#D4900F,#F5B014,#FCD34D);padding:18px 20px;text-align:center;flex-shrink:0">
+      <div style="font-size:10px;font-weight:700;color:rgba(0,0,0,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Montant à envoyer</div>
+      <div class="pay-amt" id="p-amt" style="color:#000;font-size:32px;font-weight:800;line-height:1">--</div>
+      <div id="p-sub" style="font-size:11px;color:rgba(0,0,0,.45);margin-top:3px">--</div>
     </div>
 
-    <!-- Option 1 : Wave Business -->
-    <div style="padding:16px 20px 0">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Paiement rapide</div>
-      <button onclick="payWave()" style="width:100%;padding:15px;background:linear-gradient(135deg,#1D9BF0,#0A7CCF);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px">
-        <div style="width:30px;height:30px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 36 36" width="22" height="22"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="16" font-weight="900" fill="white" font-family="Arial">W</text></svg></div>
+    <!-- Récap destinataire -->
+    <div style="background:var(--s2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;gap:16px">
+      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Pour</span> <strong id="pi-name">--</strong></div>
+      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Reçoit</span> <strong style="color:var(--green)" id="pi-fcfa">--</strong></div>
+      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Via</span> <strong id="pi-mm">--</strong></div>
+    </div>
+
+    <!-- Option Wave rapide -->
+    <div style="padding:14px 20px 0">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Paiement rapide</div>
+      <button onclick="payWave()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1D9BF0,#0A7CCF);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px">
+        <div style="width:26px;height:26px;background:#fff;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 36 36" width="20" height="20"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="15" font-weight="900" fill="white" font-family="Arial">W</text></svg></div>
         Payer avec Wave
       </button>
 
-      <!-- Séparateur -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <div style="flex:1;height:1px;background:var(--border)"></div>
-        <div style="font-size:11px;color:var(--text3);font-weight:600">OU PAYER EN CRYPTO</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:700">OU PAYER EN CRYPTO</div>
         <div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
     </div>
 
-    <!-- Option 2 : Crypto -->
-    <div class="pay-card" style="margin:0 20px 14px">
-      <div class="pay-body">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Choisir la crypto</div>
-        <div class="cpx-grid" id="cpx-grid">
-          <div class="cpx on" onclick="selCX(this,'usdt.trc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
-          <div class="cpx" onclick="selCX(this,'usdt.bep20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
-          <div class="cpx" onclick="selCX(this,'usdt.erc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT ERC20</div>
-          <div class="cpx" onclick="selCX(this,'usdt.opbnb')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT OPBNB</div>
-          <div class="cpx" onclick="selCX(this,'usdt.ton')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TON</div>
-          <div class="cpx" onclick="selCX(this,'usdc.trc20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC TRC20</div>
-          <div class="cpx" onclick="selCX(this,'usdc.bep20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC BEP20</div>
-          <div class="cpx" onclick="selCX(this,'usdc.erc20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC ERC20</div>
-          <div class="cpx" onclick="selCX(this,'btc')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
-          <div class="cpx" onclick="selCX(this,'btc.bep20')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">BTC BEP20</div>
-          <div class="cpx" onclick="selCX(this,'eth')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
-          <div class="cpx" onclick="selCX(this,'eth.bep20')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">ETH BEP20</div>
-          <div class="cpx" onclick="selCX(this,'bnb')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
-          <div class="cpx" onclick="selCX(this,'opbnb')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">OPBNB</div>
-          <div class="cpx" onclick="selCX(this,'trx')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
-          <div class="cpx" onclick="selCX(this,'xrp.bep20')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP BEP20</div>
-          <div class="cpx" onclick="selCX(this,'sol.bep20')"><img src="https://cryptologos.cc/logos/solana-sol-logo.png" onerror="this.style.display='none'">SOL BEP20</div>
-          <div class="cpx" onclick="selCX(this,'ada.bep20')"><img src="https://cryptologos.cc/logos/cardano-ada-logo.png" onerror="this.style.display='none'">ADA BEP20</div>
-          <div class="cpx" onclick="selCX(this,'doge.bep20')"><img src="https://cryptologos.cc/logos/dogecoin-doge-logo.png" onerror="this.style.display='none'">DOGE BEP20</div>
-          <div class="cpx" onclick="selCX(this,'dot.bep20')"><img src="https://cryptologos.cc/logos/polkadot-new-dot-logo.png" onerror="this.style.display='none'">DOT BEP20</div>
-          <div class="cpx" onclick="selCX(this,'shib.bep20')"><img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png" onerror="this.style.display='none'">SHIB BEP20</div>
-          <div class="cpx" onclick="selCX(this,'ltc')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
-          <div class="cpx" onclick="selCX(this,'busd.bep20')"><img src="https://cryptologos.cc/logos/binance-usd-busd-logo.png" onerror="this.style.display='none'">BUSD BEP20</div>
-          <div class="cpx" onclick="selCX(this,'ton')"><img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" onerror="this.style.display='none'">TON</div>
-          <div class="cpx" onclick="selCX(this,'twt.bep20')"><img src="https://cryptologos.cc/logos/trust-wallet-token-twt-logo.png" onerror="this.style.display='none'">TWT BEP20</div>
-        </div>
-        <button class="pos-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay</button>
-        <a id="pos-link-btn" href="#" target="_blank" style="display:none;width:100%;padding:15px;background:linear-gradient(135deg,#00b4d8,#0077b6);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;align-items:center;justify-content:center;gap:8px;font-family:var(--font);margin-bottom:14px">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Payer maintenant sur izichangePay ↗
-        </a>
-        <div id="addr-wrap" style="display:none"><div class="addr-box" id="p-addr">--</div><button class="copy-btn" onclick="copyAddr()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier l'adresse</button></div>
-        <div class="pay-timer" id="p-timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti encore 30:00</div>
-        <div class="pay-info"><div class="pir"><span class="pl">Destinataire</span><span id="pi-name" style="font-weight:600">--</span></div><div class="pir"><span class="pl">Reçoit</span><span id="pi-fcfa" style="font-weight:700;color:var(--green)">--</span></div><div class="pir"><span class="pl">Via</span><span id="pi-mm">--</span></div></div>
+    <!-- Loading iframe -->
+    <div id="iframe-loading" style="display:none;padding:40px 20px;text-align:center">
+      <div class="spin spin-w" style="width:32px;height:32px;border-width:3px;margin:0 auto 14px"></div>
+      <div style="font-size:14px;color:var(--text2);font-weight:600">Connexion à izichangePay...</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">Génération de votre page de paiement</div>
+    </div>
+
+    <!-- IFRAME izichange — s'affiche quand payment_url est disponible -->
+    <div id="iframe-wrap" style="display:none;padding:0 20px 14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer en crypto — izichangePay</div>
+      <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--s2)">
+        <iframe id="izi-iframe" src="" style="width:100%;height:520px;border:none;display:block" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"></iframe>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-top:10px;font-size:11px;color:var(--text3)">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Paiement sécurisé · izichangePay certifié
       </div>
     </div>
 
-    <div style="padding:0 20px 14px"><button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">J'ai payé — Vérifier</button></div>
+    <!-- Fallback si iframe non disponible -->
+    <div id="iframe-fallback" style="display:none;padding:0 20px 14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer en crypto</div>
+      <div class="cpx-grid" id="cpx-grid">
+        <div class="cpx on" onclick="selCX(this,'usdt.trc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TRC20</div>
+        <div class="cpx" onclick="selCX(this,'usdt.bep20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT BEP20</div>
+        <div class="cpx" onclick="selCX(this,'usdt.erc20')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT ERC20</div>
+        <div class="cpx" onclick="selCX(this,'usdt.ton')"><img src="https://cryptologos.cc/logos/tether-usdt-logo.png" onerror="this.style.display='none'">USDT TON</div>
+        <div class="cpx" onclick="selCX(this,'usdc.trc20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC TRC20</div>
+        <div class="cpx" onclick="selCX(this,'usdc.bep20')"><img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png" onerror="this.style.display='none'">USDC BEP20</div>
+        <div class="cpx" onclick="selCX(this,'btc')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">Bitcoin</div>
+        <div class="cpx" onclick="selCX(this,'btc.bep20')"><img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" onerror="this.style.display='none'">BTC BEP20</div>
+        <div class="cpx" onclick="selCX(this,'eth')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">Ethereum</div>
+        <div class="cpx" onclick="selCX(this,'eth.bep20')"><img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" onerror="this.style.display='none'">ETH BEP20</div>
+        <div class="cpx" onclick="selCX(this,'bnb')"><img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" onerror="this.style.display='none'">BNB</div>
+        <div class="cpx" onclick="selCX(this,'trx')"><img src="https://cryptologos.cc/logos/tron-trx-logo.png" onerror="this.style.display='none'">TRON</div>
+        <div class="cpx" onclick="selCX(this,'xrp.bep20')"><img src="https://cryptologos.cc/logos/xrp-xrp-logo.png" onerror="this.style.display='none'">XRP BEP20</div>
+        <div class="cpx" onclick="selCX(this,'sol.bep20')"><img src="https://cryptologos.cc/logos/solana-sol-logo.png" onerror="this.style.display='none'">SOL BEP20</div>
+        <div class="cpx" onclick="selCX(this,'ada.bep20')"><img src="https://cryptologos.cc/logos/cardano-ada-logo.png" onerror="this.style.display='none'">ADA BEP20</div>
+        <div class="cpx" onclick="selCX(this,'doge.bep20')"><img src="https://cryptologos.cc/logos/dogecoin-doge-logo.png" onerror="this.style.display='none'">DOGE BEP20</div>
+        <div class="cpx" onclick="selCX(this,'ltc')"><img src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" onerror="this.style.display='none'">Litecoin</div>
+        <div class="cpx" onclick="selCX(this,'ton')"><img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" onerror="this.style.display='none'">TON</div>
+        <div class="cpx" onclick="selCX(this,'busd.bep20')"><img src="https://cryptologos.cc/logos/binance-usd-busd-logo.png" onerror="this.style.display='none'">BUSD BEP20</div>
+        <div class="cpx" onclick="selCX(this,'twt.bep20')"><img src="https://cryptologos.cc/logos/trust-wallet-token-twt-logo.png" onerror="this.style.display='none'">TWT BEP20</div>
+      </div>
+      <button class="pos-btn" id="pos-link-btn" onclick="openPOS()"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Payer sur izichangePay ↗</button>
+      <div id="addr-wrap" style="display:none"><div class="addr-box" id="p-addr">--</div><button class="copy-btn" onclick="copyAddr()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier l'adresse</button></div>
+    </div>
+
+    <!-- Timer + Info -->
+    <div style="padding:0 20px">
+      <div class="pay-timer" id="p-timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti encore 30:00</div>
+    </div>
+
+    <div style="padding:0 20px 14px;margin-top:10px"><button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">J'ai payé — Vérifier</button></div>
     <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · ZAMA by PST Telecom</div>
   </div>
 </div>
@@ -1162,6 +1180,15 @@ async function createOrder(){
   var msg=document.getElementById("s-msg").value.trim();
   var amtU=(a*(rates.usd/rate)).toFixed(4);
   var mL=MM==="wave"?"Wave":"Orange Money";
+  // Afficher scr-pay tout de suite avec loading
+  goto("scr-pay");
+  showIframeLoading();
+  var sv=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  sv("p-amt",a.toFixed(2)+" "+curr);
+  sv("p-sub","≈ "+amtU+" USDT");
+  sv("pi-name",rn||"--");
+  sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");
+  sv("pi-mm",mL);
   var paymentUrl=null;
   try{
     var res=await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -1170,23 +1197,42 @@ async function createOrder(){
     orderId=data.order_id||"ZAMA-"+Date.now();
     paymentUrl=data.payment_url||null;
   }catch(e){orderId="ZAMA-"+Date.now();}
-  var sv=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
-  sv("p-amt",a.toFixed(2)+" "+curr);sv("p-sub","≈ "+amtU+" USDT");
-  sv("pi-name",rn||"--");sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");sv("pi-mm",mL);
   sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
   saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
-  // Afficher le lien izichange dans une iframe si disponible
+  // Afficher iframe ou fallback
   if(paymentUrl){
-    var posBtn=document.getElementById("pos-link-btn");
-    if(posBtn){posBtn.href=paymentUrl;posBtn.style.display="flex";}
-    // Masquer le bouton POS générique
-    var oldPos=document.querySelector(".pos-btn");
-    if(oldPos) oldPos.style.display="none";
+    showIframe(paymentUrl);
+  } else {
+    showFallback();
   }
   startCD();checkT=setInterval(autoCheck,30000);
   btn.disabled=false;btn.innerHTML="Payer maintenant";
-  goto("scr-pay");
+}
+
+function showIframeLoading(){
+  document.getElementById("iframe-loading").style.display="block";
+  document.getElementById("iframe-wrap").style.display="none";
+  document.getElementById("iframe-fallback").style.display="none";
+}
+function showIframe(url){
+  document.getElementById("iframe-loading").style.display="none";
+  document.getElementById("iframe-wrap").style.display="block";
+  document.getElementById("iframe-fallback").style.display="none";
+  var iframe=document.getElementById("izi-iframe");
+  if(iframe) iframe.src=url;
+  toast("Page izichange chargée","ok");
+}
+function showFallback(){
+  document.getElementById("iframe-loading").style.display="none";
+  document.getElementById("iframe-wrap").style.display="none";
+  document.getElementById("iframe-fallback").style.display="block";
+  toast("Mode manuel activé","info");
+}
+function closeIframe(){
+  var iframe=document.getElementById("izi-iframe");
+  if(iframe) iframe.src="";
+  gb();
 }
 function openPOS(){window.open("https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402","_blank");}
 function payWave(){
