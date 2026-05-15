@@ -627,10 +627,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
 
     <!-- Récap destinataire -->
-    <div style="background:var(--s2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;gap:16px">
-      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Pour</span> <strong id="pi-name">--</strong></div>
-      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Reçoit</span> <strong style="color:var(--green)" id="pi-fcfa">--</strong></div>
-      <div style="flex:1;font-size:12px"><span style="color:var(--text3)">Via</span> <strong id="pi-mm">--</strong></div>
+    <div style="background:var(--s2);border-bottom:1px solid var(--border);padding:12px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text3)">Destinataire</div>
+        <div style="font-size:13px;font-weight:600" id="pi-name">--</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text3)">Reçoit</div>
+        <div style="font-size:14px;font-weight:700;color:var(--green)" id="pi-fcfa">--</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:12px;color:var(--text3)">Via</div>
+        <div style="font-size:13px;font-weight:600" id="pi-mm">--</div>
+      </div>
     </div>
 
     <!-- Option Wave rapide -->
@@ -657,9 +666,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
     <!-- IFRAME izichange — s'affiche quand payment_url est disponible -->
     <div id="iframe-wrap" style="display:none;padding:0 20px 14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer en crypto — izichangePay</div>
-      <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--s2)">
-        <iframe id="izi-iframe" src="" style="width:100%;height:520px;border:none;display:block" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"></iframe>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">Payer en Crypto · izichangePay</div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>Sécurisé</div>
+      </div>
+      <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:#fff">
+        <iframe id="izi-iframe" src="" style="width:100%;height:600px;border:none;display:block;background:#fff" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"></iframe>
       </div>
       <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-top:10px;font-size:11px;color:var(--text3)">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -844,7 +856,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="tab-row"><button class="tab on" id="t-login" onclick="swTab('login')">Se connecter</button><button class="tab" id="t-reg" onclick="swTab('reg')">Créer un compte</button></div>
     <div id="pn-login" style="padding:20px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">Connectez-vous avec votre numéro et mot de passe.</div>
-      <div class="ph-wrap"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="lg-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="ph-wrap"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="lg-phone" placeholder="+221 77 XXX XX XX" inputmode="tel" autocomplete="tel" list="phones-list"></div>
+      <datalist id="phones-list"></datalist>
       <div class="pwd-wrap"><input class="finp" type="password" id="lg-pwd" placeholder="Mot de passe" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('lg-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
       <button class="btn-p" style="width:100%;margin:0 0 14px" onclick="doLogin()">Se connecter</button>
       <div style="text-align:center;font-size:13px;color:var(--text3)">Mot de passe oublié ? <span style="color:var(--gold);cursor:pointer" onclick="resetPwd()">Réinitialiser</span></div>
@@ -1317,8 +1330,15 @@ async function register(){
   if(pwd.length<6){toast("Mot de passe min 6 caractères","err");return;}
   var phone=normPh(t);
   var accts=getAllA();
-  if(accts.find(function(a){return normPh(a.phone)===phone;})){toast("Ce numéro a déjà un compte","err");return;}
-  pendR={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,password:pwd,pays:document.getElementById("rg-c").value,kyc:false,created:new Date().toISOString()};
+  if(accts.find(function(a){return normPh(a.phone)===phone;})){
+    toast("Ce numéro a déjà un compte. Connectez-vous.","err");
+    // Pré-remplir le champ login avec ce numéro
+    var lgPh=document.getElementById("lg-phone");if(lgPh)lgPh.value=phone;
+    swTab("login");return;
+  }
+  var email=e.toLowerCase().trim();
+  if(accts.find(function(a){return (a.email||"").toLowerCase()===email;})){toast("Cet email est déjà utilisé.","err");return;}
+  pendR={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:email,password:pwd,pays:document.getElementById("rg-c").value,kyc:false,created:new Date().toISOString()};
   document.getElementById("otp-ph").textContent=phone;
   document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
   document.getElementById("otp-overlay").classList.add("open");
@@ -1333,7 +1353,12 @@ function doLogin(){
   var phone=normPh(t);
   var accts=getAllA();
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
-  if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
+  if(!found){
+    // Pré-remplir le form inscription avec le numéro tapé
+    var rgT=document.getElementById("rg-t");if(rgT)rgT.value=t;
+    toast("Numéro non enregistré — créez votre compte","err");
+    swTab("reg");return;
+  }
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
   saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
@@ -1742,6 +1767,14 @@ function loadSavedLogos() {
       }
     }
   });
+}
+
+// ── NUMÉROS MÉMORISÉS ──
+function refreshPhonesList(){
+  var dl=document.getElementById("phones-list");
+  if(!dl)return;
+  var accts=getAllA();
+  dl.innerHTML=accts.map(function(a){return '<option value="'+a.phone+'">'+(a.prenom||"")+" "+(a.nom||"")+'</option>';}).join("");
 }
 
 // TOAST
