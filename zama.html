@@ -641,9 +641,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </div>
 
 <!-- SEND -->
-<div class="scr" id="scr-send">
+<div class="scr" id="scr-send" style="display:flex;flex-direction:column;">
   <div class="hdr"><button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
-  <div class="send-hero">
+  <div class="send-hero" style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="amt-lbl">Je veux envoyer</div>
     <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
     <div class="convert-box"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><div class="conv-fcfa" id="cf">-- FCFA</div><div class="conv-rate" id="cr">1 USD = -- FCFA</div></div>
@@ -661,7 +661,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="fr ftot"><span class="fl" style="font-weight:600">Le destinataire reçoit</span><span class="fv" id="f-net">-- FCFA</span></div>
   </div>
   <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · izichangePay</div>
-  <div class="btn-foot"><button class="btn-p" onclick="s2()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div>
+  <div class="btn-foot" style="margin-top:auto"><button class="btn-p" onclick="s2()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div>
 </div>
 
 <!-- RECIPIENT -->
