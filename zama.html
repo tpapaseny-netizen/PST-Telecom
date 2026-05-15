@@ -547,6 +547,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .lim-err{color:var(--red);font-weight:600;}
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 .scr.on .sb{animation:slideUp .2s ease;}
+
+/* ══ QR HOME OVERLAY ══ */
+.qr-home-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:none;align-items:center;justify-content:center;max-width:430px;margin:0 auto;flex-direction:column;}
+.qr-home-overlay.open{display:flex;}
+.qr-home-box{background:var(--s1);border-radius:24px;padding:24px 20px;width:calc(100% - 40px);max-width:340px;text-align:center;border:1px solid var(--border);}
+.qr-home-tabs{display:flex;background:var(--s2);border-radius:10px;padding:3px;margin-bottom:20px;}
+.qr-ht{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all .15s;}
+.qr-ht.on{background:var(--s3);color:var(--text);}
+.qr-scan-area{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;}
+.qr-close-btn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--s3);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.qr-close-btn svg{width:14px;height:14px;stroke:var(--text2);fill:none;stroke-width:2;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -613,7 +624,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <div class="logo-text"><div class="lname" id="brand-name">ZAMA</div><div class="lsub">Transfert</div></div>
         </div>
         <div class="hero-actions">
-          <div class="hero-icon-btn" onclick="showQR()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div>
+          <div class="hero-icon-btn" onclick="openQRHome()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div>
           <div class="hero-icon-btn" onclick="goto('scr-acct')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         </div>
       </div>
@@ -2090,16 +2101,12 @@ function renderQR(){
 function drawQR(text){
   var wrap=document.getElementById("qr-cv");
   if(!wrap) return;
-  // Remplacer le canvas par un div pour QRCode.js
   var parent=wrap.parentNode;
-  var div=document.createElement("div");
-  div.id="qr-cv-div";
-  div.style.cssText="display:inline-block;background:#fff;padding:8px;border-radius:8px;";
-  parent.replaceChild(div,wrap);
+  var div=document.getElementById("qr-cv-div");
+  if(!div){div=document.createElement("div");div.id="qr-cv-div";parent.replaceChild(div,wrap);}
   div.innerHTML="";
-  try {
-    new QRCode(div,{text:text,width:184,height:184,colorDark:"#070D1A",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
-  } catch(e){ div.innerHTML="<canvas width=184 height=184></canvas>"; }
+  div.style.cssText="display:inline-block;background:#fff;padding:8px;border-radius:10px;";
+  try{new QRCode(div,{text:text,width:184,height:184,colorDark:"#070D1A",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});}catch(e){}
 }
 function dlQR(){var cv=document.getElementById("qr-cv");if(!cv)return;var a=document.createElement("a");a.download="zama-qr.png";a.href=cv.toDataURL();a.click();toast("Téléchargé","ok");}
 function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(user.prenom||"")+" "+(user.nom||"")+"\n"+(user.phone||"");if(navigator.share)navigator.share({title:"Mon QR ZAMA",text:t}).catch(function(){});else navigator.clipboard.writeText(t).then(function(){toast("Copié !","ok");});}
@@ -2440,19 +2447,15 @@ function showActivePL(data) {
   drawPLQR(url);
 }
 
-function drawPLQR(text) {
-  var wrap = document.getElementById('pl-qr');
+function drawPLQR(text){
+  var wrap=document.getElementById('pl-qr');
   if(!wrap) return;
-  var parent = wrap.parentNode;
-  var existing = document.getElementById('pl-qr-div');
-  if(existing) existing.innerHTML = '';
-  var div = existing || document.createElement('div');
-  div.id = 'pl-qr-div';
-  div.style.cssText = 'display:inline-block;background:#fff;padding:8px;border-radius:8px;margin:0 auto;';
-  if(!existing) parent.replaceChild(div, wrap);
-  try {
-    new QRCode(div, {text:text, width:180, height:180, colorDark:'#070D1A', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
-  } catch(e) {}
+  var parent=wrap.parentNode;
+  var div=document.getElementById('pl-qr-div');
+  if(!div){div=document.createElement('div');div.id='pl-qr-div';parent.replaceChild(div,wrap);}
+  div.innerHTML='';
+  div.style.cssText='display:inline-block;background:#fff;padding:8px;border-radius:10px;';
+  try{new QRCode(div,{text:text,width:180,height:180,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
 }
 
 function copyPaylink() {
