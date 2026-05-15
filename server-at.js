@@ -1001,6 +1001,79 @@ app.post('/api/zama/contact', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ══════════════════════════════════════════════
+// ZAMA — ROUTES LIEN DE PAIEMENT
+// Coller dans server-at.js avant // ─── DÉMARRAGE
+// ══════════════════════════════════════════════
+
+// Créer un lien de paiement
+app.post('/api/zama/paylink/create', async (req, res) => {
+  try {
+    const { user_id, name, phone, mm, note } = req.body;
+    if (!user_id || !phone) return res.status(400).json({ error: 'user_id et phone requis' });
+
+    const code = 'Z' + Math.random().toString(36).slice(2, 9).toUpperCase();
+    const paylink = {
+      code,
+      user_id,
+      name: name || '',
+      phone,
+      mm: mm || 'wave',
+      note: note || '',
+      created_at: new Date(),
+      active: true,
+      clicks: 0,
+      payments: 0
+    };
+
+    if (db) {
+      // Supprimer ancien lien si existant
+      await db.collection('zama_paylinks').deleteMany({ user_id });
+      await db.collection('zama_paylinks').insertOne(paylink);
+    }
+
+    const url = 'https://pst-telecom-production.up.railway.app/zama?pay=' + code;
+    res.json({ success: true, code, url, paylink });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Récupérer infos d'un lien
+app.get('/api/zama/paylink/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    if (!db) return res.status(404).json({ error: 'Non disponible' });
+
+    const paylink = await db.collection('zama_paylinks').findOne({ code, active: true });
+    if (!paylink) return res.status(404).json({ error: 'Lien invalide ou expiré' });
+
+    // Incrémenter clicks
+    await db.collection('zama_paylinks').updateOne({ code }, { $inc: { clicks: 1 } });
+
+    const { _id, ...safe } = paylink;
+    res.json(safe);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Mon lien (par user_id)
+app.get('/api/zama/paylink/user/:userId', async (req, res) => {
+  try {
+    if (!db) return res.json(null);
+    const pl = await db.collection('zama_paylinks').findOne({ user_id: req.params.userId, active: true });
+    if (!pl) return res.json(null);
+    const { _id, ...safe } = pl;
+    res.json(safe);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Désactiver un lien
+app.delete('/api/zama/paylink/:code', async (req, res) => {
+  try {
+    if (db) await db.collection('zama_paylinks').updateOne({ code: req.params.code }, { $set: { active: false } });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 // ─── DÉMARRAGE ──────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
