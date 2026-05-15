@@ -876,6 +876,76 @@ window.addEventListener('load', function() {
   setTimeout(animateSlogan, 800);
 });
 
+
+// ══ ZAMA USERNAME PICKER ══
+function zamaPick() {
+  // Créer modal si absent
+  var modal = document.getElementById('zama-un-modal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'zama-un-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:flex;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto';
+    modal.innerHTML = '<div style="background:#0D1525;border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid rgba(255,255,255,.08)">'
+      + '<div style="width:36px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:0 auto 20px"></div>'
+      + '<div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:4px">Mon @username</div>'
+      + '<div style="font-size:12px;color:#475569;text-align:center;margin-bottom:20px">Identifiant unique pour recevoir de l'argent</div>'
+      + '<div style="position:relative;margin-bottom:8px">'
+      + '<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;font-weight:800;color:#F5B014;z-index:1">@</span>'
+      + '<input id="zama-un-inp" type="text" placeholder="tonusername" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"'
+      + ' style="width:100%;background:#111D30;border:1.5px solid rgba(245,176,20,.3);border-radius:10px;padding:14px 16px 14px 32px;color:#E2E8F0;font-size:16px;font-weight:700;font-family:Inter,sans-serif;outline:none;-webkit-appearance:none"'
+      + ' oninput="zamaUnPreview(this.value)">'
+      + '</div>'
+      + '<div id="zama-un-prev" style="font-size:24px;font-weight:800;color:#F5B014;text-align:center;margin:12px 0 4px">@tonusername</div>'
+      + '<div id="zama-un-status" style="font-size:12px;color:#475569;text-align:center;margin-bottom:16px">Entrez 3 à 20 caractères</div>'
+      + '<button onclick="zamaUnSave()" style="width:100%;padding:15px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:10px">Confirmer</button>'
+      + '<button onclick="document.getElementById('zama-un-modal').style.display='none'" style="width:100%;padding:13px;background:#1A2640;border:1px solid rgba(255,255,255,.06);color:#94A3B8;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif">Annuler</button>'
+      + '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
+  }
+  // Pré-remplir avec username existant
+  var existing = localStorage.getItem('zama_username') || '';
+  var inp = document.getElementById('zama-un-inp');
+  if(inp) { inp.value = existing.replace('@',''); zamaUnPreview(inp.value); setTimeout(function(){ inp.focus(); }, 300); }
+  modal.style.display = 'flex';
+}
+
+function zamaUnPreview(val) {
+  val = (val||'').toLowerCase().replace(/[^a-z0-9._]/g,'');
+  var inp = document.getElementById('zama-un-inp');
+  if(inp) inp.value = val;
+  var prev = document.getElementById('zama-un-prev');
+  var status = document.getElementById('zama-un-status');
+  if(prev) prev.textContent = '@' + (val || 'tonusername');
+  if(status) {
+    if(!val || val.length < 3) {
+      status.textContent = 'Minimum 3 caractères';
+      status.style.color = '#EF4444';
+    } else {
+      status.textContent = '@' + val + ' est disponible ✓';
+      status.style.color = '#22C55E';
+    }
+  }
+}
+
+function zamaUnSave() {
+  var inp = document.getElementById('zama-un-inp');
+  if(!inp) return;
+  var val = inp.value.trim();
+  if(val.length < 3) { 
+    var s = document.getElementById('zama-un-status');
+    if(s) { s.textContent = 'Minimum 3 caractères !'; s.style.color = '#EF4444'; }
+    return; 
+  }
+  var username = '@' + val;
+  localStorage.setItem('zama_username', username);
+  if(user) { user.username = username; saveULS(user); }
+  var lbl = document.getElementById('un-menu-lbl');
+  if(lbl) lbl.textContent = username + ' · Modifier';
+  document.getElementById('zama-un-modal').style.display = 'none';
+  toast(username + ' sauvegardé !', 'ok');
+}
+
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -1365,7 +1435,7 @@ window.addEventListener('load', function() {
         <div class="slbl">Mon compte</div>
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="showQR()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="ai-lbl">Mon QR Code</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
-        <div class="ai" onclick="(function(){var u=prompt('Choisissez votre @username ZAMA (3-20 car.):', localStorage.getItem('zama_username')||'');if(!u)return;u=u.toLowerCase().replace(/[^a-z0-9._]/g,'');if(u.length<3){alert('Minimum 3 caractères');return;}localStorage.setItem('zama_username','@'+u);if(user){user.username='@'+u;}var l=document.getElementById('un-menu-lbl');if(l)l.textContent='@'+u+' · Modifier';toast('@'+u+' sauvegardé !','ok');}())"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl" id="un-menu-lbl">@username · Ajouter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="zamaPick()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl" id="un-menu-lbl">@username · Ajouter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
@@ -2123,7 +2193,7 @@ function renderAcct(){
     var ph=document.getElementById("a-phone");if(ph)ph.textContent=user.phone||"--";
     var kt=document.getElementById("a-kyc");
     if(kt){if(user.kyc){kt.className="kyc-tag kyc-yes";kt.innerHTML="<svg viewBox='0 0 24 24' width='12' height='12' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='20,6 9,17 4,12'/></svg> Identité vérifiée";}else{kt.className="kyc-tag kyc-no";kt.innerHTML="<svg viewBox='0 0 24 24' width='12' height='12' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='16' x2='12.01' y2='16'/></svg> Identité non vérifiée";}}
-    var ki=document.getElementById("kyc-item");if(ki)ki.style.display=user.kyc?"none":"flex";
+    var ki=document.getElementById("kyc-item");if(ki)ki.style.display=user.kyc?"none":"flex";var _un=localStorage.getItem("zama_username")||"";var _unlbl=document.getElementById("un-menu-lbl");if(_unlbl)_unlbl.textContent=_un?_un+" · Modifier":"@username · Ajouter";
   }else{if(guest)guest.style.display="block";if(logged)logged.style.display="none";}
 }
 
