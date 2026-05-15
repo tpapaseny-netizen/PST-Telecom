@@ -507,7 +507,47 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tx-title{font-size:20px;font-weight:700;}
 .tx-ref{font-size:11px;color:var(--text3);margin-top:4px;font-family:monospace;}
 .tx-eta{font-size:13px;color:var(--text2);margin-top:6px;}
- + repr(patches['extra_css']) + </style>
+
+/* ══ ZAMA v2 — Dashboard & UX Améliorations ══ */
+.user-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 20px 0;}
+.ust{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;transition:background .1s;}
+.ust:active{background:var(--s3);}
+.ust-val{font-size:18px;font-weight:800;color:var(--gold);line-height:1;}
+.ust-lbl{font-size:9px;color:var(--text3);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+.promo-banner{margin:14px 20px 0;background:linear-gradient(135deg,#0A1020,#0D1525);border:1px solid rgba(245,176,20,.12);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;overflow:hidden;position:relative;}
+.promo-banner::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(245,176,20,.05),transparent);animation:shimmer 3s infinite;}
+@keyframes shimmer{to{left:200%}}
+.pb-ico{font-size:18px;flex-shrink:0;}
+.pb-txt{font-size:11px;color:var(--text2);line-height:1.6;}
+.pb-txt strong{color:var(--gold);}
+.last-tx{margin:14px 20px 0;background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:none;align-items:center;gap:12px;cursor:pointer;transition:background .1s;}
+.last-tx.show{display:flex;}
+.last-tx:active{background:var(--s3);}
+.ltx-ico{width:38px;height:38px;border-radius:11px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ltx-ico svg{width:17px;height:17px;stroke:var(--green);fill:none;stroke-width:2;}
+.ltx-info{flex:1;min-width:0;}
+.ltx-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ltx-meta{font-size:11px;color:var(--text3);margin-top:1px;}
+.ltx-amt{text-align:right;flex-shrink:0;}
+.ltx-fcfa{font-size:13px;font-weight:700;color:var(--gold);}
+.ltx-st{font-size:10px;font-weight:600;margin-top:2px;padding:2px 7px;border-radius:100px;display:inline-block;}
+.trust-row{display:flex;gap:8px;padding:0 20px;overflow-x:auto;scrollbar-width:none;margin-top:12px;}
+.trust-row::-webkit-scrollbar{display:none;}
+.tb{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--s2);border:1px solid var(--border);border-radius:100px;font-size:10px;font-weight:700;color:var(--text2);}
+.tb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.hero-slogan{display:flex;align-items:center;gap:5px;margin-top:10px;flex-wrap:wrap;}
+.slg-step{padding:3px 9px;border-radius:20px;font-weight:700;font-size:10px;letter-spacing:.3px;}
+.slg-arrow{color:rgba(255,255,255,.25);font-size:10px;}
+.tx-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto;}
+.tx-detail-overlay.open{display:flex;}
+.tx-detail-sheet{background:var(--s1);border-radius:24px 24px 0 0;padding:20px 20px 36px;width:100%;border-top:1px solid var(--border);max-height:85vh;overflow-y:auto;}
+.tx-d-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.amt-limits{display:flex;justify-content:space-between;padding:4px 20px 8px;font-size:11px;color:var(--text3);}
+.lim-ok{color:var(--green);font-weight:600;}
+.lim-err{color:var(--red);font-weight:600;}
+@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.scr.on .sb{animation:slideUp .2s ease;}
+</style>
 </head>
 <body>
 <div id="app">
@@ -579,7 +619,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="hero-greeting" id="h-greeting">Bonjour</div>
       <div class="hero-sub">Envoyez de l'argent au Sénégal</div>
       <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
- + repr(patches['hero_slogan']) + 
+      <div class="hero-slogan">
+        <span class="slg-step" style="background:var(--gold-l);color:var(--gold)">Crypto</span>
+        <span class="slg-arrow">→</span>
+        <span class="slg-step" style="background:var(--s3);color:var(--text2)">ZAMA</span>
+        <span class="slg-arrow">→</span>
+        <span class="slg-step" style="background:var(--green-l);color:var(--green)">Wave / OM</span>
+        <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:2px">en 30 min</span>
+      </div>
     </div>
 
     <div class="qa-grid">
@@ -589,7 +636,27 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
     </div>
 
-     + repr(patches['home_additions']) + 
+    
+    <!-- STATS UTILISATEUR -->
+    <div class="user-stats" id="user-stats-section" style="display:none">
+      <div class="ust"><div class="ust-val" id="ust-sent">0</div><div class="ust-lbl">FCFA envoyés</div></div>
+      <div class="ust"><div class="ust-val" id="ust-tx">0</div><div class="ust-lbl">Transferts</div></div>
+      <div class="ust"><div class="ust-val" id="ust-save">0</div><div class="ust-lbl">Économisé</div></div>
+    </div>
+
+    <!-- BANNIÈRE PROMO -->
+    <div class="promo-banner">
+      <div class="pb-ico">⚡</div>
+      <div class="pb-txt"><strong>Taux garanti 30 min</strong> · Commission fixe 2% · +12 000 transactions réussies · Support 7j/7</div>
+    </div>
+
+    <!-- DERNIÈRE TRANSACTION -->
+    <div class="last-tx" id="last-tx-widget">
+      <div class="ltx-ico"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg></div>
+      <div class="ltx-info"><div class="ltx-name" id="ltx-name">--</div><div class="ltx-meta" id="ltx-meta">--</div></div>
+      <div class="ltx-amt"><div class="ltx-fcfa" id="ltx-fcfa">--</div><div class="ltx-st" id="ltx-st">--</div></div>
+    </div>
+
 
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
@@ -599,7 +666,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="rc"><span class="rc-flag">🇨🇦</span><div class="rc-code">CAD</div><div class="rc-val" id="rs4">--</div></div>
     </div>
 
-     + repr(patches['trust_row']) + 
+    
+    <div class="trust-row">
+      <div class="tb"><div class="tb-dot" style="background:var(--green)"></div>Sécurisé SSL</div>
+      <div class="tb"><div class="tb-dot" style="background:var(--gold)"></div>izichangePay</div>
+      <div class="tb"><div class="tb-dot" style="background:var(--blue)"></div>KYC certifié</div>
+      <div class="tb"><div class="tb-dot" style="background:var(--green)"></div>30 min garanti</div>
+      <div class="tb"><div class="tb-dot" style="background:var(--text2)"></div>Made in Sénégal 🇸🇳</div>
+    </div>
+
 
     <div class="slbl" id="hb-lbl" style="display:none">Bénéficiaires récents <span class="slbl-act" onclick="goto('scr-benefs')">Gérer</span></div>
     <div id="h-benefs"></div>
@@ -623,7 +698,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc();checkAmtLimits()"><div class="amt-curr" id="sc">USD</div></div>
     <div class="convert-box"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><div class="conv-fcfa" id="cf">-- FCFA</div><div class="conv-rate" id="cr">1 USD = -- FCFA</div></div>
   </div>
- + repr(patches['amt_limits_html']) + 
+    <div class="amt-limits" id="amt-limit-msg"><span></span><span>Max <span id="amt-max-lbl">500</span> USD/jour</span></div>
   <div class="curr-row">
     <div class="cpill on" onclick="selC(this,'USD','🇺🇸','usd')"><span>🇺🇸</span>USD</div>
     <div class="cpill" onclick="selC(this,'EUR','🇪🇺','eur')"><span>🇪🇺</span>EUR</div>
@@ -1195,7 +1270,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
- + repr(patches['tx_detail_overlay']) + 
+
+<!-- TX DETAIL OVERLAY -->
+<div id="tx-detail-overlay" class="tx-detail-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="tx-detail-sheet">
+    <div class="tx-d-handle"></div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px">Détail du transfert</div>
+    <div id="tx-detail-content"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 <script>
@@ -1212,7 +1296,78 @@ let lgC=0,lgT=null;
 let selCrypto="USDT.BEP20";
 let pinE="",psE="",psF="",psStep=1;
 
- + repr(patches['js_additions']) + 
+
+// ══ ZAMA v2 JS ══
+
+function updateUserStats() {
+  var ords = getOrds();
+  var sec = document.getElementById('user-stats-section');
+  if(!ords || !ords.length) { if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='grid';
+  var paid = ords.filter(function(o){ return o.status==='paid'; });
+  var totalFCFA = paid.reduce(function(s,o){ return s+(o.net_fcfa||0); },0);
+  var totalSent = paid.reduce(function(s,o){ return s+(o.amount||0); },0);
+  var savingsWU = Math.round(totalSent*(rates[cK]||606)*0.05);
+  var s = function(id,v){ var e=document.getElementById(id); if(e)e.textContent=v; };
+  s('ust-sent', totalFCFA>999?(totalFCFA/1000).toFixed(0)+'k':totalFCFA||'0');
+  s('ust-tx', ords.length);
+  s('ust-save', savingsWU>999?(savingsWU/1000).toFixed(0)+'k':savingsWU||'0');
+}
+
+function renderLastTx() {
+  var ords = getOrds();
+  var el = document.getElementById('last-tx-widget');
+  if(!ords||!ords.length||!el) return;
+  var o = ords[0];
+  el.classList.add('show');
+  var st = o.status==='paid'?'Complété':o.status==='failed'?'Échoué':'En attente';
+  var sc = o.status==='paid'?'var(--green)':o.status==='failed'?'var(--red)':'var(--amber)';
+  var bg = o.status==='paid'?'var(--green-l)':o.status==='failed'?'var(--red-l)':'var(--amber-l)';
+  var n=document.getElementById('ltx-name'); if(n)n.textContent=o.receiver_name||'--';
+  var m=document.getElementById('ltx-meta'); if(m)m.textContent=(o.amount||0)+' '+(o.src_currency||'')+' · '+(o.receiver_mm==='wave'?'Wave':'Orange Money');
+  var f=document.getElementById('ltx-fcfa'); if(f)f.textContent=(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA';
+  var ss=document.getElementById('ltx-st'); if(ss){ss.textContent=st;ss.style.background=bg;ss.style.color=sc;}
+  el.onclick=function(){showTxDetail(o);};
+}
+
+function showTxDetail(o) {
+  var overlay=document.getElementById('tx-detail-overlay');
+  if(!overlay) return;
+  var st=o.status==='paid'?'Complété ✅':o.status==='failed'?'Échoué ❌':'En attente ⏳';
+  var sc=o.status==='paid'?'var(--green)':o.status==='failed'?'var(--red)':'var(--amber)';
+  var dt=o.created_at?new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'--';
+  var html='<div style="text-align:center;padding:0 0 16px">'+
+    '<div style="font-size:28px;font-weight:800;color:var(--gold)">'+(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA</div>'+
+    '<div style="font-size:12px;color:var(--text3);margin-top:4px">'+(o.amount||0)+' '+(o.src_currency||'')+' envoyés</div>'+
+    '<div style="display:inline-block;margin-top:8px;padding:4px 14px;border-radius:100px;background:var(--s3);font-size:12px;font-weight:700;color:'+sc+'">'+st+'</div></div>'+
+    '<div class="tx-info-card">'+
+    '<div class="tx-row"><span class="tx-lbl">Référence</span><span class="tx-val" style="font-family:monospace;font-size:11px">'+(o.order_id||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Destinataire</span><span class="tx-val">'+(o.receiver_name||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Numéro</span><span class="tx-val">'+(o.receiver_phone||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Via</span><span class="tx-val">'+(o.receiver_mm==='wave'?'Wave 💙':'Orange Money 🟠')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Date</span><span class="tx-val">'+dt+'</span></div></div>';
+  if(o.status!=='paid'){
+    html+='<button class="btn-p" style="width:100%;margin:12px 0 0" onclick="var ref=''+o.order_id+'';orderId=ref;document.getElementById('tx-detail-overlay').classList.remove('open');goto('scr-track')">Suivre ce transfert</button>';
+  } else {
+    html+='<button onclick="document.getElementById('tx-detail-overlay').classList.remove('open')" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:12px">Fermer</button>';
+  }
+  document.getElementById('tx-detail-content').innerHTML=html;
+  overlay.classList.add('open');
+}
+
+function checkAmtLimits() {
+  var a=parseFloat(document.getElementById('s-amt')?document.getElementById('s-amt').value:0)||0;
+  var lim=document.getElementById('amt-limit-msg');
+  if(!lim) return;
+  var kyc=user&&user.kyc;
+  var maxD=kyc?5000:500;
+  var ml=document.getElementById('amt-max-lbl'); if(ml)ml.textContent=maxD;
+  if(a>=1&&a<=maxD){lim.innerHTML='<span class="lim-ok">✓ Montant valide</span><span>Max '+maxD+' '+curr+'/jour</span>';}
+  else if(a>maxD){lim.innerHTML='<span class="lim-err">Dépasse la limite</span><span style="color:var(--gold);cursor:pointer" onclick="goto('scr-kyc')">KYC → '+5000+'/j →</span>';}
+  else if(a>0&&a<1){lim.innerHTML='<span class="lim-err">Minimum 1 '+curr+'</span><span>Max '+maxD+' '+curr+'/jour</span>';}
+  else{lim.innerHTML='<span></span><span>Max '+maxD+' '+curr+'/jour</span>';}
+}
+
 window.addEventListener("load",function(){
   loadSavedLogos();
   user=loadU();
