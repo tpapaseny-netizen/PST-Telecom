@@ -649,7 +649,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
       <!-- QR canvas -->
       <div class="hqr-inner">
-        <div class="hqr-canvas" id="hqr-canvas"></div>
+        <img id="hqr-canvas" width="190" height="190" style="display:block;border-radius:4px;min-height:190px" src="" alt="QR ZAMA">
       </div>
       <!-- Bouton scanner -->
       <button class="hqr-scan-btn" onclick="hqrOpenScan()">
@@ -1315,7 +1315,7 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();_hqrDone=false;_hqrUrl=null;hqrInit();_hqsDone=false;_hqsUrl=null;hqsInit();
+  renderHBenefs();_hqsDone=false;_hqsUrl=null;hqsInit();setTimeout(function(){_hqrDone=false;_hqrUrl=null;hqrInit();},200);
   checkPinLoad();
   setTimeout(function(){hqrInit();},500);
   // Logo 5 clicks → admin
@@ -1760,7 +1760,7 @@ function doLogin(){
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);
+  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);_hqrDone=false;_hqrUrl=null;hqrInit();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
