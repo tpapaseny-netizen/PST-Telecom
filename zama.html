@@ -558,8 +558,142 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .qr-scan-area{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;}
 .qr-close-btn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--s3);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 .qr-close-btn svg{width:14px;height:14px;stroke:var(--text2);fill:none;stroke-width:2;}
+
+/* ══ QR ACCUEIL STYLE WAVE ══ */
+.home-qr-section{margin:14px 20px 0;background:var(--s1);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
+.home-qr-tabs{display:flex;background:var(--s2);border-bottom:1px solid var(--border);}
+.hqt{flex:1;padding:12px;border:none;background:transparent;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);border-bottom:2px solid transparent;transition:all .15s;}
+.hqt.on{color:var(--gold);border-bottom-color:var(--gold);}
+.home-qr-body{padding:20px;text-align:center;}
+.home-qr-wrap{background:#fff;border-radius:16px;padding:12px;display:inline-block;margin-bottom:12px;}
+.home-qr-name{font-size:16px;font-weight:700;margin-bottom:2px;}
+.home-qr-phone{font-size:13px;color:var(--gold);}
+.home-qr-actions{display:flex;gap:8px;margin-top:14px;}
+.hqa{flex:1;padding:10px 8px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--s2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:4px;transition:background .1s;}
+.hqa:active{background:var(--s3);}
+.hqa svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+.hqa.gold{background:var(--gold-l);border-color:var(--gold-m);color:var(--gold);}
+.hqa.wa{background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);color:#25D366;}
+/* Scanner panel */
+.home-scan-body{padding:20px;text-align:center;}
+.scan-frame{border:2px dashed var(--border2);border-radius:16px;padding:20px;margin-bottom:14px;position:relative;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.scan-corners::before,.scan-corners::after{content:'';position:absolute;width:20px;height:20px;border-color:var(--gold);border-style:solid;}
+.scan-corners::before{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.scan-corners::after{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+// ══ QR ACCUEIL ══
+var _homeScanStream = null;
+var _homeQRUrl = null;
+
+function initHomeQR() {
+  if(!user) {
+    var nl=document.getElementById('home-qr-not-logged'); if(nl)nl.style.display='block';
+    var ll=document.getElementById('home-qr-logged'); if(ll)ll.style.display='none';
+    return;
+  }
+  var nl=document.getElementById('home-qr-not-logged'); if(nl)nl.style.display='none';
+  var ll=document.getElementById('home-qr-logged'); if(ll)ll.style.display='block';
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var phone=user.phone||'';
+  var un=document.getElementById('home-qr-uname'); if(un)un.textContent=name.trim()||'--';
+  var up=document.getElementById('home-qr-uphone'); if(up)up.textContent=phone;
+  _homeQRUrl='https://pst-telecom-production.up.railway.app/zama?pay_phone='+encodeURIComponent(phone)+'&pay_name='+encodeURIComponent(name.trim());
+  var container=document.getElementById('home-qr-canvas');
+  if(container && container.children.length===0) {
+    try {
+      new QRCode(container,{text:_homeQRUrl,width:180,height:180,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    } catch(e){ container.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px">Erreur QR</div>'; }
+  }
+}
+
+function switchHomeQR(tab) {
+  var pr=document.getElementById('home-qr-receive');
+  var ps=document.getElementById('home-qr-scan');
+  var hr=document.getElementById('hqt-receive');
+  var hs=document.getElementById('hqt-scan');
+  if(tab==='receive'){
+    if(pr)pr.style.display='block'; if(ps)ps.style.display='none';
+    if(hr)hr.className='hqt on'; if(hs)hs.className='hqt';
+    stopHomeScanner();
+  } else {
+    if(pr)pr.style.display='none'; if(ps)ps.style.display='block';
+    if(hr)hr.className='hqt'; if(hs)hs.className='hqt on';
+  }
+}
+
+function copyHomeQR() {
+  if(!_homeQRUrl) return;
+  navigator.clipboard.writeText(_homeQRUrl).then(function(){ toast('Lien copié !','ok'); });
+}
+
+function shareHomeQR() {
+  if(!user) return;
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var text='Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n\n'+_homeQRUrl;
+  if(navigator.share)navigator.share({title:'Mon QR ZAMA',text:text,url:_homeQRUrl}).catch(function(){});
+  else navigator.clipboard.writeText(text).then(function(){ toast('Copié !','ok'); });
+}
+
+function shareHomeQRWA() {
+  if(!user||!_homeQRUrl) return;
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var msg=encodeURIComponent('Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n'+_homeQRUrl);
+  window.open('https://wa.me/?text='+msg,'_blank');
+}
+
+function toggleHomeScanner() {
+  if(_homeScanStream){ stopHomeScanner(); return; }
+  var video=document.getElementById('home-scan-video');
+  var ph=document.getElementById('home-scan-placeholder');
+  var btn=document.getElementById('home-scan-btn');
+  if(!navigator.mediaDevices){ toast('Caméra non disponible','err'); return; }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(stream){
+    _homeScanStream=stream;
+    if(video){video.style.display='block';video.srcObject=stream;}
+    if(ph)ph.style.display='none';
+    if(btn)btn.textContent='⏹ Arrêter le scanner';
+    toast('Scanner actif — pointez vers un QR ZAMA','info');
+  }).catch(function(){ toast('Caméra refusée — utilisez le lien manuel','err'); });
+}
+
+function stopHomeScanner() {
+  if(_homeScanStream){ _homeScanStream.getTracks().forEach(function(t){t.stop();}); _homeScanStream=null; }
+  var video=document.getElementById('home-scan-video');
+  if(video){video.style.display='none';video.srcObject=null;}
+  var ph=document.getElementById('home-scan-placeholder'); if(ph)ph.style.display='block';
+  var btn=document.getElementById('home-scan-btn'); if(btn)btn.textContent='Activer le scanner';
+}
+
+function processHomeScan() {
+  var inp=document.getElementById('home-scan-input');
+  if(!inp||!inp.value.trim()) return;
+  var val=inp.value.trim();
+  var phoneMatch=val.match(/pay_phone=([^&]+)/);
+  var nameMatch=val.match(/pay_name=([^&]+)/);
+  var codeMatch=val.match(/pay=([A-Z0-9]+)/);
+  var rawPhone=val.match(/^[+\d\s]{8,}/);
+  if(phoneMatch){
+    var phone=decodeURIComponent(phoneMatch[1]);
+    var name=nameMatch?decodeURIComponent(nameMatch[1]):'';
+    goto('scr-send');
+    setTimeout(function(){
+      var rname=document.getElementById('r-name'); if(rname)rname.value=name;
+      var rphone=document.getElementById('r-phone'); if(rphone)rphone.value=phone;
+      toast('Envoyer à '+(name||phone),'info');
+    },300);
+  } else if(codeMatch){
+    if(typeof loadPayCode==='function') loadPayCode(codeMatch[1]);
+  } else if(rawPhone){
+    goto('scr-send');
+    setTimeout(function(){ var rp=document.getElementById('r-phone'); if(rp)rp.value=val.trim(); },300);
+  } else {
+    toast('Format non reconnu','err');
+  }
+  inp.value='';
+}
+
+</script>
 </head>
 <body>
 <div id="app">
@@ -1516,7 +1650,7 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();updateUserStats();renderLastTx();
+  renderHBenefs();updateUserStats();renderLastTx();initHomeQR();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
@@ -1960,7 +2094,7 @@ function doLogin(){
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
+  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();initHomeQR();updateUserStats();renderLastTx();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
