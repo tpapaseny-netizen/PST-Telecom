@@ -1337,19 +1337,22 @@ async function createOrder(){
   sv("pi-fcfa",net.toLocaleString("fr-FR")+" FCFA");
   sv("pi-mm",mL);
   var paymentUrl=null;
-  // Sauvegarder données pour utilisation dans lancerPaiementCrypto
-  window._orderData={src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,
-    receiver_name:rn,receiver_phone:rph,receiver_mm:MM,
-    sender_name:sn,sender_email:se,message:msg,
-    user_id:user?user.id:null,amtU:amtU};
-  orderId="ZAMA-"+Date.now(); // ID temporaire
+  var paymentUrl=null;
+  try{
+    var res=await fetch(API+"/api/zama/create",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({src_currency:curr,amount:a,rate_fcfa:rate,net_fcfa:net,
+        receiver_name:rn,receiver_phone:rph,receiver_mm:MM,
+        sender_name:sn,sender_email:se,message:msg,user_id:user?user.id:null})});
+    var data=await res.json();
+    orderId=data.order_id||"ZAMA-"+Date.now();
+    paymentUrl=data.payment_url||null;
+  }catch(e){orderId="ZAMA-"+Date.now();}
   sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
   saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
+  if(paymentUrl){showIframe(paymentUrl);}else{showFallback();}
   startCD();checkT=setInterval(autoCheck,30000);
   btn.disabled=false;btn.innerHTML="Payer maintenant";
-  // Switcher sur Wave par défaut (crypto se chargera quand client choisit)
-  setTimeout(function(){switchTab("wave");},50);
 }
 
 // Tabs Wave / Crypto
@@ -1430,16 +1433,22 @@ function showIframeLoading(){
 
 function showIframe(url){
   window._payUrl=url;
-  if(document.getElementById('step-loading').style.display!=='none'){
-    _afficherIframe(url);
-  }
+  // Switcher sur onglet Crypto et afficher l'iframe directement
+  switchTab('crypto');
+  // Passer directement à step-iframe sans passer par step-choose
+  document.getElementById('step-choose').style.display='none';
+  document.getElementById('step-loading').style.display='none';
+  _afficherIframe(url);
 }
 
 function showFallback(){
-  window._payUrl='https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId;
-  if(document.getElementById('step-loading').style.display!=='none'){
-    _afficherIframe(window._payUrl);
-  }
+  // Fallback: afficher le POS izichange dans l'iframe
+  var fbUrl='https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId;
+  window._payUrl=fbUrl;
+  switchTab('crypto');
+  document.getElementById('step-choose').style.display='none';
+  document.getElementById('step-loading').style.display='none';
+  _afficherIframe(fbUrl);
 }
 
 function closePay(){
