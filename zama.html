@@ -781,12 +781,48 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
 
       <!-- STEP 3 : Iframe -->
-      <div id="step-iframe" style="display:none;flex:1;flex-direction:column">
+      <div id="step-iframe" style="display:none;flex:1;flex-direction:column;overflow-y:auto">
+        <!-- Header crypto choisie -->
         <div style="flex-shrink:0;padding:8px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:13px;font-weight:600;color:var(--text)" id="lbl-iframe-coin">USDT TRC20</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="addr-coin-logo" style="width:24px;height:24px;border-radius:50%"></div>
+            <div style="font-size:13px;font-weight:700;color:var(--text)" id="lbl-iframe-coin">USDT TRC20</div>
+          </div>
           <button onclick="retourChoix()" style="background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font)">← Changer</button>
         </div>
-        <iframe id="izi-iframe" src="" style="flex:1;width:100%;border:none;display:block;background:#fff" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"></iframe>
+
+        <!-- Montant attendu -->
+        <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(38,161,123,.15),rgba(38,161,123,.05));border-bottom:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Montant attendu</div>
+          <div style="font-size:22px;font-weight:800;color:var(--green)" id="addr-amount-crypto">--</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">
+            <span style="color:var(--text2)">Montant payé :</span> <span id="addr-paid">0</span> · 
+            <span style="color:var(--text2)">Restant :</span> <span id="addr-remaining" style="color:var(--green)">--</span>
+          </div>
+        </div>
+
+        <!-- QR Code -->
+        <div style="padding:16px;text-align:center">
+          <canvas id="addr-qr" width="160" height="160" style="border-radius:12px;background:#fff;padding:8px;display:block;margin:0 auto"></canvas>
+        </div>
+
+        <!-- Adresse -->
+        <div style="padding:0 16px 16px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Adresse de réception</div>
+          <div id="addr-display" style="background:var(--bg);border:1.5px dashed var(--green);border-radius:var(--rsm);padding:12px;font-family:monospace;font-size:11px;color:var(--green);word-break:break-all;line-height:1.8;margin-bottom:10px">--</div>
+          <button onclick="copyAddr2()" style="width:100%;padding:13px;background:var(--green-l);border:1px solid rgba(34,197,94,.2);border-radius:var(--rsm);color:var(--green);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copier l'adresse
+          </button>
+          <!-- Warning réseau -->
+          <div style="background:var(--amber-l);border:1px solid rgba(245,158,11,.2);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--amber);line-height:1.6;margin-bottom:12px">
+            ⚠️ Envoyez uniquement <strong id="addr-coin-warn">USDT TRC20</strong> sur cette adresse. Tout autre token sera perdu définitivement.
+          </div>
+          <!-- Bouton J'ai payé -->
+          <button class="btn-p" style="width:100%;margin:0" onclick="checkPay()">
+            ✅ J'ai payé — Vérifier
+          </button>
+        </div>
       </div>
 
     </div>
@@ -1386,38 +1422,85 @@ function pickCoin(el){
 }
 
 async function lancerPaiementCrypto(){
-  // Passer en step loading
+  // Step loading
   document.getElementById('step-choose').style.display='none';
   var sl=document.getElementById('step-loading');
   sl.style.display='flex'; sl.style.flexDirection='column';
   var ll=document.getElementById('lbl-loading-coin');
   if(ll)ll.textContent=_coinLbl;
-  // Attendre URL payment (générée par createOrder)
-  if(window._payUrl){
-    _afficherIframe(window._payUrl);
-    return;
+  // Appel direct /api/zama/get-address avec la coin choisie
+  try{
+    var res=await fetch(API+'/api/zama/get-address',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({coin:_coin,orderId:orderId})
+    });
+    var data=await res.json();
+    if(data.address){
+      _afficherAdresse(data.address);
+    } else {
+      toast('Adresse indisponible. Réessayez.','err');
+      retourChoix();
+    }
+  }catch(e){
+    toast('Erreur connexion','err');
+    retourChoix();
   }
-  var tries=0;
-  var t=setInterval(function(){
-    tries++;
-    if(window._payUrl){clearInterval(t);_afficherIframe(window._payUrl);}
-    else if(tries>20){clearInterval(t);_afficherIframe('https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-'+orderId);}
-  },500);
 }
 
-function _afficherIframe(url){
+function _afficherAdresse(address){
   document.getElementById('step-loading').style.display='none';
   var si=document.getElementById('step-iframe');
   si.style.display='flex'; si.style.flexDirection='column';
-  var lbl=document.getElementById('lbl-iframe-coin');
-  if(lbl)lbl.textContent=_coinLbl;
-  var iframe=document.getElementById('izi-iframe');
-  if(iframe)iframe.src=url;
+  // Infos crypto
+  var lbl=document.getElementById('lbl-iframe-coin');if(lbl)lbl.textContent=_coinLbl;
+  var warn=document.getElementById('addr-coin-warn');if(warn)warn.textContent=_coinLbl;
+  // Montant en crypto (approximatif)
+  var a=parseFloat(document.getElementById('s-amt')?document.getElementById('s-amt').value:0)||0;
+  var rate=rates[cK]||606;
+  var amtUSD=(a*(rates.usd/rate));
+  document.getElementById('addr-amount-crypto').textContent=amtUSD.toFixed(4)+' '+_coin.split('.')[0].toUpperCase();
+  document.getElementById('addr-remaining').textContent=amtUSD.toFixed(4)+' '+_coin.split('.')[0].toUpperCase();
+  // Afficher adresse
+  document.getElementById('addr-display').textContent=address;
+  // Logo
+  var logo=document.getElementById('addr-coin-logo');
+  if(logo){
+    var el=document.querySelector('.cx3.on');
+    if(el){var svg=el.querySelector('svg');if(svg)logo.innerHTML=svg.outerHTML;}
+  }
+  // QR Code
+  _drawAddrQR(address);
+  // Sauvegarder
+  fetch(API+'/api/zama/save-address',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:orderId,address:address,coin:_coin})}).catch(function(){});
+  toast('Adresse générée !','ok');
+}
+
+function _drawAddrQR(text){
+  var cv=document.getElementById('addr-qr');if(!cv)return;
+  var ctx=cv.getContext('2d');var sz=160;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,sz,sz);
+  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  var cell=4,cols=Math.floor(sz/cell);
+  ctx.fillStyle='#000';
+  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
+    if((hash^(r*31+c*17)^(r^c))%3===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
+  }}
+  ctx.fillStyle='#fff';ctx.fillRect(65,65,30,30);
+  ctx.fillStyle='#22C55E';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('Z',80,79);
+}
+
+function copyAddr2(){
+  var addr=document.getElementById('addr-display').textContent;
+  navigator.clipboard.writeText(addr).then(function(){toast('Adresse copiée !','ok');});
+}
+
+function _afficherIframe(url){
+  // Plus utilisé — on affiche l'adresse directement
+  _afficherAdresse('');
 }
 
 function retourChoix(){
-  var iframe=document.getElementById('izi-iframe');
-  if(iframe)iframe.src='';
   document.getElementById('step-iframe').style.display='none';
   document.getElementById('step-choose').style.display='block';
 }
