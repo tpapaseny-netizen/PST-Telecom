@@ -580,6 +580,35 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .scan-corners::before,.scan-corners::after{content:'';position:absolute;width:20px;height:20px;border-color:var(--gold);border-style:solid;}
 .scan-corners::before{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
 .scan-corners::after{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+
+/* ══ QR ACCUEIL ══ */
+.hqs{background:var(--s2);border:1px solid var(--border);border-radius:16px;margin:14px 20px 0;overflow:hidden;}
+.hqs-tabs{display:flex;border-bottom:1px solid var(--border);}
+.hqt{flex:1;padding:12px 8px;border:none;background:transparent;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);border-bottom:2px solid transparent;transition:all .15s;}
+.hqt.on{color:var(--gold);border-bottom-color:var(--gold);background:rgba(245,176,20,.04);}
+.hqs-body{padding:16px;text-align:center;}
+.hqs-qr-wrap{background:#fff;border-radius:12px;padding:10px;display:inline-block;margin-bottom:10px;}
+.hqs-name{font-size:15px;font-weight:700;margin-bottom:2px;}
+.hqs-phone{font-size:12px;color:var(--gold);margin-bottom:12px;}
+.hqs-acts{display:flex;gap:6px;}
+.hqa2{flex:1;padding:9px 6px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .1s;}
+.hqa2:active{background:var(--s4);}
+.hqa2 svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
+.hqa2.gld{background:var(--gold-l);border-color:var(--gold-m);color:var(--gold);}
+.hqa2.grn{background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);color:#25D366;}
+.hqs-scan{padding:16px;}
+.scan-box{border:2px dashed var(--border2);border-radius:12px;padding:16px;margin-bottom:12px;position:relative;min-height:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.scan-corner{position:absolute;width:18px;height:18px;border-color:var(--gold);border-style:solid;}
+.sc-tl{top:8px;left:8px;border-width:2px 0 0 2px;border-radius:3px 0 0 0;}
+.sc-tr{top:8px;right:8px;border-width:2px 2px 0 0;border-radius:0 3px 0 0;}
+.sc-bl{bottom:8px;left:8px;border-width:0 0 2px 2px;border-radius:0 0 0 3px;}
+.sc-br{bottom:8px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 3px 0;}
+.zama-contact{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.zama-contact:active{background:var(--s2);}
+.zc-av{width:36px;height:36px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;}
+.zc-info{flex:1;min-width:0;}
+.zc-name{font-size:13px;font-weight:600;}
+.zc-phone{font-size:11px;color:var(--text3);}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
 // ══ QR ACCUEIL ══
@@ -704,6 +733,156 @@ function processHomeScan() {
   inp.value='';
 }
 
+
+// ══ QR ACCUEIL HQS ══
+var _hqsStream=null, _hqsUrl=null, _hqsGenerated=false;
+
+function initHQS(){
+  var guest=document.getElementById('hqs-guest');
+  var userDiv=document.getElementById('hqs-user');
+  if(!user){
+    if(guest)guest.style.display='block';
+    if(userDiv)userDiv.style.display='none';
+    return;
+  }
+  if(guest)guest.style.display='none';
+  if(userDiv)userDiv.style.display='block';
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var phone=user.phone||'';
+  var un=document.getElementById('hqs-uname'); if(un)un.textContent=name.trim()||'--';
+  var up=document.getElementById('hqs-uphone'); if(up)up.textContent=phone;
+  _hqsUrl='https://pst-telecom-production.up.railway.app/zama?pay_phone='+encodeURIComponent(phone)+'&pay_name='+encodeURIComponent(name.trim());
+  if(!_hqsGenerated) genHQSQR();
+  loadZAMAContacts();
+}
+
+function genHQSQR(){
+  var container=document.getElementById('hqs-qr-div');
+  if(!container||!_hqsUrl) return;
+  function tryQR(n){
+    if(typeof QRCode!=='undefined'){
+      container.innerHTML='';
+      try{
+        new QRCode(container,{text:_hqsUrl,width:170,height:170,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+        _hqsGenerated=true;
+      }catch(e){container.innerHTML='<div style="padding:16px;color:var(--text3);font-size:11px">QR: '+e.message+'</div>';}
+    } else if(n>0){ setTimeout(function(){tryQR(n-1);},400); }
+    else { container.innerHTML='<div style="padding:16px;color:var(--text3);font-size:11px">Chargement QR...</div>'; }
+  }
+  tryQR(15);
+}
+
+function switchHQS(tab){
+  var pr=document.getElementById('hqs-receive');
+  var ps=document.getElementById('hqs-scan');
+  var hr=document.getElementById('hqt-r');
+  var hs=document.getElementById('hqt-s');
+  if(tab==='r'){
+    if(pr)pr.style.display='block'; if(ps)ps.style.display='none';
+    if(hr)hr.className='hqt on'; if(hs)hs.className='hqt';
+    stopHQSScanner();
+  } else {
+    if(pr)pr.style.display='none'; if(ps)ps.style.display='block';
+    if(hr)hr.className='hqt'; if(hs)hs.className='hqt on';
+  }
+}
+
+function copyHQS(){
+  if(!_hqsUrl)return;
+  navigator.clipboard.writeText(_hqsUrl).then(function(){toast('Lien copié !','ok');});
+}
+
+function shareHQS(){
+  if(!user||!_hqsUrl)return;
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var text='Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n\n'+_hqsUrl;
+  if(navigator.share)navigator.share({title:'Mon QR ZAMA',text:text,url:_hqsUrl}).catch(function(){});
+  else navigator.clipboard.writeText(text).then(function(){toast('Copié !','ok');});
+}
+
+function shareHQSWA(){
+  if(!user||!_hqsUrl)return;
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var msg=encodeURIComponent('Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n'+_hqsUrl);
+  window.open('https://wa.me/?text='+msg,'_blank');
+}
+
+function toggleHQSScanner(){
+  if(_hqsStream){stopHQSScanner();return;}
+  var video=document.getElementById('hqs-video');
+  var ph=document.getElementById('hqs-scan-ph');
+  var btn=document.getElementById('hqs-scan-btn');
+  if(!navigator.mediaDevices){toast('Camera non disponible','err');return;}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(stream){
+    _hqsStream=stream;
+    if(video){video.style.display='block';video.srcObject=stream;}
+    if(ph)ph.style.display='none';
+    if(btn)btn.textContent='Arrêter le scanner';
+    toast('Scanner actif','info');
+  }).catch(function(){toast('Camera refusée','err');});
+}
+
+function stopHQSScanner(){
+  if(_hqsStream){_hqsStream.getTracks().forEach(function(t){t.stop();});_hqsStream=null;}
+  var video=document.getElementById('hqs-video');
+  if(video){video.style.display='none';video.srcObject=null;}
+  var ph=document.getElementById('hqs-scan-ph'); if(ph)ph.style.display='block';
+  var btn=document.getElementById('hqs-scan-btn'); if(btn)btn.textContent='Activer le scanner';
+}
+
+// Contacts ZAMA locaux (bénéficiaires récents)
+function loadZAMAContacts(){
+  var list=document.getElementById('hqs-contacts-list');
+  if(!list)return;
+  var benefs=getBenefs().slice(0,5);
+  if(!benefs.length){list.innerHTML='';return;}
+  list.innerHTML=benefs.map(function(b){
+    var ini=(b.name||'?')[0].toUpperCase();
+    return '<div class="zama-contact" onclick="sendToContact(''+b.name+'',''+b.phone+'',''+b.mm+'')">'+'<div class="zc-av">'+ini+'</div>'+'<div class="zc-info"><div class="zc-name">'+(b.name||'--')+'</div><div class="zc-phone">'+(b.phone||'--')+' · '+(b.mm==='wave'?'Wave':'Orange Money')+'</div></div>'+'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>'+'</div>';
+  }).join('');
+}
+
+function sendToContact(name,phone,mm){
+  switchHQS('r');
+  goto('scr-send');
+  setTimeout(function(){
+    var rn=document.getElementById('r-name'); if(rn)rn.value=name||'';
+    var rp=document.getElementById('r-phone'); if(rp)rp.value=phone||'';
+    var mmEl=document.getElementById('mm-'+(mm||'wave'));
+    if(mmEl)selMM(mm||'wave',mmEl);
+    toast('Envoyer à '+(name||phone),'info');
+  },300);
+}
+
+function sendToHQSManual(){
+  var inp=document.getElementById('hqs-manual');
+  if(!inp||!inp.value.trim())return;
+  var val=inp.value.trim();
+  var phoneMatch=val.match(/pay_phone=([^&]+)/);
+  var nameMatch=val.match(/pay_name=([^&]+)/);
+  if(phoneMatch){
+    sendToContact(nameMatch?decodeURIComponent(nameMatch[1]):'',decodeURIComponent(phoneMatch[1]),'wave');
+  } else {
+    sendToContact('',val,'wave');
+  }
+  inp.value='';
+}
+
+// Détecter pay_phone dans URL
+function checkPayPhoneParam(){
+  var params=new URLSearchParams(window.location.search);
+  var phone=params.get('pay_phone');
+  var name=params.get('pay_name')||'';
+  if(phone){
+    goto('scr-send');
+    setTimeout(function(){
+      var rn=document.getElementById('r-name'); if(rn)rn.value=decodeURIComponent(name);
+      var rp=document.getElementById('r-phone'); if(rp)rp.value=decodeURIComponent(phone);
+      toast('Envoyer à '+(name||phone),'info');
+    },400);
+  }
+}
+
 </script>
 </head>
 <body>
@@ -814,6 +993,59 @@ function processHomeScan() {
       <div class="ltx-amt"><div class="ltx-fcfa" id="ltx-fcfa">--</div><div class="ltx-st" id="ltx-st">--</div></div>
     </div>
 
+
+    
+    <!-- QR ACCUEIL -->
+    <div class="hqs" id="home-qr-section">
+      <div class="hqs-tabs">
+        <button class="hqt on" id="hqt-r" onclick="switchHQS('r')">&#128229; Mon QR — Recevoir</button>
+        <button class="hqt" id="hqt-s" onclick="switchHQS('s')">&#128247; Scanner — Envoyer</button>
+      </div>
+
+      <!-- RECEVOIR -->
+      <div id="hqs-receive" class="hqs-body">
+        <div id="hqs-guest">
+          <div style="font-size:13px;color:var(--text3);margin-bottom:12px;padding-top:4px">Connectez-vous pour afficher votre QR</div>
+          <button onclick="goto('scr-login')" style="padding:10px 24px;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;border-radius:var(--rsm);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Se connecter</button>
+          <div style="height:8px"></div>
+        </div>
+        <div id="hqs-user" style="display:none">
+          <div class="hqs-qr-wrap"><div id="hqs-qr-div"></div></div>
+          <div class="hqs-name" id="hqs-uname">--</div>
+          <div class="hqs-phone" id="hqs-uphone">--</div>
+          <div class="hqs-acts">
+            <button class="hqa2 gld" onclick="copyHQS()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</button>
+            <button class="hqa2" onclick="shareHQS()"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partager</button>
+            <button class="hqa2 grn" onclick="shareHQSWA()"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>WhatsApp</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCANNER -->
+      <div id="hqs-scan" class="hqs-scan" style="display:none">
+        <div class="scan-box">
+          <div class="scan-corner sc-tl"></div>
+          <div class="scan-corner sc-tr"></div>
+          <div class="scan-corner sc-bl"></div>
+          <div class="scan-corner sc-br"></div>
+          <video id="hqs-video" style="width:100%;border-radius:8px;display:none" autoplay playsinline muted></video>
+          <div id="hqs-scan-ph" style="color:var(--text3);font-size:12px;text-align:center">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--text3)" stroke-width="1.5" style="display:block;margin:0 auto 8px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg>
+            Scannez un QR ZAMA
+          </div>
+        </div>
+        <button id="hqs-scan-btn" onclick="toggleHQSScanner()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;border-radius:var(--rsm);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-bottom:10px">
+          &#128247; Activer le scanner
+        </button>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">Contacts ZAMA — appuyez pour envoyer</div>
+        <div id="hqs-contacts-list"></div>
+        <div style="font-size:11px;color:var(--text3);margin:10px 0 6px;text-align:center">Ou entrez un numéro / lien</div>
+        <div style="display:flex;gap:8px">
+          <input class="finp" type="tel" id="hqs-manual" placeholder="+221 77 XXX XX XX" inputmode="tel" style="flex:1;font-size:12px">
+          <button onclick="sendToHQSManual()" style="padding:11px 14px;background:var(--gold);border:none;color:#000;border-radius:var(--rsm);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">&#10140;</button>
+        </div>
+      </div>
+    </div>
 
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
@@ -1661,7 +1893,7 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();updateUserStats();renderLastTx();initHomeQR();
+  renderHBenefs();updateUserStats();renderLastTx();initHQS();initHomeQR();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
