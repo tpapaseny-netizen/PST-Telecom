@@ -1435,7 +1435,7 @@ function zamaUnSave() {
         <div class="slbl">Mon compte</div>
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="showQR()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="ai-lbl">Mon QR Code</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
-        <div class="ai" onclick="(function(){var m=document.getElementById('zama-un-modal');if(!m){m=document.createElement('div');m.id='zama-un-modal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:flex;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto';m.innerHTML='<div style=\"background:#0D1525;border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid rgba(255,255,255,.08)\"><div style=\"width:36px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:0 auto 20px\"></div><div style=\"font-size:18px;font-weight:700;text-align:center;margin-bottom:4px\">Mon @username</div><div style=\"font-size:12px;color:#475569;text-align:center;margin-bottom:20px\">Identifiant unique pour recevoir</div><div style=\"position:relative;margin-bottom:8px\"><span style=\"position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;font-weight:800;color:#F5B014;z-index:1\">@</span><input id=\"zun\" type=\"text\" placeholder=\"tonusername\" maxlength=\"20\" autocomplete=\"off\" autocapitalize=\"none\" style=\"width:100%;background:#111D30;border:1.5px solid rgba(245,176,20,.3);border-radius:10px;padding:14px 16px 14px 32px;color:#E2E8F0;font-size:16px;font-weight:700;font-family:Inter,sans-serif;outline:none\" oninput=\"var v=this.value.toLowerCase().replace(/[^a-z0-9._]/g,\'\');this.value=v;document.getElementById(\'zunp\').textContent=\'@\'+(v||(\'tonusername\'));document.getElementById(\'zuns\').textContent=v.length>=3?(\'@\'+v+\' disponible ✓\'):\'Min 3 caractères\';document.getElementById(\'zuns\').style.color=v.length>=3?\'#22C55E\':\'#EF4444\'\"></div><div id=\"zunp\" style=\"font-size:24px;font-weight:800;color:#F5B014;text-align:center;margin:12px 0 4px\">@tonusername</div><div id=\"zuns\" style=\"font-size:12px;color:#475569;text-align:center;margin-bottom:16px\">Entrez 3 à 20 caractères</div><button onclick=\"var v=document.getElementById(\'zun\').value;if(v.length<3)return;var u=\'@\'+v;localStorage.setItem(\'zama_username\',u);var l=document.getElementById(\'un-menu-lbl\');if(l)l.textContent=u+\' · Modifier\';document.getElementById(\'zama-un-modal\').style.display=\'none\';alert(u+\' sauvegardé !')\" style=\"width:100%;padding:15px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px\">Confirmer</button><button onclick=\"document.getElementById(\'zama-un-modal\').style.display=\'none'\" style=\"width:100%;padding:13px;background:#1A2640;border:1px solid rgba(255,255,255,.06);color:#94A3B8;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer\">Annuler</button></div>';document.body.appendChild(m);m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});}var inp=document.getElementById('zun');if(inp){var ex=localStorage.getItem('zama_username')||'';inp.value=ex.replace('@','');document.getElementById('zunp').textContent='@'+(inp.value||'tonusername');}m.style.display='flex';setTimeout(function(){var i=document.getElementById('zun');if(i)i.focus();},300);}())"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl" id="un-menu-lbl">@username · Ajouter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="zamaUN()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl" id="un-menu-lbl">@username · Ajouter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
@@ -2537,6 +2537,56 @@ function loadSavedLogos() {
       }
     }
   });
+}
+
+
+// ══ USERNAME ZAMA ══
+function zamaUN(){
+  var sh=document.getElementById('zamaUnSheet');
+  if(!sh){
+    sh=document.createElement('div');
+    sh.id='zamaUnSheet';
+    sh.setAttribute('style','position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:none;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto');
+    sh.innerHTML='<div style="background:#0D1525;border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid rgba(255,255,255,.06)">'
+      +'<div style="width:36px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:0 auto 20px"></div>'
+      +'<div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:4px">Mon @username</div>'
+      +'<div style="font-size:12px;color:#475569;text-align:center;margin-bottom:20px">Identifiant unique pour recevoir</div>'
+      +'<div style="position:relative;margin-bottom:8px">'
+      +'<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;font-weight:800;color:#F5B014">@</span>'
+      +'<input id="zamaUnInp" type="text" placeholder="tonusername" maxlength="20" autocomplete="off" autocapitalize="none"'
+      +' style="width:100%;background:#111D30;border:1.5px solid rgba(245,176,20,.3);border-radius:10px;padding:14px 16px 14px 32px;color:#E2E8F0;font-size:16px;font-weight:700;font-family:Inter,sans-serif;outline:none;-webkit-appearance:none"'
+      +' oninput="zamaUnLive(this.value)">'
+      +'</div>'
+      +'<div id="zamaUnPrev" style="font-size:24px;font-weight:800;color:#F5B014;text-align:center;margin:12px 0 4px">@tonusername</div>'
+      +'<div id="zamaUnSt" style="font-size:12px;color:#475569;text-align:center;margin-bottom:16px">3 à 20 caractères</div>'
+      +'<button onclick="zamaUnSave()" style="width:100%;padding:15px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:10px">Confirmer</button>'
+      +'<button onclick="document.getElementById('zamaUnSheet').style.display='none'" style="width:100%;padding:13px;background:#1A2640;border:1px solid rgba(255,255,255,.06);color:#94A3B8;border-radius:10px;font-size:14px;cursor:pointer;font-family:Inter,sans-serif">Annuler</button>'
+      +'</div>';
+    document.body.appendChild(sh);
+    sh.addEventListener('click',function(e){if(e.target===sh)sh.style.display='none';});
+  }
+  var ex=localStorage.getItem('zama_username')||'';
+  var inp=document.getElementById('zamaUnInp');
+  if(inp){inp.value=ex.replace('@','');zamaUnLive(inp.value);}
+  sh.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('zamaUnInp');if(i)i.focus();},300);
+}
+function zamaUnLive(v){
+  v=(v||'').toLowerCase().replace(/[^a-z0-9._]/g,'');
+  var inp=document.getElementById('zamaUnInp');if(inp)inp.value=v;
+  var p=document.getElementById('zamaUnPrev');if(p)p.textContent='@'+(v||'tonusername');
+  var s=document.getElementById('zamaUnSt');
+  if(s){s.textContent=v.length>=3?('@'+v+' disponible ✓'):'Min 3 caractères';s.style.color=v.length>=3?'#22C55E':'#EF4444';}
+}
+function zamaUnSave(){
+  var v=document.getElementById('zamaUnInp').value;
+  if(!v||v.length<3){var s=document.getElementById('zamaUnSt');if(s){s.textContent='Min 3 caractères !';s.style.color='#EF4444';}return;}
+  var u='@'+v;
+  localStorage.setItem('zama_username',u);
+  if(user){user.username=u;saveULS(user);}
+  var l=document.getElementById('un-menu-lbl');if(l)l.textContent=u+' · Modifier';
+  document.getElementById('zamaUnSheet').style.display='none';
+  toast(u+' sauvegardé !','ok');
 }
 
 // TOAST
