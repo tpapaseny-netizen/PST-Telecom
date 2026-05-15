@@ -103,9 +103,21 @@ async function iziRequest(endpoint, data, signature) {
 // generatePayinRedirectUrlWithCustomer — lien de paiement avec données client
 async function iziGeneratePaymentUrl({orderId, amountUSD, coin, acceptedCoins, firstname, lastname, email}) {
   try {
+    // Toutes les cryptos disponibles chez izichange
+    const allCoins = [
+      'usdt.trc20','usdt.bep20','usdt.erc20','usdt.opbnb','usdt.ton',
+      'usdc.trc20','usdc.bep20','usdc.erc20',
+      'btc','btc.bep20',
+      'eth','eth.bep20',
+      'bnb','opbnb',
+      'trx',
+      'xrp.bep20','sol.bep20','ada.bep20','doge.bep20',
+      'dot.bep20','shib.bep20','ltc',
+      'busd.bep20','ton','twt.bep20'
+    ];
     const toSign = {
-      coin: coin || 'trx',
-      acceptedCoins: acceptedCoins || ['trx','usdt.trc20','usdt.bep20','btc','eth','bnb'],
+      coin: coin || 'usdt.trc20',
+      acceptedCoins: acceptedCoins || allCoins,
       amount: String(parseFloat(amountUSD).toFixed(2)),
       successUrl:  BASE_URL + '/api/zama/pay-success?order=' + orderId,
       canceledUrl: BASE_URL + '/api/zama/pay-cancel?order=' + orderId,
@@ -118,7 +130,7 @@ async function iziGeneratePaymentUrl({orderId, amountUSD, coin, acceptedCoins, f
       memo:      'ZAMA-' + orderId,
     });
     const signature = iziSign(toSign);
-    console.log('[iziPay] Generating URL order=' + orderId + ' amount=$' + amountUSD);
+    console.log('[iziPay] Generating URL order=' + orderId + ' amount=$' + amountUSD + ' coins=' + allCoins.length);
     const result = await iziRequest('/api/payements/init_operation_with_customer_data', data, signature);
     console.log('[iziPay] Result:', JSON.stringify(result).slice(0, 300));
     return (result && result.data && result.data.url) ? result.data.url :
