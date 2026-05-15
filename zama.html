@@ -599,12 +599,23 @@ function initHomeQR() {
   var un=document.getElementById('home-qr-uname'); if(un)un.textContent=name.trim()||'--';
   var up=document.getElementById('home-qr-uphone'); if(up)up.textContent=phone;
   _homeQRUrl='https://pst-telecom-production.up.railway.app/zama?pay_phone='+encodeURIComponent(phone)+'&pay_name='+encodeURIComponent(name.trim());
-  var container=document.getElementById('home-qr-canvas');
-  if(container && container.children.length===0) {
-    try {
-      new QRCode(container,{text:_homeQRUrl,width:180,height:180,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-    } catch(e){ container.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px">Erreur QR</div>'; }
+  // Attendre que QRCode.js soit disponible
+  function tryGenQR(attempts) {
+    var container=document.getElementById('home-qr-canvas');
+    if(!container) return;
+    if(typeof QRCode === 'undefined') {
+      if(attempts > 0) setTimeout(function(){ tryGenQR(attempts-1); }, 300);
+      else container.innerHTML='<div style="padding:20px;color:var(--text3);font-size:12px">QR indisponible</div>';
+      return;
+    }
+    if(container.children.length===0) {
+      container.innerHTML='';
+      try {
+        new QRCode(container,{text:_homeQRUrl,width:180,height:180,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+      } catch(e){ container.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px">Erreur: '+e.message+'</div>'; }
+    }
   }
+  tryGenQR(10);
 }
 
 function switchHomeQR(tab) {
