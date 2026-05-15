@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#F5B014">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZAMA">
+<link rel="apple-touch-icon" href="/icons/zama-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/zama-152.png">
+<link rel="apple-touch-icon" sizes="144x144" href="/icons/zama-144.png">
+<link rel="apple-touch-icon" sizes="128x128" href="/icons/zama-128.png">
+<meta name="msapplication-TileImage" content="/icons/zama-144.png">
+<meta name="msapplication-TileColor" content="#F5B014">
 <title>ZAMA — Transfert international</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1241,7 +1253,7 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();_hqsDone=false;_hqsUrl=null;hqsInit();setTimeout(function(){},200);
+  renderHBenefs();setTimeout(function(){},200);
   checkPinLoad();
   setTimeout(function(){},500);
   // Logo 5 clicks → admin
@@ -1686,7 +1698,7 @@ function doLogin(){
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);
+  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
@@ -1711,7 +1723,7 @@ function verOTP(){
     fetch(API+"/api/zama/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)}).catch(function(){});
     document.getElementById("otp-overlay").classList.remove("open");
     document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
-    pendR=null;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);
+    pendR=null;renderAcct();updateGreet();renderHBenefs();
     toast("Bienvenue, "+(u.prenom||"Client")+" !","ok");goto("scr-acct");
     setTimeout(function(){document.getElementById("ps-title").textContent="Sécurisez votre compte";document.getElementById("ps-sub").textContent="Créez un PIN à 4 chiffres";psE="";psF="";psStep=1;updPSD();document.getElementById("pin-setup").style.display="flex";},600);
   }else{toast("Code incorrect. Démo: 1234","err");}
@@ -1719,7 +1731,7 @@ function verOTP(){
 function logout(){
   if(!confirm("Se déconnecter ?"))return;
   localStorage.removeItem("zama_u");localStorage.removeItem("zama_pin");
-  user=null;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);goto("scr-home");toast("Déconnecté","");
+  user=null;renderAcct();updateGreet();renderHBenefs();goto("scr-home");toast("Déconnecté","");
 }
 function togEye(id,btn){
   var inp=document.getElementById(id);if(!inp)return;
@@ -1849,7 +1861,7 @@ function renderQBenefs(){var bs=getBenefs().slice(0,3);var wrap=document.getElem
 function fillB(name,phone,mm){var rn=document.getElementById("r-name");if(rn)rn.value=name;var rph=document.getElementById("r-phone");if(rph)rph.value=phone;var el=document.getElementById("mm-"+mm);if(el)selMM(mm,el);}
 function useB(name,phone,mm){goto("scr-send");setTimeout(function(){fillB(name,phone,mm);},100);}
 function quickSend(){goto("scr-send");}
-function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);toast("Bénéficiaire ajouté","ok");}
+function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();toast("Bénéficiaire ajouté","ok");}
 
 // HISTORY
 function renderHist(){var ords=getOrds();var el=document.getElementById("hist-list");if(!el)return;
@@ -2097,5 +2109,16 @@ var _toastT;
 function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(type?" "+type:"");clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove("show");},3000);}
 </script>
 </div>
+
+<script>
+// Enregistrement Service Worker PWA
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('ZAMA SW actif:', reg.scope); })
+      .catch(function(e) { console.log('SW erreur:', e); });
+  });
+}
+</script>
 </body>
 </html>
