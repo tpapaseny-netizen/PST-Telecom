@@ -545,8 +545,213 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .hqs-contact:last-child{border-bottom:none;}
 .hqs-cav{width:32px;height:32px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;}
 
+
+/* ══ ANIMATIONS PREMIUM ══ */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes glow-gold{0%,100%{box-shadow:0 0 10px rgba(245,176,20,.2)}50%{box-shadow:0 0 24px rgba(245,176,20,.5),0 0 48px rgba(245,176,20,.15)}}
+@keyframes glow-green{0%,100%{box-shadow:0 0 10px rgba(34,197,94,.15)}50%{box-shadow:0 0 20px rgba(34,197,94,.4)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes count-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.5);opacity:0}}
+@keyframes slide-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes confetti-fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+
+/* ══ GLASSMORPHISM ══ */
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);}
+.glass-gold{background:rgba(245,176,20,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(245,176,20,.15);}
+.glass-dark{background:rgba(7,13,26,.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.06);}
+
+/* ══ HERO PREMIUM ══ */
+.home-hero{background:linear-gradient(160deg,#060C1A 0%,#0A1428 40%,#0D1A35 70%,#0A1228 100%) !important;position:relative;overflow:hidden;}
+.home-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(245,176,20,.12) 0%,transparent 70%);pointer-events:none;}
+.home-hero::after{content:'';position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(59,130,246,.08) 0%,transparent 70%);pointer-events:none;}
+
+/* ══ LOGO GLOW ══ */
+.logo-mark{animation:glow-gold 3s ease-in-out infinite;transition:transform .2s;}
+.logo-mark:active{transform:scale(.92);}
+
+/* ══ RATE PILL PREMIUM ══ */
+.rate-pill{animation:float 4s ease-in-out infinite;border:1px solid rgba(245,176,20,.2) !important;background:rgba(245,176,20,.06) !important;}
+
+/* ══ QA PREMIUM ══ */
+.qa{transition:all .2s cubic-bezier(.34,1.56,.64,1) !important;position:relative;overflow:hidden;}
+.qa::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.04),transparent);opacity:0;transition:opacity .2s;}
+.qa:active{transform:scale(.93) !important;}
+.qa:active::after{opacity:1;}
+
+/* ══ RATE CARDS PREMIUM ══ */
+.rc{transition:all .2s;border:1px solid rgba(255,255,255,.06) !important;background:linear-gradient(135deg,var(--s2),var(--s3)) !important;}
+.rc:hover{transform:translateY(-2px);border-color:rgba(245,176,20,.2) !important;}
+
+/* ══ TRUST BADGES PREMIUM ══ */
+.trust-badges{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px;margin-top:14px;}
+.tb{display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.12);border-radius:100px;font-size:10px;font-weight:700;color:rgba(34,197,94,.8);}
+.tb svg{width:10px;height:10px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0;}
+.tb.blue{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.12);color:rgba(100,160,255,.8);}
+.tb.blue svg{stroke:#3B82F6;}
+.tb.gold{background:rgba(245,176,20,.06);border-color:rgba(245,176,20,.12);color:rgba(245,176,20,.8);}
+.tb.gold svg{stroke:var(--gold);}
+
+/* ══ SOLDE CARD ══ */
+.balance-card{margin:14px 20px 0;background:linear-gradient(135deg,#0F1E38,#162540);border:1px solid rgba(245,176,20,.15);border-radius:20px;padding:20px;position:relative;overflow:hidden;}
+.balance-card::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,176,20,.1),transparent 70%);}
+.balance-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;}
+.balance-amount{font-size:32px;font-weight:800;color:#fff;line-height:1;animation:count-up .6s ease-out;}
+.balance-sub{font-size:12px;color:rgba(255,255,255,.35);margin-top:4px;}
+.balance-row{display:flex;justify-content:space-between;align-items:flex-end;}
+.balance-stats{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);}
+.bs-item{flex:1;text-align:center;}
+.bs-val{font-size:14px;font-weight:700;color:var(--gold);}
+.bs-lbl{font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;}
+
+/* ══ BTN PREMIUM ══ */
+.btn-p{background:linear-gradient(135deg,#F5B014,#FCD34D,#F5B014) !important;background-size:200% !important;transition:all .3s !important;box-shadow:0 4px 20px rgba(245,176,20,.3) !important;}
+.btn-p:active{box-shadow:0 2px 10px rgba(245,176,20,.2) !important;transform:scale(.98);}
+
+/* ══ SKELETON LOADER ══ */
+.skeleton{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
+
+/* ══ CONFETTI ══ */
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:99998;overflow:hidden;}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confetti-fall 2.5s ease-in forwards;}
+
+/* ══ NOTIFICATION TOAST PREMIUM ══ */
+.toast{background:rgba(13,21,37,.95) !important;backdrop-filter:blur(20px) !important;border-radius:14px !important;padding:14px 20px !important;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06) !important;}
+
+/* ══ SCREEN TRANSITIONS ══ */
+.scr{transition:opacity .15s ease !important;}
+
+/* ══ STAT CARDS GLOW ══ */
+.stat-card.blue{box-shadow:0 4px 20px rgba(59,130,246,.1);}
+.stat-card.gold{box-shadow:0 4px 20px rgba(245,176,20,.1);}
+.stat-card.green{box-shadow:0 4px 20px rgba(34,197,94,.1);}
+
+/* ══ SEND HERO PREMIUM ══ */
+.send-hero{background:linear-gradient(160deg,#060C1A,#0A1428,#0D1A35) !important;position:relative;overflow:hidden;}
+.send-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;background:radial-gradient(circle,rgba(245,176,20,.08),transparent 70%);pointer-events:none;}
+
+/* ══ AMOUNT INPUT GLOW ══ */
+.amt-inp:focus{text-shadow:0 0 30px rgba(245,176,20,.3);}
+
+/* ══ HI ITEM PREMIUM ══ */
+.hi{border-bottom:1px solid rgba(255,255,255,.04) !important;}
+.hi:active{background:rgba(255,255,255,.02) !important;}
+
+/* ══ MM SELECTOR PREMIUM ══ */
+.mm.on{box-shadow:0 4px 16px rgba(34,197,94,.15) !important;}
+
+/* ══ ACTIVITY CARD ══ */
+.activity-card{margin:0 20px;background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.ac-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);}
+.ac-item:last-child{border-bottom:none;}
+.ac-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;}
+.ac-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1px solid currentColor;opacity:.3;animation:pulse-ring 2s infinite;}
+.ac-dot.green{background:var(--green);color:var(--green);}
+.ac-dot.gold{background:var(--gold);color:var(--gold);}
+.ac-dot.blue{background:var(--blue);color:var(--blue);}
+.ac-txt{flex:1;font-size:12px;color:var(--text2);}
+.ac-time{font-size:10px;color:var(--text3);}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+// ══ PREMIUM ANIMATIONS ══
+
+// Confettis de succès
+function showConfetti() {
+  var container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+  var colors = ['#F5B014','#FCD34D','#22C55E','#3B82F6','#fff','#F97316'];
+  for(var i = 0; i < 60; i++) {
+    var piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.cssText = [
+      'left:' + Math.random()*100 + '%',
+      'top:-10px',
+      'background:' + colors[Math.floor(Math.random()*colors.length)],
+      'animation-delay:' + Math.random()*1.5 + 's',
+      'animation-duration:' + (2+Math.random()*1.5) + 's',
+      'transform:rotate(' + Math.random()*360 + 'deg)',
+      'width:' + (6+Math.random()*6) + 'px',
+      'height:' + (6+Math.random()*6) + 'px',
+      'border-radius:' + (Math.random()>0.5?'50%':'2px')
+    ].join(';');
+    container.appendChild(piece);
+  }
+  setTimeout(function(){ container.remove(); }, 4000);
+}
+
+// Vibration mobile
+function vibrate(pattern) {
+  if(navigator.vibrate) navigator.vibrate(pattern || [50]);
+}
+
+// Animation counter
+function animateCounter(el, target, suffix, duration) {
+  if(!el) return;
+  var start = 0;
+  var step = target / (duration / 16);
+  var timer = setInterval(function() {
+    start += step;
+    if(start >= target) { start = target; clearInterval(timer); }
+    el.textContent = Math.floor(start).toLocaleString('fr-FR') + (suffix||'');
+  }, 16);
+}
+
+// Update balance card
+function updateBalanceCard() {
+  var ords = getOrds();
+  var total = ords.filter(function(o){return o.status==='paid';})
+                  .reduce(function(s,o){return s+(o.net_fcfa||0);}, 0);
+  var count = ords.filter(function(o){return o.status==='paid';}).length;
+  var saved = Math.round(total * 0.015); // 1.5% économisé vs WU
+
+  // Ce mois
+  var now = new Date();
+  var month = ords.filter(function(o){
+    var d = new Date(o.created_at);
+    return o.status==='paid' && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  }).reduce(function(s,o){return s+(o.net_fcfa||0);}, 0);
+
+  var balEl = document.getElementById('bal-amount');
+  var subEl = document.getElementById('bal-sub');
+  var monthEl = document.getElementById('bal-month');
+  var sentEl = document.getElementById('bs-sent');
+  var savedEl = document.getElementById('bs-saved');
+
+  if(balEl) {
+    if(total > 0) {
+      animateCounter(balEl, total, ' FCFA', 800);
+    } else {
+      balEl.textContent = user ? '0 FCFA' : '-- FCFA';
+    }
+  }
+  if(subEl) subEl.textContent = total > 0 ? '≈ ' + (total/606).toFixed(2) + ' USD · Total envoyé' : 'Connectez-vous pour voir vos stats';
+  if(monthEl) monthEl.textContent = '+' + month.toLocaleString('fr-FR') + ' FCFA';
+  if(sentEl) sentEl.textContent = count;
+  if(savedEl) savedEl.textContent = saved.toLocaleString('fr-FR') + ' FCFA';
+}
+
+// Skeleton loader
+function showSkeleton(containerId, lines) {
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  var html = '';
+  for(var i=0;i<(lines||3);i++) {
+    html += '<div class="skeleton" style="height:' + (14+Math.random()*6) + 'px;margin-bottom:10px;width:' + (60+Math.random()*40) + '%"></div>';
+  }
+  el.innerHTML = html;
+}
+
+// Micro animation sur tap
+document.addEventListener('click', function(e) {
+  var qa = e.target.closest('.qa');
+  if(qa) vibrate([30]);
+  var btn = e.target.closest('.btn-p');
+  if(btn) vibrate([50, 30, 50]);
+});
+
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
