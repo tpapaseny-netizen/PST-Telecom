@@ -532,13 +532,55 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .hqs-contact{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .hqs-contact:last-child{border-bottom:none;}
 .hqs-cav{width:32px;height:32px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;}
+
+/* ══ QR HERO STYLE WAVE ══ */
+.hero-qr-wrap{background:linear-gradient(160deg,#0A1525,#0F1E35);border-radius:20px;margin:14px 20px 0;padding:16px;position:relative;overflow:hidden;}
+.hero-qr-wrap::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.015) 0px,rgba(255,255,255,.015) 1px,transparent 1px,transparent 12px);pointer-events:none;}
+.hqr-inner{background:#fff;border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;position:relative;}
+.hqr-canvas{display:flex;align-items:center;justify-content:center;min-height:160px;}
+.hqr-scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:background .15s;}
+.hqr-scan-btn:active{background:rgba(255,255,255,.2);}
+.hqr-scan-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;}
+.hqr-user-info{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.hqr-name{font-size:13px;font-weight:700;color:#fff;}
+.hqr-phone{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;}
+.hqr-share-btns{display:flex;gap:6px;margin-top:10px;}
+.hqr-sbtn{flex:1;padding:8px 4px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .1s;}
+.hqr-sbtn:active{background:rgba(255,255,255,.15);}
+.hqr-sbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;}
+.hqr-sbtn.wa{background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.2);color:#25D366;}
+/* Scanner overlay */
+.hqr-scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;max-width:430px;margin:0 auto;}
+.hqr-scan-overlay.open{display:flex;}
+.hqr-scan-frame{width:260px;height:260px;position:relative;margin-bottom:20px;}
+.hqr-scan-frame video{width:100%;height:100%;object-fit:cover;border-radius:16px;}
+.hqr-sf-c{position:absolute;width:24px;height:24px;border-color:var(--gold);border-style:solid;}
+.hqr-sf-c1{top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.hqr-sf-c2{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 4px 0 0;}
+.hqr-sf-c3{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 4px;}
+.hqr-sf-c4{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+.hqr-scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:scanline 2s infinite;}
+@keyframes scanline{0%{top:0}100%{top:100%}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
 // ══ HQS QR Accueil ══
 var _hqsUrl=null,_hqsDone=false,_hqsCam=null;
 function hqsInit(){
   var g=document.getElementById('hqs-g'),u=document.getElementById('hqs-u');
-  if(!user){if(g)g.style.display='block';if(u)u.style.display='none';return;}
+  if(!user){
+    if(g)g.style.display='block';if(u)u.style.display='none';
+    // Générer QR ZAMA générique pour les visiteurs
+    var gc=document.getElementById('hqs-qr-guest');
+    if(gc&&gc.children.length===0){
+      function tryGuestQR(n){
+        if(typeof QRCode!=='undefined'){
+          try{new QRCode(gc,{text:'https://pst-telecom-production.up.railway.app/zama',width:150,height:150,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+        } else if(n>0){setTimeout(function(){tryGuestQR(n-1);},500);}
+      }
+      tryGuestQR(15);
+    }
+    return;
+  }
   if(g)g.style.display='none';if(u)u.style.display='block';
   var name=(user.prenom||'')+' '+(user.nom||'');
   var phone=user.phone||'';
@@ -636,6 +678,124 @@ function checkPayPhoneParam(){
   },400);}
 }
 
+
+// ══ HQR — QR Hero Style Wave ══
+var _hqrUrl=null,_hqrDone=false,_hqrCam=null;
+
+function hqrInit(){
+  var urow=document.getElementById('hqr-user-row');
+  var srow=document.getElementById('hqr-share-row');
+  var canvas=document.getElementById('hqr-canvas');
+  if(!canvas)return;
+
+  if(user){
+    var name=(user.prenom||'')+' '+(user.nom||'');
+    var phone=user.phone||'';
+    var n=document.getElementById('hqr-uname');if(n)n.textContent=name.trim()||'ZAMA';
+    var p=document.getElementById('hqr-uphone');if(p)p.textContent=phone;
+    if(urow)urow.style.display='flex';
+    if(srow)srow.style.display='flex';
+    _hqrUrl='https://pst-telecom-production.up.railway.app/zama?pay_phone='+encodeURIComponent(phone)+'&pay_name='+encodeURIComponent(name.trim());
+  } else {
+    if(urow)urow.style.display='none';
+    if(srow)srow.style.display='none';
+    _hqrUrl='https://pst-telecom-production.up.railway.app/zama';
+  }
+
+  if(!_hqrDone || !user) hqrGenQR();
+}
+
+function hqrGenQR(){
+  var c=document.getElementById('hqr-canvas');
+  if(!c)return;
+  var url=_hqrUrl||'https://pst-telecom-production.up.railway.app/zama';
+  function tryQR(n){
+    if(typeof QRCode!=='undefined'){
+      c.innerHTML='';
+      try{
+        new QRCode(c,{text:url,width:190,height:190,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+        if(user)_hqrDone=true;
+      }catch(e){c.innerHTML='<div style="padding:20px;font-size:11px;color:#666">'+e.message+'</div>';}
+    } else if(n>0){setTimeout(function(){tryQR(n-1);},400);}
+    else{c.innerHTML='<div style="padding:20px;font-size:11px;color:#666">QR indisponible</div>';}
+  }
+  tryQR(20);
+}
+
+function hqrCopy(){
+  if(!_hqrUrl)return;
+  navigator.clipboard.writeText(_hqrUrl).then(function(){toast('Lien copié !','ok');});
+}
+function hqrShare(){
+  if(!user||!_hqrUrl)return;
+  var name=(user.prenom||'')+' '+(user.nom||'');
+  var text='Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n\n'+_hqrUrl;
+  if(navigator.share)navigator.share({title:'Mon QR ZAMA',text:text,url:_hqrUrl}).catch(function(){});
+  else navigator.clipboard.writeText(text).then(function(){toast('Copié !','ok');});
+}
+function hqrWA(){
+  if(!_hqrUrl)return;
+  var name=user?((user.prenom||'')+' '+(user.nom||'')):'ZAMA';
+  window.open('https://wa.me/?text='+encodeURIComponent('Envoyez-moi via ZAMA\n'+name.trim()+'\n'+_hqrUrl),'_blank');
+}
+function hqrOpenScan(){
+  var ov=document.getElementById('hqr-scan-ov');if(!ov)return;
+  ov.classList.add('open');
+  hqrLoadContacts();
+  // Auto-start cam
+  var vid=document.getElementById('hqr-vid');
+  if(!navigator.mediaDevices)return;
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(s){
+    _hqrCam=s;if(vid)vid.srcObject=s;
+  }).catch(function(){});
+}
+function hqrCloseScan(){
+  var ov=document.getElementById('hqr-scan-ov');if(ov)ov.classList.remove('open');
+  if(_hqrCam){_hqrCam.getTracks().forEach(function(t){t.stop();});_hqrCam=null;}
+  var vid=document.getElementById('hqr-vid');if(vid)vid.srcObject=null;
+}
+function hqrLoadContacts(){
+  var list=document.getElementById('hqr-contacts');if(!list)return;
+  var bs=getBenefs().slice(0,5);
+  if(!bs.length){list.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.4);padding:4px 0">Aucun contact récent</div>';return;}
+  list.innerHTML=bs.map(function(b){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer" onclick="hqrSendTo(''+b.name.replace(/'/g,'')+'',''+b.phone+'',''+b.mm+'')">'
+      +'<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0">'+(b.name||'?')[0].toUpperCase()+'</div>'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">'+(b.name||'--')+'</div>'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(b.phone||'')+'</div></div>'
+      +'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>'
+      +'</div>';
+  }).join('');
+}
+function hqrSendTo(name,phone,mm){
+  hqrCloseScan();
+  goto('scr-send');
+  setTimeout(function(){
+    var rn=document.getElementById('r-name');if(rn)rn.value=name||'';
+    var rp=document.getElementById('r-phone');if(rp)rp.value=phone||'';
+    var el=document.getElementById('mm-'+(mm||'wave'));if(el)selMM(mm||'wave',el);
+    toast('Envoyer à '+(name||phone),'info');
+  },300);
+}
+function hqrManualSend(){
+  var inp=document.getElementById('hqr-scan-inp');if(!inp||!inp.value.trim())return;
+  var v=inp.value.trim();
+  var pm=v.match(/pay_phone=([^&]+)/);
+  var nm=v.match(/pay_name=([^&]+)/);
+  if(pm)hqrSendTo(nm?decodeURIComponent(nm[1]):'',decodeURIComponent(pm[1]),'wave');
+  else hqrSendTo('',v,'wave');
+  inp.value='';
+}
+function checkPayPhoneParam(){
+  var params=new URLSearchParams(window.location.search);
+  var phone=params.get('pay_phone'),name=params.get('pay_name')||'';
+  if(phone){goto('scr-send');setTimeout(function(){
+    var rn=document.getElementById('r-name');if(rn)rn.value=decodeURIComponent(name);
+    var rp=document.getElementById('r-phone');if(rp)rp.value=decodeURIComponent(phone);
+    toast('Envoyer à '+(name||phone),'info');
+  },400);}
+}
+
 </script>
 </head>
 <body>
@@ -710,6 +870,53 @@ function checkPayPhoneParam(){
       <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
     </div>
 
+    <!-- QR HERO STYLE WAVE -->
+    <div class="hero-qr-wrap" id="hqr-main">
+      <!-- Infos user -->
+      <div id="hqr-user-row" class="hqr-user-info" style="display:none">
+        <div>
+          <div class="hqr-name" id="hqr-uname">--</div>
+          <div class="hqr-phone" id="hqr-uphone">--</div>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4);text-align:right">Mon QR<br>de réception</div>
+      </div>
+      <!-- QR canvas -->
+      <div class="hqr-inner">
+        <div class="hqr-canvas" id="hqr-canvas"></div>
+      </div>
+      <!-- Bouton scanner -->
+      <button class="hqr-scan-btn" onclick="hqrOpenScan()">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg>
+        Scanner un QR ZAMA
+      </button>
+      <!-- Boutons partage (visibles si connecté) -->
+      <div id="hqr-share-row" class="hqr-share-btns" style="display:none">
+        <button class="hqr-sbtn" onclick="hqrCopy()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</button>
+        <button class="hqr-sbtn" onclick="hqrShare()"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partager</button>
+        <button class="hqr-sbtn wa" onclick="hqrWA()"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>WhatsApp</button>
+      </div>
+    </div>
+
+    <!-- SCANNER OVERLAY -->
+    <div id="hqr-scan-ov" class="hqr-scan-overlay" onclick="if(event.target===this)hqrCloseScan()">
+      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:16px">Scanner un QR ZAMA</div>
+      <div class="hqr-scan-frame">
+        <video id="hqr-vid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;border-radius:16px"></video>
+        <div class="hqr-sf-c hqr-sf-c1"></div><div class="hqr-sf-c hqr-sf-c2"></div>
+        <div class="hqr-sf-c hqr-sf-c3"></div><div class="hqr-sf-c hqr-sf-c4"></div>
+        <div class="hqr-scan-line"></div>
+      </div>
+      <div style="color:rgba(255,255,255,.5);font-size:13px;margin-bottom:20px">Pointez vers le QR d'un contact ZAMA</div>
+      <div style="display:flex;gap:10px;width:calc(100% - 40px)">
+        <input class="finp" type="tel" id="hqr-scan-inp" placeholder="+221 77... ou lien ZAMA" style="flex:1;font-size:13px" inputmode="tel">
+        <button onclick="hqrManualSend()" style="padding:12px 16px;background:var(--gold);border:none;color:#000;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">OK</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.4)">Contacts récents</div>
+      <div id="hqr-contacts" style="width:calc(100% - 40px);margin-top:8px"></div>
+      <button onclick="hqrCloseScan()" style="margin-top:20px;padding:12px 32px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Fermer</button>
+    </div>
+
+
     <div class="qa-grid">
       <div class="qa" onclick="goto('scr-send')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg></div><div class="qa-lbl">Envoyer</div></div>
       <div class="qa" onclick="goto('scr-recv-crypto')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="2" y1="22" x2="13" y2="11"/><polygon points="2,22 9,2 13,11 22,6 2,22"/></svg></div><div class="qa-lbl">Recevoir</div></div>
@@ -718,48 +925,6 @@ function checkPayPhoneParam(){
     </div>
 
     
-    <!-- QR ACCUEIL -->
-    <div class="hqs" id="hqs-main">
-      <div class="hqs-tabs">
-        <button class="hqtab on" id="hqtab-r" onclick="hqsTab('r')">&#128229; Mon QR</button>
-        <button class="hqtab" id="hqtab-s" onclick="hqsTab('s')">&#128247; Scanner</button>
-      </div>
-      <div id="hqs-r" class="hqs-body">
-        <div id="hqs-g">
-          <div style="font-size:13px;color:var(--text3);padding:6px 0 10px">Connectez-vous pour votre QR</div>
-          <button onclick="goto('scr-login')" style="padding:9px 20px;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);margin-bottom:6px">Se connecter</button>
-        </div>
-        <div id="hqs-u" style="display:none">
-          <div class="hqs-qr-wrap"><div id="hqs-qr-c"></div></div>
-          <div class="hqs-name" id="hqs-un">--</div>
-          <div class="hqs-phone" id="hqs-up">--</div>
-          <div class="hqs-btns">
-            <button class="hqbtn gld" onclick="hqsCopy()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</button>
-            <button class="hqbtn" onclick="hqsShare()"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partager</button>
-            <button class="hqbtn grn" onclick="hqsWA()"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>WhatsApp</button>
-          </div>
-        </div>
-      </div>
-      <div id="hqs-s" class="hqs-scan-panel" style="display:none">
-        <div class="hqs-scan-box">
-          <div class="hqs-c hqs-c1"></div><div class="hqs-c hqs-c2"></div>
-          <div class="hqs-c hqs-c3"></div><div class="hqs-c hqs-c4"></div>
-          <video id="hqs-vid" style="width:100%;border-radius:8px;display:none" autoplay playsinline muted></video>
-          <div id="hqs-ph" style="color:var(--text3);font-size:12px;text-align:center;padding:16px">
-            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text3)" stroke-width="1.5" style="display:block;margin:0 auto 8px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg>
-            Scannez un QR ZAMA
-          </div>
-        </div>
-        <button id="hqs-sb" onclick="hqsToggleCam()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);margin-bottom:10px">Activer le scanner</button>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Contacts récents</div>
-        <div id="hqs-cl"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <input class="finp" type="tel" id="hqs-mi" placeholder="+221 77..." style="flex:1;font-size:12px" inputmode="tel">
-          <button onclick="hqsManual()" style="padding:10px 14px;background:var(--gold);border:none;color:#000;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">OK</button>
-        </div>
-      </div>
-    </div>
-
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
       <div class="rc"><span class="rc-flag">🇺🇸</span><div class="rc-code">USD</div><div class="rc-val" id="rs1">--</div></div>
@@ -1383,7 +1548,7 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();_hqsDone=false;_hqsUrl=null;hqsInit();
+  renderHBenefs();_hqrDone=false;_hqrUrl=null;hqrInit();_hqsDone=false;_hqsUrl=null;hqsInit();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
@@ -1827,7 +1992,7 @@ function doLogin(){
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
+  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
@@ -1852,7 +2017,7 @@ function verOTP(){
     fetch(API+"/api/zama/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)}).catch(function(){});
     document.getElementById("otp-overlay").classList.remove("open");
     document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
-    pendR=null;renderAcct();updateGreet();renderHBenefs();
+    pendR=null;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);
     toast("Bienvenue, "+(u.prenom||"Client")+" !","ok");goto("scr-acct");
     setTimeout(function(){document.getElementById("ps-title").textContent="Sécurisez votre compte";document.getElementById("ps-sub").textContent="Créez un PIN à 4 chiffres";psE="";psF="";psStep=1;updPSD();document.getElementById("pin-setup").style.display="flex";},600);
   }else{toast("Code incorrect. Démo: 1234","err");}
@@ -1860,7 +2025,7 @@ function verOTP(){
 function logout(){
   if(!confirm("Se déconnecter ?"))return;
   localStorage.removeItem("zama_u");localStorage.removeItem("zama_pin");
-  user=null;renderAcct();updateGreet();renderHBenefs();goto("scr-home");toast("Déconnecté","");
+  user=null;renderAcct();updateGreet();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);goto("scr-home");toast("Déconnecté","");
 }
 function togEye(id,btn){
   var inp=document.getElementById(id);if(!inp)return;
@@ -1997,7 +2162,7 @@ function renderQBenefs(){var bs=getBenefs().slice(0,3);var wrap=document.getElem
 function fillB(name,phone,mm){var rn=document.getElementById("r-name");if(rn)rn.value=name;var rph=document.getElementById("r-phone");if(rph)rph.value=phone;var el=document.getElementById("mm-"+mm);if(el)selMM(mm,el);}
 function useB(name,phone,mm){goto("scr-send");setTimeout(function(){fillB(name,phone,mm);},100);}
 function quickSend(){goto("scr-send");}
-function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();toast("Bénéficiaire ajouté","ok");}
+function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();_hqsDone=false;_hqsUrl=null;setTimeout(function(){hqsInit();},100);toast("Bénéficiaire ajouté","ok");}
 
 // HISTORY
 function renderHist(){var ords=getOrds();var el=document.getElementById("hist-list");if(!el)return;
