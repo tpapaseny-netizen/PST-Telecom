@@ -1492,7 +1492,7 @@ function startCD(){
   var s=1800;
   cdT=setInterval(function(){s--;var m=Math.floor(s/60),sc=s%60;
     var el=document.getElementById("p-timer");
-    if(el)el.innerHTML="<svg viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='var(--red)' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12,6 12,12 16,14'/></svg> Taux garanti encore "+m+":"+(sc<10?"0"+sc:sc);
+    if(el){var ct=document.getElementById("cd-time");if(ct)ct.textContent=m+":"+(sc<10?"0"+sc:sc);};
     if(s<=0)clearInterval(cdT);
   },1000);
 }
