@@ -1606,17 +1606,6 @@ function shareTracking(){
   else navigator.clipboard.writeText(text).then(function(){toast("Copié !","ok");});
 }
 
-      var c=document.getElementById(id);if(c)c.className="ts active";
-      if(i===steps.length-1){setTimeout(function(){
-        if(c)c.className="ts done";if(c)c.querySelector(".ts-dot").innerHTML="<svg viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='white' stroke-width='2.5'><polyline points='20,6 9,17 4,12'/></svg>";
-        var tk=document.getElementById("tk-title");if(tk)tk.textContent="Transfert réussi !";
-        var tki=document.getElementById("tk-ico");if(tki){tki.style.background="var(--green-l)";tki.innerHTML="<svg viewBox='0 0 24 24' width='32' height='32' fill='none' stroke='var(--green)' stroke-width='2.5'><polyline points='20,6 9,17 4,12'/></svg>";}
-        updateOrder(orderId,"paid");renderHist();
-      },2000);}
-    },delay);delay+=2500;
-  });
-}
-
 // STORAGE
 function loadU(){try{return JSON.parse(localStorage.getItem("zama_u"));}catch(e){return null;}}
 function saveULS(u){localStorage.setItem("zama_u",JSON.stringify(u));}
