@@ -507,112 +507,691 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tx-title{font-size:20px;font-weight:700;}
 .tx-ref{font-size:11px;color:var(--text3);margin-top:4px;font-family:monospace;}
 .tx-eta{font-size:13px;color:var(--text2);margin-top:6px;}
-
-/* ══ ZAMA v2 — Dashboard & UX Améliorations ══ */
-.user-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 20px 0;}
-.ust{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;transition:background .1s;}
-.ust:active{background:var(--s3);}
-.ust-val{font-size:18px;font-weight:800;color:var(--gold);line-height:1;}
-.ust-lbl{font-size:9px;color:var(--text3);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-.promo-banner{margin:14px 20px 0;background:linear-gradient(135deg,#0A1020,#0D1525);border:1px solid rgba(245,176,20,.12);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;overflow:hidden;position:relative;}
-.promo-banner::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(245,176,20,.05),transparent);animation:shimmer 3s infinite;}
-@keyframes shimmer{to{left:200%}}
-.pb-ico{font-size:18px;flex-shrink:0;}
-.pb-txt{font-size:11px;color:var(--text2);line-height:1.6;}
-.pb-txt strong{color:var(--gold);}
-.last-tx{margin:14px 20px 0;background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:none;align-items:center;gap:12px;cursor:pointer;transition:background .1s;}
-.last-tx.show{display:flex;}
-.last-tx:active{background:var(--s3);}
-.ltx-ico{width:38px;height:38px;border-radius:11px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.ltx-ico svg{width:17px;height:17px;stroke:var(--green);fill:none;stroke-width:2;}
-.ltx-info{flex:1;min-width:0;}
-.ltx-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ltx-meta{font-size:11px;color:var(--text3);margin-top:1px;}
-.ltx-amt{text-align:right;flex-shrink:0;}
-.ltx-fcfa{font-size:13px;font-weight:700;color:var(--gold);}
-.ltx-st{font-size:10px;font-weight:600;margin-top:2px;padding:2px 7px;border-radius:100px;display:inline-block;}
-.trust-row{display:flex;gap:8px;padding:0 20px;overflow-x:auto;scrollbar-width:none;margin-top:12px;}
-.trust-row::-webkit-scrollbar{display:none;}
-.tb{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--s2);border:1px solid var(--border);border-radius:100px;font-size:10px;font-weight:700;color:var(--text2);}
-.tb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.hero-slogan{display:flex;align-items:center;gap:5px;margin-top:10px;flex-wrap:wrap;}
-.slg-step{padding:3px 9px;border-radius:20px;font-weight:700;font-size:10px;letter-spacing:.3px;}
-.slg-arrow{color:rgba(255,255,255,.25);font-size:10px;}
-.tx-detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto;}
-.tx-detail-overlay.open{display:flex;}
-.tx-detail-sheet{background:var(--s1);border-radius:24px 24px 0 0;padding:20px 20px 36px;width:100%;border-top:1px solid var(--border);max-height:85vh;overflow-y:auto;}
-.tx-d-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
-.amt-limits{display:flex;justify-content:space-between;padding:4px 20px 8px;font-size:11px;color:var(--text3);}
-.lim-ok{color:var(--green);font-weight:600;}
-.lim-err{color:var(--red);font-weight:600;}
-@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
-.scr.on .sb{animation:slideUp .2s ease;}
-
-
-.qr-home-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:none;align-items:center;justify-content:center;max-width:430px;margin:0 auto;flex-direction:column;}
-.qr-home-overlay.open{display:flex;}
-.qr-home-box{background:var(--s1);border-radius:24px;padding:24px 20px;width:calc(100% - 40px);max-width:340px;text-align:center;border:1px solid var(--border);}
-.qr-home-tabs{display:flex;background:var(--s2);border-radius:10px;padding:3px;margin-bottom:20px;}
-.qr-ht{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all .15s;}
-.qr-ht.on{background:var(--s3);color:var(--text);}
-.qr-scan-area{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;}
-.qr-close-btn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--s3);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
-.qr-close-btn svg{width:14px;height:14px;stroke:var(--text2);fill:none;stroke-width:2;}
-
-
-.home-qr-section{margin:14px 20px 0;background:var(--s1);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
-.home-qr-tabs{display:flex;background:var(--s2);border-bottom:1px solid var(--border);}
-.hqt{flex:1;padding:12px;border:none;background:transparent;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);border-bottom:2px solid transparent;transition:all .15s;}
-.hqt.on{color:var(--gold);border-bottom-color:var(--gold);}
-.home-qr-body{padding:20px;text-align:center;}
-.home-qr-wrap{background:#fff;border-radius:16px;padding:12px;display:inline-block;margin-bottom:12px;}
-.home-qr-name{font-size:16px;font-weight:700;margin-bottom:2px;}
-.home-qr-phone{font-size:13px;color:var(--gold);}
-.home-qr-actions{display:flex;gap:8px;margin-top:14px;}
-.hqa{flex:1;padding:10px 8px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--s2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:4px;transition:background .1s;}
-.hqa:active{background:var(--s3);}
-.hqa svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
-.hqa.gold{background:var(--gold-l);border-color:var(--gold-m);color:var(--gold);}
-.hqa.wa{background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);color:#25D366;}
-/* Scanner panel */
-.home-scan-body{padding:20px;text-align:center;}
-.scan-frame{border:2px dashed var(--border2);border-radius:16px;padding:20px;margin-bottom:14px;position:relative;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.scan-corners::before,.scan-corners::after{content:'';position:absolute;width:20px;height:20px;border-color:var(--gold);border-style:solid;}
-.scan-corners::before{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
-.scan-corners::after{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
-
-/* ══ QR ACCUEIL ══ */
-.hqs{background:var(--s2);border:1px solid var(--border);border-radius:16px;margin:14px 20px 0;overflow:hidden;}
-.hqs-tabs{display:flex;border-bottom:1px solid var(--border);}
-.hqt{flex:1;padding:12px 8px;border:none;background:transparent;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);border-bottom:2px solid transparent;transition:all .15s;}
-.hqt.on{color:var(--gold);border-bottom-color:var(--gold);background:rgba(245,176,20,.04);}
-.hqs-body{padding:16px;text-align:center;}
-.hqs-qr-wrap{background:#fff;border-radius:12px;padding:10px;display:inline-block;margin-bottom:10px;}
-.hqs-name{font-size:15px;font-weight:700;margin-bottom:2px;}
-.hqs-phone{font-size:12px;color:var(--gold);margin-bottom:12px;}
-.hqs-acts{display:flex;gap:6px;}
-.hqa2{flex:1;padding:9px 6px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .1s;}
-.hqa2:active{background:var(--s4);}
-.hqa2 svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
-.hqa2.gld{background:var(--gold-l);border-color:var(--gold-m);color:var(--gold);}
-.hqa2.grn{background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);color:#25D366;}
-.hqs-scan{padding:16px;}
-.scan-box{border:2px dashed var(--border2);border-radius:12px;padding:16px;margin-bottom:12px;position:relative;min-height:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.scan-corner{position:absolute;width:18px;height:18px;border-color:var(--gold);border-style:solid;}
-.sc-tl{top:8px;left:8px;border-width:2px 0 0 2px;border-radius:3px 0 0 0;}
-.sc-tr{top:8px;right:8px;border-width:2px 2px 0 0;border-radius:0 3px 0 0;}
-.sc-bl{bottom:8px;left:8px;border-width:0 0 2px 2px;border-radius:0 0 0 3px;}
-.sc-br{bottom:8px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 3px 0;}
-.zama-contact{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
-.zama-contact:active{background:var(--s2);}
-.zc-av{width:36px;height:36px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;}
-.zc-info{flex:1;min-width:0;}
-.zc-name{font-size:13px;font-weight:600;}
-.zc-phone{font-size:11px;color:var(--text3);}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+</head>
+<body>
+<div id="app">
 
+<!-- PIN LOCK -->
+<div id="pin-scr" class="pin-scr" style="display:none">
+  <div class="pin-logo"><svg viewBox="0 0 40 40" fill="none"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><path d="M25 7C26 4 28 3 29 6C30 3 32 4 31 7" stroke="rgba(0,0,0,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div>
+  <div class="pin-app">ZAMA</div>
+  <div class="pin-sub" id="pin-sub">Entrez votre code PIN</div>
+  <div class="pin-dots"><div class="pd" id="pd0"></div><div class="pd" id="pd1"></div><div class="pd" id="pd2"></div><div class="pd" id="pd3"></div></div>
+  <div class="pin-pad">
+    <button class="pk" onclick="pK('1')">1</button>
+    <button class="pk" onclick="pK('2')">2<div class="pk-sub">ABC</div></button>
+    <button class="pk" onclick="pK('3')">3<div class="pk-sub">DEF</div></button>
+    <button class="pk" onclick="pK('4')">4<div class="pk-sub">GHI</div></button>
+    <button class="pk" onclick="pK('5')">5<div class="pk-sub">JKL</div></button>
+    <button class="pk" onclick="pK('6')">6<div class="pk-sub">MNO</div></button>
+    <button class="pk" onclick="pK('7')">7<div class="pk-sub">PQRS</div></button>
+    <button class="pk" onclick="pK('8')">8<div class="pk-sub">TUV</div></button>
+    <button class="pk" onclick="pK('9')">9<div class="pk-sub">WXYZ</div></button>
+    <button class="pk empty"></button>
+    <button class="pk" onclick="pK('0')">0</button>
+    <button class="pk" onclick="pDel()"><svg viewBox="0 0 24 24"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
+  </div>
+  <div class="pin-link" onclick="pinForgot()">Code oublié ?</div>
+</div>
 
+<!-- PIN SETUP -->
+<div id="pin-setup" class="pin-scr" style="display:none">
+  <div class="pin-logo"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#000" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+  <div class="pin-app" id="ps-title">Créez votre PIN</div>
+  <div class="pin-sub" id="ps-sub">Protégez l'accès à ZAMA</div>
+  <div class="pin-dots"><div class="pd" id="psd0"></div><div class="pd" id="psd1"></div><div class="pd" id="psd2"></div><div class="pd" id="psd3"></div></div>
+  <div class="pin-pad">
+    <button class="pk" onclick="psK('1')">1</button>
+    <button class="pk" onclick="psK('2')">2<div class="pk-sub">ABC</div></button>
+    <button class="pk" onclick="psK('3')">3<div class="pk-sub">DEF</div></button>
+    <button class="pk" onclick="psK('4')">4<div class="pk-sub">GHI</div></button>
+    <button class="pk" onclick="psK('5')">5<div class="pk-sub">JKL</div></button>
+    <button class="pk" onclick="psK('6')">6<div class="pk-sub">MNO</div></button>
+    <button class="pk" onclick="psK('7')">7<div class="pk-sub">PQRS</div></button>
+    <button class="pk" onclick="psK('8')">8<div class="pk-sub">TUV</div></button>
+    <button class="pk" onclick="psK('9')">9<div class="pk-sub">WXYZ</div></button>
+    <button class="pk empty"></button>
+    <button class="pk" onclick="psK('0')">0</button>
+    <button class="pk" onclick="psDel()"><svg viewBox="0 0 24 24"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
+  </div>
+  <div class="pin-link" onclick="skipPin()">Ignorer pour l'instant</div>
+</div>
+
+<!-- HOME -->
+<div class="scr on" id="scr-home">
+  <div class="sb">
+    <div class="home-hero">
+      <div class="hero-top">
+        <div class="logo-row">
+          <div style="position:relative">
+          <div class="logo-mark" id="logo-mark">
+            <svg viewBox="0 0 40 40" fill="none"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><path d="M25 7C26 4 28 3 29 6C30 3 32 4 31 7" stroke="rgba(0,0,0,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M34 14L37 13L36 15Z" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg>
+          </div>
+          </div>
+          <div class="logo-text"><div class="lname" id="brand-name">ZAMA</div><div class="lsub">Transfert</div></div>
+        </div>
+        <div class="hero-actions">
+          <div class="hero-icon-btn" onclick="showQR()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div>
+          <div class="hero-icon-btn" onclick="goto('scr-acct')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        </div>
+      </div>
+      <div class="hero-greeting" id="h-greeting">Bonjour</div>
+      <div class="hero-sub">Envoyez de l'argent au Sénégal</div>
+      <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
+    </div>
+
+    <div class="qa-grid">
+      <div class="qa" onclick="goto('scr-send')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg></div><div class="qa-lbl">Envoyer</div></div>
+      <div class="qa" onclick="goto('scr-recv-crypto')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="2" y1="22" x2="13" y2="11"/><polygon points="2,22 9,2 13,11 22,6 2,22"/></svg></div><div class="qa-lbl">Recevoir</div></div>
+      <div class="qa" onclick="goto('scr-hist')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><div class="qa-lbl">Historique</div></div>
+      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
+    </div>
+
+    <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
+    <div class="rate-strip">
+      <div class="rc"><span class="rc-flag">🇺🇸</span><div class="rc-code">USD</div><div class="rc-val" id="rs1">--</div></div>
+      <div class="rc"><span class="rc-flag">🇪🇺</span><div class="rc-code">EUR</div><div class="rc-val" id="rs2">--</div></div>
+      <div class="rc"><span class="rc-flag">🇬🇧</span><div class="rc-code">GBP</div><div class="rc-val" id="rs3">--</div></div>
+      <div class="rc"><span class="rc-flag">🇨🇦</span><div class="rc-code">CAD</div><div class="rc-val" id="rs4">--</div></div>
+    </div>
+
+    <div class="slbl" id="hb-lbl" style="display:none">Bénéficiaires récents <span class="slbl-act" onclick="goto('scr-benefs')">Gérer</span></div>
+    <div id="h-benefs"></div>
+
+    <div class="trust"><div class="trust-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="trust-txt">Transactions <strong>sécurisées et chiffrées</strong> · Support 7j/7 · izichangePay certifié</div></div>
+    <div class="spacer"></div>
+  </div>
+  <nav class="bnav">
+    <button class="bn on" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>Accueil</button>
+    <button class="bn" onclick="goto('scr-send')"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>Envoyer</button>
+    <button class="bn" onclick="goto('scr-hist')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Historique</button>
+    <button class="bn" onclick="goto('scr-acct')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Compte</button>
+  </nav>
+</div>
+
+<!-- SEND -->
+<div class="scr" id="scr-send">
+  <div class="hdr"><button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
+  <div class="send-hero">
+    <div class="amt-lbl">Je veux envoyer</div>
+    <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
+    <div class="convert-box"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><div class="conv-fcfa" id="cf">-- FCFA</div><div class="conv-rate" id="cr">1 USD = -- FCFA</div></div>
+  </div>
+  <div class="curr-row">
+    <div class="cpill on" onclick="selC(this,'USD','🇺🇸','usd')"><span>🇺🇸</span>USD</div>
+    <div class="cpill" onclick="selC(this,'EUR','🇪🇺','eur')"><span>🇪🇺</span>EUR</div>
+    <div class="cpill" onclick="selC(this,'GBP','🇬🇧','gbp')"><span>🇬🇧</span>GBP</div>
+    <div class="cpill" onclick="selC(this,'CAD','🇨🇦','cad')"><span>🇨🇦</span>CAD</div>
+    <div class="cpill" onclick="selC(this,'CHF','🇨🇭','chf')"><span>🇨🇭</span>CHF</div>
+  </div>
+  <div class="fee-box">
+    <div class="fr"><span class="fl">Taux de change</span><span id="f-rate">--</span></div>
+    <div class="fr"><span class="fl">Commission ZAMA (2%)</span><span id="f-comm">--</span></div>
+    <div class="fr ftot"><span class="fl" style="font-weight:600">Le destinataire reçoit</span><span class="fv" id="f-net">-- FCFA</span></div>
+  </div>
+  <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · izichangePay</div>
+  <div class="btn-foot"><button class="btn-p" onclick="s2()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div>
+</div>
+
+<!-- RECIPIENT -->
+<div class="scr" id="scr-recv">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Destinataire</span><span></span></div>
+  <div class="sb">
+    <div id="qb-wrap" style="display:none;padding-top:8px"><div class="slbl" style="margin-top:8px">Récents</div><div id="qb-list"></div><div class="divider" style="margin:8px 0"></div></div>
+    <div style="padding-top:14px">
+      <div class="slbl" style="margin-top:0">Recevoir via <span style="float:right;font-size:10px;color:var(--text3);cursor:pointer" onclick="document.getElementById('logo-upload-panel').style.display=document.getElementById('logo-upload-panel').style.display==='none'?'block':'none'">⚙ Logos</span></div>
+      <div id="logo-upload-panel" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Personnaliser les logos</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-zama" class="logo-mark" style="width:32px;height:32px;cursor:default"><svg viewBox="0 0 40 40" fill="none" width="20"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo ZAMA</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'logo-mark','prev-zama')"></label>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-wave" style="width:32px;height:32px;border-radius:8px;background:#1C8EF9;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 40 40" width="22" height="22" fill="none"><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo Wave</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'mm-wave-logo','prev-wave')"></label>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><div id="prev-om" style="width:32px;height:32px;border-radius:8px;background:#FF6600;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 40 40" width="22" height="22" fill="none"><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><span style="font-size:12px;color:var(--text2)">Logo Orange Money</span></div>
+            <label class="logo-upload-btn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Changer<input type="file" accept="image/*" style="display:none" onchange="uploadLogo(this,'mm-om-logo','prev-om')"></label>
+          </div>
+          <button onclick="resetLogos()" style="padding:8px;background:var(--red-l);border:1px solid rgba(239,68,68,.2);border-radius:var(--rsm);color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Réinitialiser les logos par défaut</button>
+        </div>
+      </div>
+      <div class="mm-row">
+        <div class="mm on" id="mm-wave" onclick="selMM('wave',this)"><div id="mm-wave-logo" class="mm-logo" style="background:#1C8EF9;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#1C8EF9"/><path d="M8 14h4l4 10 4-10h4l4 10 4-10h4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><div><div class="mm-nm">Wave</div><div class="mm-sub">Sénégal</div></div></div>
+        <div class="mm" id="mm-om" onclick="selMM('om',this)"><div id="mm-om-logo" class="mm-logo" style="background:#FF6600;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0"><svg viewBox="0 0 40 40" width="36" height="36" fill="none"><rect width="40" height="40" rx="10" fill="#FF6600"/><circle cx="20" cy="20" r="10" stroke="white" stroke-width="3" fill="none"/><circle cx="20" cy="20" r="4" fill="white"/></svg></div><div><div class="mm-nm">Orange Money</div><div class="mm-sub">Sénégal</div></div></div>
+      </div>
+      <div class="slbl" style="margin-top:4px">Informations</div>
+      <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
+      <div class="fg"><label>Numéro Mobile Money *</label><input class="finp" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="fg"><label>Votre nom complet *</label><input class="finp" type="text" id="s-name" placeholder="Prénom et Nom"></div>
+      <div class="fg"><label>Votre email *</label><input class="finp" type="email" id="s-email" placeholder="email@exemple.com" inputmode="email"></div>
+      <div class="fg"><label>Message (optionnel)</label><input class="finp" type="text" id="s-msg" placeholder="Ex: Loyer mai 2026"></div>
+    </div>
+  </div>
+  <div class="btn-foot"><div class="btn-2"><button class="btn-s" onclick="gb()">Retour</button><button class="btn-p" onclick="s3()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div></div>
+</div>
+
+<!-- SUMMARY -->
+<div class="scr" id="scr-sum">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Récapitulatif</span><span></span></div>
+  <div class="sb"><div style="padding-top:14px"><div class="rcpt" id="rcpt-box"></div><div class="wbox"><svg viewBox="0 0 24 24"><path d="m10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Vérifiez attentivement le numéro. Les transferts envoyés ne peuvent pas être annulés.</div><div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · izichangePay certifié</div></div></div>
+  <div class="btn-foot"><div class="btn-2"><button class="btn-s" onclick="gb()">Modifier</button><button class="btn-p" id="pay-btn" onclick="createOrder()">Payer maintenant</button></div></div>
+</div>
+
+<!-- PAYMENT -->
+<div class="scr" id="scr-pay" style="display:flex;flex-direction:column;overflow:hidden">
+
+  <!-- HEADER -->
+  <div class="hdr" style="flex-shrink:0">
+    <button class="hbk" onclick="closePay()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Paiement</span>
+    <span class="hact" onclick="window.open('tel:+221771520959')">Aide</span>
+  </div>
+
+  <!-- RÉCAP MONTANT -->
+  <div style="flex-shrink:0;background:linear-gradient(135deg,#C8860C,#F5B014,#FCD34D);padding:12px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:9px;color:rgba(0,0,0,.5);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vous envoyez</div>
+        <div id="p-amt" style="font-size:22px;font-weight:800;color:#000;line-height:1.2">--</div>
+        <div id="p-sub" style="font-size:10px;color:rgba(0,0,0,.45)">--</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;color:rgba(0,0,0,.5);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Destinataire reçoit</div>
+        <div id="pi-fcfa" style="font-size:20px;font-weight:800;color:#000;line-height:1.2">--</div>
+        <div style="font-size:10px;color:rgba(0,0,0,.5)"><span id="pi-mm">--</span> · <span id="pi-name" style="font-weight:600">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="flex-shrink:0;display:flex;background:var(--s1);border-bottom:1px solid var(--border)">
+    <button class="pay-tab-btn on" id="ptb-wave" onclick="switchTab('wave')">💙 Wave</button>
+    <button class="pay-tab-btn" id="ptb-crypto" onclick="switchTab('crypto')">🔐 Crypto</button>
+  </div>
+
+  <!-- CONTENU SCROLLABLE -->
+  <div style="flex:1;overflow:hidden;position:relative">
+
+    <!-- PANEL WAVE -->
+    <div id="panel-wave" style="position:absolute;inset:0;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <button onclick="payWave()" style="width:100%;padding:16px;background:linear-gradient(135deg,#1D9BF0,#0A7CCF);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px">
+        <div style="width:28px;height:28px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 36 36" width="20"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="15" font-weight="900" fill="white" font-family="Arial">W</text></svg></div>
+        Payer avec Wave
+      </button>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;font-size:13px;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--text)">💡 Comment payer :</strong><br>
+        1. Cliquez "Payer avec Wave"<br>
+        2. Confirmez dans l'app Wave<br>
+        3. Revenez ici et cliquez <strong>J'ai payé</strong>
+      </div>
+      <button class="btn-p" style="width:100%;margin:0" onclick="checkPay()">✅ J'ai payé — Vérifier</button>
+    </div>
+
+    <!-- PANEL CRYPTO -->
+    <div id="panel-crypto" style="position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden">
+
+      <!-- STEP 1 : Choix crypto -->
+      <div id="step-choose" style="flex:1;overflow-y:auto;padding:14px 14px 0">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Choisissez votre crypto</div>
+        <div class="cpx-grid3">
+          <div class="cx3 on" data-coin="usdt.trc20" data-label="USDT TRC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT TRC20</span></div>
+          <div class="cx3" data-coin="usdt.bep20" data-label="USDT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT BEP20</span></div>
+          <div class="cx3" data-coin="usdt.erc20" data-label="USDT ERC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT ERC20</span></div>
+          <div class="cx3" data-coin="usdt.ton" data-label="USDT TON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT TON</span></div>
+          <div class="cx3" data-coin="usdt.opbnb" data-label="USDT OPBNB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT OPBNB</span></div>
+          <div class="cx3" data-coin="usdc.trc20" data-label="USDC TRC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#2775CA"/><path d="M16 7a9 9 0 1 0 0 18A9 9 0 0 0 16 7zm1 14.9v1.3h-2v-1.3c-2.3-.4-3.8-1.8-3.8-3.6h2c0 1.1.8 1.7 1.8 1.8V16c-2.3-.6-3.8-1.5-3.8-3.2 0-1.7 1.5-3 3.8-3.3V8.2h2v1.3c2.1.4 3.5 1.7 3.5 3.4h-2c0-.9-.6-1.5-1.5-1.7v3.4c2.3.6 3.8 1.6 3.8 3.3s-1.5 3-3.8 3.3zm-2-8v-3c-1 .2-1.7.8-1.7 1.5s.7 1.2 1.7 1.5zm2 2.1v3.2c1.1-.2 1.8-.8 1.8-1.6s-.7-1.3-1.8-1.6z" fill="white"/></svg><span>USDC TRC20</span></div>
+          <div class="cx3" data-coin="usdc.bep20" data-label="USDC BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#2775CA"/><path d="M16 7a9 9 0 1 0 0 18A9 9 0 0 0 16 7zm1 14.9v1.3h-2v-1.3c-2.3-.4-3.8-1.8-3.8-3.6h2c0 1.1.8 1.7 1.8 1.8V16c-2.3-.6-3.8-1.5-3.8-3.2 0-1.7 1.5-3 3.8-3.3V8.2h2v1.3c2.1.4 3.5 1.7 3.5 3.4h-2c0-.9-.6-1.5-1.5-1.7v3.4c2.3.6 3.8 1.6 3.8 3.3s-1.5 3-3.8 3.3zm-2-8v-3c-1 .2-1.7.8-1.7 1.5s.7 1.2 1.7 1.5zm2 2.1v3.2c1.1-.2 1.8-.8 1.8-1.6s-.7-1.3-1.8-1.6z" fill="white"/></svg><span>USDC BEP20</span></div>
+          <div class="cx3" data-coin="usdc.erc20" data-label="USDC ERC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#2775CA"/><path d="M16 7a9 9 0 1 0 0 18A9 9 0 0 0 16 7zm1 14.9v1.3h-2v-1.3c-2.3-.4-3.8-1.8-3.8-3.6h2c0 1.1.8 1.7 1.8 1.8V16c-2.3-.6-3.8-1.5-3.8-3.2 0-1.7 1.5-3 3.8-3.3V8.2h2v1.3c2.1.4 3.5 1.7 3.5 3.4h-2c0-.9-.6-1.5-1.5-1.7v3.4c2.3.6 3.8 1.6 3.8 3.3s-1.5 3-3.8 3.3zm-2-8v-3c-1 .2-1.7.8-1.7 1.5s.7 1.2 1.7 1.5zm2 2.1v3.2c1.1-.2 1.8-.8 1.8-1.6s-.7-1.3-1.8-1.6z" fill="white"/></svg><span>USDC ERC20</span></div>
+          <div class="cx3" data-coin="btc" data-label="Bitcoin" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg><span>Bitcoin</span></div>
+          <div class="cx3" data-coin="btc.bep20" data-label="BTC BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg><span>BTC BEP20</span></div>
+          <div class="cx3" data-coin="eth" data-label="Ethereum" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/><path d="M16.5 20.8l7.5-4.4-7.5-3.3v7.7z" fill="white" opacity=".2"/><path d="M9 16.4l7.5 4.4v-7.7L9 16.4z" fill="white" opacity=".6"/></svg><span>Ethereum</span></div>
+          <div class="cx3" data-coin="eth.bep20" data-label="ETH BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/><path d="M16.5 20.8l7.5-4.4-7.5-3.3v7.7z" fill="white" opacity=".2"/><path d="M9 16.4l7.5 4.4v-7.7L9 16.4z" fill="white" opacity=".6"/></svg><span>ETH BEP20</span></div>
+          <div class="cx3" data-coin="bnb" data-label="BNB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg><span>BNB</span></div>
+          <div class="cx3" data-coin="opbnb" data-label="OPBNB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg><span>OPBNB</span></div>
+          <div class="cx3" data-coin="trx" data-label="TRON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#EF0027"/><path d="M24 12.5L9.5 9l7.2 17L24 12.5zm-5 7.8-4.1-1.1 5.9-4-1.8 5.1zM13.4 15l6.7 1.8-4.6 2.7L13.4 15z" fill="white"/></svg><span>TRON</span></div>
+          <div class="cx3" data-coin="xrp.bep20" data-label="XRP BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#00AAE4"/><path d="M22.5 10h2.5l-5.7 5.7c-1.8 1.8-4.8 1.8-6.6 0L7 10h2.5l4.7 4.7c1 1 2.6 1 3.6 0L22.5 10zm-13 12H7l5.7-5.7c1.8-1.8 4.8-1.8 6.6 0L25 22h-2.5l-4.7-4.7c-1-1-2.6-1-3.6 0L9.5 22z" fill="white"/></svg><span>XRP BEP20</span></div>
+          <div class="cx3" data-coin="sol.bep20" data-label="SOL BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#9945FF"/><path d="M9.5 21h13l-2.5 2.5h-13L9.5 21zm0-6h13l-2.5 2.5h-13L9.5 15zm2.5-6h10.5L20 11.5H9.5L12 9z" fill="white"/></svg><span>SOL BEP20</span></div>
+          <div class="cx3" data-coin="ada.bep20" data-label="ADA BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#0033AD"/><circle cx="16" cy="9.5" r="1.8" fill="white"/><circle cx="16" cy="22.5" r="1.8" fill="white"/><circle cx="9.5" cy="16" r="1.8" fill="white"/><circle cx="22.5" cy="16" r="1.8" fill="white"/><circle cx="11.5" cy="11.5" r="1.5" fill="white"/><circle cx="20.5" cy="20.5" r="1.5" fill="white"/><circle cx="20.5" cy="11.5" r="1.5" fill="white"/><circle cx="11.5" cy="20.5" r="1.5" fill="white"/><circle cx="16" cy="16" r="2.5" fill="white"/></svg><span>ADA BEP20</span></div>
+          <div class="cx3" data-coin="doge.bep20" data-label="DOGE BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#C2A633"/><path d="M14 10h3c3.5 0 6.2 2.7 6.2 6s-2.7 6-6.2 6H14V10zm2.2 2.2v7.6h.8c2.2 0 4-1.7 4-3.8s-1.8-3.8-4-3.8h-.8zm-3.7 2.8v2h4.5v-2H12.5z" fill="white"/></svg><span>DOGE BEP20</span></div>
+          <div class="cx3" data-coin="dot.bep20" data-label="DOT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#E6007A"/><circle cx="16" cy="9" r="3" fill="white"/><circle cx="16" cy="23" r="3" fill="white"/><circle cx="9" cy="16" r="3" fill="white"/><circle cx="23" cy="16" r="3" fill="white"/></svg><span>DOT BEP20</span></div>
+          <div class="cx3" data-coin="shib.bep20" data-label="SHIB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#FFA409"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">🐕</text></svg><span>SHIB</span></div>
+          <div class="cx3" data-coin="ltc" data-label="Litecoin" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#A0A0A0"/><path d="M13.5 20.5l.8-3.2-1.4.5.5-1.9 1.4-.4 2.3-8.2h4.1l-2.2 8 1.4-.5-.5 1.9-1.4.4-.5 1.9H23l-.9 2H10l.6-2 2.9.5z" fill="white"/></svg><span>Litecoin</span></div>
+          <div class="cx3" data-coin="busd.bep20" data-label="BUSD BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#F0B90B"/><path d="M16 6.5l2.6 2.6-6.7 6.7-2.6-2.6L16 6.5zm6.2 6.2 2.6 2.6-13 13-2.6-2.6 13-13zM9.8 12.7l2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6zm12.4 6.2 2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6z" fill="white"/></svg><span>BUSD BEP20</span></div>
+          <div class="cx3" data-coin="ton" data-label="TON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#0098EA"/><path d="M16 7.5l9 5v9l-9 5-9-5v-9l9-5zm0 2.6L9.2 14v4.4l6.8 3.8 6.8-3.8V14L16 10.1zm0 3.1 3.8 2.2v3.4L16 21l-3.8-2.2v-3.4L16 13.2z" fill="white"/></svg><span>TON</span></div>
+          <div class="cx3" data-coin="twt.bep20" data-label="TWT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="16" fill="#3375BB"/><path d="M16 8.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15zm3.8 5.5-1.1 5.5h-1.4l.9-4.5-3.4 4.5H13l-.3-4.5-2.2 4.5H9.3l3.2-5.5h1.7l.2 4 3-4h1.4z" fill="white"/></svg><span>TWT BEP20</span></div>
+        </div>
+        <div style="padding-bottom:14px">
+          <button class="btn-p" style="width:100%;margin:0" id="btn-payer-crypto" onclick="lancerPaiementCrypto()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Payer en <span id="lbl-coin-btn">USDT TRC20</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2 : Loading -->
+      <div id="step-loading" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px;text-align:center">
+        <div class="spin spin-w" style="width:44px;height:44px;border-width:4px"></div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">Connexion à izichangePay...</div>
+        <div style="font-size:13px;color:var(--text2)">Génération de votre page de paiement</div>
+        <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:var(--rsm);padding:10px 20px;font-size:13px;font-weight:700;color:var(--gold)" id="lbl-loading-coin">USDT TRC20</div>
+      </div>
+
+      <!-- STEP 3 : Iframe -->
+      <div id="step-iframe" style="display:none;flex:1;flex-direction:column">
+        <div style="flex-shrink:0;padding:8px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:13px;font-weight:700;color:var(--text)" id="lbl-iframe-coin">USDT TRC20</div>
+          <button onclick="retourChoix()" style="background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font)">← Changer</button>
+        </div>
+        <iframe id="izi-iframe" src="" style="flex:1;width:100%;border:none;display:block;background:#fff" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"></iframe>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIMER BAS -->
+  <div style="flex-shrink:0;padding:3px 20px;background:var(--bg);border-top:1px solid var(--border)">
+    <div class="pay-timer" id="p-timer" style="margin:0;padding:3px 0;font-size:11px">
+      <svg viewBox="0 0 24 24" width="12" height="12"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      Taux garanti <strong id="cd-time">30:00</strong>
+    </div>
+  </div>
+</div>
+
+<!-- TRACKING -->
+<div class="scr" id="scr-track">
+  <div class="hdr">
+    <button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fermer</button>
+    <span class="htitle">Suivi du transfert</span>
+    <span class="hact" onclick="shareTracking()">Partager</span>
+  </div>
+  <div class="sb">
+
+    <!-- Statut hero -->
+    <div class="tx-status-hero" id="tx-hero">
+      <div class="tx-ico" id="tx-ico" style="background:var(--gold-l)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--gold)"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      </div>
+      <div class="tx-title" id="tx-title">Traitement en cours</div>
+      <div class="tx-ref" id="tx-ref">REF: --</div>
+      <div class="tx-eta" id="tx-eta">⏱ Temps estimé : 2-5 minutes</div>
+    </div>
+
+    <!-- Info transaction -->
+    <div style="padding:0 20px 14px">
+      <div class="tx-info-card" id="tx-info-card">
+        <div class="tx-row"><span class="tx-lbl">Montant envoyé</span><span class="tx-val" id="tx-amt">--</span></div>
+        <div class="tx-row"><span class="tx-lbl">Destinataire reçoit</span><span class="tx-val" style="color:var(--green)" id="tx-fcfa">--</span></div>
+        <div class="tx-row"><span class="tx-lbl">Destinataire</span><span class="tx-val" id="tx-dest">--</span></div>
+        <div class="tx-row"><span class="tx-lbl">Via</span><span class="tx-val" id="tx-mm">--</span></div>
+        <div class="tx-row"><span class="tx-lbl">Date</span><span class="tx-val" id="tx-date">--</span></div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div style="padding:0 20px 8px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">Progression du transfert</div>
+    </div>
+    <div class="tl-wrap">
+
+      <div class="tl-step active" id="tl1">
+        <div class="tl-line">
+          <div class="tl-dot"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-lbl">Paiement détecté</div>
+          <div class="tl-sub">Transaction crypto reçue et en attente de confirmation blockchain</div>
+          <span class="tl-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg> En attente</span>
+          <div class="tl-time" id="tl1-time"></div>
+        </div>
+      </div>
+
+      <div class="tl-step pending" id="tl2">
+        <div class="tl-line">
+          <div class="tl-dot"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-lbl">Confirmation blockchain</div>
+          <div class="tl-sub">Vérification des confirmations réseau (1-3 blocs)</div>
+          <span class="tl-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> En attente</span>
+          <div class="tl-time" id="tl2-time"></div>
+        </div>
+      </div>
+
+      <div class="tl-step pending" id="tl3">
+        <div class="tl-line">
+          <div class="tl-dot"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-lbl">Conversion crypto → FCFA</div>
+          <div class="tl-sub">Conversion au taux verrouillé · izichangePay</div>
+          <span class="tl-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> En attente</span>
+          <div class="tl-time" id="tl3-time"></div>
+        </div>
+      </div>
+
+      <div class="tl-step pending" id="tl4">
+        <div class="tl-line">
+          <div class="tl-dot"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-lbl">Virement Mobile Money</div>
+          <div class="tl-sub">Envoi vers <span id="tl4-mm">Wave</span> · numéro <span id="tl4-phone">--</span></div>
+          <span class="tl-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> En attente</span>
+          <div class="tl-time" id="tl4-time"></div>
+        </div>
+      </div>
+
+      <div class="tl-step pending" id="tl5">
+        <div class="tl-line">
+          <div class="tl-dot"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-lbl">Transaction terminée !</div>
+          <div class="tl-sub">Fonds crédités sur le compte du destinataire</div>
+          <span class="tl-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> En attente</span>
+          <div class="tl-time" id="tl5-time"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div style="padding:0 20px 14px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-p" style="width:100%;margin:0" id="verify-btn" onclick="checkPayTracking()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+        Vérifier le statut
+      </button>
+      <button onclick="goto('scr-home')" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Retour à l'accueil</button>
+    </div>
+
+    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Transfert sécurisé · ZAMA by PST Telecom</div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="scr" id="scr-hist">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Historique</span><span></span></div>
+  <div class="sb"><div id="hist-list" style="padding-top:8px"></div></div>
+</div>
+
+<!-- RATES -->
+<div class="scr" id="scr-rates">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Taux de change</span><span class="hact" id="rates-ts">--</span></div>
+  <div class="sb"><div style="padding-top:8px">
+    <div class="rate-item"><div class="ri-l"><span class="ri-flag">🇺🇸</span><div><div class="ri-name">Dollar américain</div><div class="ri-code">USD</div></div></div><div><div class="ri-val" id="rr1">--</div><div class="ri-chg">Temps réel</div></div></div>
+    <div class="rate-item"><div class="ri-l"><span class="ri-flag">🇪🇺</span><div><div class="ri-name">Euro</div><div class="ri-code">EUR</div></div></div><div><div class="ri-val" id="rr2">--</div><div class="ri-chg">Temps réel</div></div></div>
+    <div class="rate-item"><div class="ri-l"><span class="ri-flag">🇬🇧</span><div><div class="ri-name">Livre sterling</div><div class="ri-code">GBP</div></div></div><div><div class="ri-val" id="rr3">--</div><div class="ri-chg">Temps réel</div></div></div>
+    <div class="rate-item"><div class="ri-l"><span class="ri-flag">🇨🇦</span><div><div class="ri-name">Dollar canadien</div><div class="ri-code">CAD</div></div></div><div><div class="ri-val" id="rr4">--</div><div class="ri-chg">Temps réel</div></div></div>
+    <div class="rate-item"><div class="ri-l"><span class="ri-flag">🇨🇭</span><div><div class="ri-name">Franc suisse</div><div class="ri-code">CHF</div></div></div><div><div class="ri-val" id="rr5">--</div><div class="ri-chg">Temps réel</div></div></div>
+    <div style="text-align:center;font-size:11px;color:var(--text3);padding:14px">Source : ExchangeRate-API · Mise à jour chaque minute</div>
+  </div></div>
+</div>
+
+<!-- ACCOUNT -->
+<div class="scr" id="scr-acct">
+  <div class="sb" style="padding-bottom:72px">
+    <div id="a-guest" style="display:none">
+      <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:56px 20px;text-align:center">
+        <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#F5B014,#FCD34D);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 32px rgba(245,176,20,.3)"><svg viewBox="0 0 40 40" fill="none" width="40" height="40"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div>
+        <div style="font-size:26px;font-weight:800;letter-spacing:3px;color:#fff;margin-bottom:6px">ZAMA</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:24px">Connectez-vous pour accéder à votre compte</div>
+        <button onclick="goto('scr-login')" style="padding:14px 32px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">Se connecter / Créer un compte</button>
+      </div>
+    </div>
+    <div id="a-logged" style="display:none">
+      <div class="acct-hero">
+        <div class="acct-av" id="a-av">?</div>
+        <div class="acct-name" id="a-name">--</div>
+        <div class="acct-phone" id="a-phone">--</div>
+        <div><span class="kyc-tag kyc-no" id="a-kyc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Identité non vérifiée</span></div>
+      </div>
+      <div style="padding-top:4px">
+        <div class="limit-bar"><div class="lb-top"><span class="lb-l">Limite quotidienne</span><span class="lb-r" id="lb-txt">0 / 500 USD</span></div><div class="lb-track"><div class="lb-fill" id="lb-fill" style="width:0%"></div></div><div class="lb-sub">Sans KYC : 500$/j · Avec KYC vérifié : 5 000$/j</div></div>
+        <div class="slbl">Mon compte</div>
+        <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="showQR()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="ai-lbl">Mon QR Code</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="slbl">Informations</div>
+        <div class="ai" onclick="goto('scr-about')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="ai-lbl">À propos de ZAMA</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-contact')"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="ai-lbl">Nous contacter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-privacy')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="ai-lbl">Politique de confidentialité</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-terms')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div><div class="ai-lbl">Conditions d'utilisation</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-fees')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="ai-lbl">Tarifs et commissions</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="slbl"></div>
+        <div class="ai danger" onclick="logout()"><div class="ai-ico" style="background:var(--red-l);color:var(--red)"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div><div class="ai-lbl">Se déconnecter</div></div>
+      </div>
+    </div>
+    <nav class="bnav">
+      <button class="bn" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>Accueil</button>
+      <button class="bn" onclick="goto('scr-send')"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>Envoyer</button>
+      <button class="bn" onclick="goto('scr-hist')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Historique</button>
+      <button class="bn on" onclick="goto('scr-acct')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Compte</button>
+    </nav>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="scr" id="scr-login">
+  <div class="sb" style="padding-bottom:0">
+    <div class="login-top">
+      <div class="login-logo"><svg viewBox="0 0 40 40" fill="none" width="40"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><path d="M25 7C26 4 28 3 29 6C30 3 32 4 31 7" stroke="rgba(0,0,0,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div>
+      <div class="login-title">ZAMA</div>
+      <div class="login-sub">Bureau de change digital · PST Telecom</div>
+    </div>
+    <div class="tab-row"><button class="tab on" id="t-login" onclick="swTab('login')">Se connecter</button><button class="tab" id="t-reg" onclick="swTab('reg')">Créer un compte</button></div>
+    <div id="pn-login" style="padding:20px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">Connectez-vous avec votre numéro et mot de passe.</div>
+      <div class="ph-wrap"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="lg-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="pwd-wrap"><input class="finp" type="password" id="lg-pwd" placeholder="Mot de passe" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('lg-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <button class="btn-p" style="width:100%;margin:0 0 14px" onclick="doLogin()">Se connecter</button>
+      <div style="text-align:center;font-size:13px;color:var(--text3)">Mot de passe oublié ? <span style="color:var(--gold);cursor:pointer" onclick="resetPwd()">Réinitialiser</span></div>
+    </div>
+    <div id="pn-reg" style="display:none;padding:20px">
+      <div class="fi2" style="margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px">Prénom *</label><input class="finp" type="text" id="rg-p" placeholder="Prénom"></div>
+        <div><label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px">Nom *</label><input class="finp" type="text" id="rg-n" placeholder="Nom"></div>
+      </div>
+      <div class="ph-wrap" style="margin-bottom:12px"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Email *</label><input class="finp" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
+      <div class="pwd-wrap" style="margin-bottom:12px"><input class="finp" type="password" id="rg-pwd" placeholder="Mot de passe (min 6 car.)" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('rg-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <div class="fg" style="padding:0;margin-bottom:14px"><label>Pays</label><select class="finp" id="rg-c"><option value="SN">Sénégal</option><option value="FR">France</option><option value="US">États-Unis</option><option value="CA">Canada</option><option value="GB">Royaume-Uni</option><option value="IT">Italie</option><option value="ES">Espagne</option><option value="BE">Belgique</option><option value="DE">Allemagne</option></select></div>
+      <button id="reg-btn" class="btn-p" style="width:100%;margin:0" onclick="register()">Créer mon compte</button>
+    </div>
+  </div>
+</div>
+
+<!-- KYC -->
+<div class="scr" id="scr-kyc">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Vérification KYC</span><span></span></div>
+  <div class="sb"><div style="padding:16px 20px 0">
+    <div class="wbox" style="background:var(--gold-l);border-color:rgba(245,176,20,.2);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>La vérification augmente votre limite à <strong>5 000$/jour</strong> et sécurise votre compte.</div>
+    <div class="fg" style="padding:0;margin-bottom:12px"><label>Type de document</label><select class="finp" id="kd-type"><option>Carte Nationale d'Identité</option><option>Passeport</option><option>Permis de conduire</option></select></div>
+    <div class="fg" style="padding:0;margin-bottom:12px"><label>Numéro du document</label><input class="finp" type="text" id="kd-num" placeholder="Ex: 1234567890"></div>
+    <div class="fg" style="padding:0;margin-bottom:12px"><label>Date de naissance</label><input class="finp" type="date" id="kd-dob"></div>
+    <div class="fg" style="padding:0;margin-bottom:16px"><label>Nationalité</label><input class="finp" type="text" id="kd-nat" placeholder="Sénégalaise"></div>
+    <label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px">Photo recto *</label>
+    <div class="pz" id="pz-recto"><input type="file" class="photo-input" accept="image/*" capture="environment" onchange="pzPrev(this,'pz-recto','pv-recto','kcv-recto')"><div class="pz-ph"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M5 7h2l2-3h6l2 3h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/></svg><div class="pz-lbl">Photo recto</div><div class="pz-sub">Appuyez pour photographier</div></div><img class="pz-img" id="pv-recto"><canvas id="kcv-recto" style="display:none"></canvas></div>
+    <label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px">Photo verso *</label>
+    <div class="pz" id="pz-verso"><input type="file" class="photo-input" accept="image/*" capture="environment" onchange="pzPrev(this,'pz-verso','pv-verso','kcv-verso')"><div class="pz-ph"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M5 7h2l2-3h6l2 3h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/></svg><div class="pz-lbl">Photo verso</div><div class="pz-sub">Appuyez pour photographier</div></div><img class="pz-img" id="pv-verso"><canvas id="kcv-verso" style="display:none"></canvas></div>
+    <label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px">Selfie avec document *</label>
+    <div class="pz" id="pz-selfie"><input type="file" class="photo-input" accept="image/*" capture="user" onchange="pzPrev(this,'pz-selfie','pv-selfie','kcv-selfie')"><div class="pz-ph"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div class="pz-lbl">Selfie avec document</div><div class="pz-sub">Tenez le document visible</div></div><img class="pz-img" id="pv-selfie"><canvas id="kcv-selfie" style="display:none"></canvas></div>
+    <div class="spacer"></div>
+  </div></div>
+  <div class="btn-foot"><button class="btn-p" id="kyc-btn" onclick="submitKYC()">Soumettre le KYC</button></div>
+</div>
+
+<!-- QR -->
+<div class="scr" id="scr-qr">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Mon QR Code</span><span class="hact" onclick="shareQR()">Partager</span></div>
+  <div class="sb">
+    <div class="qr-hero"><div style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:10px">Scannez pour m'envoyer de l'argent</div><div class="qr-wrap"><canvas id="qr-cv" width="200" height="200"></canvas></div><div class="qr-name" id="qr-name">--</div><div class="qr-phone" id="qr-phone">--</div></div>
+    <div class="qr-acts">
+      <div class="qra" onclick="dlQR()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><div class="qra-lbl">Télécharger</div></div>
+      <div class="qra" onclick="shareQR()"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg><div class="qra-lbl">Partager</div></div>
+      <div class="qra" onclick="copyQRLink()"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><div class="qra-lbl">Copier lien</div></div>
+    </div>
+    <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Transferts sécurisés entre utilisateurs ZAMA</div>
+  </div>
+</div>
+
+<!-- BENEFS -->
+<div class="scr" id="scr-benefs">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Bénéficiaires</span><span class="hact" onclick="addBenef()">+ Ajouter</span></div>
+  <div class="sb"><div id="benefs-list" style="padding-top:8px"></div></div>
+</div>
+
+<!-- ABOUT -->
+<div class="scr" id="scr-about">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">À propos</span><span></span></div>
+  <div class="sb">
+    <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:36px 20px;text-align:center">
+      <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#F5B014,#FCD34D);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 8px 32px rgba(245,176,20,.3)"><svg viewBox="0 0 40 40" fill="none" width="40"><ellipse cx="20" cy="27" rx="12" ry="10" fill="rgba(0,0,0,0.8)"/><circle cx="29" cy="14" r="7" fill="rgba(0,0,0,0.8)"/><circle cx="31" cy="13" r="1.5" fill="white"/></svg></div>
+      <div style="font-size:26px;font-weight:800;letter-spacing:3px;color:#fff">ZAMA</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:4px">Version 1.0 · PST Telecom · Touba, Sénégal</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.45);margin-top:10px;line-height:1.6">Le bureau de change digital du Sénégal.<br>Alternative à Western Union et MoneyGram.</div>
+    </div>
+    <div style="padding-top:8px">
+      <div class="slbl">Ce que nous offrons</div>
+      <div class="feat"><div class="feat-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div><div><div class="feat-title">Change instantané</div><div class="feat-sub">USD, EUR, GBP, CAD → FCFA en moins de 30 minutes</div></div></div>
+      <div class="feat"><div class="feat-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div><div><div class="feat-title">Mobile Money direct</div><div class="feat-sub">Réception directe sur Wave ou Orange Money au Sénégal</div></div></div>
+      <div class="feat"><div class="feat-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="feat-title">Sécurité bancaire</div><div class="feat-sub">PIN 4 chiffres, KYC, transactions chiffrées</div></div></div>
+      <div class="feat"><div class="feat-ico" style="background:var(--blue-l);color:var(--blue)"><svg viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div><div class="feat-title">Taux temps réel</div><div class="feat-sub">ExchangeRate-API · Commission fixe de 2%</div></div></div>
+      <div class="feat"><div class="feat-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div><div class="feat-title">Diaspora mondiale</div><div class="feat-sub">France, USA, Canada, UK, Italie, Espagne...</div></div></div>
+      <div class="slbl">Garanties</div>
+      <div class="badge-row">
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Données chiffrées</div>
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>KYC vérifié</div>
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Transfert 30 min</div>
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Taux transparent</div>
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Support 7j/7</div>
+        <div class="badge"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>Made in Sénégal</div>
+      </div>
+      <div class="slbl">Liens</div>
+      <div class="ai" onclick="goto('scr-contact')"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="ai-lbl">Nous contacter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="goto('scr-privacy')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="ai-lbl">Confidentialité</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="goto('scr-fees')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="ai-lbl">Tarifs</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div style="text-align:center;padding:20px;font-size:11px;color:var(--text3)">© 2026 ZAMA by PST Telecom · Touba, Sénégal</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACT -->
+<div class="scr" id="scr-contact">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Nous contacter</span><span></span></div>
+  <div class="sb">
+    <div style="background:linear-gradient(160deg,#080F1F,#0D1830);padding:28px 20px"><div style="width:44px;height:44px;border-radius:14px;background:var(--green-l);display:flex;align-items:center;justify-content:center;margin-bottom:12px"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--green)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div style="font-size:20px;font-weight:700">Support ZAMA</div><div style="font-size:12px;color:var(--text3);margin-top:4px">7j/7 · 8h–22h</div></div>
+    <div style="padding-top:8px">
+      <div class="cm" onclick="window.open('tel:+221771520959')"><div class="cm-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.27-.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div><div class="cm-title">Téléphone</div><div class="cm-val">+221 77 152 09 59</div></div><div class="cm-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="cm" onclick="window.open('https://wa.me/221771520959','_blank')"><div class="cm-ico" style="background:rgba(37,211,102,.1);color:#25D366"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div><div class="cm-title">WhatsApp</div><div class="cm-val">+221 77 152 09 59</div></div><div class="cm-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="cm" onclick="window.open('mailto:papasenytoure@gmail.com')"><div class="cm-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div><div class="cm-title">Email</div><div class="cm-val">papasenytoure@gmail.com</div></div><div class="cm-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div style="padding:16px 20px 24px">
+        <div class="slbl" style="padding:0;margin-bottom:14px">Formulaire</div>
+        <div class="fg" style="padding:0;margin-bottom:10px"><label>Votre nom</label><input class="finp" type="text" id="ct-name" placeholder="Prénom et Nom"></div>
+        <div class="fg" style="padding:0;margin-bottom:10px"><label>Email</label><input class="finp" type="email" id="ct-email" placeholder="email@exemple.com" inputmode="email"></div>
+        <div class="fg" style="padding:0;margin-bottom:10px"><label>Message</label><textarea class="finp" id="ct-msg" rows="4" placeholder="Votre message..." style="resize:none"></textarea></div>
+        <button class="btn-p" style="width:100%;margin:0" onclick="sendContact()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRIVACY -->
+<div class="scr" id="scr-privacy">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Confidentialité</span><span></span></div>
+  <div class="sb"><div class="legal-hero"><div class="lh-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="lh-title">Politique de confidentialité</div><div class="lh-date">Dernière mise à jour : Mai 2026</div></div>
+  <div class="legal-body"><h3>1. Données collectées</h3><p>Nom, prénom, téléphone, email, documents KYC et historique des transactions. Uniquement ce qui est nécessaire au service.</p><h3>2. Utilisation</h3><p>Traitement des transferts, vérification d'identité (KYC), notifications de transaction. Jamais à des fins publicitaires.</p><h3>3. Protection</h3><p>Données chiffrées et stockées de manière sécurisée. Photos KYC accessibles uniquement à notre équipe de conformité.</p><h3>4. Partage</h3><p>Uniquement avec izichangePay (paiement) et Wave/Orange Money (virement). Autorités si requis par la loi sénégalaise.</p><h3>5. Conservation</h3><p>5 ans après votre dernière transaction, conformément à la réglementation UEMOA anti-blanchiment.</p><h3>6. Vos droits</h3><p>Accès, correction ou suppression : papasenytoure@gmail.com · +221 77 152 09 59</p></div>
+  <div class="spacer"></div></div>
+</div>
+
+<!-- TERMS -->
+<div class="scr" id="scr-terms">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Conditions d'utilisation</span><span></span></div>
+  <div class="sb"><div class="legal-hero"><div class="lh-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div><div class="lh-title">Conditions d'utilisation</div><div class="lh-date">Dernière mise à jour : Mai 2026</div></div>
+  <div class="legal-body"><h3>1. Service</h3><p>ZAMA convertit des devises étrangères (USD, EUR, GBP, CAD) en FCFA et envoie les fonds via Mobile Money au Sénégal.</p><h3>2. Éligibilité</h3><p>18 ans minimum. Informations exactes obligatoires. Un seul compte par numéro de téléphone autorisé.</p><h3>3. Limites</h3><p>Sans KYC : 500 USD/jour. Avec KYC vérifié : 5 000 USD/jour.</p><h3>4. Frais</h3><p>Commission ZAMA : 2% fixe. Taux de change garanti pendant 30 minutes après confirmation du paiement.</p><h3>5. Responsabilité</h3><p>Vérifiez toujours le numéro destinataire. Les transactions envoyées ne peuvent pas être annulées.</p><h3>6. Droit applicable</h3><p>Droit sénégalais. Tout litige soumis aux tribunaux de Dakar, Sénégal.</p></div>
+  <div class="spacer"></div></div>
+</div>
+
+<!-- FEES -->
+<div class="scr" id="scr-fees">
+  <div class="hdr"><button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Tarifs</span><span></span></div>
+  <div class="sb"><div class="legal-hero"><div class="lh-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="lh-title">Tarifs & Commissions</div><div class="lh-date">Transparents et fixes</div></div>
+  <div style="padding:20px">
+    <div style="background:var(--gold-l);border:1px solid rgba(245,176,20,.15);border-radius:16px;padding:24px;text-align:center;margin-bottom:20px"><div style="font-size:52px;font-weight:800;color:var(--gold);line-height:1">2%</div><div style="font-size:13px;color:var(--text2);margin-top:6px">Commission ZAMA fixe</div></div>
+    <div class="slbl" style="padding:0;margin-bottom:10px">Exemples</div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);overflow:hidden;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text2)">100 USD envoyés</span><span style="font-weight:700;color:var(--green)">≈ 58 980 FCFA</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text2)">200 EUR envoyés</span><span style="font-weight:700;color:var(--green)">≈ 127 744 FCFA</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px 16px;font-size:13px"><span style="color:var(--text2)">500 USD envoyés</span><span style="font-weight:700;color:var(--green)">≈ 294 900 FCFA</span></div>
+    </div>
+    <div class="slbl" style="padding:0;margin-bottom:10px">Limites</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600">Sans KYC</div><div style="font-size:12px;color:var(--text3)">Inscription simple</div></div><div style="font-size:18px;font-weight:700;color:var(--gold)">500 $/j</div></div>
+      <div style="background:var(--green-l);border:1px solid rgba(34,197,94,.15);border-radius:var(--rsm);padding:14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600">Avec KYC <span style="color:var(--green)">✓</span></div><div style="font-size:12px;color:var(--text3)">Identité vérifiée</div></div><div style="font-size:18px;font-weight:700;color:var(--green)">5 000 $/j</div></div>
+    </div>
+  </div><div class="spacer"></div></div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="adm-overlay" class="adm-overlay">
+  <div class="adm-sheet">
+    <div class="otp-handle"></div>
+    <div style="text-align:center;margin-bottom:16px"><div style="width:48px;height:48px;border-radius:14px;background:var(--gold-l);display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div style="font-size:18px;font-weight:700">Accès Admin ZAMA</div></div>
+    <div id="adm-s1"><div class="fg" style="padding:0;margin-bottom:14px"><label>Email administrateur</label><input class="finp" type="email" id="adm-email" placeholder="votre@email.com" inputmode="email"></div><button class="btn-p" style="width:100%;margin:0 0 10px" onclick="admCheckEmail()">Continuer</button><button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="document.getElementById('adm-overlay').classList.remove('open')">Annuler</button></div>
+    <div id="adm-s2" style="display:none"><div style="font-size:13px;color:var(--text2);margin-bottom:14px">Entrez votre mot de passe administrateur.</div><div class="pwd-wrap" style="margin-bottom:14px"><input class="finp" type="password" id="adm-pwd" placeholder="Mot de passe admin" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('adm-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div><button class="btn-p" style="width:100%;margin:0 0 10px" onclick="admCheckPwd()">Accéder au panneau</button><button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="document.getElementById('adm-s1').style.display='block';document.getElementById('adm-s2').style.display='none'">Retour</button></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="scr" id="scr-admin">
+  <div class="sb" style="padding-bottom:0">
+    <div class="adm-hero">
+      <div class="adm-user-row"><div class="adm-av" id="adm-av">A</div><div><div class="adm-nm">Admin ZAMA</div><div class="adm-role" id="adm-email-disp">--</div></div></div>
+      <button onclick="goto('scr-home')" style="background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:var(--font)">Quitter</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card blue"><div class="stat-lbl">Transactions</div><div class="stat-val" id="st-total">--</div><div class="stat-sub">Total</div></div>
+      <div class="stat-card gold"><div class="stat-lbl">Revenus</div><div class="stat-val" id="st-rev">--</div><div class="stat-sub">FCFA</div></div>
+      <div class="stat-card green"><div class="stat-lbl">Complétés</div><div class="stat-val" id="st-paid">--</div><div class="stat-sub">Payés</div></div>
+      <div class="stat-card amber"><div class="stat-lbl">En attente</div><div class="stat-val" id="st-pend">--</div><div class="stat-sub">À traiter</div></div>
+    </div>
+    <div class="slbl">Actions</div>
+    <div style="padding:0 20px;display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+      <div class="ai" onclick="admOrders()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="ai-lbl">Toutes les transactions</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="admUsers()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Utilisateurs</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="admKYC()"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Dossiers KYC</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="admChangePwd()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le mot de passe admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="admAddEmail()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div><div class="ai-lbl">Ajouter un email admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+    </div>
+    <div id="adm-content" style="padding-bottom:32px"></div>
+  </div>
+</div>
+
+<!-- OTP MODAL -->
+<div id="otp-overlay" class="otp-overlay">
+  <div class="otp-sheet">
+    <div class="otp-handle"></div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">Code de vérification</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Code envoyé au <span id="otp-ph">--</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:0">Pour cette démo : code 1234</div>
+    <div class="otp-inputs"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,0)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,1)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,2)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,3)"></div>
+    <button class="btn-p" style="width:100%;margin:0 0 10px" onclick="verOTP()">Vérifier</button>
+    <button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="document.getElementById('otp-overlay').classList.remove('open')">Annuler</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+<script>
 const API="https://pst-telecom-production.up.railway.app";
 const FEE=0.02;
 let curr="USD",cF="🇺🇸",cK="usd";
@@ -626,80 +1205,13 @@ let lgC=0,lgT=null;
 let selCrypto="USDT.BEP20";
 let pinE="",psE="",psF="",psStep=1;
 
-
-// ══ ZAMA v2 JS ══
-
-function updateUserStats() {
-  var ords = getOrds();
-  var sec = document.getElementById('user-stats-section');
-  if(!ords || !ords.length) { if(sec) sec.style.display='none'; return; }
-  if(sec) sec.style.display='grid';
-  var paid = ords.filter(function(o){ return o.status==='paid'; });
-  var totalFCFA = paid.reduce(function(s,o){ return s+(o.net_fcfa||0); },0);
-  var savingsWU = Math.round(paid.reduce(function(s,o){ return s+(o.amount||0); },0)*(rates[cK]||606)*0.05);
-  var s = function(id,v){ var e=document.getElementById(id); if(e)e.textContent=v; };
-  s('ust-sent', totalFCFA>999?(totalFCFA/1000).toFixed(0)+'k':String(totalFCFA||'0'));
-  s('ust-tx', String(ords.length));
-  s('ust-save', savingsWU>999?(savingsWU/1000).toFixed(0)+'k':String(savingsWU||'0'));
-}
-
-function renderLastTx() {
-  var ords = getOrds();
-  var el = document.getElementById('last-tx-widget');
-  if(!ords||!ords.length||!el) return;
-  var o = ords[0];
-  el.classList.add('show');
-  var st = o.status==='paid'?'Complété':o.status==='failed'?'Échoué':'En attente';
-  var sc = o.status==='paid'?'var(--green)':o.status==='failed'?'var(--red)':'var(--amber)';
-  var bg = o.status==='paid'?'var(--green-l)':o.status==='failed'?'var(--red-l)':'var(--amber-l)';
-  var n=document.getElementById('ltx-name'); if(n)n.textContent=o.receiver_name||'--';
-  var m=document.getElementById('ltx-meta'); if(m)m.textContent=(o.amount||0)+' '+(o.src_currency||'')+' vers '+(o.receiver_mm==='wave'?'Wave':'Orange Money');
-  var f=document.getElementById('ltx-fcfa'); if(f)f.textContent=(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA';
-  var ss=document.getElementById('ltx-st'); if(ss){ss.textContent=st;ss.style.background=bg;ss.style.color=sc;}
-  el.onclick=function(){ showTxDetail(o); };
-}
-
-function showTxDetail(o) {
-  var overlay=document.getElementById('tx-detail-overlay');
-  if(!overlay) return;
-  var st=o.status==='paid'?'Complété':'En attente';
-  var sc=o.status==='paid'?'var(--green)':'var(--amber)';
-  var dt=o.created_at?new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):'--';
-  var rows='<div class="tx-row"><span class="tx-lbl">Référence</span><span class="tx-val" style="font-family:monospace;font-size:11px">'+(o.order_id||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Destinataire</span><span class="tx-val">'+(o.receiver_name||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Numéro</span><span class="tx-val">'+(o.receiver_phone||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Via</span><span class="tx-val">'+(o.receiver_mm==='wave'?'Wave':'Orange Money')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Date</span><span class="tx-val">'+dt+'</span></div>';
-  var closebtn='<button onclick="document.getElementById('+String.fromCharCode(39)+'tx-detail-overlay'+String.fromCharCode(39)+').classList.remove('+String.fromCharCode(39)+'open'+String.fromCharCode(39)+')" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:12px">Fermer</button>';
-  document.getElementById('tx-detail-content').innerHTML=
-    '<div style="text-align:center;padding:0 0 16px">'+
-    '<div style="font-size:28px;font-weight:800;color:var(--gold)">'+(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA</div>'+
-    '<div style="font-size:12px;color:var(--text3);margin-top:4px">'+(o.amount||0)+' '+(o.src_currency||'')+' envoyés</div>'+
-    '<div style="display:inline-block;margin-top:8px;padding:4px 14px;border-radius:100px;background:var(--s3);font-size:12px;font-weight:700;color:'+sc+'">'+st+'</div></div>'+
-    '<div class="tx-info-card">'+rows+'</div>'+closebtn;
-  overlay.classList.add('open');
-}
-
-function checkAmtLimits() {
-  var a=parseFloat(document.getElementById('s-amt')?document.getElementById('s-amt').value:0)||0;
-  var lim=document.getElementById('amt-limit-msg');
-  if(!lim) return;
-  var kyc=user&&user.kyc;
-  var maxD=kyc?5000:500;
-  var ml=document.getElementById('amt-max-lbl'); if(ml)ml.textContent=String(maxD);
-  if(a>=1&&a<=maxD){lim.innerHTML='<span class="lim-ok">Montant valide</span><span>Max '+maxD+' '+curr+'/jour</span>';}
-  else if(a>maxD){lim.innerHTML='<span class="lim-err">Dépasse la limite</span><span>KYC pour 5000/j</span>';}
-  else if(a>0&&a<1){lim.innerHTML='<span class="lim-err">Minimum 1 '+curr+'</span><span>Max '+maxD+'/jour</span>';}
-  else{lim.innerHTML='<span></span><span>Max '+maxD+' '+curr+'/jour</span>';}
-}
-
 window.addEventListener("load",function(){
   loadSavedLogos();
   user=loadU();
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();updateUserStats();renderLastTx();hqsInit();_hqsDone=false;_hqsUrl=null;hqsGenQR();
+  renderHBenefs();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
@@ -1143,7 +1655,7 @@ function doLogin(){
   var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();updateUserStats();renderLastTx();
+  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
@@ -1282,14 +1794,21 @@ function renderQR(){
   drawQR("zama://pay?phone="+encodeURIComponent(user.phone||"")+"&name="+encodeURIComponent((user.prenom||"")+" "+(user.nom||"")));
 }
 function drawQR(text){
-  var wrap=document.getElementById("qr-cv");
-  if(!wrap) return;
-  var parent=wrap.parentNode;
-  var div=document.getElementById("qr-cv-div");
-  if(!div){div=document.createElement("div");div.id="qr-cv-div";parent.replaceChild(div,wrap);}
-  div.innerHTML="";
-  div.style.cssText="display:inline-block;background:#fff;padding:8px;border-radius:10px;";
-  try{new QRCode(div,{text:text,width:184,height:184,colorDark:"#070D1A",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+  var cv=document.getElementById("qr-cv");if(!cv)return;
+  var ctx=cv.getContext("2d");var sz=200;ctx.clearRect(0,0,sz,sz);
+  ctx.fillStyle="#111D30";ctx.fillRect(0,0,sz,sz);
+  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  var cell=7,cols=Math.floor(sz/cell);
+  function finder(x,y){ctx.fillStyle="#F5B014";ctx.fillRect(x*cell,y*cell,7*cell,7*cell);ctx.fillStyle="#111D30";ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);ctx.fillStyle="#F5B014";ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);}
+  finder(0,0);finder(cols-7,0);finder(0,cols-7);
+  ctx.fillStyle="#F5B014";
+  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
+    if((r<8&&c<8)||(r<8&&c>cols-9)||(r>cols-9&&c<8))continue;
+    if((hash^(r*31+c*17)^(r^c))%4===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
+  }}
+  ctx.fillStyle="#111D30";ctx.fillRect(82,82,36,36);
+  ctx.fillStyle="#F5B014";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(86,86,28,28,6);else ctx.rect(86,86,28,28);ctx.fill();
+  ctx.fillStyle="#0D1525";ctx.font="bold 13px Inter,Arial";ctx.textAlign="center";ctx.fillText("Z",100,99);
 }
 function dlQR(){var cv=document.getElementById("qr-cv");if(!cv)return;var a=document.createElement("a");a.download="zama-qr.png";a.href=cv.toDataURL();a.click();toast("Téléchargé","ok");}
 function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(user.prenom||"")+" "+(user.nom||"")+"\n"+(user.phone||"");if(navigator.share)navigator.share({title:"Mon QR ZAMA",text:t}).catch(function(){});else navigator.clipboard.writeText(t).then(function(){toast("Copié !","ok");});}
@@ -1548,303 +2067,6 @@ function loadSavedLogos() {
 // TOAST
 var _toastT;
 function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(type?" "+type:"");clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove("show");},3000);}
-// ══════════════════════════════════════════════
-// ZAMA — JS Lien de paiement
-// ══════════════════════════════════════════════
-
-var _plMM = 'wave';
-var _plData = null;
-var ZAMA_BASE = 'https://pst-telecom-production.up.railway.app';
-
-function selPLMM(mm) {
-  _plMM = mm;
-  var wave = document.getElementById('pl-mm-wave');
-  var om = document.getElementById('pl-mm-om');
-  if (mm === 'wave') {
-    if(wave){wave.style.borderColor='var(--green)';wave.style.background='var(--green-l)';wave.style.color='var(--green)';}
-    if(om){om.style.borderColor='var(--border)';om.style.background='var(--s2)';om.style.color='var(--text2)';}
-  } else {
-    if(om){om.style.borderColor='var(--amber)';om.style.background='var(--amber-l)';om.style.color='var(--amber)';}
-    if(wave){wave.style.borderColor='var(--border)';wave.style.background='var(--s2)';wave.style.color='var(--text2)';}
-  }
-}
-
-async function loadPaylinkScreen() {
-  var loading = document.getElementById('pl-loading');
-  var active = document.getElementById('pl-active');
-  var create = document.getElementById('pl-create');
-  if(loading) loading.style.display = 'block';
-  if(active) active.style.display = 'none';
-  if(create) create.style.display = 'none';
-
-  if (!user) {
-    if(loading) loading.style.display = 'none';
-    if(create) create.style.display = 'block';
-    // Pré-remplir avec infos user si connecté
-    return;
-  }
-
-  try {
-    var res = await fetch(API + '/api/zama/paylink/user/' + user.id);
-    var data = await res.json();
-    if(loading) loading.style.display = 'none';
-    if (data && data.code) {
-      _plData = data;
-      showActivePL(data);
-    } else {
-      if(create) create.style.display = 'block';
-      // Pré-remplir
-      var n = document.getElementById('pl-name');
-      var p = document.getElementById('pl-phone');
-      if(n) n.value = (user.prenom || '') + ' ' + (user.nom || '');
-      if(p) p.value = user.phone || '';
-    }
-  } catch(e) {
-    if(loading) loading.style.display = 'none';
-    if(create) create.style.display = 'block';
-  }
-}
-
-function showActivePL(data) {
-  var active = document.getElementById('pl-active');
-  if(active) active.style.display = 'block';
-
-  var url = ZAMA_BASE + '/zama?pay=' + data.code;
-  var urlEl = document.getElementById('pl-url');
-  if(urlEl) urlEl.textContent = url;
-
-  // Stats
-  var cl = document.getElementById('pl-clicks'); if(cl) cl.textContent = data.clicks || 0;
-  var py = document.getElementById('pl-payments'); if(py) py.textContent = data.payments || 0;
-
-  // Bénéficiaire
-  var av = document.getElementById('pl-av'); if(av) av.textContent = (data.name||'?')[0].toUpperCase();
-  var bn = document.getElementById('pl-bname'); if(bn) bn.textContent = data.name || '--';
-  var bp = document.getElementById('pl-bphone'); if(bp) bp.textContent = data.phone || '--';
-  var bm = document.getElementById('pl-bmm');
-  if(bm) bm.innerHTML = data.mm === 'wave'
-    ? '<div style="font-size:11px;font-weight:700;color:#1C8EF9;background:rgba(28,142,249,.1);padding:4px 10px;border-radius:20px">Wave 💙</div>'
-    : '<div style="font-size:11px;font-weight:700;color:#FF6600;background:rgba(255,102,0,.1);padding:4px 10px;border-radius:20px">Orange Money 🟠</div>';
-
-  // Dessiner QR
-  drawPLQR(url);
-}
-
-function drawPLQR(text){
-  var wrap=document.getElementById('pl-qr');
-  if(!wrap) return;
-  var parent=wrap.parentNode;
-  var div=document.getElementById('pl-qr-div');
-  if(!div){div=document.createElement('div');div.id='pl-qr-div';parent.replaceChild(div,wrap);}
-  div.innerHTML='';
-  div.style.cssText='display:inline-block;background:#fff;padding:8px;border-radius:10px;';
-  try{new QRCode(div,{text:text,width:180,height:180,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
-}
-
-function copyPaylink() {
-  if(!_plData) return;
-  var url = ZAMA_BASE + '/zama?pay=' + _plData.code;
-  navigator.clipboard.writeText(url).then(function(){ toast('Lien copié !', 'ok'); });
-}
-
-function sharePaylink() {
-  if(!_plData) return;
-  var url = ZAMA_BASE + '/zama?pay=' + _plData.code;
-  var name = _plData.name || (user ? (user.prenom||'') + ' ' + (user.nom||'') : '');
-  var text = 'Envoyez-moi de l\'argent via ZAMA\n' + name + '\n\nCliquez ici :\n' + url + '\n\nPaiement crypto → Wave/Orange Money 🇸🇳';
-  if(navigator.share){ navigator.share({title:'Paiement ZAMA', text:text, url:url}).catch(function(){}); }
-  else { navigator.clipboard.writeText(text).then(function(){ toast('Texte copié !', 'ok'); }); }
-}
-
-function shareWhatsApp() {
-  if(!_plData) return;
-  var url = ZAMA_BASE + '/zama?pay=' + _plData.code;
-  var name = _plData.name || (user ? (user.prenom||'') + ' ' + (user.nom||'') : '');
-  var msg = encodeURIComponent('Envoyez-moi de l\'argent via ZAMA ' + String.fromCharCode(127469,127480) + '\n' + name + '\n\n' + url);
-  window.open('https://wa.me/?text=' + msg, '_blank');
-}
-
-async function createPaylink() {
-  if(!user){ toast('Connectez-vous d\'abord', 'err'); goto('scr-login'); return; }
-  var name = document.getElementById('pl-name') ? document.getElementById('pl-name').value.trim() : '';
-  var phone = document.getElementById('pl-phone') ? document.getElementById('pl-phone').value.trim() : '';
-  var note = document.getElementById('pl-note') ? document.getElementById('pl-note').value.trim() : '';
-  if(!name || !phone){ toast('Nom et numéro requis', 'err'); return; }
-  var btn = document.getElementById('pl-create-btn');
-  btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Création...';
-  try {
-    var res = await fetch(API + '/api/zama/paylink/create', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ user_id: user.id, name, phone, mm: _plMM, note })
-    });
-    var data = await res.json();
-    if(data.success){
-      _plData = data.paylink;
-      document.getElementById('pl-create').style.display = 'none';
-      showActivePL(data.paylink);
-      toast('Lien créé !', 'ok');
-    } else { toast(data.error || 'Erreur', 'err'); }
-  } catch(e){ toast('Erreur réseau', 'err'); }
-  btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Générer mon lien';
-}
-
-async function deletePaylink() {
-  if(!_plData || !confirm('Supprimer ce lien ?')) return;
-  try {
-    await fetch(API + '/api/zama/paylink/' + _plData.code, {method:'DELETE'});
-    _plData = null;
-    document.getElementById('pl-active').style.display = 'none';
-    document.getElementById('pl-create').style.display = 'block';
-    toast('Lien supprimé', 'ok');
-  } catch(e){ toast('Erreur', 'err'); }
-}
-
-// Détecter ?pay=CODE à l'ouverture de ZAMA
-function checkPayParam() {
-  var params = new URLSearchParams(window.location.search);
-  var code = params.get('pay');
-  if(!code) return;
-  // Charger les infos du bénéficiaire et pré-remplir
-  loadPayCode(code);
-}
-
-async function loadPayCode(code) {
-  try {
-    var res = await fetch(API + '/api/zama/paylink/' + code);
-    var data = await res.json();
-    if(data && data.phone){
-      // Pré-remplir le formulaire d'envoi
-      goto('scr-send');
-      setTimeout(function(){
-        // Aller directement à l'écran destinataire avec les infos pré-remplies
-        var rname = document.getElementById('r-name'); if(rname) rname.value = data.name || '';
-        var rphone = document.getElementById('r-phone'); if(rphone) rphone.value = data.phone || '';
-        var mmEl = document.getElementById('mm-' + (data.mm === 'om' ? 'om' : 'wave'));
-        if(mmEl) selMM(data.mm === 'om' ? 'om' : 'wave', mmEl);
-        // Afficher un banner
-        toast('Envoyer à ' + (data.name||'') + ' via ' + (data.mm==='om'?'Orange Money':'Wave'), 'info');
-      }, 300);
-    }
-  } catch(e){}
-}
-
-
-// ══ HQS — QR Accueil ══
-var _hqsStream=null,_hqsUrl=null,_hqsDone=false;
-function hqsInit(){
-  var g=document.getElementById('hqs-guest-msg');
-  var u=document.getElementById('hqs-user-qr');
-  if(!user){if(g)g.style.display='block';if(u)u.style.display='none';return;}
-  if(g)g.style.display='none';if(u)u.style.display='block';
-  var name=(user.prenom||'')+' '+(user.nom||'');
-  var phone=user.phone||'';
-  var n=document.getElementById('hqs-n');if(n)n.textContent=name.trim()||'--';
-  var p=document.getElementById('hqs-p');if(p)p.textContent=phone;
-  _hqsUrl='https://pst-telecom-production.up.railway.app/zama?pay_phone='+encodeURIComponent(phone)+'&pay_name='+encodeURIComponent(name.trim());
-  if(!_hqsDone) hqsGenQR();
-  hqsLoadContacts();
-}
-function hqsGenQR(){
-  var c=document.getElementById('hqs-qr');if(!c||!_hqsUrl)return;
-  function tryQR(n){
-    if(typeof QRCode!=='undefined'){
-      c.innerHTML='';
-      try{new QRCode(c,{text:_hqsUrl,width:170,height:170,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});_hqsDone=true;}
-      catch(e){c.innerHTML='<div style="padding:16px;font-size:11px;color:var(--text3)">QR: '+e.message+'</div>';}
-    } else if(n>0){setTimeout(function(){tryQR(n-1);},500);}
-    else{c.innerHTML='<div style="padding:16px;font-size:11px;color:var(--text3)">QRCode.js non chargé</div>';}
-  }
-  tryQR(20);
-}
-function hqsSwitch(t){
-  var r=document.getElementById('hqs-r');var s=document.getElementById('hqs-s');
-  var tr=document.getElementById('hqtab-r');var ts=document.getElementById('hqtab-s');
-  if(t==='r'){
-    if(r)r.style.display='block';if(s)s.style.display='none';
-    if(tr)tr.className='hqtab on';if(ts)ts.className='hqtab';
-    hqsStopScan();
-  } else {
-    if(r)r.style.display='none';if(s)s.style.display='block';
-    if(tr)tr.className='hqtab';if(ts)ts.className='hqtab on';
-    hqsLoadContacts();
-  }
-}
-function hqsCopy(){if(!_hqsUrl)return;navigator.clipboard.writeText(_hqsUrl).then(function(){toast('Lien copié !','ok');});}
-function hqsShare(){
-  if(!user||!_hqsUrl)return;
-  var name=(user.prenom||'')+' '+(user.nom||'');
-  var text='Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n\n'+_hqsUrl;
-  if(navigator.share)navigator.share({title:'Mon QR ZAMA',text:text,url:_hqsUrl}).catch(function(){});
-  else navigator.clipboard.writeText(text).then(function(){toast('Copié !','ok');});
-}
-function hqsWA(){
-  if(!user||!_hqsUrl)return;
-  var name=(user.prenom||'')+' '+(user.nom||'');
-  var msg=encodeURIComponent('Envoyez-moi de l'argent via ZAMA\n'+name.trim()+' — '+(user.phone||'')+'\n'+_hqsUrl);
-  window.open('https://wa.me/?text='+msg,'_blank');
-}
-function hqsToggleScan(){
-  if(_hqsStream){hqsStopScan();return;}
-  var vid=document.getElementById('hqs-vid');var ph=document.getElementById('hqs-scan-ph');var btn=document.getElementById('hqs-scan-btn');
-  if(!navigator.mediaDevices){toast('Caméra non disponible','err');return;}
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(s){
-    _hqsStream=s;
-    if(vid){vid.style.display='block';vid.srcObject=s;}
-    if(ph)ph.style.display='none';
-    if(btn)btn.textContent='Arrêter le scanner';
-    toast('Scanner actif','info');
-  }).catch(function(){toast('Caméra refusée','err');});
-}
-function hqsStopScan(){
-  if(_hqsStream){_hqsStream.getTracks().forEach(function(t){t.stop();});_hqsStream=null;}
-  var vid=document.getElementById('hqs-vid');if(vid){vid.style.display='none';vid.srcObject=null;}
-  var ph=document.getElementById('hqs-scan-ph');if(ph)ph.style.display='block';
-  var btn=document.getElementById('hqs-scan-btn');if(btn)btn.textContent='Activer le scanner';
-}
-function hqsLoadContacts(){
-  var list=document.getElementById('hqs-contacts');if(!list)return;
-  var benefs=getBenefs().slice(0,5);
-  if(!benefs.length){list.innerHTML='<div style="font-size:11px;color:var(--text3);padding:4px 0">Aucun contact récent</div>';return;}
-  list.innerHTML=benefs.map(function(b){
-    var ini=(b.name||'?')[0].toUpperCase();
-    return '<div class="hqs-contact" onclick="hqsSendTo(''+b.name.replace(/'/g,'').replace(/"/g,'')+'',''+b.phone+'',''+b.mm+'')">'
-      +'<div class="hqs-cav">'+ini+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+b.name+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">'+b.phone+' · '+(b.mm==='wave'?'Wave':'Orange Money')+'</div></div>'
-      +'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>'
-      +'</div>';
-  }).join('');
-}
-function hqsSendTo(name,phone,mm){
-  hqsSwitch('r');
-  goto('scr-send');
-  setTimeout(function(){
-    var rn=document.getElementById('r-name');if(rn)rn.value=name||'';
-    var rp=document.getElementById('r-phone');if(rp)rp.value=phone||'';
-    var mmEl=document.getElementById('mm-'+(mm||'wave'));if(mmEl)selMM(mm||'wave',mmEl);
-    toast('Envoyer à '+(name||phone),'info');
-  },300);
-}
-function hqsSendManual(){
-  var inp=document.getElementById('hqs-inp');if(!inp||!inp.value.trim())return;
-  var val=inp.value.trim();
-  var pm=val.match(/pay_phone=([^&]+)/);
-  var nm=val.match(/pay_name=([^&]+)/);
-  if(pm){hqsSendTo(nm?decodeURIComponent(nm[1]):'',decodeURIComponent(pm[1]),'wave');}
-  else{hqsSendTo('',val,'wave');}
-  inp.value='';
-}
-function checkPayPhoneParam(){
-  var params=new URLSearchParams(window.location.search);
-  var phone=params.get('pay_phone');var name=params.get('pay_name')||'';
-  if(phone){goto('scr-send');setTimeout(function(){
-    var rn=document.getElementById('r-name');if(rn)rn.value=decodeURIComponent(name);
-    var rp=document.getElementById('r-phone');if(rp)rp.value=decodeURIComponent(phone);
-    toast('Envoyer à '+(name||phone),'info');
-  },400);}
-}
-
 </script>
 </div>
 </body>
