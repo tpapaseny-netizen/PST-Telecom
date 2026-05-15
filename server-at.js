@@ -856,7 +856,7 @@ app.post('/api/zama/create', async (req,res) => {
     // Générer URL de paiement via generatePayinRedirectUrlWithCustomer (SDK officiel)
     const paymentUrl=await iziGeneratePaymentUrl({
       orderId,amountUSD,coin:selectedCoin,
-      acceptedCoins:['trx','usdt.trc20','usdt.bep20','btc','eth','bnb'],
+      acceptedCoins:['usdt.trc20','usdt.bep20','usdt.erc20','usdt.ton','usdt.opbnb','usdc.trc20','usdc.bep20','usdc.erc20','btc','btc.bep20','eth','eth.bep20','bnb','opbnb','trx','xrp.bep20','sol.bep20','ada.bep20','doge.bep20','dot.bep20','shib.bep20','ltc','busd.bep20','ton','twt.bep20'],
       firstname:(sender_name||'Client').split(' ')[0],
       lastname:(sender_name||'ZAMA').split(' ').slice(1).join(' ')||'ZAMA',
       email:sender_email||'',
