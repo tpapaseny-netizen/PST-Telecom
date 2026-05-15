@@ -709,17 +709,25 @@ function hqrGenQR(){
   var c=document.getElementById('hqr-canvas');
   if(!c)return;
   var url=_hqrUrl||'https://pst-telecom-production.up.railway.app/zama';
+  // Afficher un loader pendant le chargement
+  c.innerHTML='<div style="width:190px;height:190px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:8px"><div style="text-align:center"><div style="width:32px;height:32px;border:3px solid #ddd;border-top:3px solid #F5B014;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 8px"></div><div style="font-size:10px;color:#999">Chargement QR...</div></div></div>';
   function tryQR(n){
     if(typeof QRCode!=='undefined'){
       c.innerHTML='';
       try{
         new QRCode(c,{text:url,width:190,height:190,colorDark:'#070D1A',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
         if(user)_hqrDone=true;
-      }catch(e){c.innerHTML='<div style="padding:20px;font-size:11px;color:#666">'+e.message+'</div>';}
-    } else if(n>0){setTimeout(function(){tryQR(n-1);},400);}
-    else{c.innerHTML='<div style="padding:20px;font-size:11px;color:#666">QR indisponible</div>';}
+        // Forcer la taille de l'image générée
+        var img=c.querySelector('img');
+        if(img){img.style.width='190px';img.style.height='190px';img.style.display='block';}
+        var cv2=c.querySelector('canvas');
+        if(cv2){cv2.style.display='none';}
+      }catch(e){c.innerHTML='<div style="padding:20px;font-size:11px;color:#999;text-align:center">'+e.message+'</div>';}
+    } else if(n>0){setTimeout(function(){tryQR(n-1);},300);}
+    else{c.innerHTML='<div style="padding:20px;font-size:11px;color:#999;text-align:center">QR indisponible</div>';}
   }
-  tryQR(20);
+  // Attendre 100ms pour laisser QRCode.js se charger
+  setTimeout(function(){tryQR(30);},100);
 }
 
 function hqrCopy(){
@@ -797,6 +805,7 @@ function checkPayPhoneParam(){
 }
 
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -1550,6 +1559,7 @@ window.addEventListener("load",function(){
   updateGreet();
   renderHBenefs();_hqrDone=false;_hqrUrl=null;hqrInit();_hqsDone=false;_hqsUrl=null;hqsInit();
   checkPinLoad();
+  setTimeout(function(){hqrInit();},500);
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
     lgC++;clearTimeout(lgT);
