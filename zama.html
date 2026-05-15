@@ -1306,12 +1306,11 @@ function updateUserStats() {
   if(sec) sec.style.display='grid';
   var paid = ords.filter(function(o){ return o.status==='paid'; });
   var totalFCFA = paid.reduce(function(s,o){ return s+(o.net_fcfa||0); },0);
-  var totalSent = paid.reduce(function(s,o){ return s+(o.amount||0); },0);
-  var savingsWU = Math.round(totalSent*(rates[cK]||606)*0.05);
+  var savingsWU = Math.round(paid.reduce(function(s,o){ return s+(o.amount||0); },0)*(rates[cK]||606)*0.05);
   var s = function(id,v){ var e=document.getElementById(id); if(e)e.textContent=v; };
-  s('ust-sent', totalFCFA>999?(totalFCFA/1000).toFixed(0)+'k':totalFCFA||'0');
-  s('ust-tx', ords.length);
-  s('ust-save', savingsWU>999?(savingsWU/1000).toFixed(0)+'k':savingsWU||'0');
+  s('ust-sent', totalFCFA>999?(totalFCFA/1000).toFixed(0)+'k':String(totalFCFA||'0'));
+  s('ust-tx', String(ords.length));
+  s('ust-save', savingsWU>999?(savingsWU/1000).toFixed(0)+'k':String(savingsWU||'0'));
 }
 
 function renderLastTx() {
@@ -1324,34 +1323,30 @@ function renderLastTx() {
   var sc = o.status==='paid'?'var(--green)':o.status==='failed'?'var(--red)':'var(--amber)';
   var bg = o.status==='paid'?'var(--green-l)':o.status==='failed'?'var(--red-l)':'var(--amber-l)';
   var n=document.getElementById('ltx-name'); if(n)n.textContent=o.receiver_name||'--';
-  var m=document.getElementById('ltx-meta'); if(m)m.textContent=(o.amount||0)+' '+(o.src_currency||'')+' · '+(o.receiver_mm==='wave'?'Wave':'Orange Money');
+  var m=document.getElementById('ltx-meta'); if(m)m.textContent=(o.amount||0)+' '+(o.src_currency||'')+' vers '+(o.receiver_mm==='wave'?'Wave':'Orange Money');
   var f=document.getElementById('ltx-fcfa'); if(f)f.textContent=(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA';
   var ss=document.getElementById('ltx-st'); if(ss){ss.textContent=st;ss.style.background=bg;ss.style.color=sc;}
-  el.onclick=function(){showTxDetail(o);};
+  el.onclick=function(){ showTxDetail(o); };
 }
 
 function showTxDetail(o) {
   var overlay=document.getElementById('tx-detail-overlay');
   if(!overlay) return;
-  var st=o.status==='paid'?'Complété ✅':o.status==='failed'?'Échoué ❌':'En attente ⏳';
-  var sc=o.status==='paid'?'var(--green)':o.status==='failed'?'var(--red)':'var(--amber)';
-  var dt=o.created_at?new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'--';
-  var html='<div style="text-align:center;padding:0 0 16px">'+
+  var st=o.status==='paid'?'Complété':'En attente';
+  var sc=o.status==='paid'?'var(--green)':'var(--amber)';
+  var dt=o.created_at?new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):'--';
+  var rows='<div class="tx-row"><span class="tx-lbl">Référence</span><span class="tx-val" style="font-family:monospace;font-size:11px">'+(o.order_id||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Destinataire</span><span class="tx-val">'+(o.receiver_name||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Numéro</span><span class="tx-val">'+(o.receiver_phone||'--')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Via</span><span class="tx-val">'+(o.receiver_mm==='wave'?'Wave':'Orange Money')+'</span></div>'+
+    '<div class="tx-row"><span class="tx-lbl">Date</span><span class="tx-val">'+dt+'</span></div>';
+  var closebtn='<button onclick="document.getElementById('+String.fromCharCode(39)+'tx-detail-overlay'+String.fromCharCode(39)+').classList.remove('+String.fromCharCode(39)+'open'+String.fromCharCode(39)+')" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:12px">Fermer</button>';
+  document.getElementById('tx-detail-content').innerHTML=
+    '<div style="text-align:center;padding:0 0 16px">'+
     '<div style="font-size:28px;font-weight:800;color:var(--gold)">'+(o.net_fcfa||0).toLocaleString('fr-FR')+' FCFA</div>'+
     '<div style="font-size:12px;color:var(--text3);margin-top:4px">'+(o.amount||0)+' '+(o.src_currency||'')+' envoyés</div>'+
     '<div style="display:inline-block;margin-top:8px;padding:4px 14px;border-radius:100px;background:var(--s3);font-size:12px;font-weight:700;color:'+sc+'">'+st+'</div></div>'+
-    '<div class="tx-info-card">'+
-    '<div class="tx-row"><span class="tx-lbl">Référence</span><span class="tx-val" style="font-family:monospace;font-size:11px">'+(o.order_id||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Destinataire</span><span class="tx-val">'+(o.receiver_name||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Numéro</span><span class="tx-val">'+(o.receiver_phone||'--')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Via</span><span class="tx-val">'+(o.receiver_mm==='wave'?'Wave 💙':'Orange Money 🟠')+'</span></div>'+
-    '<div class="tx-row"><span class="tx-lbl">Date</span><span class="tx-val">'+dt+'</span></div></div>';
-  if(o.status!=='paid'){
-    html+='<button class="btn-p" style="width:100%;margin:12px 0 0" onclick="var ref=''+o.order_id+'';orderId=ref;document.getElementById('tx-detail-overlay').classList.remove('open');goto('scr-track')">Suivre ce transfert</button>';
-  } else {
-    html+='<button onclick="document.getElementById('tx-detail-overlay').classList.remove('open')" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:12px">Fermer</button>';
-  }
-  document.getElementById('tx-detail-content').innerHTML=html;
+    '<div class="tx-info-card">'+rows+'</div>'+closebtn;
   overlay.classList.add('open');
 }
 
@@ -1361,10 +1356,10 @@ function checkAmtLimits() {
   if(!lim) return;
   var kyc=user&&user.kyc;
   var maxD=kyc?5000:500;
-  var ml=document.getElementById('amt-max-lbl'); if(ml)ml.textContent=maxD;
-  if(a>=1&&a<=maxD){lim.innerHTML='<span class="lim-ok">✓ Montant valide</span><span>Max '+maxD+' '+curr+'/jour</span>';}
-  else if(a>maxD){lim.innerHTML='<span class="lim-err">Dépasse la limite</span><span style="color:var(--gold);cursor:pointer" onclick="goto('scr-kyc')">KYC → '+5000+'/j →</span>';}
-  else if(a>0&&a<1){lim.innerHTML='<span class="lim-err">Minimum 1 '+curr+'</span><span>Max '+maxD+' '+curr+'/jour</span>';}
+  var ml=document.getElementById('amt-max-lbl'); if(ml)ml.textContent=String(maxD);
+  if(a>=1&&a<=maxD){lim.innerHTML='<span class="lim-ok">Montant valide</span><span>Max '+maxD+' '+curr+'/jour</span>';}
+  else if(a>maxD){lim.innerHTML='<span class="lim-err">Dépasse la limite</span><span>KYC pour 5000/j</span>';}
+  else if(a>0&&a<1){lim.innerHTML='<span class="lim-err">Minimum 1 '+curr+'</span><span>Max '+maxD+'/jour</span>';}
   else{lim.innerHTML='<span></span><span>Max '+maxD+' '+curr+'/jour</span>';}
 }
 
