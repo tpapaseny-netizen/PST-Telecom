@@ -1393,8 +1393,24 @@ function showPayTab(tab){
   }
 }
 function showIframeLoading(){
-  var ct=document.getElementById("pay-tab-crypto");
-  if(ct){ct.style.display="flex";ct.style.flexDirection="column";}
+  var pw=document.getElementById('pay-tab-wave');
+  var pc=document.getElementById('pay-tab-crypto');
+  if(pw){pw.style.display='flex';pw.style.flexDirection='column';}
+  if(pc)pc.style.display='none';
+  var s1=document.getElementById('crypto-step1');
+  var s2=document.getElementById('crypto-step2');
+  var s3=document.getElementById('crypto-step3');
+  if(s1)s1.style.display='block';
+  if(s2)s2.style.display='none';
+  if(s3)s3.style.display='none';
+  var iframe=document.getElementById('izi-iframe');
+  if(iframe)iframe.src='';
+  // Switcher sur Wave
+  var bw=document.getElementById('tab-wave-btn');
+  var bc=document.getElementById('tab-crypto-btn');
+  if(bw){bw.style.color='var(--blue)';bw.style.borderBottom='2px solid var(--blue)';}
+  if(bc){bc.style.color='var(--text3)';bc.style.borderBottom='2px solid transparent';}
+}
   document.getElementById("iframe-loading").style.display="block";
   document.getElementById("iframe-wrap").style.display="none";
   document.getElementById("iframe-fallback").style.display="none";
