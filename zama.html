@@ -883,6 +883,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           </div>
         </div>
       </div>
+      <div class="fg" style="padding:0;margin-bottom:16px">
+        <label>Mot de passe de protection (optionnel)</label>
+        <input class="finp" type="password" id="ep-password" placeholder="Ex: 1234 ou un mot secret">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Si renseigné, le retrait nécessitera ce mot de passe</div>
+      </div>
       <button class="btn-p" style="width:100%;margin:0" onclick="creerEpargne()">Creer mon plan</button>
     </div>
   </div>
@@ -1490,9 +1495,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <label>Montant à retirer (FCFA) *</label>
       <input class="finp" type="number" id="ep-retrait-montant" placeholder="Vide = tout retirer" inputmode="numeric">
     </div>
-    <div class="fg" style="padding:0;margin-bottom:16px">
+    <div class="fg" style="padding:0;margin-bottom:12px">
       <label>Votre numéro Wave/OM *</label>
       <input class="finp" type="tel" id="ep-retrait-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
+    </div>
+    <div class="fg" id="ep-retrait-pwd-wrap" style="padding:0;margin-bottom:16px;display:none">
+      <label>Mot de passe de l'épargne *</label>
+      <input class="finp" type="password" id="ep-retrait-pwd" placeholder="Votre mot de passe secret">
     </div>
 
     <button class="btn-p" style="width:100%;margin:0 0 10px" onclick="confirmerRetraitEpargne()">
@@ -1549,6 +1558,8 @@ function goto(id){
   if(id==="scr-benefs")renderBenefs();
   if(id==="scr-qr")renderQR();
   if(id==="scr-admin")loadAdmStats();
+  if(id==="scr-epargne"){loadEpargnes();}
+  if(id==="scr-tontine"){loadTontines();}
   // update bnav
   document.querySelectorAll(".bn").forEach(function(b){b.classList.remove("on");});
   var m={"scr-home":0,"scr-send":1,"scr-hist":2,"scr-acct":3};
@@ -2533,9 +2544,14 @@ function retirerEpargne(i){
   var sub = document.getElementById('ep-retrait-sub');
   var phone = document.getElementById('ep-retrait-phone');
   var montant = document.getElementById('ep-retrait-montant');
+  var pwdWrap = document.getElementById('ep-retrait-pwd-wrap');
+  var pwd = document.getElementById('ep-retrait-pwd');
   if(sub) sub.textContent = 'Solde disponible : ' + ep.solde_fcfa.toLocaleString('fr-FR') + ' FCFA';
   if(phone) phone.value = user ? user.phone || '' : '';
   if(montant) montant.value = '';
+  if(pwd) pwd.value = '';
+  // Afficher champ mot de passe si l'épargne est protégée
+  if(pwdWrap) pwdWrap.style.display = ep.password ? 'block' : 'none';
   var modal = document.getElementById('ep-retrait-modal');
   if(modal) modal.style.display = 'flex';
 }
