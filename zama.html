@@ -564,6 +564,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* ══ SPIN ══ */
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister();});});}</script>
 </head>
 <body>
 <div id="app">
@@ -1252,20 +1253,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div class="scr" id="scr-login">
   <div class="sb" style="padding-bottom:0">
     <div class="login-top">
-      <div class="login-logo"><svg viewBox="0 0 72 72" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
-  <rect width="72" height="72" rx="18" fill="#FF6B00"/>
-  <!-- Lettre Z -->
-  <polygon points="14,18 38,18 14,38 38,38" fill="none" stroke="white" stroke-width="4.5" stroke-linejoin="round"/>
-  <line x1="14" y1="18" x2="38" y2="18" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <line x1="14" y1="38" x2="38" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <line x1="38" y1="18" x2="14" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <!-- Lettre A -->
-  <line x1="44" y1="38" x2="52" y2="18" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <line x1="52" y1="18" x2="60" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <line x1="47" y1="30" x2="57" y2="30" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-  <!-- Ligne sous les lettres -->
-  <line x1="14" y1="46" x2="60" y2="46" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round"/>
-</svg></div>
+      <div class="login-logo"><img src="data:image/png;base64,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" width="72" height="72" style="border-radius:18px;display:block"></div>
       <div class="login-title">ZAMA</div>
       <div class="login-sub">Bureau de change digital · PST Telecom</div>
     </div>
@@ -1536,15 +1524,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 
 <div class="toast" id="toast"></div>
-
-<script>
-// Force clear service worker cache
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(function(regs){
-    regs.forEach(function(reg){ reg.unregister(); });
-  });
-}
-</script>
 <script>
 const API="https://pst-telecom-production.up.railway.app";
 const FEE=0.02;
