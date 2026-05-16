@@ -842,7 +842,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div class="hdr">
     <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
     <span class="htitle">Mon Épargne</span>
-    <span class="hact" onclick="goto('scr-epargne-new')">+ Nouveau</span>
+    <span></span>
   </div>
   <div class="sb">
     <div style="background:linear-gradient(160deg,#080F1F,#0A1F14);padding:24px 20px">
@@ -2395,14 +2395,16 @@ async function loadEpargnes() {
     }
     var out="";
     list.forEach(function(ep,i){
-      var pct = ep.progression||0;
+      var pct_raw = ep.objectif_fcfa > 0 ? (ep.solde_fcfa / ep.objectif_fcfa * 100) : 0;
+      var pct = ep.progression || Math.round(pct_raw * 10) / 10;
+      var pct_display = pct_raw < 1 && pct_raw > 0 ? pct_raw.toFixed(1) : Math.round(pct_raw);
       var c = pct>=100?"var(--green)":"var(--gold)";
       var df = new Date(ep.date_fin).toLocaleDateString("fr-FR");
       out += "<div style='background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px'>";
       out += "<div style='font-size:14px;font-weight:700;margin-bottom:4px'>"+ep.description+"</div>";
       out += "<div style='font-size:11px;color:var(--text3);margin-bottom:10px'>Objectif : "+ep.objectif_fcfa.toLocaleString("fr-FR")+" FCFA - Jusqu au "+df+"</div>";
       out += "<div style='height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px'><div style='height:100%;width:"+pct+"%;background:"+c+";border-radius:3px'></div></div>";
-      out += "<div style='font-size:12px;margin-bottom:12px;color:"+c+";font-weight:700'>"+ep.solde_fcfa.toLocaleString("fr-FR")+" FCFA - "+pct+"%</div>";
+      out += "<div style='font-size:12px;margin-bottom:12px;color:"+c+";font-weight:700'>"+ep.solde_fcfa.toLocaleString("fr-FR")+" FCFA - "+pct_display+"%</div>";
       out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
       out += "<button onclick='deposerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>+ Depot</button>";
       out += "<button onclick='retirerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Retrait</button>";
