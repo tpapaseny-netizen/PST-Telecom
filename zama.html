@@ -824,16 +824,90 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <span class="hact" onclick="goto('scr-tontine-new')">+ Creer</span>
   </div>
   <div class="sb">
-    <div style="background:linear-gradient(160deg,#080F1F,#1A150A);padding:24px 20px">
-      <div style="font-size:11px;color:rgba(245,176,20,.6);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tontines actives</div>
-      <div style="font-size:36px;font-weight:800;color:#fff" id="ton-count">0</div>
+    <!-- Hero stats -->
+    <div style="background:linear-gradient(135deg,#0D1A0A,#1A2E10);padding:20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,176,20,.12),transparent 70%)"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:rgba(245,176,20,.6);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">Mes tontines</div>
+          <div style="font-size:32px;font-weight:800;color:#fff" id="ton-count">0</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px">groupes actifs</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px">Total en cours</div>
+          <div style="font-size:18px;font-weight:700;color:var(--gold)" id="ton-total">0 FCFA</div>
+        </div>
+      </div>
     </div>
-    <div id="ton-list" style="padding:14px 20px">
-      <div class="empty-st"><div class="et">Aucune tontine</div><div class="es">Creez une tontine</div></div>
+    <!-- Liste tontines -->
+    <div id="ton-list" style="padding:14px 16px"></div>
+    <div style="padding:0 16px 24px">
+      <button class="btn-p" onclick="goto('scr-tontine-new')" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="16" fill="none" stroke="#000" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Creer une tontine
+      </button>
     </div>
-    <div style="padding:0 20px 20px">
-      <button class="btn-p" onclick="goto('scr-tontine-new')">+ Creer une tontine</button>
+  </div>
+</div>
+
+<!-- ══ DÉTAIL TONTINE ══ -->
+<div class="scr" id="scr-tontine-detail">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle" id="ton-detail-nom">Tontine</span>
+    <span class="hact" id="ton-detail-share" onclick="partagerTontine()">Inviter</span>
+  </div>
+  <div class="sb">
+    <!-- Header tontine -->
+    <div style="background:linear-gradient(135deg,#0D1525,#1A2010);padding:20px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:rgba(245,176,20,.6);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px" id="ton-detail-freq">Mensuelle</div>
+          <div style="font-size:24px;font-weight:800;color:var(--gold)" id="ton-detail-pot">0 FCFA</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px">Pot par tour</div>
+        </div>
+        <div style="text-align:right">
+          <div id="ton-detail-badge" style="font-size:11px;padding:4px 10px;border-radius:100px;background:var(--green-l);color:var(--green);font-weight:700;margin-bottom:8px">Actif</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.4)">Tour <span id="ton-detail-tour">1</span>/<span id="ton-detail-tours">?</span></div>
+        </div>
+      </div>
+      <!-- Barre progression tour -->
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">
+          <span>Cotisations reçues</span>
+          <span id="ton-detail-prog-txt">0/0</span>
+        </div>
+        <div style="height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden">
+          <div id="ton-detail-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),#FCD34D);border-radius:4px;transition:width .5s"></div>
+        </div>
+      </div>
+      <!-- Prochain bénéficiaire -->
+      <div style="background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.15);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-top:12px">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:#000;font-size:13px" id="ton-benef-av">?</div>
+        <div>
+          <div style="font-size:10px;color:rgba(245,176,20,.6);font-weight:700;text-transform:uppercase;letter-spacing:.8px">Prochain beneficiaire</div>
+          <div style="font-size:13px;font-weight:700;color:#fff" id="ton-benef-name">--</div>
+        </div>
+        <div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.35)" id="ton-benef-date">--</div>
+      </div>
     </div>
+
+    <!-- Membres -->
+    <div style="padding:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Membres du groupe</div>
+      <div id="ton-detail-membres"></div>
+    </div>
+
+    <!-- Historique tours -->
+    <div style="padding:0 16px 16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Historique distributions</div>
+      <div id="ton-detail-historique">
+        <div style="font-size:13px;color:var(--text3);text-align:center;padding:20px">Aucune distribution encore</div>
+      </div>
+    </div>
+
+    <!-- Bouton cotiser -->
+    <div style="padding:0 16px 24px" id="ton-detail-cta"></div>
   </div>
 </div>
 
@@ -846,22 +920,115 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
   <div class="sb">
     <div style="padding:20px">
-      <div class="fg" style="padding:0;margin-bottom:12px"><label>Nom de la tontine *</label><input class="finp" type="text" id="ton-nom" placeholder="Ex: Tontine famille Toure"></div>
-      <div class="fg" style="padding:0;margin-bottom:12px"><label>Cotisation par membre (FCFA) *</label><input class="finp" type="number" id="ton-cotisation" placeholder="Ex: 10000" inputmode="numeric" oninput="calcPot()"></div>
+      <!-- Info sécurité -->
+      <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:12px;padding:14px;font-size:12px;color:rgba(34,197,94,.8);margin-bottom:20px;display:flex;gap:10px;align-items:flex-start">
+        <svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div>Transparence totale. Chaque membre voit les cotisations en temps reel. L ordre de benefice est tire au sort de facon securisee.</div>
+      </div>
+
+      <!-- Etape 1: Infos base -->
+      <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">1. Informations</div>
       <div class="fg" style="padding:0;margin-bottom:12px">
-        <label>Frequence *</label>
-        <select class="finp" id="ton-freq">
-          <option value="hebdomadaire">Hebdomadaire</option>
-          <option value="mensuel">Mensuel</option>
-        </select>
+        <label>Nom de la tontine *</label>
+        <input class="finp" type="text" id="ton-nom" placeholder="Ex: Tontine Famille Toure">
       </div>
-      <div class="fg" style="padding:0;margin-bottom:8px"><label>Numeros des membres (un par ligne) *</label><textarea class="finp" id="ton-membres" rows="4" placeholder="+221771234567&#10;+221781234567" style="resize:none" oninput="calcPot()"></textarea></div>
-      <div id="ton-pot-preview" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:none">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">Membres</span><span id="ton-nb-membres" style="font-weight:600">--</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">Pot total</span><span id="ton-pot-total" style="font-weight:700;color:var(--gold)">-- FCFA</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="fg" style="padding:0">
+          <label>Frequence *</label>
+          <select class="finp" id="ton-freq">
+            <option value="hebdomadaire">Hebdomadaire</option>
+            <option value="mensuel" selected>Mensuelle</option>
+            <option value="journalier">Journaliere</option>
+          </select>
+        </div>
+        <div class="fg" style="padding:0">
+          <label>Cotisation (FCFA) *</label>
+          <input class="finp" type="number" id="ton-cotisation" placeholder="10000" inputmode="numeric" oninput="calcPot()">
+        </div>
       </div>
-      <button class="btn-p" style="width:100%;margin:0" onclick="creerTontine()">Creer la tontine</button>
+
+      <!-- Etape 2: Mode -->
+      <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;margin-top:4px">2. Ordre de benefice</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <div id="ton-ordre-aleatoire" onclick="selOrdre('aleatoire')" style="padding:12px;border:2px solid var(--gold);background:var(--gold-l);border-radius:10px;cursor:pointer;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🎲</div>
+          <div style="font-size:12px;font-weight:700;color:var(--gold)">Aleatoire</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Tire au sort</div>
+        </div>
+        <div id="ton-ordre-fixe" onclick="selOrdre('fixe')" style="padding:12px;border:2px solid var(--border);background:var(--s2);border-radius:10px;cursor:pointer;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">📋</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text2)">Fixe</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Ordre liste</div>
+        </div>
+      </div>
+
+      <!-- Etape 3: Membres -->
+      <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">3. Membres</div>
+      <div class="fg" style="padding:0;margin-bottom:8px">
+        <label>Numeros de telephone (un par ligne) *</label>
+        <textarea class="finp" id="ton-membres" rows="5" placeholder="+221771234567&#10;+221781234567&#10;+221701234567" style="resize:none" oninput="calcPot()"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:16px">Chaque membre recevra un SMS d invitation.</div>
+
+      <!-- Preview pot -->
+      <div id="ton-pot-preview" style="display:none;background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text2)">Membres (vous inclus)</span>
+          <span id="ton-nb-membres" style="font-weight:700">--</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text2)">Pot total par tour</span>
+          <span id="ton-pot-total" style="font-weight:700;color:var(--gold)">-- FCFA</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--text2)">Duree totale</span>
+          <span id="ton-duree-total" style="font-weight:700">-- tours</span>
+        </div>
+        <div style="height:1px;background:var(--border);margin:10px 0"></div>
+        <div style="font-size:11px;color:var(--text3);text-align:center" id="ton-ordre-info">Ordre de benefice : Aleatoire securise</div>
+      </div>
+
+      <button class="btn-p" style="width:100%;margin:0" onclick="creerTontine()">
+        <svg viewBox="0 0 24 24" width="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+        Creer la tontine
+      </button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL COTISATION TONTINE ══ -->
+<div id="ton-cotis-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:999;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto">
+  <div style="background:var(--s1);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid var(--border)">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px" id="ton-modal-nom">Tontine</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Cotisation du tour <span id="ton-modal-tour">1</span></div>
+
+    <!-- Montant fixe -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;margin-bottom:20px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Montant a payer</div>
+      <div style="font-size:36px;font-weight:800;color:var(--gold)" id="ton-modal-montant">0 FCFA</div>
+    </div>
+
+    <!-- Methode paiement -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Payer via</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <button onclick="payerCotisation('wave')" style="padding:14px;border-radius:12px;border:2px solid #1D9BF0;background:rgba(29,155,240,.1);color:#1D9BF0;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg viewBox="0 0 36 36" width="22"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><path d="M9 18h18M14 13l-5 5 5 5" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>Wave
+      </button>
+      <button onclick="payerCotisation('om')" style="padding:14px;border-radius:12px;border:2px solid #FF6600;background:rgba(255,102,0,.1);color:#FF6600;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg viewBox="0 0 36 36" width="22"><circle cx="18" cy="18" r="18" fill="#FF6600"/><circle cx="18" cy="18" r="8" stroke="white" stroke-width="2.5" fill="none"/><circle cx="18" cy="18" r="3" fill="white"/></svg>Orange Money
+      </button>
+    </div>
+
+    <!-- Confirmation apres paiement -->
+    <div id="ton-modal-confirm" style="display:none;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.2);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--gold);font-weight:600">Paiement effectue sur <span id="ton-modal-method">Wave</span> ?</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Confirmez pour enregistrer votre cotisation</div>
+    </div>
+    <button class="btn-p" id="ton-modal-confirm-btn" style="width:100%;margin:0 0 10px;display:none" onclick="confirmerCotisation()">
+      J ai paye - Confirmer ma cotisation
+    </button>
+    <button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="fermerTonModal()">Annuler</button>
   </div>
 </div>
 
@@ -2409,6 +2576,319 @@ async function confirmerRetrait(){
   }catch(e){ toast('Erreur: '+e.message,'err'); }
   if(btn){ btn.disabled = false; btn.innerHTML = 'Confirmer le retrait'; }
 }
+// ── TONTINE ──────────────────────────────────────────────────────
+var _tonOrdre = 'aleatoire';
+var _tonActiveIdx = -1;
+var _tonMethodePending = null;
+
+function selOrdre(mode){
+  _tonOrdre = mode;
+  var a = document.getElementById('ton-ordre-aleatoire');
+  var f = document.getElementById('ton-ordre-fixe');
+  var info = document.getElementById('ton-ordre-info');
+  if(mode === 'aleatoire'){
+    if(a){a.style.border='2px solid var(--gold)';a.style.background='var(--gold-l)';a.querySelector('div:nth-child(2)').style.color='var(--gold)';}
+    if(f){f.style.border='2px solid var(--border)';f.style.background='var(--s2)';f.querySelector('div:nth-child(2)').style.color='var(--text2)';}
+    if(info) info.textContent = 'Ordre de benefice : Aleatoire securise';
+  } else {
+    if(f){f.style.border='2px solid var(--gold)';f.style.background='var(--gold-l)';f.querySelector('div:nth-child(2)').style.color='var(--gold)';}
+    if(a){a.style.border='2px solid var(--border)';a.style.background='var(--s2)';a.querySelector('div:nth-child(2)').style.color='var(--text2)';}
+    if(info) info.textContent = 'Ordre de benefice : Ordre de la liste';
+  }
+}
+
+function calcPot(){
+  var cot = parseInt(document.getElementById('ton-cotisation').value) || 0;
+  var txt = document.getElementById('ton-membres').value.trim();
+  var membres = txt ? txt.split('\n').filter(function(m){return m.trim();}) : [];
+  var nb = membres.length + 1;
+  var preview = document.getElementById('ton-pot-preview');
+  if(cot > 0 && nb > 1){
+    if(preview) preview.style.display = 'block';
+    var nbEl = document.getElementById('ton-nb-membres');
+    var potEl = document.getElementById('ton-pot-total');
+    var durEl = document.getElementById('ton-duree-total');
+    if(nbEl) nbEl.textContent = nb + ' personnes';
+    if(potEl) potEl.textContent = (cot * nb).toLocaleString('fr-FR') + ' FCFA';
+    if(durEl) durEl.textContent = nb + ' tours';
+  } else {
+    if(preview) preview.style.display = 'none';
+  }
+}
+
+async function creerTontine(){
+  if(!user){toast('Connectez-vous','err');goto('scr-login');return;}
+  var nom = document.getElementById('ton-nom').value.trim();
+  var cot = parseInt(document.getElementById('ton-cotisation').value);
+  var freq = document.getElementById('ton-freq').value;
+  var txt = document.getElementById('ton-membres').value.trim();
+  var membres = txt.split('\n').map(function(m){return m.trim();}).filter(function(m){return m;});
+  if(!nom){toast('Entrez un nom','err');return;}
+  if(!cot || cot < 500){toast('Min 500 FCFA','err');return;}
+  if(membres.length < 1){toast('Ajoutez au moins 1 membre','err');return;}
+  var btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div> Creation...';
+  try{
+    var res = await fetch(API+'/api/zama/tontine/create',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        createur_id: user.id,
+        createur_name: (user.prenom||'')+' '+(user.nom||''),
+        createur_phone: user.phone,
+        nom: nom,
+        cotisation_fcfa: cot,
+        frequence: freq,
+        membres_phones: membres,
+        ordre: _tonOrdre
+      })
+    });
+    var data = await res.json();
+    if(data.ok){
+      toast('Tontine creee !','ok');
+      document.getElementById('ton-nom').value = '';
+      document.getElementById('ton-cotisation').value = '';
+      document.getElementById('ton-membres').value = '';
+      document.getElementById('ton-pot-preview').style.display = 'none';
+      gb();
+      loadTontines();
+    } else toast(data.error || 'Erreur','err');
+  }catch(e){ toast('Erreur','err'); }
+  btn.disabled = false;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg> Creer la tontine';
+}
+
+async function loadTontines(){
+  if(!user) return;
+  try{
+    var res = await fetch(API+'/api/zama/tontine/user/'+user.id);
+    var list = await res.json();
+    window._tontines = list;
+    var el = document.getElementById('ton-list');
+    var countEl = document.getElementById('ton-count');
+    var totalEl = document.getElementById('ton-total');
+    var actives = list.filter(function(t){return t.status==='actif';}).length;
+    var totalPot = list.filter(function(t){return t.status==='actif';}).reduce(function(s,t){return s+t.pot_total;},0);
+    if(countEl) countEl.textContent = actives;
+    if(totalEl) totalEl.textContent = totalPot.toLocaleString('fr-FR') + ' FCFA';
+    if(!el) return;
+    if(!list.length){
+      el.innerHTML = "<div class='empty-st'><svg viewBox='0 0 24 24' width='48' height='48' fill='none' stroke='#475569' stroke-width='1.5'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'/></svg><div class='et'>Aucune tontine</div><div class='es'>Creez votre premier groupe</div></div>";
+      return;
+    }
+    var out = '';
+    list.forEach(function(ton, i){
+      var payeurs = ton.cotisations.filter(function(c){return c.tour === ton.tour_actuel;}).length;
+      var pct = ton.nb_membres > 0 ? Math.round((payeurs / ton.nb_membres) * 100) : 0;
+      var prochaine = ton.prochaine_date ? new Date(ton.prochaine_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}) : '--';
+      var moi_paye = user && ton.cotisations.some(function(c){return c.phone === user.phone && c.tour === ton.tour_actuel;});
+      var statutColor = ton.status === 'actif' ? 'var(--gold)' : 'var(--text3)';
+      var statutBg = ton.status === 'actif' ? 'var(--gold-l)' : 'var(--s3)';
+      out += "<div onclick='ouvrirTontine("+i+")' style='background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s'>";
+      out += "<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px'>";
+      out += "<div style='flex:1'><div style='font-size:15px;font-weight:700;margin-bottom:2px'>"+ton.nom+"</div>";
+      out += "<div style='font-size:11px;color:var(--text3)'>"+ton.nb_membres+" membres - "+ton.cotisation_fcfa.toLocaleString('fr-FR')+" FCFA/tour</div></div>";
+      out += "<div style='font-size:10px;padding:3px 8px;border-radius:100px;background:"+statutBg+";color:"+statutColor+";font-weight:700;flex-shrink:0'>"+ton.status+"</div></div>";
+      out += "<div style='display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:8px'>";
+      out += "<span>Pot : <strong style='color:var(--gold)'>"+ton.pot_total.toLocaleString('fr-FR')+" FCFA</strong></span>";
+      out += "<span>Tour "+(ton.tour_actuel+1)+"/"+ton.nb_membres+"</span></div>";
+      out += "<div style='height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px'>";
+      out += "<div style='height:100%;width:"+pct+"%;background:linear-gradient(90deg,var(--gold),#FCD34D);border-radius:3px'></div></div>";
+      out += "<div style='display:flex;justify-content:space-between;align-items:center'>";
+      out += "<span style='font-size:11px;color:var(--text3)'>"+payeurs+"/"+ton.nb_membres+" cotise - "+prochaine+"</span>";
+      if(ton.status === 'actif'){
+        if(moi_paye){
+          out += "<span style='font-size:11px;padding:4px 10px;border-radius:100px;background:var(--green-l);color:var(--green);font-weight:700'>Paye</span>";
+        } else {
+          out += "<span style='font-size:11px;padding:4px 10px;border-radius:100px;background:var(--gold-l);color:var(--gold);font-weight:700'>A payer</span>";
+        }
+      }
+      out += "</div></div>";
+    });
+    el.innerHTML = out;
+  }catch(e){ console.error(e); }
+}
+
+function ouvrirTontine(i){
+  var ton = window._tontines ? window._tontines[i] : null;
+  if(!ton) return;
+  _tonActiveIdx = i;
+
+  // Remplir header
+  var nomEl = document.getElementById('ton-detail-nom');
+  var freqEl = document.getElementById('ton-detail-freq');
+  var potEl = document.getElementById('ton-detail-pot');
+  var badgeEl = document.getElementById('ton-detail-badge');
+  var tourEl = document.getElementById('ton-detail-tour');
+  var toursEl = document.getElementById('ton-detail-tours');
+  var progTxt = document.getElementById('ton-detail-prog-txt');
+  var progBar = document.getElementById('ton-detail-prog-bar');
+
+  if(nomEl) nomEl.textContent = ton.nom;
+  if(freqEl) freqEl.textContent = ton.frequence.charAt(0).toUpperCase() + ton.frequence.slice(1);
+  if(potEl) potEl.textContent = ton.pot_total.toLocaleString('fr-FR') + ' FCFA';
+  if(badgeEl){
+    badgeEl.textContent = ton.status;
+    badgeEl.style.background = ton.status === 'actif' ? 'var(--green-l)' : 'var(--s3)';
+    badgeEl.style.color = ton.status === 'actif' ? 'var(--green)' : 'var(--text3)';
+  }
+  if(tourEl) tourEl.textContent = ton.tour_actuel + 1;
+  if(toursEl) toursEl.textContent = ton.nb_membres;
+
+  var payeurs = ton.cotisations.filter(function(c){return c.tour === ton.tour_actuel;}).length;
+  var pct = ton.nb_membres > 0 ? Math.round((payeurs / ton.nb_membres) * 100) : 0;
+  if(progTxt) progTxt.textContent = payeurs + '/' + ton.nb_membres;
+  if(progBar) progBar.style.width = pct + '%';
+
+  // Prochain beneficiaire
+  var benAv = document.getElementById('ton-benef-av');
+  var benName = document.getElementById('ton-benef-name');
+  var benDate = document.getElementById('ton-benef-date');
+  var benefPhone = ton.beneficiaire_actuel || '--';
+  var benefMembre = ton.membres ? ton.membres.find(function(m){return m.phone === benefPhone;}) : null;
+  var benefNom = benefMembre && benefMembre.name ? benefMembre.name : benefPhone;
+  if(benAv) benAv.textContent = benefNom.charAt(0).toUpperCase();
+  if(benName) benName.textContent = benefNom;
+  if(benDate) benDate.textContent = ton.prochaine_date ? new Date(ton.prochaine_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}) : '--';
+
+  // Membres avec statut cotisation
+  var membresEl = document.getElementById('ton-detail-membres');
+  if(membresEl && ton.membres){
+    var mOut = '';
+    ton.membres.forEach(function(m){
+      var aPaye = ton.cotisations.some(function(c){return c.phone === m.phone && c.tour === ton.tour_actuel;});
+      var ini = (m.name || m.phone || '?').charAt(0).toUpperCase();
+      var estMoi = user && m.phone === user.phone;
+      mOut += "<div style='display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)'>";
+      mOut += "<div style='width:38px;height:38px;border-radius:50%;background:"+(aPaye?'var(--green-l)':'var(--s3)')+";border:2px solid "+(aPaye?'var(--green)':'var(--border)')+";display:flex;align-items:center;justify-content:center;font-weight:700;color:"+(aPaye?'var(--green)':'var(--text3)');
+      mOut += ";flex-shrink:0'>"+ini+"</div>";
+      mOut += "<div style='flex:1'>";
+      mOut += "<div style='font-size:13px;font-weight:600'>"+(m.name || m.phone || '--')+(estMoi?' <span style="color:var(--gold);font-size:10px">(Vous)</span>':'')+"</div>";
+      mOut += "<div style='font-size:11px;color:var(--text3)'>Ordre "+m.ordre+"</div></div>";
+      mOut += "<div style='font-size:11px;font-weight:700;padding:3px 8px;border-radius:100px;background:"+(aPaye?'var(--green-l)':'rgba(255,100,100,.1)')+";color:"+(aPaye?'var(--green)':'#EF4444')+"'>";
+      mOut += aPaye ? 'Paye' : 'En attente';
+      mOut += "</div></div>";
+    });
+    membresEl.innerHTML = mOut;
+  }
+
+  // Historique distributions
+  var histEl = document.getElementById('ton-detail-historique');
+  if(histEl){
+    if(ton.historique_tours && ton.historique_tours.length > 0){
+      var hOut = '';
+      ton.historique_tours.slice().reverse().forEach(function(h){
+        var date = new Date(h.date_distribution).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+        hOut += "<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)'>";
+        hOut += "<div style='width:32px;height:32px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;flex-shrink:0'>";
+        hOut += "<svg viewBox='0 0 24 24' width='14' fill='none' stroke='var(--gold)' stroke-width='2.5'><polyline points='20,6 9,17 4,12'/></svg></div>";
+        hOut += "<div style='flex:1'><div style='font-size:13px;font-weight:600'>"+h.montant_pot.toLocaleString('fr-FR')+" FCFA</div>";
+        hOut += "<div style='font-size:11px;color:var(--text3)'>vers "+(h.beneficiaire_name || h.beneficiaire_phone)+" - "+date+"</div></div>";
+        hOut += "<div style='font-size:11px;color:var(--gold);font-weight:700'>Tour "+(h.tour+1)+"</div></div>";
+      });
+      histEl.innerHTML = hOut;
+    } else {
+      histEl.innerHTML = "<div style='font-size:13px;color:var(--text3);text-align:center;padding:20px'>Aucune distribution encore</div>";
+    }
+  }
+
+  // CTA cotiser
+  var ctaEl = document.getElementById('ton-detail-cta');
+  if(ctaEl && ton.status === 'actif'){
+    var moi_paye = user && ton.cotisations.some(function(c){return c.phone === user.phone && c.tour === ton.tour_actuel;});
+    if(moi_paye){
+      ctaEl.innerHTML = "<div style='background:var(--green-l);border:1px solid rgba(34,197,94,.2);border-radius:12px;padding:14px;text-align:center;font-size:13px;color:var(--green);font-weight:600'>Vous avez cotise ce tour</div>";
+    } else {
+      ctaEl.innerHTML = "<button class='btn-p' style='width:100%;margin:0' onclick='ouvrirCotisModal("+i+")'>Cotiser maintenant - "+ton.cotisation_fcfa.toLocaleString('fr-FR')+" FCFA</button>";
+    }
+  } else if(ctaEl){
+    ctaEl.innerHTML = '';
+  }
+
+  goto('scr-tontine-detail');
+}
+
+function ouvrirCotisModal(i){
+  var ton = window._tontines ? window._tontines[i] : null;
+  if(!ton) return;
+  _tonActiveIdx = i;
+  var nomEl = document.getElementById('ton-modal-nom');
+  var tourEl = document.getElementById('ton-modal-tour');
+  var montEl = document.getElementById('ton-modal-montant');
+  var confirmEl = document.getElementById('ton-modal-confirm');
+  var confirmBtn = document.getElementById('ton-modal-confirm-btn');
+  if(nomEl) nomEl.textContent = ton.nom;
+  if(tourEl) tourEl.textContent = ton.tour_actuel + 1;
+  if(montEl) montEl.textContent = ton.cotisation_fcfa.toLocaleString('fr-FR') + ' FCFA';
+  if(confirmEl) confirmEl.style.display = 'none';
+  if(confirmBtn) confirmBtn.style.display = 'none';
+  var modal = document.getElementById('ton-cotis-modal');
+  if(modal) modal.style.display = 'flex';
+}
+
+function payerCotisation(method){
+  var ton = window._tontines ? window._tontines[_tonActiveIdx] : null;
+  if(!ton) return;
+  _tonMethodePending = method;
+  var montant = ton.cotisation_fcfa;
+  var url = method === 'wave'
+    ? 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + montant
+    : 'https://qosic.net/orange_money/index.php?montant=' + montant;
+  window.open(url, '_blank');
+  var confirmEl = document.getElementById('ton-modal-confirm');
+  var confirmBtn = document.getElementById('ton-modal-confirm-btn');
+  var methodEl = document.getElementById('ton-modal-method');
+  if(confirmEl) confirmEl.style.display = 'block';
+  if(confirmBtn) confirmBtn.style.display = 'block';
+  if(methodEl) methodEl.textContent = method === 'wave' ? 'Wave' : 'Orange Money';
+}
+
+async function confirmerCotisation(){
+  var ton = window._tontines ? window._tontines[_tonActiveIdx] : null;
+  if(!ton || !user) return;
+  var btn = document.getElementById('ton-modal-confirm-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Enregistrement...'; }
+  try{
+    var res = await fetch(API+'/api/zama/tontine/'+ton.tontine_id+'/cotiser',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({phone: user.phone, wave_ref: _tonMethodePending || 'wave'})
+    });
+    var data = await res.json();
+    if(data.ok){
+      if(data.pot_distribue){
+        toast('Pot distribue ! Virement en cours','ok');
+      } else {
+        toast('Cotisation enregistree !','ok');
+      }
+      fermerTonModal();
+      await loadTontines();
+      // Rafraichir le detail si ouvert
+      if(_tonActiveIdx >= 0 && window._tontines && window._tontines[_tonActiveIdx]){
+        ouvrirTontine(_tonActiveIdx);
+      }
+    } else toast(data.error || 'Erreur','err');
+  }catch(e){ toast('Erreur: '+e.message,'err'); }
+  if(btn){ btn.disabled = false; btn.innerHTML = "J ai paye - Confirmer ma cotisation"; }
+}
+
+function fermerTonModal(){
+  var modal = document.getElementById('ton-cotis-modal');
+  if(modal) modal.style.display = 'none';
+  _tonMethodePending = null;
+}
+
+function partagerTontine(){
+  var ton = window._tontines ? window._tontines[_tonActiveIdx] : null;
+  if(!ton) return;
+  var msg = 'Rejoignez ma tontine ZAMA : ' + ton.nom + ' - Cotisation : ' + ton.cotisation_fcfa.toLocaleString('fr-FR') + ' FCFA/' + ton.frequence;
+  if(navigator.share){
+    navigator.share({title: 'ZAMA Tontine', text: msg});
+  } else {
+    navigator.clipboard.writeText(msg).then(function(){ toast('Lien copie','ok'); });
+  }
+}
+
+
 // TOAST
 var _toastT;
 function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(type?" "+type:"");clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove("show");},3000);}
