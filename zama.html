@@ -457,8 +457,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .toast.err{border-color:rgba(239,68,68,.3);color:var(--red);}
 .toast.info{border-color:rgba(245,176,20,.3);color:var(--gold);}
 
-.cpx-grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-.cpx-new2{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:1.5px solid var(--border);background:var(--s2);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center;font-size:10px;font-weight:600;color:var(--text2);user-select:none;}
+.cpx-grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.cpx-new2{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border:1.5px solid var(--border);background:var(--s2);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center;font-size:10px;font-weight:600;color:var(--text2);user-select:none;}
 .cpx-new2:active{transform:scale(.96);}
 .cpx-new2.on{border-color:var(--gold);background:var(--gold-l);color:var(--gold);}
 .cpx-logo{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -761,6 +761,107 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
   <div style="flex-shrink:0;padding:6px 20px;background:var(--bg);border-top:1px solid var(--border)">
     <div class="pay-timer" id="p-timer" style="margin:0;padding:5px 0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti <strong id="cd-time">30:00</strong></div>
+  </div>
+</div>
+
+
+<!-- ══ ÉPARGNE ══ -->
+<div class="scr" id="scr-epargne">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Mon Épargne</span>
+    <span class="hact" onclick="goto('scr-epargne-new')">+ Nouveau</span>
+  </div>
+  <div class="sb">
+    <div style="background:linear-gradient(160deg,#080F1F,#0A1F14);padding:24px 20px">
+      <div style="font-size:11px;color:rgba(34,197,94,.6);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Total epargne</div>
+      <div style="font-size:36px;font-weight:800;color:#fff" id="ep-total">0 FCFA</div>
+    </div>
+    <div id="ep-list" style="padding:14px 20px">
+      <div class="empty-st"><div class="et">Aucun plan</div><div class="es">Creez votre premier plan</div></div>
+    </div>
+    <div style="padding:0 20px 20px">
+      <button class="btn-p" onclick="goto('scr-epargne-new')">+ Creer un plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NOUVEAU PLAN ÉPARGNE ══ -->
+<div class="scr" id="scr-epargne-new">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Nouveau plan</span>
+    <span></span>
+  </div>
+  <div class="sb">
+    <div style="padding:20px">
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Description *</label><input class="finp" type="text" id="ep-desc" placeholder="Ex: Achat telephone, Voyage..."></div>
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Objectif (FCFA) *</label><input class="finp" type="number" id="ep-objectif" placeholder="Ex: 50000" inputmode="numeric"></div>
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Duree (jours) *</label><input class="finp" type="number" id="ep-duree" placeholder="Ex: 90" inputmode="numeric"></div>
+      <div class="fg" style="padding:0;margin-bottom:16px">
+        <label>Mode de retrait</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+          <div id="ep-mode-libre" onclick="selEpMode('libre')" style="padding:12px;border:2px solid var(--gold);background:var(--gold-l);border-radius:10px;cursor:pointer;text-align:center">
+            <div style="font-size:13px;font-weight:700;color:var(--gold)">Libre</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Retirer quand tu veux</div>
+          </div>
+          <div id="ep-mode-bloque" onclick="selEpMode('bloque')" style="padding:12px;border:2px solid var(--border);background:var(--s2);border-radius:10px;cursor:pointer;text-align:center">
+            <div style="font-size:13px;font-weight:700;color:var(--text2)">Bloque</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Jusqu a la date</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-p" style="width:100%;margin:0" onclick="creerEpargne()">Creer mon plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TONTINE ══ -->
+<div class="scr" id="scr-tontine">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Mes Tontines</span>
+    <span class="hact" onclick="goto('scr-tontine-new')">+ Creer</span>
+  </div>
+  <div class="sb">
+    <div style="background:linear-gradient(160deg,#080F1F,#1A150A);padding:24px 20px">
+      <div style="font-size:11px;color:rgba(245,176,20,.6);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tontines actives</div>
+      <div style="font-size:36px;font-weight:800;color:#fff" id="ton-count">0</div>
+    </div>
+    <div id="ton-list" style="padding:14px 20px">
+      <div class="empty-st"><div class="et">Aucune tontine</div><div class="es">Creez une tontine</div></div>
+    </div>
+    <div style="padding:0 20px 20px">
+      <button class="btn-p" onclick="goto('scr-tontine-new')">+ Creer une tontine</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NOUVELLE TONTINE ══ -->
+<div class="scr" id="scr-tontine-new">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Nouvelle tontine</span>
+    <span></span>
+  </div>
+  <div class="sb">
+    <div style="padding:20px">
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Nom de la tontine *</label><input class="finp" type="text" id="ton-nom" placeholder="Ex: Tontine famille Toure"></div>
+      <div class="fg" style="padding:0;margin-bottom:12px"><label>Cotisation par membre (FCFA) *</label><input class="finp" type="number" id="ton-cotisation" placeholder="Ex: 10000" inputmode="numeric" oninput="calcPot()"></div>
+      <div class="fg" style="padding:0;margin-bottom:12px">
+        <label>Frequence *</label>
+        <select class="finp" id="ton-freq">
+          <option value="hebdomadaire">Hebdomadaire</option>
+          <option value="mensuel">Mensuel</option>
+        </select>
+      </div>
+      <div class="fg" style="padding:0;margin-bottom:8px"><label>Numeros des membres (un par ligne) *</label><textarea class="finp" id="ton-membres" rows="4" placeholder="+221771234567&#10;+221781234567" style="resize:none" oninput="calcPot()"></textarea></div>
+      <div id="ton-pot-preview" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:none">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">Membres</span><span id="ton-nb-membres" style="font-weight:600">--</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">Pot total</span><span id="ton-pot-total" style="font-weight:700;color:var(--gold)">-- FCFA</span></div>
+      </div>
+      <button class="btn-p" style="width:100%;margin:0" onclick="creerTontine()">Creer la tontine</button>
+    </div>
   </div>
 </div>
 
@@ -2034,6 +2135,15 @@ async function cotiserTontine(i) {
     } else toast(data.error||'Erreur','err');
   } catch(e){toast('Erreur: '+e.message,'err');}
 }
+
+
+function closePayScreen(){
+  var iframe=document.getElementById('izi-iframe');
+  if(iframe)iframe.src='';
+  window._payUrl=null;
+  gb();
+}
+function closePay(){closePayScreen();}
 
 // TOAST
 var _toastT;
