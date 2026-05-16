@@ -1751,7 +1751,7 @@ function copyRecvAddr() {
 
 function shareRecvAddr() {
   var addr = document.getElementById('recv-addr').textContent;
-  if(addr === '--' || !addr) { toast('Générez d'abord votre adresse', 'err'); return; }
+  if(addr === '--' || !addr) { toast('Generez votre adresse', 'err'); return; }
   var text = 'Mon adresse ZAMA (' + recvCoinLabel + ') :\n' + addr + '\n\nPST Telecom · Bureau de change digital';
   if(navigator.share) {
     navigator.share({title: 'Mon adresse ZAMA', text: text}).catch(function(){});
@@ -1883,7 +1883,7 @@ async function creerEpargne() {
         objectif_fcfa:obj,duree_jours:dur,description:desc,retrait_libre:_epMode==='libre'})});
     var data = await res.json();
     if(data.ok){
-      toast('Plan d'épargne créé !','ok');
+      toast('Plan cree !','ok');
       document.getElementById('ep-desc').value='';
       document.getElementById('ep-objectif').value='';
       document.getElementById('ep-duree').value='';
