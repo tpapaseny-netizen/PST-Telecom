@@ -1751,7 +1751,7 @@ function copyRecvAddr() {
 
 function shareRecvAddr() {
   var addr = document.getElementById('recv-addr').textContent;
-  if(addr === '--' || !addr) { toast('Générez d\'abord votre adresse', 'err'); return; }
+  if(addr === '--' || !addr) { toast('Générez d'abord votre adresse', 'err'); return; }
   var text = 'Mon adresse ZAMA (' + recvCoinLabel + ') :\n' + addr + '\n\nPST Telecom · Bureau de change digital';
   if(navigator.share) {
     navigator.share({title: 'Mon adresse ZAMA', text: text}).catch(function(){});
