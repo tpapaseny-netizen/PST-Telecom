@@ -5,18 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- PWA -->
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#F5B014">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ZAMA">
-<link rel="apple-touch-icon" href="/icons/zama-192.png">
-<link rel="apple-touch-icon" sizes="152x152" href="/icons/zama-152.png">
-<link rel="apple-touch-icon" sizes="144x144" href="/icons/zama-144.png">
-<link rel="apple-touch-icon" sizes="128x128" href="/icons/zama-128.png">
-<meta name="msapplication-TileImage" content="/icons/zama-144.png">
-<meta name="msapplication-TileColor" content="#F5B014">
 <title>ZAMA — Transfert international</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -519,371 +507,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tx-title{font-size:20px;font-weight:700;}
 .tx-ref{font-size:11px;color:var(--text3);margin-top:4px;font-family:monospace;}
 .tx-eta{font-size:13px;color:var(--text2);margin-top:6px;}
-
-/* ══ QR ACCUEIL ══ */
-.hqs{background:var(--s2);border:1px solid var(--border);border-radius:16px;margin:14px 20px 0;overflow:hidden;}
-.hqs-tabs{display:flex;border-bottom:1px solid var(--border);}
-.hqtab{flex:1;padding:12px 8px;border:none;background:transparent;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);border-bottom:2px solid transparent;transition:all .15s;}
-.hqtab.on{color:var(--gold);border-bottom-color:var(--gold);}
-.hqs-body{padding:16px;text-align:center;}
-.hqs-qr-wrap{background:#fff;border-radius:12px;padding:10px;display:inline-block;margin-bottom:10px;}
-.hqs-name{font-size:15px;font-weight:700;margin-bottom:2px;}
-.hqs-phone{font-size:12px;color:var(--gold);margin-bottom:12px;}
-.hqs-btns{display:flex;gap:6px;}
-.hqbtn{flex:1;padding:9px 4px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:3px;}
-.hqbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
-.hqbtn.gld{background:var(--gold-l);border-color:var(--gold-m);color:var(--gold);}
-.hqbtn.grn{background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);color:#25D366;}
-.hqs-scan-panel{padding:14px;}
-.hqs-scan-box{border:2px dashed var(--border2);border-radius:12px;min-height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;position:relative;}
-.hqs-c{position:absolute;width:16px;height:16px;border-color:var(--gold);border-style:solid;}
-.hqs-c1{top:6px;left:6px;border-width:2px 0 0 2px;}
-.hqs-c2{top:6px;right:6px;border-width:2px 2px 0 0;}
-.hqs-c3{bottom:6px;left:6px;border-width:0 0 2px 2px;}
-.hqs-c4{bottom:6px;right:6px;border-width:0 2px 2px 0;}
-.hqs-contact{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;}
-.hqs-contact:last-child{border-bottom:none;}
-.hqs-cav{width:32px;height:32px;border-radius:50%;background:var(--gold-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;}
-
-
-/* ══ ANIMATIONS PREMIUM ══ */
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@keyframes glow-gold{0%,100%{box-shadow:0 0 10px rgba(245,176,20,.2)}50%{box-shadow:0 0 24px rgba(245,176,20,.5),0 0 48px rgba(245,176,20,.15)}}
-@keyframes glow-green{0%,100%{box-shadow:0 0 10px rgba(34,197,94,.15)}50%{box-shadow:0 0 20px rgba(34,197,94,.4)}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes count-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.5);opacity:0}}
-@keyframes slide-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes confetti-fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
-@keyframes fade-in{from{opacity:0}to{opacity:1}}
-
-/* ══ GLASSMORPHISM ══ */
-.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);}
-.glass-gold{background:rgba(245,176,20,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(245,176,20,.15);}
-.glass-dark{background:rgba(7,13,26,.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.06);}
-
-/* ══ HERO PREMIUM ══ */
-.home-hero{background:linear-gradient(160deg,#060C1A 0%,#0A1428 40%,#0D1A35 70%,#0A1228 100%) !important;position:relative;overflow:hidden;}
-.home-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(245,176,20,.12) 0%,transparent 70%);pointer-events:none;}
-.home-hero::after{content:'';position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(59,130,246,.08) 0%,transparent 70%);pointer-events:none;}
-
-/* ══ LOGO GLOW ══ */
-.logo-mark{animation:glow-gold 3s ease-in-out infinite;transition:transform .2s;}
-.logo-mark:active{transform:scale(.92);}
-
-/* ══ RATE PILL PREMIUM ══ */
-.rate-pill{animation:float 4s ease-in-out infinite;border:1px solid rgba(245,176,20,.2) !important;background:rgba(245,176,20,.06) !important;}
-
-/* ══ QA PREMIUM ══ */
-.qa{transition:all .2s cubic-bezier(.34,1.56,.64,1) !important;position:relative;overflow:hidden;}
-.qa::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.04),transparent);opacity:0;transition:opacity .2s;}
-.qa:active{transform:scale(.93) !important;}
-.qa:active::after{opacity:1;}
-
-/* ══ RATE CARDS PREMIUM ══ */
-.rc{transition:all .2s;border:1px solid rgba(255,255,255,.06) !important;background:linear-gradient(135deg,var(--s2),var(--s3)) !important;}
-.rc:hover{transform:translateY(-2px);border-color:rgba(245,176,20,.2) !important;}
-
-/* ══ TRUST BADGES PREMIUM ══ */
-.trust-badges{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px;margin-top:14px;}
-.tb{display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.12);border-radius:100px;font-size:10px;font-weight:700;color:rgba(34,197,94,.8);}
-.tb svg{width:10px;height:10px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0;}
-.tb.blue{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.12);color:rgba(100,160,255,.8);}
-.tb.blue svg{stroke:#3B82F6;}
-.tb.gold{background:rgba(245,176,20,.06);border-color:rgba(245,176,20,.12);color:rgba(245,176,20,.8);}
-.tb.gold svg{stroke:var(--gold);}
-
-/* ══ SOLDE CARD ══ */
-.balance-card{margin:14px 20px 0;background:linear-gradient(135deg,#0F1E38,#162540);border:1px solid rgba(245,176,20,.15);border-radius:20px;padding:20px;position:relative;overflow:hidden;}
-.balance-card::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,176,20,.1),transparent 70%);}
-.balance-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;}
-.balance-amount{font-size:32px;font-weight:800;color:#fff;line-height:1;animation:count-up .6s ease-out;}
-.balance-sub{font-size:12px;color:rgba(255,255,255,.35);margin-top:4px;}
-.balance-row{display:flex;justify-content:space-between;align-items:flex-end;}
-.balance-stats{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);}
-.bs-item{flex:1;text-align:center;}
-.bs-val{font-size:14px;font-weight:700;color:var(--gold);}
-.bs-lbl{font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;}
-
-/* ══ BTN PREMIUM ══ */
-.btn-p{background:linear-gradient(135deg,#F5B014,#FCD34D,#F5B014) !important;background-size:200% !important;transition:all .3s !important;box-shadow:0 4px 20px rgba(245,176,20,.3) !important;}
-.btn-p:active{box-shadow:0 2px 10px rgba(245,176,20,.2) !important;transform:scale(.98);}
-
-/* ══ SKELETON LOADER ══ */
-.skeleton{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
-
-/* ══ CONFETTI ══ */
-.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:99998;overflow:hidden;}
-.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confetti-fall 2.5s ease-in forwards;}
-
-/* ══ NOTIFICATION TOAST PREMIUM ══ */
-.toast{background:rgba(13,21,37,.95) !important;backdrop-filter:blur(20px) !important;border-radius:14px !important;padding:14px 20px !important;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06) !important;}
-
-/* ══ SCREEN TRANSITIONS ══ */
-.scr{transition:opacity .15s ease !important;}
-
-/* ══ STAT CARDS GLOW ══ */
-.stat-card.blue{box-shadow:0 4px 20px rgba(59,130,246,.1);}
-.stat-card.gold{box-shadow:0 4px 20px rgba(245,176,20,.1);}
-.stat-card.green{box-shadow:0 4px 20px rgba(34,197,94,.1);}
-
-/* ══ SEND HERO PREMIUM ══ */
-.send-hero{background:linear-gradient(160deg,#060C1A,#0A1428,#0D1A35) !important;position:relative;overflow:hidden;}
-.send-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;background:radial-gradient(circle,rgba(245,176,20,.08),transparent 70%);pointer-events:none;}
-
-/* ══ AMOUNT INPUT GLOW ══ */
-.amt-inp:focus{text-shadow:0 0 30px rgba(245,176,20,.3);}
-
-/* ══ HI ITEM PREMIUM ══ */
-.hi{border-bottom:1px solid rgba(255,255,255,.04) !important;}
-.hi:active{background:rgba(255,255,255,.02) !important;}
-
-/* ══ MM SELECTOR PREMIUM ══ */
-.mm.on{box-shadow:0 4px 16px rgba(34,197,94,.15) !important;}
-
-/* ══ ACTIVITY CARD ══ */
-.activity-card{margin:0 20px;background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--border);border-radius:16px;overflow:hidden;}
-.ac-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);}
-.ac-item:last-child{border-bottom:none;}
-.ac-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;}
-.ac-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1px solid currentColor;opacity:.3;animation:pulse-ring 2s infinite;}
-.ac-dot.green{background:var(--green);color:var(--green);}
-.ac-dot.gold{background:var(--gold);color:var(--gold);}
-.ac-dot.blue{background:var(--blue);color:var(--blue);}
-.ac-txt{flex:1;font-size:12px;color:var(--text2);}
-.ac-time{font-size:10px;color:var(--text3);}
-
-/* ══ SLOGAN ANIMÉ ══ */
-.slogan-strip{display:flex;align-items:center;gap:8px;margin-top:12px;overflow:hidden;}
-.slogan-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap;}
-.sp-crypto{background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);color:#818CF8;}
-.sp-arrow{color:rgba(255,255,255,.3);font-size:14px;}
-.sp-zama{background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.2);color:var(--gold);}
-.sp-mm{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--green);}
-.sp-time{font-size:10px;color:rgba(255,255,255,.3);margin-left:4px;}
-
-/* ══ NOTIF TOAST PREMIUM ══ */
-.notif-pop{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-120px);z-index:99999;background:rgba(13,21,37,.98);border:1px solid rgba(34,197,94,.3);border-radius:16px;padding:12px 18px;display:flex;align-items:center;gap:12px;min-width:260px;max-width:calc(100% - 40px);box-shadow:0 8px 32px rgba(0,0,0,.6);transition:transform .4s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
-.notif-pop.show{transform:translateX(-50%) translateY(0);}
-.notif-ico{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
-.notif-txt{flex:1;}
-.notif-title{font-size:13px;font-weight:700;color:#fff;}
-.notif-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
-
-/* ══ USERNAME ══ */
-.username-badge{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.15);border-radius:100px;font-size:12px;font-weight:700;color:var(--gold);cursor:pointer;}
-.username-badge svg{width:12px;height:12px;stroke:var(--gold);fill:none;stroke-width:2;}
-.username-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:flex-end;justify-content:center;max-width:430px;margin:0 auto;}
-.username-modal.open{display:flex;}
-.username-sheet{background:var(--s1);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;border-top:1px solid var(--border);}
-.un-preview{font-size:28px;font-weight:800;color:var(--gold);text-align:center;margin:16px 0;letter-spacing:1px;}
-.un-avail{text-align:center;font-size:12px;margin-bottom:16px;}
-.un-avail.ok{color:var(--green);}
-.un-avail.err{color:var(--red);}
-
-/* ══ SEND FULLSCREEN ══ */
-#scr-send{display:flex !important;flex-direction:column !important;}
-#scr-send .send-hero{flex:1;display:flex;flex-direction:column;justify-content:center;}
-#scr-send .btn-foot{margin-top:auto;flex-shrink:0;}
-
-/* ── CRYPTO COINS NATIF ── */
-.cc-pill{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--border);background:var(--s2);border-radius:12px;cursor:pointer;transition:all .15s;user-select:none;-webkit-tap-highlight-color:transparent;}
-.cc-pill:active{transform:scale(.96);}
-.cc-pill.on{border-color:var(--gold);background:var(--gold-l);}
-.cc-pill.on div[style*="font-size:13px"]{color:var(--gold);}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
-// ══ PREMIUM ANIMATIONS ══
-
-// Confettis de succès
-function showConfetti() {
-  var container = document.createElement('div');
-  container.className = 'confetti-container';
-  document.body.appendChild(container);
-  var colors = ['#F5B014','#FCD34D','#22C55E','#3B82F6','#fff','#F97316'];
-  for(var i = 0; i < 60; i++) {
-    var piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.cssText = [
-      'left:' + Math.random()*100 + '%',
-      'top:-10px',
-      'background:' + colors[Math.floor(Math.random()*colors.length)],
-      'animation-delay:' + Math.random()*1.5 + 's',
-      'animation-duration:' + (2+Math.random()*1.5) + 's',
-      'transform:rotate(' + Math.random()*360 + 'deg)',
-      'width:' + (6+Math.random()*6) + 'px',
-      'height:' + (6+Math.random()*6) + 'px',
-      'border-radius:' + (Math.random()>0.5?'50%':'2px')
-    ].join(';');
-    container.appendChild(piece);
-  }
-  setTimeout(function(){ container.remove(); }, 4000);
-}
-
-// Vibration mobile
-function vibrate(pattern) {
-  if(navigator.vibrate) navigator.vibrate(pattern || [50]);
-}
-
-// Animation counter
-function animateCounter(el, target, suffix, duration) {
-  if(!el) return;
-  var start = 0;
-  var step = target / (duration / 16);
-  var timer = setInterval(function() {
-    start += step;
-    if(start >= target) { start = target; clearInterval(timer); }
-    el.textContent = Math.floor(start).toLocaleString('fr-FR') + (suffix||'');
-  }, 16);
-}
-
-// Update balance card
-function updateBalanceCard() {
-  var ords = getOrds();
-  var total = ords.filter(function(o){return o.status==='paid';})
-                  .reduce(function(s,o){return s+(o.net_fcfa||0);}, 0);
-  var count = ords.filter(function(o){return o.status==='paid';}).length;
-  var saved = Math.round(total * 0.015); // 1.5% économisé vs WU
-
-  // Ce mois
-  var now = new Date();
-  var month = ords.filter(function(o){
-    var d = new Date(o.created_at);
-    return o.status==='paid' && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-  }).reduce(function(s,o){return s+(o.net_fcfa||0);}, 0);
-
-  var balEl = document.getElementById('bal-amount');
-  var subEl = document.getElementById('bal-sub');
-  var monthEl = document.getElementById('bal-month');
-  var sentEl = document.getElementById('bs-sent');
-  var savedEl = document.getElementById('bs-saved');
-
-  if(balEl) {
-    if(total > 0) {
-      animateCounter(balEl, total, ' FCFA', 800);
-    } else {
-      balEl.textContent = user ? '0 FCFA' : '-- FCFA';
-    }
-  }
-  if(subEl) subEl.textContent = total > 0 ? '≈ ' + (total/606).toFixed(2) + ' USD · Total envoyé' : 'Connectez-vous pour voir vos stats';
-  if(monthEl) monthEl.textContent = '+' + month.toLocaleString('fr-FR') + ' FCFA';
-  if(sentEl) sentEl.textContent = count;
-  if(savedEl) savedEl.textContent = saved.toLocaleString('fr-FR') + ' FCFA';
-}
-
-// Skeleton loader
-function showSkeleton(containerId, lines) {
-  var el = document.getElementById(containerId);
-  if(!el) return;
-  var html = '';
-  for(var i=0;i<(lines||3);i++) {
-    html += '<div class="skeleton" style="height:' + (14+Math.random()*6) + 'px;margin-bottom:10px;width:' + (60+Math.random()*40) + '%"></div>';
-  }
-  el.innerHTML = html;
-}
-
-// Micro animation sur tap
-document.addEventListener('click', function(e) {
-  var qa = e.target.closest('.qa');
-  if(qa) vibrate([30]);
-  var btn = e.target.closest('.btn-p');
-  if(btn) vibrate([50, 30, 50]);
-});
-
-
-// ══ NOTIF PREMIUM ══
-var _notifT = null;
-function showNotif(title, sub, ico, color) {
-  var pop = document.getElementById('notif-pop');
-  var ti = document.getElementById('notif-title');
-  var si = document.getElementById('notif-sub');
-  var ic = document.getElementById('notif-ico');
-  if(!pop) return;
-  if(ti) ti.textContent = title || 'ZAMA';
-  if(si) si.textContent = sub || '';
-  if(ic) ic.textContent = ico || '\u{1F4B8}';
-  pop.style.borderColor = color ? 'rgba(' + color + ',.3)' : 'rgba(34,197,94,.3)';
-  pop.classList.add('show');
-  if(navigator.vibrate) navigator.vibrate([50, 30, 80]);
-  clearTimeout(_notifT);
-  _notifT = setTimeout(function(){ pop.classList.remove('show'); }, 4000);
-}
-
-// ══ USERNAME ══
-function getUsername() {
-  return localStorage.getItem('zama_username') || '';
-}
-function openUsernameModal() {
-  var modal = document.getElementById('username-modal');
-  if(modal) modal.classList.add('open');
-  var inp = document.getElementById('un-input');
-  if(inp) { inp.value = getUsername().replace('@',''); inp.focus(); }
-  checkUsername(getUsername().replace('@',''));
-}
-function checkUsername(val) {
-  var prev = document.getElementById('un-preview');
-  var avail = document.getElementById('un-avail');
-  val = val.toLowerCase().replace(/[^a-z0-9._]/g,'');
-  var inp = document.getElementById('un-input');
-  if(inp) inp.value = val;
-  if(prev) prev.textContent = '@' + (val || 'tonnom');
-  if(!val || val.length < 3) {
-    if(avail) { avail.textContent = 'Minimum 3 caractères'; avail.className = 'un-avail err'; }
-    return;
-  }
-  if(val.length > 20) {
-    if(avail) { avail.textContent = 'Maximum 20 caractères'; avail.className = 'un-avail err'; }
-    return;
-  }
-  if(avail) { avail.textContent = '@' + val + ' est disponible ✓'; avail.className = 'un-avail ok'; }
-}
-function saveUsername() {
-  var inp = document.getElementById('un-input');
-  if(!inp || inp.value.length < 3) { toast('Username trop court','err'); return; }
-  var username = '@' + inp.value.toLowerCase();
-  localStorage.setItem('zama_username', username);
-  if(user) { user.username = username; saveULS(user); }
-  var disp = document.getElementById('un-display');
-  if(disp) disp.textContent = username;
-  document.getElementById('username-modal').classList.remove('open');
-  toast('Username ' + username + ' sauvegardé !', 'ok');
-  showNotif('Username créé !', username + ' · ZAMA', '\u2728', '245,176,20');
-  renderAcct();
-}
-function renderUsername() {
-  var badge = document.getElementById('un-badge');
-  var disp = document.getElementById('un-display');
-  var menuLbl = document.getElementById('un-menu-lbl');
-  var un = getUsername() || (user && user.username) || '';
-  if(badge) {
-    badge.style.display = user ? 'inline-flex' : 'none';
-    if(disp) disp.textContent = un || '+ Ajouter @username';
-  }
-  if(menuLbl) menuLbl.textContent = un ? un + ' · Modifier' : '@username · Ajouter';
-}
-
-// ══ SLOGAN ANIMATION ══
-function animateSlogan() {
-  var pills = document.querySelectorAll('.slogan-pill');
-  if(!pills.length) return;
-  pills.forEach(function(p, i) {
-    p.style.opacity = '0';
-    p.style.transform = 'translateY(6px)';
-    setTimeout(function() {
-      p.style.transition = 'all .4s cubic-bezier(.34,1.56,.64,1)';
-      p.style.opacity = '1';
-      p.style.transform = 'translateY(0)';
-    }, i * 150);
-  });
-}
-
-// Appeler animateSlogan au chargement
-window.addEventListener('load', function() {
-  setTimeout(animateSlogan, 800);
-});
-
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -948,8 +572,8 @@ window.addEventListener('load', function() {
           <div class="logo-text"><div class="lname" id="brand-name">ZAMA</div><div class="lsub">Transfert</div></div>
         </div>
         <div class="hero-actions">
-
-
+          <div class="hero-icon-btn" onclick="showQR()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div>
+          <div class="hero-icon-btn" onclick="goto('scr-acct')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         </div>
       </div>
       <div class="hero-greeting" id="h-greeting">Bonjour</div>
@@ -957,43 +581,11 @@ window.addEventListener('load', function() {
       <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
     </div>
 
-
-    
-    <!-- BALANCE CARD -->
-    <div class="balance-card" id="balance-card">
-      <div class="balance-label">Activit&#233; ZAMA</div>
-      <div class="balance-row">
-        <div>
-          <div class="balance-amount" id="bal-amount">0 FCFA</div>
-          <div class="balance-sub" id="bal-sub">Total envoy&#233; via ZAMA</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px">Ce mois</div>
-          <div style="font-size:13px;font-weight:700;color:var(--green)" id="bal-month">+0 FCFA</div>
-        </div>
-      </div>
-      <div class="balance-stats">
-        <div class="bs-item"><div class="bs-val" id="bs-sent">0</div><div class="bs-lbl">Envois</div></div>
-        <div class="bs-item"><div class="bs-val" id="bs-saved">0 FCFA</div><div class="bs-lbl">Economis&#233;</div></div>
-        <div class="bs-item"><div class="bs-val">&lt; 2 min</div><div class="bs-lbl">Vitesse moy.</div></div>
-      </div>
-    </div>
-
     <div class="qa-grid">
-      <div class="qa" onclick="goto('scr-qr')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="qa-lbl">Mon QR</div></div>
+      <div class="qa" onclick="goto('scr-send')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg></div><div class="qa-lbl">Envoyer</div></div>
       <div class="qa" onclick="goto('scr-recv-crypto')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="2" y1="22" x2="13" y2="11"/><polygon points="2,22 9,2 13,11 22,6 2,22"/></svg></div><div class="qa-lbl">Recevoir</div></div>
-      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
-      <div class="qa" onclick="goto('scr-benefs')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="qa-lbl">Contacts</div></div>
-    </div>
-
-    
-    
-    <!-- TRUST BADGES -->
-    <div class="trust-badges">
-      <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>256-bit SSL</div>
-      <div class="tb blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>99.9% uptime</div>
-      <div class="tb gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>Anti-fraude</div>
-      <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Support 24/7</div>
+      <div class="qa" onclick="goto('scr-hist')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><div class="qa-lbl">Historique</div></div>
+      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
     </div>
 
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
@@ -1019,9 +611,9 @@ window.addEventListener('load', function() {
 </div>
 
 <!-- SEND -->
-<div class="scr" id="scr-send" style="display:flex;flex-direction:column;">
+<div class="scr" id="scr-send">
   <div class="hdr"><button class="hbk" onclick="goto('scr-home')"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button><span class="htitle">Envoyer</span><span></span></div>
-  <div class="send-hero" style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <div class="send-hero">
     <div class="amt-lbl">Je veux envoyer</div>
     <div class="amt-row"><div class="amt-flag" id="sf">🇺🇸</div><input class="amt-inp" type="number" id="s-amt" placeholder="0" min="1" inputmode="decimal" oninput="calc()"><div class="amt-curr" id="sc">USD</div></div>
     <div class="convert-box"><svg viewBox="0 0 24 24"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><div class="conv-fcfa" id="cf">-- FCFA</div><div class="conv-rate" id="cr">1 USD = -- FCFA</div></div>
@@ -1039,7 +631,7 @@ window.addEventListener('load', function() {
     <div class="fr ftot"><span class="fl" style="font-weight:600">Le destinataire reçoit</span><span class="fv" id="f-net">-- FCFA</span></div>
   </div>
   <div class="sec-badge"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Paiement sécurisé · izichangePay</div>
-  <div class="btn-foot" style="margin-top:auto"><button class="btn-p" onclick="s2()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div>
+  <div class="btn-foot"><button class="btn-p" onclick="s2()">Continuer<svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></button></div>
 </div>
 
 <!-- RECIPIENT -->
@@ -1140,99 +732,63 @@ window.addEventListener('load', function() {
     </div>
 
     <!-- PANEL CRYPTO -->
-  <div id="panel-crypto" style="position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden">
+    <div id="panel-crypto" style="position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden">
 
-    <!-- STEP 1 : Choix coin -->
-    <div id="cp-step-choose" style="flex:1;overflow-y:auto;padding:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Choisissez votre crypto</div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px" id="cp-coins">
-        <div class="cc-pill on" data-coin="usdt.trc20" data-label="USDT TRC20" data-net="TRC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#26A17B;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">TRC20 · Tron</div></div></div>
-        <div class="cc-pill" data-coin="usdt.bep20" data-label="USDT BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F3BA2F;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20 · BSC</div></div></div>
-        <div class="cc-pill" data-coin="usdt.erc20" data-label="USDT ERC20" data-net="ERC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#627EEA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">ERC20 · Ethereum</div></div></div>
-        <div class="cc-pill" data-coin="usdt.ton" data-label="USDT TON" data-net="TON" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#0098EA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#0098EA"/><path d="M16 7.5l9 5v9l-9 5-9-5v-9l9-5zm0 2.6L9.2 14v4.4l6.8 3.8 6.8-3.8V14L16 10.1zm0 3.1 3.8 2.2v3.4L16 21l-3.8-2.2v-3.4L16 13.2z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">TON · Telegram</div></div></div>
-        <div class="cc-pill" data-coin="usdc.trc20" data-label="USDC TRC20" data-net="TRC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#2775CA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDC</div><div style="font-size:10px;color:var(--text3);margin-top:1px">TRC20 · Tron</div></div></div>
-        <div class="cc-pill" data-coin="usdc.bep20" data-label="USDC BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#2775CA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDC</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20 · BSC</div></div></div>
-        <div class="cc-pill" data-coin="usdc.erc20" data-label="USDC ERC20" data-net="ERC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#2775CA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">USDC</div><div style="font-size:10px;color:var(--text3);margin-top:1px">ERC20 · Ethereum</div></div></div>
-        <div class="cc-pill" data-coin="btc" data-label="Bitcoin" data-net="BTC" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F7931A;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">Bitcoin</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BTC</div></div></div>
-        <div class="cc-pill" data-coin="btc.bep20" data-label="BTC BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F7931A;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">BTC</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20 · BSC</div></div></div>
-        <div class="cc-pill" data-coin="eth" data-label="Ethereum" data-net="ERC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#627EEA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">Ethereum</div><div style="font-size:10px;color:var(--text3);margin-top:1px">ERC20</div></div></div>
-        <div class="cc-pill" data-coin="eth.bep20" data-label="ETH BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#627EEA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">ETH</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20 · BSC</div></div></div>
-        <div class="cc-pill" data-coin="bnb" data-label="BNB" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F3BA2F;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">BNB</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20 · BSC</div></div></div>
-        <div class="cc-pill" data-coin="trx" data-label="TRON" data-net="TRC20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#EF0027;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#EF0027"/><path d="M24 12.5L9.5 9l7.2 17L24 12.5zm-5 7.8-4.1-1.1 5.9-4-1.8 5.1zM13.4 15l6.7 1.8-4.6 2.7L13.4 15z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">TRON</div><div style="font-size:10px;color:var(--text3);margin-top:1px">TRC20</div></div></div>
-        <div class="cc-pill" data-coin="xrp.bep20" data-label="XRP BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#00AAE4;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#00AAE4"/><path d="M22.5 10h2.5l-5.7 5.7c-1.8 1.8-4.8 1.8-6.6 0L7 10h2.5l4.7 4.7c1 1 2.6 1 3.6 0L22.5 10zm-13 12H7l5.7-5.7c1.8-1.8 4.8-1.8 6.6 0L25 22h-2.5l-4.7-4.7c-1-1-2.6-1-3.6 0L9.5 22z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">XRP</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="sol.bep20" data-label="SOL BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#9945FF;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#9945FF"/><path d="M9.5 21h13l-2.5 2.5h-13L9.5 21zm0-6h13l-2.5 2.5h-13L9.5 15zm2.5-6h10.5L20 11.5H9.5L12 9z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">SOL</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="ada.bep20" data-label="ADA BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#0033AD;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#0033AD"/><circle cx="16" cy="9.5" r="1.8" fill="white"/><circle cx="16" cy="22.5" r="1.8" fill="white"/><circle cx="9.5" cy="16" r="1.8" fill="white"/><circle cx="22.5" cy="16" r="1.8" fill="white"/><circle cx="16" cy="16" r="2.5" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">ADA</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="doge.bep20" data-label="DOGE BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#C2A633;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#C2A633"/><path d="M14 10h3c3.5 0 6.2 2.7 6.2 6s-2.7 6-6.2 6H14V10zm2.2 2.2v7.6h.8c2.2 0 4-1.7 4-3.8s-1.8-3.8-4-3.8h-.8zm-3.7 2.8v2h4.5v-2H12.5z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">DOGE</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="dot.bep20" data-label="DOT BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#E6007A;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#E6007A"/><circle cx="16" cy="9" r="3" fill="white"/><circle cx="16" cy="23" r="3" fill="white"/><circle cx="9" cy="16" r="3" fill="white"/><circle cx="23" cy="16" r="3" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">DOT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="shib.bep20" data-label="SHIB BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#FFA409;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#FFA409"/><text x="16" y="21" text-anchor="middle" font-size="14" fill="white">🐕</text></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">SHIB</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="ltc" data-label="Litecoin" data-net="LTC" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#A0A0A0;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#A0A0A0"/><path d="M13.5 20.5l.8-3.2-1.4.5.5-1.9 1.4-.4 2.3-8.2h4.1l-2.2 8 1.4-.5-.5 1.9-1.4.4-.5 1.9H23l-.9 2H10l.6-2 2.9.5z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">Litecoin</div><div style="font-size:10px;color:var(--text3);margin-top:1px">LTC</div></div></div>
-        <div class="cc-pill" data-coin="ton" data-label="TON" data-net="TON" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#0098EA;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#0098EA"/><path d="M16 7.5l9 5v9l-9 5-9-5v-9l9-5zm0 2.6L9.2 14v4.4l6.8 3.8 6.8-3.8V14L16 10.1zm0 3.1 3.8 2.2v3.4L16 21l-3.8-2.2v-3.4L16 13.2z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">TON</div><div style="font-size:10px;color:var(--text3);margin-top:1px">TON Network</div></div></div>
-        <div class="cc-pill" data-coin="busd.bep20" data-label="BUSD BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F0B90B;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F0B90B"/><path d="M16 6.5l2.6 2.6-6.7 6.7-2.6-2.6L16 6.5zm6.2 6.2 2.6 2.6-13 13-2.6-2.6 13-13zM9.8 12.7l2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6zm12.4 6.2 2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">BUSD</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="twt.bep20" data-label="TWT BEP20" data-net="BEP20" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#3375BB;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#3375BB"/><path d="M16 8.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15zm3.8 5.5-1.1 5.5h-1.4l.9-4.5-3.4 4.5H13l-.3-4.5-2.2 4.5H9.3l3.2-5.5h1.7l.2 4 3-4h1.4z" fill="white"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">TWT</div><div style="font-size:10px;color:var(--text3);margin-top:1px">BEP20</div></div></div>
-        <div class="cc-pill" data-coin="opbnb" data-label="OPBNB" data-net="opBNB" onclick="cpPickCoin(this)"><div class="cc-ico" style="background:#F3BA2F;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 32 32" width="22"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><text x="16" y="19" text-anchor="middle" font-size="8" font-weight="900" fill="white" font-family="Arial">opBNB</text></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">OPBNB</div><div style="font-size:10px;color:var(--text3);margin-top:1px">opBNB</div></div></div>
+      <!-- STEP 1 : Choix crypto -->
+      <div id="step-choose" style="flex:1;overflow-y:auto;padding:14px 14px 0">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Choisissez votre crypto</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
+          <div class="cx3 on" data-coin="usdt.trc20" data-label="USDT TRC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT TRC20</span></div>
+          <div class="cx3" data-coin="usdt.bep20" data-label="USDT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg><span>USDT BEP20</span></div>
+          <div class="cx3" data-coin="usdt.erc20" data-label="USDT ERC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg><span>USDT ERC20</span></div>
+          <div class="cx3" data-coin="usdt.ton" data-label="USDT TON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#0098EA"/><path d="M16 7.5l9 5v9l-9 5-9-5v-9l9-5zm0 2.6L9.2 14v4.4l6.8 3.8 6.8-3.8V14L16 10.1zm0 3.1 3.8 2.2v3.4L16 21l-3.8-2.2v-3.4L16 13.2z" fill="white"/></svg><span>USDT TON</span></div>
+          <div class="cx3" data-coin="usdc.trc20" data-label="USDC TRC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg><span>USDC TRC20</span></div>
+          <div class="cx3" data-coin="usdc.bep20" data-label="USDC BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg><span>USDC BEP20</span></div>
+          <div class="cx3" data-coin="usdc.erc20" data-label="USDC ERC20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#2775CA"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="900" fill="white" font-family="Arial">$</text></svg><span>USDC ERC20</span></div>
+          <div class="cx3" data-coin="btc" data-label="Bitcoin" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg><span>Bitcoin</span></div>
+          <div class="cx3" data-coin="btc.bep20" data-label="BTC BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg><span>BTC BEP20</span></div>
+          <div class="cx3" data-coin="eth" data-label="Ethereum" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/></svg><span>Ethereum</span></div>
+          <div class="cx3" data-coin="eth.bep20" data-label="ETH BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/></svg><span>ETH BEP20</span></div>
+          <div class="cx3" data-coin="bnb" data-label="BNB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M12.2 14.4L16 10.6l3.9 3.8 2.2-2.2L16 6 10 12.2l2.2 2.2zM6 16l2.2-2.2 2.2 2.2-2.2 2.2L6 16zm6.2 1.6L16 21.4l3.8-3.8 2.2 2.2L16 26l-6-6 2.2-2.2zM21.6 16l2.2-2.2 2.2 2.2-2.2 2.2-2.2-2.2zm-3.2 0L16 13.8 13.8 16l2.2 2.2L18.4 16z" fill="white"/></svg><span>BNB</span></div>
+          <div class="cx3" data-coin="trx" data-label="TRON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#EF0027"/><path d="M24 12.5L9.5 9l7.2 17L24 12.5zm-5 7.8-4.1-1.1 5.9-4-1.8 5.1zM13.4 15l6.7 1.8-4.6 2.7L13.4 15z" fill="white"/></svg><span>TRON</span></div>
+          <div class="cx3" data-coin="xrp.bep20" data-label="XRP BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#00AAE4"/><path d="M22.5 10h2.5l-5.7 5.7c-1.8 1.8-4.8 1.8-6.6 0L7 10h2.5l4.7 4.7c1 1 2.6 1 3.6 0L22.5 10zm-13 12H7l5.7-5.7c1.8-1.8 4.8-1.8 6.6 0L25 22h-2.5l-4.7-4.7c-1-1-2.6-1-3.6 0L9.5 22z" fill="white"/></svg><span>XRP BEP20</span></div>
+          <div class="cx3" data-coin="sol.bep20" data-label="SOL BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#9945FF"/><path d="M9.5 21h13l-2.5 2.5h-13L9.5 21zm0-6h13l-2.5 2.5h-13L9.5 15zm2.5-6h10.5L20 11.5H9.5L12 9z" fill="white"/></svg><span>SOL BEP20</span></div>
+          <div class="cx3" data-coin="ada.bep20" data-label="ADA BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#0033AD"/><circle cx="16" cy="9.5" r="1.8" fill="white"/><circle cx="16" cy="22.5" r="1.8" fill="white"/><circle cx="9.5" cy="16" r="1.8" fill="white"/><circle cx="22.5" cy="16" r="1.8" fill="white"/><circle cx="16" cy="16" r="2.5" fill="white"/></svg><span>ADA BEP20</span></div>
+          <div class="cx3" data-coin="doge.bep20" data-label="DOGE BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#C2A633"/><path d="M14 10h3c3.5 0 6.2 2.7 6.2 6s-2.7 6-6.2 6H14V10zm2.2 2.2v7.6h.8c2.2 0 4-1.7 4-3.8s-1.8-3.8-4-3.8h-.8zm-3.7 2.8v2h4.5v-2H12.5z" fill="white"/></svg><span>DOGE BEP20</span></div>
+          <div class="cx3" data-coin="dot.bep20" data-label="DOT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#E6007A"/><circle cx="16" cy="9" r="3" fill="white"/><circle cx="16" cy="23" r="3" fill="white"/><circle cx="9" cy="16" r="3" fill="white"/><circle cx="23" cy="16" r="3" fill="white"/></svg><span>DOT BEP20</span></div>
+          <div class="cx3" data-coin="shib.bep20" data-label="SHIB BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#FFA409"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">🐕</text></svg><span>SHIB</span></div>
+          <div class="cx3" data-coin="ltc" data-label="Litecoin" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#A0A0A0"/><path d="M13.5 20.5l.8-3.2-1.4.5.5-1.9 1.4-.4 2.3-8.2h4.1l-2.2 8 1.4-.5-.5 1.9-1.4.4-.5 1.9H23l-.9 2H10l.6-2 2.9.5z" fill="white"/></svg><span>Litecoin</span></div>
+          <div class="cx3" data-coin="ton" data-label="TON" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#0098EA"/><path d="M16 7.5l9 5v9l-9 5-9-5v-9l9-5zm0 2.6L9.2 14v4.4l6.8 3.8 6.8-3.8V14L16 10.1zm0 3.1 3.8 2.2v3.4L16 21l-3.8-2.2v-3.4L16 13.2z" fill="white"/></svg><span>TON</span></div>
+          <div class="cx3" data-coin="busd.bep20" data-label="BUSD BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F0B90B"/><path d="M16 6.5l2.6 2.6-6.7 6.7-2.6-2.6L16 6.5zm6.2 6.2 2.6 2.6-13 13-2.6-2.6 13-13zM9.8 12.7l2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6zm12.4 6.2 2.6 2.6-2.6 2.6-2.6-2.6 2.6-2.6z" fill="white"/></svg><span>BUSD BEP20</span></div>
+          <div class="cx3" data-coin="twt.bep20" data-label="TWT BEP20" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#3375BB"/><path d="M16 8.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15zm3.8 5.5-1.1 5.5h-1.4l.9-4.5-3.4 4.5H13l-.3-4.5-2.2 4.5H9.3l3.2-5.5h1.7l.2 4 3-4h1.4z" fill="white"/></svg><span>TWT BEP20</span></div>
+          <div class="cx3" data-coin="opbnb" data-label="OPBNB" onclick="pickCoin(this)"><svg viewBox="0 0 32 32" width="28"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><text x="16" y="19" text-anchor="middle" font-size="8" font-weight="900" fill="white" font-family="Arial">opBNB</text></svg><span>OPBNB</span></div>
+        </div>
+        <div style="padding-bottom:14px">
+          <button class="btn-p" style="width:100%;margin:0" id="btn-payer-crypto" onclick="lancerPaiementCrypto()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Payer en <span id="lbl-coin-btn">USDT TRC20</span>
+          </button>
+        </div>
       </div>
-      <button class="btn-p" style="width:100%;margin:0 0 16px" id="cp-pay-btn" onclick="cpLancerPaiement()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Payer en <span id="cp-pay-lbl">USDT TRC20</span></button>
-      <div style="font-size:11px;color:var(--text3);text-align:center;padding-bottom:16px;line-height:1.6">Montant crypto exact · izichangePay · Adresse unique par transaction</div>
-    </div>
 
-    <!-- STEP 2 : Loading -->
-    <div id="cp-step-loading" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 20px;text-align:center">
-      <div class="spin spin-w" style="width:44px;height:44px;border-width:4px"></div>
-      <div style="font-size:16px;font-weight:700;color:var(--text)">Génération de l'adresse...</div>
-      <div style="font-size:13px;color:var(--text2)">Connexion à izichangePay</div>
-      <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:var(--rsm);padding:10px 20px;font-size:13px;font-weight:700;color:var(--gold)" id="cp-loading-lbl">USDT TRC20</div>
-    </div>
-
-    <!-- STEP 3 : Adresse + QR -->
-    <div id="cp-step-addr" style="display:none;flex:1;flex-direction:column;overflow:hidden">
-      <div style="flex-shrink:0;padding:8px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-size:13px;font-weight:700;color:var(--text)" id="cp-addr-lbl">USDT TRC20</div>
-          <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:700;background:var(--amber-l);color:var(--amber);border:1px solid rgba(245,158,11,.2)" id="cp-status-badge"><div class="rdot" style="width:6px;height:6px"></div>En attente</div>
-        </div>
-        <button onclick="cpRetourChoix()" style="background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font)">← Changer</button>
+      <!-- STEP 2 : Loading -->
+      <div id="step-loading" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px;text-align:center">
+        <div class="spin spin-w" style="width:44px;height:44px;border-width:4px"></div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">Connexion à izichangePay...</div>
+        <div style="font-size:13px;color:var(--text2)">Génération de votre page de paiement</div>
+        <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:var(--rsm);padding:10px 20px;font-size:13px;font-weight:700;color:var(--gold)" id="lbl-loading-coin">USDT TRC20</div>
       </div>
-      <div style="flex:1;overflow-y:auto">
-        <div style="margin:14px 16px;background:var(--gold-l);border:1px solid var(--gold-m);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
-          <div><div style="font-size:11px;color:rgba(245,176,20,.7);font-weight:600">Montant EXACT à envoyer</div><div style="font-size:22px;font-weight:800;color:var(--gold)" id="cp-crypto-amt">--</div></div>
-          <div style="text-align:right"><div style="font-size:13px;color:var(--gold);font-weight:600" id="cp-crypto-coin">USDT</div><div style="font-size:10px;color:rgba(245,176,20,.6);margin-top:2px" id="cp-crypto-net">TRC20</div></div>
+
+      <!-- STEP 3 : Iframe -->
+      <div id="step-iframe" style="display:none;flex:1;flex-direction:column">
+        <div style="flex-shrink:0;padding:8px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:13px;font-weight:700;color:var(--text)" id="lbl-iframe-coin">USDT TRC20</div>
+          <button onclick="retourChoix()" style="background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font)">← Changer</button>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px">
-          <div style="background:#fff;border-radius:14px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.3)"><canvas id="cp-qr-canvas" width="160" height="160"></canvas></div>
-          <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;background:var(--gold-l);border:1px solid var(--gold-m);color:var(--gold)" id="cp-net-badge">TRC20</div>
-          <div style="width:100%;background:var(--bg);border:1px dashed var(--border2);border-radius:10px;padding:12px 14px;font-family:'Courier New',monospace;font-size:12px;color:var(--text);word-break:break-all;line-height:1.7;text-align:center" id="cp-addr-display">--</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 14px">
-          <button onclick="cpCopyAddr()" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;border:1px solid var(--gold-m);background:var(--gold-l);color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier</button>
-          <button onclick="cpShareAddr()" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partager</button>
-        </div>
-        <div style="margin:0 16px 14px;background:var(--red-l);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:11px 14px;font-size:12px;color:var(--red);display:flex;gap:8px;align-items:flex-start;line-height:1.6" id="cp-net-warn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="m10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div>Envoyez <strong>uniquement <span id="cp-warn-coin">USDT TRC20</span></strong> à cette adresse. Tout autre réseau = perte définitive.</div></div>
-        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--border)">
-          <div style="display:flex;align-items:flex-start;gap:10px"><div style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#000;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Ouvrez votre wallet et envoyez exactement <strong id="cs-amt1">--</strong></div></div>
-          <div style="display:flex;align-items:flex-start;gap:10px"><div style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#000;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Attendez <strong>1–3 confirmations</strong> blockchain (1–5 min)</div></div>
-          <div style="display:flex;align-items:flex-start;gap:10px"><div style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#000;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div><div style="font-size:12px;color:var(--text2);line-height:1.6">ZAMA convertit et envoie les FCFA sur <strong id="cs-mm">Wave</strong></div></div>
-        </div>
-        <div style="display:none;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text3)" id="cp-confirms-bar">
-          <div style="display:flex;gap:4px"><div style="width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .4s" id="cf0"></div><div style="width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .4s" id="cf1"></div><div style="width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .4s" id="cf2"></div></div>
-          <span id="cp-confirms-txt">Confirmations : 0/3</span>
-        </div>
-        <div style="padding:14px 16px 6px"><button class="btn-p" style="width:100%;margin:0" id="cp-verify-btn" onclick="cpVerifyPayment()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>J'ai envoyé — Vérifier</button></div>
-        <div class="sec-badge" style="padding-bottom:20px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Sécurisé par izichangePay · ZAMA by PST Telecom</div>
+        <iframe id="izi-iframe" src="" style="flex:1;width:100%;border:none;display:block;background:#fff" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"></iframe>
       </div>
+
     </div>
-
-    <!-- STEP 4 : Succès -->
-    <div id="cp-step-success" style="display:none;flex:1;flex-direction:column;overflow-y:auto;align-items:center;justify-content:center;padding:36px 20px;gap:12px;text-align:center">
-      <div style="width:72px;height:72px;border-radius:50%;background:var(--green-l);border:2px solid rgba(34,197,94,.3);display:flex;align-items:center;justify-content:center;margin:0 auto"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg></div>
-      <div style="font-size:20px;font-weight:800;color:var(--green)">Paiement reçu !</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.6">Conversion en cours...<br>Les FCFA arrivent sur <strong id="cs-mm-success">Wave</strong> sous 2 minutes</div>
-      <button class="btn-p" style="width:calc(100% - 32px);margin:10px 0 0" onclick="startTracking()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>Suivre le transfert</button>
-      <button onclick="goto('scr-home')" style="width:calc(100% - 32px);padding:13px;background:var(--s2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:8px">Retour à l'accueil</button>
-    </div>
-
-  </div>
-
-
 
 <!-- TRACKING -->
 <div class="scr" id="scr-track">
@@ -1385,10 +941,6 @@ window.addEventListener('load', function() {
         <div class="acct-av" id="a-av">?</div>
         <div class="acct-name" id="a-name">--</div>
         <div class="acct-phone" id="a-phone">--</div>
-        <div class="username-badge" id="un-badge" onclick="openUsernameModal()" style="display:none">
-          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span id="un-display">@ajouter username</span>
-        </div>
         <div><span class="kyc-tag kyc-no" id="a-kyc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Identité non vérifiée</span></div>
       </div>
       <div style="padding-top:4px">
@@ -1396,7 +948,6 @@ window.addEventListener('load', function() {
         <div class="slbl">Mon compte</div>
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="showQR()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="ai-lbl">Mon QR Code</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
-        <div class="ai" onclick="openUsernameModal()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl" id="un-menu-lbl">@username · Ajouter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
@@ -1649,9 +1200,8 @@ window.addEventListener("load",function(){
   fetchRates();
   setInterval(fetchRates,60000);
   updateGreet();
-  renderHBenefs();setTimeout(function(){},200);
+  renderHBenefs();
   checkPinLoad();
-  setTimeout(function(){},500);
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
     lgC++;clearTimeout(lgT);
@@ -2095,7 +1645,7 @@ function doLogin(){
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
   saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
-  toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");showNotif("Bienvenue "+( found.prenom||"")+" \uD83D\uDC4B","Connexion r\u00E9ussie","\uD83D\uDC4B","245,176,20");goto("scr-acct");
+  toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
   var t=document.getElementById("lg-phone").value.trim();
@@ -2233,18 +1783,21 @@ function renderQR(){
   drawQR("zama://pay?phone="+encodeURIComponent(user.phone||"")+"&name="+encodeURIComponent((user.prenom||"")+" "+(user.nom||"")));
 }
 function drawQR(text){
-  var wrap=document.getElementById("qr-cv");
-  if(!wrap)return;
-  var parent=wrap.parentNode;
-  var div=document.getElementById("qr-real-div");
-  if(!div){
-    div=document.createElement("div");
-    div.id="qr-real-div";
-    div.style.cssText="display:inline-block;background:#fff;padding:10px;border-radius:12px;";
-    parent.replaceChild(div,wrap);
-  }
-  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(text)+'&color=070D1A&bgcolor=ffffff&format=png&margin=2';
-  div.innerHTML='<img src="'+qrUrl+'" width="180" height="180" style="display:block;border-radius:4px">';
+  var cv=document.getElementById("qr-cv");if(!cv)return;
+  var ctx=cv.getContext("2d");var sz=200;ctx.clearRect(0,0,sz,sz);
+  ctx.fillStyle="#111D30";ctx.fillRect(0,0,sz,sz);
+  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
+  var cell=7,cols=Math.floor(sz/cell);
+  function finder(x,y){ctx.fillStyle="#F5B014";ctx.fillRect(x*cell,y*cell,7*cell,7*cell);ctx.fillStyle="#111D30";ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);ctx.fillStyle="#F5B014";ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);}
+  finder(0,0);finder(cols-7,0);finder(0,cols-7);
+  ctx.fillStyle="#F5B014";
+  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
+    if((r<8&&c<8)||(r<8&&c>cols-9)||(r>cols-9&&c<8))continue;
+    if((hash^(r*31+c*17)^(r^c))%4===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
+  }}
+  ctx.fillStyle="#111D30";ctx.fillRect(82,82,36,36);
+  ctx.fillStyle="#F5B014";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(86,86,28,28,6);else ctx.rect(86,86,28,28);ctx.fill();
+  ctx.fillStyle="#0D1525";ctx.font="bold 13px Inter,Arial";ctx.textAlign="center";ctx.fillText("Z",100,99);
 }
 function dlQR(){var cv=document.getElementById("qr-cv");if(!cv)return;var a=document.createElement("a");a.download="zama-qr.png";a.href=cv.toDataURL();a.click();toast("Téléchargé","ok");}
 function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(user.prenom||"")+" "+(user.nom||"")+"\n"+(user.phone||"");if(navigator.share)navigator.share({title:"Mon QR ZAMA",text:t}).catch(function(){});else navigator.clipboard.writeText(t).then(function(){toast("Copié !","ok");});}
@@ -2500,152 +2053,10 @@ function loadSavedLogos() {
   });
 }
 
-
-// ── CRYPTO NATIF ─────────────────────────────────────────────
-var _cpCoin='usdt.trc20',_cpLabel='USDT TRC20',_cpNet='TRC20',_cpIziId=null,_cpAddr=null,_cpAmt=null,_cpCheckT=null;
-
-function cpPickCoin(el){
-  document.querySelectorAll('#cp-coins .cc-pill').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  _cpCoin=el.getAttribute('data-coin');
-  _cpLabel=el.getAttribute('data-label');
-  _cpNet=el.getAttribute('data-net');
-  var lbl=document.getElementById('cp-pay-lbl');
-  if(lbl)lbl.textContent=_cpLabel;
-}
-
-async function cpLancerPaiement(){
-  // Si orderId vide, créer la commande d'abord
-  if(!orderId){
-    var amt=parseFloat(document.getElementById('s-amt')?document.getElementById('s-amt').value:0)||0;
-    var rn=document.getElementById('r-name')?document.getElementById('r-name').value.trim():'';
-    var rph=document.getElementById('r-phone')?document.getElementById('r-phone').value.trim():'';
-    var sn=document.getElementById('s-name')?document.getElementById('s-name').value.trim():'';
-    var se=document.getElementById('s-email')?document.getElementById('s-email').value.trim():'';
-    if(!amt||!rn||!rph||!sn||!se){toast("Remplissez tous les champs d'abord",'err');return;}
-    try{
-      var rateV=rates[cK]||606;
-      var net=Math.round(amt*rateV*(1-FEE));
-      var res=await fetch(API+'/api/zama/create',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({src_currency:curr,amount:amt,rate_fcfa:rateV,net_fcfa:net,
-          receiver_name:rn,receiver_phone:rph,receiver_mm:MM,
-          sender_name:sn,sender_email:se,user_id:user?user.id:null})});
-      var data=await res.json();
-      if(data.order_id){orderId=data.order_id;saveOrder({order_id:orderId,src_currency:curr,amount:amt,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:'pending',created_at:new Date().toISOString()});}
-    }catch(e){toast('Erreur commande: '+e.message,'err');return;}
-  }
-  if(!orderId){toast("Erreur: commande non créée",'err');return;}
-  _cpShowStep('loading');
-  var ll=document.getElementById('cp-loading-lbl'); if(ll)ll.textContent=_cpLabel;
-  var amt=parseFloat(document.getElementById('s-amt')?document.getElementById('s-amt').value:0)||0;
-  var rateV=rates[cK]||606;
-  var rateToUsd=cK==='usd'?1:(rates.usd/(rateV||1));
-  try{
-    var res=await fetch(API+'/api/zama/crypto/create',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({coin_key:_cpCoin,amount:amt,src_currency:curr,rate_usd:rateToUsd,order_id:orderId,
-        receiver_name:document.getElementById('r-name')?document.getElementById('r-name').value.trim():'',
-        receiver_phone:document.getElementById('r-phone')?document.getElementById('r-phone').value.trim():'',
-        receiver_mm:MM,
-        sender_name:document.getElementById('s-name')?document.getElementById('s-name').value.trim():'',
-        sender_email:document.getElementById('s-email')?document.getElementById('s-email').value.trim():'',
-        net_fcfa:Math.round(amt*rateV*(1-FEE))})});
-    var data=await res.json();
-    if(!data.ok||!data.address)throw new Error(data.error||'Adresse non generee');
-    _cpIziId=data.izi_id;_cpAddr=data.address;_cpAmt=data.amount_crypto;_cpNet=data.network||_cpNet;
-    _cpShowAddr();
-  }catch(err){_cpShowStep('choose');toast('Erreur: '+err.message,'err');}
-}
-
-function _cpShowAddr(){
-  var _s=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'--';};
-  _s('cp-addr-lbl',_cpLabel);_s('cp-addr-display',_cpAddr);_s('cp-crypto-amt',_cpAmt);
-  _s('cp-crypto-coin',_cpLabel.split(' ')[0]);_s('cp-crypto-net',_cpNet);_s('cp-net-badge',_cpNet);
-  _s('cp-warn-coin',_cpLabel);_s('cs-amt1',(_cpAmt||'--')+' '+(_cpLabel.split(' ')[0]||''));
-  _s('cs-mm',MM==='wave'?'Wave':'Orange Money');_s('cs-mm-success',MM==='wave'?'Wave':'Orange Money');
-  var warn=document.getElementById('cp-net-warn');
-  if(warn)warn.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="m10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div>Envoyez <strong>uniquement '+_cpLabel+'</strong> a cette adresse. Tout autre reseau = perte definitive.</div>';
-  cpDrawQR(_cpAddr);
-  _cpShowStep('addr');
-  if(_cpCheckT)clearInterval(_cpCheckT);
-  _cpCheckT=setInterval(cpAutoCheck,20000);
-}
-
-function cpDrawQR(text){
-  var cv=document.getElementById('cp-qr-canvas');if(!cv)return;
-  var parent=cv.parentNode;var ex=document.getElementById('cp-qr-img');if(ex)ex.remove();
-  var img=document.createElement('img');img.id='cp-qr-img';img.width=160;img.height=160;
-  img.style.cssText='display:block;border-radius:4px';
-  img.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(text)+'&color=070D1A&bgcolor=ffffff&format=png&margin=2';
-  cv.style.display='none';parent.appendChild(img);
-}
-
-function cpCopyAddr(){if(!_cpAddr){toast('Adresse non disponible','err');return;}navigator.clipboard.writeText(_cpAddr).then(function(){toast('Adresse copiee !','ok');});}
-function cpShareAddr(){if(!_cpAddr)return;var text='Paiement ZAMA '+_cpLabel+' | Montant: '+_cpAmt+' '+_cpLabel.split(' ')[0]+' | Adresse: '+_cpAddr;if(navigator.share)navigator.share({title:'Paiement ZAMA',text:text}).catch(function(){});else navigator.clipboard.writeText(text).then(function(){toast('Copie !','ok');});}
-
-async function cpVerifyPayment(){
-  if(!orderId)return;
-  var btn=document.getElementById('cp-verify-btn');
-  if(btn){btn.disabled=true;btn.innerHTML='<div class="spin"></div> Verification...';}
-  try{
-    var res=await fetch(API+'/api/zama/crypto/status/'+orderId);
-    var data=await res.json();
-    _cpUpdateConfirms(data.confirmations||0);
-    if(data.status==='paid'){_cpOnPaid();return;}
-    toast('Pas encore confirme ('+(data.confirmations||0)+'/3 conf.)','info');
-  }catch(e){toast('Erreur: '+e.message,'err');}
-  if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> J ai envoye - Verifier';}
-}
-
-async function cpAutoCheck(){
-  if(!orderId)return;
-  try{var res=await fetch(API+'/api/zama/crypto/status/'+orderId);var data=await res.json();_cpUpdateConfirms(data.confirmations||0);if(data.status==='paid'){clearInterval(_cpCheckT);_cpOnPaid();}}catch(e){}
-}
-
-function _cpUpdateConfirms(n){
-  var bar=document.getElementById('cp-confirms-bar');if(bar)bar.style.display=n>0?'flex':'none';
-  var txt=document.getElementById('cp-confirms-txt');if(txt)txt.textContent='Confirmations : '+n+'/3';
-  for(var i=0;i<3;i++){var dot=document.getElementById('cf'+i);if(dot)dot.className='conf-dot'+(i<n?' on':'');}
-}
-
-function _cpOnPaid(){
-  clearInterval(_cpCheckT);updateOrder(orderId,'paid');updateBalanceCard();
-  var badge=document.getElementById('cp-status-badge');
-  if(badge){badge.style.background='var(--green-l)';badge.style.color='var(--green)';badge.style.borderColor='rgba(34,197,94,.2)';badge.innerHTML='<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg> Confirme !';}
-  _cpShowStep('success');
-  if(navigator.vibrate)navigator.vibrate([50,30,100]);
-}
-
-function _cpShowStep(step){
-  var steps={choose:'cp-step-choose',loading:'cp-step-loading',addr:'cp-step-addr',success:'cp-step-success'};
-  Object.keys(steps).forEach(function(k){
-    var el=document.getElementById(steps[k]);if(!el)return;
-    if(k===step){el.style.display=k==='choose'?'block':'flex';if(k!=='choose')el.style.flexDirection='column';}
-    else{el.style.display='none';}
-  });
-}
-
-function cpRetourChoix(){if(_cpCheckT)clearInterval(_cpCheckT);_cpAddr=null;_cpAmt=null;_cpIziId=null;_cpShowStep('choose');}
-function lancerPaiementCrypto(){cpLancerPaiement();}
-function showIframeLoading(){_cpShowStep('choose');_cpAddr=null;_cpAmt=null;_cpIziId=null;}
-function showIframe(url){window._payUrl=url;}
-function showFallback(){switchTab('crypto');_cpShowStep('choose');}
-function retourChoix(){cpRetourChoix();}
-
 // TOAST
 var _toastT;
 function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(type?" "+type:"");clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove("show");},3000);}
 </script>
 </div>
-
-<script>
-// Enregistrement Service Worker PWA
-if('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
-      .then(function(reg) { console.log('ZAMA SW actif:', reg.scope); })
-      .catch(function(e) { console.log('SW erreur:', e); });
-  });
-}
-</script>
 </body>
 </html>
