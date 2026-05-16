@@ -4,7 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#F5B014">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZAMA">
+<link rel="apple-touch-icon" href="/icons/zama-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/zama-152.png">
+<link rel="apple-touch-icon" sizes="144x144" href="/icons/zama-144.png">
+<link rel="apple-touch-icon" sizes="128x128" href="/icons/zama-128.png">
+<meta name="msapplication-TileImage" content="/icons/zama-144.png">
+<meta name="msapplication-TileColor" content="#F5B014">
 <title>ZAMA — Transfert international</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1816,5 +1828,15 @@ var _toastT;
 function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(type?" "+type:"");clearTimeout(_toastT);_toastT=setTimeout(function(){t.classList.remove("show");},3000);}
 </script>
 </div>
+
+<script>
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) { console.log('ZAMA SW actif:', reg.scope); })
+      .catch(function(e) { console.log('SW erreur:', e); });
+  });
+}
+</script>
 </body>
 </html>
