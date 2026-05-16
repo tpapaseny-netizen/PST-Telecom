@@ -578,6 +578,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="qa" onclick="goto('scr-benefs')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="qa-lbl">Contacts</div></div>
     </div>
 
+    
+    <!-- ÉPARGNE & TONTINE -->
+    <div class="slbl">Services financiers</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;margin-bottom:4px">
+      <div onclick="goto('scr-epargne')" style="background:linear-gradient(135deg,#0F2A1F,#1A3D2B);border:1px solid rgba(34,197,94,.2);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--green-l);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" width="20" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Épargne</div>
+        <div style="font-size:11px;color:rgba(34,197,94,.7)">Économisez intelligemment</div>
+      </div>
+      <div onclick="goto('scr-tontine')" style="background:linear-gradient(135deg,#1A1A0F,#2A2A1A);border:1px solid rgba(245,176,20,.2);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--gold-l);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" width="20" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Tontine</div>
+        <div style="font-size:11px;color:rgba(245,176,20,.7)">Cotisez en groupe</div>
+      </div>
+    </div>
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
       <div class="rc"><span class="rc-flag">🇺🇸</span><div class="rc-code">USD</div><div class="rc-val" id="rs1">--</div></div>
@@ -852,6 +871,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="showQR()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="ai-lbl">Mon QR Code</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-epargne')"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg></div><div class="ai-lbl">Mon Épargne</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="goto('scr-tontine')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes Tontines</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
         <div class="ai" onclick="goto('scr-about')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="ai-lbl">À propos de ZAMA</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
@@ -1821,6 +1842,210 @@ function updateBalanceCard(){
   s("bal-month","+"+month.toLocaleString("fr-FR")+" FCFA");
   s("bs-sent",count);
   s("bs-saved",saved.toLocaleString("fr-FR")+" FCFA");
+}
+
+
+// ── ÉPARGNE ────────────────────────────────────────────────────
+var _epMode = 'libre';
+
+function selEpMode(mode) {
+  _epMode = mode;
+  var libre  = document.getElementById('ep-mode-libre');
+  var bloque = document.getElementById('ep-mode-bloque');
+  if(mode === 'libre') {
+    libre.style.border  = '2px solid var(--gold)';
+    libre.style.background = 'var(--gold-l)';
+    libre.querySelector('div').style.color = 'var(--gold)';
+    bloque.style.border = '2px solid var(--border)';
+    bloque.style.background = 'var(--s2)';
+    bloque.querySelector('div').style.color = 'var(--text2)';
+  } else {
+    bloque.style.border = '2px solid var(--gold)';
+    bloque.style.background = 'var(--gold-l)';
+    bloque.querySelector('div').style.color = 'var(--gold)';
+    libre.style.border  = '2px solid var(--border)';
+    libre.style.background = 'var(--s2)';
+    libre.querySelector('div').style.color = 'var(--text2)';
+  }
+}
+
+async function creerEpargne() {
+  if(!user){toast('Connectez-vous d'abord','err');goto('scr-login');return;}
+  var desc = document.getElementById('ep-desc').value.trim();
+  var obj  = parseInt(document.getElementById('ep-objectif').value);
+  var dur  = parseInt(document.getElementById('ep-duree').value);
+  if(!desc){toast('Entrez une description','err');return;}
+  if(!obj||obj<500){toast('Objectif minimum 500 FCFA','err');return;}
+  if(!dur||dur<1){toast('Durée minimum 1 jour','err');return;}
+  try {
+    var res = await fetch(API+'/api/zama/epargne/create',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id:user.id,user_name:(user.prenom||'')+' '+(user.nom||''),user_phone:user.phone,
+        objectif_fcfa:obj,duree_jours:dur,description:desc,retrait_libre:_epMode==='libre'})});
+    var data = await res.json();
+    if(data.ok){
+      toast('Plan d'épargne créé !','ok');
+      document.getElementById('ep-desc').value='';
+      document.getElementById('ep-objectif').value='';
+      document.getElementById('ep-duree').value='';
+      gb();
+      loadEpargnes();
+    } else {toast(data.error||'Erreur','err');}
+  } catch(e){toast('Erreur: '+e.message,'err');}
+}
+
+async function loadEpargnes() {
+  if(!user)return;
+  try {
+    var res = await fetch(API+'/api/zama/epargne/user/'+user.id);
+    var list = await res.json();
+    var el = document.getElementById('ep-list');
+    var total = list.reduce(function(s,e){return s+(e.solde_fcfa||0);},0);
+    var totEl = document.getElementById('ep-total');
+    if(totEl) totEl.textContent = total.toLocaleString('fr-FR')+' FCFA';
+    if(!el)return;
+    if(!list.length){
+      el.innerHTML='<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg><div class="et">Aucun plan d'épargne</div><div class="es">Créez votre premier plan</div></div>';
+      return;
+    }
+    el.innerHTML = list.map(function(ep){
+      var pct = ep.progression||0;
+      var couleur = pct>=100?'var(--green)':'var(--gold)';
+      var date_fin = new Date(ep.date_fin).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+      return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
+        '<div><div style="font-size:14px;font-weight:700">'+ep.description+'</div>'+
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px">Objectif : '+ep.objectif_fcfa.toLocaleString('fr-FR')+' FCFA</div></div>'+
+        '<div style="font-size:11px;padding:3px 8px;border-radius:100px;background:'+(ep.status==='actif'?'var(--green-l)':'var(--s3)')+';color:'+(ep.status==='actif'?'var(--green)':'var(--text3)')+'">'+ep.status+'</div></div>'+
+        '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px">'+
+        '<div style="height:100%;width:'+pct+'%;background:'+couleur+';border-radius:3px;transition:width .5s"></div></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:12px">'+
+        '<span style="color:'+couleur+';font-weight:700">'+ep.solde_fcfa.toLocaleString('fr-FR')+' FCFA</span>'+
+        '<span>'+pct+'% · '+date_fin+'</span></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+        '<button onclick="deposerEpargne(''+ep.epargne_id+'')" style="padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">+ Déposer</button>'+
+        '<button onclick="retirerEpargne(''+ep.epargne_id+'','+ep.retrait_libre+')" style="padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">Retirer</button>'+
+        '</div></div>';
+    }).join('');
+  } catch(e){console.error(e);}
+}
+
+async function deposerEpargne(epargne_id) {
+  var montant = prompt('Montant à déposer (FCFA):');
+  if(!montant||isNaN(montant))return;
+  var ref = prompt('Référence Wave (optionnel):');
+  try {
+    var res = await fetch(API+'/api/zama/epargne/'+epargne_id+'/depot',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({montant_fcfa:parseInt(montant),wave_ref:ref||null})});
+    var data = await res.json();
+    if(data.ok){toast(data.message||'Dépôt enregistré','ok');loadEpargnes();}
+    else toast(data.error||'Erreur','err');
+  } catch(e){toast('Erreur','err');}
+}
+
+async function retirerEpargne(epargne_id, retrait_libre) {
+  var montant = prompt('Montant à retirer (FCFA) — laisser vide pour tout retirer:');
+  try {
+    var body = {phone:user?user.phone:''};
+    if(montant&&!isNaN(montant)) body.montant_fcfa = parseInt(montant);
+    var res = await fetch(API+'/api/zama/epargne/'+epargne_id+'/retrait',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var data = await res.json();
+    if(data.ok){toast(data.message||'Retrait enregistré','ok');loadEpargnes();}
+    else toast(data.error||'Erreur','err');
+  } catch(e){toast('Erreur','err');}
+}
+
+// ── TONTINE ────────────────────────────────────────────────────
+function calcPot() {
+  var cot = parseInt(document.getElementById('ton-cotisation').value)||0;
+  var membres_txt = document.getElementById('ton-membres').value.trim();
+  var membres = membres_txt ? membres_txt.split('
+').filter(function(m){return m.trim();}) : [];
+  var nb = membres.length + 1;
+  var preview = document.getElementById('ton-pot-preview');
+  if(cot>0&&nb>1){
+    preview.style.display='block';
+    document.getElementById('ton-nb-membres').textContent = nb+' membres (vous inclus)';
+    document.getElementById('ton-pot-total').textContent = (cot*nb).toLocaleString('fr-FR')+' FCFA';
+  } else {
+    preview.style.display='none';
+  }
+}
+
+async function creerTontine() {
+  if(!user){toast('Connectez-vous d'abord','err');goto('scr-login');return;}
+  var nom = document.getElementById('ton-nom').value.trim();
+  var cot = parseInt(document.getElementById('ton-cotisation').value);
+  var freq = document.getElementById('ton-freq').value;
+  var membres_txt = document.getElementById('ton-membres').value.trim();
+  var membres = membres_txt.split('
+').map(function(m){return m.trim();}).filter(function(m){return m;});
+  if(!nom){toast('Entrez un nom pour la tontine','err');return;}
+  if(!cot||cot<500){toast('Cotisation minimum 500 FCFA','err');return;}
+  if(membres.length<1){toast('Ajoutez au moins 1 autre membre','err');return;}
+  try {
+    var res = await fetch(API+'/api/zama/tontine/create',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({createur_id:user.id,createur_name:(user.prenom||'')+' '+(user.nom||''),
+        createur_phone:user.phone,nom,cotisation_fcfa:cot,frequence:freq,membres_phones:membres})});
+    var data = await res.json();
+    if(data.ok){
+      toast('Tontine créée ! Pot : '+data.pot_total.toLocaleString('fr-FR')+' FCFA','ok');
+      document.getElementById('ton-nom').value='';
+      document.getElementById('ton-cotisation').value='';
+      document.getElementById('ton-membres').value='';
+      document.getElementById('ton-pot-preview').style.display='none';
+      gb();
+      loadTontines();
+    } else toast(data.error||'Erreur','err');
+  } catch(e){toast('Erreur: '+e.message,'err');}
+}
+
+async function loadTontines() {
+  if(!user)return;
+  try {
+    var res = await fetch(API+'/api/zama/tontine/user/'+user.id);
+    var list = await res.json();
+    var el = document.getElementById('ton-list');
+    var countEl = document.getElementById('ton-count');
+    var actives = list.filter(function(t){return t.status==='actif';}).length;
+    if(countEl) countEl.textContent = actives;
+    if(!el)return;
+    if(!list.length){
+      el.innerHTML='<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><div class="et">Aucune tontine</div><div class="es">Créez une tontine et invitez vos proches</div></div>';
+      return;
+    }
+    el.innerHTML = list.map(function(ton){
+      var payeurs = ton.cotisations.filter(function(c){return c.tour===ton.tour_actuel;}).length;
+      var pct = ton.nb_membres>0?Math.round((payeurs/ton.nb_membres)*100):0;
+      var prochaine = ton.prochaine_date?new Date(ton.prochaine_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'--';
+      return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'+
+        '<div><div style="font-size:14px;font-weight:700">'+ton.nom+'</div>'+
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+ton.nb_membres+' membres · '+ton.cotisation_fcfa.toLocaleString('fr-FR')+' FCFA/tour</div></div>'+
+        '<div style="font-size:11px;padding:3px 8px;border-radius:100px;background:'+(ton.status==='actif'?'var(--gold-l)':'var(--s3)')+';color:'+(ton.status==='actif'?'var(--gold)':'var(--text3)')+'">'+ton.status+'</div></div>'+
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">Pot total : <strong style="color:var(--gold)">'+ton.pot_total.toLocaleString('fr-FR')+' FCFA</strong> · Tour '+(ton.tour_actuel+1)+'/'+ton.nb_membres+'</div>'+
+        '<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px">'+
+        '<div style="height:100%;width:'+pct+'%;background:var(--gold);border-radius:3px"></div></div>'+
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">'+payeurs+'/'+ton.nb_membres+' ont cotisé · Prochaine date : '+prochaine+'</div>'+
+        (ton.status==='actif'?'<button onclick="cotiserTontine(''+ton.tontine_id+'')" style="width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">💰 Cotiser maintenant</button>':'')+
+        '</div>';
+    }).join('');
+  } catch(e){console.error(e);}
+}
+
+async function cotiserTontine(tontine_id) {
+  if(!user){toast('Connectez-vous d'abord','err');return;}
+  var ref = prompt('Référence Wave pour votre cotisation:');
+  if(ref===null)return;
+  try {
+    var res = await fetch(API+'/api/zama/tontine/'+tontine_id+'/cotiser',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:user.phone,wave_ref:ref||null})});
+    var data = await res.json();
+    if(data.ok){
+      if(data.pot_distribue){toast('🎉 Pot distribué à '+data.beneficiaire,'ok');}
+      else toast('Cotisation enregistrée — '+data.restants+' membre(s) restants','ok');
+      loadTontines();
+    } else toast(data.error||'Erreur','err');
+  } catch(e){toast('Erreur: '+e.message,'err');}
 }
 
 // TOAST
