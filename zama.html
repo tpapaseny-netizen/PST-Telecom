@@ -450,6 +450,41 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cpx-new2:active{transform:scale(.96);}
 .cpx-new2.on{border-color:var(--gold);background:var(--gold-l);color:var(--gold);}
 .cpx-logo{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* ══ PREMIUM ══ */
+.home-hero{position:relative;overflow:hidden;}
+.home-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(245,176,20,.12) 0%,transparent 70%);pointer-events:none;}
+.logo-mark{animation:glow-gold 3s ease-in-out infinite;}
+@keyframes glow-gold{0%,100%{box-shadow:0 4px 20px rgba(245,176,20,.3)}50%{box-shadow:0 0 24px rgba(245,176,20,.5),0 0 48px rgba(245,176,20,.15)}}
+.rate-pill{animation:float 4s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.qa{transition:all .2s cubic-bezier(.34,1.56,.64,1);}
+.qa:active{transform:scale(.93)!important;}
+.btn-p{background:linear-gradient(135deg,#F5B014,#FCD34D,#F5B014)!important;background-size:200%!important;box-shadow:0 4px 20px rgba(245,176,20,.3)!important;}
+.btn-p:active{transform:scale(.98);box-shadow:0 2px 10px rgba(245,176,20,.2)!important;}
+/* ══ BALANCE CARD ══ */
+.balance-card{margin:14px 20px 0;background:linear-gradient(135deg,#0F1E38,#162540);border:1px solid rgba(245,176,20,.15);border-radius:20px;padding:20px;position:relative;overflow:hidden;}
+.balance-card::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,176,20,.1),transparent 70%);}
+.balance-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;}
+.balance-amount{font-size:32px;font-weight:800;color:#fff;line-height:1;}
+.balance-sub{font-size:12px;color:rgba(255,255,255,.35);margin-top:4px;}
+.balance-row{display:flex;justify-content:space-between;align-items:flex-end;}
+.balance-stats{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);}
+.bs-item{flex:1;text-align:center;}
+.bs-val{font-size:14px;font-weight:700;color:var(--gold);}
+.bs-lbl{font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;}
+/* ══ TRUST BADGES ══ */
+.trust-badges{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px;margin-top:14px;}
+.tb{display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.12);border-radius:100px;font-size:10px;font-weight:700;color:rgba(34,197,94,.8);}
+.tb svg{width:10px;height:10px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0;}
+.tb.blue{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.12);color:rgba(100,160,255,.8);}
+.tb.blue svg{stroke:#3B82F6;}
+.tb.gold{background:rgba(245,176,20,.06);border-color:rgba(245,176,20,.12);color:rgba(245,176,20,.8);}
+.tb.gold svg{stroke:var(--gold);}
+/* ══ TOAST PREMIUM ══ */
+.toast{background:rgba(13,21,37,.95)!important;backdrop-filter:blur(20px)!important;border-radius:14px!important;padding:14px 20px!important;}
+/* ══ SPIN ══ */
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -525,10 +560,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
 
     <div class="qa-grid">
-      <div class="qa" onclick="goto('scr-send')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg></div><div class="qa-lbl">Envoyer</div></div>
+      <div class="qa" onclick="goto('scr-qr')"><div class="qa-ico" style="background:var(--gold-l)"><svg viewBox="0 0 24 24" style="stroke:var(--gold)"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M17 18h3M20 14v3"/></svg></div><div class="qa-lbl">Mon QR</div></div>
       <div class="qa" onclick="goto('scr-recv-crypto')"><div class="qa-ico" style="background:var(--green-l)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="2" y1="22" x2="13" y2="11"/><polygon points="2,22 9,2 13,11 22,6 2,22"/></svg></div><div class="qa-lbl">Recevoir</div></div>
-      <div class="qa" onclick="goto('scr-hist')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><div class="qa-lbl">Historique</div></div>
-      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
+      <div class="qa" onclick="goto('scr-rates')"><div class="qa-ico" style="background:var(--blue-l)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="qa-lbl">Taux</div></div>
+      <div class="qa" onclick="goto('scr-benefs')"><div class="qa-ico" style="background:var(--s3)"><svg viewBox="0 0 24 24" style="stroke:var(--text2)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="qa-lbl">Contacts</div></div>
     </div>
 
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
@@ -645,7 +680,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div id="pay-tab-wave" style="position:absolute;inset:0;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
       <button onclick="payWave()" style="width:100%;padding:16px;background:linear-gradient(135deg,#1D9BF0,#0A7CCF);color:#fff;border:none;border-radius:var(--rsm);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:28px;height:28px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 36 36" width="20"><circle cx="18" cy="18" r="18" fill="#1D9BF0"/><text x="18" y="23" text-anchor="middle" font-size="15" font-weight="900" fill="white" font-family="Arial">W</text></svg></div>Payer avec Wave</button>
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;font-size:13px;color:var(--text2);line-height:1.7"><strong style="color:var(--text)">Comment payer :</strong><br>1. Cliquez "Payer avec Wave"<br>2. Confirmez dans l'app Wave<br>3. Revenez ici et cliquez <strong>J'ai payé</strong></div>
-      <button class="btn-p" style="width:100%;margin:0" id="check-btn" onclick="checkPay()">✅ J'ai payé — Vérifier</button>
+      <button class="btn-p" style="width:100%;margin:0" onclick="checkPay()">J'ai payé — Vérifier</button>
     </div>
     <div id="pay-tab-crypto" style="position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden">
       <div id="crypto-step1" style="flex:1;overflow-y:auto;padding:14px">
@@ -694,7 +729,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
   </div>
   <div style="flex-shrink:0;padding:6px 20px;background:var(--bg);border-top:1px solid var(--border)">
-    <div class="pay-timer" id="p-timer" style="margin:0;padding:3px 0;font-size:11px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti <strong id="cd-time">30:00</strong></div>
+    <div class="pay-timer" id="p-timer" style="margin:0;padding:5px 0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Taux garanti <strong id="cd-time">30:00</strong></div>
   </div>
 </div>
 
@@ -1224,22 +1259,11 @@ function showPayTab(tab){
   }
 }
 function showIframeLoading(){
-  // Par defaut montrer Wave, pas Crypto
-  showPayTab("wave");
-  var il = document.getElementById("iframe-loading");
-  var iw = document.getElementById("iframe-wrap");
-  var iF = document.getElementById("iframe-fallback");
-  var s1 = document.getElementById("crypto-step1");
-  var s2 = document.getElementById("crypto-step2");
-  var s3 = document.getElementById("crypto-step3");
-  if(il) il.style.display="none";
-  if(iw) iw.style.display="none";
-  if(iF) iF.style.display="none";
-  if(s1) s1.style.display="block";
-  if(s2) s2.style.display="none";
-  if(s3) s3.style.display="none";
-  var iframe=document.getElementById("izi-iframe");
-  if(iframe) iframe.src="";
+  var ct=document.getElementById("pay-tab-crypto");
+  if(ct){ct.style.display="flex";ct.style.flexDirection="column";}
+  document.getElementById("iframe-loading").style.display="block";
+  document.getElementById("iframe-wrap").style.display="none";
+  document.getElementById("iframe-fallback").style.display="none";
 }
 function showIframe(url){
   var ct=document.getElementById("pay-tab-crypto");
@@ -1255,19 +1279,11 @@ function showIframe(url){
   toast("izichangePay chargé ✓","ok");
 }
 function showFallback(){
-  var posUrl="https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-"+orderId;
+  document.getElementById("iframe-loading").style.display="none";
+  document.getElementById("iframe-wrap").style.display="none";
+  document.getElementById("iframe-fallback").style.display="block";
   showPayTab("crypto");
-  // Afficher step2 (loading) puis step3 (iframe)
-  var s1=document.getElementById("crypto-step1");
-  var s2=document.getElementById("crypto-step2");
-  var s3=document.getElementById("crypto-step3");
-  if(s1){s1.style.display="none";}
-  if(s2){s2.style.display="none";}
-  if(s3){s3.style.display="flex";s3.style.flexDirection="column";}
-  var iframe=document.getElementById("izi-iframe");
-  if(iframe) iframe.src=posUrl;
-  var ct=document.getElementById("pay-tab-crypto");
-  if(ct){ct.style.display="flex";ct.style.flexDirection="column";}
+  toast("Mode manuel activé","info");
 }
 function closeIframe(){
   var iframe=document.getElementById("izi-iframe");
@@ -1514,21 +1530,16 @@ function renderQR(){
   drawQR("zama://pay?phone="+encodeURIComponent(user.phone||"")+"&name="+encodeURIComponent((user.prenom||"")+" "+(user.nom||"")));
 }
 function drawQR(text){
+  // Utiliser QR server API pour un vrai QR code
   var cv=document.getElementById("qr-cv");if(!cv)return;
-  var ctx=cv.getContext("2d");var sz=200;ctx.clearRect(0,0,sz,sz);
-  ctx.fillStyle="#111D30";ctx.fillRect(0,0,sz,sz);
-  var hash=0;for(var i=0;i<text.length;i++){hash=(hash<<5)-hash+text.charCodeAt(i);hash|=0;}
-  var cell=7,cols=Math.floor(sz/cell);
-  function finder(x,y){ctx.fillStyle="#F5B014";ctx.fillRect(x*cell,y*cell,7*cell,7*cell);ctx.fillStyle="#111D30";ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);ctx.fillStyle="#F5B014";ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);}
-  finder(0,0);finder(cols-7,0);finder(0,cols-7);
-  ctx.fillStyle="#F5B014";
-  for(var r=0;r<cols;r++){for(var c=0;c<cols;c++){
-    if((r<8&&c<8)||(r<8&&c>cols-9)||(r>cols-9&&c<8))continue;
-    if((hash^(r*31+c*17)^(r^c))%4===0)ctx.fillRect(c*cell,r*cell,cell-1,cell-1);
-  }}
-  ctx.fillStyle="#111D30";ctx.fillRect(82,82,36,36);
-  ctx.fillStyle="#F5B014";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(86,86,28,28,6);else ctx.rect(86,86,28,28);ctx.fill();
-  ctx.fillStyle="#0D1525";ctx.font="bold 13px Inter,Arial";ctx.textAlign="center";ctx.fillText("Z",100,99);
+  var parent=cv.parentNode;
+  var existing=document.getElementById("qr-real-img");if(existing)existing.remove();
+  var img=document.createElement("img");
+  img.id="qr-real-img";
+  img.style.cssText="width:200px;height:200px;border-radius:12px;display:block;";
+  img.src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="+encodeURIComponent(text)+"&color=070D1A&bgcolor=F5B014&format=png&margin=4";
+  cv.style.display="none";
+  parent.appendChild(img);
 }
 function dlQR(){var cv=document.getElementById("qr-cv");if(!cv)return;var a=document.createElement("a");a.download="zama-qr.png";a.href=cv.toDataURL();a.click();toast("Téléchargé","ok");}
 function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(user.prenom||"")+" "+(user.nom||"")+"\n"+(user.phone||"");if(navigator.share)navigator.share({title:"Mon QR ZAMA",text:t}).catch(function(){});else navigator.clipboard.writeText(t).then(function(){toast("Copié !","ok");});}
@@ -1785,51 +1796,19 @@ function loadSavedLogos() {
 }
 
 
-// ── CRYPTO PANEL FUNCTIONS ──
-var _selCoin = 'usdt.trc20';
-var _selCoinLbl = 'USDT TRC20';
-
-function selCrypto3(coin, el, label) {
-  document.querySelectorAll('.cpx-new2').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  _selCoin = coin;
-  _selCoinLbl = label;
-  var lbl = document.getElementById('sel-coin-lbl');
-  if(lbl) lbl.textContent = label;
-}
-
-function genPayWithCoin() {
-  // Montrer loading
-  var s1 = document.getElementById('crypto-step1');
-  var s2 = document.getElementById('crypto-step2');
-  var s3 = document.getElementById('crypto-step3');
-  if(s1) s1.style.display = 'none';
-  if(s2) { s2.style.display = 'flex'; s2.style.flexDirection = 'column'; }
-  if(s3) s3.style.display = 'none';
-  var ll = document.getElementById('loading-coin-lbl');
-  if(ll) ll.textContent = _selCoinLbl;
-  // URL POS izichange avec coin et orderId
-  var posUrl = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=ZAMA-' + (orderId || 'PST');
-  // Afficher iframe après 800ms (simule chargement)
-  setTimeout(function() {
-    if(s2) s2.style.display = 'none';
-    if(s3) { s3.style.display = 'flex'; s3.style.flexDirection = 'column'; }
-    var coinName = document.getElementById('iframe-coin-name');
-    if(coinName) coinName.textContent = _selCoinLbl;
-    var iframe = document.getElementById('izi-iframe');
-    if(iframe) iframe.src = posUrl;
-  }, 800);
-}
-
-function backToCoinSelect() {
-  var s1 = document.getElementById('crypto-step1');
-  var s2 = document.getElementById('crypto-step2');
-  var s3 = document.getElementById('crypto-step3');
-  if(s1) s1.style.display = 'block';
-  if(s2) s2.style.display = 'none';
-  if(s3) s3.style.display = 'none';
-  var iframe = document.getElementById('izi-iframe');
-  if(iframe) iframe.src = '';
+function updateBalanceCard(){
+  var ords=getOrds();
+  var total=ords.filter(function(o){return o.status==='paid';}).reduce(function(s,o){return s+(o.net_fcfa||0);},0);
+  var count=ords.filter(function(o){return o.status==='paid';}).length;
+  var saved=Math.round(total*0.015);
+  var now=new Date();
+  var month=ords.filter(function(o){var d=new Date(o.created_at);return o.status==='paid'&&d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).reduce(function(s,o){return s+(o.net_fcfa||0);},0);
+  var s=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  s("bal-amount",total>0?total.toLocaleString("fr-FR")+" FCFA":"0 FCFA");
+  s("bal-sub","Total envoyé via ZAMA");
+  s("bal-month","+"+month.toLocaleString("fr-FR")+" FCFA");
+  s("bs-sent",count);
+  s("bs-saved",saved.toLocaleString("fr-FR")+" FCFA");
 }
 
 // TOAST
