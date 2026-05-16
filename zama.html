@@ -1252,7 +1252,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div class="scr" id="scr-login">
   <div class="sb" style="padding-bottom:0">
     <div class="login-top">
-      <div class="login-logo"><svg viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" rx="16" fill="#FF6B00"/><text x="32" y="44" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="26" fill="white" letter-spacing="-1">ZA</text></svg></div>
+      <div class="login-logo"><svg viewBox="0 0 72 72" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
+  <rect width="72" height="72" rx="18" fill="#FF6B00"/>
+  <!-- Lettre Z -->
+  <polygon points="14,18 38,18 14,38 38,38" fill="none" stroke="white" stroke-width="4.5" stroke-linejoin="round"/>
+  <line x1="14" y1="18" x2="38" y2="18" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="14" y1="38" x2="38" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="38" y1="18" x2="14" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Lettre A -->
+  <line x1="44" y1="38" x2="52" y2="18" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="52" y1="18" x2="60" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="47" y1="30" x2="57" y2="30" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Ligne sous les lettres -->
+  <line x1="14" y1="46" x2="60" y2="46" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round"/>
+</svg></div>
       <div class="login-title">ZAMA</div>
       <div class="login-sub">Bureau de change digital · PST Telecom</div>
     </div>
@@ -1523,6 +1536,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 
 <div class="toast" id="toast"></div>
+
+<script>
+// Force clear service worker cache
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(reg){ reg.unregister(); });
+  });
+}
+</script>
 <script>
 const API="https://pst-telecom-production.up.railway.app";
 const FEE=0.02;
