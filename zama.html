@@ -47,6 +47,72 @@
   --font:'Inter',sans-serif;
   --r:16px;--rsm:10px;
 }
+/* ── MODE CLAIR ── */
+[data-theme="light"]{
+  --bg:#F0F4F8;
+  --s1:#FFFFFF;
+  --s2:#F8FAFC;
+  --s3:#EEF2F7;
+  --s4:#E2E8F0;
+  --border:rgba(0,0,0,0.08);
+  --border2:rgba(0,0,0,0.14);
+  --gold:#D4890A;
+  --gold-d:#B8740A;
+  --gold-l:rgba(212,137,10,0.10);
+  --gold-m:rgba(212,137,10,0.18);
+  --green:#16A34A;
+  --green-l:rgba(22,163,74,0.10);
+  --red:#DC2626;
+  --red-l:rgba(220,38,38,0.10);
+  --blue:#2563EB;
+  --blue-l:rgba(37,99,235,0.10);
+  --text:#0F172A;
+  --text2:#475569;
+  --text3:#94A3B8;
+}
+[data-theme="light"] html,
+[data-theme="light"] body,
+html[data-theme="light"],
+body[data-theme="light"]{
+  background:var(--bg);
+  color:var(--text);
+}
+[data-theme="light"] .hdr{
+  background:#FFFFFF;
+  border-bottom:1px solid var(--border);
+}
+[data-theme="light"] .bnav{
+  background:#FFFFFF;
+  border-top:1px solid var(--border);
+}
+[data-theme="light"] .scr{
+  background:var(--bg);
+}
+[data-theme="light"] .home-hero{
+  background:linear-gradient(160deg,#FF8C00,#FF6B00);
+}
+[data-theme="light"] .home-hero *{
+  color:#fff !important;
+}
+[data-theme="light"] .rate-pill{
+  background:rgba(255,255,255,0.25);
+  color:#fff;
+}
+[data-theme="light"] .qa-ico{
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+[data-theme="light"] .finp{
+  background:#F1F5F9;
+  border-color:rgba(0,0,0,0.1);
+  color:#0F172A;
+}
+[data-theme="light"] .toast{
+  background:rgba(15,23,42,0.92) !important;
+  color:#fff !important;
+}
+/* Transition fluide */
+*{ transition:background-color .25s ease, color .2s ease, border-color .2s ease; }
+
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);font-weight:400;}
 #app{display:flex;flex-direction:column;height:100%;max-width:430px;margin:0 auto;position:relative;overflow:hidden;background:var(--bg);}
 
@@ -1142,7 +1208,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="ai" onclick="goto('scr-benefs')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes bénéficiaires</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-epargne')"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg></div><div class="ai-lbl">Mon Épargne</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-tontine')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="ai-lbl">Mes Tontines</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
-        <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        
+        <!-- Toggle thème -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:38px;height:38px;border-radius:10px;background:var(--s3);display:flex;align-items:center;justify-content:center">
+              <svg id="theme-icon" viewBox="0 0 24 24" width="18" fill="none" stroke="var(--text2)" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:600" id="theme-label">Mode sombre</div>
+              <div style="font-size:11px;color:var(--text3)">Changer l apparence</div>
+            </div>
+          </div>
+          <div onclick="toggleTheme()" id="theme-toggle" style="width:48px;height:26px;border-radius:13px;background:var(--s3);border:2px solid var(--border);cursor:pointer;position:relative;transition:background .25s">
+            <div id="theme-knob" style="width:18px;height:18px;border-radius:50%;background:#475569;position:absolute;top:2px;left:2px;transition:all .25s"></div>
+          </div>
+        </div>
+<div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
         <div class="ai" onclick="goto('scr-about')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="ai-lbl">À propos de ZAMA</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="goto('scr-contact')"><div class="ai-ico" style="background:var(--green-l);color:var(--green)"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="ai-lbl">Nous contacter</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
@@ -1458,6 +1540,7 @@ window.addEventListener("load",function(){
   setInterval(fetchRates,60000);
   updateGreet();
   renderHBenefs();
+  initTheme();
   checkPinLoad();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
@@ -1770,6 +1853,7 @@ function doLogin(){
   if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
   saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
+  initTheme();
   toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
 }
 function resetPwd(){
@@ -1795,6 +1879,7 @@ function verOTP(){
     document.getElementById("otp-overlay").classList.remove("open");
     document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
     pendR=null;renderAcct();updateGreet();renderHBenefs();
+  initTheme();
     toast("Bienvenue, "+(u.prenom||"Client")+" !","ok");goto("scr-acct");
     setTimeout(function(){document.getElementById("ps-title").textContent="Sécurisez votre compte";document.getElementById("ps-sub").textContent="Créez un PIN à 4 chiffres";psE="";psF="";psStep=1;updPSD();document.getElementById("pin-setup").style.display="flex";},600);
   }else{toast("Code incorrect. Démo: 1234","err");}
@@ -1802,7 +1887,8 @@ function verOTP(){
 function logout(){
   if(!confirm("Se déconnecter ?"))return;
   localStorage.removeItem("zama_u");localStorage.removeItem("zama_pin");
-  user=null;renderAcct();updateGreet();renderHBenefs();goto("scr-home");toast("Déconnecté","");
+  user=null;renderAcct();updateGreet();renderHBenefs();
+  initTheme();goto("scr-home");toast("Déconnecté","");
 }
 function togEye(id,btn){
   var inp=document.getElementById(id);if(!inp)return;
@@ -1986,7 +2072,8 @@ function fillBIdx(i){var b=getBenefs().slice(0,3)[i];if(b)fillB(b.name,b.phone,b
 function fillB(name,phone,mm){var rn=document.getElementById("r-name");if(rn)rn.value=name;var rph=document.getElementById("r-phone");if(rph)rph.value=phone;var el=document.getElementById("mm-"+mm);if(el)selMM(mm,el);}
 function useB(name,phone,mm){goto("scr-send");setTimeout(function(){fillB(name,phone,mm);},100);}
 function quickSend(){goto("scr-send");}
-function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();toast("Bénéficiaire ajouté","ok");}
+function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();
+  initTheme();toast("Bénéficiaire ajouté","ok");}
 
 // HISTORY
 function renderHist(){var ords=getOrds();var el=document.getElementById("hist-list");if(!el)return;
@@ -2889,6 +2976,42 @@ function partagerTontine(){
   }
 }
 
+
+
+// ── THÈME CLAIR/SOMBRE ────────────────────────────────────────
+function initTheme(){
+  var saved = localStorage.getItem('zama_theme') || 'dark';
+  applyTheme(saved);
+}
+
+function applyTheme(theme){
+  var root = document.documentElement;
+  var icon = document.getElementById('theme-icon');
+  var label = document.getElementById('theme-label');
+  var toggle = document.getElementById('theme-toggle');
+  var knob = document.getElementById('theme-knob');
+
+  if(theme === 'light'){
+    root.setAttribute('data-theme','light');
+    if(icon) icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    if(label) label.textContent = 'Mode clair';
+    if(toggle) toggle.style.background = 'var(--gold)';
+    if(knob){ knob.style.left = '24px'; knob.style.background = '#fff'; }
+    localStorage.setItem('zama_theme','light');
+  } else {
+    root.removeAttribute('data-theme');
+    if(icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    if(label) label.textContent = 'Mode sombre';
+    if(toggle) toggle.style.background = 'var(--s3)';
+    if(knob){ knob.style.left = '2px'; knob.style.background = '#475569'; }
+    localStorage.setItem('zama_theme','dark');
+  }
+}
+
+function toggleTheme(){
+  var current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'light' ? 'dark' : 'light');
+}
 
 // TOAST
 var _toastT;
