@@ -1429,7 +1429,7 @@ function doLogin(){
 }
 function resetPwd(){
   var t=document.getElementById("lg-phone").value.trim();
-  if(!t){toast("Entrez d'abord votre numéro","err");return;}
+  if(!t){toast("Entrez dabord votre numéro","err");return;}
   var phone=normPh(t);
   var accts=getAllA();var found=accts.find(function(a){return normPh(a.phone)===phone;});
   if(!found){toast("Numéro non trouvé","err");return;}
@@ -1555,7 +1555,7 @@ async function submitKYC(){
 }
 
 // QR
-function showQR(){if(!user){toast("Connectez-vous d'abord","err");goto("scr-login");return;}goto("scr-qr");}
+function showQR(){if(!user){toast("Connectez-vous dabord","err");goto("scr-login");return;}goto("scr-qr");}
 function renderQR(){
   if(!user)return;
   var nm=document.getElementById("qr-name");if(nm)nm.textContent=(user.prenom||"")+" "+(user.nom||"");
@@ -1870,7 +1870,7 @@ function selEpMode(mode) {
 }
 
 async function creerEpargne() {
-  if(!user){toast('Connectez-vous d'abord','err');goto('scr-login');return;}
+  if(!user){toast('Connectez-vous','err');goto('scr-login');return;}
   var desc = document.getElementById('ep-desc').value.trim();
   var obj  = parseInt(document.getElementById('ep-objectif').value);
   var dur  = parseInt(document.getElementById('ep-duree').value);
@@ -1972,7 +1972,7 @@ function calcPot() {
 }
 
 async function creerTontine() {
-  if(!user){toast('Connectez-vous d'abord','err');goto('scr-login');return;}
+  if(!user){toast('Connectez-vous','err');goto('scr-login');return;}
   var nom = document.getElementById('ton-nom').value.trim();
   var cot = parseInt(document.getElementById('ton-cotisation').value);
   var freq = document.getElementById('ton-freq').value;
@@ -2033,7 +2033,7 @@ async function loadTontines() {
 }
 
 async function cotiserTontine(tontine_id) {
-  if(!user){toast('Connectez-vous d'abord','err');return;}
+  if(!user){toast('Connectez-vous','err');return;}
   var ref = prompt('Référence Wave pour votre cotisation:');
   if(ref===null)return;
   try {
