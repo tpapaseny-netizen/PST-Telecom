@@ -2576,7 +2576,7 @@ async function cpVerifyPayment(){
     if(data.status==='paid'){_cpOnPaid();return;}
     toast('Pas encore confirme ('+(data.confirmations||0)+'/3 conf.)','info');
   }catch(e){toast('Erreur: '+e.message,'err');}
-  if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> J\'ai envoye - Verifier';}
+  if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#000" stroke-width="2.5"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> J ai envoye - Verifier';}
 }
 
 async function cpAutoCheck(){
