@@ -17,7 +17,7 @@ const AT_USERNAME      = process.env.AT_USERNAME || 'sandbox';
 const PORT             = process.env.PORT || 3001;
 const IZIPAY_API_KEY   = process.env.IZIPAY_API_KEY || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680';
 const IZIPAY_IPN_SECRET = process.env.IZIPAY_IPN_SECRET || 'Pstdiama@1';
-const IZIPAY_BASE      = 'https://api.izichange.com';
+const IZIPAY_BASE      = 'https://pay.izichange.com/api';
 const IZIPAY_POS       = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402';
 
 const COIN_MAP = {
@@ -50,14 +50,14 @@ function iziHeaders() {
 
 async function createIziOrder({ coin_key, amount_usd, order_id, callback_url }) {
   const meta = COIN_MAP[coin_key] || COIN_MAP["usdt.trc20"];
-  const body = { currency: "USD", amount: String(parseFloat(amount_usd).toFixed(2)), coin: meta.coin, network: meta.network, external_id: order_id, callback_url };
-  const resp = await fetch(IZIPAY_BASE + "/v1/orders", { method: "POST", headers: iziHeaders(), body: JSON.stringify(body) });
+  const body = { currency: meta.coin + "." + meta.network.toLowerCase(), order_id: order_id, amount: parseFloat(amount_usd).toFixed(2), description: "ZAMA Transfer " + order_id, callback_url };
+  const resp = await fetch(IZIPAY_BASE + "/deposit/address", { method: "POST", headers: iziHeaders(), body: JSON.stringify(body) });
   if (!resp.ok) { const err = await resp.text(); throw new Error("izichangePay: " + resp.status + " " + err); }
   return resp.json();
 }
 
 async function getIziOrder(izi_id) {
-  const resp = await fetch(IZIPAY_BASE + "/v1/orders/" + izi_id, { headers: iziHeaders() });
+  const resp = await fetch(IZIPAY_BASE + "/transaction/" + izi_id, { headers: iziHeaders() });
   if (!resp.ok) throw new Error("izichangePay status: " + resp.status);
   return resp.json();
 }
