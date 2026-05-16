@@ -2561,9 +2561,7 @@ function cpDrawQR(text){
 }
 
 function cpCopyAddr(){if(!_cpAddr){toast('Adresse non disponible','err');return;}navigator.clipboard.writeText(_cpAddr).then(function(){toast('Adresse copiee !','ok');});}
-function cpShareAddr(){if(!_cpAddr)return;var text='Paiement ZAMA '+_cpLabel+'
-Montant: '+_cpAmt+' '+_cpLabel.split(' ')[0]+'
-Adresse: '+_cpAddr;if(navigator.share)navigator.share({title:'Paiement ZAMA',text:text}).catch(function(){});else navigator.clipboard.writeText(text).then(function(){toast('Copie !','ok');});}
+function cpShareAddr(){if(!_cpAddr)return;var text='Paiement ZAMA '+_cpLabel+' | Montant: '+_cpAmt+' '+_cpLabel.split(' ')[0]+' | Adresse: '+_cpAddr;if(navigator.share)navigator.share({title:'Paiement ZAMA',text:text}).catch(function(){});else navigator.clipboard.writeText(text).then(function(){toast('Copie !','ok');});}
 
 async function cpVerifyPayment(){
   if(!orderId)return;
