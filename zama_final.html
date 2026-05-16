@@ -1579,9 +1579,65 @@ function shareQR(){if(!user)return;var t="Envoyez-moi de l'argent via ZAMA\n"+(u
 function copyQRLink(){var l="https://pst-telecom-production.up.railway.app/zama?pay="+encodeURIComponent(user?user.phone||"":"");navigator.clipboard.writeText(l).then(function(){toast("Lien copié","ok");});}
 
 // BENEFS
-function renderBenefs(){var bs=getBenefs();var el=document.getElementById("benefs-list");if(!el)return;if(!bs.length){el.innerHTML="<div class='empty-st'><svg viewBox='0 0 24 24'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg><div class='et'>Aucun bénéficiaire</div><div class='es'>Ils s'ajoutent après votre premier transfert</div></div>";return;}el.innerHTML=bs.map(function(b){var ini=(b.name||"?")[0].toUpperCase();return "<div class='bi'><div class='bi-av'>"+ini+"</div><div class='bi-info'><div class='bi-name'>"+(b.name||"--")+"</div><div class='bi-meta'>"+(b.phone||"")+" · "+(b.mm==="wave"?"Wave":"Orange Money")+"</div></div><button class='bi-btn' onclick='useB(""+b.name+"",""+b.phone+"",""+b.mm+"")'>Utiliser</button></div>";}).join("");}
-function renderHBenefs(){var bs=getBenefs().slice(0,4);var el=document.getElementById("h-benefs");var lbl=document.getElementById("hb-lbl");if(!el)return;if(!bs.length){el.innerHTML="";if(lbl)lbl.style.display="none";return;}if(lbl)lbl.style.display="flex";el.innerHTML=bs.map(function(b){var ini=(b.name||"?")[0].toUpperCase();return "<div class='bi'><div class='bi-av'>"+ini+"</div><div class='bi-info'><div class='bi-name'>"+(b.name||"--")+"</div><div class='bi-meta'>"+(b.phone||"")+"</div></div><button class='bi-btn' onclick='quickSend(""+b.name+"",""+b.phone+"",""+b.mm+"")'>Envoyer</button></div>";}).join("");}
-function renderQBenefs(){var bs=getBenefs().slice(0,3);var wrap=document.getElementById("qb-wrap");var list=document.getElementById("qb-list");if(!bs.length){if(wrap)wrap.style.display="none";return;}if(wrap)wrap.style.display="block";if(list)list.innerHTML=bs.map(function(b){return "<div class='bi'><div class='bi-av'>"+(b.name||"?")[0].toUpperCase()+"</div><div class='bi-info'><div class='bi-name'>"+(b.name||"--")+"</div><div class='bi-meta'>"+(b.phone||"")+"</div></div><button class='bi-btn' onclick='fillB(""+b.name+"",""+b.phone+"",""+b.mm+"")'>Remplir</button></div>";}).join("");}
+function renderBenefs(){
+  var bs=getBenefs();
+  var el=document.getElementById("benefs-list");
+  if(!el)return;
+  if(!bs.length){
+    el.innerHTML='<div class="empty-st"><div class="et">Aucun beneficiaire</div><div class="es">Ils s ajoutent apres votre premier transfert</div></div>';
+    return;
+  }
+  var html="";
+  bs.forEach(function(b,i){
+    var ini=(b.name||"?")[0].toUpperCase();
+    html+='<div class="bi"><div class="bi-av">'+ini+'</div>';
+    html+='<div class="bi-info"><div class="bi-name">'+(b.name||"--")+'</div>';
+    html+='<div class="bi-meta">'+(b.phone||"")+" - "+(b.mm==="wave"?"Wave":"Orange Money")+'</div></div>';
+    html+='<button class="bi-btn" onclick="useBIdx('+i+')">Utiliser</button></div>';
+  });
+  el.innerHTML=html;
+}
+function useBIdx(i){var b=getBenefs()[i];if(b)useB(b.name,b.phone,b.mm);}
+
+function renderHBenefs(){
+  var bs=getBenefs().slice(0,4);
+  var el=document.getElementById("h-benefs");
+  var lbl=document.getElementById("hb-lbl");
+  if(!el)return;
+  if(!bs.length){el.innerHTML="";if(lbl)lbl.style.display="none";return;}
+  if(lbl)lbl.style.display="flex";
+  var html="";
+  bs.forEach(function(b,i){
+    var ini=(b.name||"?")[0].toUpperCase();
+    html+='<div class="bi"><div class="bi-av">'+ini+'</div>';
+    html+='<div class="bi-info"><div class="bi-name">'+(b.name||"--")+'</div>';
+    html+='<div class="bi-meta">'+(b.phone||"")+'</div></div>';
+    html+='<button class="bi-btn" onclick="quickSendIdx('+i+')">Envoyer</button></div>';
+  });
+  el.innerHTML=html;
+}
+function quickSendIdx(i){var b=getBenefs().slice(0,4)[i];if(b)goto("scr-send");}
+
+function renderQBenefs(){
+  var bs=getBenefs().slice(0,3);
+  var wrap=document.getElementById("qb-wrap");
+  var list=document.getElementById("qb-list");
+  if(!bs.length){if(wrap)wrap.style.display="none";return;}
+  if(wrap)wrap.style.display="block";
+  if(list){
+    var html="";
+    bs.forEach(function(b,i){
+      var ini=(b.name||"?")[0].toUpperCase();
+      html+='<div class="bi"><div class="bi-av">'+ini+'</div>';
+      html+='<div class="bi-info"><div class="bi-name">'+(b.name||"--")+'</div>';
+      html+='<div class="bi-meta">'+(b.phone||"")+'</div></div>';
+      html+='<button class="bi-btn" onclick="fillBIdx('+i+')">Remplir</button></div>';
+    });
+    list.innerHTML=html;
+  }
+}
+function fillBIdx(i){var b=getBenefs().slice(0,3)[i];if(b)fillB(b.name,b.phone,b.mm);}
+
 function fillB(name,phone,mm){var rn=document.getElementById("r-name");if(rn)rn.value=name;var rph=document.getElementById("r-phone");if(rph)rph.value=phone;var el=document.getElementById("mm-"+mm);if(el)selMM(mm,el);}
 function useB(name,phone,mm){goto("scr-send");setTimeout(function(){fillB(name,phone,mm);},100);}
 function quickSend(){goto("scr-send");}
@@ -1896,143 +1952,74 @@ async function creerEpargne() {
 async function loadEpargnes() {
   if(!user)return;
   try {
-    var res = await fetch(API+'/api/zama/epargne/user/'+user.id);
+    var res = await fetch(API+"/api/zama/epargne/user/"+user.id);
     var list = await res.json();
-    var el = document.getElementById('ep-list');
+    window._epargnes = list;
+    var el = document.getElementById("ep-list");
     var total = list.reduce(function(s,e){return s+(e.solde_fcfa||0);},0);
-    var totEl = document.getElementById('ep-total');
-    if(totEl) totEl.textContent = total.toLocaleString('fr-FR')+' FCFA';
+    var totEl = document.getElementById("ep-total");
+    if(totEl) totEl.textContent = total.toLocaleString("fr-FR")+" FCFA";
     if(!el)return;
     if(!list.length){
-      el.innerHTML='<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg><div class="et">Aucun plan d'épargne</div><div class="es">Créez votre premier plan</div></div>';
+      el.innerHTML="<div class='empty-st'><div class='et'>Aucun plan epargne</div></div>";
       return;
     }
-    el.innerHTML = list.map(function(ep){
+    var out="";
+    list.forEach(function(ep,i){
       var pct = ep.progression||0;
-      var couleur = pct>=100?'var(--green)':'var(--gold)';
-      var date_fin = new Date(ep.date_fin).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-      return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px">'+
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
-        '<div><div style="font-size:14px;font-weight:700">'+ep.description+'</div>'+
-        '<div style="font-size:11px;color:var(--text3);margin-top:2px">Objectif : '+ep.objectif_fcfa.toLocaleString('fr-FR')+' FCFA</div></div>'+
-        '<div style="font-size:11px;padding:3px 8px;border-radius:100px;background:'+(ep.status==='actif'?'var(--green-l)':'var(--s3)')+';color:'+(ep.status==='actif'?'var(--green)':'var(--text3)')+'">'+ep.status+'</div></div>'+
-        '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px">'+
-        '<div style="height:100%;width:'+pct+'%;background:'+couleur+';border-radius:3px;transition:width .5s"></div></div>'+
-        '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:12px">'+
-        '<span style="color:'+couleur+';font-weight:700">'+ep.solde_fcfa.toLocaleString('fr-FR')+' FCFA</span>'+
-        '<span>'+pct+'% · '+date_fin+'</span></div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-        '<button onclick="deposerEpargne(''+ep.epargne_id+'')" style="padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">+ Déposer</button>'+
-        '<button onclick="retirerEpargne(''+ep.epargne_id+'','+ep.retrait_libre+')" style="padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">Retirer</button>'+
-        '</div></div>';
-    }).join('');
+      var c = pct>=100?"var(--green)":"var(--gold)";
+      var df = new Date(ep.date_fin).toLocaleDateString("fr-FR");
+      out += "<div style='background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px'>";
+      out += "<div style='font-size:14px;font-weight:700;margin-bottom:4px'>"+ep.description+"</div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:10px'>Objectif : "+ep.objectif_fcfa.toLocaleString("fr-FR")+" FCFA - Jusqu au "+df+"</div>";
+      out += "<div style='height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px'><div style='height:100%;width:"+pct+"%;background:"+c+";border-radius:3px'></div></div>";
+      out += "<div style='font-size:12px;margin-bottom:12px;color:"+c+";font-weight:700'>"+ep.solde_fcfa.toLocaleString("fr-FR")+" FCFA - "+pct+"%</div>";
+      out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+      out += "<button onclick='deposerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>+ Depot</button>";
+      out += "<button onclick='retirerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Retrait</button>";
+      out += "</div></div>";
+    });
+    el.innerHTML=out;
   } catch(e){console.error(e);}
-}
-
-async function deposerEpargne(epargne_id) {
-  var montant = prompt('Montant à déposer (FCFA):');
-  if(!montant||isNaN(montant))return;
-  var ref = prompt('Référence Wave (optionnel):');
-  try {
-    var res = await fetch(API+'/api/zama/epargne/'+epargne_id+'/depot',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({montant_fcfa:parseInt(montant),wave_ref:ref||null})});
-    var data = await res.json();
-    if(data.ok){toast(data.message||'Dépôt enregistré','ok');loadEpargnes();}
-    else toast(data.error||'Erreur','err');
-  } catch(e){toast('Erreur','err');}
-}
-
-async function retirerEpargne(epargne_id, retrait_libre) {
-  var montant = prompt('Montant à retirer (FCFA) — laisser vide pour tout retirer:');
-  try {
-    var body = {phone:user?user.phone:''};
-    if(montant&&!isNaN(montant)) body.montant_fcfa = parseInt(montant);
-    var res = await fetch(API+'/api/zama/epargne/'+epargne_id+'/retrait',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    var data = await res.json();
-    if(data.ok){toast(data.message||'Retrait enregistré','ok');loadEpargnes();}
-    else toast(data.error||'Erreur','err');
-  } catch(e){toast('Erreur','err');}
-}
-
-// ── TONTINE ────────────────────────────────────────────────────
-function calcPot() {
-  var cot = parseInt(document.getElementById('ton-cotisation').value)||0;
-  var membres_txt = document.getElementById('ton-membres').value.trim();
-  var membres = membres_txt ? membres_txt.split('
-').filter(function(m){return m.trim();}) : [];
-  var nb = membres.length + 1;
-  var preview = document.getElementById('ton-pot-preview');
-  if(cot>0&&nb>1){
-    preview.style.display='block';
-    document.getElementById('ton-nb-membres').textContent = nb+' membres (vous inclus)';
-    document.getElementById('ton-pot-total').textContent = (cot*nb).toLocaleString('fr-FR')+' FCFA';
-  } else {
-    preview.style.display='none';
-  }
-}
-
-async function creerTontine() {
-  if(!user){toast('Connectez-vous','err');goto('scr-login');return;}
-  var nom = document.getElementById('ton-nom').value.trim();
-  var cot = parseInt(document.getElementById('ton-cotisation').value);
-  var freq = document.getElementById('ton-freq').value;
-  var membres_txt = document.getElementById('ton-membres').value.trim();
-  var membres = membres_txt.split('
-').map(function(m){return m.trim();}).filter(function(m){return m;});
-  if(!nom){toast('Entrez un nom pour la tontine','err');return;}
-  if(!cot||cot<500){toast('Cotisation minimum 500 FCFA','err');return;}
-  if(membres.length<1){toast('Ajoutez au moins 1 autre membre','err');return;}
-  try {
-    var res = await fetch(API+'/api/zama/tontine/create',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({createur_id:user.id,createur_name:(user.prenom||'')+' '+(user.nom||''),
-        createur_phone:user.phone,nom,cotisation_fcfa:cot,frequence:freq,membres_phones:membres})});
-    var data = await res.json();
-    if(data.ok){
-      toast('Tontine créée ! Pot : '+data.pot_total.toLocaleString('fr-FR')+' FCFA','ok');
-      document.getElementById('ton-nom').value='';
-      document.getElementById('ton-cotisation').value='';
-      document.getElementById('ton-membres').value='';
-      document.getElementById('ton-pot-preview').style.display='none';
-      gb();
-      loadTontines();
-    } else toast(data.error||'Erreur','err');
-  } catch(e){toast('Erreur: '+e.message,'err');}
 }
 
 async function loadTontines() {
   if(!user)return;
   try {
-    var res = await fetch(API+'/api/zama/tontine/user/'+user.id);
+    var res = await fetch(API+"/api/zama/tontine/user/"+user.id);
     var list = await res.json();
-    var el = document.getElementById('ton-list');
-    var countEl = document.getElementById('ton-count');
-    var actives = list.filter(function(t){return t.status==='actif';}).length;
+    window._tontines = list;
+    var el = document.getElementById("ton-list");
+    var countEl = document.getElementById("ton-count");
+    var actives = list.filter(function(t){return t.status==="actif";}).length;
     if(countEl) countEl.textContent = actives;
     if(!el)return;
     if(!list.length){
-      el.innerHTML='<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><div class="et">Aucune tontine</div><div class="es">Créez une tontine et invitez vos proches</div></div>';
+      el.innerHTML="<div class='empty-st'><div class='et'>Aucune tontine</div></div>";
       return;
     }
-    el.innerHTML = list.map(function(ton){
+    var out="";
+    list.forEach(function(ton,i){
       var payeurs = ton.cotisations.filter(function(c){return c.tour===ton.tour_actuel;}).length;
       var pct = ton.nb_membres>0?Math.round((payeurs/ton.nb_membres)*100):0;
-      var prochaine = ton.prochaine_date?new Date(ton.prochaine_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'--';
-      return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px">'+
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'+
-        '<div><div style="font-size:14px;font-weight:700">'+ton.nom+'</div>'+
-        '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+ton.nb_membres+' membres · '+ton.cotisation_fcfa.toLocaleString('fr-FR')+' FCFA/tour</div></div>'+
-        '<div style="font-size:11px;padding:3px 8px;border-radius:100px;background:'+(ton.status==='actif'?'var(--gold-l)':'var(--s3)')+';color:'+(ton.status==='actif'?'var(--gold)':'var(--text3)')+'">'+ton.status+'</div></div>'+
-        '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">Pot total : <strong style="color:var(--gold)">'+ton.pot_total.toLocaleString('fr-FR')+' FCFA</strong> · Tour '+(ton.tour_actuel+1)+'/'+ton.nb_membres+'</div>'+
-        '<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px">'+
-        '<div style="height:100%;width:'+pct+'%;background:var(--gold);border-radius:3px"></div></div>'+
-        '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">'+payeurs+'/'+ton.nb_membres+' ont cotisé · Prochaine date : '+prochaine+'</div>'+
-        (ton.status==='actif'?'<button onclick="cotiserTontine(''+ton.tontine_id+'')" style="width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">💰 Cotiser maintenant</button>':'')+
-        '</div>';
-    }).join('');
+      out += "<div style='background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px'>";
+      out += "<div style='font-size:14px;font-weight:700;margin-bottom:4px'>"+ton.nom+"</div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:8px'>"+ton.nb_membres+" membres - "+ton.cotisation_fcfa.toLocaleString("fr-FR")+" FCFA/tour</div>";
+      out += "<div style='font-size:12px;color:var(--gold);font-weight:700;margin-bottom:8px'>Pot : "+ton.pot_total.toLocaleString("fr-FR")+" FCFA - Tour "+(ton.tour_actuel+1)+"/"+ton.nb_membres+"</div>";
+      out += "<div style='height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px'><div style='height:100%;width:"+pct+"%;background:var(--gold);border-radius:3px'></div></div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:12px'>"+payeurs+"/"+ton.nb_membres+" ont cotise</div>";
+      if(ton.status==="actif"){
+        out += "<button onclick='cotiserTontine("+i+")' style='width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)'>Cotiser maintenant</button>";
+      }
+      out += "</div>";
+    });
+    el.innerHTML=out;
   } catch(e){console.error(e);}
 }
 
-async function cotiserTontine(tontine_id) {
+async function cotiserTontine(i) {
+  var ton = window._tontines ? window._tontines[i] : null;
+  var tontine_id = ton ? ton.tontine_id : i;
   if(!user){toast('Connectez-vous','err');return;}
   var ref = prompt('Référence Wave pour votre cotisation:');
   if(ref===null)return;
@@ -2042,7 +2029,7 @@ async function cotiserTontine(tontine_id) {
     var data = await res.json();
     if(data.ok){
       if(data.pot_distribue){toast('🎉 Pot distribué à '+data.beneficiaire,'ok');}
-      else toast('Cotisation enregistrée — '+data.restants+' membre(s) restants','ok');
+      else toast('Cotisation enregistree - '+data.restants+' membres restants','ok');
       loadTontines();
     } else toast(data.error||'Erreur','err');
   } catch(e){toast('Erreur: '+e.message,'err');}
