@@ -1429,18 +1429,53 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="ai" onclick="admChangePwd()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le mot de passe admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
       <div class="ai" onclick="admAddEmail()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div><div class="ai-lbl">Ajouter un email admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
     </div>
-    <!-- DEPOTS EPARGNE EN ATTENTE -->
+    <!-- DEPOTS + RETRAITS + COMPTES EPARGNE -->
     <div style="padding:0 20px;margin-bottom:8px">
+
+      <!-- Dépôts en attente -->
       <div class="slbl" style="padding:0;margin-bottom:10px">Épargne — Dépôts à valider</div>
-      <div style="background:var(--s2);border:1px solid rgba(245,176,20,.25);border-radius:14px;padding:16px">
+      <div style="background:var(--s2);border:1px solid rgba(245,176,20,.25);border-radius:14px;padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:var(--gold)">Dépôts en attente de validation</div>
-          <button onclick="loadDepotsPending()" style="font-size:11px;color:var(--gold);background:none;border:1px solid rgba(245,176,20,.3);cursor:pointer;font-family:var(--font);padding:4px 10px;border-radius:6px">↻ Rafraîchir</button>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">Dépôts en attente</div>
+          <button onclick="loadDepotsPending()" style="font-size:11px;color:var(--gold);background:none;border:1px solid rgba(245,176,20,.3);cursor:pointer;font-family:var(--font);padding:4px 10px;border-radius:6px">↻</button>
         </div>
-        <div id="admin-depots-list">
-          <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Chargement...</div>
-        </div>
+        <div id="admin-depots-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Chargement...</div></div>
       </div>
+
+      <!-- Retraits en attente -->
+      <div class="slbl" style="padding:0;margin-bottom:10px">Épargne — Retraits à valider</div>
+      <div style="background:var(--s2);border:1px solid rgba(239,68,68,.2);border-radius:14px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:var(--red)">Retraits en attente</div>
+          <button onclick="loadRetraitsPending()" style="font-size:11px;color:var(--red);background:none;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-family:var(--font);padding:4px 10px;border-radius:6px">↻</button>
+        </div>
+        <div id="admin-retraits-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Chargement...</div></div>
+      </div>
+
+      <!-- Vue tous les comptes -->
+      <div class="slbl" style="padding:0;margin-bottom:10px">Tous les comptes épargne</div>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700">Comptes épargnants</div>
+          <button onclick="loadTousComptes()" style="font-size:11px;color:var(--text2);background:none;border:1px solid var(--border);cursor:pointer;font-family:var(--font);padding:4px 10px;border-radius:6px">↻</button>
+        </div>
+        <div id="admin-stats-epargne" style="display:flex;gap:12px;margin-bottom:12px">
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--gold)" id="adm-total-epargne">--</div>
+            <div style="font-size:10px;color:var(--text3)">FCFA gérés</div>
+          </div>
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--green)" id="adm-nb-comptes">--</div>
+            <div style="font-size:10px;color:var(--text3)">Comptes actifs</div>
+          </div>
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--blue)" id="adm-revenus-ep">--</div>
+            <div style="font-size:10px;color:var(--text3)">FCFA revenus</div>
+          </div>
+        </div>
+        <div id="admin-comptes-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Cliquez ↻ pour charger</div></div>
+      </div>
+
     </div>
     <div id="adm-content" style="padding-bottom:32px"></div>
   </div>
@@ -1597,7 +1632,7 @@ function goto(id){
   if(id==="scr-acct")renderAcct();
   if(id==="scr-benefs")renderBenefs();
   if(id==="scr-qr")renderQR();
-  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();}
+  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();loadRetraitsPending();}
   if(id==="scr-epargne"){loadEpargnes();}
   if(id==="scr-tontine"){loadTontines();}
   // update bnav
@@ -2661,7 +2696,7 @@ async function confirmerRetraitEpargne(){
   try{
     var body = {phone: phone, password: pwd || null};
     if(montantVal && !isNaN(montantVal)) body.montant_fcfa = parseInt(montantVal);
-    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-v2',{
+    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-demande',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
@@ -2674,7 +2709,7 @@ async function confirmerRetraitEpargne(){
     } else toast(data.error || 'Erreur','err');
   }catch(e){ toast('Erreur: '+e.message,'err'); }
   btn.disabled = false;
-  btn.innerHTML = 'Confirmer le retrait';
+  btn.innerHTML = 'Soumettre le retrait';
 }
 
 function fermerRetraitModal(){
@@ -2749,7 +2784,7 @@ async function confirmerRetrait(){
   try{
     var body = {phone: user ? user.phone : ''};
     if(montant && !isNaN(montant)) body.montant_fcfa = parseInt(montant);
-    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-v2',{
+    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-demande',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
@@ -2757,7 +2792,7 @@ async function confirmerRetrait(){
     if(data.ok){ toast(data.message||'Retrait enregistre !','ok'); fermerEpModal(); loadEpargnes(); }
     else toast(data.error||'Erreur','err');
   }catch(e){ toast('Erreur: '+e.message,'err'); }
-  if(btn){ btn.disabled = false; btn.innerHTML = 'Confirmer le retrait'; }
+  if(btn){ btn.disabled = false; btn.innerHTML = 'Soumettre le retrait'; }
 }
 // ── TONTINE ──────────────────────────────────────────────────────
 var _tonOrdre = 'aleatoire';
@@ -2801,6 +2836,11 @@ function calcPot(){
 
 async function creerTontine(){
   if(!user){toast('Connectez-vous','err');goto('scr-login');return;}
+  if(!user.kyc){
+    toast('Verifiez votre identite avant de creer une tontine','err');
+    goto('scr-kyc');
+    return;
+  }
   var nom = document.getElementById('ton-nom').value.trim();
   var cot = parseInt(document.getElementById('ton-cotisation').value);
   var freq = document.getElementById('ton-freq').value;
@@ -3201,6 +3241,93 @@ function accederAdmin(){
   goto("scr-admin");
   loadAdmStats();
   loadDepotsPending();
+}
+
+
+var _retraitsPending = [];
+
+async function loadRetraitsPending(){
+  var el = document.getElementById('admin-retraits-list');
+  if(!el) return;
+  try{
+    var res = await fetch(API+'/api/zama/epargne/admin/retraits-pending?token=pst-admin-2026');
+    var data = await res.json();
+    _retraitsPending = data.pending || [];
+    if(!_retraitsPending.length){
+      el.innerHTML = "<div style='font-size:12px;color:var(--text3);text-align:center;padding:10px'>Aucun retrait en attente</div>";
+      return;
+    }
+    var out = '';
+    _retraitsPending.forEach(function(r, i){
+      var date = new Date(r.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      out += "<div style='background:var(--s3);border-radius:10px;padding:12px;margin-bottom:8px'>";
+      out += "<div style='display:flex;justify-content:space-between;margin-bottom:4px'>";
+      out += "<div style='font-size:13px;font-weight:700'>"+(r.description||r.epargne_id)+"</div>";
+      out += "<div style='font-size:13px;font-weight:700;color:var(--red)'>"+r.montant_fcfa.toLocaleString('fr-FR')+" FCFA</div></div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:2px'>Vers: <strong>"+r.phone_retrait+"</strong></div>";
+      out += "<div style='font-size:11px;color:var(--green);margin-bottom:4px'>Net a virer: <strong>"+r.net_fcfa.toLocaleString('fr-FR')+" FCFA</strong> (frais: "+r.frais_fcfa.toLocaleString('fr-FR')+" FCFA)</div>";
+      out += "<div style='font-size:10px;color:var(--text3);margin-bottom:10px'>"+date+"</div>";
+      out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+      out += "<button onclick='validerRetrait("+i+")' style='padding:8px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Valider + Virer</button>";
+      out += "<button onclick='rejeterRetrait("+i+")' style='padding:8px;border-radius:8px;border:none;background:var(--red);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Rejeter</button>";
+      out += "</div></div>";
+    });
+    el.innerHTML = out;
+  }catch(e){
+    if(el) el.innerHTML = "<div style='font-size:12px;color:var(--red)'>Erreur: "+e.message+"</div>";
+  }
+}
+
+async function validerRetrait(i){
+  var r = _retraitsPending[i];
+  if(!r) return;
+  try{
+    await fetch(API+'/api/zama/epargne/admin/valider-retrait/'+r.retrait_id+'?token=pst-admin-2026');
+    toast('Retrait valide ! Virement de '+r.net_fcfa.toLocaleString('fr-FR')+' FCFA a faire vers '+r.phone_retrait,'ok');
+    loadRetraitsPending();
+  }catch(e){ toast('Erreur','err'); }
+}
+
+async function rejeterRetrait(i){
+  var r = _retraitsPending[i];
+  if(!r) return;
+  try{
+    await fetch(API+'/api/zama/epargne/admin/rejeter-retrait/'+r.retrait_id+'?token=pst-admin-2026');
+    toast('Retrait rejete','ok');
+    loadRetraitsPending();
+  }catch(e){ toast('Erreur','err'); }
+}
+
+async function loadTousComptes(){
+  try{
+    var res = await fetch(API+'/api/zama/epargne/admin/tous-comptes?token=pst-admin-2026');
+    var data = await res.json();
+    var el = document.getElementById('admin-comptes-list');
+    var tot = document.getElementById('adm-total-epargne');
+    var nb = document.getElementById('adm-nb-comptes');
+    var rev = document.getElementById('adm-revenus-ep');
+    if(tot) tot.textContent = (data.total_sous_gestion||0).toLocaleString('fr-FR');
+    if(nb) nb.textContent = data.nb_actifs||0;
+    if(rev) rev.textContent = (data.total_revenus||0).toLocaleString('fr-FR');
+    if(!el) return;
+    var comptes = data.comptes || [];
+    if(!comptes.length){ el.innerHTML = "<div style='font-size:12px;color:var(--text3);text-align:center;padding:10px'>Aucun compte</div>"; return; }
+    var out = '';
+    comptes.forEach(function(c){
+      var pct = c.progression || 0;
+      var couleur = c.status === 'actif' ? 'var(--green)' : 'var(--text3)';
+      out += "<div style='padding:10px 0;border-bottom:1px solid var(--border)'>";
+      out += "<div style='display:flex;justify-content:space-between;margin-bottom:4px'>";
+      out += "<div style='font-size:13px;font-weight:600'>"+c.description+"</div>";
+      out += "<div style='font-size:12px;font-weight:700;color:var(--gold)'>"+c.solde_fcfa.toLocaleString('fr-FR')+" FCFA</div></div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:4px'>"+(c.user_phone||'')+" - Obj: "+c.objectif_fcfa.toLocaleString('fr-FR')+" FCFA</div>";
+      out += "<div style='height:4px;background:var(--border);border-radius:2px;overflow:hidden'>";
+      out += "<div style='height:100%;width:"+Math.max(pct,0.5)+"%;background:"+couleur+";border-radius:2px'></div></div>";
+      out += "<div style='font-size:10px;color:"+couleur+";margin-top:2px'>"+pct+"% - "+c.status+"</div>";
+      out += "</div>";
+    });
+    el.innerHTML = out;
+  }catch(e){ console.error(e); }
 }
 
 // TOAST
