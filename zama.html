@@ -746,7 +746,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
       <div class="slbl" style="margin-top:4px">Informations</div>
       <div class="fg"><label>Nom du destinataire *</label><input class="finp" type="text" id="r-name" placeholder="Prénom et Nom"></div>
-      <div class="fg"><label>Numéro Mobile Money *</label><input class="finp" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="fg"><label>Numéro Mobile Money *</label><input class="finp" type="tel" id="r-phone" placeholder="+221 77 XXX XX XX (optionnel si email)" inputmode="tel"></div>
       <div class="fg"><label>Votre nom complet *</label><input class="finp" type="text" id="s-name" placeholder="Prénom et Nom"></div>
       <div class="fg"><label>Votre email *</label><input class="finp" type="email" id="s-email" placeholder="email@exemple.com" inputmode="email"></div>
       <div class="fg"><label>Message (optionnel)</label><input class="finp" type="text" id="s-msg" placeholder="Ex: Loyer mai 2026"></div>
@@ -1248,7 +1248,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="tab-row"><button class="tab on" id="t-login" onclick="swTab('login')">Se connecter</button><button class="tab" id="t-reg" onclick="swTab('reg')">Créer un compte</button></div>
     <div id="pn-login" style="padding:20px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">Connectez-vous avec votre numéro et mot de passe.</div>
-      <div class="ph-wrap"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="lg-phone" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="ph-wrap"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="lg-phone" placeholder="+221 77 XXX XX XX (optionnel si email)" inputmode="tel"></div>
       <div class="pwd-wrap"><input class="finp" type="password" id="lg-pwd" placeholder="Mot de passe" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('lg-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
       <button class="btn-p" style="width:100%;margin:0 0 14px" onclick="doLogin()">Se connecter</button>
       <div style="text-align:center;font-size:13px;color:var(--text3)">Mot de passe oublié ? <span style="color:var(--gold);cursor:pointer" onclick="resetPwd()">Réinitialiser</span></div>
@@ -1258,7 +1258,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div><label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px">Prénom *</label><input class="finp" type="text" id="rg-p" placeholder="Prénom"></div>
         <div><label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px">Nom *</label><input class="finp" type="text" id="rg-n" placeholder="Nom"></div>
       </div>
-      <div class="ph-wrap" style="margin-bottom:12px"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX" inputmode="tel"></div>
+      <div class="ph-wrap" style="margin-bottom:12px"><span class="ph-flag">🇸🇳</span><input class="ph-inp" type="tel" id="rg-t" placeholder="+221 77 XXX XX XX (optionnel si email)" inputmode="tel"></div>
       <div class="fg" style="padding:0;margin-bottom:12px"><label>Email *</label><input class="finp" type="email" id="rg-e" placeholder="email@exemple.com" inputmode="email"></div>
       <div class="pwd-wrap" style="margin-bottom:12px"><input class="finp" type="password" id="rg-pwd" placeholder="Mot de passe (min 6 car.)" style="width:100%;padding-right:44px"><button class="pwd-eye" onclick="togEye('rg-pwd',this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
       <div class="fg" style="padding:0;margin-bottom:14px"><label>Pays</label><select class="finp" id="rg-c"><option value="SN">Sénégal</option><option value="FR">France</option><option value="US">États-Unis</option><option value="CA">Canada</option><option value="GB">Royaume-Uni</option><option value="IT">Italie</option><option value="ES">Espagne</option><option value="BE">Belgique</option><option value="DE">Allemagne</option></select></div>
@@ -1514,7 +1514,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
     <div class="fg" style="padding:0;margin-bottom:12px">
       <label>Votre numéro Wave/OM *</label>
-      <input class="finp" type="tel" id="ep-retrait-phone" placeholder="+221 77 XXX XX XX" inputmode="tel">
+      <input class="finp" type="tel" id="ep-retrait-phone" placeholder="+221 77 XXX XX XX (optionnel si email)" inputmode="tel">
     </div>
     <div class="fg" id="ep-retrait-pwd-wrap" style="padding:0;margin-bottom:16px;display:none">
       <label>Mot de passe de l'épargne *</label>
@@ -1867,28 +1867,50 @@ async function register(){
   toast("Code OTP : 1234 (démo)","info");
 }
 function doLogin(){
-  var t=document.getElementById("lg-phone").value.trim();
-  var pwd=document.getElementById("lg-pwd").value;
-  if(!t){toast("Entrez votre numéro","err");return;}
+  var t = document.getElementById("lg-phone").value.trim();
+  var em = document.getElementById("lg-email") ? document.getElementById("lg-email").value.trim() : "";
+  var pwd = document.getElementById("lg-pwd").value;
+  if(!t && !em){toast("Entrez votre numero ou email","err");return;}
   if(!pwd){toast("Entrez votre mot de passe","err");return;}
-  var phone=normPh(t);
-  var accts=getAllA();
-  var found=accts.find(function(a){return normPh(a.phone)===phone;});
-  if(!found){toast("Numéro non trouvé. Créez un compte.","err");swTab("reg");return;}
-  if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
-  saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
+  var accts = getAllA();
+  var found = null;
+  if(em){
+    // Connexion par email (admins)
+    found = accts.find(function(a){return a.email && a.email.toLowerCase() === em.toLowerCase();});
+    if(!found){
+      // Créer un compte admin temporaire si email admin connu
+      var admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+      if(admEmails.indexOf(em.toLowerCase()) >= 0){
+        // Admin valide - créer session
+        found = {id:"ADMIN-"+Date.now(),prenom:"Admin",nom:"ZAMA",phone:"",email:em,password:pwd,pays:"SN",kyc:true,isAdmin:true,created:new Date().toISOString()};
+        var all = getAllA();
+        all.push(found);
+        localStorage.setItem("zama_accounts", JSON.stringify(all));
+      } else {
+        toast("Email non trouvé","err");
+        return;
+      }
+    }
+  } else {
+    // Connexion par téléphone
+    var phone = normPh(t);
+    found = accts.find(function(a){return normPh(a.phone)===phone;});
+    if(!found){toast("Numero non trouve. Creez un compte.","err");swTab("reg");return;}
+  }
+  if(found.password !== pwd){toast("Mot de passe incorrect","err");return;}
+  saveULS(found);
+  user = found;
+  renderAcct();
+  updateGreet();
+  renderHBenefs();
   initTheme();
-  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
-  if(user && _aE.indexOf(user.email) >= 0){
-    var _b = document.getElementById("btn-admin-direct");
-    if(_b) _b.style.display = "flex";
-  }
-  var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
-  if(user && _admEmails.indexOf(user.email) >= 0){
-    var b = document.getElementById("btn-admin-menu");
-    if(b) b.style.display = "flex";
-  }
-  toast("Bienvenue, "+(found.prenom||"Client")+" !","ok");goto("scr-acct");
+  // Afficher bouton admin si admin
+  var admins = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  var isAdm = user.email && admins.indexOf(user.email.toLowerCase()) >= 0;
+  var btnAdm = document.getElementById("btn-admin-direct");
+  if(btnAdm) btnAdm.style.display = isAdm ? "flex" : "none";
+  toast("Bienvenue, "+(found.prenom||"Admin")+" !","ok");
+  goto("scr-home");
 }
 function resetPwd(){
   var t=document.getElementById("lg-phone").value.trim();
