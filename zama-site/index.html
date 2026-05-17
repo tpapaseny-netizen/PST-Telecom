@@ -10,6 +10,7 @@
 <meta property="og:image" content="https://pst-telecom-production.up.railway.app/icons/zama-512.png">
 <meta property="og:url" content="https://zama-sn.com">
 <title>ZAMA — Votre fintech sénégalaise</title>
+<link rel="manifest" href="https://pst-telecom-production.up.railway.app/manifest.json">
 <link rel="icon" href="https://pst-telecom-production.up.railway.app/icons/zama-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,6 +77,8 @@ h1 .line2{display:block;font-size:clamp(32px,5.5vw,62px);color:rgba(255,255,255,
 .btn-primary:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(245,176,20,.4);}
 .btn-secondary{padding:17px 36px;border-radius:50px;background:transparent;color:var(--text);font-size:16px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:var(--font);transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:8px;}
 .btn-secondary:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.04);}
+.btn-install{padding:17px 36px;border-radius:50px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;cursor:pointer;border:1.5px solid rgba(255,255,255,.25);font-family:var(--font);transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-install:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.5);}
 
 /* Rate ticker */
 .rate-ticker{display:inline-flex;align-items:center;gap:12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:14px;padding:12px 20px;animation:fadeUp .8s .4s ease both;}
@@ -312,9 +315,17 @@ footer{padding:48px;border-top:1px solid var(--border);}
     <a class="btn-primary" href="https://pst-telecom-production.up.railway.app/zama" target="_blank">
       🚀 Commencer gratuitement
     </a>
+    <button class="btn-install" id="btn-install" onclick="installApp()" style="display:none">
+      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Installer l'app
+    </button>
     <a class="btn-secondary" href="#services">
       Découvrir les services ↓
     </a>
+  </div>
+  <!-- Bannière install iOS -->
+  <div id="ios-banner" style="display:none;margin-top:16px;background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.3);border-radius:14px;padding:12px 18px;font-size:13px;color:rgba(255,255,255,.8);text-align:center;animation:fadeUp .5s ease">
+    📱 Sur iPhone : appuyez sur <strong style="color:var(--gold)">↑ Partager</strong> puis <strong style="color:var(--gold)">"Sur l'écran d'accueil"</strong>
   </div>
 
   <div class="rate-ticker">
@@ -638,8 +649,15 @@ footer{padding:48px;border-top:1px solid var(--border);}
     <a class="btn-primary" href="https://pst-telecom-production.up.railway.app/zama" target="_blank" style="font-size:17px;padding:18px 44px">
       🚀 Ouvrir ZAMA maintenant
     </a>
+    <button class="btn-install" id="btn-install-2" onclick="installApp()" style="display:none;font-size:16px;padding:17px 36px">
+      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Installer l'app gratuitement
+    </button>
   </div>
-  <p class="cta-note">Application web · Fonctionne sur iOS et Android · Installable sur l'écran d'accueil</p>
+  <p class="cta-note">Fonctionne sur iOS et Android · Aucun téléchargement requis · Installable en 1 clic</p>
+  <div id="ios-banner-2" style="display:none;margin-top:16px;background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.3);border-radius:14px;padding:12px 18px;font-size:13px;color:rgba(255,255,255,.8);text-align:center">
+    📱 Sur iPhone : appuyez sur <strong style="color:var(--gold)">↑ Partager</strong> puis <strong style="color:var(--gold)">"Sur l'écran d'accueil"</strong>
+  </div>
 </section>
 
 <!-- ── FOOTER ── -->
@@ -697,6 +715,71 @@ function updateSim(val) {
 }
 // Mettre à jour le taux du simulateur quand on charge les taux
 var _origFetchRates = null;
+
+// ── PWA Install ──
+var _deferredPrompt = null;
+var _isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+var _isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// Écouter l'événement beforeinstallprompt (Android/Chrome)
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredPrompt = e;
+  // Afficher les boutons installer
+  var b1 = document.getElementById('btn-install');
+  var b2 = document.getElementById('btn-install-2');
+  if (b1) b1.style.display = 'inline-flex';
+  if (b2) b2.style.display = 'inline-flex';
+});
+
+// Si iOS et pas encore installé, afficher la bannière iOS
+if (_isIOS && !_isInStandaloneMode) {
+  window.addEventListener('load', function() {
+    var b1 = document.getElementById('btn-install');
+    var b2 = document.getElementById('btn-install-2');
+    var ios1 = document.getElementById('ios-banner');
+    var ios2 = document.getElementById('ios-banner-2');
+    if (b1) b1.style.display = 'inline-flex';
+    if (b2) b2.style.display = 'inline-flex';
+    // Au clic sur iOS, afficher les instructions
+  });
+}
+
+function installApp() {
+  if (_isIOS) {
+    // Afficher instructions iOS
+    var ios1 = document.getElementById('ios-banner');
+    var ios2 = document.getElementById('ios-banner-2');
+    if (ios1) ios1.style.display = ios1.style.display === 'none' ? 'block' : 'none';
+    if (ios2) ios2.style.display = ios2.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(function(result) {
+      if (result.outcome === 'accepted') {
+        var b1 = document.getElementById('btn-install');
+        var b2 = document.getElementById('btn-install-2');
+        if (b1) b1.style.display = 'none';
+        if (b2) b2.style.display = 'none';
+      }
+      _deferredPrompt = null;
+    });
+  } else {
+    // Fallback: ouvrir l'app
+    window.open('https://pst-telecom-production.up.railway.app/zama', '_blank');
+  }
+}
+
+// Détecter si déjà installé
+window.addEventListener('appinstalled', function() {
+  var b1 = document.getElementById('btn-install');
+  var b2 = document.getElementById('btn-install-2');
+  if (b1) b1.style.display = 'none';
+  if (b2) b2.style.display = 'none';
+  _deferredPrompt = null;
+});
+// ─────────────────────────────────────────────────────────────────
 
 // ── Curseur custom ──
 var cur = document.getElementById('cursor');
