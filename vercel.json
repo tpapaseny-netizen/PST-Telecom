@@ -1,25 +1,21 @@
 {
+  "rewrites": [
+    {
+      "source": "/zama-app",
+      "destination": "https://pst-telecom-production.up.railway.app/zama"
+    }
+  ],
   "redirects": [
     {
       "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "zama-sn.com"
-        }
-      ],
-      "destination": "https://pst-telecom-production.up.railway.app/zama",
+      "has": [{"type": "host", "value": "zama-sn.com"}],
+      "destination": "/zama-site",
       "permanent": false
     },
     {
       "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.zama-sn.com"
-        }
-      ],
-      "destination": "https://pst-telecom-production.up.railway.app/zama",
+      "has": [{"type": "host", "value": "www.zama-sn.com"}],
+      "destination": "/zama-site",
       "permanent": false
     }
   ]
