@@ -2046,7 +2046,7 @@ function verOTP(){
 }
 function logout(){
   if(!confirm("Se déconnecter ?"))return;
-  localStorage.removeItem("zama_u");localStorage.removeItem("zama_pin");
+  localStorage.removeItem("zama_u"); /* PIN conservé par compte */;
   user=null;renderAcct();updateGreet();renderHBenefs();
   initTheme();
   var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
@@ -2089,9 +2089,16 @@ function renderAcct(){
   }else{if(guest)guest.style.display="block";if(logged)logged.style.display="none";}
 }
 
+
+// ── PIN lié au compte utilisateur ─────────────────────────────────
+function pinKey() {
+  var u = loadU();
+  return u ? 'zama_pin_' + (u.phone || u.email || u.id || 'default') : 'zama_pin_default';
+}
+// ──────────────────────────────────────────────────────────────────
 // PIN
 function checkPinLoad(){
-  var pin=localStorage.getItem("zama_pin")||"";var u=loadU();if(!u)return;
+  var pin=localStorage.getItem(pinKey())||"";var u=loadU();if(!u)return;
   if(!pin){document.getElementById("ps-title").textContent="Créez votre code PIN";document.getElementById("ps-sub").textContent="Protégez l'accès à ZAMA";psE="";psF="";psStep=1;updPSD();document.getElementById("pin-setup").style.display="flex";}
   else{pinE="";updPD();document.getElementById("pin-scr").style.display="flex";}
 }
@@ -2099,7 +2106,7 @@ function pK(k){if(pinE.length>=4)return;pinE+=k;updPD();if(pinE.length===4)setTi
 function pDel(){pinE=pinE.slice(0,-1);updPD();}
 function updPD(){for(var i=0;i<4;i++){var d=document.getElementById("pd"+i);if(d)d.className="pd"+(i<pinE.length?" on":"");}}
 function chkPin(){
-  var c=localStorage.getItem("zama_pin")||"";
+  var c=localStorage.getItem(pinKey())||"";
   if(pinE===c){document.getElementById("pin-scr").style.display="none";pinE="";}
   else{pinE="";for(var i=0;i<4;i++){var d=document.getElementById("pd"+i);if(d)d.className="pd err";}
   var s=document.getElementById("pin-sub");if(s)s.textContent="Code incorrect. Réessayez.";
@@ -2108,13 +2115,13 @@ function chkPin(){
 function pinForgot(){
   var p=prompt("Entrez votre mot de passe ZAMA :");
   if(!p)return;if(!user||user.password!==p){toast("Mot de passe incorrect","err");return;}
-  localStorage.removeItem("zama_pin");document.getElementById("pin-scr").style.display="none";
+  localStorage.removeItem(pinKey());document.getElementById("pin-scr").style.display="none";
   toast("PIN réinitialisé","ok");
   setTimeout(function(){document.getElementById("ps-title").textContent="Nouveau PIN";document.getElementById("ps-sub").textContent="Choisissez 4 chiffres";psE="";psF="";psStep=1;updPSD();document.getElementById("pin-setup").style.display="flex";},400);
 }
 function psK(k){if(psE.length>=4)return;psE+=k;updPSD();if(psE.length===4)setTimeout(function(){
   if(psStep===1){psF=psE;psE="";psStep=2;document.getElementById("ps-title").textContent="Confirmez votre PIN";document.getElementById("ps-sub").textContent="Entrez à nouveau";updPSD();}
-  else{if(psE===psF){localStorage.setItem("zama_pin",psE);document.getElementById("pin-setup").style.display="none";psE="";psF="";psStep=1;toast("PIN créé !","ok");}
+  else{if(psE===psF){localStorage.setItem(pinKey(),psE);document.getElementById("pin-setup").style.display="none";psE="";psF="";psStep=1;toast("PIN créé !","ok");}
   else{psE="";for(var i=0;i<4;i++){var d=document.getElementById("psd"+i);if(d)d.className="pd err";}
   setTimeout(function(){psStep=1;psF="";document.getElementById("ps-title").textContent="Créez votre PIN";document.getElementById("ps-sub").textContent="Codes différents. Recommencez.";updPSD();},800);}
   }
