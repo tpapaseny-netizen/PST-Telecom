@@ -622,7 +622,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="hero-top">
         <div class="logo-row">
           <div style="position:relative">
-          <div class="logo-mark" style="cursor:pointer"><svg viewBox="0 0 44 44" style="pointer-events:none" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
+          <div class="logo-mark"><svg viewBox="0 0 44 44" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
   <rect width="44" height="44" rx="12" fill="#FF6B00"/>
   <text x="22" y="30" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="19" fill="white" letter-spacing="-1">ZA</text>
 </svg></div>
@@ -1216,6 +1216,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         
         <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="accederAdmin()" id="btn-admin-direct" style="display:none"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="ai-lbl" style="color:var(--gold);font-weight:700">Panneau Admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
         <div class="ai" onclick="goto('scr-about')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="ai" id="btn-admin-menu" onclick="ouvrirAdmin()" style="display:none"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="ai-lbl">Panneau Admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai-lbl">À propos de ZAMA</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
@@ -1552,6 +1553,11 @@ window.addEventListener("load",function(){
   updateGreet();
   renderHBenefs();
   initTheme();
+  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(user && _aE.indexOf(user.email) >= 0){
+    var _b = document.getElementById("btn-admin-direct");
+    if(_b) _b.style.display = "flex";
+  }
   var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   if(user && _admEmails.indexOf(user.email) >= 0){
     var b = document.getElementById("btn-admin-menu");
@@ -1561,7 +1567,7 @@ window.addEventListener("load",function(){
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
     lgC++;clearTimeout(lgT);
-    lgT=setTimeout(function(){lgC=0;},3000);
+    lgT=setTimeout(function(){lgC=0;},2000);
     if(lgC>=5){lgC=0;document.getElementById("adm-s1").style.display="block";document.getElementById("adm-s2").style.display="none";document.getElementById("adm-email").value="";document.getElementById("adm-overlay").classList.add("open");}
   });
 });
@@ -1872,6 +1878,11 @@ function doLogin(){
   if(found.password!==pwd){toast("Mot de passe incorrect","err");return;}
   saveULS(found);user=found;renderAcct();updateGreet();renderHBenefs();
   initTheme();
+  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(user && _aE.indexOf(user.email) >= 0){
+    var _b = document.getElementById("btn-admin-direct");
+    if(_b) _b.style.display = "flex";
+  }
   var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   if(user && _admEmails.indexOf(user.email) >= 0){
     var b = document.getElementById("btn-admin-menu");
@@ -1903,6 +1914,11 @@ function verOTP(){
     document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
     pendR=null;renderAcct();updateGreet();renderHBenefs();
   initTheme();
+  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(user && _aE.indexOf(user.email) >= 0){
+    var _b = document.getElementById("btn-admin-direct");
+    if(_b) _b.style.display = "flex";
+  }
   var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   if(user && _admEmails.indexOf(user.email) >= 0){
     var b = document.getElementById("btn-admin-menu");
@@ -1917,6 +1933,11 @@ function logout(){
   localStorage.removeItem("zama_u");localStorage.removeItem("zama_pin");
   user=null;renderAcct();updateGreet();renderHBenefs();
   initTheme();
+  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(user && _aE.indexOf(user.email) >= 0){
+    var _b = document.getElementById("btn-admin-direct");
+    if(_b) _b.style.display = "flex";
+  }
   var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   if(user && _admEmails.indexOf(user.email) >= 0){
     var b = document.getElementById("btn-admin-menu");
@@ -2107,6 +2128,11 @@ function useB(name,phone,mm){goto("scr-send");setTimeout(function(){fillB(name,p
 function quickSend(){goto("scr-send");}
 function addBenef(){var name=prompt("Nom du bénéficiaire :");if(!name)return;var phone=prompt("Numéro Mobile Money :");if(!phone)return;var mm=confirm("Wave (OK) ou Orange Money (Annuler) ?")?"wave":"om";saveBenef(name,phone,mm);renderBenefs();renderHBenefs();
   initTheme();
+  var _aE = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(user && _aE.indexOf(user.email) >= 0){
+    var _b = document.getElementById("btn-admin-direct");
+    if(_b) _b.style.display = "flex";
+  }
   var _admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   if(user && _admEmails.indexOf(user.email) >= 0){
     var b = document.getElementById("btn-admin-menu");
@@ -3121,6 +3147,18 @@ function ouvrirAdmin(){
   document.getElementById("adm-s2").style.display = "none";
   document.getElementById("adm-email").value = user ? (user.email || "") : "";
   document.getElementById("adm-overlay").classList.add("open");
+}
+
+
+function accederAdmin(){
+  var admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
+  if(!user || admEmails.indexOf(user.email) < 0){
+    toast("Acces reserve aux administrateurs","err");
+    return;
+  }
+  goto("scr-admin");
+  loadAdmStats();
+  loadDepotsPending();
 }
 
 // TOAST
