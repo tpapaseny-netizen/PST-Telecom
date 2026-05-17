@@ -655,12 +655,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <!-- ÉPARGNE & TONTINE -->
     <div class="slbl">Services financiers</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;margin-bottom:4px">
-      <div onclick="goto('scr-epargne')" style="background:linear-gradient(135deg,#0F2A1F,#1A3D2B);border:1px solid rgba(34,197,94,.2);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s">
+      <div onclick="goto('scr-epargne-vitrine')" style="background:linear-gradient(135deg,#0F2A1F,#1A3D2B);border:1px solid rgba(34,197,94,.35);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden">
+        <div id="ep-badge" style="position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px">NOUVEAU</div>
         <div style="width:40px;height:40px;border-radius:12px;background:var(--green-l);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
           <svg viewBox="0 0 24 24" width="20" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg>
         </div>
         <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Épargne</div>
-        <div style="font-size:11px;color:rgba(34,197,94,.7)">Économisez intelligemment</div>
+        <div id="ep-carte-tag" style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:2px">Jusqu'a 5%/an</div>
+        <div id="ep-carte-sous" style="font-size:10px;color:rgba(34,197,94,.6)">0% frais a l'echeance</div>
       </div>
       <div onclick="goto('scr-tontine')" style="background:linear-gradient(135deg,#1A1A0F,#2A2A1A);border:1px solid rgba(245,176,20,.2);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s">
         <div style="width:40px;height:40px;border-radius:12px;background:var(--gold-l);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
@@ -1520,6 +1522,37 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         </button>
         <div id="interets-result" style="font-size:11px;color:var(--green);margin-top:8px;text-align:center"></div>
       </div>
+      
+      <!-- CONFIG TEXTES -->
+      <div class="slbl" style="padding:0;margin-bottom:10px;margin-top:8px">✏️ Textes modifiables</div>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px">Carte Épargne (Accueil)</div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Tag (ex: Jusqu'a 5%/an)</div>
+          <input id="cfg-epargne_carte_tag" class="finp" type="text" placeholder="Jusqu'a 5%/an" style="margin:0">
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Sous-titre</div>
+          <input id="cfg-epargne_carte_sous" class="finp" type="text" placeholder="0% frais a l'echeance" style="margin:0">
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Badge (ex: NOUVEAU, PROMO)</div>
+          <input id="cfg-epargne_badge" class="finp" type="text" placeholder="NOUVEAU" style="margin:0">
+        </div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px">Page Vitrine Épargne</div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Titre principal</div>
+          <input id="cfg-epargne_vitrine_titre" class="finp" type="text" placeholder="Faites fructifier votre argent" style="margin:0">
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Description</div>
+          <textarea id="cfg-epargne_vitrine_sous" class="finp" rows="3" placeholder="Des plans d'epargne adaptes..." style="margin:0;resize:none;height:auto"></textarea>
+        </div>
+        <button id="cfg-save-btn" onclick="saveZamaConfig()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">
+          Sauvegarder les textes
+        </button>
+      </div>
+
       <div class="slbl" style="padding:0;margin-bottom:10px">Épargne — Dépôts à valider</div>
       <div style="background:var(--s2);border:1px solid rgba(245,176,20,.25);border-radius:14px;padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1762,7 +1795,7 @@ function goto(id){
   if(id==="scr-acct")renderAcct();
   if(id==="scr-benefs")renderBenefs();
   if(id==="scr-qr")renderQR();
-  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();loadRetraitsPending();loadCotisationsPending();loadDistributionsPending();}
+  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();loadRetraitsPending();loadCotisationsPending();loadDistributionsPending();loadConfigAdmin();}
   if(id==="scr-epargne"){loadEpargnes();}
   if(id==="scr-tontine"){loadTontines();}
   // update bnav
@@ -3749,6 +3782,72 @@ async function appliquerInteretsMensuels() {
   } catch(e) { toast('Erreur: ' + e.message, 'err'); }
   btn.disabled = false;
   btn.innerHTML = '↗ Appliquer les intérêts maintenant';
+}
+
+
+// ── Config ZAMA dynamique ────────────────────────────────────────
+async function loadZamaConfig() {
+  try {
+    var res = await fetch(API + '/api/zama/config');
+    var cfg = await res.json();
+    // Carte accueil
+    var ct = document.getElementById('ep-carte-tag');
+    var cs = document.getElementById('ep-carte-sous');
+    var cb = document.getElementById('ep-badge');
+    if (ct && cfg.epargne_carte_tag) ct.textContent = cfg.epargne_carte_tag;
+    if (cs && cfg.epargne_carte_sous) cs.textContent = cfg.epargne_carte_sous;
+    if (cb && cfg.epargne_badge) cb.textContent = cfg.epargne_badge;
+    // Vitrine
+    var vt = document.getElementById('vit-titre');
+    var vs = document.getElementById('vit-sous');
+    if (vt && cfg.epargne_vitrine_titre) vt.textContent = cfg.epargne_vitrine_titre;
+    if (vs && cfg.epargne_vitrine_sous) vs.textContent = cfg.epargne_vitrine_sous;
+    window._zamaCfg = cfg;
+  } catch(e) { console.log('Config load err:', e.message); }
+}
+
+// Sauvegarde config depuis admin
+async function saveZamaConfig() {
+  var fields = ['epargne_carte_tag','epargne_carte_sous','epargne_badge',
+                'epargne_vitrine_titre','epargne_vitrine_sous','tontine_carte_sous'];
+  var data = {};
+  fields.forEach(function(f) {
+    var el = document.getElementById('cfg-' + f);
+    if (el) data[f] = el.value;
+  });
+  var btn = document.getElementById('cfg-save-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin spin-w"></div> Sauvegarde...'; }
+  try {
+    var res = await fetch(API + '/api/zama/config?token=pst-admin-2026', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+    var d = await res.json();
+    if (d.ok) {
+      toast('Configuration sauvegardée !', 'ok');
+      loadZamaConfig(); // Recharger partout
+    } else {
+      toast(d.error || 'Erreur', 'err');
+    }
+  } catch(e) { toast('Erreur: ' + e.message, 'err'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Sauvegarder les textes'; }
+}
+// ─────────────────────────────────────────────────────────────────
+
+
+function loadConfigAdmin() {
+  var cfg = window._zamaCfg || {};
+  var fields = {
+    'cfg-epargne_carte_tag': cfg.epargne_carte_tag || "Jusqu'a 5%/an",
+    'cfg-epargne_carte_sous': cfg.epargne_carte_sous || "0% frais a l'echeance",
+    'cfg-epargne_badge': cfg.epargne_badge || 'NOUVEAU',
+    'cfg-epargne_vitrine_titre': cfg.epargne_vitrine_titre || 'Faites fructifier votre argent',
+    'cfg-epargne_vitrine_sous': cfg.epargne_vitrine_sous || "Des plans d'epargne adaptes a vos objectifs."
+  };
+  Object.keys(fields).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = fields[id];
+  });
 }
 
 </script>

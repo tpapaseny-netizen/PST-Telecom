@@ -2655,6 +2655,47 @@ app.get('/api/zama/epargne/plans', (req, res) => {
   res.json({ plans: ZAMA_PLANS });
 });
 
+
+// ══════════════════════════════════════════════════════════════════
+// ZAMA CONFIG — Textes modifiables depuis l'admin
+// ══════════════════════════════════════════════════════════════════
+
+// Config par défaut
+const ZAMA_CONFIG_DEFAULT = {
+  epargne_carte_tag: "Jusqu'a 5%/an",
+  epargne_carte_sous: "0% frais a l'echeance",
+  epargne_vitrine_titre: "Faites fructifier votre argent",
+  epargne_vitrine_sous: "Des plans d'epargne adaptes a vos objectifs. Vos fonds restent disponibles, vos interets tombent chaque mois.",
+  epargne_badge: "NOUVEAU",
+  tontine_carte_sous: "Cotisez en groupe",
+};
+
+// GET config publique
+app.get('/api/zama/config', async (req, res) => {
+  try {
+    if (!db) return res.json(ZAMA_CONFIG_DEFAULT);
+    const cfg = await db.collection('zama_config').findOne({ key: 'main' });
+    res.json(cfg ? { ...ZAMA_CONFIG_DEFAULT, ...cfg.data } : ZAMA_CONFIG_DEFAULT);
+  } catch(e) { res.json(ZAMA_CONFIG_DEFAULT); }
+});
+
+// POST config (admin seulement)
+app.post('/api/zama/config', async (req, res) => {
+  try {
+    const token = req.query.token || req.body.token;
+    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
+    const { data } = req.body;
+    if (!data) return res.status(400).json({ error: 'data requis' });
+    await db.collection('zama_config').updateOne(
+      { key: 'main' },
+      { $set: { key: 'main', data, updated_at: new Date() } },
+      { upsert: true }
+    );
+    res.json({ ok: true, message: 'Configuration sauvegardee' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
