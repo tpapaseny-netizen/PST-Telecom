@@ -568,6 +568,193 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </head>
 <body>
 <div id="app">
+<!-- ══ LANDING PAGE ZAMA ══ -->
+<div id="landing" style="display:none;position:fixed;inset:0;z-index:99999;overflow-y:auto;background:#04080F;font-family:'Sora',sans-serif">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+#landing *{box-sizing:border-box;margin:0;padding:0;}
+#landing{-webkit-overflow-scrolling:touch;}
+.lnd-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:16px 24px;background:rgba(4,8,15,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(245,176,20,.1);}
+.lnd-logo{display:flex;align-items:center;gap:10px;}
+.lnd-logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#F5B014,#FCD34D);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#000;letter-spacing:-0.5px;}
+.lnd-logo-txt{font-size:18px;font-weight:800;color:#fff;letter-spacing:1px;}
+.lnd-cta-nav{padding:9px 20px;border-radius:50px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:inherit;}
+.lnd-hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:100px 24px 60px;text-align:center;position:relative;overflow:hidden;}
+.lnd-hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(245,176,20,.12) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(34,197,94,.08) 0%,transparent 50%),radial-gradient(ellipse 30% 30% at 10% 70%,rgba(139,92,246,.08) 0%,transparent 50%);pointer-events:none;}
+.lnd-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(245,176,20,.12);border:1px solid rgba(245,176,20,.3);border-radius:50px;padding:6px 16px;font-size:12px;color:#F5B014;font-weight:600;margin-bottom:28px;letter-spacing:.5px;}
+.lnd-pill-dot{width:6px;height:6px;border-radius:50%;background:#F5B014;animation:lnd-pulse 2s infinite;}
+@keyframes lnd-pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+.lnd-h1{font-size:clamp(36px,8vw,64px);font-weight:900;color:#fff;line-height:1.05;margin-bottom:20px;letter-spacing:-1.5px;}
+.lnd-h1 span{background:linear-gradient(135deg,#F5B014,#FCD34D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.lnd-sub{font-size:clamp(15px,3vw,18px);color:rgba(255,255,255,.5);line-height:1.7;max-width:520px;margin:0 auto 36px;}
+.lnd-btns{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:48px;}
+.lnd-btn-main{padding:16px 32px;border-radius:50px;background:linear-gradient(135deg,#F5B014,#FCD34D);color:#000;font-size:16px;font-weight:800;cursor:pointer;border:none;font-family:inherit;transition:transform .15s,box-shadow .15s;box-shadow:0 8px 32px rgba(245,176,20,.3);}
+.lnd-btn-main:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(245,176,20,.4);}
+.lnd-btn-ghost{padding:16px 32px;border-radius:50px;background:transparent;color:#fff;font-size:16px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.2);font-family:inherit;transition:all .15s;}
+.lnd-btn-ghost:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);}
+.lnd-rate-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:10px 18px;font-size:13px;color:rgba(255,255,255,.7);}
+.lnd-rate-pill strong{color:#22C55E;font-size:15px;}
+.lnd-phone-mock{width:220px;height:380px;background:linear-gradient(160deg,#0D1830,#0A1F14);border:2px solid rgba(245,176,20,.2);border-radius:36px;margin:40px auto;position:relative;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.6),0 0 0 1px rgba(245,176,20,.1);}
+.lnd-phone-inner{padding:20px 14px;}
+.lnd-phone-bar{width:60px;height:4px;background:rgba(245,176,20,.4);border-radius:2px;margin:0 auto 16px;}
+.lnd-features{padding:80px 24px;max-width:900px;margin:0 auto;}
+.lnd-feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:40px;}
+.lnd-feat-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:24px;transition:all .2s;}
+.lnd-feat-card:hover{background:rgba(245,176,20,.05);border-color:rgba(245,176,20,.2);transform:translateY(-3px);}
+.lnd-feat-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:20px;}
+.lnd-feat-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;}
+.lnd-feat-desc{font-size:13px;color:rgba(255,255,255,.45);line-height:1.7;}
+.lnd-services{padding:60px 24px;max-width:900px;margin:0 auto;}
+.lnd-serv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:32px;}
+.lnd-serv-card{border-radius:18px;padding:20px;cursor:pointer;transition:all .2s;}
+.lnd-serv-card:hover{transform:scale(1.02);}
+.lnd-section-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(245,176,20,.7);margin-bottom:12px;}
+.lnd-section-title{font-size:clamp(24px,5vw,36px);font-weight:800;color:#fff;line-height:1.2;}
+.lnd-taux{padding:60px 24px;max-width:900px;margin:0 auto;}
+.lnd-taux-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:24px;}
+.lnd-taux-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;text-align:center;}
+.lnd-taux-flag{font-size:22px;margin-bottom:6px;}
+.lnd-taux-code{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px;}
+.lnd-taux-val{font-size:20px;font-weight:800;color:#F5B014;}
+.lnd-cta-section{padding:80px 24px;text-align:center;position:relative;overflow:hidden;}
+.lnd-cta-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 50% 50%,rgba(245,176,20,.08) 0%,transparent 70%);pointer-events:none;}
+.lnd-footer{padding:32px 24px;border-top:1px solid rgba(255,255,255,.06);text-align:center;color:rgba(255,255,255,.3);font-size:12px;line-height:1.8;}
+</style>
+
+<!-- NAV -->
+<nav class="lnd-nav">
+  <div class="lnd-logo">
+    <div class="lnd-logo-icon">ZA</div>
+    <span class="lnd-logo-txt">ZAMA</span>
+  </div>
+  <button class="lnd-cta-nav" onclick="entrerDansApp()">Ouvrir l'app →</button>
+</nav>
+
+<!-- HERO -->
+<section class="lnd-hero">
+  <div class="lnd-hero-bg"></div>
+  <div class="lnd-pill"><span class="lnd-pill-dot"></span>Disponible au Sénégal</div>
+  <h1 class="lnd-h1">Envoyez de l'argent<br>au Sénégal <span>sans frais cachés</span></h1>
+  <p class="lnd-sub">Transfert international, épargne rémunérée, tontine digitale et crédit en 24h. Tout depuis votre téléphone.</p>
+  <div class="lnd-btns">
+    <button class="lnd-btn-main" onclick="entrerDansApp()">🚀 Commencer maintenant</button>
+    <button class="lnd-btn-ghost" onclick="document.getElementById('lnd-features').scrollIntoView({behavior:'smooth'})">Découvrir →</button>
+  </div>
+  <div class="lnd-rate-pill">
+    <span>Taux en direct :</span>
+    <strong id="lnd-rate">1 USD = ... FCFA</strong>
+    <span style="width:8px;height:8px;border-radius:50%;background:#22C55E;display:inline-block"></span>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="lnd-features" id="lnd-features">
+  <div class="lnd-section-tag">Pourquoi ZAMA ?</div>
+  <h2 class="lnd-section-title">Une fintech conçue<br>pour l'Afrique</h2>
+  <div class="lnd-feat-grid">
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(245,176,20,.12)">💸</div>
+      <div class="lnd-feat-title">Transfert international</div>
+      <div class="lnd-feat-desc">Envoyez depuis l'Europe, les USA ou le Canada. Le destinataire reçoit en FCFA sur Wave ou Orange Money en quelques heures.</div>
+    </div>
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(34,197,94,.12)">📈</div>
+      <div class="lnd-feat-title">Épargne jusqu'à 5%/an</div>
+      <div class="lnd-feat-desc">4 plans d'épargne avec intérêts mensuels. 0% de frais à l'échéance. Vos intérêts tombent chaque mois par SMS.</div>
+    </div>
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(139,92,246,.12)">💳</div>
+      <div class="lnd-feat-title">Crédit en 24h</div>
+      <div class="lnd-feat-desc">Obtenez jusqu'à 2× votre épargne en prêt. Réponse en 24h, fonds virés sur Wave ou Orange Money.</div>
+    </div>
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(245,176,20,.12)">🤝</div>
+      <div class="lnd-feat-title">Tontine digitale</div>
+      <div class="lnd-feat-desc">Organisez votre tontine en ligne. Cotisations vérifiées, distribution automatique, historique transparent pour tous les membres.</div>
+    </div>
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(34,197,94,.12)">🔐</div>
+      <div class="lnd-feat-title">Sécurité bancaire</div>
+      <div class="lnd-feat-desc">PIN 4 chiffres, vérification KYC, transactions chiffrées. Votre argent est protégé à chaque étape.</div>
+    </div>
+    <div class="lnd-feat-card">
+      <div class="lnd-feat-ico" style="background:rgba(0,170,228,.12)">📱</div>
+      <div class="lnd-feat-title">25 cryptos acceptées</div>
+      <div class="lnd-feat-desc">USDT, Bitcoin, Ethereum, BNB et 21 autres cryptomonnaies acceptées en paiement via izichangePay.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section class="lnd-services">
+  <div class="lnd-section-tag">Nos services</div>
+  <h2 class="lnd-section-title">Tout ce dont vous<br>avez besoin</h2>
+  <div class="lnd-serv-grid">
+    <div class="lnd-serv-card" style="background:linear-gradient(135deg,#0F2A1F,#1A3D2B);border:1px solid rgba(34,197,94,.2)" onclick="entrerDansApp()">
+      <div style="font-size:28px;margin-bottom:10px">💰</div>
+      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px">Épargne</div>
+      <div style="font-size:12px;color:rgba(34,197,94,.8);font-weight:600;margin-bottom:4px">Jusqu'à 5%/an</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4)">0% frais à l'échéance</div>
+    </div>
+    <div class="lnd-serv-card" style="background:linear-gradient(135deg,#1A1A0F,#2A2A1A);border:1px solid rgba(245,176,20,.2)" onclick="entrerDansApp()">
+      <div style="font-size:28px;margin-bottom:10px">🤝</div>
+      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px">Tontine</div>
+      <div style="font-size:12px;color:rgba(245,176,20,.8);font-weight:600;margin-bottom:4px">Cotisez en groupe</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4)">Distribution automatique</div>
+    </div>
+    <div class="lnd-serv-card" style="background:linear-gradient(135deg,#1A0A2A,#2A1A3D);border:1px solid rgba(139,92,246,.2)" onclick="entrerDansApp()">
+      <div style="font-size:28px;margin-bottom:10px">💳</div>
+      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px">Prêt</div>
+      <div style="font-size:12px;color:rgba(139,92,246,.8);font-weight:600;margin-bottom:4px">Jusqu'à 2× l'épargne</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4)">Réponse sous 24h</div>
+    </div>
+    <div class="lnd-serv-card" style="background:linear-gradient(135deg,#0A1830,#0A1020);border:1px solid rgba(29,155,240,.2)" onclick="entrerDansApp()">
+      <div style="font-size:28px;margin-bottom:10px">🌍</div>
+      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px">Transfert</div>
+      <div style="font-size:12px;color:rgba(29,155,240,.8);font-weight:600;margin-bottom:4px">International</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4)">Wave · Orange Money · Crypto</div>
+    </div>
+  </div>
+</section>
+
+<!-- TAUX EN DIRECT -->
+<section class="lnd-taux">
+  <div class="lnd-section-tag">Taux en direct</div>
+  <h2 class="lnd-section-title">1 devise = combien de FCFA ?</h2>
+  <div class="lnd-taux-grid">
+    <div class="lnd-taux-card"><div class="lnd-taux-flag">🇺🇸</div><div class="lnd-taux-code">USD</div><div class="lnd-taux-val" id="lnd-r1">--</div></div>
+    <div class="lnd-taux-card"><div class="lnd-taux-flag">🇪🇺</div><div class="lnd-taux-code">EUR</div><div class="lnd-taux-val" id="lnd-r2">--</div></div>
+    <div class="lnd-taux-card"><div class="lnd-taux-flag">🇬🇧</div><div class="lnd-taux-code">GBP</div><div class="lnd-taux-val" id="lnd-r3">--</div></div>
+    <div class="lnd-taux-card"><div class="lnd-taux-flag">🇨🇦</div><div class="lnd-taux-code">CAD</div><div class="lnd-taux-val" id="lnd-r4">--</div></div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="lnd-cta-section">
+  <div class="lnd-cta-bg"></div>
+  <div class="lnd-section-tag">Gratuit · Sans engagement</div>
+  <h2 class="lnd-section-title" style="margin-bottom:16px">Prêt à commencer ?</h2>
+  <p style="color:rgba(255,255,255,.45);font-size:15px;margin-bottom:32px;font-family:'Sora',sans-serif">Créez votre compte en 2 minutes.<br>Aucun frais d'inscription.</p>
+  <button class="lnd-btn-main" style="font-size:17px;padding:18px 40px" onclick="entrerDansApp()">
+    🚀 Ouvrir ZAMA maintenant
+  </button>
+  <div style="margin-top:20px;font-size:12px;color:rgba(255,255,255,.25)">
+    Application web · Fonctionne sur iOS et Android · Installable sur l'écran d'accueil
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="lnd-footer">
+  <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px">ZAMA by PST Telecom</div>
+  <div>Bureau de change digital · Épargne · Tontine · Crédit</div>
+  <div style="margin-top:6px">Sénégal · <a href="mailto:support@zama-sn.com" style="color:rgba(245,176,20,.6);text-decoration:none">support@zama-sn.com</a></div>
+</footer>
+
+</div>
+<!-- ══ FIN LANDING ══ -->
+
+
 
 <!-- PIN LOCK -->
 <div id="pin-scr" class="pin-scr" style="display:none">
@@ -1980,7 +2167,8 @@ window.addEventListener("load",function(){
     var b = document.getElementById("btn-admin-menu");
     if(b) b.style.display = "flex";
   }
-  checkPinLoad();
+  // Landing page au 1er visit
+  initLanding();
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
     lgC++;clearTimeout(lgT);
@@ -4249,6 +4437,64 @@ async function loadPretsAdmin() {
     });
     list.innerHTML = out;
   } catch(e) { var l = document.getElementById('admin-prets-list'); if(l) l.innerHTML = '<div style="font-size:12px;color:var(--red)">Erreur</div>'; }
+}
+// ─────────────────────────────────────────────────────────────────
+
+
+// ── LANDING PAGE ────────────────────────────────────────────────
+function afficherLanding() {
+  var l = document.getElementById('landing');
+  var app = document.getElementById('app');
+  if (l) l.style.display = 'block';
+  // Charger les taux dans la landing
+  fetchRatesLanding();
+}
+
+function entrerDansApp() {
+  var l = document.getElementById('landing');
+  if (l) { l.style.display = 'none'; }
+  localStorage.setItem('zama_skip_landing', '1');
+  checkPinLoad();
+}
+
+async function fetchRatesLanding() {
+  try {
+    var APIs = [
+      'https://api.exchangerate-api.com/v4/latest/USD',
+      'https://open.er-api.com/v6/latest/USD'
+    ];
+    var data = null;
+    for (var url of APIs) {
+      try { var r = await fetch(url); data = await r.json(); if (data && data.rates) break; } catch(e) {}
+    }
+    if (!data || !data.rates) return;
+    var xof = data.rates.XOF || 606;
+    var eur = data.rates.EUR || 1;
+    var gbp = data.rates.GBP || 1;
+    var cad = data.rates.CAD || 1;
+    var set = function(id, val) { var e = document.getElementById(id); if (e) e.textContent = Math.round(val); };
+    set('lnd-rate', '1 USD = ' + Math.round(xof) + ' FCFA');
+    set('lnd-r1', Math.round(xof));
+    set('lnd-r2', Math.round(xof / eur));
+    set('lnd-r3', Math.round(xof / gbp));
+    set('lnd-r4', Math.round(xof / cad));
+    document.getElementById('lnd-rate').textContent = '1 USD = ' + Math.round(xof) + ' FCFA';
+  } catch(e) {}
+}
+
+// Montrer la landing si premier visit OU si l'utilisateur n'est pas connecté
+function initLanding() {
+  var user = loadU();
+  var skipLanding = localStorage.getItem('zama_skip_landing');
+  if (!user && !skipLanding) {
+    afficherLanding();
+  } else if (skipLanding) {
+    // Déjà visité, aller direct dans l'app
+    checkPinLoad();
+  } else {
+    // Connecté, aller direct dans l'app
+    checkPinLoad();
+  }
 }
 // ─────────────────────────────────────────────────────────────────
 
