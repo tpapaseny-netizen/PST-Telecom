@@ -2015,7 +2015,7 @@ async function submitKYC(){
   if(user){user.kyc=true;user.kyc_data={doc_type:document.getElementById("kd-type").value,doc_num:num,dob:dob,nationality:nat};saveULS(user);var accts=getAllA();var idx=accts.findIndex(function(a){return a.id===user.id;});if(idx!==-1)accts[idx]=user;saveAllA(accts);}
   try{await fetch(API+"/api/zama/kyc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:user?user.id:"",doc_type:document.getElementById("kd-type").value,doc_num:num,dob:dob,nationality:nat,photo_recto:kP.recto,photo_verso:kP.verso,photo_selfie:kP.selfie})});}catch(e){}
   btn.disabled=false;btn.innerHTML="Soumettre le KYC";kP={recto:null,verso:null,selfie:null};
-  toast("KYC soumis ! Vérification sous 24h max","ok");gb();renderAcct();
+  toast("KYC soumis ! Vérification sous 1h max","ok");gb();renderAcct();
 }
 
 // QR
@@ -2133,7 +2133,7 @@ async function sendContact(){
   if(!n||!e||!m){toast("Remplissez tous les champs","err");return;}
   try{await fetch(API+"/api/zama/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,email:e,message:m})});}catch(e){}
   ["ct-name","ct-msg"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
-  toast("Message envoyé ! Réponse sous 24h max","ok");gb();
+  toast("Message envoyé ! Réponse sous 1h max","ok");gb();
 }
 
 // ADMIN
@@ -2573,7 +2573,7 @@ async function confirmerDepotEpargne(){
     });
     var data = await res.json();
     if(data.ok){
-      toast('Depot soumis ! Validation admin sous 24h max','ok');
+      toast('Depot soumis ! Validation admin sous 1h max','ok');
       fermerEpModal();
       loadEpargnes();
     } else toast(data.error || 'Erreur','err');
