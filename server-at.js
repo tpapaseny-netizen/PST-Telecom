@@ -2457,6 +2457,43 @@ app.get('/api/zama/tontine/admin/tous-comptes', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ── ZAMA Username — vérifier unicité + mettre à jour ────────────────
+app.post('/api/zama/username/check', async (req, res) => {
+  try {
+    const { username, user_id } = req.body;
+    if (!username || username.length < 3) return res.status(400).json({ error: 'Username trop court' });
+    const clean = username.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20);
+    if (!db) return res.json({ available: true, username: clean });
+    const existing = await db.collection('zama_users').findOne({ username: clean });
+    if (existing && existing.id !== user_id) {
+      return res.json({ available: false, username: clean });
+    }
+    res.json({ available: true, username: clean });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/zama/username/update', async (req, res) => {
+  try {
+    const { phone, username } = req.body;
+    if (!phone || !username) return res.status(400).json({ error: 'Données manquantes' });
+    const clean = username.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20);
+    if (clean.length < 3) return res.status(400).json({ error: 'Username trop court' });
+    if (!db) return res.json({ ok: true, username: clean });
+    // Vérifier unicité
+    const existing = await db.collection('zama_users').findOne({ username: clean });
+    if (existing && existing.phone !== phone) {
+      return res.status(409).json({ error: '@' + clean + ' est déjà pris' });
+    }
+    await db.collection('zama_users').updateOne(
+      { phone },
+      { $set: { username: clean, updated_at: new Date() } },
+      { upsert: true }
+    );
+    res.json({ ok: true, username: clean });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {

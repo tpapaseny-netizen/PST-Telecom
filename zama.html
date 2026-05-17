@@ -1218,7 +1218,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="slbl">Mon compte</div>
         <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         
-        <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div class="ai" onclick="editUsername()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl">Mon nom d'utilisateur<div id="display-username" style="font-size:11px;color:var(--gold);margin-top:2px">@---</div></div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+      <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="ai" onclick="accederAdmin()" id="btn-admin-direct" style="display:none"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="ai-lbl" style="color:var(--gold);font-weight:700">Panneau Admin</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         <div class="slbl">Informations</div>
         <div class="ai" onclick="goto('scr-about')"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="ai-lbl">A propos de ZAMA</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
@@ -1953,7 +1954,15 @@ async function register(){
   var phone=normPh(t);
   var accts=getAllA();
   if(accts.find(function(a){return normPh(a.phone)===phone;})){toast("Ce numéro a déjà un compte","err");return;}
-  pendR={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,password:pwd,pays:document.getElementById("rg-c").value,kyc:false,created:new Date().toISOString()};
+  (function(){
+  var _p=p?p.toLowerCase().replace(/[^a-z0-9]/g,""):"user";
+  var _n=n?n.toLowerCase().replace(/[^a-z0-9]/g,""):"";
+  var _rnd=Math.floor(1000+Math.random()*9000);
+  var _uname=(_p+(_n?"."+_n.slice(0,4):"")+_rnd).slice(0,20);
+  pendR={id:"ZU-"+Date.now(),prenom:p,nom:n,phone:phone,email:e,password:pwd,
+    pays:document.getElementById("rg-c").value,
+    username:_uname,kyc:false,created:new Date().toISOString()};
+})();
   document.getElementById("otp-ph").textContent=phone;
   document.querySelectorAll(".otp-inp").forEach(function(i){i.value="";});
   document.getElementById("otp-overlay").classList.add("open");
@@ -2068,6 +2077,7 @@ function togEye(id,btn){
 
 // ACCOUNT
 function updateGreet(){
+  refreshUsername();
   var el=document.getElementById("h-greeting");if(!el)return;
   var h=new Date().getHours();
   var g=h<12?"Bonjour":h<18?"Bon après-midi":"Bonsoir";
@@ -3482,6 +3492,58 @@ function backToCoinSelect() {
   if (s3) s3.style.display = 'none';
   var iframe = document.getElementById('izi-iframe');
   if (iframe) iframe.src = '';
+}
+// ─────────────────────────────────────────────────────────────────
+
+
+// ── USERNAME ──────────────────────────────────────────────────────
+function refreshUsername() {
+  var u = loadU();
+  var el = document.getElementById('display-username');
+  if (el) el.textContent = u && u.username ? '@' + u.username : '@---';
+  // Afficher aussi dans la balance card si présent
+  var uel = document.getElementById('bal-username');
+  if (uel) uel.textContent = u && u.username ? '@' + u.username : '';
+}
+
+async function editUsername() {
+  var u = loadU();
+  if (!u) return;
+  var current = u.username || '';
+  var nouveau = prompt('Choisissez un nom d\'utilisateur unique\n(lettres, chiffres, points — max 20 car.)\n\nActuel: @' + (current || 'aucun'), current);
+  if (nouveau === null) return;
+  nouveau = nouveau.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20);
+  if (nouveau.length < 3) { toast('Minimum 3 caractères', 'err'); return; }
+  if (nouveau === current) { toast('Identique à l\'actuel', 'info'); return; }
+  toast('Vérification...', 'info');
+  try {
+    // Vérifier unicité via backend
+    var res = await fetch(API + '/api/zama/username/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: u.phone, username: nouveau })
+    });
+    var data = await res.json();
+    if (!res.ok || !data.ok) { toast(data.error || 'Nom non disponible', 'err'); return; }
+    // Sauvegarder localement
+    u.username = data.username;
+    saveULS(u);
+    var accts = getAllA();
+    var idx = accts.findIndex(function(a) { return a.id === u.id; });
+    if (idx !== -1) { accts[idx] = u; saveAllA(accts); }
+    refreshUsername();
+    toast('@' + data.username + ' enregistré !', 'ok');
+  } catch(e) {
+    // Fallback local si pas de réseau
+    var accts = getAllA();
+    var taken = accts.find(function(a) { return a.username === nouveau && a.id !== u.id; });
+    if (taken) { toast('@' + nouveau + ' est déjà pris', 'err'); return; }
+    u.username = nouveau;
+    saveULS(u);
+    var idx = accts.findIndex(function(a) { return a.id === u.id; });
+    if (idx !== -1) { accts[idx] = u; saveAllA(accts); }
+    refreshUsername();
+    toast('@' + nouveau + ' enregistré !', 'ok');
+  }
 }
 // ─────────────────────────────────────────────────────────────────
 
