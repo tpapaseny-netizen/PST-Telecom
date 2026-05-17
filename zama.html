@@ -671,6 +671,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Tontine</div>
         <div style="font-size:11px;color:rgba(245,176,20,.7)">Cotisez en groupe</div>
       </div>
+      <div onclick="goto('scr-pret')" style="background:linear-gradient(135deg,#1A0A2A,#2A1A3D);border:1px solid rgba(139,92,246,.3);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden">
+        <div style="position:absolute;top:8px;right:8px;background:#8B5CF6;color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px">NOUVEAU</div>
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(139,92,246,.15);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" width="20" fill="none" stroke="#8B5CF6" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Prêt</div>
+        <div style="font-size:12px;color:#8B5CF6;font-weight:700;margin-bottom:2px">Jusqu'a 2x l'epargne</div>
+        <div style="font-size:10px;color:rgba(139,92,246,.6)">Reponse sous 24h</div>
+      </div>
     </div>
     <div class="slbl">Taux en direct <span class="slbl-act" onclick="goto('scr-rates')">Voir tout</span></div>
     <div class="rate-strip">
@@ -1293,7 +1302,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div style="padding-top:4px">
         <div class="limit-bar"><div class="lb-top"><span class="lb-l">Limite quotidienne</span><span class="lb-r" id="lb-txt">0 / 500 USD</span></div><div class="lb-track"><div class="lb-fill" id="lb-fill" style="width:0%"></div></div><div class="lb-sub">Sans KYC : 500$/j · Avec KYC vérifié : 5 000$/j</div></div>
         <div class="slbl">Mon compte</div>
-        <div id="kyc-item" class="ai" onclick="goto('scr-kyc')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
+        <div id="kyc-item" class="ai" onclick="goto('" + _kycUrl + "')"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="ai-lbl">Vérifier mon identité (KYC)</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
         
         <div class="ai" onclick="editUsername()"><div class="ai-ico" style="background:var(--gold-l);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="ai-lbl">Mon nom d'utilisateur<div id="display-username" style="font-size:11px;color:var(--gold);margin-top:2px">@---</div></div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
       <div class="ai" onclick="changePinFlow()"><div class="ai-ico" style="background:var(--s3);color:var(--text2)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ai-lbl">Changer le code PIN</div><div class="ai-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div></div>
@@ -1598,7 +1607,32 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
     </div>
 
-      <!-- ══ TONTINE ADMIN ══ -->
+      
+      <!-- PRÊTS ADMIN -->
+      <div class="slbl" style="padding:0;margin-bottom:10px;margin-top:4px">💰 Prêts — Demandes à traiter</div>
+      <div style="background:var(--s2);border:1px solid rgba(139,92,246,.3);border-radius:14px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:#8B5CF6">Prêts en cours</div>
+          <button onclick="loadPretsAdmin()" style="font-size:11px;color:#8B5CF6;background:none;border:1px solid rgba(139,92,246,.3);cursor:pointer;font-family:var(--font);padding:4px 10px;border-radius:6px">↻</button>
+        </div>
+        <div id="admin-stats-prets" style="display:flex;gap:10px;margin-bottom:12px">
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#8B5CF6" id="adm-prets-attente">--</div>
+            <div style="font-size:10px;color:var(--text3)">En attente</div>
+          </div>
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--green)" id="adm-prets-actifs">--</div>
+            <div style="font-size:10px;color:var(--text3)">Actifs</div>
+          </div>
+          <div style="flex:1;background:var(--s3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--gold)" id="adm-prets-encours">--</div>
+            <div style="font-size:10px;color:var(--text3)">FCFA encours</div>
+          </div>
+        </div>
+        <div id="admin-prets-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Cliquez ↻ pour charger</div></div>
+      </div>
+
+<!-- ══ TONTINE ADMIN ══ -->
       <div class="slbl" style="padding:0;margin-bottom:10px;margin-top:4px">Tontine — Cotisations à valider</div>
       <div style="background:var(--s2);border:1px solid rgba(245,176,20,.25);border-radius:14px;padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1795,8 +1829,9 @@ function goto(id){
   if(id==="scr-acct")renderAcct();
   if(id==="scr-benefs")renderBenefs();
   if(id==="scr-qr")renderQR();
-  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();loadRetraitsPending();loadCotisationsPending();loadDistributionsPending();loadConfigAdmin();}
+  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();loadRetraitsPending();loadCotisationsPending();loadDistributionsPending();loadConfigAdmin();loadPretsAdmin();}
   if(id==="scr-epargne"){loadEpargnes();}
+  if(id==="scr-pret"){checkPretEligibilite();}
   if(id==="scr-tontine"){loadTontines();}
   // update bnav
   document.querySelectorAll(".bn").forEach(function(b){b.classList.remove("on");});
@@ -3849,6 +3884,201 @@ function loadConfigAdmin() {
     if (el) el.value = fields[id];
   });
 }
+
+
+// ── PRÊT ─────────────────────────────────────────────────────────
+var _pretDuree = 1;
+var _pretEligib = null;
+
+function selPretDuree(n) {
+  _pretDuree = n;
+  [1,2,3].forEach(function(i) {
+    var el = document.getElementById('pret-dur-' + i);
+    if (!el) return;
+    if (i === n) {
+      el.style.border = '2px solid #8B5CF6';
+      el.style.background = 'rgba(139,92,246,.1)';
+      el.querySelector('div').style.color = '#8B5CF6';
+    } else {
+      el.style.border = '2px solid var(--border)';
+      el.style.background = 'var(--s2)';
+      el.querySelector('div').style.color = 'var(--text2)';
+    }
+  });
+  updatePretSimul();
+}
+
+function updatePretSimul() {
+  var montant = parseInt(document.getElementById('pret-montant') ? document.getElementById('pret-montant').value : 0) || 0;
+  var simEl = document.getElementById('pret-simul');
+  if (!simEl) return;
+  if (!montant || montant < 1000) { simEl.style.display = 'none'; return; }
+  var interets = Math.round(montant * 0.03 * _pretDuree);
+  var total = montant + interets;
+  var mensualite = Math.round(total / _pretDuree);
+  simEl.style.display = 'block';
+  var e = document.getElementById('sim-montant'); if(e) e.textContent = montant.toLocaleString('fr-FR') + ' FCFA';
+  var i = document.getElementById('sim-interets'); if(i) i.textContent = '+' + interets.toLocaleString('fr-FR') + ' FCFA';
+  var m = document.getElementById('sim-mensualite'); if(m) m.textContent = mensualite.toLocaleString('fr-FR') + ' FCFA/mois';
+  var t = document.getElementById('sim-total'); if(t) t.textContent = total.toLocaleString('fr-FR') + ' FCFA';
+}
+
+async function checkPretEligibilite() {
+  if (!user) return;
+  var box = document.getElementById('pret-eligib-box');
+  if (!box) return;
+  try {
+    var res = await fetch(API + '/api/zama/pret/eligibilite/' + user.id);
+    var data = await res.json();
+    _pretEligib = data;
+    if (data.eligible) {
+      box.style.background = 'rgba(34,197,94,.08)';
+      box.style.border = '1px solid rgba(34,197,94,.3)';
+      box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div><div style="font-size:13px;font-weight:700;color:var(--green)">✅ Vous êtes éligible</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px">Épargne: ' + data.epargne_total.toLocaleString('fr-FR') + ' FCFA</div></div>' +
+        '<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:var(--green)">' + data.montant_max.toLocaleString('fr-FR') + '</div>' +
+        '<div style="font-size:10px;color:var(--text3)">FCFA max</div></div></div>';
+      // Pré-remplir le max dans le placeholder
+      var inp = document.getElementById('pret-montant');
+      if (inp) inp.placeholder = 'Max: ' + data.montant_max.toLocaleString('fr-FR') + ' FCFA';
+    } else {
+      box.style.background = 'rgba(239,68,68,.08)';
+      box.style.border = '1px solid rgba(239,68,68,.2)';
+      var msg = data.raison || 'Non éligible';
+      var extra = '';
+      var _kycUrl='scr-kyc'; if (data.kyc_required) extra = '<br><button data-nav="scr-kyc" onclick="goto(this.dataset.nav)" style="margin-top:8px;padding:8px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">Verifier mon identite</button>';
+      if (data.epargne_requise) extra = '<br><div style="font-size:11px;color:var(--text3);margin-top:4px">Epargne actuelle: ' + (data.epargne_actuelle||0).toLocaleString('fr-FR') + ' FCFA. Requis: ' + data.epargne_requise.toLocaleString('fr-FR') + ' FCFA</div><button data-nav="scr-epargne-vitrine" onclick="goto(this.dataset.nav)" style="margin-top:8px;padding:8px 16px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">Commencer a epargner</button>';
+      if (data.pret_actif) extra = '<br><div style="font-size:11px;color:var(--text3);margin-top:4px">Remboursez votre pret actuel.</div>';
+      box.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--red)">❌ ' + msg + '</div>' + extra;
+      // Désactiver le formulaire
+      var btn = document.getElementById('pret-submit-btn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '.4'; }
+    }
+  } catch(e) {
+    box.innerHTML = '<div style="font-size:12px;color:var(--text3)">Impossible de verifier l\'eligibilite</div>';
+  }
+  // Charger mes prêts
+  loadMesPrets();
+}
+
+async function loadMesPrets() {
+  if (!user) return;
+  try {
+    var res = await fetch(API + '/api/zama/pret/user/' + user.id);
+    var prets = await res.json();
+    if (!prets.length) return;
+    var box = document.getElementById('pret-en-cours-box');
+    var list = document.getElementById('pret-list');
+    if (box) box.style.display = 'block';
+    if (!list) return;
+    var out = '';
+    prets.forEach(function(p, i) {
+      var couleur = p.status === 'actif' ? 'var(--green)' : p.status === 'en_attente' ? '#8B5CF6' : p.status === 'rembourse' ? 'var(--text3)' : 'var(--red)';
+      var label = { 'actif': 'Actif', 'en_attente': 'En attente', 'rembourse': 'Remboursé', 'rejete': 'Rejeté', 'defaut': 'Défaut' }[p.status] || p.status;
+      out += '<div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<div style="font-size:14px;font-weight:700">' + p.montant_fcfa.toLocaleString('fr-FR') + ' FCFA</div>' +
+        '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.2);color:' + couleur + ';font-weight:700">' + label + '</span></div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Durée: ' + p.duree_mois + ' mois · Mensualité: ' + p.mensualite.toLocaleString('fr-FR') + ' FCFA</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Restant: <strong style="color:#8B5CF6">' + p.solde_restant.toLocaleString('fr-FR') + ' FCFA</strong> / Échéance: ' + new Date(p.date_echeance).toLocaleDateString('fr-FR') + '</div>';
+      if (p.status === 'actif') {
+        out += '<button onclick="rembourserPret(' + i + ')" style="width:100%;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">Effectuer un remboursement</button>';
+      }
+      out += '</div>';
+    });
+    list.innerHTML = out;
+    window._mesPrets = prets;
+  } catch(e) { console.error(e); }
+}
+
+async function demanderPret() {
+  if (!user) { toast('Connectez-vous', 'err'); goto('scr-login'); return; }
+  if (!_pretEligib || !_pretEligib.eligible) { toast('Vous n\'etes pas eligible', 'err'); return; }
+  var montant = parseInt(document.getElementById('pret-montant') ? document.getElementById('pret-montant').value : 0);
+  if (!montant || montant < 5000) { toast('Montant min 5000 FCFA', 'err'); return; }
+  if (montant > _pretEligib.montant_max) { toast('Maximum:' +  + _pretEligib.montant_max.toLocaleString('fr-FR') + ' FCFA', 'err'); return; }
+  var motif = document.getElementById('pret-motif') ? document.getElementById('pret-motif').value.trim() : '';
+  var btn = document.getElementById('pret-submit-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin spin-w"></div> Envoi...'; }
+  try {
+    var res = await fetch(API + '/api/zama/pret/demander', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, user_name: (user.prenom||'') + ' ' + (user.nom||''), user_phone: user.phone, montant_fcfa: montant, duree_mois: _pretDuree, motif })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      toast('Demande envoyée ! Réponse sous 24h', 'ok');
+      document.getElementById('pret-montant').value = '';
+      document.getElementById('pret-simul').style.display = 'none';
+      document.getElementById('pret-motif').value = '';
+      checkPretEligibilite();
+    } else {
+      toast(data.error || 'Erreur', 'err');
+    }
+  } catch(e) { toast('Erreur: ' + e.message, 'err'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="#fff" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Soumettre ma demande'; }
+}
+
+function rembourserPret(idx) {
+  var p = window._mesPrets ? window._mesPrets[idx] : null;
+  if (!p) return;
+  var modal = document.getElementById('username-modal');
+  // Réutiliser le modal générique pour le remboursement
+  // Simple: ouvrir un prompt
+  var montant = prompt('Montant a rembourser - Solde: ' + p.solde_restant.toLocaleString('fr-FR') + ' FCFA - Mensualite: ' + p.mensualite.toLocaleString('fr-FR') + ' FCFA', p.mensualite);
+  if (!montant) return;
+  montant = parseInt(montant);
+  if (!montant || montant < 1000) { toast('Montant invalide', 'err'); return; }
+  var ref = prompt('Reference de transaction Wave/OM');
+  if (!ref || !ref.trim()) { toast('Référence obligatoire', 'err'); return; }
+  fetch(API + '/api/zama/pret/' + p.pret_id + '/rembourser', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ montant_fcfa: montant, methode: 'Wave', reference: ref.trim() })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      toast(d.rembourse ? 'Prêt soldé ! Félicitations 🎉' : 'Remboursement enregistré', 'ok');
+      loadMesPrets();
+    } else {
+      toast(d.error || 'Erreur', 'err');
+    }
+  }).catch(function(e) { toast('Erreur réseau', 'err'); });
+}
+
+async function loadPretsAdmin() {
+  try {
+    var res = await fetch(API + '/api/zama/pret/admin/tous?token=pst-admin-2026');
+    var data = await res.json();
+    var s = data.stats || {};
+    var ea = document.getElementById('adm-prets-attente'); if(ea) ea.textContent = s.en_attente || 0;
+    var ac = document.getElementById('adm-prets-actifs'); if(ac) ac.textContent = s.actifs || 0;
+    var enc = document.getElementById('adm-prets-encours'); if(enc) enc.textContent = (s.total_encours||0).toLocaleString('fr-FR');
+    var list = document.getElementById('admin-prets-list');
+    if (!list) return;
+    var prets = data.prets || [];
+    if (!prets.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Aucun prêt</div>'; return; }
+    var out = '';
+    prets.forEach(function(p) {
+      var clr = p.status === 'en_attente' ? '#8B5CF6' : p.status === 'actif' ? 'var(--green)' : 'var(--text3)';
+      out += '<div style="background:var(--s3);border-radius:10px;padding:12px;margin-bottom:8px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+        '<div style="font-size:13px;font-weight:700">' + (p.user_name||'--') + '</div>' +
+        '<div style="font-size:11px;color:' + clr + ';font-weight:700">' + p.status + '</div></div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:2px">' + p.montant_fcfa.toLocaleString('fr-FR') + ' FCFA · ' + p.duree_mois + ' mois · ' + p.mensualite.toLocaleString('fr-FR') + ' FCFA/mois</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Tel: ' + (p.user_phone||'--') + ' · Restant: ' + p.solde_restant.toLocaleString('fr-FR') + ' FCFA</div>';
+      if (p.status === 'en_attente') {
+        var base = 'https://pst-telecom-production.up.railway.app';
+        out += '<div style="display:flex;gap:8px">' +
+          '<a href="' + base + '/api/zama/pret/admin/approuver/' + p.pret_id + '?token=pst-admin-2026" target="_blank" style="flex:1;padding:8px;border-radius:8px;background:#22c55e;color:#fff;text-align:center;text-decoration:none;font-size:12px;font-weight:700">✅ Approuver</a>' +
+          '<a href="' + base + '/api/zama/pret/admin/rejeter/' + p.pret_id + '?token=pst-admin-2026" target="_blank" style="flex:1;padding:8px;border-radius:8px;background:#ef4444;color:#fff;text-align:center;text-decoration:none;font-size:12px;font-weight:700">❌ Rejeter</a>' +
+          '</div>';
+      }
+      out += '</div>';
+    });
+    list.innerHTML = out;
+  } catch(e) { var l = document.getElementById('admin-prets-list'); if(l) l.innerHTML = '<div style="font-size:12px;color:var(--red)">Erreur</div>'; }
+}
+// ─────────────────────────────────────────────────────────────────
 
 </script>
 </body>

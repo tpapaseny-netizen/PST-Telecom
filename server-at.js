@@ -2696,6 +2696,274 @@ app.post('/api/zama/config', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ══════════════════════════════════════════════════════════════════
+// ZAMA PRÊT — Module crédit lié à l'épargne
+// ══════════════════════════════════════════════════════════════════
+
+// Paramètres prêt
+const PRET_TAUX_MENSUEL = 0.03;       // 3% par mois
+const PRET_MAX_MULTIPLICATEUR = 2;    // max 2x l'épargne
+const PRET_EPARGNE_MIN = 30000;       // 30 000 FCFA minimum
+const PRET_DUREE_MAX = 3;             // 3 mois maximum
+
+// Demande de prêt
+app.post('/api/zama/pret/demander', async (req, res) => {
+  try {
+    const { user_id, user_name, user_phone, montant_fcfa, duree_mois, motif } = req.body;
+    if (!user_id || !montant_fcfa || !duree_mois) {
+      return res.status(400).json({ error: 'user_id, montant_fcfa, duree_mois requis' });
+    }
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
+
+    // Vérifier KYC
+    const u = await db.collection('zama_users').findOne({ id: user_id });
+    if (!u || !u.kyc || u.kyc_pending) {
+      return res.status(403).json({ error: 'KYC requis pour obtenir un prêt', kyc_required: true });
+    }
+
+    // Vérifier épargne suffisante
+    const epargnes = await db.collection('zama_epargnes').find({
+      user_id, status: 'actif'
+    }).toArray();
+    const total_epargne = epargnes.reduce((s, e) => s + (e.solde_fcfa || 0), 0);
+
+    if (total_epargne < PRET_EPARGNE_MIN) {
+      return res.status(400).json({
+        error: 'Épargne insuffisante. Minimum ' + PRET_EPARGNE_MIN.toLocaleString('fr-FR') + ' FCFA requis',
+        epargne_actuelle: total_epargne,
+        epargne_requise: PRET_EPARGNE_MIN
+      });
+    }
+
+    const montant_max = total_epargne * PRET_MAX_MULTIPLICATEUR;
+    if (parseInt(montant_fcfa) > montant_max) {
+      return res.status(400).json({
+        error: 'Montant trop élevé. Maximum autorisé: ' + Math.floor(montant_max).toLocaleString('fr-FR') + ' FCFA (2x votre épargne)',
+        montant_max: Math.floor(montant_max)
+      });
+    }
+
+    if (parseInt(duree_mois) > PRET_DUREE_MAX) {
+      return res.status(400).json({ error: 'Durée maximum ' + PRET_DUREE_MAX + ' mois' });
+    }
+
+    // Vérifier pas de prêt en cours
+    const pret_actif = await db.collection('zama_prets').findOne({
+      user_id, status: { $in: ['en_attente', 'actif'] }
+    });
+    if (pret_actif) {
+      return res.status(400).json({ error: 'Vous avez déjà un prêt en cours. Remboursez-le d\'abord.' });
+    }
+
+    // Calcul
+    const montant = parseInt(montant_fcfa);
+    const duree = parseInt(duree_mois);
+    const interets_total = Math.round(montant * PRET_TAUX_MENSUEL * duree);
+    const total_a_rembourser = montant + interets_total;
+    const mensualite = Math.round(total_a_rembourser / duree);
+    const date_echeance = new Date(Date.now() + duree * 30 * 24 * 60 * 60 * 1000);
+
+    const pret_id = 'PRET-' + Date.now();
+    const pret = {
+      pret_id,
+      user_id,
+      user_name: user_name || '',
+      user_phone: user_phone || '',
+      montant_fcfa: montant,
+      duree_mois: duree,
+      taux_mensuel: PRET_TAUX_MENSUEL,
+      interets_total,
+      total_a_rembourser,
+      mensualite,
+      solde_restant: total_a_rembourser,
+      motif: motif || '',
+      epargne_caution: total_epargne,
+      status: 'en_attente', // en_attente → actif → rembourse / defaut
+      date_echeance,
+      remboursements: [],
+      created_at: new Date(),
+    };
+
+    await db.collection('zama_prets').insertOne(pret);
+
+    // SMS utilisateur
+    await zamaSendSMS(user_phone,
+      'ZAMA Pret: Votre demande de ' + montant.toLocaleString('fr-FR') +
+      ' FCFA sur ' + duree + ' mois est en cours d\'examen. ' +
+      'Mensualite: ' + mensualite.toLocaleString('fr-FR') + ' FCFA. Reponse sous 24h.'
+    );
+
+    // Email admins
+    try {
+      const nodemailer = require('nodemailer');
+      const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
+      const base = 'https://pst-telecom-production.up.railway.app';
+      const lv = base + '/api/zama/pret/admin/approuver/' + pret_id + '?token=pst-admin-2026';
+      const lr = base + '/api/zama/pret/admin/rejeter/' + pret_id + '?token=pst-admin-2026';
+      await t.sendMail({
+        from: process.env.GMAIL_USER,
+        to: 'tpapaseny@ept.sn,papasenytoure@gmail.com',
+        subject: 'ZAMA Pret — Nouvelle demande ' + montant.toLocaleString('fr-FR') + ' FCFA',
+        html: '<h2 style="color:#F5B014">ZAMA — Nouvelle demande de prêt</h2>' +
+          '<p><b>Client:</b> ' + (user_name || user_id) + ' — ' + user_phone + '</p>' +
+          '<p><b>Montant demandé:</b> ' + montant.toLocaleString('fr-FR') + ' FCFA</p>' +
+          '<p><b>Durée:</b> ' + duree + ' mois</p>' +
+          '<p><b>Mensualité:</b> ' + mensualite.toLocaleString('fr-FR') + ' FCFA</p>' +
+          '<p><b>Total à rembourser:</b> ' + total_a_rembourser.toLocaleString('fr-FR') + ' FCFA</p>' +
+          '<p><b>Intérêts (3%/mois):</b> ' + interets_total.toLocaleString('fr-FR') + ' FCFA</p>' +
+          '<p><b>Épargne caution:</b> ' + total_epargne.toLocaleString('fr-FR') + ' FCFA</p>' +
+          '<p><b>Motif:</b> ' + (motif || 'Non précisé') + '</p>' +
+          '<p><b>Échéance:</b> ' + date_echeance.toLocaleDateString('fr-FR') + '</p>' +
+          '<br><a href="' + lv + '" style="background:#22c55e;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-right:12px">✅ APPROUVER</a>' +
+          '<a href="' + lr + '" style="background:#ef4444;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">❌ REJETER</a>'
+      });
+    } catch(e) { console.log('[PRET EMAIL]', e.message); }
+
+    res.json({ ok: true, pret_id, mensualite, total_a_rembourser, interets_total, date_echeance });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: approuver un prêt
+app.get('/api/zama/pret/admin/approuver/:pret_id', async (req, res) => {
+  try {
+    if (req.query.token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    const pret = await db.collection('zama_prets').findOne({ pret_id: req.params.pret_id });
+    if (!pret) return res.status(404).send('Prêt introuvable');
+    if (pret.status !== 'en_attente') return res.send('<h2>Déjà traité</h2>');
+
+    await db.collection('zama_prets').updateOne(
+      { pret_id: req.params.pret_id },
+      { $set: { status: 'actif', approuve_at: new Date() } }
+    );
+
+    await zamaSendSMS(pret.user_phone,
+      'ZAMA Pret APPROUVE! ' + pret.montant_fcfa.toLocaleString('fr-FR') +
+      ' FCFA vires sur votre compte Wave/OM sous 1h. ' +
+      'Mensualite: ' + pret.mensualite.toLocaleString('fr-FR') +
+      ' FCFA/mois pendant ' + pret.duree_mois + ' mois. Echeance: ' +
+      new Date(pret.date_echeance).toLocaleDateString('fr-FR') + '.'
+    );
+
+    res.send('<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2 style="color:#22c55e">✅ Prêt approuvé!</h2><p>' + pret.user_name + ' — ' + pret.montant_fcfa.toLocaleString('fr-FR') + ' FCFA</p><p>SMS envoyé au client. Virez les fonds via Wave/OM.</p></body></html>');
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: rejeter un prêt
+app.get('/api/zama/pret/admin/rejeter/:pret_id', async (req, res) => {
+  try {
+    if (req.query.token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    const pret = await db.collection('zama_prets').findOne({ pret_id: req.params.pret_id });
+    if (!pret) return res.status(404).send('Prêt introuvable');
+
+    await db.collection('zama_prets').updateOne(
+      { pret_id: req.params.pret_id },
+      { $set: { status: 'rejete', rejete_at: new Date() } }
+    );
+
+    await zamaSendSMS(pret.user_phone,
+      'ZAMA: Votre demande de pret de ' + pret.montant_fcfa.toLocaleString('fr-FR') +
+      ' FCFA a ete rejetee. Augmentez votre epargne et reessayez. Support: support@zama.sn'
+    );
+
+    res.send('<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2 style="color:#ef4444">Prêt rejeté</h2><p>SMS envoyé au client.</p></body></html>');
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Enregistrer un remboursement
+app.post('/api/zama/pret/:pret_id/rembourser', async (req, res) => {
+  try {
+    const { montant_fcfa, methode, reference } = req.body;
+    const pret = await db.collection('zama_prets').findOne({ pret_id: req.params.pret_id });
+    if (!pret) return res.status(404).json({ error: 'Prêt introuvable' });
+    if (pret.status !== 'actif') return res.status(400).json({ error: 'Prêt non actif' });
+
+    const remb_id = 'REMB-' + Date.now();
+    const montant = parseInt(montant_fcfa);
+    const nouveau_solde = Math.max(0, pret.solde_restant - montant);
+    const rembourse = nouveau_solde === 0;
+
+    await db.collection('zama_prets').updateOne(
+      { pret_id: req.params.pret_id },
+      {
+        $set: {
+          solde_restant: nouveau_solde,
+          status: rembourse ? 'rembourse' : 'actif'
+        },
+        $push: {
+          remboursements: {
+            remb_id, montant, methode: methode || 'Wave',
+            reference: reference || '', date: new Date(), statut: 'en_attente'
+          }
+        }
+      }
+    );
+
+    // Email admin pour valider le remboursement
+    try {
+      const nodemailer = require('nodemailer');
+      const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
+      await t.sendMail({
+        from: process.env.GMAIL_USER,
+        to: 'tpapaseny@ept.sn,papasenytoure@gmail.com',
+        subject: 'ZAMA Pret — Remboursement recu ' + montant.toLocaleString('fr-FR') + ' FCFA',
+        html: '<h2>Remboursement reçu</h2>' +
+          '<p><b>Client:</b> ' + pret.user_name + ' (' + pret.user_phone + ')</p>' +
+          '<p><b>Montant:</b> ' + montant.toLocaleString('fr-FR') + ' FCFA via ' + (methode || 'Wave') + '</p>' +
+          '<p><b>Référence:</b> ' + (reference || 'non fournie') + '</p>' +
+          '<p><b>Solde restant:</b> ' + nouveau_solde.toLocaleString('fr-FR') + ' FCFA</p>' +
+          (rembourse ? '<p style="color:green"><b>🎉 PRÊT TOTALEMENT REMBOURSÉ!</b></p>' : '')
+      });
+    } catch(e) {}
+
+    await zamaSendSMS(pret.user_phone,
+      'ZAMA Pret: Remboursement de ' + montant.toLocaleString('fr-FR') +
+      ' FCFA recu. Solde restant: ' + nouveau_solde.toLocaleString('fr-FR') + ' FCFA.' +
+      (rembourse ? ' Pret solde! Merci.' : '')
+    );
+
+    res.json({ ok: true, solde_restant: nouveau_solde, rembourse, remb_id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Mes prêts
+app.get('/api/zama/pret/user/:user_id', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const prets = await db.collection('zama_prets').find({ user_id: req.params.user_id }).sort({ created_at: -1 }).toArray();
+    res.json(prets.map(p => { const { _id, ...r } = p; return r; }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: tous les prêts
+app.get('/api/zama/pret/admin/tous', async (req, res) => {
+  try {
+    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (!db) return res.json({ prets: [], stats: {} });
+    const prets = await db.collection('zama_prets').find({}).sort({ created_at: -1 }).limit(100).toArray();
+    const en_attente = prets.filter(p => p.status === 'en_attente').length;
+    const actifs = prets.filter(p => p.status === 'actif').length;
+    const total_encours = prets.filter(p => p.status === 'actif').reduce((s, p) => s + p.solde_restant, 0);
+    const total_interets = prets.filter(p => p.status === 'rembourse').reduce((s, p) => s + p.interets_total, 0);
+    res.json({ prets: prets.map(p => { const { _id, ...r } = p; return r; }), stats: { en_attente, actifs, total_encours, total_interets } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Éligibilité prêt
+app.get('/api/zama/pret/eligibilite/:user_id', async (req, res) => {
+  try {
+    if (!db) return res.json({ eligible: false, raison: 'DB indisponible' });
+    const u = await db.collection('zama_users').findOne({ id: req.params.user_id });
+    if (!u || !u.kyc || u.kyc_pending) return res.json({ eligible: false, raison: 'KYC requis', kyc_required: true });
+    const epargnes = await db.collection('zama_epargnes').find({ user_id: req.params.user_id, status: 'actif' }).toArray();
+    const total = epargnes.reduce((s, e) => s + (e.solde_fcfa || 0), 0);
+    const pret_actif = await db.collection('zama_prets').findOne({ user_id: req.params.user_id, status: { $in: ['en_attente', 'actif'] } });
+    if (pret_actif) return res.json({ eligible: false, raison: 'Prêt en cours actif', pret_actif: pret_actif.pret_id });
+    if (total < PRET_EPARGNE_MIN) return res.json({ eligible: false, raison: 'Épargne insuffisante', epargne_actuelle: total, epargne_requise: PRET_EPARGNE_MIN });
+    res.json({ eligible: true, epargne_total: total, montant_max: Math.floor(total * PRET_MAX_MULTIPLICATEUR) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
