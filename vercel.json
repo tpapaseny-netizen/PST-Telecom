@@ -1,14 +1,26 @@
 {
-  "rewrites": [
-    { "source": "/sms-marketing", "destination": "https://pst-telecom-production.up.railway.app/sms-marketing" },
-    { "source": "/recharge", "destination": "https://pst-telecom-production.up.railway.app/recharge.html" },
-    { "source": "/sms", "destination": "https://pst-telecom-production.up.railway.app/sms" },
-    { "source": "/dashboard", "destination": "https://pst-telecom-production.up.railway.app/dashboard" },
-    { "source": "/agent", "destination": "https://pst-telecom-production.up.railway.app/agent" },
-    { "source": "/securcam", "destination": "https://pst-telecom-production.up.railway.app/securcam" },
-    { "source": "/streaming", "destination": "https://pst-telecom-production.up.railway.app/streaming" },
-    { "source": "/admin", "destination": "https://pst-telecom-production.up.railway.app/admin" },
-    { "source": "/appel", "destination": "https://pst-telecom-production.up.railway.app/appel" },
-    { "source": "/noc", "destination": "https://pst-telecom-production.up.railway.app/noc" }
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "zama-sn.com"
+        }
+      ],
+      "destination": "/zama-site",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.zama-sn.com"
+        }
+      ],
+      "destination": "/zama-site",
+      "permanent": false
+    }
   ]
 }
