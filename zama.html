@@ -622,7 +622,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="hero-top">
         <div class="logo-row">
           <div style="position:relative">
-          <div class="logo-mark"><svg viewBox="0 0 44 44" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
+          <div class="logo-mark" style="cursor:pointer"><svg viewBox="0 0 44 44" style="pointer-events:none" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
   <rect width="44" height="44" rx="12" fill="#FF6B00"/>
   <text x="22" y="30" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="19" fill="white" letter-spacing="-1">ZA</text>
 </svg></div>
@@ -1561,7 +1561,7 @@ window.addEventListener("load",function(){
   // Logo 5 clicks → admin
   document.getElementById("logo-mark").addEventListener("click",function(){
     lgC++;clearTimeout(lgT);
-    lgT=setTimeout(function(){lgC=0;},2000);
+    lgT=setTimeout(function(){lgC=0;},3000);
     if(lgC>=5){lgC=0;document.getElementById("adm-s1").style.display="block";document.getElementById("adm-s2").style.display="none";document.getElementById("adm-email").value="";document.getElementById("adm-overlay").classList.add("open");}
   });
 });
