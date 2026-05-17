@@ -674,7 +674,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div onclick="goto('scr-pret')" style="background:linear-gradient(135deg,#1A0A2A,#2A1A3D);border:1px solid rgba(139,92,246,.3);border-radius:16px;padding:18px 14px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden">
         <div style="position:absolute;top:8px;right:8px;background:#8B5CF6;color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px">NOUVEAU</div>
         <div style="width:40px;height:40px;border-radius:12px;background:rgba(139,92,246,.15);display:flex;align-items:center;justify-content:center;margin-bottom:10px">
-          <svg viewBox="0 0 24 24" width="20" fill="none" stroke="#8B5CF6" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span style="font-size:13px;font-weight:900;color:#8B5CF6;letter-spacing:-0.5px">FCFA</span>
         </div>
         <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:3px">Prêt</div>
         <div style="font-size:12px;color:#8B5CF6;font-weight:700;margin-bottom:2px">Jusqu'a 2x l'epargne</div>
@@ -980,6 +980,178 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </div>
 
 <!-- ══ TONTINE ══ -->
+<!-- ══ PRÊT ══ -->
+<!-- ══ VITRINE ÉPARGNE ══ -->
+<div class="scr" id="scr-epargne-vitrine">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">Epargne ZAMA</span>
+    <span></span>
+  </div>
+  <div class="sb" style="padding-bottom:20px">
+    <div style="background:linear-gradient(160deg,#080F1F,#0A1F14);padding:28px 20px 24px">
+      <div style="font-size:11px;color:rgba(34,197,94,.7);font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">ZAMA Epargne</div>
+      <div id="vit-titre" style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.3">Faites fructifier votre argent</div>
+      <div id="vit-sous" style="font-size:13px;color:rgba(255,255,255,.5);line-height:1.6">Des plans adaptes a vos objectifs. Vos interets tombent chaque mois.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px">
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--green)">5%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">MAX / AN</div>
+        </div>
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--green)">0%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">FRAIS ECHEANCE</div>
+        </div>
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--green)">SMS</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">NOTIF/MOIS</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:20px 20px 0">
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.8px">Choisissez votre plan</div>
+
+      <div onclick="goto('scr-epargne-new');selEpPlan('libre')" style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:15px;font-weight:700;margin-bottom:3px">Libre</div>
+        <div style="font-size:11px;color:var(--text3)">Retrait a tout moment · 1% de frais</div></div>
+        <div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--text3)">0%</div><div style="font-size:10px;color:var(--text3)">/an</div></div>
+      </div>
+
+      <div onclick="goto('scr-epargne-new');selEpPlan('trois_mois')" style="background:var(--s2);border:1px solid rgba(34,197,94,.2);border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:15px;font-weight:700;margin-bottom:3px">3 Mois</div>
+        <div style="font-size:11px;color:var(--text3)">Bloque 90 jours · 0% frais echeance</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px">100 000 FCFA → +250 FCFA/mois</div></div>
+        <div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--green)">1%</div><div style="font-size:10px;color:var(--text3)">/an</div></div>
+      </div>
+
+      <div onclick="goto('scr-epargne-new');selEpPlan('six_mois')" style="background:var(--s2);border:2px solid rgba(34,197,94,.4);border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;position:relative">
+        <div style="position:absolute;top:-1px;right:12px;background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:0 0 8px 8px">POPULAIRE</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:15px;font-weight:700;margin-bottom:3px">6 Mois ⭐</div>
+          <div style="font-size:11px;color:var(--text3)">Bloque 180 jours · 0% frais echeance</div>
+          <div style="font-size:11px;color:var(--green);margin-top:3px">100 000 FCFA → +2 500 FCFA en 6 mois</div></div>
+          <div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--green)">2.5%</div><div style="font-size:10px;color:var(--text3)">/an</div></div>
+        </div>
+      </div>
+
+      <div onclick="goto('scr-epargne-new');selEpPlan('un_an')" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.04));border:1px solid rgba(34,197,94,.3);border-radius:14px;padding:16px;margin-bottom:20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:15px;font-weight:700;margin-bottom:3px">1 An 🏆</div>
+        <div style="font-size:11px;color:var(--text3)">Bloque 365 jours · 0% frais echeance</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px">100 000 FCFA → +5 000 FCFA en 1 an</div></div>
+        <div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--green)">5%</div><div style="font-size:10px;color:var(--text3)">/an</div></div>
+      </div>
+
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">🔒 Vos fonds sont securises</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.7">
+          • Interets credites chaque mois par SMS<br>
+          • Retrait valide sous 1h<br>
+          • KYC pour les gros montants<br>
+          • Aucun frais cache
+        </div>
+      </div>
+      <button class="btn-p" style="width:100%;margin:0" onclick="goto('scr-epargne')">Voir mes plans en cours →</button>
+    </div>
+  </div>
+</div>
+
+<div class="scr" id="scr-pret">
+  <div class="hdr">
+    <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
+    <span class="htitle">ZAMA Prêt</span>
+    <span></span>
+  </div>
+  <div class="sb" style="padding-bottom:20px">
+    <div style="background:linear-gradient(160deg,#080F1F,#150A28);padding:24px 20px">
+      <div style="font-size:11px;color:rgba(139,92,246,.8);font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">ZAMA Credit</div>
+      <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:6px">Besoin d'argent rapidement ?</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:16px">Obtenez jusqu'a 2x votre epargne en quelques heures. Taux transparent, remboursement flexible.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#8B5CF6">3%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">PAR MOIS</div>
+        </div>
+        <div style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#8B5CF6">24h</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">REPONSE</div>
+        </div>
+        <div style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#8B5CF6">2×</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">EPARGNE MAX</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:20px">
+      <div id="pret-eligib-box" style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text3);text-align:center">Verification de votre eligibilite...</div>
+      </div>
+
+      <div id="pret-en-cours-box" style="display:none;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">Mes prets</div>
+        <div id="pret-list"></div>
+      </div>
+
+      <div id="pret-form-box">
+        <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px">Faire une demande</div>
+
+        <div class="fg" style="padding:0;margin-bottom:12px">
+          <label>Montant souhaite (FCFA) *</label>
+          <input class="finp" type="number" id="pret-montant" placeholder="Ex: 50000" inputmode="numeric" oninput="updatePretSimul()">
+        </div>
+
+        <div class="fg" style="padding:0;margin-bottom:12px">
+          <label>Duree *</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">
+            <div id="pret-dur-1" onclick="selPretDuree(1)" style="padding:10px;border:2px solid #8B5CF6;background:rgba(139,92,246,.1);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:13px;font-weight:700;color:#8B5CF6">1 mois</div>
+            </div>
+            <div id="pret-dur-2" onclick="selPretDuree(2)" style="padding:10px;border:2px solid var(--border);background:var(--s2);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:13px;font-weight:700;color:var(--text2)">2 mois</div>
+            </div>
+            <div id="pret-dur-3" onclick="selPretDuree(3)" style="padding:10px;border:2px solid var(--border);background:var(--s2);border-radius:10px;cursor:pointer;text-align:center">
+              <div style="font-size:13px;font-weight:700;color:var(--text2)">3 mois</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="pret-simul" style="display:none;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:14px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#8B5CF6;margin-bottom:8px">📊 Simulation</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:12px;color:var(--text3)">Montant emprunte</div>
+            <div style="font-size:12px;font-weight:700" id="sim-montant">--</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:12px;color:var(--text3)">Interets (3%/mois)</div>
+            <div style="font-size:12px;color:#8B5CF6;font-weight:700" id="sim-interets">--</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:12px;color:var(--text3)">Mensualite</div>
+            <div style="font-size:12px;font-weight:700" id="sim-mensualite">--</div>
+          </div>
+          <div style="border-top:1px solid rgba(139,92,246,.2);margin:8px 0;padding-top:8px;display:flex;justify-content:space-between">
+            <div style="font-size:13px;font-weight:700">Total a rembourser</div>
+            <div style="font-size:13px;font-weight:800;color:#8B5CF6" id="sim-total">--</div>
+          </div>
+        </div>
+
+        <div class="fg" style="padding:0;margin-bottom:16px">
+          <label>Motif du pret (optionnel)</label>
+          <input class="finp" type="text" id="pret-motif" placeholder="Ex: Commerce, Education, Sante...">
+        </div>
+
+        <button class="btn-p" id="pret-submit-btn" style="width:100%;margin:0;background:linear-gradient(135deg,#8B5CF6,#6D28D9)" onclick="demanderPret()">
+          <svg viewBox="0 0 24 24" width="16" fill="none" stroke="#fff" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Soumettre ma demande
+        </button>
+        <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:10px;line-height:1.6">
+          Votre epargne ZAMA sert de caution · Reponse sous 24h · Fonds vires sur Wave/OM
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="scr" id="scr-tontine">
   <div class="hdr">
     <button class="hbk" onclick="gb()"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Retour</button>
