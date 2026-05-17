@@ -2077,7 +2077,17 @@ app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
     if (montant <= 0) return res.status(400).json({ error: 'Montant invalide' });
     if (montant > ep.solde_fcfa) return res.status(400).json({ error: 'Solde insuffisant', solde: ep.solde_fcfa });
 
-    const frais = Math.round(montant * 0.01);
+    // Frais selon plan et échéance
+    const est_echeance = ep.date_fin ? new Date() >= new Date(ep.date_fin) : true;
+    let frais_pct;
+    if (ep.plan_type && ep.plan_type !== 'libre') {
+      // Plan bloqué : 0% à échéance, frais_anticipe avant
+      frais_pct = est_echeance ? 0 : (ep.frais_anticipe || 0.02);
+    } else {
+      // Plan libre : toujours 1%
+      frais_pct = ep.frais_retrait || 0.01;
+    }
+    const frais = Math.round(montant * frais_pct);
     const net = montant - frais;
     const retrait_id = 'RET-' + Date.now();
 
@@ -2089,8 +2099,10 @@ app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
       user_phone: ep.user_phone,
       phone_retrait: phone || ep.user_phone,
       montant_fcfa: montant,
+      frais_pct,
       frais_fcfa: frais,
       net_fcfa: net,
+      est_echeance,
       status: 'en_attente',
       created_at: new Date()
     };
@@ -2492,6 +2504,155 @@ app.post('/api/zama/username/update', async (req, res) => {
     );
     res.json({ ok: true, username: clean });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+// ZAMA ÉPARGNE — Plans avec intérêts (Libre, 3m, 6m, 1an)
+// ══════════════════════════════════════════════════════════════════
+
+// Plans disponibles
+const ZAMA_PLANS = {
+  // frais_retrait = a echeance | frais_anticipe = avant echeance
+  libre:      { nom: 'Libre',   taux_annuel: 0,    duree_jours: 0,   frais_retrait: 0.01,  frais_anticipe: 0.01 },
+  trois_mois: { nom: '3 Mois',  taux_annuel: 0.01,  duree_jours: 90,  frais_retrait: 0,     frais_anticipe: 0.02 },
+  six_mois:   { nom: '6 Mois',  taux_annuel: 0.025, duree_jours: 180, frais_retrait: 0,     frais_anticipe: 0.03 },
+  un_an:      { nom: '1 An',    taux_annuel: 0.05,  duree_jours: 365, frais_retrait: 0,     frais_anticipe: 0.04 },
+};
+
+// Créer un plan épargne avec type
+app.post('/api/zama/epargne/plan/create', async (req, res) => {
+  try {
+    const { user_id, user_name, user_phone, objectif_fcfa, description, plan_type, password } = req.body;
+    if (!user_id || !objectif_fcfa || !plan_type) {
+      return res.status(400).json({ error: 'user_id, objectif_fcfa, plan_type requis' });
+    }
+    const plan = ZAMA_PLANS[plan_type];
+    if (!plan) return res.status(400).json({ error: 'Plan invalide. Choisissez: libre, trois_mois, six_mois, un_an' });
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
+
+    // Vérifier KYC si objectif > 100 000 FCFA
+    if (parseInt(objectif_fcfa) > 100000) {
+      const u = await db.collection('zama_users').findOne({ id: user_id });
+      if (!u || !u.kyc || u.kyc_pending) {
+        return res.status(403).json({ error: 'KYC requis pour un objectif > 100 000 FCFA' });
+      }
+    }
+
+    const epargne_id = 'EP-' + Date.now();
+    const date_debut = new Date();
+    const date_fin = plan.duree_jours > 0
+      ? new Date(Date.now() + plan.duree_jours * 24 * 60 * 60 * 1000)
+      : null;
+
+    const epargne = {
+      epargne_id,
+      user_id,
+      user_name: user_name || '',
+      user_phone: user_phone || '',
+      objectif_fcfa: parseInt(objectif_fcfa),
+      solde_fcfa: 0,
+      interets_cumules: 0,
+      plan_type,
+      plan_nom: plan.nom,
+      taux_annuel: plan.taux_annuel,
+      taux_mensuel: parseFloat((plan.taux_annuel / 12).toFixed(6)),
+      description: description || 'Mon épargne ZAMA',
+      retrait_libre: plan_type === 'libre',
+      frais_retrait: plan.frais_retrait,
+      frais_anticipe: plan.frais_anticipe,
+      password: password || null,
+      status: 'actif',
+      progression: 0,
+      date_debut,
+      date_fin,
+      date_prochain_interet: new Date(date_debut.getFullYear(), date_debut.getMonth() + 1, date_debut.getDate()),
+      transactions: [],
+      historique_interets: [],
+      created_at: new Date(),
+    };
+
+    await db.collection('zama_epargnes').insertOne(epargne);
+
+    // SMS de bienvenue
+    if (user_phone) {
+      const taux_str = plan.taux_annuel > 0 ? ' - Taux ' + (plan.taux_annuel * 100).toFixed(1) + '%/an' : '';
+      await zamaSendSMS(user_phone,
+        'ZAMA Epargne: Plan "' + plan.nom + '" cree' + taux_str + '. Objectif: ' +
+        parseInt(objectif_fcfa).toLocaleString('fr-FR') + ' FCFA. Commencez a deposer!'
+      );
+    }
+
+    res.json({ ok: true, epargne_id, date_fin, plan, message: 'Plan ' + plan.nom + ' créé avec succès' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Appliquer les intérêts mensuels sur tous les plans actifs (cron ou admin)
+app.post('/api/zama/epargne/admin/appliquer-interets-plans', async (req, res) => {
+  try {
+    const token = req.query.token || req.body.token;
+    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
+
+    const maintenant = new Date();
+    // Trouver tous les plans avec intérêts dont la date d'intérêt est passée
+    const epargnes = await db.collection('zama_epargnes').find({
+      status: 'actif',
+      taux_annuel: { $gt: 0 },
+      solde_fcfa: { $gt: 0 },
+      date_prochain_interet: { $lte: maintenant }
+    }).toArray();
+
+    let traites = 0;
+    let total_interets = 0;
+
+    for (const ep of epargnes) {
+      const interet = Math.round(ep.solde_fcfa * ep.taux_mensuel);
+      if (interet < 1) continue;
+
+      const prochaine_date = new Date(ep.date_prochain_interet);
+      prochaine_date.setMonth(prochaine_date.getMonth() + 1);
+
+      await db.collection('zama_epargnes').updateOne(
+        { epargne_id: ep.epargne_id },
+        {
+          $inc: { solde_fcfa: interet, interets_cumules: interet },
+          $set: { date_prochain_interet: prochaine_date },
+          $push: {
+            historique_interets: {
+              date: maintenant,
+              montant: interet,
+              solde_avant: ep.solde_fcfa,
+              taux: ep.taux_mensuel
+            }
+          }
+        }
+      );
+
+      // SMS notification
+      if (ep.user_phone) {
+        await zamaSendSMS(ep.user_phone,
+          'ZAMA Epargne "' + ep.description + '": ' + interet.toLocaleString('fr-FR') +
+          ' FCFA d\'interets credites! Nouveau solde: ' +
+          (ep.solde_fcfa + interet).toLocaleString('fr-FR') + ' FCFA.'
+        );
+      }
+
+      traites++;
+      total_interets += interet;
+    }
+
+    res.json({ ok: true, traites, total_interets, message: traites + ' plans mis à jour' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Stats publiques des plans (pour affichage frontend)
+app.get('/api/zama/epargne/plans', (req, res) => {
+  res.json({ plans: ZAMA_PLANS });
 });
 
 // ─── DÉMARRAGE ─────────────────────────────────────────────

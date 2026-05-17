@@ -868,28 +868,102 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
   <div class="sb">
     <div style="padding:20px">
-      <div class="fg" style="padding:0;margin-bottom:12px"><label>Description *</label><input class="finp" type="text" id="ep-desc" placeholder="Ex: Achat telephone, Voyage..."></div>
-      <div class="fg" style="padding:0;margin-bottom:12px"><label>Objectif (FCFA) *</label><input class="finp" type="number" id="ep-objectif" placeholder="Ex: 50000" inputmode="numeric"></div>
-      <div class="fg" style="padding:0;margin-bottom:12px"><label>Duree (jours) *</label><input class="finp" type="number" id="ep-duree" placeholder="Ex: 90" inputmode="numeric"></div>
-      <div class="fg" style="padding:0;margin-bottom:16px">
-        <label>Mode de retrait</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-          <div id="ep-mode-libre" onclick="selEpMode('libre')" style="padding:12px;border:2px solid var(--gold);background:var(--gold-l);border-radius:10px;cursor:pointer;text-align:center">
-            <div style="font-size:13px;font-weight:700;color:var(--gold)">Libre</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">Retirer quand tu veux</div>
-          </div>
-          <div id="ep-mode-bloque" onclick="selEpMode('bloque')" style="padding:12px;border:2px solid var(--border);background:var(--s2);border-radius:10px;cursor:pointer;text-align:center">
-            <div style="font-size:13px;font-weight:700;color:var(--text2)">Bloque</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">Jusqu a la date</div>
+
+      <!-- Choisir le plan -->
+      <div class="slbl" style="padding:0;margin-bottom:12px">Choisissez votre plan</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px" id="ep-plans-grid">
+
+        <!-- Plan Libre -->
+        <div class="ep-plan-card on" id="ep-plan-libre" onclick="selEpPlan('libre')" style="border:2px solid var(--gold);background:var(--gold-l);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--gold)">Libre</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Retrait à tout moment</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:800;color:var(--gold)">0%</div>
+              <div style="font-size:10px;color:var(--text3)">Frais retrait 1%</div>
+            </div>
           </div>
         </div>
+
+        <!-- Plan 3 Mois -->
+        <div class="ep-plan-card" id="ep-plan-trois_mois" onclick="selEpPlan('trois_mois')" style="border:2px solid var(--border);background:var(--s2);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--text1)">3 Mois</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Bloqué 90 jours · 0% frais à échéance · Anticipé 2%</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:800;color:var(--green)">1%</div>
+              <div style="font-size:10px;color:var(--text3)">par an · 0% frais à échéance</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:6px 10px;background:rgba(34,197,94,.08);border-radius:8px;font-size:11px;color:var(--green)">
+            Ex: 100 000 FCFA → +1 000 FCFA après 3 mois
+          </div>
+        </div>
+
+        <!-- Plan 6 Mois -->
+        <div class="ep-plan-card" id="ep-plan-six_mois" onclick="selEpPlan('six_mois')" style="border:2px solid var(--border);background:var(--s2);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--text1)">6 Mois ⭐</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Bloqué 180 jours · 0% frais à échéance · Anticipé 3%</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:800;color:var(--green)">2.5%</div>
+              <div style="font-size:10px;color:var(--text3)">par an · 0% frais à échéance</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:6px 10px;background:rgba(34,197,94,.08);border-radius:8px;font-size:11px;color:var(--green)">
+            Ex: 100 000 FCFA → +2 500 FCFA après 6 mois
+          </div>
+        </div>
+
+        <!-- Plan 1 An -->
+        <div class="ep-plan-card" id="ep-plan-un_an" onclick="selEpPlan('un_an')" style="border:2px solid var(--border);background:var(--s2);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--text1)">1 An 🏆</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Bloqué 365 jours · 0% frais à échéance · Anticipé 4%</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:800;color:var(--green)">5%</div>
+              <div style="font-size:10px;color:var(--text3)">par an · 0% frais à échéance</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:6px 10px;background:rgba(34,197,94,.08);border-radius:8px;font-size:11px;color:var(--green)">
+            Ex: 100 000 FCFA → +5 000 FCFA après 1 an
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Formulaire -->
+      <div class="fg" style="padding:0;margin-bottom:12px">
+        <label>Description *</label>
+        <input class="finp" type="text" id="ep-desc" placeholder="Ex: Achat telephone, Tabaski, Voyage...">
+      </div>
+      <div class="fg" style="padding:0;margin-bottom:12px">
+        <label>Objectif (FCFA) *</label>
+        <input class="finp" type="number" id="ep-objectif" placeholder="Ex: 50000" inputmode="numeric" oninput="updateEpEstimation()">
+      </div>
+      <!-- Estimation intérêts -->
+      <div id="ep-estimation" style="display:none;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:4px">📈 Estimation de gains</div>
+        <div id="ep-estim-txt" style="font-size:12px;color:var(--text2)"></div>
       </div>
       <div class="fg" style="padding:0;margin-bottom:16px">
         <label>Mot de passe de protection (optionnel)</label>
         <input class="finp" type="password" id="ep-password" placeholder="Ex: 1234 ou un mot secret">
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Si renseigné, le retrait nécessitera ce mot de passe</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Le retrait nécessitera ce mot de passe</div>
       </div>
-      <button class="btn-p" style="width:100%;margin:0" onclick="creerEpargne()">Creer mon plan</button>
+      <button class="btn-p" style="width:100%;margin:0" onclick="creerEpargnePlan()">
+        <svg viewBox="0 0 24 24" width="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Créer mon plan épargne
+      </button>
+
     </div>
   </div>
 </div>
@@ -1438,6 +1512,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="padding:0 20px;margin-bottom:8px">
 
       <!-- Dépôts en attente -->
+      <div style="background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(34,197,94,.05));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px">💰 Intérêts mensuels</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Appliquer les intérêts sur tous les plans actifs (à faire le 1er de chaque mois)</div>
+        <button onclick="appliquerInteretsMensuels()" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">
+          ↗ Appliquer les intérêts maintenant
+        </button>
+        <div id="interets-result" style="font-size:11px;color:var(--green);margin-top:8px;text-align:center"></div>
+      </div>
       <div class="slbl" style="padding:0;margin-bottom:10px">Épargne — Dépôts à valider</div>
       <div style="background:var(--s2);border:1px solid rgba(245,176,20,.25);border-radius:14px;padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -2612,7 +2694,11 @@ async function loadEpargnes() {
       out += "<div style='font-size:11px;color:var(--text3);margin-bottom:10px'>Objectif : "+ep.objectif_fcfa.toLocaleString("fr-FR")+" FCFA - Jusqu au "+df+"</div>";
       out += "<div style='height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px'><div style='height:100%;width:"+pct+"%;background:"+c+";border-radius:3px'></div></div>";
       out += "<div style='font-size:12px;margin-bottom:12px;color:"+c+";font-weight:700'>"+ep.solde_fcfa.toLocaleString("fr-FR")+" FCFA - "+pct_display+"%</div>";
-      out += "<div style='font-size:11px;color:rgba(34,197,94,.7);margin-bottom:8px'>+ 2% interets/mois appliques auto</div>";
+      out += "<div style='display:flex;gap:8px;align-items:center;margin-bottom:8px'>" +
+        "<span style='font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.12);color:var(--green);font-weight:700'>" +
+        (ep.plan_nom || 'Libre') + "</span>" +
+        (ep.taux_annuel > 0 ? "<span style='font-size:10px;color:var(--green)'>↗ " + (ep.taux_annuel*100).toFixed(1) + "%/an · " + ((ep.interets_cumules||0)).toLocaleString('fr-FR') + " FCFA gagnés</span>" : "<span style='font-size:10px;color:var(--text3)'>Retrait libre · 1% de frais</span>") +
+        "</div>";
       out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
       out += "<button onclick='deposerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>+ Depot</button>";
       out += "<button onclick='retirerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Retrait</button>";
@@ -3563,6 +3649,107 @@ async function editUsername() {
   }
 }
 // ─────────────────────────────────────────────────────────────────
+
+
+// ── ÉPARGNE PLANS ────────────────────────────────────────────────
+var _epPlan = 'libre';
+
+function selEpPlan(plan) {
+  _epPlan = plan;
+  document.querySelectorAll('.ep-plan-card').forEach(function(c) {
+    c.style.border = '2px solid var(--border)';
+    c.style.background = 'var(--s2)';
+    var title = c.querySelector('div > div > div');
+    if (title) title.style.color = 'var(--text1)';
+  });
+  var sel = document.getElementById('ep-plan-' + plan);
+  if (sel) {
+    sel.style.border = '2px solid var(--gold)';
+    sel.style.background = 'var(--gold-l)';
+    var t = sel.querySelector('div > div > div');
+    if (t) t.style.color = 'var(--gold)';
+  }
+  updateEpEstimation();
+}
+
+function updateEpEstimation() {
+  var obj = parseInt(document.getElementById('ep-objectif') ? document.getElementById('ep-objectif').value : 0) || 0;
+  var estEl = document.getElementById('ep-estimation');
+  var estTxt = document.getElementById('ep-estim-txt');
+  var taux = { libre: 0, trois_mois: 0.01, six_mois: 0.025, un_an: 0.05 };
+  var duree = { libre: 0, trois_mois: 3, six_mois: 6, un_an: 12 };
+  var t = taux[_epPlan] || 0;
+  var d = duree[_epPlan] || 0;
+  if (!estEl || !estTxt) return;
+  if (t === 0 || obj < 500) { estEl.style.display = 'none'; return; }
+  var gains = Math.round(obj * t * d / 12);
+  var total = obj + gains;
+  estEl.style.display = 'block';
+  estTxt.innerHTML = 'Sur ' + d + ' mois : <strong style="color:var(--green)">+' +
+    gains.toLocaleString('fr-FR') + ' FCFA</strong> d\'interets -> Total : <strong>' +
+    total.toLocaleString('fr-FR') + ' FCFA</strong>';
+}
+
+async function creerEpargnePlan() {
+  if (!user) { toast('Connectez-vous', 'err'); goto('scr-login'); return; }
+  var desc = document.getElementById('ep-desc') ? document.getElementById('ep-desc').value.trim() : '';
+  var obj  = parseInt(document.getElementById('ep-objectif') ? document.getElementById('ep-objectif').value : 0);
+  var pwd  = document.getElementById('ep-password') ? document.getElementById('ep-password').value : '';
+  if (!desc) { toast('Entrez une description', 'err'); return; }
+  if (!obj || obj < 500) { toast('Objectif minimum 500 FCFA', 'err'); return; }
+  var btn = document.querySelector('#scr-epargne-new .btn-p');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Création...'; }
+  try {
+    var res = await fetch(API + '/api/zama/epargne/plan/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: user.id,
+        user_name: (user.prenom || '') + ' ' + (user.nom || ''),
+        user_phone: user.phone,
+        objectif_fcfa: obj,
+        description: desc,
+        plan_type: _epPlan,
+        password: pwd || null
+      })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      toast('Plan ' + (data.plan ? data.plan.nom : '') + ' créé !', 'ok');
+      document.getElementById('ep-desc').value = '';
+      document.getElementById('ep-objectif').value = '';
+      document.getElementById('ep-password').value = '';
+      document.getElementById('ep-estimation').style.display = 'none';
+      _epPlan = 'libre';
+      selEpPlan('libre');
+      gb();
+      loadEpargnes();
+    } else {
+      toast(data.error || 'Erreur', 'err');
+    }
+  } catch(e) { toast('Erreur: ' + e.message, 'err'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Créer mon plan épargne'; }
+}
+// ─────────────────────────────────────────────────────────────────
+
+
+async function appliquerInteretsMensuels() {
+  var btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin spin-w"></div> Application...';
+  try {
+    var res = await fetch(API + '/api/zama/epargne/admin/appliquer-interets-plans?token=pst-admin-2026', { method: 'POST' });
+    var data = await res.json();
+    if (data.ok) {
+      var el = document.getElementById('interets-result');
+      if (el) el.textContent = data.traites + ' plans mis à jour · +' + (data.total_interets||0).toLocaleString('fr-FR') + ' FCFA versés';
+      toast(data.message || 'Intérêts appliqués !', 'ok');
+    } else {
+      toast(data.error || 'Erreur', 'err');
+    }
+  } catch(e) { toast('Erreur: ' + e.message, 'err'); }
+  btn.disabled = false;
+  btn.innerHTML = '↗ Appliquer les intérêts maintenant';
+}
 
 </script>
 </body>
