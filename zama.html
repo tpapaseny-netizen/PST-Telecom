@@ -1472,11 +1472,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
 
     <div id="ep-modal-confirm" style="display:none">
-      <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:10px;padding:14px;font-size:13px;color:var(--gold);margin-bottom:14px;text-align:center">
-        ✅ Paiement effectué ? Confirmez pour enregistrer votre dépôt.
+      <div style="background:var(--gold-l);border:1px solid var(--gold-m);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--gold);margin-bottom:12px">
+        ✅ Paiement effectué ? Copiez la référence dans votre SMS de confirmation.
       </div>
-      <button class="btn-p" style="width:100%;margin:0 0 10px" onclick="confirmerDepotEpargne()">
-        J'ai payé — Confirmer le dépôt
+      <div class="fg" style="padding:0;margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">Référence de transaction *</label>
+        <input class="finp" id="ep-modal-ref" type="text" placeholder="Ex: WAVE-TXN-XXXXXX ou OM-123456" style="margin-top:6px">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Copiez le code reçu par SMS après le paiement</div>
+      </div>
+      <button class="btn-p" id="ep-modal-confirm-btn" style="width:100%;margin:0 0 10px" onclick="confirmerDepotEpargne()">
+        Soumettre pour validation admin
       </button>
     </div>
 
@@ -1567,7 +1572,7 @@ function goto(id){
   if(id==="scr-acct")renderAcct();
   if(id==="scr-benefs")renderBenefs();
   if(id==="scr-qr")renderQR();
-  if(id==="scr-admin")loadAdmStats();
+  if(id==="scr-admin"){loadAdmStats();loadDepotsPending();}
   if(id==="scr-epargne"){loadEpargnes();}
   if(id==="scr-tontine"){loadTontines();}
   // update bnav
@@ -3028,6 +3033,60 @@ function calcFraisRetrait(val){
   } else {
     if(preview) preview.style.display = 'none';
   }
+}
+
+
+var _depotsPending = [];
+async function loadDepotsPending(){
+  var el = document.getElementById('admin-depots-list');
+  if(!el) return;
+  try{
+    var res = await fetch(API+'/api/zama/epargne/admin/depots-pending?token=pst-admin-2026');
+    var data = await res.json();
+    _depotsPending = data.pending || [];
+    if(!_depotsPending.length){
+      el.innerHTML = "<div style='font-size:12px;color:var(--text3);text-align:center;padding:10px'>Aucun depot en attente</div>";
+      return;
+    }
+    var out = '';
+    _depotsPending.forEach(function(d, i){
+      var date = new Date(d.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      out += "<div style='background:var(--s3);border-radius:10px;padding:12px;margin-bottom:8px'>";
+      out += "<div style='display:flex;justify-content:space-between;margin-bottom:6px'>";
+      out += "<div style='font-size:13px;font-weight:700'>"+(d.description||d.epargne_id)+"</div>";
+      out += "<div style='font-size:13px;font-weight:700;color:var(--gold)'>"+d.montant_fcfa.toLocaleString('fr-FR')+" FCFA</div></div>";
+      out += "<div style='font-size:11px;color:var(--text3);margin-bottom:4px'>"+(d.user_phone||'')+" - "+(d.methode||'wave').toUpperCase()+"</div>";
+      out += "<div style='font-size:11px;font-family:monospace;background:var(--s2);padding:4px 8px;border-radius:4px;margin-bottom:8px;color:var(--text2)'>Ref: "+(d.wave_ref||'--')+"</div>";
+      out += "<div style='font-size:10px;color:var(--text3);margin-bottom:10px'>"+date+"</div>";
+      out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+      out += "<button onclick='validerDepot("+i+")' style='padding:8px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Valider</button>";
+      out += "<button onclick='rejeterDepot("+i+")' style='padding:8px;border-radius:8px;border:none;background:var(--red);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Rejeter</button>";
+      out += "</div></div>";
+    });
+    el.innerHTML = out;
+  }catch(e){
+    if(el) el.innerHTML = "<div style='font-size:12px;color:var(--red)'>Erreur: "+e.message+"</div>";
+  }
+}
+
+async function validerDepot(i){
+  var d = _depotsPending[i];
+  if(!d){ toast('Erreur','err'); return; }
+  try{
+    var res = await fetch(API+'/api/zama/epargne/admin/valider-depot/'+d.depot_id+'?token=pst-admin-2026');
+    toast('Depot valide et credite !','ok');
+    loadDepotsPending();
+  }catch(e){ toast('Erreur','err'); }
+}
+
+async function rejeterDepot(i){
+  var d = _depotsPending[i];
+  if(!d){ toast('Erreur','err'); return; }
+  try{
+    var res = await fetch(API+'/api/zama/epargne/admin/rejeter-depot/'+d.depot_id+'?token=pst-admin-2026');
+    toast('Depot rejete','ok');
+    loadDepotsPending();
+  }catch(e){ toast('Erreur','err'); }
 }
 
 // TOAST
