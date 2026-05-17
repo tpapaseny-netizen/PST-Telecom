@@ -8,7 +8,7 @@
           "value": "zama-sn.com"
         }
       ],
-      "destination": "/zama-site",
+      "destination": "/zama",
       "permanent": false
     },
     {
@@ -19,7 +19,7 @@
           "value": "www.zama-sn.com"
         }
       ],
-      "destination": "/zama-site",
+      "destination": "/zama",
       "permanent": false
     }
   ]
