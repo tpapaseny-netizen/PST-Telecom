@@ -8,7 +8,7 @@
           "value": "zama-sn.com"
         }
       ],
-      "destination": "/zama",
+      "destination": "https://pst-telecom-production.up.railway.app/zama",
       "permanent": false
     },
     {
@@ -19,7 +19,7 @@
           "value": "www.zama-sn.com"
         }
       ],
-      "destination": "/zama",
+      "destination": "https://pst-telecom-production.up.railway.app/zama",
       "permanent": false
     }
   ]
