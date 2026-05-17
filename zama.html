@@ -1491,9 +1491,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">Retrait épargne</div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:20px" id="ep-retrait-sub">Vous recevrez sur votre Wave ou OM</div>
 
-    <div class="fg" style="padding:0;margin-bottom:12px">
+    <div class="fg" style="padding:0;margin-bottom:8px">
       <label>Montant à retirer (FCFA) *</label>
-      <input class="finp" type="number" id="ep-retrait-montant" placeholder="Vide = tout retirer" inputmode="numeric">
+      <input class="finp" type="number" id="ep-retrait-montant" placeholder="Vide = tout retirer" inputmode="numeric" oninput="calcFraisRetrait(this.value)">
+    </div>
+    <div id="ep-frais-preview" style="display:none;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.15);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="color:var(--text3)">Frais ZAMA (1%)</span>
+        <span id="ep-frais-montant" style="color:var(--gold)">-- FCFA</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-weight:700">
+        <span style="color:var(--text2)">Vous recevez</span>
+        <span id="ep-frais-net" style="color:var(--green)">-- FCFA</span>
+      </div>
     </div>
     <div class="fg" style="padding:0;margin-bottom:12px">
       <label>Votre numéro Wave/OM *</label>
@@ -2405,6 +2415,7 @@ async function loadEpargnes() {
       out += "<div style='font-size:11px;color:var(--text3);margin-bottom:10px'>Objectif : "+ep.objectif_fcfa.toLocaleString("fr-FR")+" FCFA - Jusqu au "+df+"</div>";
       out += "<div style='height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px'><div style='height:100%;width:"+pct+"%;background:"+c+";border-radius:3px'></div></div>";
       out += "<div style='font-size:12px;margin-bottom:12px;color:"+c+";font-weight:700'>"+ep.solde_fcfa.toLocaleString("fr-FR")+" FCFA - "+pct_display+"%</div>";
+      out += "<div style='font-size:11px;color:rgba(34,197,94,.7);margin-bottom:8px'>+ 2% interets/mois appliques auto</div>";
       out += "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
       out += "<button onclick='deposerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-l);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>+ Depot</button>";
       out += "<button onclick='retirerEpargne("+i+")' style='padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)'>Retrait</button>";
@@ -2513,49 +2524,30 @@ async function confirmerDepotEpargne(){
   if(!ep){ toast('Erreur','err'); return; }
   var montant = window._epMontantPending || parseInt(document.getElementById('ep-modal-montant').value);
   if(!montant){ toast('Montant invalide','err'); return; }
-  var btn = event.target;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spin"></div> Enregistrement...';
+  var refEl = document.getElementById('ep-modal-ref');
+  var ref = refEl ? refEl.value.trim() : '';
+  if(!ref){ toast('Entrez la reference de transaction','err'); return; }
+  var btn = document.getElementById('ep-modal-confirm-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Soumission...'; }
   try{
-    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/depot',{
+    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/depot-demande',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({montant_fcfa: montant, wave_ref: window._epMethodPending || 'wave'})
+      body: JSON.stringify({
+        montant_fcfa: montant,
+        wave_ref: ref,
+        methode: window._epMethodPending || 'wave',
+        user_phone: user ? user.phone : '',
+        user_name: user ? (user.prenom||'')+" "+(user.nom||'') : ''
+      })
     });
     var data = await res.json();
     if(data.ok){
-      toast(data.objectif_atteint ? 'Objectif atteint !' : 'Depot enregistre !', 'ok');
+      toast('Depot soumis ! Validation admin sous 24h','ok');
       fermerEpModal();
       loadEpargnes();
-    } else toast(data.error || 'Erreur', 'err');
+    } else toast(data.error || 'Erreur','err');
   }catch(e){ toast('Erreur: '+e.message,'err'); }
-  btn.disabled = false;
-  btn.innerHTML = "J'ai paye - Confirmer le depot";
-}
-
-function fermerEpModal(){
-  var modal = document.getElementById('ep-depot-modal');
-  if(modal) modal.style.display = 'none';
-  window._epMontantPending = null;
-  window._epMethodPending = null;
-}
-
-function retirerEpargne(i){
-  _epActionIdx = i;
-  var ep = window._epargnes ? window._epargnes[i] : null;
-  if(!ep) return;
-  var sub = document.getElementById('ep-retrait-sub');
-  var phone = document.getElementById('ep-retrait-phone');
-  var montant = document.getElementById('ep-retrait-montant');
-  var pwdWrap = document.getElementById('ep-retrait-pwd-wrap');
-  var pwd = document.getElementById('ep-retrait-pwd');
-  if(sub) sub.textContent = 'Solde disponible : ' + ep.solde_fcfa.toLocaleString('fr-FR') + ' FCFA';
-  if(phone) phone.value = user ? user.phone || '' : '';
-  if(montant) montant.value = '';
-  if(pwd) pwd.value = '';
-  // Afficher champ mot de passe si l'épargne est protégée
-  if(pwdWrap) pwdWrap.style.display = ep.password ? 'block' : 'none';
-  var modal = document.getElementById('ep-retrait-modal');
-  if(modal) modal.style.display = 'flex';
+  if(btn){ btn.disabled = false; btn.innerHTML = "Soumettre le depot"; }
 }
 
 async function confirmerRetraitEpargne(){
@@ -2570,7 +2562,7 @@ async function confirmerRetraitEpargne(){
   try{
     var body = {phone: phone};
     if(montant && !isNaN(montant)) body.montant_fcfa = parseInt(montant);
-    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait',{
+    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-v2',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
@@ -2658,7 +2650,7 @@ async function confirmerRetrait(){
   try{
     var body = {phone: user ? user.phone : ''};
     if(montant && !isNaN(montant)) body.montant_fcfa = parseInt(montant);
-    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait',{
+    var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-v2',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
@@ -3019,6 +3011,23 @@ function applyTheme(theme){
 function toggleTheme(){
   var current = document.documentElement.getAttribute('data-theme');
   applyTheme(current === 'light' ? 'dark' : 'light');
+}
+
+
+function calcFraisRetrait(val){
+  var montant = parseInt(val) || 0;
+  var preview = document.getElementById('ep-frais-preview');
+  var fraisEl = document.getElementById('ep-frais-montant');
+  var netEl = document.getElementById('ep-frais-net');
+  if(montant > 0){
+    var frais = Math.round(montant * 0.01);
+    var net = montant - frais;
+    if(preview) preview.style.display = 'block';
+    if(fraisEl) fraisEl.textContent = frais.toLocaleString('fr-FR') + ' FCFA';
+    if(netEl) netEl.textContent = net.toLocaleString('fr-FR') + ' FCFA';
+  } else {
+    if(preview) preview.style.display = 'none';
+  }
 }
 
 // TOAST
