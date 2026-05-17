@@ -184,22 +184,83 @@ footer{padding:48px;border-top:1px solid var(--border);}
 
 /* ── MOBILE ── */
 @media(max-width:768px){
-  nav{padding:14px 20px;}
+  /* NAV */
+  nav{padding:12px 16px;}
   .nav-links{display:none;}
+  .nav-cta{padding:8px 16px;font-size:13px;}
+
+  /* HERO */
+  .hero{padding:80px 16px 60px;min-height:auto;}
+  .hero-pill{font-size:11px;padding:5px 14px;margin-bottom:20px;}
+  .hero-btns{flex-direction:column;align-items:center;gap:10px;margin-bottom:32px;}
+  .btn-primary,.btn-secondary{width:100%;max-width:320px;justify-content:center;padding:15px 24px;font-size:15px;}
+  .rate-ticker{flex-wrap:wrap;justify-content:center;gap:6px;padding:10px 14px;font-size:12px;}
+  .scroll-ind{display:none;}
+
+  /* BADGES CRYPTO */
+  [style*="display:flex;flex-wrap:wrap;gap:10px;justify-content:center"]{gap:6px !important;}
+
+  /* STATS */
+  .stats{padding:0 16px !important;margin:-20px auto 0 !important;}
   .stats-grid{grid-template-columns:repeat(2,1fr);}
-  .section{padding:60px 20px;}
-  .feat-grid{grid-template-columns:1fr;}
-  .serv-layout{grid-template-columns:1fr;}
+  .stat-card{padding:16px 12px;}
+  .stat-num{font-size:24px;}
+
+  /* SECTIONS */
+  .section{padding:48px 16px;}
+  .section-title{letter-spacing:-1px;}
+
+  /* FEATURES */
+  .feat-grid{grid-template-columns:1fr;gap:12px;}
+  .feat-card{padding:20px;}
+
+  /* SERVICES */
+  .serv-layout{grid-template-columns:1fr;gap:12px;}
   .serv-card-big{grid-row:auto;}
-  .taux-section{padding:60px 20px;}
-  .taux-grid{grid-template-columns:repeat(2,1fr);}
-  .how-grid{grid-template-columns:1fr 1fr;gap:20px;}
+  .serv-card{padding:20px;}
+  .serv-title{font-size:18px;}
+
+  /* ECHANGE CRYPTO */
+  [style*="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px"]{
+    grid-template-columns:1fr !important;
+  }
+
+  /* TAUX */
+  .taux-section{padding:48px 16px;}
+  .taux-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .taux-card{padding:14px 10px;}
+  .taux-val{font-size:20px;}
+
+  /* COMMENT CA MARCHE */
+  .how-grid{grid-template-columns:1fr 1fr;gap:16px;}
   .how-grid::before{display:none;}
-  .testi-grid{grid-template-columns:1fr;}
-  .cta-section{padding:80px 20px;}
-  footer{padding:40px 20px;}
-  .footer-inner{grid-template-columns:1fr;gap:24px;}
+  .how-step{padding:0 8px;}
+  .how-title{font-size:13px;}
+  .how-desc{font-size:11px;}
+
+  /* TEMOIGNAGES */
+  .testi-grid{grid-template-columns:1fr;gap:12px;}
+
+  /* CTA */
+  .cta-section{padding:60px 16px;}
+  .cta-title{letter-spacing:-1px;}
+  .cta-btns .btn-primary{width:100%;max-width:320px;font-size:15px;padding:16px 24px;}
+
+  /* FOOTER */
+  footer{padding:32px 16px;}
+  .footer-inner{grid-template-columns:1fr;gap:20px;}
   .footer-bottom{flex-direction:column;gap:8px;text-align:center;}
+  .footer-col{display:none;}
+}
+
+/* Très petits écrans */
+.crypto-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:768px){.crypto-grid{grid-template-columns:1fr !important;}}
+@media(max-width:380px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .taux-grid{grid-template-columns:repeat(2,1fr);}
+  .how-grid{grid-template-columns:1fr;}
+  h1{letter-spacing:-2px;}
 }
 </style>
 </head>
@@ -284,7 +345,7 @@ footer{padding:48px;border-top:1px solid var(--border);}
 </section>
 
 <!-- ── STATS ── -->
-<div class="stats" style="padding:0 48px;max-width:1100px;margin:-40px auto 0;">
+<div class="stats" style="max-width:1100px;margin:-40px auto 0;">
   <div class="stats-grid reveal">
     <div class="stat-card">
       <div class="stat-num">5%</div>
@@ -312,7 +373,7 @@ footer{padding:48px;border-top:1px solid var(--border);}
   <h2 class="section-title reveal">Échangez vos crypto<br><span style="color:var(--gold)">en FCFA instantanément</span></h2>
   <p class="section-sub reveal">ZAMA est le premier bureau de change digital sénégalais. Envoyez vos USDT, Bitcoin ou Ethereum et recevez des FCFA directement sur Wave ou Orange Money.</p>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px" class="reveal">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px" class="reveal crypto-grid">
 
     <!-- Simulateur visuel -->
     <div style="background:var(--s1);border:1px solid rgba(38,161,123,.2);border-radius:24px;padding:28px">
