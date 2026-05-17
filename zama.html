@@ -3388,6 +3388,66 @@ if('serviceWorker' in navigator) {
       .catch(function(e) { console.log('SW erreur:', e); });
   });
 }
+
+// ── Crypto coin selector (25 coins) ──────────────────────────────
+var _selCoin3 = 'usdt.trc20';
+var _selCoinLbl3 = 'USDT TRC20';
+
+function selCrypto3(coin, el, label) {
+  _selCoin3 = coin;
+  _selCoinLbl3 = label;
+  // Mettre à jour le label du bouton
+  var lbl = document.getElementById('sel-coin-lbl');
+  if (lbl) lbl.textContent = label;
+  // Highlight le coin sélectionné
+  var all = document.querySelectorAll('.cpx-new2');
+  all.forEach(function(d) { d.classList.remove('on'); });
+  if (el) el.classList.add('on');
+}
+
+function genPayWithCoin() {
+  var a = parseFloat(document.getElementById('s-amt') ? document.getElementById('s-amt').value : 0) || 0;
+  var rate = rates[cK] || 606;
+  var net = Math.round(a * rate * (1 - FEE));
+  if (!a || a <= 0) { toast('Entrez un montant', 'err'); return; }
+  // Calcul montant crypto approx (1 USDT ≈ 1 USD)
+  var amtCrypto = a.toFixed(4);
+  if (!orderId) orderId = 'ZAMA-' + Date.now();
+  // Ouvrir le POS izichange avec la crypto sélectionnée
+  var posUrl = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402';
+  var coinParam = encodeURIComponent(_selCoin3);
+  var fullUrl = posUrl + '?coin=' + coinParam + '&amount=' + amtCrypto + '&ref=' + orderId;
+  // Charger dans l'iframe si disponible, sinon ouvrir dans un nouvel onglet
+  var iframe = document.getElementById('izi-iframe');
+  if (iframe) {
+    var wrap = document.getElementById('iframe-wrap');
+    var loading = document.getElementById('iframe-loading');
+    var fallback = document.getElementById('iframe-fallback');
+    if (loading) loading.style.display = 'flex';
+    if (wrap) wrap.style.display = 'block';
+    if (fallback) fallback.style.display = 'none';
+    iframe.src = fullUrl;
+    iframe.onload = function() {
+      if (loading) loading.style.display = 'none';
+    };
+    showPayTab('crypto');
+    toast('Paiement en ' + _selCoinLbl3 + ' ouvert', 'ok');
+  } else {
+    window.open(fullUrl, '_blank');
+    toast('izichange ouvert — payez en ' + _selCoinLbl3, 'info');
+  }
+  // Sauvegarder la commande
+  var rn = document.getElementById('r-name') ? document.getElementById('r-name').value.trim() : '';
+  var rph = document.getElementById('r-phone') ? document.getElementById('r-phone').value.trim() : '';
+  saveOrder({
+    order_id: orderId, src_currency: curr, amount: a,
+    net_fcfa: net, receiver_name: rn, receiver_phone: rph,
+    receiver_mm: 'crypto_' + _selCoin3, status: 'crypto_pending',
+    created_at: new Date().toISOString()
+  });
+}
+// ─────────────────────────────────────────────────────────────────
+
 </script>
 </body>
 </html>
