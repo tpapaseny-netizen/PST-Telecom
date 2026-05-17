@@ -3425,9 +3425,9 @@ function genPayWithCoin() {
   var loadLbl = document.getElementById('loading-coin-lbl');
   if (loadLbl) loadLbl.textContent = _selCoinLbl3;
 
-  // URL POS izichange
+  // URL POS izichange — on ouvre sans paramètre coin (izichange gère le choix)
   var posUrl = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402';
-  var fullUrl = posUrl + '?coin=' + encodeURIComponent(_selCoin3) + '&amount=' + amtCrypto + '&ref=' + orderId;
+  var fullUrl = posUrl;
 
   var iframe = document.getElementById('izi-iframe');
   if (iframe) {
