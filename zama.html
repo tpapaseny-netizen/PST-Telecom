@@ -2645,28 +2645,36 @@ async function confirmerDepotEpargne(){
 async function confirmerRetraitEpargne(){
   var ep = window._epargnes ? window._epargnes[_epActionIdx] : null;
   if(!ep){ toast('Erreur','err'); return; }
-  var montant = document.getElementById('ep-retrait-montant').value;
+  var montantVal = document.getElementById('ep-retrait-montant').value;
   var phone = document.getElementById('ep-retrait-phone').value.trim();
-  if(!phone){ toast('Entrez votre numéro','err'); return; }
+  var pwdEl = document.getElementById('ep-retrait-pwd');
+  var pwd = pwdEl ? pwdEl.value.trim() : '';
+  if(!phone){ toast('Entrez votre numero Wave/OM','err'); return; }
+  var montant = (montantVal && !isNaN(montantVal)) ? parseInt(montantVal) : ep.solde_fcfa;
+  if(montant <= 0){ toast('Montant invalide','err'); return; }
+  if(montant > ep.solde_fcfa){ toast('Solde insuffisant ('+ep.solde_fcfa.toLocaleString('fr-FR')+' FCFA)','err'); return; }
+  var frais = Math.round(montant * 0.01);
+  var net = montant - frais;
   var btn = event.target;
   btn.disabled = true;
-  btn.innerHTML = '<div class="spin"></div> Envoi...';
+  btn.innerHTML = '<div class="spin"></div> Traitement...';
   try{
-    var body = {phone: phone};
-    if(montant && !isNaN(montant)) body.montant_fcfa = parseInt(montant);
+    var body = {phone: phone, password: pwd || null};
+    if(montantVal && !isNaN(montantVal)) body.montant_fcfa = parseInt(montantVal);
     var res = await fetch(API+'/api/zama/epargne/'+ep.epargne_id+'/retrait-v2',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
     var data = await res.json();
     if(data.ok){
-      toast('Retrait demande ! Virement en cours...','ok');
+      // Afficher résumé de confirmation
       fermerRetraitModal();
+      toast('Retrait de '+montant.toLocaleString('fr-FR')+' FCFA - Vous recevez '+net.toLocaleString('fr-FR')+' FCFA sur '+phone,'ok');
       loadEpargnes();
     } else toast(data.error || 'Erreur','err');
   }catch(e){ toast('Erreur: '+e.message,'err'); }
   btn.disabled = false;
-  btn.innerHTML = 'Demander le retrait';
+  btn.innerHTML = 'Confirmer le retrait';
 }
 
 function fermerRetraitModal(){
@@ -2674,38 +2682,37 @@ function fermerRetraitModal(){
   if(modal) modal.style.display = 'none';
 }
 
-function _old_deposerEpargne(i){
-  _epActionIdx = i;
-  _epAction = 'depot';
-  var ep = window._epargnes ? window._epargnes[i] : null;
-  if(!ep)return;
-  var title = document.getElementById('ep-modal-title');
-  var btn = document.getElementById('ep-modal-btn');
-  var montant = document.getElementById('ep-modal-montant');
-  var ref = document.getElementById('ep-modal-ref');
-  if(title) title.textContent = 'Deposer dans : ' + ep.description;
-  if(btn) btn.textContent = 'Confirmer le depot';
-  if(montant) montant.value = '';
-  if(ref) { ref.value = ''; ref.parentElement.style.display = 'block'; }
-  var modal = document.getElementById('ep-depot-modal');
-  if(modal){ modal.style.display = 'flex'; }
-}
 
 function retirerEpargne(i){
   _epActionIdx = i;
-  _epAction = 'retrait';
   var ep = window._epargnes ? window._epargnes[i] : null;
-  if(!ep)return;
-  var title = document.getElementById('ep-modal-title');
-  var btn = document.getElementById('ep-modal-btn');
-  var montant = document.getElementById('ep-modal-montant');
-  var ref = document.getElementById('ep-modal-ref');
-  if(title) title.textContent = 'Retirer de : ' + ep.description + ' (solde: ' + ep.solde_fcfa.toLocaleString('fr-FR') + ' FCFA)';
-  if(btn) { btn.textContent = 'Confirmer le retrait'; btn.onclick = confirmerRetrait; }
-  if(montant) montant.value = '';
-  if(ref) ref.parentElement.style.display = 'none';
-  var modal = document.getElementById('ep-depot-modal');
-  if(modal){ modal.style.display = 'flex'; }
+  if(!ep) return;
+  // Remplir le vrai modal retrait
+  var sub = document.getElementById('ep-retrait-sub');
+  var phone = document.getElementById('ep-retrait-phone');
+  var montant = document.getElementById('ep-retrait-montant');
+  var pwdWrap = document.getElementById('ep-retrait-pwd-wrap');
+  var pwd = document.getElementById('ep-retrait-pwd');
+  var preview = document.getElementById('ep-frais-preview');
+  if(sub) sub.textContent = 'Solde disponible : ' + ep.solde_fcfa.toLocaleString('fr-FR') + ' FCFA - ' + ep.description;
+  if(phone) phone.value = user ? (user.phone || '') : '';
+  if(montant){ montant.value = ''; }
+  if(pwd) pwd.value = '';
+  if(preview) preview.style.display = 'none';
+  // Afficher champ mot de passe si épargne protégée
+  if(pwdWrap) pwdWrap.style.display = ep.password ? 'block' : 'none';
+  // Pré-calculer frais si on retire tout
+  if(ep.solde_fcfa > 0){
+    var frais = Math.round(ep.solde_fcfa * 0.01);
+    var net = ep.solde_fcfa - frais;
+    var fraisEl = document.getElementById('ep-frais-montant');
+    var netEl = document.getElementById('ep-frais-net');
+    if(fraisEl) fraisEl.textContent = frais.toLocaleString('fr-FR') + ' FCFA';
+    if(netEl) netEl.textContent = net.toLocaleString('fr-FR') + ' FCFA';
+    if(preview) preview.style.display = 'block';
+  }
+  var modal = document.getElementById('ep-retrait-modal');
+  if(modal) modal.style.display = 'flex';
 }
 
 function fermerEpModal(){
