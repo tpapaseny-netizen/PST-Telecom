@@ -639,6 +639,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         </div>
       </div>
       <div class="hero-greeting" id="h-greeting">Bonjour</div>
+      <div id="h-username-line" style="font-size:12px;color:rgba(245,176,20,.7);font-weight:600;margin-top:0px;margin-bottom:2px;display:none"></div>
       <div class="hero-sub">Envoyez de l'argent au Sénégal</div>
       <div class="rate-pill"><div class="rdot"></div>1 USD = <strong id="h-rate" style="color:#fff;margin:0 2px">--</strong> FCFA · temps réel</div>
     </div>
@@ -1211,7 +1212,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <div class="acct-av" id="a-av">?</div>
         <div class="acct-name" id="a-name">--</div>
         <div class="acct-phone" id="a-phone">--</div>
-        <div id="a-username" style="font-size:12px;color:var(--gold);font-weight:600;margin-top:3px;letter-spacing:.3px"></div>
         <div><span class="kyc-tag kyc-no" id="a-kyc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Identité non vérifiée</span></div>
       </div>
       <div style="padding-top:4px">
@@ -1539,23 +1539,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="otp-inputs"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,0)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,1)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,2)"><input class="otp-inp" type="tel" maxlength="1" inputmode="numeric" oninput="otpN(this,3)"></div>
     <button class="btn-p" style="width:100%;margin:0 0 10px" onclick="verOTP()">Vérifier</button>
     <button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="document.getElementById('otp-overlay').classList.remove('open')">Annuler</button>
-  </div>
-</div>
-
-
-<!-- ══ MODAL USERNAME ══ -->
-<div id="username-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box" onclick="if(event.target===this)closeUsernameModal()">
-  <div style="background:var(--s1);border-radius:20px;padding:24px 20px;width:100%;max-width:380px;border:1px solid var(--border)">
-    <div style="font-size:17px;font-weight:700;margin-bottom:6px">Mon nom d'utilisateur</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Lettres, chiffres, points — max 20 caractères</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Actuel : <span id="modal-un-current" style="color:var(--gold);font-weight:600">@aucun</span></div>
-    <input id="modal-un-input" type="text" maxlength="20" placeholder="ex: papaseny.toure"
-      style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--s2);color:var(--text1);font-size:15px;font-family:var(--font);box-sizing:border-box;outline:none;margin-bottom:16px"
-      oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.]/g,'')">
-    <div style="display:flex;gap:10px">
-      <button onclick="closeUsernameModal()" style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--border);background:var(--s3);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Annuler</button>
-      <button onclick="confirmUsername()" id="modal-un-btn" style="flex:2;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Enregistrer</button>
-    </div>
   </div>
 </div>
 
@@ -2100,6 +2083,12 @@ function updateGreet(){
   var h=new Date().getHours();
   var g=h<12?"Bonjour":h<18?"Bon après-midi":"Bonsoir";
   el.textContent=user?g+", "+(user.prenom||"Client")+" 👋":g;
+  // Afficher @username sous le greeting
+  var ul=document.getElementById("h-username-line");
+  if(ul){
+    if(user && user.username){ ul.textContent="@"+user.username; ul.style.display="block"; }
+    else { ul.style.display="none"; }
+  }
 }
 function renderAcct(){
   user=loadU();
@@ -2110,8 +2099,7 @@ function renderAcct(){
     var ini=((user.prenom||"?")[0]+(user.nom||"?")[0]).toUpperCase();
     var av=document.getElementById("a-av");if(av)av.textContent=ini;
     var nm=document.getElementById("a-name");if(nm)nm.textContent=(user.prenom||"")+" "+(user.nom||"");
-    var ph=document.getElementById("a-phone");if(ph)ph.textContent=user.phone||"--";
-    var aun=document.getElementById("a-username");if(aun)aun.textContent=user.username?"@"+user.username:"";
+    var ph=document.getElementById("a-phone");if(ph)ph.textContent=user.username?"@"+user.username:(user.phone||"--");
     var kt=document.getElementById("a-kyc");
     if(kt){if(user.kyc){kt.className="kyc-tag kyc-yes";kt.innerHTML="<svg viewBox='0 0 24 24' width='12' height='12' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='20,6 9,17 4,12'/></svg> Identité vérifiée";}else{kt.className="kyc-tag kyc-no";kt.innerHTML="<svg viewBox='0 0 24 24' width='12' height='12' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='16' x2='12.01' y2='16'/></svg> Identité non vérifiée";}}
     var ki=document.getElementById("kyc-item");if(ki)ki.style.display=user.kyc?"none":"flex";
@@ -3518,74 +3506,61 @@ function backToCoinSelect() {
 // ── USERNAME ──────────────────────────────────────────────────────
 function refreshUsername() {
   var u = loadU();
+  // Menu compte : "Mon nom d'utilisateur @xxx"
   var el = document.getElementById('display-username');
   if (el) el.textContent = u && u.username ? '@' + u.username : '@---';
-  // Afficher aussi dans la balance card si présent
+  // Balance card
   var uel = document.getElementById('bal-username');
   if (uel) uel.textContent = u && u.username ? '@' + u.username : '';
+  // Carte profil : remplacer téléphone par @username
+  var ph = document.getElementById('a-phone');
+  if (ph) ph.textContent = u && u.username ? '@' + u.username : (u && u.phone ? u.phone : '--');
+  // Greeting accueil
+  var ul = document.getElementById('h-username-line');
+  if (ul) {
+    if (u && u.username) { ul.textContent = '@' + u.username; ul.style.display = 'block'; }
+    else { ul.style.display = 'none'; }
+  }
 }
 
-function editUsername() {
+async function editUsername() {
   var u = loadU();
   if (!u) return;
   var current = u.username || '';
-  var el = document.getElementById('modal-un-current');
-  var inp = document.getElementById('modal-un-input');
-  var modal = document.getElementById('username-modal');
-  if (el) el.textContent = current ? '@' + current : '@aucun';
-  if (inp) { inp.value = current; }
-  if (modal) { modal.style.display = 'flex'; setTimeout(function(){ if(inp) inp.focus(); }, 100); }
-}
-
-function closeUsernameModal() {
-  var modal = document.getElementById('username-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-async function confirmUsername() {
-  var u = loadU();
-  if (!u) return;
-  var inp = document.getElementById('modal-un-input');
-  var btn = document.getElementById('modal-un-btn');
-  if (!inp) return;
-  var nouveau = inp.value.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20);
-  if (nouveau.length < 3) { toast('Minimum 3 caractères', 'err'); inp.focus(); return; }
-  if (nouveau === (u.username || '')) { closeUsernameModal(); toast('Identique à l\'actuel', 'info'); return; }
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div>'; }
+  var nouveau = prompt('Choisissez un nom d\'utilisateur unique\n(lettres, chiffres, points — max 20 car.)\n\nActuel: @' + (current || 'aucun'), current);
+  if (nouveau === null) return;
+  nouveau = nouveau.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20);
+  if (nouveau.length < 3) { toast('Minimum 3 caractères', 'err'); return; }
+  if (nouveau === current) { toast('Identique à l\'actuel', 'info'); return; }
+  toast('Vérification...', 'info');
   try {
+    // Vérifier unicité via backend
     var res = await fetch(API + '/api/zama/username/update', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: u.phone, username: nouveau })
     });
     var data = await res.json();
-    if (!res.ok || !data.ok) {
-      toast(data.error || 'Nom non disponible', 'err');
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Enregistrer'; }
-      return;
-    }
+    if (!res.ok || !data.ok) { toast(data.error || 'Nom non disponible', 'err'); return; }
+    // Sauvegarder localement
     u.username = data.username;
     saveULS(u);
     var accts = getAllA();
     var idx = accts.findIndex(function(a) { return a.id === u.id; });
     if (idx !== -1) { accts[idx] = u; saveAllA(accts); }
     refreshUsername();
-    renderAcct();
-    closeUsernameModal();
     toast('@' + data.username + ' enregistré !', 'ok');
   } catch(e) {
+    // Fallback local si pas de réseau
     var accts = getAllA();
     var taken = accts.find(function(a) { return a.username === nouveau && a.id !== u.id; });
-    if (taken) { toast('@' + nouveau + ' est déjà pris', 'err'); if(btn){btn.disabled=false;btn.innerHTML='Enregistrer';} return; }
+    if (taken) { toast('@' + nouveau + ' est déjà pris', 'err'); return; }
     u.username = nouveau;
     saveULS(u);
     var idx = accts.findIndex(function(a) { return a.id === u.id; });
     if (idx !== -1) { accts[idx] = u; saveAllA(accts); }
     refreshUsername();
-    renderAcct();
-    closeUsernameModal();
     toast('@' + nouveau + ' enregistré !', 'ok');
   }
-  if (btn) { btn.disabled = false; btn.innerHTML = 'Enregistrer'; }
 }
 // ─────────────────────────────────────────────────────────────────
 
