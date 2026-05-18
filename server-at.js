@@ -127,6 +127,7 @@ function authAdmin(req, res, next) {
 app.get("/", (req,res) => res.redirect("https://pst-telecom.vercel.app"));
 app.get("/admin", authAdmin, (req,res) => res.sendFile(path.join(__dirname,"admin.html")));
 app.get("/sms-marketing", (req,res) => res.sendFile(path.join(__dirname,"sms-marketing.html")));
+app.get("/sen-sms", (req,res) => res.sendFile(path.join(__dirname,"sen-sms.html")));
 app.get("/appel", (req,res) => res.sendFile(path.join(__dirname,"appel.html")));
 app.get("/dashboard", (req,res) => res.sendFile(path.join(__dirname,"dashboard.html")));
 app.get("/sms", (req,res) => res.sendFile(path.join(__dirname,"sms.html")));
