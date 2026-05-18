@@ -3151,9 +3151,7 @@ app.delete('/api/zama/user', async(req, res) => {
 
 
 // ─── SEN-SMS — ENVOI BULK VIA INFOBIP
-const INFOBIP_SENDER = 'SenSMS';
  ────────────────────────────────────────
-const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 
 // Route envoi campagne Sen-SMS
 app.post('/api/sen-sms/send', async (req, res) => {
@@ -3163,7 +3161,7 @@ app.post('/api/sen-sms/send', async (req, res) => {
       return res.status(400).json({ error: 'Aucun message fourni' });
     }
 
-    const senderName = (sender || INFOBIP_SENDER).replace(/[^a-zA-Z0-9\-]/g, '').substring(0, 11) || INFOBIP_SENDER;
+    const senderName = (sender || 'SenSMS').replace(/[^a-zA-Z0-9\-]/g, '').substring(0, 11) || 'SenSMS';
 
     // Construction du payload Infobip bulk
     const infobipMessages = messages.map(function(m) {
@@ -3181,7 +3179,7 @@ app.post('/api/sen-sms/send', async (req, res) => {
     const response = await fetch(INFOBIP_BASE_URL + '/sms/2/text/advanced', {
       method: 'POST',
       headers: {
-        'Authorization': 'App ' + INFOBIP_API_KEY_SEN,
+        'Authorization': 'App ' + INFOBIP_API_KEY,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
@@ -3224,7 +3222,7 @@ app.post('/api/sen-sms/send', async (req, res) => {
 app.get('/api/sen-sms/status/:bulkId', async (req, res) => {
   try {
     const response = await fetch(INFOBIP_BASE_URL + '/sms/1/bulks/status?bulkId=' + req.params.bulkId, {
-      headers: { 'Authorization': 'App ' + INFOBIP_API_KEY_SEN, 'Accept': 'application/json' }
+      headers: { 'Authorization': 'App ' + INFOBIP_API_KEY, 'Accept': 'application/json' }
     });
     const result = await response.json();
     res.json(result);
