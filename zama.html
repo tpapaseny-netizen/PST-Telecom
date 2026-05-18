@@ -4509,5 +4509,28 @@ function initLanding() {
 // ─────────────────────────────────────────────────────────────────
 
 </script>
+
+<!-- OTP Connexion 6 chiffres -->
+<div id="otp-login-overlay" class="otp-overlay" style="display:none;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--s2);border-radius:24px 24px 0 0;padding:28px 24px 36px;width:100%;max-width:430px;">
+    <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;text-align:center">Code de connexion</div>
+    <div id="otp-login-sub" style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:20px">Code envoyé par SMS</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
+      <input class="otp-inp" id="lc0" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,0)" style="width:44px;height:52px;font-size:22px">
+      <input class="otp-inp" id="lc1" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,1)" style="width:44px;height:52px;font-size:22px">
+      <input class="otp-inp" id="lc2" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,2)" style="width:44px;height:52px;font-size:22px">
+      <input class="otp-inp" id="lc3" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,3)" style="width:44px;height:52px;font-size:22px">
+      <input class="otp-inp" id="lc4" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,4)" style="width:44px;height:52px;font-size:22px">
+      <input class="otp-inp" id="lc5" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,5)" style="width:44px;height:52px;font-size:22px">
+    </div>
+    <button class="btn-p" style="width:100%;margin:0 0 10px" onclick="verLoginOTP()">Vérifier</button>
+    <button style="width:100%;padding:12px;background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:var(--rsm);cursor:pointer;font-family:var(--font)" onclick="document.getElementById('otp-login-overlay').style.display='none'">Annuler</button>
+    <div style="text-align:center;margin-top:14px">
+      <span style="font-size:12px;color:var(--text3)">Pas reçu ? </span>
+      <span style="font-size:12px;color:var(--gold);cursor:pointer;font-weight:600" onclick="renvoyerOTPLogin()">Renvoyer</span>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

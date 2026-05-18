@@ -3103,6 +3103,71 @@ app.post('/api/zama/login-notify', async(req, res) => {
     res.json({ success: false });
   }
 });
+
+// ─── ZAMA OTP CONNEXION + DELETE USER ──────────────────────────────────────
+
+// Stockage OTP en mémoire (clé: phone, valeur: {code, expireAt})
+const zamaOtpStore = {};
+
+// Envoyer OTP connexion
+app.post('/api/zama/send-otp', async(req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Numero requis' });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expireAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    zamaOtpStore[ph] = { code, expireAt };
+    const msg = 'ZAMA: Votre code de connexion est ' + code + '. Valable 10 minutes. Ne le partagez jamais.';
+    await envoyerSMSInfobip(ph, msg);
+    console.log('[ZAMA OTP] Code envoye a ' + ph);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[ZAMA OTP]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Vérifier OTP connexion
+app.post('/api/zama/verify-otp', async(req, res) => {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) return res.status(400).json({ valid: false, error: 'Donnees manquantes' });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    const entry = zamaOtpStore[ph];
+    if (!entry) return res.json({ valid: false, error: 'Aucun code envoye' });
+    if (Date.now() > entry.expireAt) {
+      delete zamaOtpStore[ph];
+      return res.json({ valid: false, error: 'Code expire' });
+    }
+    if (entry.code !== code.trim()) return res.json({ valid: false, error: 'Code incorrect' });
+    delete zamaOtpStore[ph];
+    res.json({ valid: true });
+  } catch (e) {
+    res.status(500).json({ valid: false, error: e.message });
+  }
+});
+
+// Supprimer un utilisateur ZAMA (admin)
+app.delete('/api/zama/user', async(req, res) => {
+  try {
+    const token = req.headers['x-admin-token'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) {
+      return res.status(403).json({ error: 'Non autorise' });
+    }
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone requis' });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    if (db) {
+      await db.collection('zama_users').deleteOne({ $or: [{ phone: ph }, { phone: phone }] });
+    }
+    res.json({ success: true, message: 'Utilisateur supprime: ' + ph });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+// ─── FIN ZAMA OTP CONNEXION + DELETE USER ──────────────────────────────────
+
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {
