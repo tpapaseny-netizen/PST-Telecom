@@ -236,7 +236,26 @@ app.get("/api/sms/compte/:userId", async(req,res)=>{ try{if(!db)return res.statu
 // ═══════════════════════════════════════════════════════════
 // ROUTES SMS MARKETING
 // ═══════════════════════════════════════════════════════════
-app.post("/api/sms-marketing/send", async(req,res)=>{ try{const{campagne,messages,sender,scheduled}=req.body; if(!messages||!messages.length)return res.status(400).json({error:"Aucun message"}); const camp={campagne:campagne||"Campagne SMS",sender:sender||"PST-Telecom",total:messages.length,envoyes:0,echecs:0,statut:scheduled?"planifie":"en_cours",scheduledAt:scheduled?new Date(scheduled):null,createdAt:new Date()}; const result=await db.collection("sms_campagnes").insertOne(camp); if(scheduled){await db.collection("sms_campagnes").updateOne({_id:result.insertedId},{$set:{messages,statut:"planifie"}}); return res.json({success:true,statut:"planifie"});} const AT=require("africastalking")({apiKey:process.env.AT_API_KEY,username:process.env.AT_USERNAME}); const sms=AT.SMS; let envoyes=0,echecs=0; for(const msg of messages){try{await sms.send({to:[msg.telephone],message:msg.message,from:sender||"PST-Telecom"}); envoyes++;}catch(e){echecs++;}} await db.collection("sms_campagnes").updateOne({_id:result.insertedId},{$set:{envoyes,echecs,statut:"termine",finishedAt:new Date()}}); res.json({success:true,envoyes,echecs,total:messages.length});}catch(e){res.status(500).json({error:e.message});} });
+app.post("/api/sms-marketing/send", async(req,res)=>{ try{const{campagne,messages,sender,scheduled}=req.body; if(!messages||!messages.length)return res.status(400).json({error:"Aucun message"}); const senderName=sender||"PST-Telecom";
+  const camp={campagne:campagne||"Campagne SMS",sender:senderName,total:messages.length,envoyes:0,echecs:0,statut:scheduled?"planifie":"en_cours",scheduledAt:scheduled?new Date(scheduled):null,createdAt:new Date()}; const result=await db.collection("sms_campagnes").insertOne(camp); if(scheduled){await db.collection("sms_campagnes").updateOne({_id:result.insertedId},{$set:{messages,statut:"planifie"}}); return res.json({success:true,statut:"planifie"});}
+  // Envoi via Infobip
+  let envoyes=0,echecs=0;
+  for(const msg of messages){
+    try{
+      const ph=msg.telephone.startsWith("+")?msg.telephone:"+221"+msg.telephone;
+      const r=await fetch(INFOBIP_BASE_URL+"/sms/2/text/advanced",{
+        method:"POST",
+        headers:{
+          "Authorization":"App "+INFOBIP_API_KEY,
+          "Content-Type":"application/json",
+          "Accept":"application/json"
+        },
+        body:JSON.stringify({messages:[{from:INFOBIP_SENDER,destinations:[{to:ph}],text:msg.message}]})
+      });
+      if(r.ok){envoyes++;}else{echecs++;}
+    }catch(e){echecs++;}
+  }
+  await db.collection("sms_campagnes").updateOne({_id:result.insertedId},{$set:{envoyes,echecs,statut:"termine",finishedAt:new Date()}}); res.json({success:true,envoyes,echecs,total:messages.length});}catch(e){res.status(500).json({error:e.message});} });
 app.get("/api/sms-marketing/campagnes", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({},{projection:{messages:0}}).sort({createdAt:-1}).limit(50).toArray(); res.json(c);}catch(e){res.json([]);} });
 app.get("/api/sms-marketing/stats", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({}).toArray(); res.json({totalCampagnes:c.length,totalEnvoyes:c.reduce((s,x)=>s+(x.envoyes||0),0),totalEchecs:c.reduce((s,x)=>s+(x.echecs||0),0)});}catch(e){res.json({totalCampagnes:0,totalEnvoyes:0,totalEchecs:0});} });
 app.post("/api/sms-marketing/verify-ref", async(req,res)=>{ try{const{reference,telephone,smsCount}=req.body; if(!reference||reference.length<5)return res.json({valid:false,error:"Reference trop courte"}); const ref=reference.toUpperCase().trim(); const ex=await db.collection("sms_refs_utilisees").findOne({reference:ref}); if(ex)return res.json({valid:false,error:"Reference deja utilisee"}); await db.collection("sms_refs_utilisees").insertOne({reference:ref,telephone,smsCount:parseInt(smsCount)||0,utiliseeAt:new Date()}); res.json({valid:true});}catch(e){res.status(500).json({valid:false,error:e.message});} });
@@ -3068,6 +3087,22 @@ app.post('/api/zama/sms-otp', async (req, res) => {
 });
 // ─── FIN INFOBIP SMS ────────────────────────────────────────────────────────
 
+
+// Route SMS notification de connexion ZAMA
+app.post('/api/zama/login-notify', async(req, res) => {
+  try {
+    const { phone, prenom } = req.body;
+    if (!phone) return res.json({ success: false });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    const nm = prenom || 'Client';
+    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const msg = 'ZAMA: Connexion a votre compte detectee a ' + now + '. Si ce n\'est pas vous, changez votre mot de passe immediatement sur zama-sn.com';
+    envoyerSMSInfobip(ph, msg).catch(function() {});
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false });
+  }
+});
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 connectDB().then(() => {
   app.listen(PORT, () => {

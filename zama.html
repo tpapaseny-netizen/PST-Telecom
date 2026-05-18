@@ -2523,6 +2523,16 @@ function doLogin(){
   var isAdm = user.email && admins.indexOf(user.email.toLowerCase()) >= 0;
   var btnAdm = document.getElementById("btn-admin-direct");
   if(btnAdm) btnAdm.style.display = isAdm ? "flex" : "none";
+  // SMS notification de connexion (silencieux)
+  if(found.phone && !found.isAdmin){
+    try{
+      fetch(API+"/api/zama/login-notify",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({phone:found.phone,prenom:found.prenom})
+      }).catch(function(){});
+    }catch(e){}
+  }
   toast("Bienvenue, "+(found.prenom||"Admin")+" !","ok");
   goto("scr-home");
 }
