@@ -2480,6 +2480,9 @@ async function register(){
   document.querySelectorAll(".otp-inp")[0].focus();
   toast("Code OTP : 1234 (démo)","info");
 }
+// OTP login state
+var _otpLoginUser = null;
+
 function doLogin(){
   var t = document.getElementById("lg-phone").value.trim();
   var em = document.getElementById("lg-email") ? document.getElementById("lg-email").value.trim() : "";
@@ -2489,50 +2492,76 @@ function doLogin(){
   var accts = getAllA();
   var found = null;
   if(em){
-    // Connexion par email (admins)
     found = accts.find(function(a){return a.email && a.email.toLowerCase() === em.toLowerCase();});
     if(!found){
-      // Créer un compte admin temporaire si email admin connu
       var admEmails = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
       if(admEmails.indexOf(em.toLowerCase()) >= 0){
-        // Admin valide - créer session
         found = {id:"ADMIN-"+Date.now(),prenom:"Admin",nom:"ZAMA",phone:"",email:em,password:pwd,pays:"SN",kyc:true,isAdmin:true,created:new Date().toISOString()};
-        var all = getAllA();
-        all.push(found);
+        var all = getAllA(); all.push(found);
         localStorage.setItem("zama_accounts", JSON.stringify(all));
-      } else {
-        toast("Email non trouvé","err");
-        return;
-      }
+      } else { toast("Email non trouvé","err"); return; }
     }
   } else {
-    // Connexion par téléphone
     var phone = normPh(t);
     found = accts.find(function(a){return normPh(a.phone)===phone;});
     if(!found){toast("Numero non trouve. Creez un compte.","err");swTab("reg");return;}
   }
   if(found.password !== pwd){toast("Mot de passe incorrect","err");return;}
+  // Admins -> connexion directe sans OTP
+  if(found.isAdmin || !found.phone){
+    finishLogin(found);
+    return;
+  }
+  // Client -> envoyer OTP 6 chiffres par SMS
+  _otpLoginUser = found;
+  var ph = found.phone.startsWith("+") ? found.phone : "+221" + found.phone;
+  document.getElementById("otp-login-sub").textContent = "Code envoyé au " + ph;
+  [0,1,2,3,4,5].forEach(function(i){ document.getElementById("lc"+i).value=""; });
+  document.getElementById("otp-login-overlay").style.display = "flex";
+  document.getElementById("lc0").focus();
+  fetch(API+"/api/zama/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:found.phone})})
+    .then(function(){toast("Code OTP envoyé par SMS","ok");})
+    .catch(function(){toast("Erreur envoi OTP","err");});
+}
+
+function lcN(el, idx){
+  if(el.value.length===1 && idx < 5) document.getElementById("lc"+(idx+1)).focus();
+}
+
+function renvoyerOTPLogin(){
+  if(!_otpLoginUser){return;}
+  fetch(API+"/api/zama/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:_otpLoginUser.phone})})
+    .then(function(){toast("Code renvoyé","ok");}).catch(function(){toast("Erreur envoi","err");});
+}
+
+async function verLoginOTP(){
+  var code = [0,1,2,3,4,5].map(function(i){return document.getElementById("lc"+i).value;}).join("");
+  if(code.length !== 6){toast("Entrez les 6 chiffres","err");return;}
+  if(!_otpLoginUser){toast("Erreur, recommencez","err");return;}
+  try{
+    var r = await fetch(API+"/api/zama/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:_otpLoginUser.phone,code:code})});
+    var d = await r.json();
+    if(d.valid){
+      document.getElementById("otp-login-overlay").style.display="none";
+      finishLogin(_otpLoginUser);
+      _otpLoginUser = null;
+    } else {
+      toast(d.error||"Code incorrect","err");
+    }
+  }catch(e){toast("Erreur verification","err");}
+}
+
+function finishLogin(found){
   saveULS(found);
   user = found;
   renderAcct();
   updateGreet();
   renderHBenefs();
   initTheme();
-  // Afficher bouton admin si admin
   var admins = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
   var isAdm = user.email && admins.indexOf(user.email.toLowerCase()) >= 0;
   var btnAdm = document.getElementById("btn-admin-direct");
   if(btnAdm) btnAdm.style.display = isAdm ? "flex" : "none";
-  // SMS notification de connexion (silencieux)
-  if(found.phone && !found.isAdmin){
-    try{
-      fetch(API+"/api/zama/login-notify",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({phone:found.phone,prenom:found.prenom})
-      }).catch(function(){});
-    }catch(e){}
-  }
   toast("Bienvenue, "+(found.prenom||"Admin")+" !","ok");
   goto("scr-home");
 }
