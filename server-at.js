@@ -2226,7 +2226,12 @@ app.post('/api/zama/send-otp', async (req, res) => {
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
     if (db) await db.collection('zama_otp').deleteMany({ phone: ph }); // supprimer anciens OTP
     if (db) await db.collection('zama_otp').insertOne({ phone: ph, otp, expires, used: false, created_at: new Date() });
-    await zamaSendSMS(ph, 'ZAMA: Votre code de connexion est ' + otp + '. Valable 10 minutes. Ne le partagez jamais.');
+    // OTP via numéro direct (sender alphanumérique bloqué par Orange SN)
+    await fetch(INFOBIP_BASE_URL + '/sms/2/text/advanced', {
+      method: 'POST',
+      headers: { 'Authorization': 'App ' + INFOBIP_API_KEY, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ messages: [{ destinations: [{ to: ph }], text: 'ZAMA: Votre code de connexion est ' + otp + '. Valable 10 minutes. Ne le partagez jamais.' }] })
+    });
     res.json({ ok: true, message: 'Code OTP envoye' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
