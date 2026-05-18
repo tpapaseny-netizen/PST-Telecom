@@ -2996,7 +2996,6 @@ app.get('/api/zama/pret/eligibilite/:user_id', async (req, res) => {
 
 // ─── INFOBIP SMS (ZAMA) ────────────────────────────────────────────────────
 const INFOBIP_API_KEY = '31f52d00c3a4fbb92c00c72139556f43-e7142bf0-5334-471d-b7a3-4a8aa24c1492';
-const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 const INFOBIP_SENDER  = 'ZAMA';
 
 async function envoyerSMSInfobip(telephone, message) {
@@ -3151,10 +3150,10 @@ app.delete('/api/zama/user', async(req, res) => {
 // ─── FIN ZAMA OTP CONNEXION + DELETE USER ──────────────────────────────────
 
 
-// ─── SEN-SMS — ENVOI BULK VIA INFOBIP ────────────────────────────────────────
-const INFOBIP_API_KEY_SEN = INFOBIP_API_KEY;
-const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
+// ─── SEN-SMS — ENVOI BULK VIA INFOBIP
 const INFOBIP_SENDER = 'SenSMS';
+ ────────────────────────────────────────
+const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 
 // Route envoi campagne Sen-SMS
 app.post('/api/sen-sms/send', async (req, res) => {
