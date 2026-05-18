@@ -3152,7 +3152,7 @@ app.delete('/api/zama/user', async(req, res) => {
 
 
 // ─── SEN-SMS — ENVOI BULK VIA INFOBIP ────────────────────────────────────────
-const INFOBIP_API_KEY = process.env.INFOBIP_API_KEY || '31f52d00c3a4fbb92c00c72139556f43-e7142bf0-5334-471d-b7a3-4a8aa24c1492';
+const INFOBIP_API_KEY_SENSMS = process.env.INFOBIP_API_KEY || '31f52d00c3a4fbb92c00c72139556f43-e7142bf0-5334-471d-b7a3-4a8aa24c1492';
 const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 const INFOBIP_SENDER = 'SenSMS';
 
