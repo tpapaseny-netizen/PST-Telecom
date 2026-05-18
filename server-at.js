@@ -308,10 +308,10 @@ app.delete("/api/trax/vehicles/:vehicleId", async(req,res)=>{ try{if(db){await d
 
 // Register / KYC / Users
 app.post("/api/zama/register", async(req,res)=>{ try{
-  const isNew=!db?true:(await db.collection("zama_users").findOne({phone:req.body.phone})===null);
+  const existant=db?await db.collection("zama_users").findOne({phone:req.body.phone}):null;
   if(db)await db.collection("zama_users").updateOne({phone:req.body.phone},{$set:{...req.body,updated_at:new Date()}},{upsert:true});
-  // SMS bienvenue nouveau compte
-  if(isNew&&req.body.phone){
+  // SMS bienvenue — uniquement si nouveau compte
+  if(!existant&&req.body.phone){
     try{
       const ph=req.body.phone.startsWith("+")?req.body.phone:"+221"+req.body.phone;
       const nm=req.body.prenom||req.body.nom||"Client";
