@@ -2072,13 +2072,7 @@ async function zamaSendSMS(phone, message) {
   // Utilise Infobip (remplace Africa's Talking)
   return envoyerSMSInfobip(phone, message);
 }
-async function zamaSendSMS_legacy(phone, message) {
-  try {
-    // Ancien code AT conservé pour référence (jamais exécuté)
-    console.log('[ZAMA SMS LEGACY]', phone, message);
-    return null;
-  }
-}
+// zamaSendSMS_legacy supprimée
 
 // ── Soumettre un retrait (utilisateur → en attente validation admin)
 app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
