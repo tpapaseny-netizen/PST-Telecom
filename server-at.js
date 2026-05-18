@@ -2069,32 +2069,11 @@ app.post('/api/zama/epargne/:epargne_id/retrait-v2', async (req, res) => {
 
 // ── Helper SMS Africa's Talking ─────────────────────────────────
 async function zamaSendSMS(phone, message) {
+  // Utilise Infobip (remplace Africa's Talking)
+  return envoyerSMSInfobip(phone, message);
   try {
-    if (!AT_API_KEY || AT_API_KEY === 'sandbox') {
-      console.log('[ZAMA SMS SANDBOX] To:', phone, '| Msg:', message);
-      return { status: 'sandbox', phone, message };
-    }
-    const fetch = require('node-fetch');
-    const params = new URLSearchParams({
-      username: AT_USERNAME,
-      to: phone,
-      message: message,
-      from: 'ZAMA'
-    });
-    const res = await fetch('https://api.africastalking.com/version1/messaging', {
-      method: 'POST',
-      headers: {
-        'apiKey': AT_API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      },
-      body: params.toString()
-    });
-    const data = await res.json();
-    console.log('[ZAMA SMS]', JSON.stringify(data));
-    return data;
-  } catch(e) {
-    console.error('[ZAMA SMS Error]', e.message);
+    // Ancien code AT conservé pour référence (jamais exécuté)
+    console.log('[ZAMA SMS LEGACY]', phone, message);
     return null;
   }
 }
