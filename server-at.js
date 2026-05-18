@@ -2072,7 +2072,13 @@ async function zamaSendSMS(phone, message) {
   // Utilise Infobip (remplace Africa's Talking)
   return envoyerSMSInfobip(phone, message);
 }
-// zamaSendSMS_legacy supprimée (code mort)
+async function zamaSendSMS_legacy(phone, message) {
+  try {
+    // Ancien code AT conservé pour référence (jamais exécuté)
+    console.log('[ZAMA SMS LEGACY]', phone, message);
+    return null;
+  }
+}
 
 // ── Soumettre un retrait (utilisateur → en attente validation admin)
 app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
@@ -2221,10 +2227,12 @@ app.post('/api/zama/send-otp', async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: 'Phone requis' });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-    if (db) await db.collection('zama_otp').insertOne({ phone, otp, expires, used: false, created_at: new Date() });
-    await zamaSendSMS(phone, 'ZAMA: Votre code de verification est ' + otp + '. Valable 10 minutes. Ne le partagez pas.');
+    if (db) await db.collection('zama_otp').deleteMany({ phone: ph }); // supprimer anciens OTP
+    if (db) await db.collection('zama_otp').insertOne({ phone: ph, otp, expires, used: false, created_at: new Date() });
+    await zamaSendSMS(ph, 'ZAMA: Votre code de connexion est ' + otp + '. Valable 10 minutes. Ne le partagez jamais.');
     res.json({ ok: true, message: 'Code OTP envoye' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2232,13 +2240,15 @@ app.post('/api/zama/send-otp', async (req, res) => {
 // ── Vérifier OTP
 app.post('/api/zama/verify-otp', async (req, res) => {
   try {
-    const { phone, otp } = req.body;
-    if (!phone || !otp) return res.status(400).json({ error: 'Phone et OTP requis' });
+    const { phone, otp, code } = req.body;
+    const otpCode = otp || code;
+    if (!phone || !otpCode) return res.status(400).json({ error: 'Phone et OTP requis' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const record = await db.collection('zama_otp').findOne({ phone, otp, used: false, expires: { $gt: new Date() } });
-    if (!record) return res.status(400).json({ error: 'Code invalide ou expire' });
+    const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    const record = await db.collection('zama_otp').findOne({ phone: ph, otp: otpCode, used: false, expires: { $gt: new Date() } });
+    if (!record) return res.status(400).json({ valid: false, verified: false, error: 'Code invalide ou expire' });
     await db.collection('zama_otp').updateOne({ _id: record._id }, { $set: { used: true } });
-    res.json({ ok: true, verified: true });
+    res.json({ ok: true, valid: true, verified: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
