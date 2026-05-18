@@ -2997,6 +2997,7 @@ app.get('/api/zama/pret/eligibilite/:user_id', async (req, res) => {
 // ─── INFOBIP SMS (ZAMA) ────────────────────────────────────────────────────
 const INFOBIP_API_KEY = '31f52d00c3a4fbb92c00c72139556f43-e7142bf0-5334-471d-b7a3-4a8aa24c1492';
 const INFOBIP_SENDER  = 'ZAMA';
+const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 
 async function envoyerSMSInfobip(telephone, message) {
   try {
