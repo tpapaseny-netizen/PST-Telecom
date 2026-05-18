@@ -2539,7 +2539,7 @@ async function verLoginOTP(){
   if(code.length !== 6){toast("Entrez les 6 chiffres","err");return;}
   if(!_otpLoginUser){toast("Erreur, recommencez","err");return;}
   try{
-    var r = await fetch(API+"/api/zama/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:_otpLoginUser.phone,code:code})});
+    var r = await fetch(API+"/api/zama/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:_otpLoginUser.phone,otp:code})});
     var d = await r.json();
     if(d.verified || d.valid){
       document.getElementById("otp-login-overlay").style.display="none";
