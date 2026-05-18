@@ -3151,7 +3151,6 @@ app.delete('/api/zama/user', async(req, res) => {
 
 
 // ─── SEN-SMS — ENVOI BULK VIA INFOBIP
- ────────────────────────────────────────
 
 // Route envoi campagne Sen-SMS
 app.post('/api/sen-sms/send', async (req, res) => {
@@ -3161,7 +3160,7 @@ app.post('/api/sen-sms/send', async (req, res) => {
       return res.status(400).json({ error: 'Aucun message fourni' });
     }
 
-    const senderName = (sender || 'SenSMS').replace(/[^a-zA-Z0-9\-]/g, '').substring(0, 11) || 'SenSMS';
+    const senderName = (sender || INFOBIP_SENDER).replace(/[^a-zA-Z0-9\-]/g, '').substring(0, 11) || INFOBIP_SENDER;
 
     // Construction du payload Infobip bulk
     const infobipMessages = messages.map(function(m) {
