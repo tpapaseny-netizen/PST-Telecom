@@ -2071,6 +2071,8 @@ app.post('/api/zama/epargne/:epargne_id/retrait-v2', async (req, res) => {
 async function zamaSendSMS(phone, message) {
   // Utilise Infobip (remplace Africa's Talking)
   return envoyerSMSInfobip(phone, message);
+}
+async function zamaSendSMS_legacy(phone, message) {
   try {
     // Ancien code AT conservé pour référence (jamais exécuté)
     console.log('[ZAMA SMS LEGACY]', phone, message);
