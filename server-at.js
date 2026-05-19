@@ -2226,8 +2226,25 @@ app.post('/api/zama/verify-otp', async (req, res) => {
     const { phone, otp, code } = req.body;
     const otpCode = otp || code;
     if (!phone || !otpCode) return res.status(400).json({ error: 'Phone et OTP requis' });
-    if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const ph = phone.startsWith('+') ? phone : '+221' + phone;
+
+    // Verifier d'abord dans zamaOtpStore (en memoire — nouvelle route email)
+    const storeEntry = zamaOtpStore[ph];
+    if (storeEntry) {
+      if (Date.now() > storeEntry.expireAt) {
+        delete zamaOtpStore[ph];
+        return res.json({ valid: false, verified: false, error: 'Code expire' });
+      }
+      if (storeEntry.code === otpCode.trim()) {
+        delete zamaOtpStore[ph];
+        console.log('[ZAMA OTP] Verification OK pour', ph);
+        return res.json({ ok: true, valid: true, verified: true });
+      }
+      return res.json({ valid: false, verified: false, error: 'Code incorrect' });
+    }
+
+    // Fallback: verifier dans MongoDB (ancienne route)
+    if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const record = await db.collection('zama_otp').findOne({ phone: ph, otp: otpCode, used: false, expires: { $gt: new Date() } });
     if (!record) return res.status(400).json({ valid: false, verified: false, error: 'Code invalide ou expire' });
     await db.collection('zama_otp').updateOne({ _id: record._id }, { $set: { used: true } });
@@ -3093,34 +3110,26 @@ app.post('/api/zama/send-otp', async(req, res) => {
       const user = await db.collection('zama_users').findOne({ phone: ph });
       if (user && user.email) {
         try {
-          const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_Q3PNE63g_9YV2UaYcfoccpNL3YRpii1Nh';
-          const emailResp = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': 'Bearer ' + RESEND_API_KEY,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: 'ZAMA <onboarding@resend.dev>',
-              to: [user.email],
-              subject: 'ZAMA — Votre code de connexion',
-              html: '<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#070D1A;color:#fff;border-radius:12px">' +
-                '<h2 style="color:#F59E0B">Code de connexion ZAMA</h2>' +
-                '<p>Bonjour ' + (user.prenom || '') + ',</p>' +
-                '<p>Votre code de connexion est :</p>' +
-                '<div style="font-size:36px;font-weight:bold;letter-spacing:8px;text-align:center;padding:20px;background:#131F2E;border-radius:8px;color:#F59E0B">' + code + '</div>' +
-                '<p style="color:#888;font-size:12px;margin-top:16px">Valable 10 minutes. Ne le partagez jamais.</p>' +
-                '<p style="color:#888;font-size:11px">ZAMA Bureau de Change Digital | zama-sn.com</p>' +
-                '</div>'
-            })
+          const nodemailer = require('nodemailer');
+          const t = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
           });
-          const emailResult = await emailResp.json();
-          if (emailResp.ok) {
-            emailSent = true;
-            console.log('[ZAMA OTP] Email envoye via Resend a ' + user.email + ' | id:', emailResult.id);
-          } else {
-            console.warn('[ZAMA OTP] Resend erreur:', JSON.stringify(emailResult));
-          }
+          await t.sendMail({
+            from: process.env.GMAIL_USER,
+            to: user.email,
+            subject: 'ZAMA — Votre code de connexion',
+            html: '<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#070D1A;color:#fff;border-radius:12px">' +
+              '<h2 style="color:#F59E0B">🔐 Code de connexion ZAMA</h2>' +
+              '<p>Bonjour ' + (user.prenom || '') + ',</p>' +
+              '<p>Votre code de connexion est :</p>' +
+              '<div style="font-size:36px;font-weight:bold;letter-spacing:8px;text-align:center;padding:20px;background:#131F2E;border-radius:8px;color:#F59E0B">' + code + '</div>' +
+              '<p style="color:#888;font-size:12px;margin-top:16px">Valable 10 minutes. Ne le partagez jamais.</p>' +
+              '<p style="color:#888;font-size:11px">ZAMA — Bureau de Change Digital | zama-sn.com</p>' +
+              '</div>'
+          });
+          emailSent = true;
+          console.log('[ZAMA OTP] Code envoye par email a ' + user.email);
         } catch (emailErr) {
           console.warn('[ZAMA OTP] Email echoue:', emailErr.message);
         }
