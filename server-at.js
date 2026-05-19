@@ -3137,10 +3137,10 @@ app.post('/api/zama/send-otp', async(req, res) => {
     }
 
     // Fallback SMS Infobip si pas d email
-    if (!emailSent) {
+   let smsSent = false; if (!emailSent) {
       try {
         const msg = 'ZAMA: Votre code de connexion est ' + code + '. Valable 10 minutes. Ne le partagez jamais.';
-        await envoyerSMSInfobip(ph, msg);
+        await envoyerSMSInfobip(ph, msg);smsSent = true;
         console.log('[ZAMA OTP] Code envoye par SMS a ' + ph);
       } catch (smsErr) {
         console.warn('[ZAMA OTP] SMS echoue:', smsErr.message);
@@ -3149,7 +3149,8 @@ app.post('/api/zama/send-otp', async(req, res) => {
 
     // Toujours retourner le code dans la reponse — affiche dans l'app si email/SMS echouent
     const bothFailed = !emailSent && !smsSent;
-    res.json({ success: true, method: emailSent ? 'email' : (smsSent ? 'sms' : 'fallback'), code: code, fallback: bothFailed });
+
+res.json({ success: true, method: emailSent ? 'email' : (smsSent ? 'sms' : 'fallback'), code: code });
   } catch (e) {
     console.error('[ZAMA OTP]', e.message);
     res.status(500).json({ error: e.message });
