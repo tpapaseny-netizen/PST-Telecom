@@ -2218,21 +2218,7 @@ app.get('/api/zama/epargne/admin/tous-comptes', async (req, res) => {
 // Déjà dans les routes existantes - on patch avec SMS
 
 // ── SMS OTP pour inscription
-app.post('/api/zama/send-otp', async (req, res) => {
-  try {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone requis' });
-    const ph = phone.startsWith('+') ? phone : '+221' + phone;
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-    if (db) await db.collection('zama_otp').deleteMany({ phone: ph }); // supprimer anciens OTP
-    if (db) await db.collection('zama_otp').insertOne({ phone: ph, otp, expires, used: false, created_at: new Date() });
-    console.log('[ZAMA OTP] Envoi code', otp, 'vers', ph);
-    await zamaSendSMS(ph, 'ZAMA: Votre code de connexion est ' + otp + '. Valable 10 minutes. Ne le partagez jamais.');
-    console.log('[ZAMA OTP] SMS envoyé OK');
-    res.json({ ok: true, message: 'Code OTP envoye' });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
+// [Route send-otp remplacee par version email ligne 3095]
 
 // ── Vérifier OTP
 app.post('/api/zama/verify-otp', async (req, res) => {
