@@ -9,7 +9,7 @@ const crypto  = require('crypto');
 const AfricasTalking = require('africastalking');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: ['https://www.sensms.com', 'https://sensms.com', 'https://zama-sn.com', 'https://www.zama-sn.com', 'https://pst-telecom.vercel.app'], credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
