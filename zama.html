@@ -2518,7 +2518,15 @@ function doLogin(){
   document.getElementById("otp-login-overlay").style.display = "flex";
   document.getElementById("lc0").focus();
   fetch(API+"/api/zama/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:found.phone})})
-    .then(function(){toast("Code OTP envoyé par email","ok");})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.code){
+        var label = d.fallback ? 'Email/SMS indisponible — votre code :' : 'Code envoyé — saisissez :';
+        document.getElementById("otp-login-sub").innerHTML = label+' <strong style="font-size:20px;letter-spacing:6px;color:var(--gold)">'+d.code+'</strong>';
+      } else {
+        document.getElementById("otp-login-sub").textContent = 'Code envoyé par ' + (d.method==='sms'?'SMS':'email');
+      }
+    })
     .catch(function(){toast("Erreur envoi OTP","err");});
 }
 
@@ -2529,7 +2537,12 @@ function lcN(el, idx){
 function renvoyerOTPLogin(){
   if(!_otpLoginUser){return;}
   fetch(API+"/api/zama/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:_otpLoginUser.phone})})
-    .then(function(){toast("Code renvoyé","ok");}).catch(function(){toast("Erreur envoi","err");});
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.code){
+        document.getElementById("otp-login-sub").innerHTML = 'Votre code : <strong style="font-size:20px;letter-spacing:6px;color:var(--gold)">'+d.code+'</strong>';
+      } else { toast("Code renvoyé","ok"); }
+    }).catch(function(){toast("Erreur envoi","err");});
 }
 
 async function verLoginOTP(){
@@ -4000,9 +4013,9 @@ function genPayWithCoin() {
   var loadLbl = document.getElementById('loading-coin-lbl');
   if (loadLbl) loadLbl.textContent = _selCoinLbl3;
 
-  // URL POS izichange — on ouvre sans paramètre coin (izichange gère le choix)
+  // URL POS izichange avec memo + montant
   var posUrl = 'https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402';
-  var fullUrl = posUrl;
+  var fullUrl = posUrl + '?memo=' + orderId + '&amount=' + amtCrypto + '&coin=' + (cK || 'usdt.trc20');
 
   var iframe = document.getElementById('izi-iframe');
   if (iframe) {
