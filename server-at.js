@@ -8,7 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
-const zamaOtpStore = {};
 app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'node_modules/xlsx/dist/xlsx.full.min.js')); });
 
 // ─── CONFIG ────────────────────────────────────────────────
@@ -3093,7 +3092,7 @@ app.post('/api/zama/login-notify', async(req, res) => {
 // ─── ZAMA OTP CONNEXION + DELETE USER ──────────────────────────────────────
 
 // Stockage OTP en mémoire (clé: phone, valeur: {code, expireAt})
-
+const zamaOtpStore = {};
 
 // Envoyer OTP connexion
 app.post('/api/zama/send-otp', async(req, res) => {
@@ -3148,32 +3147,16 @@ app.post('/api/zama/send-otp', async(req, res) => {
       }
     }
 
-    res.json({ success: true, method: emailSent ? 'email' : 'sms' });
+    // Toujours retourner le code dans la reponse — affiche dans l'app si email/SMS echouent
+    const bothFailed = !emailSent && !smsSent;
+    res.json({ success: true, method: emailSent ? 'email' : (smsSent ? 'sms' : 'fallback'), code: code, fallback: bothFailed });
   } catch (e) {
     console.error('[ZAMA OTP]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Vérifier OTP connexion
-app.post('/api/zama/verify-otp', async(req, res) => {
-  try {
-    const { phone, code } = req.body;
-    if (!phone || !code) return res.status(400).json({ valid: false, error: 'Donnees manquantes' });
-    const ph = phone.startsWith('+') ? phone : '+221' + phone;
-    const entry = zamaOtpStore[ph];
-    if (!entry) return res.json({ valid: false, error: 'Aucun code envoye' });
-    if (Date.now() > entry.expireAt) {
-      delete zamaOtpStore[ph];
-      return res.json({ valid: false, error: 'Code expire' });
-    }
-    if (entry.code !== code.trim()) return res.json({ valid: false, error: 'Code incorrect' });
-    delete zamaOtpStore[ph];
-    res.json({ valid: true });
-  } catch (e) {
-    res.status(500).json({ valid: false, error: e.message });
-  }
-});
+// [verify-otp: route consolidee ligne 2224 — doublon supprime]
 
 // Supprimer un utilisateur ZAMA (admin)
 app.delete('/api/zama/user', async(req, res) => {
