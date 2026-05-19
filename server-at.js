@@ -8,15 +8,40 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
-const zamaOtpStore = {};
-
- // OTP store ZAMA
+const zamaOtpStore = {}; // OTP store ZAMA
 app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'node_modules/xlsx/dist/xlsx.full.min.js')); });
 
 // ─── CONFIG ────────────────────────────────────────────────
 const MONGODB_URI      = process.env.MONGODB_URI;
 const AT_API_KEY       = process.env.AT_API_KEY;
 const AT_USERNAME      = process.env.AT_USERNAME || 'sandbox';
+// ─── ZAMA get-address (pour écran Recevoir) ───────────────
+app.post('/api/zama/get-address', async (req, res) => {
+  try {
+    const { coin, orderId } = req.body;
+    if (!coin) return res.status(400).json({ error: 'coin requis' });
+    const meta = COIN_MAP && COIN_MAP[coin] ? COIN_MAP[coin] : { label: coin, network: coin };
+    // Essayer adresse directe izichangePay
+    let address = null;
+    try {
+      const iziResp = await iziGetAddress(coin);
+      address = (iziResp && (iziResp.address || (iziResp.data && iziResp.data.address))) || null;
+    } catch(e) {
+      console.warn('[ZAMA get-address] iziGetAddress failed:', e.message);
+    }
+    if (address) {
+      return res.json({ address, coin, network: meta.network || coin, label: meta.label || coin });
+    }
+    // Fallback: retourner POS URL comme redirect
+    const posUrl = IZIPAY_POS + '?memo=' + (orderId || ('RECV-' + Date.now())) + '&coin=' + coin;
+    return res.json({ address: null, redirect_url: posUrl, coin, label: meta.label || coin });
+  } catch(e) {
+    console.error('[ZAMA get-address]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 const PORT             = process.env.PORT || 3001;
 const IZIPAY_API_KEY   = process.env.IZIPAY_API_KEY || '14l6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680';
 const IZIPAY_IPN_SECRET = process.env.IZIPAY_IPN_SECRET || 'Pstdiama@1';
@@ -2224,17 +2249,21 @@ app.post('/api/zama/verify-otp', async (req, res) => {
     const { phone, otp, code } = req.body;
     const otpCode = otp || code;
     if (!phone || !otpCode) return res.status(400).json({ error: 'Phone et OTP requis' });
+    // Normaliser le numéro — essayer toutes les variantes
     const ph = phone.startsWith('+') ? phone : '+221' + phone;
+    const phShort = ph.replace('+221', ''); // sans indicatif
 
     // Verifier d'abord dans zamaOtpStore (en memoire — nouvelle route email)
-    const storeEntry = zamaOtpStore[ph];
+    // Chercher avec +221xxx ET sans indicatif pour compatibilité
+    const storeEntry = zamaOtpStore[ph] || zamaOtpStore[phShort] || zamaOtpStore['+221' + phShort];
+    const storeKey = zamaOtpStore[ph] ? ph : (zamaOtpStore[phShort] ? phShort : '+221' + phShort);
     if (storeEntry) {
       if (Date.now() > storeEntry.expireAt) {
-        delete zamaOtpStore[ph];
+        delete zamaOtpStore[storeKey];
         return res.json({ valid: false, verified: false, error: 'Code expire' });
       }
       if (storeEntry.code === otpCode.trim()) {
-        delete zamaOtpStore[ph];
+        delete zamaOtpStore[storeKey];
         console.log('[ZAMA OTP] Verification OK pour', ph);
         return res.json({ ok: true, valid: true, verified: true });
       }
