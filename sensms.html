@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --orange: #FF6B00;
-  --orange2: #E05A00;
-  --orange3: #FFB347;
+  --orange: #00C853;
+  --orange2: #00A843;
+  --orange3: #69F0AE;
   --dark: #0A0A0A;
   --dark2: #111111;
   --dark3: #1A1A1A;
   --white: #FFFFFF;
   --gray: #9CA3AF;
   --gray2: #4B5563;
-  --border: rgba(255,107,0,0.15);
+  --border: rgba(0,200,83,0.15);
   --font-head: 'Syne', sans-serif;
   --font-body: 'DM Sans', sans-serif;
 }
@@ -52,9 +52,9 @@ nav {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-head);
   font-weight: 800; font-size: 26px;
-  color: var(--dark);
+  color: #fff;
   letter-spacing: -1px;
-  box-shadow: 0 0 20px rgba(255,107,0,0.4);
+  box-shadow: 0 0 20px rgba(0,200,83,0.4);
 }
 .logo-text {
   font-family: var(--font-head);
@@ -96,22 +96,22 @@ nav {
 .hero-bg {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,107,0,0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,107,0,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,200,83,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 80% 80%, rgba(0,200,83,0.06) 0%, transparent 60%);
   pointer-events: none;
 }
 .hero-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,107,0,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,107,0,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(0,200,83,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,83,0.04) 1px, transparent 1px);
   background-size: 60px 60px;
   pointer-events: none;
 }
 .flag-badge {
   display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(255,107,0,0.1);
-  border: 1px solid rgba(255,107,0,0.25);
+  background: rgba(0,200,83,0.1);
+  border: 1px solid rgba(0,200,83,0.25);
   padding: 6px 16px; border-radius: 100px;
   font-size: 12px; font-weight: 600; color: var(--orange3);
   letter-spacing: 1px; text-transform: uppercase;
@@ -159,9 +159,9 @@ nav {
   text-decoration: none;
   display: inline-flex; align-items: center; gap: 8px;
   transition: all 0.2s;
-  box-shadow: 0 8px 24px rgba(255,107,0,0.3);
+  box-shadow: 0 8px 24px rgba(0,200,83,0.3);
 }
-.btn-primary:hover { background: var(--orange2); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255,107,0,0.4); }
+.btn-primary:hover { background: var(--orange2); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,200,83,0.4); }
 .btn-ghost {
   background: transparent;
   color: var(--white);
@@ -201,12 +201,12 @@ nav {
 .section { padding: 100px 24px; max-width: 1100px; margin: 0 auto; }
 .section-tag {
   display: inline-block;
-  background: rgba(255,107,0,0.1);
+  background: rgba(0,200,83,0.1);
   color: var(--orange);
   font-size: 11px; font-weight: 700;
   letter-spacing: 2px; text-transform: uppercase;
   padding: 5px 14px; border-radius: 100px;
-  border: 1px solid rgba(255,107,0,0.2);
+  border: 1px solid rgba(0,200,83,0.2);
   margin-bottom: 16px;
 }
 .section-title {
@@ -240,7 +240,7 @@ nav {
   background: linear-gradient(90deg, var(--orange), transparent);
   opacity: 0; transition: opacity 0.25s;
 }
-.case-card:hover { border-color: rgba(255,107,0,0.3); transform: translateY(-4px); }
+.case-card:hover { border-color: rgba(0,200,83,0.3); transform: translateY(-4px); }
 .case-card:hover::before { opacity: 1; }
 .case-icon {
   font-size: 32px; margin-bottom: 16px; display: block;
@@ -253,7 +253,7 @@ nav {
 .case-desc { font-size: 14px; color: var(--gray); line-height: 1.6; }
 .case-tag {
   display: inline-block; margin-top: 14px;
-  background: rgba(255,107,0,0.1);
+  background: rgba(0,200,83,0.1);
   color: var(--orange3); font-size: 11px; font-weight: 700;
   padding: 4px 10px; border-radius: 100px;
 }
@@ -279,10 +279,10 @@ nav {
   position: relative; transition: all 0.25s;
   cursor: pointer;
 }
-.pack-card:hover { border-color: rgba(255,107,0,0.4); transform: translateY(-4px); }
+.pack-card:hover { border-color: rgba(0,200,83,0.4); transform: translateY(-4px); }
 .pack-card.popular {
   border-color: var(--orange);
-  background: linear-gradient(135deg, rgba(255,107,0,0.05), var(--dark));
+  background: linear-gradient(135deg, rgba(0,200,83,0.05), var(--dark));
 }
 .popular-badge {
   position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
@@ -321,7 +321,7 @@ nav {
 }
 .pack-btn:hover { background: var(--orange2); }
 .pack-card.popular .pack-btn {
-  box-shadow: 0 8px 20px rgba(255,107,0,0.35);
+  box-shadow: 0 8px 20px rgba(0,200,83,0.35);
 }
 
 /* ── HOW IT WORKS ── */
@@ -340,7 +340,7 @@ nav {
 .step-num-big {
   font-family: var(--font-head);
   font-size: 64px; font-weight: 800;
-  color: rgba(255,107,0,0.1);
+  color: rgba(0,200,83,0.1);
   line-height: 1; margin-bottom: 16px;
   position: absolute; top: 16px; right: 20px;
 }
@@ -363,10 +363,10 @@ nav {
   border: 1px solid var(--border); border-radius: 12px;
   transition: all 0.2s;
 }
-.feat:hover { border-color: rgba(255,107,0,0.3); }
+.feat:hover { border-color: rgba(0,200,83,0.3); }
 .feat-icon {
   width: 40px; height: 40px; flex-shrink: 0;
-  background: rgba(255,107,0,0.1);
+  background: rgba(0,200,83,0.1);
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px;
@@ -382,13 +382,13 @@ nav {
 }
 .cta-bg {
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(255,107,0,0.08) 0%, transparent 70%);
+  background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(0,200,83,0.08) 0%, transparent 70%);
   pointer-events: none;
 }
 .cta-box {
   max-width: 680px; margin: 0 auto;
   background: var(--dark2);
-  border: 1px solid rgba(255,107,0,0.3);
+  border: 1px solid rgba(0,200,83,0.3);
   border-radius: 24px; padding: 64px 48px;
   position: relative;
 }
@@ -396,7 +396,7 @@ nav {
   content: '';
   position: absolute; inset: -1px;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255,107,0,0.3), transparent, rgba(255,107,0,0.1));
+  background: linear-gradient(135deg, rgba(0,200,83,0.3), transparent, rgba(0,200,83,0.1));
   z-index: -1;
 }
 .cta-title {
@@ -448,8 +448,175 @@ footer {
   .footer-links { flex-wrap: wrap; justify-content: center; }
 }
 </style>
+
+/* ── MODE SOMBRE / CLAIR ── */
+body.light-mode {
+  --dark: #F8F9FA;
+  --dark2: #FFFFFF;
+  --dark3: #F0F2F5;
+  --white: #0A0A0A;
+  --gray: #4B5563;
+  --gray2: #9CA3AF;
+  --border: rgba(0,200,83,0.15);
+}
+body.light-mode nav {
+  background: rgba(248,249,250,0.92);
+}
+body.light-mode .case-card,
+body.light-mode .step-card,
+body.light-mode .feat,
+body.light-mode .pack-card,
+body.light-mode .cta-box {
+  background: #FFFFFF;
+}
+body.light-mode .packs-section {
+  background: #F0F2F5;
+}
+.theme-toggle {
+  width: 36px; height: 36px;
+  background: rgba(0,200,83,0.1);
+  border: 1px solid rgba(0,200,83,0.2);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px;
+  transition: all 0.2s;
+}
+.theme-toggle:hover { background: rgba(0,200,83,0.2); }
+
+/* ── AUTH MODAL ── */
+#sensms-auth-modal {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#sensms-auth-modal.hidden { display: none; }
+.sensms-auth-box {
+  background: #111;
+  border: 1px solid rgba(0,200,83,0.2);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 90%; max-width: 420px;
+  position: relative;
+}
+.sensms-auth-close {
+  position: absolute; top: 16px; right: 20px;
+  color: #555; font-size: 20px; cursor: pointer;
+}
+.sensms-auth-logo {
+  text-align: center; margin-bottom: 24px;
+}
+.sensms-auth-logo .s-badge {
+  width: 48px; height: 48px; background: #00C853;
+  border-radius: 12px; display: inline-flex;
+  align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 900; color: #fff;
+  box-shadow: 0 0 20px rgba(0,200,83,0.4);
+}
+.sensms-auth-logo .s-name {
+  font-size: 20px; font-weight: 700; color: #fff;
+  margin-top: 8px;
+}
+.sensms-auth-logo .s-name span { color: #00C853; }
+.sensms-auth-tabs {
+  display: flex; background: #1A1A1A;
+  border-radius: 10px; padding: 4px; margin-bottom: 24px;
+}
+.sensms-auth-tab {
+  flex: 1; padding: 9px; text-align: center;
+  border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: #555;
+  transition: all 0.2s;
+}
+.sensms-auth-tab.active { background: #00C853; color: #fff; }
+.sensms-auth-field { margin-bottom: 14px; }
+.sensms-auth-field label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: #666; margin-bottom: 5px; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.sensms-auth-field input {
+  width: 100%; padding: 11px 14px;
+  background: #1A1A1A; border: 1px solid #2A2A2A;
+  border-radius: 8px; color: #fff; font-size: 14px;
+  outline: none; box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.sensms-auth-field input:focus { border-color: #00C853; }
+.sensms-auth-btn {
+  width: 100%; padding: 13px;
+  background: #00C853; color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  margin-top: 6px; transition: all 0.2s;
+}
+.sensms-auth-btn:hover { background: #00A843; }
+.sensms-auth-err {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #FCA5A5; border-radius: 8px;
+  padding: 9px 12px; font-size: 12px;
+  margin-bottom: 12px; display: none;
+}
+.sensms-auth-skip {
+  text-align: center; margin-top: 14px;
+  font-size: 12px; color: #444; cursor: pointer;
+}
+.sensms-auth-skip span { color: #00C853; }
 </head>
 <body>
+
+<!-- AUTH MODAL -->
+<div id="sensms-auth-modal" class="hidden">
+  <div class="sensms-auth-box">
+    <span class="sensms-auth-close" onclick="hideAuthModal()">✕</span>
+    <div class="sensms-auth-logo">
+      <div class="s-badge">S</div>
+      <div class="s-name">Sen<span>SMS</span></div>
+    </div>
+    <div class="sensms-auth-tabs">
+      <div class="sensms-auth-tab active" onclick="authTab('login')">Connexion</div>
+      <div class="sensms-auth-tab" onclick="authTab('register')">Créer un compte</div>
+    </div>
+    <div id="sensms-auth-err" class="sensms-auth-err"></div>
+
+    <div id="sensms-login-form">
+      <div class="sensms-auth-field">
+        <label>Téléphone ou Email</label>
+        <input type="text" id="sauth-id" placeholder="+221 77 XXX XX XX">
+      </div>
+      <div class="sensms-auth-field">
+        <label>Mot de passe</label>
+        <input type="password" id="sauth-pw" placeholder="••••••••">
+      </div>
+      <button class="sensms-auth-btn" onclick="sensmsLogin()">Se connecter →</button>
+    </div>
+
+    <div id="sensms-register-form" style="display:none">
+      <div class="sensms-auth-field">
+        <label>Nom / Organisation</label>
+        <input type="text" id="sreg-name" placeholder="Ex: École Mariama Bâ">
+      </div>
+      <div class="sensms-auth-field">
+        <label>Téléphone</label>
+        <input type="text" id="sreg-phone" placeholder="+221 77 XXX XX XX">
+      </div>
+      <div class="sensms-auth-field">
+        <label>Email (optionnel)</label>
+        <input type="email" id="sreg-email" placeholder="votre@email.com">
+      </div>
+      <div class="sensms-auth-field">
+        <label>Mot de passe</label>
+        <input type="password" id="sreg-pw" placeholder="Minimum 6 caractères">
+      </div>
+      <button class="sensms-auth-btn" onclick="sensmsRegister()">Créer mon compte →</button>
+    </div>
+
+    <div class="sensms-auth-skip" onclick="hideAuthModal()">
+      Continuer sans compte — <span>accès démonstration</span>
+    </div>
+  </div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -462,6 +629,8 @@ footer {
     <li><a href="#packs">Tarifs</a></li>
     <li><a href="#how">Comment ça marche</a></li>
     <li><a href="#features">Fonctionnalités</a></li>
+    <li><div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Mode clair/sombre">🌙</div></li>
+    <li><button onclick="showAuthModal()" style="background:transparent;border:1px solid rgba(0,200,83,0.3);color:#00C853;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer" id="nav-auth-btn">Connexion</button></li>
     <li><a href="sen-sms.html" class="nav-cta">Lancer une campagne →</a></li>
   </ul>
 </nav>
@@ -746,5 +915,91 @@ document.addEventListener('DOMContentLoaded', function() {
   observeReveal();
 });
 </script>
+
+<script>
+// ── THEME ────────────────────────────────
+function toggleTheme() {
+  var isLight = document.body.classList.toggle('light-mode');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('sensms_theme', isLight ? 'light' : 'dark');
+}
+(function(){
+  if(localStorage.getItem('sensms_theme')==='light'){
+    document.body.classList.add('light-mode');
+    document.getElementById('theme-btn') && (document.getElementById('theme-btn').textContent='🌙');
+  }
+})();
+
+// ── AUTH ─────────────────────────────────
+var API_URL = 'https://pst-telecom-production.up.railway.app';
+
+function showAuthModal() { document.getElementById('sensms-auth-modal').classList.remove('hidden'); }
+function hideAuthModal() { document.getElementById('sensms-auth-modal').classList.add('hidden'); }
+
+function authTab(tab) {
+  document.getElementById('sensms-login-form').style.display = tab==='login' ? 'block' : 'none';
+  document.getElementById('sensms-register-form').style.display = tab==='register' ? 'block' : 'none';
+  document.querySelectorAll('.sensms-auth-tab').forEach(function(t,i){
+    t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register'));
+  });
+  document.getElementById('sensms-auth-err').style.display='none';
+}
+
+function authErr(msg) {
+  var e = document.getElementById('sensms-auth-err');
+  e.textContent = msg; e.style.display = 'block';
+}
+
+function sensmsLogin() {
+  var id=document.getElementById('sauth-id').value.trim();
+  var pw=document.getElementById('sauth-pw').value.trim();
+  if(!id||!pw){authErr('Remplissez tous les champs');return;}
+  fetch(API_URL+'/api/sensms/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:id,password:pw})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.success){
+      localStorage.setItem('sensms_user',JSON.stringify(d.user));
+      updateNavAuth(d.user);
+      hideAuthModal();
+    } else { authErr(d.error||'Identifiants incorrects'); }
+  }).catch(function(){authErr('Erreur réseau');});
+}
+
+function sensmsRegister() {
+  var name=document.getElementById('sreg-name').value.trim();
+  var phone=document.getElementById('sreg-phone').value.trim();
+  var email=document.getElementById('sreg-email').value.trim();
+  var pw=document.getElementById('sreg-pw').value.trim();
+  if(!name||!phone||!pw){authErr('Champs obligatoires manquants');return;}
+  if(pw.length<6){authErr('Mot de passe trop court (6 min)');return;}
+  fetch(API_URL+'/api/sensms/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,phone:phone,email:email,password:pw})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.success){
+      localStorage.setItem('sensms_user',JSON.stringify(d.user));
+      updateNavAuth(d.user);
+      hideAuthModal();
+    } else { authErr(d.error||'Erreur inscription'); }
+  }).catch(function(){authErr('Erreur réseau');});
+}
+
+function updateNavAuth(user) {
+  var btn = document.getElementById('nav-auth-btn');
+  if(btn) { btn.textContent = user.name || user.phone; btn.onclick = sensmsLogout; }
+}
+
+function sensmsLogout() {
+  localStorage.removeItem('sensms_user');
+  var btn = document.getElementById('nav-auth-btn');
+  if(btn) { btn.textContent = 'Connexion'; btn.onclick = showAuthModal; }
+}
+
+// Vérifier session au chargement
+(function(){
+  var s = localStorage.getItem('sensms_user');
+  if(s){ try{ updateNavAuth(JSON.parse(s)); }catch(e){} }
+})();
+</script>
+
 </body>
 </html>
