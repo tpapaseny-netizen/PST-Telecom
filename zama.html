@@ -661,7 +661,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="lnd-feat-card">
       <div class="lnd-feat-ico" style="background:rgba(34,197,94,.12)">📈</div>
       <div class="lnd-feat-title">Épargne jusqu'à 5%/an</div>
-      <div class="lnd-feat-desc">4 plans d'épargne avec intérêts mensuels. 0% de frais à l'échéance. Vos intérêts tombent chaque mois par SMS.</div>
+      <div class="lnd-feat-desc">4 plans d'épargne avec intérêts mensuels. 0% de frais à l'échéance. Vos intérêts tombent chaque mois par email.</div>
     </div>
     <div class="lnd-feat-card">
       <div class="lnd-feat-ico" style="background:rgba(139,92,246,.12)">💳</div>
@@ -1231,7 +1231,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px">
         <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">🔒 Vos fonds sont securises</div>
         <div style="font-size:11px;color:var(--text3);line-height:1.7">
-          • Interets credites chaque mois par SMS<br>
+          • Interets credites chaque mois par email<br>
           • Retrait valide sous 1h<br>
           • KYC pour les gros montants<br>
           • Aucun frais cache
@@ -1545,7 +1545,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <!-- Confirmation apres paiement -->
     <div id="ton-modal-confirm" style="display:none;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.2);border-radius:10px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;color:var(--gold);font-weight:600;margin-bottom:8px">Paiement effectue sur <span id="ton-modal-method">Wave</span> ?</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Collez la reference de transaction recue par SMS</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Collez la reference de transaction recue par email</div>
       <input id="ton-modal-ref" type="text" placeholder="Ex: WAVE-TXN-XXXXXXXX ou OM-123456"
         style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(245,176,20,.4);background:var(--s3);color:var(--text1);font-size:13px;font-family:var(--font);box-sizing:border-box;outline:none">
       <div style="font-size:10px;color:var(--text3);margin-top:6px">La reference apparait dans le SMS de confirmation Wave/OM</div>
@@ -2084,7 +2084,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="fg" style="padding:0;margin-bottom:12px">
         <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">Référence de transaction *</label>
         <input class="finp" id="ep-modal-ref" type="text" placeholder="Ex: WAVE-TXN-XXXXXX ou OM-123456" style="margin-top:6px">
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Copiez le code reçu par SMS après le paiement</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Copiez le code reçu par email après le paiement</div>
       </div>
       <button class="btn-p" id="ep-modal-confirm-btn" style="width:100%;margin:0 0 10px" onclick="confirmerDepotEpargne()">
         Soumettre pour validation admin
@@ -2518,7 +2518,7 @@ function doLogin(){
   document.getElementById("otp-login-overlay").style.display = "flex";
   document.getElementById("lc0").focus();
   fetch(API+"/api/zama/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:found.phone})})
-    .then(function(){toast("Code OTP envoyé par SMS","ok");})
+    .then(function(){toast("Code OTP envoyé par email","ok");})
     .catch(function(){toast("Erreur envoi OTP","err");});
 }
 
@@ -4540,7 +4540,7 @@ function initLanding() {
 <div id="otp-login-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:flex-end;justify-content:center;">
   <div style="background:var(--s2);border-radius:24px 24px 0 0;padding:28px 24px 36px;width:100%;max-width:430px;">
     <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;text-align:center">Code de connexion</div>
-    <div id="otp-login-sub" style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:20px">Code envoyé par SMS</div>
+    <div id="otp-login-sub" style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:20px">Code envoyé par email ou SMS</div>
     <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
       <input id="lc0" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,0)" style="width:44px;height:52px;font-size:22px;text-align:center;border-radius:8px;border:2px solid var(--border);background:var(--s3);color:var(--text)">
       <input id="lc1" type="tel" maxlength="1" inputmode="numeric" oninput="lcN(this,1)" style="width:44px;height:52px;font-size:22px;text-align:center;border-radius:8px;border:2px solid var(--border);background:var(--s3);color:var(--text)">
