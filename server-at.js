@@ -326,8 +326,8 @@ app.post('/api/sensms/register', async (req, res) => {
     if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court (6 min)' });
     const existing = Object.values(db.sensmsUsers).find(u => u.phone === phone);
     if (existing) return res.json({ success: false, error: 'Numero deja enregistre' });
-    const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
+    
+    const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex');
     const id = 'sms_' + Date.now();
     db.sensmsUsers[id] = { id, name, phone, email: email || '', password: hash, createdAt: new Date() };
     res.json({ success: true, user: { id, name, phone, email: email || '' } });
@@ -340,8 +340,8 @@ app.post('/api/sensms/login', async (req, res) => {
     if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
     const user = Object.values(db.sensmsUsers || {}).find(u => u.phone === identifier || u.email === identifier);
     if (!user) return res.json({ success: false, error: 'Compte introuvable' });
-    const bcrypt = require('bcryptjs');
-    const ok = await bcrypt.compare(password, user.password);
+    
+    const crypto = require('crypto'); const ok = (crypto.createHash('sha256').update(password).digest('hex') === user.password);
     if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
     res.json({ success: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email } });
   } catch (e) { res.json({ success: false, error: 'Erreur serveur' }); }
