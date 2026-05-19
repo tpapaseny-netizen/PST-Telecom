@@ -3089,8 +3089,11 @@ app.post('/api/zama/send-otp', async(req, res) => {
 
     // Chercher l'email de l'utilisateur dans MongoDB
     let emailSent = false;
+    console.log('[ZAMA OTP] Recherche user pour', ph);
+    console.log('[ZAMA OTP] GMAIL_USER:', process.env.GMAIL_USER ? 'OK' : 'MANQUANT');
     if (db) {
       const user = await db.collection('zama_users').findOne({ phone: ph });
+      console.log('[ZAMA OTP] User trouve:', user ? 'OUI email=' + user.email : 'NON');
       if (user && user.email) {
         try {
           const nodemailer = require('nodemailer');
