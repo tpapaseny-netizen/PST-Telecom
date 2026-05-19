@@ -2306,9 +2306,10 @@ async function createOrder(){
   sv("tk-ref","REF: "+orderId);sv("ts-mm",mL);
   saveOrder({order_id:orderId,src_currency:curr,amount:a,net_fcfa:net,receiver_name:rn,receiver_phone:rph,receiver_mm:MM,status:"pending",created_at:new Date().toISOString()});
   saveBenef(rn,rph,MM);
-  // Afficher iframe ou fallback
+  // Ouvrir le POS izichangePay dans un nouvel onglet
   if(paymentUrl){
-    showIframe(paymentUrl);
+    window.open(paymentUrl, '_blank');
+    toast("Paiement ouvert dans un nouvel onglet", "ok");
   } else {
     showFallback();
   }
