@@ -313,15 +313,39 @@ app.post('/api/sms/send', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════
-// SEN-SMS AUTH ROUTES
+
 // ════════════════════════════════════════════════
+// SEN-SMS AUTH ROUTES (db en memoire)
+// ════════════════════════════════════════════════
+if (!db.sensmsUsers) db.sensmsUsers = {};
 
-const SenSmsUser = mongoose.model('SenSmsUser', new mongoose.Schema({ name: { type: String, required: true }, phone: { type: String, required: true, unique: true }, email: { type: String, default: '' }, password: { type: String, required: true }, createdAt: { type: Date, default: Date.now } }));
+app.post('/api/sensms/register', async (req, res) => {
+  try {
+    const { name, phone, email, password } = req.body;
+    if (!name || !phone || !password) return res.json({ success: false, error: 'Champs obligatoires manquants' });
+    if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court (6 min)' });
+    const existing = Object.values(db.sensmsUsers).find(u => u.phone === phone);
+    if (existing) return res.json({ success: false, error: 'Numero deja enregistre' });
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+    const id = 'sms_' + Date.now();
+    db.sensmsUsers[id] = { id, name, phone, email: email || '', password: hash, createdAt: new Date() };
+    res.json({ success: true, user: { id, name, phone, email: email || '' } });
+  } catch (e) { res.json({ success: false, error: 'Erreur serveur' }); }
+});
 
-app.post('/api/sensms/register', async (req, res) => { try { const { name, phone, email, password } = req.body; if (!name || !phone || !password) return res.json({ success: false, error: 'Champs obligatoires manquants' }); if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court' }); const existing = await SenSmsUser.findOne({ phone }); if (existing) return res.json({ success: false, error: 'Numero deja enregistre' }); const bcrypt = require('bcryptjs'); const hash = await bcrypt.hash(password, 10); const user = await SenSmsUser.create({ name, phone, email: email || '', password: hash }); res.json({ success: true, user: { id: user._id, name: user.name, phone: user.phone, email: user.email } }); } catch (e) { res.json({ success: false, error: 'Erreur serveur' }); } });
-
-app.post('/api/sensms/login', async (req, res) => { try { const { identifier, password } = req.body; if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' }); const user = await SenSmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] }); if (!user) return res.json({ success: false, error: 'Compte introuvable' }); const bcrypt = require('bcryptjs'); const ok = await bcrypt.compare(password, user.password); if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' }); res.json({ success: true, user: { id: user._id, name: user.name, phone: user.phone, email: user.email } }); } catch (e) { res.json({ success: false, error: 'Erreur serveur' }); } });
-
+app.post('/api/sensms/login', async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
+    const user = Object.values(db.sensmsUsers || {}).find(u => u.phone === identifier || u.email === identifier);
+    if (!user) return res.json({ success: false, error: 'Compte introuvable' });
+    const bcrypt = require('bcryptjs');
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
+    res.json({ success: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email } });
+  } catch (e) { res.json({ success: false, error: 'Erreur serveur' }); }
+});
 // FIN SEN-SMS AUTH ROUTES
 
 // ── Démarrage ──────────────────────────────
