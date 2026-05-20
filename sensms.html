@@ -712,6 +712,34 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 
 </style>
 </head>
+
+<script>
+function showDashboard(packId) {
+  var user = null;
+  try { user = JSON.parse(localStorage.getItem('sensms_user')); } catch(e) {}
+  if (!user) { 
+    if(typeof showAuthModal === 'function') showAuthModal(); 
+    else document.getElementById('sensms-auth-modal').classList.remove('hidden');
+    window._pendingPack = packId;
+    return; 
+  }
+  document.getElementById('dashboard-section').classList.add('active');
+  document.getElementById('dashboard-section').scrollIntoView({behavior:'smooth'});
+  if (packId) { 
+    setTimeout(function(){ 
+      var prices = {starter:3500,pro:33000,business:150000,ecole:280000};
+      var smsCounts = {starter:100,pro:1000,business:5000,ecole:10000};
+      if(typeof selPack === 'function') selPack(packId, prices[packId]||33000, smsCounts[packId]||1000); 
+    }, 300); 
+  }
+}
+function hideDashboard() {
+  document.getElementById('dashboard-section').classList.remove('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goToPlatform(packId) { showDashboard(packId); }
+</script>
+
 <body>
 
 <!-- AUTH MODAL -->
@@ -1109,6 +1137,7 @@ function sensmsLogin() {
       localStorage.setItem('sensms_user',JSON.stringify(d.user));
       updateNavAuth(d.user);
       hideAuthModal();
+      if(window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; } else { showDashboard(); }
     } else { authErr(d.error||'Identifiants incorrects'); }
   }).catch(function(){authErr('Erreur réseau');});
 }
@@ -1127,6 +1156,7 @@ function sensmsRegister() {
       localStorage.setItem('sensms_user',JSON.stringify(d.user));
       updateNavAuth(d.user);
       hideAuthModal();
+      if(window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; } else { showDashboard(); }
     } else { authErr(d.error||'Erreur inscription'); }
   }).catch(function(){authErr('Erreur réseau');});
 }
@@ -1625,11 +1655,7 @@ function showToast(msg,type){var t=document.getElementById('toast');t.textConten
 
 const API = 'https://pst-telecom-production.up.railway.app';
 
-let contacts = [], rawData = [], headers = [];
-let packData = { name:'Pro', price:8000, sms:1000 };
-let scheduleMode = 'now', payOpt = 'wave', activeTab = 'upload';
 
-const TEMPLATES = {
   convocation: "Bonjour {prenom} {nom}, vous etes convoque(e) le {date} a 8h. Centre : {centre}. N Table : {table}. Jury : {jury}. Bon courage !",
   resultat: "Bonjour {prenom} {nom}, vos resultats sont disponibles. Mention : {mention}. Felicitations ! Sen-SMS.",
   inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitees. Contactez-nous.",
@@ -1837,22 +1863,7 @@ function markStepDone(n){var el=document.getElementById('snum-'+n);el.classList.
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'success');setTimeout(function(){t.classList.add('show');},10);setTimeout(function(){t.classList.remove('show');},3500);}
 
 
-function showDashboard(packId) {
-  var user = null;
-  try { user = JSON.parse(localStorage.getItem('sensms_user')); } catch(e) {}
-  if (!user) { showAuthModal(); return; }
-  document.getElementById('dashboard-section').classList.add('active');
-  document.getElementById('dashboard-section').scrollIntoView({behavior:'smooth'});
-  if (packId) { setTimeout(function(){ selPack(packId, {starter:3500,pro:33000,business:150000,ecole:280000}[packId]||33000, {starter:100,pro:1000,business:5000,ecole:10000}[packId]||1000); }, 300); }
-}
-
-function hideDashboard() {
-  document.getElementById('dashboard-section').classList.remove('active');
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-
-// Override goToPlatform
-function goToPlatform(packId) { showDashboard(packId); }
+// showDashboard défini en haut de page
 
 // Après login, si pack en attente, ouvrir dashboard
 var _origUpdateNavAuth = updateNavAuth;
