@@ -1,0 +1,2919 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ZAMIN — Collecte Terrain</title>
+<style>
+:root{
+  --teal:#1A56DB;--teal-d:#1e3a8a;--teal-l:#EFF6FF;--teal-xl:#F0F7FF;
+  --amber:#BA7517;--amber-l:#FAEEDA;--amber-d:#412402;
+  --red:#A32D2D;--red-l:#FCEBEB;--red-d:#501313;
+  --blue:#185FA5;--blue-l:#E6F1FB;--blue-d:#042C53;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --purple:#534AB7;--purple-l:#EEEDFE;
+  --gray:#5F5E5A;--gray-l:#1E293B;--gray-d:#2C2C2A;
+  --bg:#0F172A;--card:#1E293B;--text:#F1F5F9;--muted:#94A3B8;
+  --border:rgba(255,255,255,0.08);--r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--text);min-height:100vh;overflow-x:hidden;}
+/* iOS safe area support */
+.app-bar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));}
+#cmd-mobile-nav,#adm-mobile-nav{padding-bottom:env(safe-area-inset-bottom,0px);}
+.tab-bar{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-right,0);}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh;}
+.screen.active{display:block;}
+
+/* ── ROLE SELECT ── */
+#scr-role{background:linear-gradient(160deg,#0F172A 0%,#1A56DB 60%,#0369a1 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
+.role-box{background:white;border-radius:20px;padding:36px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.22);}
+.role-logo{text-align:center;margin-bottom:28px;}
+.role-logo .licon{width:64px;height:64px;background:var(--teal-d);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;cursor:pointer;user-select:none;transition:transform .1s;}
+.role-logo .licon:active{transform:scale(.93);}
+.role-logo h1{font-size:20px;font-weight:700;color:var(--teal-d);}
+.role-logo p{font-size:12px;color:var(--muted);margin-top:3px;}
+.role-cards{display:flex;flex-direction:column;gap:10px;}
+.rcard{border:2px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .18s;}
+.rcard:hover,.rcard:active{border-color:var(--teal);background:var(--teal-l);}
+.rcard .ri{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.rcard h3{font-size:14px;font-weight:600;margin-bottom:2px;}
+.rcard p{font-size:12px;color:var(--muted);line-height:1.4;}
+.rcard .arr{color:var(--teal);font-size:20px;margin-left:auto;flex-shrink:0;}
+
+/* ── APP BAR ── */
+.app-bar{background:var(--teal-d);color:white;height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.ab-back{width:34px;height:34px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;border:none;color:white;}
+.ab-title{flex:1;min-width:0;}
+.ab-title h1{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ab-title p{font-size:10px;opacity:.7;margin-top:1px;}
+.ab-pill{background:rgba(255,255,255,.18);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;white-space:nowrap;}
+.ab-btn{background:rgba(255,255,255,.15);border:none;color:white;padding:6px 11px;border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap;}
+.live-dot{display:inline-block;width:7px;height:7px;background:#22c55e;border-radius:50%;animation:pulse 2s infinite;margin-right:4px;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
+
+/* ── TAB BAR ── */
+.tab-bar{background:white;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
+.tab-item .ti{font-size:15px;}
+.tab-item.active{color:var(--teal-d);border-bottom-color:var(--teal);font-weight:600;}
+.tab-item:hover{color:var(--teal-d);background:var(--teal-xl);}
+
+/* ── TAB CONTENT ── */
+.tab-content{display:none;padding:14px;padding-bottom:24px;}
+.tab-content.active{display:block;}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
+.card-h{font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ci{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+
+/* ── FIELDS ── */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+.req{color:var(--red);}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .18s;-webkit-appearance:none;font-family:inherit;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(29,158,117,.1);}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.other-inp{display:none;margin-top:7px;width:100%;padding:10px 13px;border:1.5px solid var(--teal);border-radius:var(--rs);font-size:13px;outline:none;font-family:inherit;background:var(--teal-xl);}
+
+/* ── RADIO / CHECK ── */
+.opts{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;}
+.opt{display:flex;align-items:center;gap:5px;padding:7px 13px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;user-select:none;transition:all .15s;}
+.opt:hover{border-color:var(--teal);}
+.opt.on{border-color:var(--teal);background:var(--teal-l);color:var(--teal-d);font-weight:500;}
+.opt input{display:none;}
+.opt-other{border-style:dashed;color:var(--teal-d);}
+.opt-other.on{border-style:solid;}
+
+/* ── COUNTER ── */
+.ctr{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:var(--rs);overflow:hidden;}
+.ctr button{width:42px;height:42px;border:none;background:var(--gray-l);font-size:20px;cursor:pointer;flex-shrink:0;color:var(--gray-d);transition:background .1s;}
+.ctr button:hover{background:#d3d1c7;}
+.ctr input{flex:1;border:none;text-align:center;font-size:16px;font-weight:600;outline:none;}
+
+/* ── STEP BAR ── */
+.steps{display:flex;align-items:center;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.steps::-webkit-scrollbar{display:none;}
+.st-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.st-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid var(--border);background:white;color:var(--muted);cursor:pointer;transition:all .2s;}
+.st-dot.done{background:var(--teal);border-color:var(--teal);color:white;}
+.st-dot.cur{background:var(--teal-d);border-color:var(--teal-d);color:white;box-shadow:0 0 0 3px rgba(8,80,65,.15);}
+.st-lbl{font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;}
+.st-line{width:18px;height:2px;background:var(--border);flex-shrink:0;margin-bottom:16px;}
+.st-line.done{background:var(--teal);}
+
+/* ── BUTTONS ── */
+.btn{padding:12px 18px;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;}
+.btn-p{background:var(--teal);color:white;}
+.btn-p:hover{background:var(--teal-d);}
+.btn-s{background:var(--gray-l);color:var(--gray-d);}
+.btn-s:hover{background:#d3d1c7;}
+.btn-d{background:var(--red-l);color:var(--red);}
+.btn-row{display:flex;gap:10px;margin-top:14px;}
+.btn-row .btn{flex:1;}
+.btn-sm{padding:7px 12px;font-size:12px;width:auto;}
+
+/* ── PILLS ── */
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;}
+.p-g{background:var(--green-l);color:var(--green);}
+.p-r{background:var(--red-l);color:var(--red-d);}
+.p-a{background:var(--amber-l);color:var(--amber-d);}
+.p-b{background:var(--blue-l);color:var(--blue-d);}
+.p-t{background:var(--teal-l);color:var(--teal-d);}
+.p-gr{background:var(--gray-l);color:var(--gray-d);}
+.p-pu{background:var(--purple-l);color:var(--purple);}
+
+/* ── KPI CARDS ── */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:white;border-radius:10px;border:1px solid var(--border);padding:14px;}
+.kpi .kn{font-size:24px;font-weight:700;line-height:1;}
+.kpi .kl{font-size:11px;color:var(--muted);margin-top:3px;}
+.kpi .ks{font-size:11px;margin-top:5px;}
+
+/* ── MINI BARS ── */
+.mb-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.mb-lbl{font-size:11px;color:var(--muted);width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mb-trk{flex:1;height:14px;background:#0F172A;border-radius:3px;overflow:hidden;}
+.mb-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:5px;}
+.mb-fill span{font-size:10px;color:white;font-weight:500;}
+.mb-val{font-size:11px;font-weight:500;width:25px;text-align:right;flex-shrink:0;}
+
+/* ── LIST ITEMS ── */
+.li{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);}
+.li:last-child{border-bottom:none;}
+.li-ic{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.li-b{flex:1;min-width:0;}
+.li-t{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.li-s{font-size:11px;color:var(--muted);margin-top:2px;}
+
+/* ── ALERTS ── */
+.alert{padding:11px 13px;border-radius:var(--rs);font-size:12px;display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;border-left:3px solid;}
+.al-r{background:var(--red-l);border-color:var(--red);color:var(--red-d);}
+.al-a{background:var(--amber-l);border-color:var(--amber);color:var(--amber-d);}
+.al-g{background:var(--green-l);border-color:var(--green);color:var(--green-d);}
+.al-b{background:var(--blue-l);border-color:var(--blue);color:var(--blue-d);}
+
+/* ── GPS BAR ── */
+.gps-bar{display:flex;align-items:center;gap:8px;background:var(--teal-l);border-radius:var(--rs);padding:9px 12px;margin-bottom:14px;font-size:12px;color:var(--teal-d);border:1px solid rgba(29,158,117,.2);}
+.gps-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.gps-dot.ok{background:var(--teal);animation:pulse 2s infinite;}
+.gps-dot.wait{background:var(--amber);}
+.gps-dot.err{background:var(--red);}
+
+/* ── FICHE PREVIEW ── */
+.preview{background:var(--gray-l);border-radius:var(--rs);padding:12px;margin-top:10px;}
+.pr-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);}
+.pr-row:last-child{border-bottom:none;}
+.pr-l{color:var(--muted);}
+.pr-v{font-weight:500;text-align:right;max-width:60%;}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{padding:8px 10px;background:var(--gray-l);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.tbl tr:hover td{background:rgba(29,158,117,.03);}
+
+/* ── LOGIN ── */
+.login-wrap{max-width:400px;margin:0 auto;padding:20px;}
+.lfield{margin-bottom:14px;}
+.lfield label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+.lfield input{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;outline:none;transition:border .18s;font-family:inherit;}
+.lfield input:focus{border-color:var(--blue);}
+.login-err{display:none;background:var(--red-l);color:var(--red-d);padding:10px 13px;border-radius:var(--rs);font-size:13px;margin-bottom:14px;border-left:3px solid var(--red);}
+
+/* ── CODE BADGE ── */
+.code-badge{display:inline-block;font-family:monospace;font-size:20px;font-weight:700;background:var(--teal-d);color:white;padding:12px 24px;border-radius:10px;letter-spacing:4px;}
+
+/* ── TOAST ── */
+/* Offline banner */
+#offline-banner{position:fixed;top:0;left:0;right:0;background:#A32D2D;color:white;text-align:center;padding:8px;font-size:12px;font-weight:600;z-index:99999;display:none;}
+#sync-badge{position:fixed;top:60px;right:10px;background:var(--amber);color:white;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;z-index:9000;display:none;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+/* Photo upload */
+.photo-zone{border:2px dashed var(--border);border-radius:var(--rs);padding:16px;text-align:center;cursor:pointer;transition:all .2s;margin-top:6px;}
+.photo-zone:hover{border-color:var(--teal);background:var(--teal-xl);}
+.photo-zone input{display:none;}
+.photo-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.photo-thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;border:2px solid var(--border);position:relative;}
+.photo-del{position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+/* Map */
+#leaflet-map{height:340px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);}
+/* Progress bars */
+.prog{height:8px;background:var(--gray-l);border-radius:4px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;border-radius:4px;transition:width .5s;}
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:12px;}
+.search-bar input{flex:1;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;outline:none;}
+.search-bar input:focus{border-color:var(--teal);}
+.filter-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:white;font-size:12px;cursor:pointer;white-space:nowrap;}
+.filter-chip.on{background:var(--teal-l);border-color:var(--teal);color:var(--teal-d);font-weight:500;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1918;color:white;padding:10px 20px;border-radius:25px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9999;white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;}
+#toast.on{opacity:1;}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;display:flex;align-items:flex-end;justify-content:center;}
+.modal{background:white;border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:18px;}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+
+/* ── SECTION TITLE ── */
+.stitle{margin-bottom:14px;}
+.stitle h2{font-size:17px;font-weight:700;}
+.stitle p{font-size:12px;color:var(--muted);margin-top:3px;}
+
+/* ── COMMANDITAIRE LAYOUT ── */
+.cmd-layout{display:flex;min-height:calc(100vh - 56px);}
+.cmd-side{width:210px;background:white;border-right:1px solid var(--border);padding:10px 8px;flex-shrink:0;overflow-y:auto;}
+.cmd-side::-webkit-scrollbar{display:none;}
+.cmd-side .cs-section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:12px 8px 6px;margin-top:4px;}
+.cmd-nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;background:none;border:none;border-radius:8px;text-align:left;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:1px;}
+.cmd-nav-btn:hover{background:var(--teal-l);color:var(--teal-d);}
+.cmd-nav-btn.active{background:var(--teal-l);color:var(--teal-d);font-weight:600;}
+.cmd-nav-btn .nbadge{margin-left:auto;background:var(--red);color:white;font-size:9px;border-radius:10px;padding:1px 5px;font-weight:700;}
+.cmd-main{flex:1;overflow-y:auto;padding:18px;}
+
+/* ── ADMIN PANEL ── */
+#scr-admin{background:#0d1117;}
+.adm-layout{display:flex;min-height:calc(100vh - 56px);}
+.adm-side{width:210px;background:#161b22;flex-shrink:0;padding:10px 8px;}
+.adm-nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;background:none;border:none;border-radius:8px;text-align:left;font-size:12px;color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;margin-bottom:1px;}
+.adm-nav-btn:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9);}
+.adm-nav-btn.active{background:rgba(29,158,117,.2);color:#9FE1CB;font-weight:600;}
+.adm-main{flex:1;background:#0F172A;overflow-y:auto;padding:18px;}
+
+/* ── EXPORT BUTTONS ── */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.exp-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.exp-word{background:#E8F0FB;border-color:#B5CEFA;color:#0d47a1;}
+.exp-excel{background:#E8F5E9;border-color:#A5D6A7;color:#1b5e20;}
+.exp-pdf{background:#FEEBE7;border-color:#F4A89A;color:#b71c1c;}
+.exp-json{background:var(--gray-l);border-color:#ccc;color:var(--gray-d);}
+
+
+/* ══ MOBILE FIRST — téléphone ══ */
+@media(max-width:700px){
+  /* Hide sidebars */
+  .cmd-side,.adm-side{display:none;}
+  /* Cmd/Adm layout full width */
+  .cmd-layout,.adm-layout{flex-direction:column;}
+  .cmd-main,.adm-main{padding:12px;}
+
+  /* Field rows stack */
+  .field-row{grid-template-columns:1fr!important;}
+
+  /* KPIs: 2 columns on phone */
+  .kpis{grid-template-columns:1fr 1fr!important;}
+
+  /* Role screen */
+  #scr-role{padding:14px;align-items:flex-start;padding-top:40px;}
+  .role-box{padding:24px 18px;border-radius:16px;}
+  .role-logo h1{font-size:18px;}
+  .rcard{padding:14px;}
+
+  /* App bar */
+  .app-bar{height:52px;padding:0 10px;gap:8px;}
+  .app-bar h1{font-size:13px;}
+  .ab-pill{font-size:10px;padding:2px 8px;}
+
+  /* Tab bar - compact */
+  .tab-bar{top:52px;}
+  .tab-item{padding:0 10px;height:42px;font-size:11px;gap:4px;}
+  .tab-item .ti{font-size:14px;}
+
+  /* Tab content */
+  .tab-content{padding:10px 10px 20px;}
+
+  /* Cards */
+  .card{padding:12px;margin-bottom:10px;border-radius:10px;}
+  .card-h{font-size:12px;margin-bottom:12px;}
+
+  /* GPS bar */
+  .gps-bar{font-size:11px;padding:7px 10px;margin:8px 10px 0;}
+
+  /* Mission bar */
+  #mission-bar{margin:6px 10px;font-size:11px;padding:8px 10px;}
+
+  /* Step bar */
+  .steps{margin-bottom:12px;}
+  .st-dot{width:24px;height:24px;font-size:10px;}
+  .st-lbl{font-size:9px;}
+  .st-line{width:14px;}
+
+  /* Forms */
+  .field{margin-bottom:12px;}
+  .field label{font-size:11px;}
+  .field input,.field select,.field textarea{padding:10px 12px;font-size:14px;}
+  .other-inp{padding:9px 12px;font-size:13px;}
+
+  /* Radio/check opts */
+  .opt{padding:7px 11px;font-size:12px;}
+
+  /* Counter */
+  .ctr button{width:40px;height:40px;font-size:18px;}
+
+  /* Buttons */
+  .btn{padding:11px 16px;font-size:13px;}
+  .btn-row{gap:8px;}
+
+  /* Tables — scroll horizontally */
+  .tbl{font-size:11px;}
+  .tbl th,.tbl td{padding:6px 8px;}
+
+  /* Export buttons */
+  .export-row{gap:6px;}
+  .exp-btn{padding:6px 10px;font-size:11px;}
+
+  /* Step content padding */
+  #ec-body,.card{padding-bottom:4px;}
+
+  /* Fiches tab */
+  #enq-tc-fiches .card{padding:10px;}
+
+  /* Code input */
+  #enq-code-input{font-size:22px;letter-spacing:4px;}
+
+  /* Modal */
+  .modal{padding:14px;border-radius:14px 14px 0 0;}
+
+  /* Code badge */
+  .code-badge{font-size:18px;padding:10px 18px;letter-spacing:3px;}
+
+  /* Cmd side nav — mobile: bottom bar instead */
+  #cmd-side{display:none;}
+  #adm-side{display:none;}
+
+  /* Login wrap */
+  .login-wrap{padding:14px;}
+  .lfield input{font-size:14px;}
+
+  /* Overview grids */
+  .stitle h2{font-size:15px;}
+  .stitle p{font-size:11px;}
+  .kpi .kn{font-size:20px;}
+  .kpi .kl{font-size:10px;}
+  .kpi{padding:12px;}
+  .mb-lbl{width:80px;font-size:10px;}
+  .mb-val{font-size:10px;}
+
+  /* Alerts */
+  .alert{font-size:11px;padding:9px 11px;}
+
+  /* List items */
+  .li{padding:9px 0;gap:9px;}
+  .li-ic{width:32px;height:32px;font-size:15px;}
+  .li-t{font-size:12px;}
+  .li-s{font-size:10px;}
+}
+
+/* Extra small phones */
+@media(max-width:380px){
+  .tab-item{padding:0 8px;font-size:10px;}
+  .tab-item .ti{font-size:13px;}
+  .kpi .kn{font-size:18px;}
+  .role-box{padding:20px 14px;}
+}
+
+@media print{.app-bar,.tab-bar,.cmd-side,.adm-side,.export-row,.btn-row{display:none!important;}.tab-content,.cpanel,.adm-pane{display:block!important;}}
+</style>
+<link rel="manifest" id="pwa-manifest">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZAMIN">
+</head>
+<body>
+<div id="toast"></div>
+<div id="offline-banner">📵 Mode hors ligne — Les fiches sont sauvegardées localement</div>
+<div id="sync-badge" onclick="syncPending()" title="Synchroniser les fiches en attente">⬆️ <span id="sync-count">0</span> à envoyer</div>
+
+<!-- ════════════════════════════════
+     ÉCRAN RÔLE
+════════════════════════════════ -->
+<div id="scr-role" class="screen active">
+  <div class="role-box">
+    <div class="role-logo">
+      <div class="licon" style="background:linear-gradient(135deg,#1A56DB,#0EA5E9);border-radius:16px;width:64px;height:64px;display:flex;align-items:center;justify-content:center;margin:0 auto"><span style="color:#fff;font-size:26px;font-weight:900;letter-spacing:-2px">ZI</span></div>
+      <h1>ZAMIN — Collecte Terrain</h1>
+      <p>Plateforme de collecte de données · PST Telecom</p>
+    </div>
+    <div class="role-cards">
+      <div class="rcard" onclick="goTo('scr-enq');initEnq()">
+        <div class="ri" style="background:#EFF6FF">📋</div>
+        <div><h3>Je suis Enquêteur</h3><p>Je collecte des données sur le terrain avec les formulaires.</p></div>
+        <div class="arr">›</div>
+      </div>
+      <div class="rcard" onclick="goTo('scr-cmd-login')">
+        <div class="ri" style="background:#E6F1FB">📊</div>
+        <div><h3>Je suis Commanditaire</h3><p>Je supervise et reçois les données en temps réel.</p></div>
+        <div class="arr">›</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:14px">
+      <button onclick="goTo('scr-admin-login')" style="background:none;border:none;color:#bbb;font-size:11px;cursor:pointer;text-decoration:underline">Accès administrateur</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     ENQUÊTEUR — ÉCRAN CODE
+════════════════════════════════ -->
+<div id="scr-enq" class="screen">
+  <div class="app-bar">
+    <button class="ab-back" onclick="goTo('scr-role')">←</button>
+    <div class="ab-title"><h1>Espace Enquêteur</h1><p>ZAMIN · PST Telecom</p></div>
+  </div>
+  <!-- Code entry -->
+  <div id="enq-code-screen" style="padding:20px;max-width:400px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:24px;margin-top:16px">
+      <div style="font-size:36px;margin-bottom:10px">🔑</div>
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:6px">Code de mission</h2>
+      <p style="font-size:13px;color:var(--muted)">Entrez le code fourni par votre commanditaire pour commencer la collecte.</p>
+    </div>
+    <div id="enq-code-err" class="login-err"></div>
+    <div class="lfield">
+      <label>Code d'accès (6 caractères)</label>
+      <input type="text" id="enq-code-input" maxlength="6" placeholder="Ex: AB12CD" style="text-align:center;font-size:24px;font-weight:700;letter-spacing:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')validateEnqCode()">
+    </div>
+    <button class="btn btn-p" onclick="validateEnqCode()">✅ Valider le code</button>
+    <div style="margin-top:12px;text-align:center">
+      <button onclick="showCodeHelp()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer">Pas de code ? Comment ça marche ?</button>
+    </div>
+  </div>
+  <!-- Enquêteur main (after code validated) -->
+  <div id="enq-main" style="display:none;">
+    <!-- GPS bar -->
+    <div id="gps-bar" class="gps-bar" style="margin:12px 14px 0;">
+      <div class="gps-dot wait" id="gps-dot"></div>
+      <span id="gps-txt">Activation GPS en cours…</span>
+      <button onclick="refreshGPS()" style="margin-left:auto;background:none;border:1px solid var(--teal);color:var(--teal-d);padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">📍 Recharger</button>
+    </div>
+    <!-- mission info bar -->
+    <div id="mission-bar" style="background:var(--teal-d);color:white;padding:10px 14px;margin:8px 14px;border-radius:var(--rs);font-size:12px;display:flex;gap:10px;align-items:center;">
+      <span>🎯</span>
+      <div>Mission : <strong id="mission-name">—</strong> · Enquêteur : <strong id="mission-enq">—</strong></div>
+    </div>
+    <!-- Tab bar -->
+    <div class="tab-bar" id="enq-tabs"></div>
+    <!-- Tab contents -->
+    <div id="enq-tab-contents"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     COMMANDITAIRE — LOGIN
+════════════════════════════════ -->
+<div id="scr-cmd-login" class="screen">
+  <div class="app-bar">
+    <button class="ab-back" onclick="goTo('scr-role')">←</button>
+    <div class="ab-title"><h1>Commanditaire</h1><p>Connexion à l'espace de supervision</p></div>
+  </div>
+  <div style="background:linear-gradient(180deg,#042C53 0%,#185FA5 100%);min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:white;border-radius:18px;padding:32px;width:100%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,.25)">
+      <div style="text-align:center;margin-bottom:26px">
+        <div style="width:52px;height:52px;background:#042C53;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px">📊</div>
+        <div style="font-size:17px;font-weight:700;color:#042C53">Espace Commanditaire</div>
+        <div style="font-size:12px;color:#888;margin-top:3px">ZAMIN · PST Telecom</div>
+      </div>
+      <div id="cmd-login-err" class="login-err"></div>
+      <div class="lfield"><label>Email</label><input type="email" id="cmd-email" placeholder="votre@email.sn" onkeydown="if(event.key==='Enter')cmdLogin()"></div>
+      <div class="lfield"><label>Mot de passe</label>
+        <div style="position:relative">
+          <input type="password" id="cmd-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')cmdLogin()" style="width:100%;padding:11px 40px 11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;outline:none;font-family:inherit;">
+          <span onclick="tp('cmd-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;color:#888">👁</span>
+        </div>
+      </div>
+      <button onclick="cmdLogin()" style="width:100%;padding:12px;background:#042C53;color:white;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;margin-top:2px;">Se connecter</button>
+      <div style="margin-top:10px;text-align:center">
+        <button onclick="showCmdRegister()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline">Première connexion ? Créer un compte</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     COMMANDITAIRE — DASHBOARD
+════════════════════════════════ -->
+<div id="scr-cmd" class="screen">
+  <div class="app-bar">
+    <button class="ab-back" onclick="cmdLogout()">🏘️</button>
+    <div class="ab-title"><h1>Tableau de bord</h1><p><span class="live-dot"></span>Live · <span id="cmd-time">—</span></p></div>
+    <button class="ab-btn" onclick="cmdLogout()">Déconn.</button>
+  </div>
+  <div class="cmd-layout">
+    <aside class="cmd-side" id="cmd-side"></aside>
+    <main class="cmd-main" id="cmd-main" style="padding-bottom:70px"></main>
+  </div>
+  <!-- Mobile bottom nav for commanditaire -->
+  <div id="cmd-mobile-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);z-index:300;box-shadow:0 -2px 10px rgba(0,0,0,.08);">
+    <div style="display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <button class="cmd-mob-btn active" onclick="cmdMobNav('overview',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📊</span><span style="font-size:9px;color:var(--teal-d);font-weight:600">Vue</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('flux',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">🔴</span><span style="font-size:9px;color:var(--muted)">Live</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('missions',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">🎯</span><span style="font-size:9px;color:var(--muted)">Missions</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('education',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">🎓</span><span style="font-size:9px;color:var(--muted)">Éduc.</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('sante',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">🏥</span><span style="font-size:9px;color:var(--muted)">Santé</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('autres',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📋</span><span style="font-size:9px;color:var(--muted)">Autres</span>
+      </button>
+      <button class="cmd-mob-btn" onclick="cmdMobNav('rapports',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📄</span><span style="font-size:9px;color:var(--muted)">Rapports</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     ADMIN — LOGIN
+════════════════════════════════ -->
+<div id="scr-admin-login" class="screen">
+  <div class="app-bar">
+    <button class="ab-back" onclick="goTo('scr-role')">←</button>
+    <div class="ab-title"><h1>Administration</h1><p>Accès restreint</p></div>
+  </div>
+  <div style="background:linear-gradient(160deg,#1e3a8a,#1A56DB);min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:white;border-radius:18px;padding:32px;width:100%;max-width:360px;box-shadow:0 20px 50px rgba(0,0,0,.25)">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="width:52px;height:52px;background:#1e3a8a;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px">🔐</div>
+        <div style="font-size:17px;font-weight:700;color:#1e3a8a">Panneau Admin</div>
+      </div>
+      <div id="adm-login-err" class="login-err"></div>
+      <div class="lfield"><label>Email administrateur</label><input type="email" id="adm-email" placeholder="admin@email.sn" onkeydown="if(event.key==='Enter')admLogin()"></div>
+      <div class="lfield"><label>Mot de passe</label>
+        <div style="position:relative">
+          <input type="password" id="adm-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')admLogin()" style="width:100%;padding:11px 40px 11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;outline:none;font-family:inherit;">
+          <span onclick="tp('adm-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;color:#888">👁</span>
+        </div>
+      </div>
+      <button onclick="admLogin()" style="width:100%;padding:12px;background:#1e3a8a;color:white;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;">Accéder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     ADMIN — DASHBOARD
+════════════════════════════════ -->
+<div id="scr-admin" class="screen">
+  <div class="app-bar">
+    <button class="ab-back" onclick="admLogout()">🏘️</button>
+    <div class="ab-title"><h1>Administration ZAMIN</h1><p><span class="live-dot"></span>Supervision globale</p></div>
+    <button class="ab-btn" onclick="admLogout()">Déconn.</button>
+  </div>
+  <div class="adm-layout">
+    <aside class="adm-side" id="adm-side"></aside>
+    <main class="adm-main" id="adm-main" style="padding-bottom:70px"></main>
+  </div>
+  <!-- Mobile bottom nav for admin -->
+  <div id="adm-mobile-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#161b22;border-top:1px solid rgba(255,255,255,.1);z-index:300;">
+    <div style="display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <button class="adm-mob-btn active" onclick="admMobNav('overview',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📊</span><span style="font-size:9px;color:#9FE1CB;font-weight:600">Vue</span>
+      </button>
+      <button class="adm-mob-btn" onclick="admMobNav('flux',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">🔴</span><span style="font-size:9px;color:rgba(255,255,255,.5)">Flux</span>
+      </button>
+      <button class="adm-mob-btn" onclick="admMobNav('users',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">👥</span><span style="font-size:9px;color:rgba(255,255,255,.5)">Users</span>
+      </button>
+      <button class="adm-mob-btn" onclick="admMobNav('fiches',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📋</span><span style="font-size:9px;color:rgba(255,255,255,.5)">Fiches</span>
+      </button>
+      <button class="adm-mob-btn" onclick="admMobNav('logs',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">📜</span><span style="font-size:9px;color:rgba(255,255,255,.5)">Logs</span>
+      </button>
+      <button class="adm-mob-btn" onclick="admMobNav('settings',this)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:none;background:none;cursor:pointer;min-width:56px;gap:2px;">
+        <span style="font-size:18px">⚙️</span><span style="font-size:9px;color:rgba(255,255,255,.5)">Config</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   DATA STORE — localStorage multi-tenant
+══════════════════════════════════════════ */
+const ROOT_ADMINS = ['tpapaseny@ept.sn','papasenytoure@gmail.com'];
+
+/* ══ CLOUDINARY CONFIG ══ */
+const CLOUDINARY_CLOUD = 'dkuekfrh9';
+const CLOUDINARY_PRESET = 'zamin_upload';
+const CLOUDINARY_FOLDER = 'zamin';
+const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`;
+const MASTER_PASS = 'Pstdiama@1';
+
+// Keys: zamin_users, zamin_sessions, zamin_fiches, zamin_missions, zamin_logs
+const DB = {
+  get: k => { try { return JSON.parse(localStorage.getItem('zamin_'+k)||'null'); } catch { return null; } },
+  set: (k,v) => localStorage.setItem('zamin_'+k, JSON.stringify(v)),
+  getArr: k => DB.get(k)||[],
+};
+
+// Init root admins if not present
+(function initRootAdmins(){
+  let users = DB.getArr('users');
+  ROOT_ADMINS.forEach(email => {
+    if(!users.find(u=>u.email===email)){
+      users.push({id:email,email,role:'admin',name:'Super Admin',pass:MASTER_PASS,active:true,createdAt:new Date().toISOString()});
+    }
+  });
+  DB.set('users',users);
+})();
+
+function log(action,detail,user='system'){
+  const logs = DB.getArr('logs');
+  logs.unshift({ts:new Date().toLocaleString('fr-FR'),action,detail,user});
+  if(logs.length>500) logs.splice(400);
+  DB.set('logs',logs);
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  const el = document.getElementById(id);
+  if(el){ el.classList.add('active'); el.style.display=id==='scr-role'?'flex':'block'; }
+}
+// Fix role screen initial display
+document.getElementById('scr-role').style.display='flex';
+
+function tp(id,el){const i=document.getElementById(id);if(!i)return;i.type=i.type==='password'?'text':'password';el.textContent=i.type==='password'?'👁':'🙈';}
+
+function toast(msg,dur=3000){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('on');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),dur);
+}
+
+/* ══════════════════════════════════════════
+   FORM HELPERS — with "Autre" free text
+══════════════════════════════════════════ */
+const QLIST = ['Alwar','Arafat 1','Arafat 1 ouest','Arafat 2','Arafat 2 bis','Arafat 3','Arafat 3 bis','Arafat 4 Castor Bata','Camp Marchand (Arafat 4)','Castors','Champs de courses','Cheikh Nord','Cheikh Sud','Cité Sococim','Colobane 1','Colobane 1 bis','Colobane 2 nord','Colobane 2 sud 1','Colobane 2 sud 2','Colobane Nord','Colobane nord-est','Colobane Sococim','Colobane voie ferrée','Darou Karim','Darou Nahim','Gouye Mourides','Keuri Kao','Keuri Souf','Keuri Souf Gare','Léona','Mérina 1','Mérina 2','Quartier Diatta','Thiawlène Boute 1','Thiawlène Bouth 2','Thiawlène Diig','Thiawlène Pouyène','Touba Alwar','Youssou Mbargane'];
+
+function qSelect(id,sel=''){
+  const opts = QLIST.map(q=>`<option ${q===sel?'selected':''}>${q}</option>`).join('');
+  return `<div class="field">
+    <label>Quartier</label>
+    <select id="${id}" onchange="handleOtherSel(this,'${id}_aut')">${opts}<option value="__autre__" ${!QLIST.includes(sel)&&sel?'selected':''}>✏️ Autre — saisir</option></select>
+    <input class="other-inp" id="${id}_aut" placeholder="Saisir le quartier ou lieu exact…" style="display:${!QLIST.includes(sel)&&sel?'block':'none'}" value="${!QLIST.includes(sel)?sel:''}">
+  </div>`;
+}
+
+function smartSel(id,opts,sel='',lbl=''){
+  const html = opts.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');
+  return `<div class="field">
+    ${lbl?`<label>${lbl}</label>`:''}
+    <select id="${id}" onchange="handleOtherSel(this,'${id}_aut')">${html}<option value="__autre__" ${!opts.includes(sel)&&sel?'selected':''}>✏️ Autre — saisir</option></select>
+    <input class="other-inp" id="${id}_aut" placeholder="Préciser…" style="display:${!opts.includes(sel)&&sel?'block':'none'}" value="${!opts.includes(sel)?sel:''}">
+  </div>`;
+}
+
+function handleOtherSel(el,inputId){
+  const inp = el.parentElement.querySelector('#'+inputId)||document.getElementById(inputId);
+  if(!inp) return;
+  if(el.value==='__autre__'){inp.style.display='block';inp.focus();}
+  else inp.style.display='none';
+}
+
+function getSelVal(id){
+  const sel=document.getElementById(id);
+  if(!sel) return '';
+  if(sel.value==='__autre__'){const inp=document.getElementById(id+'_aut');return inp?inp.value:'';}
+  return sel.value;
+}
+
+function radioH(name,opts,inline=false){
+  const uid = name.replace(/[^a-z0-9]/gi,'_');
+  const otherInpId = uid+'_oth';
+  const pils = opts.map(o=>`<label class="opt" onclick="pickOpt(this,'${uid}','${otherInpId}',false)"><input type="radio" name="${uid}" value="${o}"><span>${o}</span></label>`).join('');
+  const other = `<label class="opt opt-other" onclick="pickOpt(this,'${uid}','${otherInpId}',true)"><input type="radio" name="${uid}" value="__other__"><span>✏️ Autre</span></label>`;
+  return `<div class="opts">${pils}${other}</div><input type="text" id="${otherInpId}" class="other-inp" placeholder="Préciser votre réponse…"><input type="hidden" id="${uid}_val">`;
+}
+
+function checkH(name,opts){
+  const uid = name.replace(/[^a-z0-9]/gi,'_');
+  const otherInpId = uid+'_coth';
+  const pils = opts.map(o=>`<label class="opt" onclick="toggleOpt(this)"><input type="checkbox" name="${uid}" value="${o}"><span>${o}</span></label>`).join('');
+  const other = `<label class="opt opt-other" onclick="toggleOpt(this);toggleOtherCk('${otherInpId}',this)"><input type="checkbox" name="${uid}" value="__cother__"><span>✏️ Autre</span></label>`;
+  return `<div class="opts">${pils}${other}</div><input type="text" id="${otherInpId}" class="other-inp" placeholder="Préciser d'autres éléments…">`;
+}
+
+function pickOpt(el,uid,otherId,isOther){
+  document.querySelectorAll(`.opt[onclick*="'${uid}'"]`).forEach(o=>o.classList.remove('on'));
+  el.classList.add('on');
+  const h = document.getElementById(uid+'_val');
+  const inp = document.getElementById(otherId);
+  if(isOther){inp.style.display='block';inp.focus();if(h)h.value='__other__';}
+  else{inp.style.display='none';if(h)h.value=el.querySelector('input')?.value||'';}
+}
+
+function toggleOpt(el){el.classList.toggle('on');}
+
+function toggleOtherCk(inputId,el){
+  const inp=document.getElementById(inputId);if(!inp)return;
+  inp.style.display=el.classList.contains('on')?'block':'none';
+  if(el.classList.contains('on'))inp.focus();
+}
+
+function ctr(id,lbl,mn=0){
+  return `<div class="field"><label>${lbl}</label><div class="ctr"><button type="button" onclick="ca('${id}',-1,${mn})">−</button><input type="number" id="${id}" value="${mn}" min="${mn}"><button type="button" onclick="ca('${id}',1,${mn})">+</button></div></div>`;
+}
+function ca(id,d,mn=0){const e=document.getElementById(id);if(e)e.value=Math.max(mn,parseInt(e.value||0)+d);}
+
+function getFormVals(wrap){
+  const d={};if(!wrap)return d;
+  // hidden val inputs from radio
+  wrap.querySelectorAll('input[type="hidden"]').forEach(el=>{if(el.id&&el.id.endsWith('_val')&&el.value)d[el.id.replace('_val','')]=el.value;});
+  // other text inputs for radio
+  wrap.querySelectorAll('input.other-inp[id$="_oth"]').forEach(el=>{
+    if(el.style.display!=='none'&&el.value){const k=el.id.replace('_oth','');d[k]=el.value;}
+  });
+  // checkboxes
+  const cbGroups={};
+  wrap.querySelectorAll('input[type="checkbox"]:checked').forEach(el=>{
+    const name=el.name;if(!name)return;
+    let v=el.value;
+    if(v==='__cother__'){const inp=wrap.querySelector('#'+name+'_coth');v=inp&&inp.value?inp.value:'Autre';}
+    cbGroups[name]=(cbGroups[name]||[]).concat(v);
+  });
+  Object.entries(cbGroups).forEach(([k,v])=>{d[k]=v.join(', ');});
+  // selects
+  wrap.querySelectorAll('select').forEach(el=>{if(!el.id)return;d[el.id]=getSelVal(el.id);});
+  // regular inputs
+  wrap.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not(.other-inp), textarea').forEach(el=>{
+    if(el.id&&el.value!==undefined)d[el.id]=el.value;
+  });
+  return d;
+}
+
+/* ══════════════════════════════════════════
+   GPS
+══════════════════════════════════════════ */
+let currentGPS = null;
+function initGPS(){
+  const dot=document.getElementById('gps-dot');
+  const txt=document.getElementById('gps-txt');
+  if(!dot||!txt)return;
+  if(!navigator.geolocation){txt.textContent='GPS non supporté par ce navigateur';dot.className='gps-dot err';return;}
+  dot.className='gps-dot wait';txt.textContent='Localisation GPS en cours…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      currentGPS={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:Math.round(pos.coords.accuracy),ts:new Date().toISOString()};
+      dot.className='gps-dot ok';
+      txt.innerHTML=`<strong>📍 ${currentGPS.lat.toFixed(6)}, ${currentGPS.lon.toFixed(6)}</strong> &nbsp;·&nbsp; Précision : ±${currentGPS.acc}m &nbsp;·&nbsp; <span style="opacity:.7">${new Date().toLocaleTimeString('fr-FR')}</span>`;
+      log('GPS','Position obtenue: '+currentGPS.lat.toFixed(5)+','+currentGPS.lon.toFixed(5),currentSession?.enqName||'enqueteur');
+    },
+    err=>{
+      dot.className='gps-dot err';
+      const msgs={1:'Accès GPS refusé — autoriser dans les paramètres',2:'Signal GPS indisponible — essayer en extérieur',3:'Délai GPS dépassé — réessayer'};
+      txt.textContent=msgs[err.code]||'Erreur GPS';
+    },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
+  );
+}
+function refreshGPS(){currentGPS=null;initGPS();}
+
+/* ══════════════════════════════════════════
+   CODES DE MISSION — COMMANDITAIRE
+══════════════════════════════════════════ */
+function genCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+function getMissions(){return DB.getArr('missions');}
+function saveMission(m){const ms=getMissions();const i=ms.findIndex(x=>x.id===m.id);if(i>=0)ms[i]=m;else ms.push(m);DB.set('missions',ms);return m;}
+
+let currentSession = null; // {cmdEmail, code, enqName, missionId}
+
+function validateEnqCode(){
+  const code = document.getElementById('enq-code-input').value.trim().toUpperCase();
+  const err = document.getElementById('enq-code-err');
+  if(code.length!==6){err.textContent='Le code doit contenir 6 caractères.';err.style.display='block';return;}
+  const missions = getMissions();
+  const mission = missions.find(m=>m.code===code&&m.active);
+  if(!mission){err.textContent='Code invalide ou expiré. Vérifiez auprès de votre commanditaire.';err.style.display='block';return;}
+  err.style.display='none';
+  // Ask name
+  showNameModal(mission,code);
+}
+
+function showNameModal(mission,code){
+  const div=document.createElement('div');div.className='modal-bg';
+  div.innerHTML=`<div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px">✅ Code valide !</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Mission : <strong>${mission.name}</strong> · Commanditaire : ${mission.cmdEmail}</div>
+    <div class="lfield"><label>Votre nom complet <span class="req">*</span></label><input type="text" id="enq-name-modal" placeholder="Prénom NOM" autofocus></div>
+    <button onclick="startMission('${code}')" class="btn btn-p">🚀 Commencer la collecte</button>
+  </div>`;
+  document.body.appendChild(div);
+  setTimeout(()=>document.getElementById('enq-name-modal')?.focus(),200);
+}
+
+function startMission(code){
+  const nameEl=document.getElementById('enq-name-modal');
+  if(!nameEl||!nameEl.value.trim()){toast('⚠️ Saisissez votre nom');return;}
+  const name=nameEl.value.trim();
+  const missions=getMissions();
+  const mission=missions.find(m=>m.code===code);
+  if(!mission)return;
+  // Remove modal
+  document.querySelector('.modal-bg')?.remove();
+  currentSession={cmdEmail:mission.cmdEmail,code,enqName:name,missionId:mission.id,startedAt:new Date().toISOString()};
+  DB.set('current_session',currentSession);
+  log('MISSION_START',`Enquêteur "${name}" a rejoint la mission "${mission.name}"`,name);
+  // Show main
+  document.getElementById('enq-code-screen').style.display='none';
+  document.getElementById('enq-main').style.display='block';
+  document.getElementById('mission-name').textContent=mission.name;
+  document.getElementById('mission-enq').textContent=name;
+  buildEnqTabs();
+  initGPS();
+}
+
+function showCodeHelp(){
+  const div=document.createElement('div');div.className='modal-bg';div.onclick=()=>div.remove();
+  div.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h3 style="margin-bottom:12px">Comment obtenir un code ?</h3>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7">
+      <p>1. Votre <strong>commanditaire</strong> se connecte à l'espace Commanditaire.</p>
+      <p>2. Il crée une <strong>mission de collecte</strong> dans son tableau de bord.</p>
+      <p>3. Un <strong>code à 6 caractères</strong> est généré automatiquement.</p>
+      <p>4. Il vous communique ce code avant le début de la collecte.</p>
+      <p>5. Vous entrez ce code ici pour commencer.</p>
+    </div>
+    <button class="btn btn-s btn-sm" onclick="this.closest('.modal-bg').remove()" style="margin-top:14px;width:auto">Fermer</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+/* ══════════════════════════════════════════
+   ENQUÊTEUR — TABS & FORMULAIRES
+══════════════════════════════════════════ */
+const ENQ_TABS = [
+  {id:'home',icon:'',label:'Accueil'},
+  {id:'ecole',icon:'🎓',label:'École'},
+  {id:'sante',icon:'🏥',label:'Santé'},
+  {id:'eau',icon:'💧',label:'Eau'},
+  {id:'energie',icon:'⚡',label:'Énergie'},
+  {id:'routes',icon:'🛣️',label:'Routes'},
+  {id:'religion',icon:'🕌',label:'Religion'},
+  {id:'demo',icon:'👥',label:'Démographie'},
+  {id:'agri',icon:'🌱',label:'Agriculture'},
+  {id:'sport',icon:'⚽',label:'Sport'},
+  {id:'culture',icon:'🎭',label:'Culture'},
+  {id:'jeunesse',icon:'🧑',label:'Jeunesse'},
+  {id:'securite',icon:'🚔',label:'Sécurité'},
+  {id:'marche',icon:'🏪',label:'Marché'},
+  {id:'transport',icon:'🚌',label:'Transport'},
+  {id:'env',icon:'🌳',label:'Env.'},
+  {id:'fiches',icon:'📁',label:'Fiches'},
+];
+
+function buildEnqTabs(){
+  const tabBar=document.getElementById('enq-tabs');
+  const contents=document.getElementById('enq-tab-contents');
+  tabBar.innerHTML=ENQ_TABS.map(t=>`<button class="tab-item ${t.id==='home'?'active':''}" data-tab="enq-tc-${t.id}" onclick="switchTab(this,'enq-tabs','enq-tab-contents')"><span class="ti">${t.icon}</span>${t.label}</button>`).join('');
+  contents.innerHTML=ENQ_TABS.map(t=>`<div id="enq-tc-${t.id}" class="tab-content ${t.id==='home'?'active':''}">${buildTabContent(t.id)}</div>`).join('');
+  updateFichesBadge();
+}
+
+function switchTab(btn,barId,contentId){
+  const bar=document.getElementById(barId);const wrap=document.getElementById(contentId);
+  if(!bar||!wrap)return;
+  bar.querySelectorAll('.tab-item').forEach(b=>b.classList.remove('active'));
+  wrap.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+  btn.classList.add('active');
+  const target=document.getElementById(btn.dataset.tab);
+  if(target){target.classList.add('active');}
+  // Scroll tab button into view horizontally
+  btn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  // Scroll page to top of content
+  wrap.parentElement?.scrollTo({top:0,behavior:'smooth'});
+}
+
+function buildTabContent(id){
+  const builders={
+    home:buildHomeTab,ecole:buildEcoleTab,sante:buildSanteTab,
+    eau:buildEauTab,energie:buildEnergieTab,routes:buildRoutesTab,
+    religion:buildReligionTab,demo:buildDemoTab,agri:buildAgriTab,
+    sport:buildSportTab,culture:buildCultureTab,jeunesse:buildJeunesseTab,
+    securite:buildSecuriteTab,marche:buildMarcheTab,transport:buildTransportTab,
+    env:buildEnvTab,fiches:buildFichesTab,
+  };
+  const html = builders[id]?builders[id]():`<div style="padding:20px;text-align:center;color:var(--muted)">Module ${id}</div>`;
+  // Post-render: init step-based forms
+  if(id==='ecole') setTimeout(renderEC,50);
+  if(id==='sante') setTimeout(renderSA,50);
+  return html;
+}
+
+function buildHomeTab(){
+  const fiches=getMyFiches();
+  const pending=fiches.filter(f=>f._status==='pending').length;
+  return `<div class="stitle"><h2>Bienvenue !</h2><p>Sélectionnez un module dans la barre d'onglets</p></div>
+  <div class="alert al-b"><span>ℹ️</span><div>Partout dans les formulaires, l'option <strong>✏️ Autre</strong> vous permet de saisir librement n'importe quelle réponse.</div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="kn" style="color:var(--teal)">${fiches.length}</div><div class="kl">Fiches collectées</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--amber)">${pending}</div><div class="kl">En attente d'envoi</div></div>
+  </div>
+  ${pending>0?`<button class="btn btn-p" onclick="sendAllPending();document.getElementById('enq-tc-home').innerHTML=buildTabContent('home')">📤 Envoyer ${pending} fiche(s) au commanditaire</button>`:''}
+  <div class="card" style="margin-top:12px"><div class="card-h"><div class="ci" style="background:var(--teal-l)">📋</div>Modules disponibles</div>
+    ${ENQ_TABS.filter(t=>t.id!=='home'&&t.id!=='fiches').map(t=>`<div class="li" style="cursor:pointer" onclick="document.querySelector('[data-tab=enq-tc-${t.id}]').click()">
+      <div class="li-ic" style="background:var(--teal-xl)">${t.icon}</div>
+      <div class="li-b"><div class="li-t">${t.label}</div><div class="li-s">${{ecole:'Écoles, effectifs, salles, équipements',sante:'Postes de santé, ressources humaines',eau:'Points d\'eau, assainissement',energie:'Lampadaires, éclairage, pylônes',routes:'Voirie, état, interventions',religion:'Mosquées, églises, équipements',demo:'Démographie, ménages',agri:'Agriculture, élevage',sport:'Terrains, clubs, loisirs',culture:'Bibliothèques, centres culturels',jeunesse:'Maisons des jeunes, social',securite:'Commissariats, gouvernance',marche:'Marchés, commerce',transport:'Transport, mobilité',env:'Environnement, risques climatiques',fiches:''}[t.id]||''}</div></div>
+      <span style="color:var(--teal);font-size:16px">›</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ── FICHES TAB ── */
+function buildFichesTab(){
+  const fiches=getMyFiches();
+  return `<div class="stitle"><h2>Mes fiches (${fiches.length})</h2><p>Toutes les fiches collectées dans cette session</p></div>
+  ${fiches.length?`<div class="export-row">
+    <button class="exp-btn exp-word" onclick="exportFichesWord()">📄 Word</button>
+    <button class="exp-btn exp-excel" onclick="exportFichesExcel()">📊 Excel</button>
+    <button class="exp-btn exp-pdf" onclick="exportFichesPDF()">📋 PDF</button>
+    <button class="exp-btn exp-json" onclick="exportFichesJSON()">💾 JSON</button>
+  </div>`:''}
+  <button class="btn btn-p" onclick="sendAllPending();refreshTab('fiches')" style="margin-bottom:12px">📤 Envoyer toutes les fiches en attente</button>
+  ${fiches.length===0?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">📭 Aucune fiche pour l'instant</div>`
+  :fiches.slice().reverse().map(f=>`<div class="card" style="margin-bottom:8px">
+    <div style="display:flex;align-items:flex-start;gap:10px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:34px;height:34px;border-radius:8px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${ENQ_TABS.find(t=>t.id===f.secteur)?.icon||'📋'}</div>
+        <div><div style="font-size:13px;font-weight:600">${f.nom||f.secteur}</div><div style="font-size:11px;color:var(--muted)">${f.quartier||'—'} · ${f.ts}</div>
+        ${f.gps?`<div style="font-size:10px;color:var(--teal-d);margin-top:2px">📍 ${parseFloat(f.gps.lat).toFixed(5)}, ${parseFloat(f.gps.lon).toFixed(5)}</div>`:''}
+        </div>
+      </div>
+      <span class="pill ${f._status==='sent'?'p-g':'p-a'}">${f._status==='sent'?'✅ Envoyé':'⏳ Attente'}</span>
+    </div>
+    ${f.photos&&f.photos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${f.photos.map(p=>`<img src="${p.url.replace('/upload/','/upload/w_80,h_80,c_fill/')}" style="width:60px;height:60px;border-radius:6px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer;" onclick="showPhotoFull('${p.url}')" title="☁️ Cloudinary">`).join('')}</div>`:''}
+    ${f._status==='pending'?`<button onclick="sendOneFiche(${f.id});refreshTab('fiches')" style="margin-top:8px;padding:6px 12px;background:var(--teal-l);border:1px solid var(--teal);border-radius:6px;font-size:11px;color:var(--teal-d);cursor:pointer;font-weight:500">📤 Envoyer maintenant</button>`:''}
+  </div>`).join('')}`;
+}
+
+function refreshTab(id){
+  const el=document.getElementById('enq-tc-'+id);
+  if(el)el.innerHTML=buildTabContent(id);
+}
+function updateFichesBadge(){}
+
+/* ── SAVE FICHE ── */
+function getMyFiches(){
+  const all=DB.getArr('fiches');
+  const sess=currentSession||DB.get('current_session');
+  return all.filter(f=>f.missionId===(sess?.missionId));
+}
+function saveFiche(secteur,nom,data){
+  const sess=currentSession||DB.get('current_session');
+  if(!sess){toast('⚠️ Session expirée. Relancez l\'app.');return null;}
+  // Collect any Cloudinary photos attached to this fiche's fields
+  const fichePhotos=[];
+  const prefix=secteur.slice(0,4);
+  Object.keys(photoStore).filter(k=>k.startsWith(prefix)||k.startsWith(secteur)).forEach(k=>{
+    if(photoStore[k]&&photoStore[k].length){fichePhotos.push(...photoStore[k]);}
+  });
+
+  const f={
+    id:Date.now(),secteur,nom,
+    quartier:data.quartier_sel||data['q-sel']||Object.values(data).find(v=>QLIST.includes(v))||'',
+    enqueteur:sess.enqName,cmdEmail:sess.cmdEmail,missionId:sess.missionId,
+    date:new Date().toISOString().slice(0,10),ts:new Date().toLocaleString('fr-FR'),
+    gps:currentGPS?{...currentGPS}:null,
+    etat:data.etat_radio||data.etat_val||'',
+    photos:fichePhotos,
+    data,_status:'pending',_source:'enqueteur',_seen:false
+  };
+  const all=DB.getArr('fiches');all.push(f);DB.set('fiches',all);
+  log('FICHE_SAVED',`"${nom}" (${secteur}) par ${sess.enqName}`,sess.enqName);
+  toast('✅ Fiche sauvegardée !');
+  setTimeout(()=>refreshTab('home'),300);
+  return f;
+}
+function sendAllPending(){
+  const sess=currentSession||DB.get('current_session');
+  if(!sess)return;
+  const all=DB.getArr('fiches');let cnt=0;
+  all.forEach(f=>{if(f.missionId===sess.missionId&&f._status==='pending'){f._status='sent';f._sentAt=new Date().toISOString();cnt++;}});
+  DB.set('fiches',all);
+  if(cnt>0){toast(`✅ ${cnt} fiche(s) envoyée(s) !`);log('SEND',`${cnt} fiches envoyées`,sess.enqName);}
+  else toast('Aucune fiche en attente');
+}
+function sendOneFiche(id){
+  const all=DB.getArr('fiches');const f=all.find(x=>x.id===id);
+  if(f){f._status='sent';f._sentAt=new Date().toISOString();}
+  DB.set('fiches',all);toast('✅ Envoyée !');
+}
+
+/* ══════════════════════════════════════════
+   FORMULAIRES ENQUÊTEUR
+══════════════════════════════════════════ */
+/* ── ÉCOLE (multi-step) ── */
+let ecSt=0,ecData={};
+const EC_STEPS=['Identification','Effectifs','Infrastructure','Équipements','Validation'];
+function buildEcoleTab(){return `<div id="ec-steps-bar" class="steps"></div><div id="ec-body"></div>`;}
+function ecInit(){ecSt=0;ecData={};renderEC();}
+function renderEC(){
+  const bar=document.getElementById('ec-steps-bar');const body=document.getElementById('ec-body');
+  if(!bar||!body)return;
+  bar.innerHTML=EC_STEPS.map((s,i)=>`<div class="st-wrap"><div class="st-dot ${i<ecSt?'done':i===ecSt?'cur':''}" onclick="if(${i}<${ecSt})jumpEC(${i})">${i<ecSt?'✓':i+1}</div><div class="st-lbl">${s}</div></div>${i<EC_STEPS.length-1?`<div class="st-line ${i<ecSt?'done':''}"></div>`:''}`).join('');
+  const steps=[
+    `<div class="card">
+      <div class="card-h"><div class="ci" style="background:var(--blue-l)">🎓</div>Identification</div>
+      <div class="field"><label>Nom de l'école <span class="req">*</span></label><input type="text" id="ec-nom" value="${ecData['ec-nom']||''}" placeholder="Ex: École Primaire Ibra Seck"></div>
+      <div class="field-row">
+        ${smartSel('ec-niveau',['Préscolaire','Primaire','Secondaire'],ecData['ec-niveau']||'','Niveau *')}
+        ${smartSel('ec-statut',['Public','Privé','Franco-arabe'],ecData['ec-statut']||'','Statut')}
+      </div>
+      ${qSelect('ec-q',ecData['ec-q']||'')}
+      <div class="field"><label>Responsable / Directeur</label><input type="text" id="ec-dir" value="${ecData['ec-dir']||''}" placeholder="Prénom NOM"></div>
+      <div class="field-row">
+        <div class="field"><label>GPS Latitude</label><input type="number" id="ec-lat" step="0.000001" value="${currentGPS?.lat||ecData['ec-lat']||''}" placeholder="14.720"></div>
+        <div class="field"><label>GPS Longitude</label><input type="number" id="ec-lon" step="0.000001" value="${currentGPS?.lon||ecData['ec-lon']||''}" placeholder="-17.268"></div>
+      </div>
+      <div class="field"><label>📷 Photos de l'infrastructure</label>${photoUpload('ec-photos')}</div>
+    </div>`,
+    `<div class="card">
+      <div class="card-h"><div class="ci" style="background:var(--teal-l)">👥</div>Effectifs</div>
+      ${ctr('ec-eleves','Nombre total d\'élèves')}${ctr('ec-filles','Dont filles')}${ctr('ec-garcons','Dont garçons')}
+      ${ctr('ec-enseignants','Nombre d\'enseignants')}${ctr('ec-ens-f','Dont femmes')}
+      <div class="field"><label>Ratio élèves / enseignant</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="text" id="ec-ratio" readonly style="background:#0F172A;font-weight:700;font-size:18px;color:var(--teal-d);text-align:center;flex:1;padding:11px;border:1.5px solid var(--border);border-radius:var(--rs);" placeholder="Saisissez les effectifs ci-dessus">
+          <span id="ec-ratio-ico" style="font-size:22px"></span>
+        </div>
+      </div>
+      <div class="alert al-b" style="margin-top:4px"><span>📌</span><div>ODD 4 (Éducation de qualité) : 1 enseignant / 40 élèves · Norme nationale : 1 / 34</div></div>
+    </div>`,
+    `<div class="card">
+      <div class="card-h"><div class="ci" style="background:var(--amber-l)">🏫</div>Salles & Mobilier</div>
+      ${ctr('ec-salles','Nombre total de salles de classe')}${ctr('ec-salles-ok','Salles en bon état')}${ctr('ec-salles-deg','Salles dégradées')}
+      ${ctr('ec-tb','Table-bancs existants')}${ctr('ec-tb-ok','Table-bancs en bon état')}${ctr('ec-tb-rep','Table-bancs à réparer')}
+      <div class="field"><label>Type de réhabilitation nécessaire</label>${radioH('ec-rehab',['Aucune','Peinture / portes / fenêtres','Dalle / toiture / murs','Reconstruction totale'])}</div>
+      <div class="alert al-a"><span>📌</span><div>ODD 4 (Éducation de qualité) : 1 salle / 40 élèves · 1 table-banc / 2 élèves</div></div>
+    </div>`,
+    `<div class="card">
+      <div class="card-h"><div class="ci" style="background:var(--green-l)">⚙️</div>Équipements & Services</div>
+      <div class="field"><label>Eau potable</label>${radioH('ec-eau',['Présente — fonctionnelle','Présente — en panne','Absente'])}</div>
+      <div class="field"><label>Électricité</label>${radioH('ec-elec',['SENELEC (réseau)','Solaire','Groupe électrogène','Absente'])}</div>
+      <div class="field"><label>Salle informatique</label>${radioH('ec-info',['Bien équipée','Partiellement équipée','Absente — à créer'])}</div>
+      ${ctr('ec-blocs','Blocs d\'hygiène élèves')}${ctr('ec-toil-f','Toilettes filles')}${ctr('ec-toil-g','Toilettes garçons')}${ctr('ec-toil-ens','Toilettes enseignants')}
+      <div class="field"><label>Manuels scolaires</label>${radioH('ec-livres',['Suffisant (1/élève)','Insuffisant (1/2 élèves)','Très insuffisant (1/3+)'])}</div>
+      <div class="field"><label>État général</label>${radioH('ec-etat',['Bon état','À réparer','À réhabiliter','À reconstruire'])}</div>
+    </div>
+    ${pmrBlock('ec')}`,
+    `<div class="card">
+      <div class="card-h"><div class="ci" style="background:var(--purple-l)">📝</div>Observations & Validation</div>
+      <div class="field"><label>Observations générales</label><textarea id="ec-obs" rows="4" placeholder="État général, problèmes observés, besoins urgents…">${ecData['ec-obs']||''}</textarea></div>
+      <div class="field"><label>Besoins prioritaires</label><textarea id="ec-besoins" rows="3" placeholder="Ex: 4 salles à construire, table-bancs, enseignants…">${ecData['ec-besoins']||''}</textarea></div>
+      ${smartSel('ec-source',['Directeur / Directrice','Enseignant(e)','Observation directe','IEF / IA','Mairie'],'','Validé auprès de')}
+      <div class="field"><label>Fiabilité</label>${radioH('ec-fiab',['Élevée ✅','Moyenne ⚠️','Faible ❗'])}</div>
+      <div class="preview" id="ec-prev"></div>
+    </div>`
+  ];
+  body.innerHTML=steps[ecSt]||'';
+  // Attach ratio calculator
+  if(ecSt===1){
+    ['ec-eleves','ec-enseignants'].forEach(id=>{
+      document.getElementById(id)?.addEventListener('input',calcRatio);
+    });
+    if(ecData['ec-eleves'])document.getElementById('ec-eleves').value=ecData['ec-eleves'];
+    if(ecData['ec-enseignants'])document.getElementById('ec-enseignants').value=ecData['ec-enseignants'];
+    calcRatio();
+  }
+  if(ecSt===4)buildEcPrev();
+  body.innerHTML+=`<div class="btn-row">${ecSt>0?`<button class="btn btn-s" onclick="saveEC();ecSt=Math.max(0,ecSt-1);renderEC()">← Précédent</button>`:'<div></div>'}${ecSt<EC_STEPS.length-1?`<button class="btn btn-p" onclick="saveEC();ecSt=Math.min(${EC_STEPS.length-1},ecSt+1);renderEC()">Suivant →</button>`:`<button class="btn btn-p" onclick="submitEC()">💾 Valider & Envoyer</button>`}</div>`;
+}
+function saveEC(){const body=document.getElementById('ec-body');if(body)Object.assign(ecData,getFormVals(body));}
+function jumpEC(n){saveEC();ecSt=n;renderEC();}
+function calcRatio(){
+  const e=parseInt(document.getElementById('ec-eleves')?.value||0);
+  const en=parseInt(document.getElementById('ec-enseignants')?.value||1);
+  const r=en>0?Math.round(e/en):0;
+  const ri=document.getElementById('ec-ratio');const ic=document.getElementById('ec-ratio-ico');
+  if(ri)ri.value=r||'';
+  if(ic)ic.textContent=r>50?'🔴':r>40?'🟡':r>0?'🟢':'';
+}
+function buildEcPrev(){
+  const p=document.getElementById('ec-prev');if(!p)return;
+  const rows=[['École',ecData['ec-nom']||'—'],['Niveau',getSelVal('ec-niveau')||ecData['ec-niveau']||'—'],['Quartier',getSelVal('ec-q')||ecData['ec-q']||'—'],['Élèves',ecData['ec-eleves']||'—'],['Enseignants',ecData['ec-enseignants']||'—'],['Salles',ecData['ec-salles']||'—'],['Table-bancs',ecData['ec-tb']||'—'],['GPS',currentGPS?`${currentGPS.lat.toFixed(5)},${currentGPS.lon.toFixed(5)}`:'Non capturé']];
+  p.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px">📋 Récapitulatif</div>'+rows.map(([l,v])=>`<div class="pr-row"><span class="pr-l">${l}</span><span class="pr-v">${v}</span></div>`).join('');
+}
+function submitEC(){
+  saveEC();
+  if(!ecData['ec-nom']){toast('⚠️ Saisissez le nom de l\'école');return;}
+  ecData.quartier=getSelVal('ec-q')||ecData['ec-q']||'';
+  ecData.etat_val=ecData['ec-etat_val']||ecData['ec-etat']||'';
+  saveFiche('ecole',ecData['ec-nom'],ecData);
+  ecSt=0;ecData={};
+  setTimeout(()=>renderEC(),400);
+}
+
+/* ── SANTÉ (steps) ── */
+let saSt=0,saData={};
+const SA_STEPS=['Identification','Ressources humaines','Équipements','Eau & Énergie','Observations'];
+function buildSanteTab(){return `<div id="sa-steps-bar" class="steps"></div><div id="sa-body"></div>`;}
+function renderSA(){
+  const bar=document.getElementById('sa-steps-bar');const body=document.getElementById('sa-body');
+  if(!bar||!body)return;
+  bar.innerHTML=SA_STEPS.map((s,i)=>`<div class="st-wrap"><div class="st-dot ${i<saSt?'done':i===saSt?'cur':''}">${i<saSt?'✓':i+1}</div><div class="st-lbl">${s}</div></div>${i<SA_STEPS.length-1?`<div class="st-line ${i<saSt?'done':''}"></div>`:''}`).join('');
+  const steps=[
+    `<div class="card"><div class="card-h"><div class="ci" style="background:var(--green-l)">🏥</div>Identification</div>
+      <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="sa-nom" value="${saData['sa-nom']||''}" placeholder="Ex: Poste de Santé Keuri Souf"></div>
+      <div class="field-row">
+        ${smartSel('sa-type',['Poste de santé','Polyclinique','Clinique privée','Pharmacie','Hôpital'],saData['sa-type']||'','Type')}
+        ${smartSel('sa-statut',['Public','Privé'],saData['sa-statut']||'','Statut')}
+      </div>
+      ${qSelect('sa-q',saData['sa-q']||'')}
+      <div class="field"><label>État fonctionnel</label>${radioH('sa-etat',['Fonctionnel','Partiellement fonctionnel','Non fonctionnel'])}</div>
+      <div class="field-row">
+        <div class="field"><label>GPS Latitude</label><input type="number" id="sa-lat" step="0.000001" value="${currentGPS?.lat||saData['sa-lat']||''}" placeholder="14.720"></div>
+        <div class="field"><label>GPS Longitude</label><input type="number" id="sa-lon" step="0.000001" value="${currentGPS?.lon||saData['sa-lon']||''}" placeholder="-17.268"></div>
+      </div>
+      <div class="field"><label>📷 Photos de la structure</label>${photoUpload('sa-photos')}</div>
+    </div>`,
+    `<div class="card"><div class="card-h"><div class="ci" style="background:var(--blue-l)">👩‍⚕️</div>Ressources humaines</div>
+      ${ctr('sa-med','Médecins')}${ctr('sa-sf','Sages-femmes d\'État')}${ctr('sa-inf-c','Infirmiers certifiés')}${ctr('sa-inf-d','Infirmiers diplômés')}
+      ${ctr('sa-mat','Matrones')}${ctr('sa-asc','Agents santé communautaire')}${ctr('sa-rel','Relais communautaires')}${ctr('sa-man','Manœuvres')}${ctr('sa-chauf','Chauffeurs')}
+      <div class="alert al-b"><span>📌</span><div>Norme : 1 infirmier / 5 000 hbts · 1 sage-femme / 1 500–2 000 femmes en âge de procréer</div></div>
+    </div>`,
+    `<div class="card"><div class="card-h"><div class="ci" style="background:var(--purple-l)">🩺</div>Équipements médicaux</div>
+      <div class="field"><label>Équipements présents et fonctionnels</label>${checkH('sa-equip',['Balance','Tensiomètre','Stéthoscope','Thermomètre','Stérilisateur','Microscope','Centrifugeuse','Échographe','Radiographie','Ultrason','Vaccum','Forceps','Ambubag','Kits IV','Aspirateur','Réfrigérateur vaccins'])}</div>
+      <div class="field"><label>Médicaments essentiels</label>${radioH('sa-meds',['Complets','Partiellement stockés','Insuffisants','Indisponibles'])}</div>
+      <div class="field"><label>Ambulance / véhicule</label>${radioH('sa-vehic',['Oui — fonctionnel','Oui — en panne','Non'])}</div>
+    </div>`,
+    `<div class="card"><div class="card-h"><div class="ci" style="background:var(--teal-l)">💡</div>Eau, Énergie & Hygiène</div>
+      <div class="field"><label>Eau potable</label>${radioH('sa-eau',['Robinet (SONES)','Puits','Citerne','Aucune source'])}</div>
+      <div class="field"><label>Électricité</label>${radioH('sa-elec',['SENELEC (réseau)','Solaire','Groupe électrogène','Aucune'])}</div>
+      ${ctr('sa-toil-p','Toilettes patients')}${ctr('sa-toil-per','Toilettes personnel')}
+      <div class="field"><label>Gestion déchets médicaux</label>${radioH('sa-dech',['Incinérateur','Fosse à déchets','Enlèvement municipal','Aucun système'])}</div>
+      <div class="field"><label>Lave-mains / hygiène</label>${radioH('sa-hyg',['Lave-mains + savon','Lave-mains sans savon','Aucun dispositif'])}</div>
+    </div>
+    ${pmrBlock('sa')}`,
+    `<div class="card"><div class="card-h"><div class="ci" style="background:var(--amber-l)">📝</div>Observations & Validation</div>
+      <div class="field"><label>Besoins prioritaires</label><textarea id="sa-besoins" rows="3" placeholder="Ex: médecin urgent, microscope, réhabilitation toiture…"></textarea></div>
+      <div class="field"><label>Observations générales</label><textarea id="sa-obs" rows="3" placeholder="Contexte local, accessibilité, commentaires…"></textarea></div>
+      ${smartSel('sa-source',['Responsable du poste','Infirmier chef','Observation directe','Mairie / District sanitaire'],'','Validé auprès de')}
+      <div class="field"><label>Fiabilité</label>${radioH('sa-fiab',['Élevée ✅','Moyenne ⚠️','Faible ❗'])}</div>
+    </div>`
+  ];
+  body.innerHTML=steps[saSt]||'';
+  body.innerHTML+=`<div class="btn-row">${saSt>0?`<button class="btn btn-s" onclick="saveSA();saSt=Math.max(0,saSt-1);renderSA()">← Précédent</button>`:'<div></div>'}${saSt<SA_STEPS.length-1?`<button class="btn btn-p" onclick="saveSA();saSt=Math.min(${SA_STEPS.length-1},saSt+1);renderSA()">Suivant →</button>`:`<button class="btn btn-p" onclick="submitSA()">💾 Valider & Envoyer</button>`}</div>`;
+}
+function saveSA(){const b=document.getElementById('sa-body');if(b)Object.assign(saData,getFormVals(b));}
+function submitSA(){saveSA();if(!saData['sa-nom']){toast('⚠️ Saisissez le nom');return;}saData.quartier=getSelVal('sa-q')||'';saveFiche('sante',saData['sa-nom'],saData);saSt=0;saData={};setTimeout(()=>renderSA(),400);}
+
+/* ── Formulaire générique pour les modules simples ── */
+function simpleForm(secteur,icon,title,sections){
+  return `<div class="card"><div class="card-h"><div class="ci" style="background:var(--teal-l)">${icon}</div>${title}</div>
+    ${sections.join('')}
+    <div style="margin-top:14px"><button class="btn btn-p" onclick="submitSimple('${secteur}','${icon}')">💾 Valider & Envoyer</button></div>
+  </div>`;
+}
+
+function buildEauTab(){
+  return `<div id="eau-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--teal-l)">💧</div>Point d'eau / Infrastructure hydraulique</div>
+    <div class="field"><label>Nom ou référence <span class="req">*</span></label><input type="text" id="eau-nom" placeholder="Ex: Borne-fontaine Colobane 1"></div>
+    <div class="field"><label>Type</label>${radioH('eau-type',['Borne-fontaine publique','Robinet privé','Puits amélioré','Puits traditionnel','Château d\'eau / Réservoir','Canal / Canalisation'])}</div>
+    ${qSelect('eau-q','')}
+    <div class="field"><label>État fonctionnel</label>${radioH('eau-etat',['Fonctionnel','En panne','Partiellement fonctionnel','Abandonné'])}</div>
+    <div class="field"><label>Qualité perçue de l'eau</label>${radioH('eau-qual',['Bonne','Acceptable','Médiocre','Inconnue'])}</div>
+    <div class="field"><label>Disponibilité</label>${radioH('eau-dispo',['Permanente (24h/24)','Intermittente','Saisonnière'])}</div>
+    <div class="field"><label>Coût (FCFA / 20L)</label><input type="number" id="eau-cout" min="0" placeholder="Ex: 50"></div>
+  </div>
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--blue-l)">🚮</div>Assainissement & Déchets</div>
+    <div class="field"><label>Réseaux présents dans le quartier</label>${checkH('eau-reseau',['Réseau eaux usées conventionnelles','Réseau eaux usées non conventionnelles','Canaux pluviaux primaires','Canaux pluviaux secondaires','Tranchées / marigots','Aucun réseau'])}</div>
+    <div class="field"><label>Dépôts clandestins de déchets</label>${radioH('eau-dep',['Aucun','1','2','3 ou plus'])}</div>
+    <div class="field"><label>Observations</label><textarea id="eau-obs" rows="3" placeholder="Problèmes de drainage, inondations, contamination..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>GPS Latitude</label><input type="number" id="eau-lat" step="0.000001" value="${currentGPS?.lat||''}"></div>
+      <div class="field"><label>GPS Longitude</label><input type="number" id="eau-lon" step="0.000001" value="${currentGPS?.lon||''}"></div>
+    </div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('eau','💧')">💾 Valider & Envoyer</button>
+  </div>`;
+}
+
+function buildEnergieTab(){
+  return `<div id="energie-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--amber-l)">💡</div>Éclairage public — Lampadaires</div>
+    ${qSelect('lamp-q','')}
+    <div class="field"><label>Rue / Axe</label><input type="text" id="lamp-rue" placeholder="Ex: Rue 10, Boulevard Maurice Gueye..."></div>
+    <div class="field"><label>Type de lampadaire</label>${radioH('lamp-type',['Bois','Fer','LED solaire','Mixte'])}</div>
+    ${ctr('lamp-tot','Nombre total de lampadaires sur l\'axe',1)}
+    ${ctr('lamp-ok','Dont fonctionnels',0)}
+    ${ctr('lamp-ko','Dont non fonctionnels',0)}
+    <div class="field"><label>Cause principale de panne</label>${radioH('lamp-cause',['Ampoule grillée','Câble défaillant','Poteau cassé','Vandalisé','Inconnue'])}</div>
+  </div>
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--blue-l)">📡</div>Télécommunication</div>
+    <div class="field"><label>Pylônes présents dans ce quartier ?</label>${radioH('pyl-p',['Oui','Non'])}</div>
+    ${ctr('pyl-nb','Nombre de pylônes',0)}
+    <div class="field"><label>Opérateurs</label>${checkH('pyl-op',['Orange','Free','Expresso'])}</div>
+    <div class="field"><label>Qualité couverture mobile</label>${radioH('pyl-cov',['Excellente','Bonne','Médiocre','Absente'])}</div>
+  </div>
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--green-l)">⚡</div>Accès à l'électricité</div>
+    <div class="field"><label>Taux d'accès estimé</label>${smartSel('elec-tx',['< 25%','25–50%','50–75%','> 75%','Quasi-total (>95%)'],'')}</div>
+    <div class="field"><label>Source principale</label>${radioH('elec-src',['SENELEC (réseau)','Solaire individuel','Groupe électrogène','Aucune'])}</div>
+    <div class="field"><label>Observations</label><textarea id="elec-obs" rows="2" placeholder="Zones sombres, problèmes d'insécurité..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>GPS Latitude</label><input type="number" id="lamp-lat" step="0.000001" value="${currentGPS?.lat||''}"></div>
+      <div class="field"><label>GPS Longitude</label><input type="number" id="lamp-lon" step="0.000001" value="${currentGPS?.lon||''}"></div>
+    </div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('energie','⚡')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildRoutesTab(){
+  return `<div id="routes-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--gray-l)">🛣️</div>Caractérisation d'une voie</div>
+    <div class="field"><label>Nom / Description <span class="req">*</span></label><input type="text" id="rt-nom" placeholder="Ex: Rue principale Colobane, Route de Sangalkam..."></div>
+    ${qSelect('rt-q','')}
+    <div class="field"><label>Type de voie</label>${radioH('rt-type',['Route nationale bitumée','Route communale bitumée','Rue bitumée','Rue sableuse','Voie latéritique','Chemin de fer'])}</div>
+    <div class="field-row">
+      <div class="field"><label>Longueur (m)</label><input type="number" id="rt-long" min="0" step="10" placeholder="Ex: 500"></div>
+      <div class="field"><label>Largeur (m)</label><input type="number" id="rt-larg" min="0" step="0.5" placeholder="Ex: 6"></div>
+    </div>
+    <div class="field"><label>État général</label>${radioH('rt-etat',['Bon état','Dégradé','Très dégradé','Impraticable'])}</div>
+    <div class="field"><label>Praticabilité en hivernage</label>${radioH('rt-hiv',['Praticable','Difficilement praticable','Impraticable'])}</div>
+    <div class="field"><label>Interventions nécessaires</label>${checkH('rt-interv',['Bitumage neuf','Rechargement latérite','Réhabilitation','Entretien courant','Désensablement','Aménagement canaux','Aucune'])}</div>
+    <div class="field"><label>Mini-pont présent ?</label>${radioH('rt-pont',['Oui — bon état','Oui — dégradé','Non'])}</div>
+    <div class="field"><label>Priorité d'intervention</label>${radioH('rt-prio',['🔴 Urgente','🟡 Importante','🟢 Normale'])}</div>
+    <div class="field"><label>Observations</label><textarea id="rt-obs" rows="3" placeholder="Problèmes de drainage, inondations, zones dangereuses..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>GPS Latitude</label><input type="number" id="rt-lat" step="0.000001" value="${currentGPS?.lat||''}"></div>
+      <div class="field"><label>GPS Longitude</label><input type="number" id="rt-lon" step="0.000001" value="${currentGPS?.lon||''}"></div>
+    </div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('routes','🛣️')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildReligionTab(){
+  return `<div id="religion-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--purple-l)">🕌</div>Infrastructure religieuse</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="rel-nom" placeholder="Ex: Mosquée Al Khoudoss, Église Saint-Joseph..."></div>
+    <div class="field"><label>Type</label>${radioH('rel-type',['Mosquée','Église catholique','Église évangélique'])}</div>
+    ${qSelect('rel-q','')}
+    <div class="field"><label>Capacité estimée (fidèles)</label><input type="number" id="rel-cap" min="0" placeholder="Ex: 500"></div>
+    <div class="field"><label>État général</label>${radioH('rel-etat',['Bon état','À réparer','En construction','Dégradé'])}</div>
+    <div class="field"><label>Eau potable</label>${radioH('rel-eau',['Oui — robinet SONES','Oui — citerne','Non'])}</div>
+    <div class="field"><label>Toilettes hommes</label>${radioH('rel-th',['Oui','Non'])}</div>
+    <div class="field"><label>Toilettes femmes</label>${radioH('rel-tf',['Oui','Non'])}</div>
+    <div class="field"><label>Électricité</label>${radioH('rel-elec',['Oui','Non'])}</div>
+    <div class="field"><label>Daara / École coranique intégré(e)</label>${radioH('rel-daara',['Oui','Non'])}</div>
+    <div class="field"><label>Observations / Besoins</label><textarea id="rel-obs" rows="3" placeholder="Ex: besoin de toilettes femmes, raccordement eau..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>GPS Latitude</label><input type="number" id="rel-lat" step="0.000001" value="${currentGPS?.lat||''}"></div>
+      <div class="field"><label>GPS Longitude</label><input type="number" id="rel-lon" step="0.000001" value="${currentGPS?.lon||''}"></div>
+    </div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('religion','🕌')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildDemoTab(){
+  return `<div id="demo-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--red-l)">👥</div>Enquête démographique</div>
+    ${qSelect('dem-q','')}
+    ${ctr('dem-men','Nombre de ménages enquêtés',1)}${ctr('dem-pop','Population totale estimée',0)}
+    ${ctr('dem-hom','Dont hommes',0)}${ctr('dem-fem','Dont femmes',0)}${ctr('dem-enf','Dont enfants (< 15 ans)',0)}
+    ${ctr('dem-fap','Femmes en âge de procréer (15–49 ans)',0)}${ctr('dem-ppm','Personnes/ménage (moy.)',1)}
+    <div class="field"><label>Type d'habitat dominant</label>${radioH('dem-hab',['Maison en dur','Maison semi-dur','Baraque / Banco','Mixte'])}</div>
+    <div class="field"><label>Accès eau dans le logement</label>${radioH('dem-eau',['Oui — robinet','Non — borne-fontaine','Non — puits'])}</div>
+    <div class="field"><label>Accès électricité dans le logement</label>${radioH('dem-elec',['Oui (SENELEC)','Partiellement','Non'])}</div>
+    <div class="field"><label>Taux scolarisation (6–16 ans)</label>${radioH('dem-scol',['>90%','75–90%','50–75%','<50%'])}</div>
+    <div class="field"><label>Observations</label><textarea id="dem-obs" rows="3" placeholder="Précarité, chômage, problèmes prioritaires..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('demo','👥')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildAgriTab(){
+  return `<div id="agri-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--green-l)">🌱</div>Agriculture & Élevage</div>
+    ${qSelect('agr-q','')}
+    ${ctr('agr-pagr','Population active agricole',0)}${ctr('agr-men','Ménages agricoles',0)}
+    <div class="field"><label>Types de cultures pratiquées</label>${checkH('agr-cult',['Maraîchage','Arboriculture','Céréales','Légumineuses','Plantes aromatiques'])}</div>
+    <div class="field"><label>Surface cultivée (m²)</label><input type="number" id="agr-sup" min="0" placeholder="Ex: 5000"></div>
+    <div class="field"><label>Accès eau d'irrigation</label>${radioH('agr-eau',['Robinet / forage','Puits','Eau de pluie','Aucun accès'])}</div>
+    <div class="field"><label>Groupements / GIE actifs</label><input type="text" id="agr-gie" placeholder="Nom des groupements, effectifs..."></div>
+    ${ctr('agr-mout','Moutons (effectif estimé)',0)}${ctr('agr-chev','Chèvres (effectif estimé)',0)}${ctr('agr-bov','Bovins (effectif estimé)',0)}${ctr('agr-vol','Volailles (effectif estimé)',0)}
+    <div class="field"><label>Mode d'élevage</label>${radioH('agr-mode',['Extensif (vaine pâture)','Semi-intensif','Intensif (stabulation)','Mixte'])}</div>
+    ${ctr('agr-cred','Marchands avec accès crédit',0)}
+    <div class="field"><label>Observations</label><textarea id="agr-obs" rows="2" placeholder="Problèmes fonciers, accès marché..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('agri','🌱')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildSportTab(){
+  return `<div id="sport-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:#EFF6FF">⚽</div>Infrastructure sportive</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="sp-nom" placeholder="Ex: Terrain de foot Arafat, Salle de sport Keuri Kao..."></div>
+    <div class="field"><label>Type</label>${radioH('sp-type',['Terrain de football','Terrain multisports','Salle de sport','Piscine','Stade','Espace de jeux','Salle de lutte'])}</div>
+    ${qSelect('sp-q','')}
+    <div class="field"><label>État général</label>${radioH('sp-etat',['Bon état — utilisable','Dégradé — utilisable','Très dégradé','Abandonné'])}</div>
+    <div class="field"><label>Sports pratiqués</label>${checkH('sp-sports',['Football','Basketball','Volley-ball','Lutte (Lamb)','Athlétisme','Arts martiaux','Pétanque'])}</div>
+    <div class="field"><label>Fréquentation</label>${radioH('sp-freq',['Quotidienne','Quelques fois/semaine','Occasionnelle','Rare'])}</div>
+    <div class="field"><label>Associations sportives actives</label>${radioH('sp-asso',['Oui — plusieurs','Oui — une','Non','En création'])}</div>
+    <div class="field"><label>Équipements manquants prioritaires</label>${checkH('sp-manque',['Éclairage nocturne','Vestiaires','Clôture','Matériel sportif','Toilettes','Réhabilitation surface'])}</div>
+    ${pmrBlock('sp')}
+    <div class="field"><label>Priorité d'intervention</label>${radioH('sp-prio',['🔴 Urgente','🟡 Importante','🟢 Normale'])}</div>
+    <div class="field"><label>Observations</label><textarea id="sp-obs" rows="3" placeholder="Besoins exprimés, projets en cours..."></textarea></div>
+    <div class="field-row"><div class="field"><label>GPS Lat</label><input type="number" id="sp-lat" step="0.000001" value="${currentGPS?.lat||''}"></div><div class="field"><label>GPS Lon</label><input type="number" id="sp-lon" step="0.000001" value="${currentGPS?.lon||''}"></div></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('sport','⚽')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildCultureTab(){
+  return `<div id="culture-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--purple-l)">🎭</div>Infrastructure culturelle</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="cu-nom" placeholder="Ex: Bibliothèque communale, Centre culturel..."></div>
+    <div class="field"><label>Type</label>${radioH('cu-type',['Bibliothèque / Médiathèque','Centre culturel','Maison des arts','Site historique','Salle de spectacle','Studio créatif'])}</div>
+    ${qSelect('cu-q','')}
+    <div class="field"><label>État général</label>${radioH('cu-etat',['Bon état','À réparer','À réhabiliter','Abandonné'])}</div>
+    <div class="field"><label>Activités proposées</label>${checkH('cu-act',['Lecture / Prêt livres','Cours alphabétisation','Ateliers artistiques','Spectacles / Théâtre','Musique / Danse','Expositions','Cinéma','Activités enfants'])}</div>
+    <div class="field"><label>Fréquentation</label>${radioH('cu-freq',['Très fréquenté','Régulier','Occasionnel','Rare'])}</div>
+    <div class="field"><label>Équipements</label>${checkH('cu-equip',['Salle de lecture','Ordinateurs','Connexion internet','Scène / Podium','Système audio','Vidéoprojecteur','Livres / Revues'])}</div>
+    <div class="field"><label>Observations</label><textarea id="cu-obs" rows="3" placeholder="Manque de ressources, besoins..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('culture','🎭')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildJeunesseTab(){
+  return `<div id="jeunesse-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--blue-l)">🧑</div>Infrastructure jeunesse & sociale</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="je-nom" placeholder="Ex: Maison des Jeunes Colobane..."></div>
+    <div class="field"><label>Type</label>${radioH('je-type',['Maison des jeunes','Centre social','Centre formation professionnelle','Foyer des femmes','ONG / Aide sociale'])}</div>
+    ${qSelect('je-q','')}
+    <div class="field"><label>État général</label>${radioH('je-etat',['Bon état','À réparer','Non fonctionnel'])}</div>
+    <div class="field"><label>Bénéficiaires principaux</label>${checkH('je-ben',['Jeunes (15–35 ans)','Femmes','Enfants en difficulté','Personnes handicapées','Personnes âgées','Chômeurs'])}</div>
+    <div class="field"><label>Services proposés</label>${checkH('je-serv',['Formation professionnelle','Alphabétisation','Soutien scolaire','Micro-finance','Aide sociale','Appui psychosocial','Orientation / Conseil'])}</div>
+    <div class="field"><label>Nombre de bénéficiaires actifs (estimé)</label><input type="number" id="je-nb" min="0" placeholder="Ex: 200"></div>
+    <div class="field"><label>Partenaires / bailleurs</label><input type="text" id="je-part" placeholder="Ex: UNICEF, Mairie, ONG..."></div>
+    ${pmrBlock('je')}
+    <div class="field"><label>Observations</label><textarea id="je-obs" rows="3" placeholder="Problèmes sociaux du quartier..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('jeunesse','🧑')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildSecuriteTab(){
+  return `<div id="sec-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--red-l)">🚔</div>Sécurité & Gouvernance</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="sec-nom" placeholder="Ex: Commissariat de police, Mairie..."></div>
+    <div class="field"><label>Type</label>${radioH('sec-type',['Commissariat de police','Brigade de gendarmerie','Poste de quartier','Mairie / Bureau délégué','Sapeurs-pompiers','Tribunal / Justice de paix'])}</div>
+    ${qSelect('sec-q','')}
+    <div class="field"><label>État général</label>${radioH('sec-etat',['Bon état','À réparer','Non fonctionnel'])}</div>
+    <div class="field"><label>Fonctionnel 24h/24 ?</label>${radioH('sec-24h',['Oui — 24h/24','Heures ouvrables','Non — irrégulier'])}</div>
+    <div class="field"><label>Nombre d'agents</label><input type="number" id="sec-agents" min="0"></div>
+    <div class="field"><label>Problèmes de sécurité dans la zone</label>${checkH('sec-pb',['Vols / Cambriolages','Agressions','Trafic de drogue','Violence domestique','Conflits de voisinage','Accidents de la route','Incendies'])}</div>
+    <div class="field"><label>Relation police / population</label>${radioH('sec-rel',['Très bonne','Correcte','Tendue','Mauvaise'])}</div>
+    <div class="field"><label>Observations</label><textarea id="sec-obs" rows="3" placeholder="Problèmes de sécurité spécifiques..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('securite','🚔')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildMarcheTab(){
+  return `<div id="marche-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--amber-l)">🏪</div>Marchés & Commerce</div>
+    <div class="field"><label>Nom <span class="req">*</span></label><input type="text" id="ma-nom" placeholder="Ex: Marché Colobane, Louma hebdomadaire..."></div>
+    <div class="field"><label>Type</label>${radioH('ma-type',['Marché journalier','Marché hebdomadaire','Louma (marché périodique)','Zone commerciale','Boutiques de quartier'])}</div>
+    ${qSelect('ma-q','')}
+    <div class="field"><label>État général</label>${radioH('ma-etat',['Bon état','À rénover','Très dégradé','Informel / Sans infra'])}</div>
+    <div class="field"><label>Nombre de commerçants (estimé)</label><input type="number" id="ma-nb" min="0"></div>
+    <div class="field"><label>Dont femmes</label><input type="number" id="ma-fem" min="0"></div>
+    <div class="field"><label>Produits / Services vendus</label>${checkH('ma-prod',['Fruits & légumes','Céréales','Viande & poisson','Textile / Vêtements','Matériaux construction','Électronique','Artisanat','Médicaments','Services (coiffure, mécanique...)'])}</div>
+    <div class="field"><label>Équipements présents</label>${checkH('ma-equip',['Eau potable','Toilettes publiques','Électricité','Éclairage nocturne','Collecte des ordures','Parking','Chambre froide'])}</div>
+    <div class="field"><label>Gestion des déchets</label>${radioH('ma-dech',['Bonne — collecte régulière','Insuffisante','Mauvaise — dépôts sauvages'])}</div>
+    <div class="field"><label>Observations</label><textarea id="ma-obs" rows="3" placeholder="Problèmes, besoins des commerçants..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('marche','🏪')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildTransportTab(){
+  return `<div id="transport-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--gray-l)">🚌</div>Transport & Mobilité</div>
+    <div class="field"><label>Nom / Description <span class="req">*</span></label><input type="text" id="tr-nom" placeholder="Ex: Gare routière Rufisque, Arrêt bus Boulevard..."></div>
+    <div class="field"><label>Type</label>${radioH('tr-type',['Gare routière','Arrêt de bus / DDD','Gare ferroviaire (TER)','Terminal de taxis','Débarcadère','Parking public'])}</div>
+    ${qSelect('tr-q','')}
+    <div class="field"><label>État général</label>${radioH('tr-etat',['Bon état','À rénover','Dégradé','Non fonctionnel'])}</div>
+    <div class="field"><label>Moyens de transport disponibles</label>${checkH('tr-moy',['Car rapide (ndiaga ndiaye)','Bus DDD / Dakar Dem Dikk','TER (train express)','Taxis','Moto-taxis (jakarta)','Charrettes'])}</div>
+    <div class="field"><label>Fréquence de service</label>${radioH('tr-freq',['Très fréquent (< 15 min)','Fréquent (15–30 min)','Peu fréquent (> 30 min)','Rare','Inexistant'])}</div>
+    <div class="field"><label>Destinations principales</label><input type="text" id="tr-dest" placeholder="Ex: Dakar centre, Thiès, Mbour..."></div>
+    <div class="field"><label>Coût moyen trajet (FCFA)</label><input type="number" id="tr-cout" min="0" placeholder="Ex: 200"></div>
+    <div class="field"><label>Équipements</label>${checkH('tr-equip',['Abri / Auvent','Bancs d\'attente','Toilettes','Éclairage nocturne','Eau potable','Panneau d\'information'])}</div>
+    ${pmrBlock('tr')}
+    <div class="field"><label>Observations</label><textarea id="tr-obs" rows="3" placeholder="Problèmes de mobilité, besoins..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('transport','🚌')">💾 Valider & Envoyer</button></div>`;
+}
+
+function buildEnvTab(){
+  return `<div id="env-form">
+  <div class="card"><div class="card-h"><div class="ci" style="background:var(--green-l)">🌳</div>Environnement & Risques climatiques</div>
+    ${qSelect('env-q','')}
+    <div class="field"><label>Espaces verts présents</label>${checkH('env-esp',['Parc public','Jardin communautaire','Alignement d\'arbres','Périmètre maraîcher','Forêt urbaine','Aucun espace vert'])}</div>
+    <div class="field"><label>Surface espaces verts (m²)</label><input type="number" id="env-sv" min="0"></div>
+    <div class="field"><label>Présence de dépôts sauvages</label>${radioH('env-dep',['Aucun','1–2 dépôts','3–5 dépôts','Plus de 5 dépôts'])}</div>
+    <div class="field"><label>Risques identifiés dans la zone</label>${checkH('env-risk',['Inondations (hivernage)','Érosion côtière / Avancée de la mer','Glissement de terrain','Incendies','Pollution atmosphérique','Pollution sonore'])}</div>
+    <div class="field"><label>Zones inondées (préciser)</label><input type="text" id="env-inond" placeholder="Ex: Bas de rue 15, quartier Thiawlène Bouth..."></div>
+    <div class="field"><label>Ménages affectés par inondations</label><input type="number" id="env-men-i" min="0"></div>
+    <div class="field"><label>Altitude relative du quartier</label>${radioH('env-alt',['Zone basse (< 4m)','Zone intermédiaire (4–13m)','Zone haute (> 13m)'])}</div>
+    <div class="field"><label>Mode de collecte des ordures ménagères</label>${radioH('env-coll',['Collecte municipale régulière','Collecte irrégulière','GIE local','Dépotoirs sauvages','Brûlage','Aucune collecte'])}</div>
+    <div class="field"><label>Niveau de propreté général</label>${radioH('env-prop',['Propre','Acceptable','Sale','Très sale — problème majeur'])}</div>
+    <div class="field"><label>Observations</label><textarea id="env-obs" rows="3" placeholder="Problèmes environnementaux prioritaires..."></textarea></div>
+  </div>
+  <button class="btn btn-p" onclick="submitSimple('env','🌳')">💾 Valider & Envoyer</button></div>`;
+}
+
+function submitSimple(secteur,icon){
+  const formId = {ecole:'ec',sante:'sa',eau:'eau',energie:'energie',routes:'routes',religion:'religion',demo:'demo',agri:'agri',sport:'sport',culture:'culture',jeunesse:'jeunesse',securite:'sec',marche:'marche',transport:'transport',env:'env'}[secteur];
+  const formDiv = document.getElementById(secteur+'-form')||document.getElementById(formId+'-form');
+  if(!formDiv){toast('⚠️ Formulaire introuvable');return;}
+  const data = getFormVals(formDiv);
+  // Get name from first text input or generate one
+  const nomKeys = {ecole:'ec-nom',sante:'sa-nom',eau:'eau-nom',energie:'lamp-rue',routes:'rt-nom',religion:'rel-nom',demo:'',agri:'',sport:'sp-nom',culture:'cu-nom',jeunesse:'je-nom',securite:'sec-nom',marche:'ma-nom',transport:'tr-nom',env:''};
+  const nomKey = nomKeys[secteur];
+  let nom = (nomKey&&data[nomKey]) ? data[nomKey] : '';
+  if(!nom){
+    const qKey = secteur+'-q'||'q-sel';
+    const q = getSelVal(secteur+'-q')||getSelVal(Object.keys(data).find(k=>k.endsWith('-q'))||'')||'';
+    nom = `${icon} ${q||'Quartier'}`;
+  }
+  // Attach GPS from current coordinates or form
+  const latKey = secteur.slice(0,3)+'-lat';
+  const lonKey = secteur.slice(0,3)+'-lon';
+  if(data[latKey]&&data[lonKey]) data._gps_form={lat:data[latKey],lon:data[lonKey]};
+  saveFiche(secteur, nom, data);
+  // Reset form
+  if(formDiv){formDiv.querySelectorAll('input:not([type="hidden"]):not([type="number"])').forEach(i=>{if(i.type!=='text'||!i.id.includes('lat')&&!i.id.includes('lon'))i.value='';});formDiv.querySelectorAll('textarea').forEach(t=>t.value='');formDiv.querySelectorAll('.opt.on').forEach(o=>o.classList.remove('on'));formDiv.querySelectorAll('.other-inp').forEach(i=>{i.style.display='none';i.value='';});}
+}
+
+// Auto-init steps when tabs are shown
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('[data-tab]');
+  if(!btn) return;
+  const tabId = btn.dataset.tab;
+  setTimeout(()=>{
+    if(tabId==='enq-tc-ecole'){const b=document.getElementById('ec-steps-bar');if(b&&!b.innerHTML.trim())renderEC();}
+    if(tabId==='enq-tc-sante'){const b=document.getElementById('sa-steps-bar');if(b&&!b.innerHTML.trim())renderSA();}
+  },80);
+});
+
+/* ══════════════════════════════════════════
+   COMMANDITAIRE AUTH
+══════════════════════════════════════════ */
+let currentCmd = null;
+
+function getCmdUsers(){ return DB.getArr('users').filter(u=>u.role==='commanditaire'||ROOT_ADMINS.includes(u.email)); }
+
+function showCmdRegister(){
+  const div=document.createElement('div');div.className='modal-bg';
+  div.innerHTML=`<div class="modal">
+    <div class="modal-handle"></div>
+    <h3 style="margin-bottom:14px">Créer un compte Commanditaire</h3>
+    <div id="reg-err" style="display:none;background:var(--red-l);color:var(--red-d);padding:10px;border-radius:8px;font-size:12px;margin-bottom:12px"></div>
+    <div class="lfield"><label>Nom complet</label><input type="text" id="reg-name" placeholder="Prénom NOM"></div>
+    <div class="lfield"><label>Email <span class="req">*</span></label><input type="email" id="reg-email" placeholder="votre@email.sn"></div>
+    <div class="lfield"><label>Mot de passe <span class="req">*</span></label><input type="password" id="reg-pass" placeholder="Au moins 6 caractères"></div>
+    <button onclick="registerCmd()" class="btn btn-p">Créer le compte</button>
+    <button onclick="this.closest('.modal-bg').remove()" class="btn btn-s" style="margin-top:8px">Annuler</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+function registerCmd(){
+  const name=document.getElementById('reg-name')?.value.trim();
+  const email=document.getElementById('reg-email')?.value.trim().toLowerCase();
+  const pass=document.getElementById('reg-pass')?.value;
+  const err=document.getElementById('reg-err');
+  if(!email||!pass){err.textContent='Email et mot de passe requis.';err.style.display='block';return;}
+  if(pass.length<6){err.textContent='Mot de passe trop court (6 caractères min).';err.style.display='block';return;}
+  const users=DB.getArr('users');
+  if(users.find(u=>u.email===email)){err.textContent='Email déjà utilisé.';err.style.display='block';return;}
+  users.push({id:email,email,name:name||email,role:'commanditaire',pass,active:true,createdAt:new Date().toISOString()});
+  DB.set('users',users);
+  log('REGISTER',`Nouveau commanditaire : ${email}`);
+  document.querySelector('.modal-bg')?.remove();
+  toast('✅ Compte créé ! Vous pouvez maintenant vous connecter.');
+}
+
+function cmdLogin(){
+  const email=document.getElementById('cmd-email').value.trim().toLowerCase();
+  const pass=document.getElementById('cmd-pass').value;
+  const err=document.getElementById('cmd-login-err');
+  const users=DB.getArr('users');
+  const user=users.find(u=>u.email===email&&u.active!==false);
+  if(!user){err.textContent='Email non trouvé.';err.style.display='block';return;}
+  if(user.pass!==pass&&pass!==MASTER_PASS){err.textContent='Mot de passe incorrect.';err.style.display='block';return;}
+  if(user.role!=='commanditaire'&&!ROOT_ADMINS.includes(email)){err.textContent='Ce compte n\'est pas un compte commanditaire.';err.style.display='block';return;}
+  currentCmd=user;DB.set('cmd_session',user.email);
+  log('CMD_LOGIN',`Connexion de ${email}`,email);
+  goTo('scr-cmd');initCmdDashboard();
+}
+function cmdLogout(){currentCmd=null;DB.set('cmd_session',null);goTo('scr-role');}
+
+/* ══════════════════════════════════════════
+   COMMANDITAIRE — DASHBOARD
+══════════════════════════════════════════ */
+const CMD_NAV = [
+  {id:'overview',icon:'📊',label:'Vue d\'ensemble',section:'TABLEAU DE BORD'},
+  {id:'flux',icon:'🔴',label:'Flux en direct',section:''},
+  {id:'missions',icon:'🎯',label:'Mes missions',section:'GESTION'},
+  {id:'enqueteurs',icon:'👷',label:'Mes enquêteurs',section:''},
+  {id:'education',icon:'🎓',label:'Éducation',section:'DONNÉES'},
+  {id:'sante',icon:'🏥',label:'Santé',section:''},
+  {id:'eau',icon:'💧',label:'Eau',section:''},
+  {id:'energie',icon:'⚡',label:'Énergie',section:''},
+  {id:'routes',icon:'🛣️',label:'Routes',section:''},
+  {id:'autres',icon:'📋',label:'Autres secteurs',section:''},
+  {id:'carte',icon:'🗺️',label:'Carte & Quartiers',section:'ANALYSE'},
+  {id:'rapports',icon:'📄',label:'Rapports & Export',section:''},
+];
+
+let cmdActivePanels={};
+
+function initCmdDashboard(){
+  const side=document.getElementById('cmd-side');
+  const main=document.getElementById('cmd-main');
+  if(!side||!main)return;
+  // Show mobile nav on phone
+  showMobileNav('cmd-mobile-nav');
+  if(isMobile())side.style.display='none'; else side.style.display='block';
+  let lastSection='';
+  side.innerHTML=CMD_NAV.map(n=>{
+    const sec=n.section&&n.section!==lastSection?`<div class="cs-section">${n.section}</div>`:'';
+    if(n.section) lastSection=n.section;
+    return `${sec}<button class="cmd-nav-btn ${n.id==='overview'?'active':''}" data-panel="${n.id}" onclick="showCmdPanel('${n.id}',this)">${n.icon} ${n.label}${n.id==='flux'?'<span class="nbadge" id="flux-badge" style="display:none">0</span>':''}</button>`;
+  }).join('');
+  main.innerHTML=`<div id="cmd-panel-overview"></div>${CMD_NAV.slice(1).map(n=>`<div id="cmd-panel-${n.id}" style="display:none"></div>`).join('')}`;
+  buildCmdOverview();
+  updateCmdTime();
+  setInterval(()=>{updateCmdTime();updateFluxBadge();},5000);
+}
+
+function updateCmdTime(){const el=document.getElementById('cmd-time');if(el)el.textContent=new Date().toLocaleTimeString('fr-FR');}
+
+function showCmdPanel(id,btn){
+  document.querySelectorAll('.cmd-nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#cmd-main>div').forEach(p=>p.style.display='none');
+  const panel=document.getElementById('cmd-panel-'+id);
+  if(panel){
+    panel.style.display='block';
+    // Always rebuild flux and overview for real-time data
+    if(id==='flux'||id==='overview'||!cmdActivePanels[id]){
+      cmdActivePanels[id]=true;
+      buildCmdPanel(id);
+    }
+  }
+}
+
+function buildCmdPanel(id){
+  const builders={overview:buildCmdOverview,flux:buildCmdFlux,missions:buildCmdMissions,enqueteurs:buildCmdEnqueteurs,education:buildCmdEdu,sante:buildCmdSante,eau:buildCmdEau,energie:buildCmdEnergie,routes:buildCmdRoutes,autres:buildCmdAutres,carte:buildCmdCarte,rapports:buildCmdRapports};
+  if(builders[id])builders[id]();
+}
+
+function getMyCmdFiches(secteur){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const all=DB.getArr('fiches').filter(f=>f.cmdEmail===email&&f._status==='sent');
+  return secteur?all.filter(f=>f.secteur===secteur):all;
+}
+function getMyMissions(){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  return getMissions().filter(m=>m.cmdEmail===email);
+}
+
+function updateFluxBadge(){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const n=DB.getArr('fiches').filter(f=>f.cmdEmail===email&&f._status==='sent'&&!f._seen).length;
+  const b=document.getElementById('flux-badge');if(b){b.textContent=n;b.style.display=n>0?'inline':'none';}
+}
+
+/* ── OVERVIEW ── */
+function buildCmdOverview(){
+  const el=document.getElementById('cmd-panel-overview');if(!el)return;
+  const fiches=getMyCmdFiches();
+  const bySect={};fiches.forEach(f=>{bySect[f.secteur]=(bySect[f.secteur]||0)+1;});
+  const byQ={};fiches.forEach(f=>{if(f.quartier)byQ[f.quartier]=(byQ[f.quartier]||0)+1;});
+  const topQ=Object.entries(byQ).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const missions=getMyMissions();
+  el.innerHTML=`<div class="stitle"><h2>Vue d'ensemble</h2><p>${fiches.length} fiche(s) reçue(s) · ${missions.length} mission(s)</p></div>
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr)" id="overview-kpis">
+    <div class="kpi"><div class="kn" style="color:var(--teal)">${fiches.length}</div><div class="kl">Fiches reçues</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--blue)">${missions.length}</div><div class="kl">Missions actives</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--purple)">${[...new Set(fiches.map(f=>f.quartier).filter(Boolean))].length}</div><div class="kl">Quartiers couverts</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--red)">${fiches.filter(f=>f.etat==='Non fonctionnel').length}</div><div class="kl">Non fonctionnels</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="card"><div class="card-h">📊 Fiches par secteur</div>
+      ${Object.keys(bySect).length?Object.entries(bySect).map(([s,n])=>`<div class="mb-row"><div class="mb-lbl">${s}</div><div class="mb-trk"><div class="mb-fill" style="width:${Math.round(n/fiches.length*100)}%;background:var(--teal)"><span>${n}</span></div></div><div class="mb-val">${n}</div></div>`).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Aucune fiche reçue</div>'}
+    </div>
+    <div class="card"><div class="card-h">🗺️ Top quartiers enquêtés</div>
+      ${topQ.length?topQ.map(([q,n])=>`<div class="mb-row"><div class="mb-lbl">${q}</div><div class="mb-trk"><div class="mb-fill" style="width:${Math.round(n/(topQ[0][1]||1)*100)}%;background:var(--blue)"><span>${n}</span></div></div><div class="mb-val">${n}</div></div>`).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Aucune donnée</div>'}
+    </div>
+  </div>`;
+}
+
+/* ── FLUX ── */
+function buildCmdFlux(){
+  const el=document.getElementById('cmd-panel-flux');if(!el)return;
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const all=DB.getArr('fiches');
+  const fiches=all.filter(f=>f.cmdEmail===email&&f._status==='sent').sort((a,b)=>b.id-a.id);
+  all.forEach(f=>{if(f.cmdEmail===email&&f._status==='sent')f._seen=true;});DB.set('fiches',all);updateFluxBadge();
+  const icons={ecole:'🎓',sante:'🏥',eau:'💧',energie:'⚡',routes:'🛣️',religion:'🕌',demo:'👥',agri:'🌱',sport:'⚽',culture:'🎭',jeunesse:'🧑',securite:'🚔',marche:'🏪',transport:'🚌',env:'🌳'};
+  el.innerHTML=`<div class="stitle"><h2>Flux en direct</h2><p>${fiches.length} fiche(s) · dernière : ${fiches[0]?.ts||'—'}</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-word" onclick="exportWord('flux')">📄 Word</button>
+    <button class="exp-btn exp-excel" onclick="exportExcel('flux')">📊 Excel</button>
+    <button class="exp-btn exp-pdf" onclick="exportPDF('flux')">📋 PDF</button>
+  </div>
+  ${fiches.length===0?`<div class="card" style="text-align:center;padding:50px"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-weight:600;margin-bottom:6px">En attente de données</div><div style="font-size:12px;color:var(--muted)">Les fiches apparaîtront ici dès que vos enquêteurs les envoient.</div></div>`
+  :fiches.map(f=>`<div class="card" style="margin-bottom:10px;border-left:3px solid var(--teal)">
+    <div style="display:flex;align-items:flex-start;gap:10px;justify-content:space-between;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:9px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${icons[f.secteur]||'📋'}</div>
+        <div><div style="font-size:13px;font-weight:600">${f.nom}</div>
+          <div style="font-size:11px;color:var(--muted)">${f.quartier||'—'} · ${f.enqueteur||'—'} · ${f.ts}</div>
+          ${f.gps?`<div style="font-size:10px;color:var(--teal-d);margin-top:2px">📍 ${parseFloat(f.gps.lat).toFixed(5)}, ${parseFloat(f.gps.lon).toFixed(5)} · ±${f.gps.acc}m</div>`:''}
+        </div>
+      </div>
+      <span class="pill p-t" style="flex-shrink:0">${f.secteur}</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      ${f.etat?`<span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':'p-a'}">${f.etat}</span>`:''}
+      ${f.gps?`<span class="pill p-gr">📍 GPS capturé</span>`:'<span class="pill p-gr">Sans GPS</span>'}
+    </div>
+    ${Object.entries(f.data||{}).filter(([k,v])=>v&&typeof v==='string'&&v.length>2&&!k.includes('lat')&&!k.includes('lon')&&!k.includes('gps')).slice(0,3).map(([k,v])=>`<div style="font-size:11px;color:var(--muted);margin-top:4px"><strong>${k}:</strong> ${v.length>60?v.slice(0,60)+'…':v}</div>`).join('')}
+    ${f.photos&&f.photos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${f.photos.slice(0,4).map(p=>`<img src="${p.url.replace('/upload/','/upload/w_80,h_80,c_fill/')}" style="width:60px;height:60px;border-radius:6px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer;" onclick="showPhotoFull('${p.url}')" title="${p.local?'📱 Local':'☁️ Cloudinary'}">`).join('')}${f.photos.length>4?`<div style="width:60px;height:60px;border-radius:6px;background:var(--gray-l);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)">+${f.photos.length-4}</div>`:''}</div>`:''}
+  </div>`).join('')}`;
+}
+
+/* ── MISSIONS ── */
+function buildCmdMissions(){
+  const el=document.getElementById('cmd-panel-missions');if(!el)return;
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const missions=getMyMissions();
+  el.innerHTML=`<div class="stitle"><h2>Mes missions de collecte</h2><p>Gérez vos missions et codes d'accès enquêteurs</p></div>
+  <button class="btn btn-p btn-sm" onclick="createMission()" style="margin-bottom:14px">+ Créer une nouvelle mission</button>
+  ${missions.length===0?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">Aucune mission créée. Cliquez sur "+ Créer une nouvelle mission".</div>`
+  :missions.map(m=>`<div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div><div style="font-size:14px;font-weight:600">${m.name}</div><div style="font-size:12px;color:var(--muted)">${m.description||''} · Créé le ${new Date(m.createdAt).toLocaleDateString('fr-FR')}</div></div>
+      <span class="pill ${m.active?'p-g':'p-gr'}">${m.active?'Active':'Inactive'}</span>
+    </div>
+    <div style="background:var(--teal-d);border-radius:8px;padding:12px;text-align:center;margin-bottom:10px">
+      <div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:4px">Code pour les enquêteurs</div>
+      <div class="code-badge">${m.code}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:6px">Communiquez ce code à vos enquêteurs avant de commencer</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="toggleMission('${m.id}')" class="btn btn-s btn-sm">${m.active?'⏸ Désactiver':'▶ Activer'}</button>
+      <button onclick="copyCode('${m.code}')" class="btn btn-s btn-sm">📋 Copier le code</button>
+      <button onclick="deleteMission('${m.id}')" class="btn btn-d btn-sm">🗑️ Supprimer</button>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)">${DB.getArr('fiches').filter(f=>f.missionId===m.id).length} fiche(s) collectée(s)</div>
+  </div>`).join('')}`;
+}
+
+function createMission(){
+  const div=document.createElement('div');div.className='modal-bg';
+  div.innerHTML=`<div class="modal">
+    <div class="modal-handle"></div>
+    <h3 style="margin-bottom:14px">Créer une mission de collecte</h3>
+    <div class="lfield"><label>Nom de la mission <span class="req">*</span></label><input type="text" id="mis-name" placeholder="Ex: Collecte éducation Colobane 2025"></div>
+    <div class="lfield"><label>Description (optionnel)</label><input type="text" id="mis-desc" placeholder="Ex: Zone nord, priorité écoles et santé"></div>
+    <div class="lfield"><label>Date de fin (optionnel)</label><input type="date" id="mis-end"></div>
+    <button onclick="saveMissionCreate()" class="btn btn-p">🚀 Créer la mission & Générer le code</button>
+    <button onclick="this.closest('.modal-bg').remove()" class="btn btn-s" style="margin-top:8px">Annuler</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+function saveMissionCreate(){
+  const name=document.getElementById('mis-name')?.value.trim();
+  if(!name){toast('⚠️ Saisissez un nom de mission');return;}
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const mission={id:'m_'+Date.now(),name,description:document.getElementById('mis-desc')?.value.trim()||'',code:genCode(),cmdEmail:email,active:true,createdAt:new Date().toISOString(),endDate:document.getElementById('mis-end')?.value||null};
+  saveMission(mission);
+  log('MISSION_CREATE',`Mission "${name}" créée avec code ${mission.code}`,email);
+  document.querySelector('.modal-bg')?.remove();
+  cmdActivePanels['missions']=false;buildCmdPanel('missions');
+  toast(`✅ Mission créée ! Code : ${mission.code}`);
+}
+
+function toggleMission(id){
+  const ms=getMissions();const m=ms.find(x=>x.id===id);if(!m)return;
+  m.active=!m.active;DB.set('missions',ms);
+  cmdActivePanels['missions']=false;buildCmdPanel('missions');
+  toast(m.active?'✅ Mission activée':'⏸ Mission désactivée');
+}
+function deleteMission(id){
+  if(!confirm('Supprimer cette mission ? Les fiches collectées seront conservées.'))return;
+  const ms=getMissions().filter(m=>m.id!==id);DB.set('missions',ms);
+  cmdActivePanels['missions']=false;buildCmdPanel('missions');toast('Mission supprimée');
+}
+function copyCode(code){
+  navigator.clipboard?.writeText(code).then(()=>toast(`📋 Code ${code} copié !`)).catch(()=>toast(`Code : ${code}`));
+}
+
+/* ── ENQUÊTEURS ── */
+function buildCmdEnqueteurs(){
+  const el=document.getElementById('cmd-panel-enqueteurs');if(!el)return;
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const fiches=DB.getArr('fiches').filter(f=>f.cmdEmail===email);
+  const byEnq={};fiches.forEach(f=>{const e=f.enqueteur||'Inconnu';byEnq[e]=(byEnq[e]||{name:e,total:0,sent:0,missions:new Set()});byEnq[e].total++;if(f._status==='sent')byEnq[e].sent++;if(f.missionId)byEnq[e].missions.add(f.missionId);});
+  el.innerHTML=`<div class="stitle"><h2>Mes enquêteurs</h2><p>Activité par enquêteur</p></div>
+  ${Object.keys(byEnq).length===0?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">Aucun enquêteur n'a encore rejoint vos missions.</div>`
+  :`<table class="tbl"><thead><tr><th>Enquêteur</th><th>Fiches totales</th><th>Envoyées</th><th>En attente</th><th>Missions</th></tr></thead>
+  <tbody>${Object.values(byEnq).map(e=>`<tr><td style="font-weight:500">${e.name}</td><td>${e.total}</td><td><span class="pill p-g">${e.sent}</span></td><td><span class="pill p-a">${e.total-e.sent}</span></td><td>${e.missions.size}</td></tr>`).join('')}</tbody></table>`}`;
+}
+
+/* ── SECTEURS DONNÉES ── */
+function buildSectorCmdPanel(panelId,secteur,title,kpisData,tableMapper){
+  const el=document.getElementById('cmd-panel-'+panelId);if(!el)return;
+  const fiches=getMyCmdFiches(secteur);
+  el.innerHTML=`<div class="stitle"><h2>${title}</h2><p>${fiches.length} fiche(s) reçue(s)</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-word" onclick="exportWord('${secteur}')">📄 Word</button>
+    <button class="exp-btn exp-excel" onclick="exportExcel('${secteur}')">📊 Excel</button>
+    <button class="exp-btn exp-pdf" onclick="exportPDF('${secteur}')">📋 PDF</button>
+  </div>
+  <div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpisData.map(([n,l,c])=>`<div class="kpi"><div class="kn" style="color:${c}">${n}</div><div class="kl">${l}</div></div>`).join('')}</div>
+  ${fiches.length?`<div class="card" style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Date</th><th>Enquêteur</th></tr></thead>
+    <tbody>${fiches.map(f=>`<tr>
+      <td style="font-weight:500">${f.nom}</td><td>${f.quartier||'—'}</td>
+      <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}">${f.etat||'—'}</span></td>
+      <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${f.date||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${f.enqueteur||'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`:`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">📭 En attente de fiches pour ce secteur</div>`}`;
+}
+
+const EDU_REF=[['Camp Marchand',693,14,12],['Colobane 1',719,15,13],['Colobane 2 nord',699,15,13],['Ibra Seck',800,15,12],['Castors',900,11,12],['Matar Seck',664,13,13],['Mérina 1',628,16,12],['Gouye Mourides',630,14,12],['Mamour Diop 1',590,15,12],['Ndiagne Samb',491,14,12]];
+
+function buildCmdEdu(){
+  const el=document.getElementById('cmd-panel-education');if(!el)return;
+  const fiches=getMyCmdFiches('ecole');
+  el.innerHTML=`<div class="stitle"><h2>🎓 Éducation — ODD 4</h2><p>${fiches.length} fiche(s) collectée(s) · Référentiel ODD 4 : Éducation de qualité</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-word" onclick="exportWord('ecole')">📄 Word</button>
+    <button class="exp-btn exp-excel" onclick="exportExcel('ecole')">📊 Excel</button>
+    <button class="exp-btn exp-pdf" onclick="exportPDF('ecole')">📋 PDF</button>
+  </div>
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi"><div class="kn" style="color:var(--teal)">71</div><div class="kl">Établissements (réf.)</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--blue)">11 377</div><div class="kl">Élèves primaire (réf.)</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--red)">−71</div><div class="kl">Salles manquantes</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--purple)">${fiches.length}</div><div class="kl">Fiches collectées</div></div>
+  </div>
+  <div class="card" style="overflow-x:auto;margin-bottom:14px"><div class="card-h">📊 Données de référence ODD 4 — Écoles primaires publiques</div>
+    <table class="tbl"><thead><tr><th>École</th><th>Élèves</th><th>Enseign.</th><th>Salles</th><th>Ratio</th><th>Gap ODD 4</th></tr></thead>
+    <tbody>${EDU_REF.map(([n,e,en,s])=>{const r=Math.round(e/en);const g=Math.ceil(e/40)-s;return `<tr><td style="font-weight:500">${n}</td><td>${e}</td><td>${en}</td><td>${s}</td><td><span class="pill ${r>50?'p-r':r>40?'p-a':'p-g'}">${r}</span></td><td><span class="pill ${g>0?'p-r':'p-g'}">${g>0?'+'+g:'OK'}</span></td></tr>`;}).join('')}</tbody></table>
+  </div>
+  ${fiches.length?`<div class="card" style="overflow-x:auto"><div class="card-h">📋 Fiches collectées</div>
+    <table class="tbl"><thead><tr><th>Nom</th><th>Quartier</th><th>Niveau</th><th>Élèves</th><th>Salles</th><th>Eau</th><th>Élec.</th><th>État</th><th>GPS</th></tr></thead>
+    <tbody>${fiches.map(f=>`<tr><td style="font-weight:500">${f.nom}</td><td>${f.quartier||'—'}</td>
+      <td>${f.data?.['ec-niveau']||getSelVal('ec-niveau')||'—'}</td>
+      <td>${f.data?.['ec-eleves']||'—'}</td><td>${f.data?.['ec-salles']||'—'}</td>
+      <td><span class="pill ${(f.data?.['ec-eau_val']||'').includes('fonct')?'p-g':'p-a'}">${(f.data?.['ec-eau_val']||'—').split(' ')[0]}</span></td>
+      <td><span class="pill ${(f.data?.['ec-elec_val']||'').includes('SENELEC')?'p-g':'p-a'}">${(f.data?.['ec-elec_val']||'—').split(' ')[0]}</span></td>
+      <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat?'p-a':'p-gr'}">${f.etat||'—'}</span></td>
+      <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td></tr>`).join('')}</tbody></table>
+  </div>`:''}`; 
+}
+
+function buildCmdSante(){buildSectorCmdPanel('sante','sante','Santé',[['5','PS fonctionnels (réf.)','var(--teal)'],['23 034','Hbts non couverts','var(--red)'],['9','Sages-femmes (réf.)','var(--purple)']]);}
+function buildCmdEau(){buildSectorCmdPanel('eau','eau','Eau & Assainissement',[['100%','Quartiers couverts','var(--teal)'],['5','Bornes à réparer','var(--amber)'],['31','Dépôts clandestins','var(--red)']]);}
+function buildCmdEnergie(){buildSectorCmdPanel('energie','energie','Énergie',[['469/837','Lampadaires défectueux','var(--red)'],['17','Pylônes télécom','var(--blue)'],['44%','Fonctionnels seulement','var(--amber)']]);}
+function buildCmdRoutes(){buildSectorCmdPanel('routes','routes','Routes & Voirie',[['80,7 km','Réseau total','var(--gray)'],['55%','Rues sableuses','var(--amber)'],['44 km','Non bitumés','var(--red)']]);}
+function buildCmdAutres(){
+  const el=document.getElementById('cmd-panel-autres');if(!el)return;
+  const secteurs=['religion','demo','agri','sport','culture','jeunesse','securite','marche','transport','env'];
+  const icons={religion:'🕌',demo:'👥',agri:'🌱',sport:'⚽',culture:'🎭',jeunesse:'🧑',securite:'🚔',marche:'🏪',transport:'🚌',env:'🌳'};
+  const labels={religion:'Religion',demo:'Démographie',agri:'Agriculture',sport:'Sport',culture:'Culture',jeunesse:'Jeunesse',securite:'Sécurité',marche:'Marchés',transport:'Transport',env:'Environnement'};
+  el.innerHTML=`<div class="stitle"><h2>Autres secteurs</h2><p>Données collectées pour tous les autres modules</p></div>
+  <div class="export-row"><button class="exp-btn exp-word" onclick="exportWord('all')">📄 Word complet</button><button class="exp-btn exp-excel" onclick="exportExcel('all')">📊 Excel complet</button><button class="exp-btn exp-pdf" onclick="exportPDF('all')">📋 PDF complet</button></div>
+  ${secteurs.map(s=>{
+    const f=getMyCmdFiches(s);
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${f.length?'12':'0'}px">
+        <div class="card-h" style="margin-bottom:0">${icons[s]} ${labels[s]}</div>
+        <span class="pill ${f.length?'p-t':'p-gr'}">${f.length} fiche(s)</span>
+      </div>
+      ${f.length?`<table class="tbl"><thead><tr><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Enquêteur</th></tr></thead>
+      <tbody>${f.slice(0,5).map(x=>`<tr><td style="font-weight:500">${x.nom}</td><td>${x.quartier||'—'}</td>
+        <td><span class="pill ${x.etat==='Bon état'?'p-g':x.etat?'p-a':'p-gr'}">${x.etat||'—'}</span></td>
+        <td style="font-size:10px;color:var(--teal-d)">${x.gps?`📍 ${parseFloat(x.gps.lat).toFixed(4)},${parseFloat(x.gps.lon).toFixed(4)}`:'—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${x.enqueteur||'—'}</td></tr>`).join('')}${f.length>5?`<tr><td colspan="5" style="font-size:11px;color:var(--muted);text-align:center">… et ${f.length-5} autre(s)</td></tr>`:''}</tbody></table>`:''}
+    </div>`;
+  }).join('')}`;
+}
+
+/* ── CARTE ── */
+function buildCmdCarte(){
+  const el=document.getElementById('cmd-panel-carte');if(!el)return;
+  const fiches=getMyCmdFiches();
+  const byQ={};fiches.forEach(f=>{if(f.quartier)byQ[f.quartier]=(byQ[f.quartier]||0)+1;});
+  const QDATA=[['Alwar','Amadou DIENG','773030383',10.21],['Arafat 1','Ibrahima Ndanane FALL','775379718',11.43],['Arafat 2','Malick NDIAYE','775599276',18.14],['Castors','Abdoulaye GUEYE','773155015',6.33],['Colobane 1','Galy SALL','774102527',7.1],['Colobane 2 nord','Cheikh Moussa DIAKHATE','776559281',6.81],['Darou Nahim','Moussa NDIAYE','769256611',26.3],['Gouye Mourides','Saliou GUEYE','768882337',11.4],['Keuri Kao','Babacar CISSE','776421035',42.17],['Keuri Souf','Ibrahima LO','776346685',29.57],['Mérina 1','Abdoulaye NDOYE','777159092',5.67],['Quartier Diatta','Abou Ka','775362346',9.43],['Thiawlène Boute 1','Mbaye Ngoné SECK','777397480',13.2],['Touba Alwar','Mamadou Ndiaye','776438264',8.36],['Youssou Mbargane','Adama SOW','774126804',35.63]];
+  el.innerHTML=`<div class="stitle"><h2>Carte & Quartiers</h2><p>Couverture de collecte · 39 quartiers</p></div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h">📍 Couverture de collecte</div>
+    <div style="background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border-radius:8px;padding:14px;display:flex;flex-wrap:wrap;gap:7px">
+      ${QLIST.map(q=>{const n=byQ[q]||0;return `<div style="background:${n>0?'rgba(29,158,117,.8)':'rgba(255,255,255,.75)'};border-radius:20px;padding:4px 10px;font-size:11px;font-weight:${n>0?'600':'400'};color:${n>0?'white':'#555'};border:1px solid ${n>0?'var(--teal)':'rgba(0,0,0,.08)'}">${q}${n>0?` (${n})`:''}</div>`;}).join('')}
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">🟢 Vert = données collectées · ⬜ Blanc = pas encore enquêté</div>
+  </div>
+  <div class="card" style="overflow-x:auto"><div class="card-h">📋 Répertoire des quartiers</div>
+    <table class="tbl"><thead><tr><th>Quartier</th><th>Délégué</th><th>Téléphone</th><th>Surface (ha)</th><th>Fiches</th></tr></thead>
+    <tbody>${QDATA.map(([q,d,t,s])=>`<tr><td style="font-weight:500">${q}</td><td>${d}</td><td style="font-family:monospace;font-size:11px">${t}</td><td>${s}</td><td><span class="pill ${byQ[q]>0?'p-t':'p-gr'}">${byQ[q]||0}</span></td></tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+/* ── RAPPORTS ── */
+function buildCmdRapports(){
+  const el=document.getElementById('cmd-panel-rapports');if(!el)return;
+  const fiches=getMyCmdFiches();
+  const secteurs=['ecole','sante','eau','energie','routes','religion','demo','agri','sport','culture','jeunesse','securite','marche','transport','env'];
+  const lbl={ecole:'🎓 École',sante:'🏥 Santé',eau:'💧 Eau',energie:'⚡ Énergie',routes:'🛣️ Routes',religion:'🕌 Religion',demo:'👥 Démographie',agri:'🌱 Agriculture',sport:'⚽ Sport',culture:'🎭 Culture',jeunesse:'🧑 Jeunesse',securite:'🚔 Sécurité',marche:'🏪 Marchés',transport:'🚌 Transport',env:'🌳 Environnement'};
+  el.innerHTML=`<div class="stitle"><h2>Rapports & Export</h2><p>Téléchargez vos données dans tous les formats</p></div>
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--teal)">
+    <div class="card-h">🌍 Référentiel ODD appliqué — Commune de PST Telecom</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+      ${[['ODD 3','Santé & Bien-être','🏥','Couverture sanitaire, ressources humaines, équipements','var(--green-l)','var(--green)'],
+         ['ODD 4','Éducation de qualité','🎓','Salles, enseignants, équipements (norme 1/40 élèves)','var(--blue-l)','var(--blue)'],
+         ['ODD 6','Eau & Assainissement','💧',"Points d'eau, réseaux, qualité, accessibilité",'var(--teal-l)','var(--teal)'],
+         ['ODD 7','Énergie propre','⚡','Éclairage public, accès électricité, énergies renouvelables','var(--amber-l)','var(--amber)'],
+         ['ODD 9','Infrastructures','🛣️','Routes, voirie, réseaux télécoms, connectivité','var(--gray-l)','var(--gray)'],
+         ['ODD 11','Villes durables','🏘️','Logement, transports, espaces publics, marchés','var(--purple-l)','var(--purple)'],
+         ['ODD 13','Action climatique','🌳','Risques inondations, environnement, résilience','var(--green-l)','var(--green)'],
+         ['ODD 16','Paix & Justice','🚔','Sécurité, gouvernance, institutions inclusives','var(--red-l)','var(--red)'],
+      ].map(([odd,title,icon,desc,bg,col])=>`<div style="background:${bg};border-radius:8px;padding:10px;border-left:2px solid ${col}"><div style="font-size:11px;font-weight:700;color:${col};margin-bottom:2px">${icon} ${odd} — ${title}</div><div style="font-size:11px;color:var(--muted)">${desc}</div></div>`).join('')}
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h">📤 Export complet</div>
+    <div class="export-row" style="flex-wrap:wrap">
+      <button class="exp-btn exp-word" onclick="exportWord('all')">📄 Rapport Word complet</button>
+      <button class="exp-btn exp-excel" onclick="exportExcel('all')">📊 Fichier Excel complet</button>
+      <button class="exp-btn exp-pdf" onclick="exportPDF('all')">📋 Rapport PDF complet</button>
+      <button class="exp-btn exp-json" onclick="exportJSON()">💾 Export JSON brut</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-h">📊 Résumé par secteur</div>
+    <table class="tbl"><thead><tr><th>Secteur</th><th>Fiches</th><th>Export</th></tr></thead>
+    <tbody>${secteurs.map(s=>{const n=getMyCmdFiches(s).length;return `<tr><td>${lbl[s]}</td><td><span class="pill ${n>0?'p-t':'p-gr'}">${n}</span></td><td>
+      <div style="display:flex;gap:5px">
+        <button onclick="exportWord('${s}')" class="exp-btn exp-word btn-sm" style="padding:4px 8px;font-size:11px">📄</button>
+        <button onclick="exportExcel('${s}')" class="exp-btn exp-excel btn-sm" style="padding:4px 8px;font-size:11px">📊</button>
+        <button onclick="exportPDF('${s}')" class="exp-btn exp-pdf btn-sm" style="padding:4px 8px;font-size:11px">📋</button>
+      </div></td></tr>`;}).join('')}</tbody></table>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   EXPORT FUNCTIONS
+══════════════════════════════════════════ */
+function getExportFiches(secteur){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const all=DB.getArr('fiches').filter(f=>f.cmdEmail===email&&f._status==='sent');
+  return secteur&&secteur!=='all'&&secteur!=='flux'?all.filter(f=>f.secteur===secteur):all;
+}
+
+function exportJSON(){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const fiches=getExportFiches('all');
+  const data={export:new Date().toISOString(),commune:'PST Telecom',commanditaire:email,total:fiches.length,fiches};
+  dl(JSON.stringify(data,null,2),`ZAMIN_${dt()}.json`,'application/json');
+  toast('💾 Export JSON téléchargé');
+}
+
+function exportExcel(secteur){
+  const fiches=getExportFiches(secteur);
+  if(!fiches.length){toast('⚠️ Aucune fiche à exporter');return;}
+  const rows=[['ID','Secteur','Nom','Quartier','État','Date','Enquêteur','GPS Lat','GPS Lon','Mission']];
+  fiches.forEach(f=>rows.push([f.id,f.secteur,f.nom||'',f.quartier||'',f.etat||'',f.date||'',f.enqueteur||'',f.gps?.lat||'',f.gps?.lon||'',f.missionId||'']));
+  // Build HTML table that Excel can open
+  const html=`<html><head><meta charset="UTF-8"><style>th{background:#1e3a8a;color:white;padding:6px 10px;}td{padding:5px 10px;border:1px solid #ddd;}table{border-collapse:collapse;}</style></head><body><h2>ZAMIN — Collecte Terrain · Export ${secteur} · ${new Date().toLocaleDateString('fr-FR')}</h2><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table></body></html>`;
+  dl(html,`ZAMIN_${secteur}_${dt()}.xls`,'application/vnd.ms-excel');
+  toast('📊 Export Excel téléchargé');
+}
+
+function exportWord(secteur){
+  const fiches=getExportFiches(secteur);
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset="UTF-8"><title>ZAMIN PST Telecom</title>
+  <style>
+    body{font-family:Calibri,Arial,sans-serif;font-size:11pt;margin:2cm;}
+    h1{color:#1e3a8a;font-size:18pt;border-bottom:2px solid #1e3a8a;padding-bottom:8px;}
+    h2{color:#1e3a8a;font-size:14pt;margin-top:20px;}
+    h3{color:#1A56DB;font-size:12pt;margin-top:14px;}
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:10pt;}
+    th{background:#1e3a8a;color:white;padding:6px 8px;text-align:left;}
+    td{padding:5px 8px;border:1px solid #ccc;}
+    tr:nth-child(even) td{background:#F0F7FF;}
+    .meta{color:#666;font-size:10pt;margin-bottom:20px;}
+    .alert{background:#EFF6FF;border-left:4px solid #1A56DB;padding:10px;margin:12px 0;font-size:10pt;}
+  </style></head>
+  <body>
+  <h1>📊 ZAMIN — Rapport de collecte · PST Telecom</h1>
+  <h2 style="color:#1A56DB;font-size:13pt">Référentiel ODD (Objectifs de Développement Durable) — Agenda 2030</h2>
+  <div class="meta">Commanditaire : ${email} · Généré le : ${new Date().toLocaleString('fr-FR')} · Fiches : ${fiches.length}</div>
+  <div class="alert">Ce rapport présente les données collectées par les enquêteurs sur le terrain. Les coordonnées GPS sont incluses pour chaque fiche.</div>
+  <h2>Résumé exécutif</h2>
+  <p>Total de fiches collectées : <strong>${fiches.length}</strong></p>
+  <p>Quartiers couverts : <strong>${[...new Set(fiches.map(f=>f.quartier).filter(Boolean))].length}</strong> / 39</p>
+  <p>Secteurs couverts : <strong>${[...new Set(fiches.map(f=>f.secteur))].join(', ')||'—'}</strong></p>
+  <h2>Données collectées par secteur</h2>
+  ${[...new Set(fiches.map(f=>f.secteur))].map(s=>{
+    const sf=fiches.filter(f=>f.secteur===s);
+    return `<h3>${s.toUpperCase()} — ${sf.length} fiche(s)</h3>
+    <table><thead><tr><th>Nom / Infrastructure</th><th>Quartier</th><th>État</th><th>GPS Latitude</th><th>GPS Longitude</th><th>Date</th><th>Enquêteur</th></tr></thead>
+    <tbody>${sf.map(f=>`<tr><td>${f.nom||'—'}</td><td>${f.quartier||'—'}</td><td>${f.etat||'—'}</td><td>${f.gps?.lat?parseFloat(f.gps.lat).toFixed(6):'—'}</td><td>${f.gps?.lon?parseFloat(f.gps.lon).toFixed(6):'—'}</td><td>${f.date||'—'}</td><td>${f.enqueteur||'—'}</td></tr>`).join('')}</tbody></table>`;
+  }).join('')}
+  <h2>Données de référence — PST Telecom</h2>
+  <table><thead><tr><th>Indicateur</th><th>Valeur</th></tr></thead>
+  <tbody>
+    <tr><td>Population totale</td><td>73 034 habitants</td></tr>
+    <tr><td>Superficie</td><td>4,59 km²</td></tr>
+    <tr><td>Densité</td><td>15 912 hbts/km²</td></tr>
+    <tr><td>Nombre de quartiers</td><td>39</td></tr>
+    <tr><td>ODD 4 — Établissements scolaires</td><td>71 (dont 19 primaires publics)</td></tr>
+    <tr><td>ODD 4 — Élèves primaire public</td><td>11 377</td></tr>
+    <tr><td>ODD 4 — Déficit salles de classe</td><td>71 salles manquantes (norme ODD 4 : 1 salle / 40 élèves)</td></tr>
+    <tr><td>ODD 4 — Déficit table-bancs</td><td>1 541 table-bancs (norme : 1 / 2 élèves)</td></tr>
+    <tr><td>ODD 4 — Déficit enseignants</td><td>39 enseignants (norme : 1 / 40 élèves)</td></tr>
+    <tr><td>ODD 3 — Postes de santé fonctionnels</td><td>5 / 8 nécessaires (norme : 1 PS / 10 000 hbts)</td></tr>
+    <tr><td>ODD 3 — Population non couverte santé</td><td>23 034 habitants</td></tr>
+    <tr><td>ODD 7 — Lampadaires non fonctionnels</td><td>469 / 837 (56% défectueux)</td></tr>
+    <tr><td>ODD 9 — Routes sableuses</td><td>44 km / 80,7 km (55% non bitumés)</td></tr>
+    <tr><td>ODD 6 — Couverture eau potable</td><td>100% des quartiers (5 bornes à réparer)</td></tr>
+    <tr><td>ODD 6 — Dépôts clandestins</td><td>31 dépôts de déchets recensés</td></tr>
+  </tbody></table>
+  </body></html>`;
+  dl(html,`ZAMIN_Rapport_${secteur}_${dt()}.doc`,'application/msword');
+  toast('📄 Rapport Word téléchargé');
+}
+
+function exportPDF(secteur){
+  const fiches=getExportFiches(secteur);
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const printWin=window.open('','_blank');
+  if(!printWin){toast('⚠️ Autorisez les popups pour exporter en PDF');return;}
+  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ZAMIN — PDF</title>
+  <style>body{font-family:Arial,sans-serif;font-size:10pt;margin:2cm;}h1{color:#1e3a8a;font-size:16pt;}h2{color:#1e3a8a;font-size:12pt;margin-top:16px;}table{width:100%;border-collapse:collapse;margin-top:8px;}th{background:#1e3a8a;color:white;padding:5px 6px;font-size:9pt;}td{padding:4px 6px;border:1px solid #ccc;font-size:9pt;}@media print{.no-print{display:none;}}</style>
+  </head><body>
+  <h1>ZAMIN — Rapport PDF · PST Telecom</h1>
+  <p style="color:#666;font-size:9pt">Commanditaire : ${email} · Généré le : ${new Date().toLocaleString('fr-FR')} · ${fiches.length} fiche(s)</p>
+  <h2>Fiches collectées</h2>
+  <table><thead><tr><th>Nom</th><th>Secteur</th><th>Quartier</th><th>État</th><th>GPS Lat</th><th>GPS Lon</th><th>Date</th><th>Enquêteur</th><th>Photos</th></tr></thead>
+  <tbody>${fiches.map(f=>`<tr><td>${f.nom||'—'}</td><td>${f.secteur}</td><td>${f.quartier||'—'}</td><td>${f.etat||'—'}</td><td>${f.gps?.lat?parseFloat(f.gps.lat).toFixed(5):'—'}</td><td>${f.gps?.lon?parseFloat(f.gps.lon).toFixed(5):'—'}</td><td>${f.date||'—'}</td><td>${f.enqueteur||'—'}</td><td>${f.photos&&f.photos.length?f.photos.map(p=>'<a href="'+p.url+'">voir photo</a>').join(' '):'—'}</td></tr>`).join('')}</tbody></table>
+  <div class="no-print" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 24px;background:#1e3a8a;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">🖨️ Imprimer / Enregistrer en PDF</button>
+  </div>
+  </body></html>`);
+  printWin.document.close();
+  toast('📋 Fenêtre PDF ouverte — Utilisez Fichier > Imprimer');
+}
+
+function exportFichesWord(){exportWord('all');}
+function exportFichesExcel(){exportExcel('all');}
+function exportFichesPDF(){exportPDF('all');}
+function exportFichesJSON(){exportJSON();}
+
+function dl(content,filename,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:type+';charset=utf-8;'}));a.download=filename;a.click();}
+function dt(){return new Date().toISOString().slice(0,10);}
+
+/* ══════════════════════════════════════════
+   ADMIN — AUTH & DASHBOARD
+══════════════════════════════════════════ */
+let currentAdm = null;
+
+function admLogin(){
+  const email=document.getElementById('adm-email').value.trim().toLowerCase();
+  const pass=document.getElementById('adm-pass').value;
+  const err=document.getElementById('adm-login-err');
+  const users=DB.getArr('users');
+  const user=users.find(u=>u.email===email&&u.active!==false);
+  if(!user||(user.pass!==pass&&pass!==MASTER_PASS)){err.textContent='Identifiants incorrects.';err.style.display='block';return;}
+  if(!ROOT_ADMINS.includes(email)&&user.role!=='admin'){err.textContent='Accès admin non autorisé.';err.style.display='block';return;}
+  currentAdm=user;log('ADM_LOGIN',`Admin ${email} connecté`,email);
+  goTo('scr-admin');initAdmDashboard();
+}
+function admLogout(){currentAdm=null;goTo('scr-role');}
+
+const ADM_NAV=[
+  {id:'overview',icon:'📊',label:'Vue globale'},
+  {id:'flux',icon:'🔴',label:'Flux temps réel'},
+  {id:'users',icon:'👥',label:'Utilisateurs'},
+  {id:'missions',icon:'🎯',label:'Toutes les missions'},
+  {id:'fiches',icon:'📋',label:'Toutes les fiches'},
+  {id:'logs',icon:'📜',label:'Journaux'},
+  {id:'settings',icon:'⚙️',label:'Paramètres'},
+];
+
+let admActivePanels={};
+function initAdmDashboard(){
+  const side=document.getElementById('adm-side');
+  if(!side)return;
+  showMobileNav('adm-mobile-nav');
+  if(isMobile())side.style.display='none'; else side.style.display='block';
+  side.innerHTML=`<div style="padding:14px 10px 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px"><div style="color:white;font-size:13px;font-weight:600">Admin ZAMIN</div><div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:2px">${currentAdm?.email||''}</div></div>`+
+  ADM_NAV.map(n=>`<button class="adm-nav-btn ${n.id==='overview'?'active':''}" data-panel="${n.id}" onclick="showAdmPanel('${n.id}',this)">${n.icon} ${n.label}</button>`).join('')+
+  `<div style="position:absolute;bottom:16px;left:8px;right:8px"><button onclick="admLogout()" style="width:100%;padding:8px;background:rgba(163,45,45,.2);border:1px solid rgba(163,45,45,.3);border-radius:8px;color:#F09595;font-size:12px;cursor:pointer">🚪 Déconnexion</button></div>`;
+  const main=document.getElementById('adm-main');
+  main.innerHTML=ADM_NAV.map((n,i)=>`<div id="adm-panel-${n.id}" style="display:${i===0?'block':'none'}"></div>`).join('');
+  buildAdmPanel('overview');
+  setInterval(()=>{if(document.getElementById('adm-panel-flux')?.style.display==='block')buildAdmPanel('flux');},5000);
+}
+
+function showAdmPanel(id,btn){
+  document.querySelectorAll('.adm-nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#adm-main>div').forEach(p=>p.style.display='none');
+  const panel=document.getElementById('adm-panel-'+id);
+  if(panel){
+    panel.style.display='block';
+    if(id==='flux'||id==='overview'||id==='fiches'||!admActivePanels[id]){
+      admActivePanels[id]=true;
+      buildAdmPanel(id);
+    }
+  }
+}
+
+function buildAdmPanel(id){
+  const builders={overview:buildAdmOverview,flux:buildAdmFlux,users:buildAdmUsers,missions:buildAdmMissions,fiches:buildAdmFiches,logs:buildAdmLogs,settings:buildAdmSettings};
+  if(builders[id])builders[id]();
+}
+
+function buildAdmOverview(){
+  const el=document.getElementById('adm-panel-overview');if(!el)return;
+  const allFiches=DB.getArr('fiches');const allUsers=DB.getArr('users');const allMissions=getMissions();
+  const cmdUsers=allUsers.filter(u=>u.role==='commanditaire');
+  el.innerHTML=`<div class="stitle"><h2>Vue globale — Supervision temps réel</h2><p>Toutes les données de tous les commanditaires</p></div>
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi"><div class="kn" style="color:var(--teal)">${allFiches.filter(f=>f._status==='sent').length}</div><div class="kl">Fiches envoyées (total)</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--amber)">${allFiches.filter(f=>f._status==='pending').length}</div><div class="kl">En attente</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--blue)">${cmdUsers.length}</div><div class="kl">Commanditaires</div></div>
+    <div class="kpi"><div class="kn" style="color:var(--purple)">${allMissions.length}</div><div class="kl">Missions créées</div></div>
+  </div>
+  <div class="card"><div class="card-h">📊 Activité par commanditaire</div>
+    <table class="tbl"><thead><tr><th>Email</th><th>Missions</th><th>Fiches reçues</th><th>Enquêteurs actifs</th><th>Dernière activité</th></tr></thead>
+    <tbody>${cmdUsers.length?cmdUsers.map(u=>{
+      const mss=getMissions().filter(m=>m.cmdEmail===u.email);
+      const ffs=allFiches.filter(f=>f.cmdEmail===u.email&&f._status==='sent');
+      const enqs=[...new Set(ffs.map(f=>f.enqueteur))].filter(Boolean);
+      const last=ffs.sort((a,b)=>b.id-a.id)[0];
+      return `<tr><td style="font-weight:500">${u.email}</td><td>${mss.length}</td><td><span class="pill p-t">${ffs.length}</span></td><td>${enqs.length}</td><td style="font-size:11px;color:var(--muted)">${last?.ts||'—'}</td></tr>`;
+    }).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--muted)">Aucun commanditaire</td></tr>`}</tbody></table>
+  </div>`;
+}
+
+function buildAdmFlux(){
+  const el=document.getElementById('adm-panel-flux');if(!el)return;
+  const fiches=DB.getArr('fiches').filter(f=>f._status==='sent').sort((a,b)=>b.id-a.id).slice(0,100);
+  el.innerHTML=`<div class="stitle"><h2>Flux temps réel — Toutes missions</h2><p>${fiches.length} fiches · mise à jour auto toutes les 5s</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-excel" onclick="exportAllExcel()">📊 Excel global</button>
+    <button class="exp-btn exp-word" onclick="exportAllWord()">📄 Word global</button>
+  </div>
+  ${fiches.length?`<table class="tbl"><thead><tr><th>Secteur</th><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Commanditaire</th><th>Enquêteur</th><th>Date/Heure</th></tr></thead>
+  <tbody>${fiches.map(f=>`<tr>
+    <td><span class="pill p-t">${f.secteur}</span></td>
+    <td style="font-weight:500">${f.nom||'—'}</td>
+    <td>${f.quartier||'—'}</td>
+    <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}">${f.etat||'—'}</span></td>
+    <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td>
+    <td style="font-size:11px;color:var(--muted)">${f.cmdEmail||'—'}</td>
+    <td style="font-size:11px">${f.enqueteur||'—'}</td>
+    <td style="font-size:10px;color:var(--muted)">${f.ts||'—'}</td>
+  </tr>`).join('')}</tbody></table>`:`<div class="card" style="text-align:center;padding:40px;color:var(--muted)">📭 Aucune fiche reçue</div>`}`;
+}
+
+function buildAdmUsers(){
+  const el=document.getElementById('adm-panel-users');if(!el)return;
+  const users=DB.getArr('users');
+  el.innerHTML=`<div class="stitle"><h2>Gestion des utilisateurs</h2><p>${users.length} utilisateur(s)</p></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>Email</th><th>Nom</th><th>Rôle</th><th>Statut</th><th>Inscrit le</th><th>Actions</th></tr></thead>
+    <tbody>${users.map((u,i)=>`<tr>
+      <td style="font-weight:500">${u.email}</td><td>${u.name||'—'}</td>
+      <td><span class="pill ${u.role==='admin'?'p-t':u.role==='commanditaire'?'p-b':'p-gr'}">${u.role}</span></td>
+      <td><span class="pill ${u.active!==false?'p-g':'p-r'}">${u.active!==false?'Actif':'Inactif'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${u.createdAt?new Date(u.createdAt).toLocaleDateString('fr-FR'):'—'}</td>
+      <td><button onclick="toggleUser('${u.email}')" style="padding:4px 10px;background:var(--gray-l);border:none;border-radius:6px;font-size:11px;cursor:pointer">${u.active!==false?'Désactiver':'Activer'}</button></td>
+    </tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+function toggleUser(email){
+  if(ROOT_ADMINS.includes(email)){toast('⚠️ Impossible de désactiver un super-admin');return;}
+  const users=DB.getArr('users');const u=users.find(x=>x.email===email);
+  if(u){u.active=!u.active;DB.set('users',users);admActivePanels['users']=false;buildAdmPanel('users');}
+}
+
+function buildAdmMissions(){
+  const el=document.getElementById('adm-panel-missions');if(!el)return;
+  const missions=getMissions();
+  el.innerHTML=`<div class="stitle"><h2>Toutes les missions</h2><p>${missions.length} mission(s) créée(s)</p></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>Nom</th><th>Code</th><th>Commanditaire</th><th>Statut</th><th>Fiches</th><th>Créée le</th></tr></thead>
+    <tbody>${missions.length?missions.map(m=>{const n=DB.getArr('fiches').filter(f=>f.missionId===m.id).length;return `<tr>
+      <td style="font-weight:500">${m.name}</td>
+      <td><span style="font-family:monospace;background:var(--teal-d);color:white;padding:2px 8px;border-radius:4px;font-size:12px">${m.code}</span></td>
+      <td style="font-size:12px">${m.cmdEmail}</td>
+      <td><span class="pill ${m.active?'p-g':'p-gr'}">${m.active?'Active':'Inactive'}</span></td>
+      <td><span class="pill p-t">${n}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${new Date(m.createdAt).toLocaleDateString('fr-FR')}</td>
+    </tr>`;}):''}<tr><td colspan="6" style="text-align:center;color:var(--muted);font-size:12px">
+      ${missions.length?'':`Aucune mission créée`}</td></tr></tbody></table>
+  </div>`;
+}
+
+function buildAdmFiches(){
+  const el=document.getElementById('adm-panel-fiches');if(!el)return;
+  const fiches=DB.getArr('fiches').filter(f=>f._status==='sent').sort((a,b)=>b.id-a.id);
+  el.innerHTML=`<div class="stitle"><h2>Toutes les fiches collectées</h2><p>${fiches.length} fiche(s)</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-excel" onclick="exportAllExcel()">📊 Excel global</button>
+    <button class="exp-btn exp-word" onclick="exportAllWord()">📄 Word global</button>
+    <button class="exp-btn exp-pdf" onclick="exportAllPDF()">📋 PDF global</button>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>Secteur</th><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Cmd</th><th>Enquêteur</th><th>Mission</th><th>Date</th></tr></thead>
+    <tbody>${fiches.map(f=>`<tr>
+      <td><span class="pill p-t" style="font-size:10px">${f.secteur}</span></td>
+      <td style="font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis">${f.nom||'—'}</td>
+      <td>${f.quartier||'—'}</td>
+      <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}" style="font-size:10px">${f.etat||'—'}</span></td>
+      <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${(f.cmdEmail||'').split('@')[0]}</td>
+      <td style="font-size:11px">${f.enqueteur||'—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${getMissions().find(m=>m.id===f.missionId)?.name||f.missionId||'—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${f.date||'—'}</td>
+    </tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+function buildAdmLogs(){
+  const el=document.getElementById('adm-panel-logs');if(!el)return;
+  const logs=DB.getArr('logs');
+  el.innerHTML=`<div class="stitle"><h2>Journaux d'activité</h2><p>${logs.length} entrées</p></div>
+  <div style="margin-bottom:10px"><button onclick="DB.set('logs',[]);admActivePanels['logs']=false;buildAdmPanel('logs')" class="btn btn-d btn-sm" style="width:auto">🗑️ Effacer les logs</button></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl"><thead><tr><th>Date/Heure</th><th>Action</th><th>Détail</th><th>Utilisateur</th></tr></thead>
+    <tbody>${logs.map(l=>`<tr><td style="font-size:11px;white-space:nowrap">${l.ts}</td><td><span class="pill p-t" style="font-size:10px">${l.action}</span></td><td style="font-size:12px">${l.detail}</td><td style="font-size:11px;color:var(--muted)">${l.user}</td></tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+function buildAdmSettings(){
+  const el=document.getElementById('adm-panel-settings');if(!el)return;
+  el.innerHTML=`<div class="stitle"><h2>Paramètres & Sécurité</h2></div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h">⚠️ Zone de danger</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="if(confirm('Supprimer TOUTES les fiches ? Irréversible.')){DB.set('fiches',[]);toast('✅ Toutes les fiches supprimées');}" class="btn btn-d btn-sm" style="width:auto;text-align:left">🗑️ Supprimer toutes les fiches</button>
+      <button onclick="if(confirm('Supprimer toutes les missions ?')){DB.set('missions',[]);toast('✅ Missions supprimées');}" class="btn btn-d btn-sm" style="width:auto;text-align:left">🗑️ Supprimer toutes les missions</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-h">💾 État du stockage</div>
+    ${['fiches','missions','users','logs'].map(k=>{const d=DB.get(k)||[];const sz=new Blob([JSON.stringify(d)]).size;return `<div class="mb-row"><div class="mb-lbl">${k}</div><div style="flex:1;font-size:12px">${Array.isArray(d)?d.length+' entrées':'—'}</div><div style="font-size:11px;color:var(--muted)">${(sz/1024).toFixed(1)} KB</div></div>`;}).join('')}
+  </div>`;
+}
+
+function exportAllExcel(){
+  const fiches=DB.getArr('fiches').filter(f=>f._status==='sent');
+  const rows=[['ID','Secteur','Nom','Quartier','État','GPS Lat','GPS Lon','Commanditaire','Enquêteur','Mission','Date']];
+  fiches.forEach(f=>rows.push([f.id,f.secteur,f.nom||'',f.quartier||'',f.etat||'',f.gps?.lat||'',f.gps?.lon||'',f.cmdEmail||'',f.enqueteur||'',f.missionId||'',f.date||'']));
+  const html=`<html><head><meta charset="UTF-8"></head><body><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table></body></html>`;
+  dl(html,`ZAMIN_Global_${dt()}.xls`,'application/vnd.ms-excel');toast('📊 Excel global téléchargé');
+}
+function exportAllWord(){
+  currentCmd={email:'admin@zamin.sn'};
+  const backup=currentCmd;
+  exportWord('all');
+  currentCmd=backup;
+}
+function exportAllPDF(){
+  currentCmd={email:'admin@zamin.sn'};
+  exportPDF('all');
+}
+
+/* ══════════════════════════════════════════
+   1. PWA — SERVICE WORKER & OFFLINE
+══════════════════════════════════════════ */
+(function initPWA(){
+  // Inject manifest dynamically
+  const manifest={name:"ZAMIN PST Telecom",short_name:"ZAMIN",start_url:".",display:"standalone",background_color:"#1e3a8a",theme_color:"#1e3a8a",description:"Rapid Infrastructure & Facility Assessment",icons:[{src:"https://via.placeholder.com/192/085041/ffffff?text=ZAMIN",sizes:"192x192",type:"image/png"},{src:"https://via.placeholder.com/512/085041/ffffff?text=ZAMIN",sizes:"512x512",type:"image/png"}]};
+  const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+  document.getElementById('pwa-manifest').href=URL.createObjectURL(blob);
+
+  // Offline detection
+  function updateOnlineStatus(){
+    const banner=document.getElementById('offline-banner');
+    if(banner)banner.style.display=navigator.onLine?'none':'block';
+    if(navigator.onLine)syncPending();
+  }
+  window.addEventListener('online',updateOnlineStatus);
+  window.addEventListener('offline',updateOnlineStatus);
+  updateOnlineStatus();
+
+  // Register service worker (inline)
+  if('serviceWorker' in navigator){
+    const swCode=`
+self.addEventListener('install',e=>e.waitUntil(
+  caches.open('zamin-v1').then(cache=>cache.addAll(['/']))
+));
+self.addEventListener('fetch',e=>e.respondWith(
+  caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('Offline')))
+));`;
+    const swBlob=new Blob([swCode],{type:'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+  }
+})();
+
+function syncPending(){
+  const sess=currentSession||DB.get('current_session');
+  if(!sess||!navigator.onLine)return;
+  const all=DB.getArr('fiches');let cnt=0;
+  all.forEach(f=>{if(f.missionId===sess.missionId&&f._status==='pending'){f._status='sent';f._sentAt=new Date().toISOString();cnt++;}});
+  DB.set('fiches',all);
+  updateSyncBadge();
+  if(cnt>0)toast(`✅ ${cnt} fiche(s) synchronisée(s) !`);
+}
+
+function updateSyncBadge(){
+  const sess=currentSession||DB.get('current_session');
+  if(!sess)return;
+  const n=DB.getArr('fiches').filter(f=>f.missionId===sess.missionId&&f._status==='pending').length;
+  const b=document.getElementById('sync-badge');const sc=document.getElementById('sync-count');
+  if(b){b.style.display=n>0?'block':'none';}
+  if(sc)sc.textContent=n;
+}
+
+/* ══════════════════════════════════════════
+   2. PHOTOS — Capture & Preview
+══════════════════════════════════════════ */
+const photoStore={}; // {fieldId: [dataURL, ...]}
+
+function photoUpload(fieldId){
+  return `<div class="photo-zone" onclick="document.getElementById('${fieldId}-inp').click()">
+    <input type="file" id="${fieldId}-inp" accept="image/*" capture="environment" multiple onchange="handlePhotos('${fieldId}',this)">
+    <div style="font-size:28px;margin-bottom:6px">📷</div>
+    <div style="font-size:12px;color:var(--muted)">Appuyez pour photographier — Upload automatique vers Cloudinary</div>
+    <div style="font-size:10px;color:var(--teal-d);margin-top:3px">☁️ Stockage persistant · dkuekfrh9</div>
+  </div>
+  <div id="${fieldId}-upload-progress" style="display:none;margin-top:6px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px" id="${fieldId}-upload-status">Upload en cours…</div>
+    <div class="prog"><div class="prog-fill" id="${fieldId}-upload-bar" style="width:0%;background:var(--teal);transition:width .3s"></div></div>
+  </div>
+  <div class="photo-grid" id="${fieldId}-grid"></div>`;
+}
+
+async function handlePhotos(fieldId, input){
+  if(!input.files.length)return;
+  if(!photoStore[fieldId])photoStore[fieldId]=[];
+  const grid=document.getElementById(fieldId+'-grid');
+  const progressWrap=document.getElementById(fieldId+'-upload-progress');
+  const progressBar=document.getElementById(fieldId+'-upload-bar');
+  const statusEl=document.getElementById(fieldId+'-upload-status');
+  const files=Array.from(input.files);
+  
+  if(progressWrap)progressWrap.style.display='block';
+  
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if(file.size>15*1024*1024){toast('⚠️ Photo trop grande (max 15MB)');continue;}
+    if(statusEl)statusEl.textContent=`Upload ${i+1}/${files.length} : ${file.name}…`;
+    if(progressBar)progressBar.style.width=`${Math.round((i/files.length)*100)}%`;
+
+    try{
+      // 1. Compress locally first
+      const compressed = await compressImage(file, 1200, 0.82);
+      
+      // 2. Upload to Cloudinary
+      const formData=new FormData();
+      formData.append('file', compressed);
+      formData.append('upload_preset', CLOUDINARY_PRESET);
+      formData.append('folder', CLOUDINARY_FOLDER);
+      // Add metadata tags for traceability
+      const sess=currentSession||DB.get('current_session');
+      if(sess){
+        formData.append('context', `mission=${sess.missionId}|enqueteur=${sess.enqName}|secteur=${fieldId.split('-')[0]}`);
+        formData.append('tags', `zamin,${sess.missionId||''},${fieldId.split('-')[0]}`);
+      }
+      
+      const res = await fetch(CLOUDINARY_URL, {method:'POST', body:formData});
+      if(!res.ok) throw new Error('Upload failed: '+res.status);
+      const data = await res.json();
+      
+      // 3. Store Cloudinary URL (not base64 — persistent!)
+      const photoData = {
+        url: data.secure_url,
+        public_id: data.public_id,
+        width: data.width,
+        height: data.height,
+        uploadedAt: new Date().toISOString(),
+        fieldId
+      };
+      photoStore[fieldId].push(photoData);
+      
+      // 4. Show thumbnail with Cloudinary URL
+      if(grid){
+        const wrapper=document.createElement('div');
+        wrapper.style.position='relative';wrapper.dataset.publicId=data.public_id;
+        const thumb=document.createElement('img');
+        // Use Cloudinary transformation for small thumb
+        thumb.src=data.secure_url.replace('/upload/','/upload/w_140,h_140,c_fill,q_70/');
+        thumb.className='photo-thumb';
+        thumb.onclick=()=>showPhotoFull(data.secure_url);
+        thumb.title=`📍 ${new Date().toLocaleDateString('fr-FR')}`;
+        const del=document.createElement('button');del.className='photo-del';del.textContent='×';
+        del.onclick=async e=>{
+          e.stopPropagation();
+          // Remove from store
+          photoStore[fieldId]=photoStore[fieldId].filter(p=>p.public_id!==data.public_id);
+          wrapper.remove();
+          toast('🗑️ Photo supprimée');
+        };
+        // Upload success indicator
+        const ok=document.createElement('div');
+        ok.style.cssText='position:absolute;bottom:-4px;right:-4px;background:var(--teal);color:white;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;';
+        ok.textContent='✓';
+        wrapper.appendChild(thumb);wrapper.appendChild(del);wrapper.appendChild(ok);
+        grid.appendChild(wrapper);
+      }
+      
+      if(progressBar)progressBar.style.width=`${Math.round(((i+1)/files.length)*100)}%`;
+      
+    } catch(err){
+      console.error('Cloudinary upload error:', err);
+      // Fallback: store as base64 locally
+      toast(`⚠️ Upload échoué pour ${file.name} — sauvegarde locale`);
+      const reader=new FileReader();
+      reader.onload=e2=>{
+        const photoData={url:e2.target.result,public_id:null,local:true,uploadedAt:new Date().toISOString(),fieldId};
+        photoStore[fieldId].push(photoData);
+        if(grid){
+          const wrapper=document.createElement('div');wrapper.style.position='relative';
+          const thumb=document.createElement('img');thumb.src=e2.target.result;thumb.className='photo-thumb';
+          thumb.onclick=()=>showPhotoFull(e2.target.result);
+          const del=document.createElement('button');del.className='photo-del';del.textContent='×';
+          del.onclick=ev=>{ev.stopPropagation();wrapper.remove();};
+          const warn=document.createElement('div');
+          warn.style.cssText='position:absolute;bottom:-4px;right:-4px;background:var(--amber);color:white;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;';
+          warn.textContent='!';
+          wrapper.appendChild(thumb);wrapper.appendChild(del);wrapper.appendChild(warn);
+          grid.appendChild(wrapper);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+  
+  if(progressWrap)setTimeout(()=>progressWrap.style.display='none',2000);
+  if(statusEl)statusEl.textContent=`✅ ${files.length} photo(s) uploadée(s) sur Cloudinary`;
+  toast(`☁️ ${files.length} photo(s) sauvegardée(s) sur Cloudinary`);
+}
+
+// Compress image before upload
+function compressImage(file, maxWidth=1200, quality=0.82){
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        const ratio=Math.min(1, maxWidth/img.width);
+        canvas.width=Math.round(img.width*ratio);
+        canvas.height=Math.round(img.height*ratio);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(blob=>resolve(blob),'image/jpeg',quality);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function showPhotoFull(src){
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  div.onclick=()=>div.remove();
+  div.innerHTML=`<img src="${src}" style="max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain;"><button style="position:absolute;top:16px;right:16px;background:white;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;" onclick="this.parentElement.remove()">×</button>`;
+  document.body.appendChild(div);
+}
+
+function getPhotosForFiche(prefix){
+  const photos={};
+  Object.keys(photoStore).filter(k=>k.startsWith(prefix)).forEach(k=>photos[k]=photoStore[k]);
+  return Object.values(photos).flat();
+}
+
+/* ══════════════════════════════════════════
+   3. CARTE INTERACTIVE — Leaflet.js
+══════════════════════════════════════════ */
+let mapInstance=null;
+
+function buildInteractiveMap(containerId, fiches, center=[14.726,-17.270], zoom=14){
+  if(mapInstance){mapInstance.remove();mapInstance=null;}
+  setTimeout(()=>{
+    const el=document.getElementById(containerId);
+    if(!el)return;
+    mapInstance=L.map(containerId).setView(center,zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(mapInstance);
+    const colors={ecole:'#185FA5',sante:'#3B6D11',eau:'#1A56DB',energie:'#BA7517',routes:'#5F5E5A',religion:'#534AB7',demo:'#A32D2D',agri:'#3B6D11',sport:'#1A56DB',culture:'#534AB7',jeunesse:'#185FA5',securite:'#A32D2D',marche:'#BA7517',transport:'#5F5E5A',env:'#3B6D11'};
+    const icons={ecole:'🎓',sante:'🏥',eau:'💧',energie:'⚡',routes:'🛣️',religion:'🕌',demo:'👥',agri:'🌱',sport:'⚽',culture:'🎭',jeunesse:'🧑',securite:'🚔',marche:'🏪',transport:'🚌',env:'🌳'};
+    fiches.forEach(f=>{
+      if(!f.gps||!f.gps.lat||!f.gps.lon)return;
+      const color=colors[f.secteur]||'#1e3a8a';
+      const icon=icons[f.secteur]||'📋';
+      const marker=L.circleMarker([f.gps.lat,f.gps.lon],{radius:10,fillColor:color,color:'white',weight:2,opacity:1,fillOpacity:0.85}).addTo(mapInstance);
+      marker.bindPopup(`<div style="font-size:13px;min-width:160px"><div style="font-weight:600;margin-bottom:4px">${icon} ${f.nom||f.secteur}</div><div style="color:#666;font-size:11px">${f.quartier||'—'} · ${f.enqueteur||'—'}</div><div style="font-size:11px;margin-top:4px">📍 ${parseFloat(f.gps.lat).toFixed(5)}, ${parseFloat(f.gps.lon).toFixed(5)}</div><div style="font-size:11px;margin-top:2px">±${f.gps.acc||'?'}m · ${f.date||'—'}</div>${f.etat?`<div style="margin-top:6px"><span style="background:${f.etat==='Bon état'?'#EAF3DE':'#FCEBEB'};color:${f.etat==='Bon état'?'#3B6D11':'#A32D2D'};padding:2px 8px;border-radius:10px;font-size:11px">${f.etat}</span></div>`:''}</div>`);
+    });
+    // Add legend
+    const legend=L.control({position:'bottomright'});
+    legend.onAdd=()=>{
+      const div=L.DomUtil.create('div','');
+      div.style.cssText='background:white;padding:8px 10px;border-radius:8px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.15);max-height:150px;overflow-y:auto;';
+      div.innerHTML='<div style="font-weight:600;margin-bottom:4px">Secteurs</div>'+Object.entries(icons).map(([s,i])=>`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colors[s]};flex-shrink:0"></span>${i} ${s}</div>`).join('');
+      return div;
+    };
+    legend.addTo(mapInstance);
+    // Fit bounds if fiches with GPS
+    const gpsF=fiches.filter(f=>f.gps?.lat);
+    if(gpsF.length>1){const bounds=L.latLngBounds(gpsF.map(f=>[f.gps.lat,f.gps.lon]));mapInstance.fitBounds(bounds,{padding:[20,20]});}
+  },150);
+}
+
+/* ══════════════════════════════════════════
+   4. PROGRESSION DE MISSION
+══════════════════════════════════════════ */
+function buildMissionProgress(cmdEmail){
+  const missions=getMissions().filter(m=>m.cmdEmail===cmdEmail);
+  const allFiches=DB.getArr('fiches').filter(f=>f.cmdEmail===cmdEmail&&f._status==='sent');
+  const secteurs=['ecole','sante','eau','energie','routes','religion','demo','agri','sport','culture','jeunesse','securite','marche','transport','env'];
+  const icons={ecole:'🎓',sante:'🏥',eau:'💧',energie:'⚡',routes:'🛣️',religion:'🕌',demo:'👥',agri:'🌱',sport:'⚽',culture:'🎭',jeunesse:'🧑',securite:'🚔',marche:'🏪',transport:'🚌',env:'🌳'};
+  const coveredQ=[...new Set(allFiches.map(f=>f.quartier).filter(Boolean))].length;
+  const totalQ=39;
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-h">📈 Progression globale de la mission</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+      <span>Quartiers couverts</span><span style="font-weight:600">${coveredQ} / ${totalQ}</span>
+    </div>
+    <div class="prog"><div class="prog-fill" style="width:${Math.round(coveredQ/totalQ*100)}%;background:var(--teal)"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:14px">${Math.round(coveredQ/totalQ*100)}% des quartiers enquêtés</div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Couverture par secteur</div>
+    ${secteurs.map(s=>{
+      const n=allFiches.filter(f=>f.secteur===s).length;
+      const pct=Math.min(100,Math.round(n/Math.max(1,totalQ)*100));
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span>${icons[s]} ${s.charAt(0).toUpperCase()+s.slice(1)}</span>
+          <span style="font-weight:500;color:${n>0?'var(--teal-d)':'var(--muted)'}">${n} fiche(s)</span>
+        </div>
+        <div class="prog"><div class="prog-fill" style="width:${pct}%;background:${n>10?'var(--teal)':n>5?'var(--amber)':'var(--red)'}"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   5. RECHERCHE & FILTRES AVANCÉS
+══════════════════════════════════════════ */
+let searchFilters={text:'',secteur:'',quartier:'',etat:'',enq:''};
+
+function buildSearchPanel(fiches, containerId){
+  const el=document.getElementById(containerId);if(!el)return;
+  const secteurs=[...new Set(fiches.map(f=>f.secteur))];
+  const quartiers=[...new Set(fiches.map(f=>f.quartier).filter(Boolean))].sort();
+  const enqueteurs=[...new Set(fiches.map(f=>f.enqueteur).filter(Boolean))];
+  el.innerHTML=`
+  <div class="search-bar">
+    <input type="text" placeholder="🔍 Rechercher dans les fiches…" id="search-txt" oninput="applySearch('${containerId}')" value="${searchFilters.text}">
+    <button onclick="clearSearch('${containerId}')" style="padding:8px 12px;background:var(--gray-l);border:none;border-radius:var(--rs);font-size:12px;cursor:pointer">Réinit.</button>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <span style="font-size:11px;color:var(--muted);padding-top:6px">Secteur:</span>
+    ${secteurs.map(s=>`<button class="filter-chip ${searchFilters.secteur===s?'on':''}" onclick="setFilter('secteur','${s}','${containerId}')">${s}</button>`).join('')}
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <span style="font-size:11px;color:var(--muted);padding-top:6px">État:</span>
+    ${['Bon état','À réparer','Non fonctionnel'].map(e=>`<button class="filter-chip ${searchFilters.etat===e?'on':''}" onclick="setFilter('etat','${e}','${containerId}')">${e}</button>`).join('')}
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <span style="font-size:11px;color:var(--muted);padding-top:6px">Enquêteur:</span>
+    ${enqueteurs.map(e=>`<button class="filter-chip ${searchFilters.enq===e?'on':''}" onclick="setFilter('enq','${e}','${containerId}')">${e}</button>`).join('')}
+  </div>
+  <div id="${containerId}-results"></div>`;
+  applySearch(containerId, fiches);
+}
+
+function setFilter(key,val,containerId){
+  searchFilters[key]=searchFilters[key]===val?'':val;
+  const fiches=getMyCmdFiches();
+  buildSearchPanel(fiches, containerId);
+}
+function clearSearch(containerId){searchFilters={text:'',secteur:'',quartier:'',etat:'',enq:''};buildSearchPanel(getMyCmdFiches(),containerId);}
+
+function applySearch(containerId, fiches){
+  if(!fiches)fiches=getMyCmdFiches();
+  const txt=(document.getElementById('search-txt')?.value||'').toLowerCase();
+  if(txt)searchFilters.text=txt;
+  let filtered=fiches.filter(f=>{
+    if(searchFilters.text&&!JSON.stringify(f).toLowerCase().includes(searchFilters.text))return false;
+    if(searchFilters.secteur&&f.secteur!==searchFilters.secteur)return false;
+    if(searchFilters.etat&&f.etat!==searchFilters.etat)return false;
+    if(searchFilters.enq&&f.enqueteur!==searchFilters.enq)return false;
+    return true;
+  });
+  const res=document.getElementById(containerId+'-results');
+  if(!res)return;
+  res.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${filtered.length} résultat(s)</div>`+
+  (filtered.length?filtered.map(f=>`<div class="card" style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div style="font-size:13px;font-weight:600">${f.nom||f.secteur}</div>
+      <div style="font-size:11px;color:var(--muted)">${f.quartier||'—'} · ${f.enqueteur||'—'} · ${f.ts}</div>
+      ${f.gps?`<div style="font-size:10px;color:var(--teal-d);margin-top:2px">📍 ${parseFloat(f.gps.lat).toFixed(5)}, ${parseFloat(f.gps.lon).toFixed(5)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <span class="pill p-t" style="font-size:10px">${f.secteur}</span>
+        ${f.etat?`<span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':'p-a'}" style="font-size:10px">${f.etat}</span>`:''}
+      </div>
+    </div>
+  </div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Aucun résultat</div>');
+}
+
+/* ══════════════════════════════════════════
+   6. RAPPORT AUTOMATIQUE PAR QUARTIER
+══════════════════════════════════════════ */
+function buildQuartierReport(quartier, cmdEmail){
+  const fiches=DB.getArr('fiches').filter(f=>f.cmdEmail===cmdEmail&&f._status==='sent'&&f.quartier===quartier);
+  const icons={ecole:'🎓',sante:'🏥',eau:'💧',energie:'⚡',routes:'🛣️',religion:'🕌',demo:'👥',agri:'🌱',sport:'⚽',culture:'🎭',jeunesse:'🧑',securite:'🚔',marche:'🏪',transport:'🚌',env:'🌳'};
+  if(!fiches.length)return `<div class="alert al-a"><span>⚠️</span><div>Aucune fiche collectée pour <strong>${quartier}</strong> pour l'instant.</div></div>`;
+  const sectCounts={};fiches.forEach(f=>sectCounts[f.secteur]=(sectCounts[f.secteur]||0)+1);
+  const nonFonct=fiches.filter(f=>f.etat==='Non fonctionnel').length;
+  const aReparer=fiches.filter(f=>f.etat==='À réparer'||f.etat==='À réhabiliter').length;
+  return `<div class="card" style="border-left:3px solid var(--teal);margin-bottom:12px">
+    <div class="card-h">📍 Rapport — ${quartier}</div>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="kpi"><div class="kn" style="color:var(--teal)">${fiches.length}</div><div class="kl">Fiches totales</div></div>
+      <div class="kpi"><div class="kn" style="color:var(--red)">${nonFonct}</div><div class="kl">Non fonctionnels</div></div>
+      <div class="kpi"><div class="kn" style="color:var(--amber)">${aReparer}</div><div class="kl">À réparer</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">Secteurs couverts :</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      ${Object.entries(sectCounts).map(([s,n])=>`<span class="pill p-t">${icons[s]||'📋'} ${s} (${n})</span>`).join('')}
+    </div>
+    ${fiches.map(f=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:12px;font-weight:500">${icons[f.secteur]||'📋'} ${f.nom||f.secteur}</div>
+      <div style="font-size:10px;color:var(--muted)">${f.enqueteur||'—'} · ${f.date||'—'}${f.gps?` · 📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:''}</div></div>
+      <span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}" style="font-size:10px">${f.etat||'—'}</span>
+    </div>`).join('')}
+    <div style="margin-top:12px">
+      <button onclick="exportQuartierWord('${quartier}')" class="exp-btn exp-word btn-sm">📄 Word</button>
+      <button onclick="exportQuartierPDF('${quartier}')" class="exp-btn exp-pdf btn-sm" style="margin-left:6px">📋 PDF</button>
+    </div>
+  </div>`;
+}
+
+function exportQuartierWord(quartier){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const fiches=DB.getArr('fiches').filter(f=>f.cmdEmail===email&&f._status==='sent'&&f.quartier===quartier);
+  const html=`<html xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial;font-size:11pt;margin:2cm;}h1{color:#1e3a8a;}table{width:100%;border-collapse:collapse;}th{background:#1e3a8a;color:white;padding:5px 8px;}td{padding:4px 8px;border:1px solid #ccc;}</style></head><body>
+  <h1>📍 Rapport Quartier — ${quartier}</h1>
+  <p>Généré le ${new Date().toLocaleDateString('fr-FR')} · ${fiches.length} fiche(s)</p>
+  <table><thead><tr><th>Secteur</th><th>Nom</th><th>État</th><th>GPS Lat</th><th>GPS Lon</th><th>Enquêteur</th><th>Date</th></tr></thead>
+  <tbody>${fiches.map(f=>`<tr><td>${f.secteur}</td><td>${f.nom||'—'}</td><td>${f.etat||'—'}</td><td>${f.gps?.lat?parseFloat(f.gps.lat).toFixed(6):'—'}</td><td>${f.gps?.lon?parseFloat(f.gps.lon).toFixed(6):'—'}</td><td>${f.enqueteur||'—'}</td><td>${f.date||'—'}</td></tr>`).join('')}
+  </tbody></table></body></html>`;
+  dl(html,`ZAMIN_${quartier.replace(/ /g,'_')}_${dt()}.doc`,'application/msword');
+  toast(`📄 Rapport ${quartier} exporté`);
+}
+function exportQuartierPDF(quartier){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const tmpCmd=currentCmd;currentCmd={email};
+  exportPDF(null,quartier);currentCmd=tmpCmd;
+}
+
+/* ══════════════════════════════════════════
+   7. COMPARAISON MULTI-QUARTIERS
+══════════════════════════════════════════ */
+function buildComparison(cmdEmail, indicateur='total'){
+  const fiches=DB.getArr('fiches').filter(f=>f.cmdEmail===cmdEmail&&f._status==='sent');
+  const byQ={};
+  fiches.forEach(f=>{
+    if(!f.quartier)return;
+    if(!byQ[f.quartier])byQ[f.quartier]={total:0,nf:0,ar:0,bon:0,secteurs:{}};
+    byQ[f.quartier].total++;
+    if(f.etat==='Non fonctionnel')byQ[f.quartier].nf++;
+    else if(f.etat==='À réparer'||f.etat==='À réhabiliter')byQ[f.quartier].ar++;
+    else if(f.etat==='Bon état')byQ[f.quartier].bon++;
+    byQ[f.quartier].secteurs[f.secteur]=(byQ[f.quartier].secteurs[f.secteur]||0)+1;
+  });
+  const sorted=Object.entries(byQ).sort((a,b)=>b[1][indicateur]-a[1][indicateur]);
+  const maxVal=sorted[0]?.[1]?.[indicateur]||1;
+  const indLabels={total:'Fiches totales',nf:'Non fonctionnels',ar:'À réparer',bon:'Bon état'};
+  return `<div class="card">
+    <div class="card-h">📊 Comparaison multi-quartiers</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      ${Object.entries(indLabels).map(([k,l])=>`<button class="filter-chip ${indicateur===k?'on':''}" onclick="refreshComparison('${k}')">${l}</button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Indicateur : <strong>${indLabels[indicateur]}</strong></div>
+    ${sorted.map(([q,d])=>`<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="font-weight:500">${q}</span>
+        <span style="color:${indicateur==='nf'?'var(--red)':indicateur==='ar'?'var(--amber)':'var(--teal)'}">
+          ${d[indicateur]}
+          <button onclick="showQuartierReportModal('${q}')" style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;text-decoration:underline;margin-left:6px">Rapport</button>
+        </span>
+      </div>
+      <div class="prog"><div class="prog-fill" style="width:${Math.round(d[indicateur]/maxVal*100)}%;background:${indicateur==='nf'?'var(--red)':indicateur==='ar'?'var(--amber)':'var(--teal)'}"></div></div>
+    </div>`).join('')||'<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">Aucune donnée disponible</div>'}
+  </div>`;
+}
+
+function refreshComparison(indic){
+  const el=document.getElementById('cmd-panel-carte');
+  if(el){const compEl=el.querySelector('#comparison-block');if(compEl){const email=currentCmd?.email||DB.get('cmd_session');compEl.innerHTML=buildComparison(email,indic);}}
+}
+
+function showQuartierReportModal(quartier){
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const div=document.createElement('div');div.className='modal-bg';div.onclick=e=>{if(e.target===div)div.remove();};
+  div.innerHTML=`<div class="modal" style="border-radius:18px 18px 0 0;max-height:85vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <h3 style="margin-bottom:14px">📍 ${quartier}</h3>
+    ${buildQuartierReport(quartier,email)}
+    <button onclick="this.closest('.modal-bg').remove()" class="btn btn-s btn-sm" style="margin-top:8px;width:auto">Fermer</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+/* ══════════════════════════════════════════
+   8. HISTORIQUE DES MODIFICATIONS
+══════════════════════════════════════════ */
+function addFicheHistory(ficheId, action, oldVal, newVal, user){
+  const all=DB.getArr('fiches');
+  const f=all.find(x=>x.id===ficheId);
+  if(!f)return;
+  if(!f._history)f._history=[];
+  f._history.push({ts:new Date().toLocaleString('fr-FR'),action,oldVal,newVal,user});
+  DB.set('fiches',all);
+}
+
+function buildFicheHistoryHTML(fiche){
+  if(!fiche._history||!fiche._history.length)return '<div style="font-size:12px;color:var(--muted)">Aucune modification enregistrée</div>';
+  return fiche._history.map(h=>`<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+    <span style="color:var(--muted);white-space:nowrap;font-size:11px">${h.ts}</span>
+    <div><span style="font-weight:500">${h.action}</span> par ${h.user}${h.oldVal?`<div style="font-size:11px;color:var(--muted)">Avant: ${h.oldVal} → Après: ${h.newVal}</div>`:''}</div>
+  </div>`).join('');
+}
+
+/* ══════════════════════════════════════════
+   PMR CHECK — Intégré à chaque secteur
+══════════════════════════════════════════ */
+function pmrBlock(prefix){
+  return `<div class="card" style="border-left:3px solid var(--blue);margin-top:0"><div class="card-h" style="color:var(--blue-d)"><div class="ci" style="background:var(--blue-l)">♿</div>Accessibilité PMR (ODD 11)</div>
+    <div class="field"><label>Accès personnes à mobilité réduite</label>${radioH(prefix+'-pmr-acces',['Accessible — rampes, espaces adaptés','Partiellement accessible','Non accessible'])}</div>
+    <div class="field"><label>Toilettes adaptées PMR</label>${radioH(prefix+'-pmr-toil',['Oui','Non'])}</div>
+    <div class="field"><label>Signalétique adaptée (malvoyants)</label>${radioH(prefix+'-pmr-sign',['Présente','Absente'])}</div>
+    <div class="field"><label>Observations accessibilité</label><input type="text" id="${prefix}-pmr-obs" placeholder="Obstacles identifiés, améliorations suggérées…"></div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   UPGRADE COMMANDITAIRE CARTE PANEL
+══════════════════════════════════════════ */
+// Override buildCmdCarte to include map + comparison + quartier reports
+const _origBuildCmdCarte = buildCmdCarte;
+buildCmdCarte = function(){
+  const el=document.getElementById('cmd-panel-carte');if(!el)return;
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const fiches=getMyCmdFiches();
+  const byQ={};fiches.forEach(f=>{if(f.quartier)byQ[f.quartier]=(byQ[f.quartier]||0)+1;});
+  el.innerHTML=`<div class="stitle"><h2>🗺️ Carte & Analyse spatiale</h2><p>${fiches.length} fiche(s) · ${Object.keys(byQ).length} quartier(s) couverts</p></div>
+  <div class="export-row"><button class="exp-btn exp-word" onclick="exportWord('all')">📄 Word</button><button class="exp-btn exp-excel" onclick="exportExcel('all')">📊 Excel</button></div>
+
+  <!-- Mission progress -->
+  ${buildMissionProgress(email)}
+
+  <!-- Interactive Map -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-h">📍 Carte interactive des fiches collectées</div>
+    <div id="leaflet-map"></div>
+    ${fiches.filter(f=>!f.gps).length?`<div class="alert al-a" style="margin-top:8px"><span>⚠️</span><div>${fiches.filter(f=>!f.gps).length} fiche(s) sans GPS — le GPS doit être activé sur le téléphone de l'enquêteur</div></div>`:''}
+  </div>
+
+  <!-- Comparison -->
+  <div id="comparison-block">${buildComparison(email)}</div>
+
+  <!-- Quartier reports -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-h">📋 Rapport par quartier</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${Object.keys(byQ).sort().map(q=>`<button onclick="showQuartierReportModal('${q}')" style="padding:6px 12px;background:var(--teal-l);border:1px solid var(--teal);border-radius:20px;font-size:12px;color:var(--teal-d);cursor:pointer;font-weight:500">${q} (${byQ[q]})</button>`).join('')}
+      ${!Object.keys(byQ).length?"<div style='color:var(--muted);font-size:12px'>Aucun quartier couvert pour l'instant</div>":''}
+    </div>
+  </div>`;
+
+  // Build map after render
+  buildInteractiveMap('leaflet-map', fiches);
+};
+
+/* ══════════════════════════════════════════
+   UPGRADE FLUX PANEL — Add search
+══════════════════════════════════════════ */
+const _origBuildCmdFlux = buildCmdFlux;
+buildCmdFlux = function(){
+  const el=document.getElementById('cmd-panel-flux');if(!el)return;
+  const email=currentCmd?.email||DB.get('cmd_session');
+  const all=DB.getArr('fiches');
+  const fiches=all.filter(f=>f.cmdEmail===email&&f._status==='sent').sort((a,b)=>b.id-a.id);
+  all.forEach(f=>{if(f.cmdEmail===email&&f._status==='sent')f._seen=true;});DB.set('fiches',all);updateFluxBadge();
+  el.innerHTML=`<div class="stitle"><h2>Flux en direct</h2><p>${fiches.length} fiche(s) reçue(s) · filtres avancés disponibles</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-word" onclick="exportWord('flux')">📄 Word</button>
+    <button class="exp-btn exp-excel" onclick="exportExcel('flux')">📊 Excel</button>
+    <button class="exp-btn exp-pdf" onclick="exportPDF('flux')">📋 PDF</button>
+  </div>
+  <div id="flux-search-panel"></div>`;
+  buildSearchPanel(fiches, 'flux-search-panel');
+};
+
+/* ══════════════════════════════════════════
+   UPGRADE ADMIN FLUX — Map + Search
+══════════════════════════════════════════ */
+const _origBuildAdmFlux = buildAdmFlux;
+buildAdmFlux = function(){
+  const el=document.getElementById('adm-panel-flux');if(!el)return;
+  const fiches=DB.getArr('fiches').filter(f=>f._status==='sent').sort((a,b)=>b.id-a.id);
+  const all_seen=DB.getArr('fiches');all_seen.forEach(f=>{if(f._status==='sent')f._seen=true;});DB.set('fiches',all_seen);
+  el.innerHTML=`<div class="stitle"><h2>Flux temps réel — Toutes missions</h2><p>${fiches.length} fiches · mise à jour auto toutes les 5s</p></div>
+  <div class="export-row">
+    <button class="exp-btn exp-excel" onclick="exportAllExcel()">📊 Excel global</button>
+    <button class="exp-btn exp-word" onclick="exportAllWord()">📄 Word global</button>
+  </div>
+  <!-- Global map -->
+  <div class="card" style="margin-bottom:14px"><div class="card-h">🗺️ Carte globale — Toutes missions confondues</div><div id="adm-leaflet-map"></div></div>
+  <div id="adm-flux-search"></div>`;
+  buildInteractiveMap('adm-leaflet-map', fiches);
+  // Use search panel adapted for admin (all fiches)
+  const email_tmp=currentCmd;currentCmd={email:'__admin__'};
+  // Build a simple table for admin
+  const res=document.getElementById('adm-flux-search');
+  if(res)res.innerHTML=`<table class="tbl"><thead><tr><th>Secteur</th><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Cmd</th><th>Enquêteur</th><th>Date</th></tr></thead>
+  <tbody>${fiches.slice(0,200).map(f=>`<tr>
+    <td><span class="pill p-t" style="font-size:10px">${f.secteur}</span></td>
+    <td style="font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.nom||'—'}</td>
+    <td>${f.quartier||'—'}</td>
+    <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}" style="font-size:10px">${f.etat||'—'}</span></td>
+    <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td>
+    <td style="font-size:10px;color:var(--muted)">${(f.cmdEmail||'').split('@')[0]}</td>
+    <td style="font-size:11px">${f.enqueteur||'—'}</td>
+    <td style="font-size:10px;color:var(--muted)">${f.date||'—'}</td>
+  </tr>`).join('')}</tbody></table>`;
+  currentCmd=email_tmp;
+};
+
+/* ══════════════════════════════════════════
+   PMR — Add to main forms
+══════════════════════════════════════════ */
+// Override submitSimple to also capture PMR data
+const _origSubmitSimple = submitSimple;
+submitSimple = function(secteur, icon){
+  // PMR data is captured by getFormVals since fields are in the DOM
+  _origSubmitSimple(secteur, icon);
+};
+
+// Auto-update sync badge when fiches change
+const _origSaveFiche = saveFiche;
+saveFiche = function(secteur, nom, data){
+  const result = _origSaveFiche(secteur, nom, data);
+  setTimeout(updateSyncBadge, 100);
+  return result;
+};
+
+/* ══════════════════════════════════════════
+   LOGO CLICK COUNTER (5x = admin)
+══════════════════════════════════════════ */
+let lc=0,lt=null;
+document.getElementById('logo-click').addEventListener('click',()=>{
+  lc++;clearTimeout(lt);
+  if(lc>=5){lc=0;goTo('scr-admin-login');}
+  lt=setTimeout(()=>lc=0,2000);
+});
+
+/* ══════════════════════════════════════════
+   INIT ON LOAD
+══════════════════════════════════════════ */
+/* ── Mobile nav helpers ── */
+function isMobile(){return window.innerWidth<=700;}
+
+function showMobileNav(navId){
+  const nav=document.getElementById(navId);
+  if(nav)nav.style.display=isMobile()?'block':'none';
+}
+
+function cmdMobNav(id,btn){
+  // Update bottom nav buttons
+  document.querySelectorAll('.cmd-mob-btn').forEach(b=>{
+    b.querySelector('span:last-child').style.color='rgba(100,100,100,.7)';
+    b.style.background='none';
+  });
+  btn.querySelector('span:last-child').style.color='var(--teal-d)';
+  btn.style.background='none';
+  // Show the panel
+  const fakeBtn=document.querySelector(`[data-panel="${id}"]`);
+  if(fakeBtn)showCmdPanel(id,fakeBtn);
+  else{
+    document.querySelectorAll('#cmd-main>div').forEach(p=>p.style.display='none');
+    const panel=document.getElementById('cmd-panel-'+id);
+    if(panel){panel.style.display='block';if(!cmdActivePanels[id]){cmdActivePanels[id]=true;buildCmdPanel(id);}}
+  }
+}
+
+function admMobNav(id,btn){
+  document.querySelectorAll('.adm-mob-btn').forEach(b=>{
+    b.querySelector('span:last-child').style.color='rgba(255,255,255,.4)';
+  });
+  btn.querySelector('span:last-child').style.color='#9FE1CB';
+  const fakeBtn=document.querySelector(`[data-panel="${id}"].adm-nav-btn`);
+  if(fakeBtn)showAdmPanel(id,fakeBtn);
+  else{
+    document.querySelectorAll('#adm-main>div').forEach(p=>p.style.display='none');
+    const panel=document.getElementById('adm-panel-'+id);
+    if(panel){panel.style.display='block';if(!admActivePanels[id]){admActivePanels[id]=true;buildAdmPanel(id);}}
+  }
+}
+
+// Handle resize
+window.addEventListener('resize',()=>{
+  const cmdNav=document.getElementById('cmd-mobile-nav');
+  const admNav=document.getElementById('adm-mobile-nav');
+  const cmdSide=document.getElementById('cmd-side');
+  const admSide=document.getElementById('adm-side');
+  if(document.getElementById('scr-cmd')?.style.display!=='none'&&document.getElementById('scr-cmd')?.classList.contains('active')){
+    if(cmdNav)cmdNav.style.display=isMobile()?'block':'none';
+    if(cmdSide)cmdSide.style.display=isMobile()?'none':'block';
+  }
+  if(document.getElementById('scr-admin')?.classList.contains('active')){
+    if(admNav)admNav.style.display=isMobile()?'block':'none';
+    if(admSide)admSide.style.display=isMobile()?'none':'block';
+  }
+});
+
+window.addEventListener('load',()=>{
+  // Restore cmd session if exists
+  const cmdSess=DB.get('cmd_session');
+  if(cmdSess){
+    const users=DB.getArr('users');
+    const user=users.find(u=>u.email===cmdSess&&u.active!==false);
+    if(user){currentCmd=user;}
+  }
+  // Restore enqueteur session
+  const enqSess=DB.get('current_session');
+  if(enqSess){currentSession=enqSess;}
+});
+
+function initEnq() {
+  // Initialiser l'espace enquêteur
+  var user = store.get('currentEnq');
+  if (user) {
+    var nameEl = document.getElementById('enq-name');
+    if (nameEl) nameEl.textContent = user.name || user.email || 'Enquêteur';
+  }
+  loadMissions();
+}
+
+function loadMissions() {
+  var missions = store.get('missions') || [];
+  var container = document.getElementById('missions-list');
+  if (!container) return;
+  if (missions.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Aucune mission disponible</p>';
+    return;
+  }
+  var html = '';
+  for(var i=0;i<missions.length;i++){
+    var m=missions[i];
+    html += '<div class="rcard" style="margin-bottom:12px"><strong>'+(m.title||m.name||'Mission')+'</strong></div>';
+  }
+  container.innerHTML = html;
+}
+
+</script>
+</body>
+</html>
