@@ -153,6 +153,14 @@ function authAdmin(req, res, next) {
 // ROUTES GENERALES
 // ═══════════════════════════════════════════════════════════
 app.get("/", (req,res) => res.redirect("https://pst-telecom.vercel.app"));
+// Routes pages HTML
+app.get("/", (req,res) => res.sendFile(path.join(__dirname,"sensms.html")));
+app.get("/zama", (req,res) => res.sendFile(path.join(__dirname,"zama.html")));
+app.get("/recharge", (req,res) => res.sendFile(path.join(__dirname,"recharge.html")));
+app.get("/noc", (req,res) => res.sendFile(path.join(__dirname,"noc.html")));
+app.get("/trax", (req,res) => res.sendFile(path.join(__dirname,"pst-trax.html")));
+app.get("/transfer", (req,res) => res.sendFile(path.join(__dirname,"transfer.html")));
+
 app.get("/admin", authAdmin, (req,res) => res.sendFile(path.join(__dirname,"admin.html")));
 app.get("/sms-marketing", (req,res) => res.sendFile(path.join(__dirname,"sms-marketing.html")));
 app.get("/sen-sms", (req,res) => res.sendFile(path.join(__dirname,"sen-sms.html")));
