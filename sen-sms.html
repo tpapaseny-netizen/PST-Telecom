@@ -156,7 +156,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
   <div class="nav-brand">
     <div class="nav-logo">Sen<span>-SMS</span></div>
     <div class="nav-tag">Sénégal SMS</div>
-    <span class="powered-by">⚡ Infobip</span>
+    <span class="powered-by">⚡ Techsoft</span>
   </div>
   <div class="nav-right">
     <a class="nav-link" href="https://pst-telecom.vercel.app">Accueil</a>
@@ -601,7 +601,7 @@ async function confirmerEtEnvoyer(msgTemplate) {
       document.getElementById('progress-fill').style.width=pct+'%';
       document.getElementById('progress-text').textContent=sent+' / '+contacts.length+' SMS envoyes';
       document.getElementById('modal-sub').textContent=pct+'% complete...';
-      if(sent>=contacts.length){clearInterval(iv);document.getElementById('modal-icon').textContent='✅';document.getElementById('modal-title').textContent='Campagne envoyee !';document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Infobip.';document.getElementById('modal-close').style.display='inline-block';}
+      if(sent>=contacts.length){clearInterval(iv);document.getElementById('modal-icon').textContent='✅';document.getElementById('modal-title').textContent='Campagne envoyee !';document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Techsoft.';document.getElementById('modal-close').style.display='inline-block';}
     },400);
   } catch(e){document.getElementById('modal-icon').textContent='❌';document.getElementById('modal-title').textContent='Erreur d envoi';document.getElementById('modal-sub').textContent='Verifiez votre connexion.';document.getElementById('modal-close').style.display='inline-block';}
 }
