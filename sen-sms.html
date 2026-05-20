@@ -172,29 +172,29 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 </div>
 
 <div class="packs" id="packs-section">
-  <div class="pack" onclick="selPack('starter',1000,100)" id="pack-starter">
+  <div class="pack" onclick="selPack('starter',3500,100)" id="pack-starter">
     <div class="pack-name">Starter</div>
     <div class="pack-sms">100 <span>SMS</span></div>
-    <div class="pack-price">1 000 FCFA</div>
-    <div class="pack-unit">10 FCFA / SMS</div>
+    <div class="pack-price">3 500 FCFA</div>
+    <div class="pack-unit">35 FCFA / SMS</div>
   </div>
-  <div class="pack popular selected" onclick="selPack('pro',8000,1000)" id="pack-pro">
+  <div class="pack popular selected" onclick="selPack('pro',33000,1000)" id="pack-pro">
     <div class="pack-name">Pro</div>
     <div class="pack-sms">1 000 <span>SMS</span></div>
-    <div class="pack-price">8 000 FCFA</div>
-    <div class="pack-unit">8 FCFA / SMS</div>
+    <div class="pack-price">33 000 FCFA</div>
+    <div class="pack-unit">33 FCFA / SMS</div>
   </div>
-  <div class="pack" onclick="selPack('business',35000,5000)" id="pack-business">
+  <div class="pack" onclick="selPack('business',150000,5000)" id="pack-business">
     <div class="pack-name">Business</div>
     <div class="pack-sms">5 000 <span>SMS</span></div>
-    <div class="pack-price">35 000 FCFA</div>
-    <div class="pack-unit">7 FCFA / SMS</div>
+    <div class="pack-price">150 000 FCFA</div>
+    <div class="pack-unit">30 FCFA / SMS</div>
   </div>
-  <div class="pack" onclick="selPack('ecole',60000,10000)" id="pack-ecole">
+  <div class="pack" onclick="selPack('ecole',280000,10000)" id="pack-ecole">
     <div class="pack-name">École</div>
     <div class="pack-sms">10 000 <span>SMS</span></div>
-    <div class="pack-price">60 000 FCFA</div>
-    <div class="pack-unit">6 FCFA / SMS</div>
+    <div class="pack-price">280 000 FCFA</div>
+    <div class="pack-unit">28 FCFA / SMS</div>
   </div>
 </div>
 
@@ -414,7 +414,7 @@ const TEMPLATES = {
 
 window.addEventListener('load', function() {
   if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'; document.head.appendChild(s); }
-  updateSummary(); selPack('pro', 8000, 1000);
+  updateSummary(); selPack('pro', 33000, 1000);
 });
 
 function toggleAide() { var el=document.getElementById('aide-ref'); el.style.display=el.style.display==='none'?'block':'none'; }
