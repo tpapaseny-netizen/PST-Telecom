@@ -152,9 +152,8 @@ function authAdmin(req, res, next) {
 // ═══════════════════════════════════════════════════════════
 // ROUTES GENERALES
 // ═══════════════════════════════════════════════════════════
-app.get("/", (req,res) => res.redirect("https://pst-telecom.vercel.app"));
+
 // Routes pages HTML
-app.get("/", (req,res) => res.sendFile(path.join(__dirname,"sensms.html")));
 app.get("/zama", (req,res) => res.sendFile(path.join(__dirname,"zama.html")));
 app.get("/recharge", (req,res) => res.sendFile(path.join(__dirname,"recharge.html")));
 app.get("/noc", (req,res) => res.sendFile(path.join(__dirname,"noc.html")));
@@ -3390,6 +3389,7 @@ app.get('/api/sensms/users', async (req, res) => {
 // FIN SEN-SMS AUTH
 
 // ─── DÉMARRAGE ─────────────────────────────────────────────
+app.get('/', (req,res) => res.sendFile(require('path').join(__dirname,'zama.html')));
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
