@@ -3372,3 +3372,13 @@ app.get('/api/sensms/users', async (req, res) => {
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ── DÉMARRAGE ─────────────────────────────
+const PORT = process.env.PORT || 3000;
+connectDB().then((dbInstance) => {
+  db = dbInstance;
+  app.listen(PORT, () => {
+    console.log("\nPST — Pure Smart Telecom");
+    console.log("http://localhost:" + PORT);
+    console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
+  });
+});
