@@ -28,12 +28,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 .screen.active{display:block;}
 
 /* ── ROLE SELECT ── */
-#scr-role{background:linear-gradient(160deg,#0F172A 0%,#1A56DB 60%,#0369a1 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
+#scr-role{background:linear-gradient(160deg,#e0f2fe 0%,#7dd3fc 50%,#38bdf8 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
 .role-box{background:white;border-radius:20px;padding:36px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.22);}
 .role-logo{text-align:center;margin-bottom:28px;}
 .role-logo .licon{width:64px;height:64px;background:var(--teal-d);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;cursor:pointer;user-select:none;transition:transform .1s;}
 .role-logo .licon:active{transform:scale(.93);}
-.role-logo h1{font-size:20px;font-weight:700;color:var(--teal-d);}
+.role-logo h1{font-size:20px;font-weight:700;color:#0c4a6e;}
 .role-logo p{font-size:12px;color:var(--muted);margin-top:3px;}
 .role-cards{display:flex;flex-direction:column;gap:10px;}
 .rcard{border:2px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .18s;}
@@ -44,7 +44,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 .rcard .arr{color:var(--teal);font-size:20px;margin-left:auto;flex-shrink:0;}
 
 /* ── APP BAR ── */
-.app-bar{background:var(--teal-d);color:white;height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.app-bar{background:linear-gradient(90deg,#0369a1,#0284c7);color:white;height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .ab-back{width:34px;height:34px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;border:none;color:white;}
 .ab-title{flex:1;min-width:0;}
 .ab-title h1{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -55,7 +55,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
 
 /* ── TAB BAR ── */
-.tab-bar{background:white;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
+.tab-bar{background:#f0f9ff;border-bottom:1px solid #bae6fd;display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
 .tab-bar::-webkit-scrollbar{display:none;}
 .tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
 .tab-item .ti{font-size:15px;}
@@ -649,7 +649,7 @@ function goTo(id){
 // Fix role screen initial display
 document.getElementById('scr-role').style.display='flex';
 
-function tp(id,el){const i=document.getElementById(id);if(!i)return;i.type=i.type==='password'?'text':'password';el.textContent=i.type==='password'?'👁':'🙈';}
+function tp(id,el){const i=document.getElementById(id);if(!i)return;i.type=i.type==='password'?'text':'password';el.textContent=i.type==='password'?'👁':'🔒';}
 
 function toast(msg,dur=3000){
   const t=document.getElementById('toast');
