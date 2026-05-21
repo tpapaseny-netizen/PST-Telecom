@@ -632,6 +632,7 @@ function getCorbeilleCount(){
   <div class="app-bar">
     <button class="ab-back" onclick="goTo('scr-role')">←</button>
     <div class="ab-title"><h1>Espace Enquêteur</h1><p>ZAMIN · PST Telecom</p></div>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre">🌙</button>
   </div>
   <!-- Code entry -->
   <div id="enq-code-screen" style="padding:20px;max-width:400px;margin:0 auto;">
@@ -1139,10 +1140,13 @@ function buildHomeTab(){
     <div class="kpi"><div class="kn" style="color:var(--teal)">${fiches.length}</div><div class="kl">Fiches collectées</div></div>
     <div class="kpi"><div class="kn" style="color:var(--amber)">${pending}</div><div class="kl">En attente d'envoi</div></div>
   </div>
-  ${pending>0?`<button class="btn btn-p" onclick="sendAllPending();document.getElementById('enq-tc-home').innerHTML=buildTabContent('home')">📤 Envoyer ${pending} fiche(s) au commanditaire</button>`:''}
+  ${pending>0?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <button class="btn btn-p" onclick="sendAllPending();document.getElementById('enq-tc-home').innerHTML=buildTabContent('home')">📤 Envoyer ${pending} fiche(s)</button>
+    <button class="btn btn-s btn-sm" onclick="if(confirm('Supprimer toutes les fiches en attente ?')){deleteAllPending();document.getElementById('enq-tc-home').innerHTML=buildTabContent('home')}">🗑 Tout supprimer</button>
+  </div>`:''}
   <div class="card" style="margin-top:12px"><div class="card-h"><div class="ci" style="background:var(--teal-l)">📋</div>Modules disponibles</div>
     ${ENQ_TABS.filter(t=>t.id!=='home'&&t.id!=='fiches').map(t=>`<div class="li" style="cursor:pointer" onclick="document.querySelector('[data-tab=enq-tc-${t.id}]').click()">
-      <div class="li-ic" style="background:var(--teal-xl)">${t.icon}</div>
+      <div class="li-ic" style="background:var(--teal-xl);display:flex;align-items:center;justify-content:center;color:var(--teal-d)">${t.icon}</div>
       <div class="li-b"><div class="li-t">${t.label}</div><div class="li-s">${{ecole:'Écoles, effectifs, salles, équipements',sante:'Postes de santé, ressources humaines',eau:'Points d\'eau, assainissement',energie:'Lampadaires, éclairage, pylônes',routes:'Voirie, état, interventions',religion:'Mosquées, églises, équipements',demo:'Démographie, ménages',agri:'Agriculture, élevage',sport:'Terrains, clubs, loisirs',culture:'Bibliothèques, centres culturels',jeunesse:'Maisons des jeunes, social',securite:'Commissariats, gouvernance',marche:'Marchés, commerce',transport:'Transport, mobilité',env:'Environnement, risques climatiques',fiches:''}[t.id]||''}</div></div>
       <span style="color:var(--teal);font-size:16px">›</span>
     </div>`).join('')}
@@ -1172,8 +1176,28 @@ function buildFichesTab(){
       <span class="pill ${f._status==='sent'?'p-g':'p-a'}">${f._status==='sent'?'✅ Envoyé':'⏳ Attente'}</span>
     </div>
     ${f.photos&&f.photos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${f.photos.map(p=>`<img src="${p.url.replace('/upload/','/upload/w_80,h_80,c_fill/')}" style="width:60px;height:60px;border-radius:6px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer;" onclick="showPhotoFull('${p.url}')" title="☁️ Cloudinary">`).join('')}</div>`:''}
-    ${f._status==='pending'?`<button onclick="sendOneFiche(${f.id});refreshTab('fiches')" style="margin-top:8px;padding:6px 12px;background:var(--teal-l);border:1px solid var(--teal);border-radius:6px;font-size:11px;color:var(--teal-d);cursor:pointer;font-weight:500">📤 Envoyer maintenant</button>`:''}
+    ${f._status==='pending'?`<div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="sendOneFiche(${f.id});refreshTab('fiches')" style="padding:6px 12px;background:var(--teal-l);border:1px solid var(--teal);border-radius:6px;font-size:11px;color:var(--teal-d);cursor:pointer;font-weight:500">📤 Envoyer</button>
+      <button onclick="deletePendingFiche(${f.id})" style="padding:6px 12px;background:var(--red-l);border:1px solid var(--red);border-radius:6px;font-size:11px;color:var(--red);cursor:pointer;font-weight:500">🗑 Supprimer</button>
+    </div>`:''}
   </div>`).join('')}`;
+}
+
+
+function deletePendingFiche(id){
+  if(!confirm('Supprimer cette fiche avant envoi ?'))return;
+  const all = DB.getArr('fiches');
+  DB.set('fiches', all.filter(f=>f.id!==id));
+  refreshTab('fiches');
+  refreshTab('home');
+  toast('Fiche supprimée');
+}
+
+function deleteAllPending(){
+  const sess = currentSession||DB.get('current_session');
+  const all = DB.getArr('fiches');
+  DB.set('fiches', all.filter(f=>!(f.missionId===sess?.missionId&&f._status==='pending')));
+  toast('Toutes les fiches en attente supprimées');
 }
 
 function refreshTab(id){
