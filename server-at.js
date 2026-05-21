@@ -3336,11 +3336,6 @@ app.post('/api/sensms/register', async (req, res) => {
 });
 
     var user = null;
-    if (db) {
-      user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
-    } else {
-      user = _sensmsUsers[identifier] || Object.values(_sensmsUsers).find(function(u){ return u.email === identifier; });
-    }
     if (!user) return res.json({ success: false, error: 'Compte introuvable' });
     var ok = (crypto.createHash('sha256').update(password).digest('hex') === user.password);
     if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
