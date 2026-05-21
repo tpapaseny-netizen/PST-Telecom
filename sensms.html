@@ -429,7 +429,9 @@ function updateThemeBtn() {
 
 // ── DASHBOARD SHOW/HIDE ────────────────────────────
 function showDashboard(packId) {
-  document.getElementById('dashboard-section').classList.add('active');
+  var ds = document.getElementById('dashboard-section');
+  if (!ds) { console.error('dashboard-section introuvable'); return; }
+  ds.classList.add('active');
   document.getElementById('dashboard-section').scrollIntoView({ behavior: 'smooth' });
   if (packId) {
     setTimeout(function() {
