@@ -13,11 +13,11 @@
   --green:#3B6D11;--green-l:#EAF3DE;
   --purple:#534AB7;--purple-l:#EEEDFE;
   --gray:#5F5E5A;--gray-l:#1E293B;--gray-d:#2C2C2A;
-  --bg:#0F172A;--card:#1E293B;--text:#F1F5F9;--muted:#94A3B8;
-  --border:rgba(255,255,255,0.08);--r:12px;--rs:8px;
+  --bg:#f0f9ff;--card:#ffffff;--text:#0f172a;--muted:#475569;
+  --border:rgba(14,165,233,0.2);--r:12px;--rs:8px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--text);min-height:100vh;overflow-x:hidden;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172a;min-height:100vh;overflow-x:hidden;}
 /* iOS safe area support */
 .app-bar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));}
 #cmd-mobile-nav,#adm-mobile-nav{padding-bottom:env(safe-area-inset-bottom,0px);}
@@ -57,7 +57,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 /* ── TAB BAR ── */
 .tab-bar{background:#f0f9ff;border-bottom:1px solid #bae6fd;display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
 .tab-bar::-webkit-scrollbar{display:none;}
-.tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
+.tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#0369a1;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
 .tab-item .ti{font-size:15px;}
 .tab-item.active{color:var(--teal-d);border-bottom-color:var(--teal);font-weight:600;}
 .tab-item:hover{color:var(--teal-d);background:var(--teal-xl);}
@@ -67,7 +67,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 .tab-content.active{display:block;}
 
 /* ── CARDS ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
+.card{background:#ffffff;border:1px solid #bae6fd;border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(14,165,233,0.08);}
 .card-h{font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .ci{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 
@@ -75,7 +75,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
 .req{color:var(--red);}
-.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .18s;-webkit-appearance:none;font-family:inherit;}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid #bae6fd;border-radius:var(--rs);font-size:14px;background:#ffffff;color:#0f172a;outline:none;transition:border .18s;-webkit-appearance:none;font-family:inherit;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(29,158,117,.1);}
 .field textarea{resize:vertical;min-height:80px;line-height:1.5;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -221,7 +221,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0F172A;color:var(--
 /* ── SECTION TITLE ── */
 .stitle{margin-bottom:14px;}
 .stitle h2{font-size:17px;font-weight:700;}
-.stitle p{font-size:12px;color:var(--muted);margin-top:3px;}
+.stitle p{font-size:12px;color:#0369a1;margin-top:3px;}
 
 /* ── COMMANDITAIRE LAYOUT ── */
 .cmd-layout{display:flex;min-height:calc(100vh - 56px);}
