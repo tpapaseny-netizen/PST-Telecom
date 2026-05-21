@@ -1938,6 +1938,12 @@ function confirmerEtEnvoyer(msgTemplate) {
   });
 }
 
+function closeCreditsAndDash() {
+  var el = document.getElementById('credits-overlay');
+  if (el) el.classList.remove('open');
+  document.body.style.overflow = '';
+  showDashboard();
+}
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 
 // ══════════════════════════════════════════════════
@@ -1987,9 +1993,14 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Auth désactivé — accès direct au dashboard
+// Auth obligatoire — modale à l'ouverture du dashboard
 showDashboard = function(packId) {
-  _origShowDashboard(packId);
+  if (senSmsUser) {
+    _origShowDashboard(packId);
+  } else {
+    pendingPackId = packId || null;
+    openAuth('login');
+  }
 };
 
 function openAuth(tab) {
@@ -2029,20 +2040,24 @@ function showAuthSuccess(msg) {
   document.getElementById('auth-error').style.display = 'none';
 }
 
-async function doLogin() {
+function doLogin() {
   var btn = document.getElementById('login-btn');
   var email = document.getElementById('login-email').value.trim();
   var password = document.getElementById('login-password').value;
   if (!email || !password) { showAuthError('Remplissez tous les champs'); return; }
   btn.disabled = true; btn.textContent = '⏳ Connexion...';
-  try {
-    var res = await fetch(API + '/api/sen-sms/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    var data = await res.json();
+  fetch(API + '/api/sen-sms/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: password })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
     if (data.success) {
       senSmsToken = data.token;
       senSmsUser = data.user;
       localStorage.setItem('sensms_token', data.token);
-      showAuthSuccess('Connexion réussie ! Bienvenue ' + (data.user.nom || data.user.email) + ' 👋');
+      showAuthSuccess('Bienvenue ' + (data.user.nom || data.user.email) + ' 👋');
       afficherUserBadge();
       setTimeout(function() {
         closeAuth();
@@ -2050,13 +2065,17 @@ async function doLogin() {
         pendingPackId = null;
       }, 900);
     } else {
-      showAuthError(data.error || 'Erreur de connexion');
+      showAuthError(data.error || 'Email ou mot de passe incorrect');
     }
-  } catch(e) { showAuthError('Erreur réseau — réessayez'); }
-  btn.disabled = false; btn.innerHTML = '🔑 Se connecter';
+    btn.disabled = false; btn.textContent = '🔑 Se connecter';
+  })
+  .catch(function() {
+    showAuthError('Erreur réseau — réessayez');
+    btn.disabled = false; btn.textContent = '🔑 Se connecter';
+  });
 }
 
-async function doRegister() {
+function doRegister() {
   var btn = document.getElementById('register-btn');
   var nom = document.getElementById('reg-nom').value.trim();
   var org = document.getElementById('reg-org').value.trim();
@@ -2066,14 +2085,18 @@ async function doRegister() {
   if (!email || !password) { showAuthError('Email et mot de passe requis'); return; }
   if (password.length < 6) { showAuthError('Mot de passe trop court (6 caractères minimum)'); return; }
   btn.disabled = true; btn.textContent = '⏳ Création...';
-  try {
-    var res = await fetch(API + '/api/sen-sms/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, nom, organisation: org, telephone: tel }) });
-    var data = await res.json();
+  fetch(API + '/api/sen-sms/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: password, nom: nom, organisation: org, telephone: tel })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
     if (data.success) {
       senSmsToken = data.token;
       senSmsUser = data.user;
       localStorage.setItem('sensms_token', data.token);
-      showAuthSuccess('Compte créé avec succès ! Bienvenue ' + (data.user.nom || data.user.email) + ' 🎉');
+      showAuthSuccess('Compte créé ! Bienvenue ' + (data.user.nom || data.user.email) + ' 🎉');
       afficherUserBadge();
       setTimeout(function() {
         closeAuth();
@@ -2083,8 +2106,12 @@ async function doRegister() {
     } else {
       showAuthError(data.error || 'Erreur lors de la création');
     }
-  } catch(e) { showAuthError('Erreur réseau — réessayez'); }
-  btn.disabled = false; btn.innerHTML = '🚀 Créer mon compte';
+    btn.disabled = false; btn.textContent = '🚀 Créer mon compte';
+  })
+  .catch(function() {
+    showAuthError('Erreur réseau — réessayez');
+    btn.disabled = false; btn.textContent = '🚀 Créer mon compte';
+  });
 }
 
 function deconnexion() {
@@ -2101,60 +2128,46 @@ function deconnexion() {
 }
 
 // ── Historique campagnes ──
-async function openHistorique() {
+function openHistorique() {
   document.getElementById('user-menu').classList.remove('open');
   if (!senSmsToken || !senSmsUser) return;
-  document.getElementById('histo-user-info').textContent = senSmsUser.nom + ' · ' + senSmsUser.email;
+  document.getElementById('histo-user-info').textContent = (senSmsUser.nom || '') + ' · ' + senSmsUser.email;
   document.getElementById('histo-content').innerHTML = '<div style="text-align:center;padding:30px;color:var(--cl-muted);">⏳ Chargement...</div>';
   document.getElementById('historique-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  try {
-    var res = await fetch(API + '/api/sen-sms/campaigns', { headers: { 'Authorization': 'Bearer ' + senSmsToken } });
-    var data = await res.json();
-    if (data.success && data.campaigns.length > 0) {
+  fetch(API + '/api/sen-sms/campaigns', { headers: { 'Authorization': 'Bearer ' + senSmsToken } })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success && data.campaigns && data.campaigns.length > 0) {
       var html = '<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--cl-border);">';
       html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-      html += '<thead><tr style="background:var(--cl-bg2);">';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Date</th>';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Organisation</th>';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Contacts</th>';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">SMS</th>';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Coût</th>';
-      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Sender</th>';
-      html += '</tr></thead><tbody>';
+      html += '<thead><tr style="background:var(--cl-bg2);"><th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;">Date</th><th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;">Organisation</th><th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;">Contacts</th><th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;">Coût</th></tr></thead><tbody>';
       data.campaigns.forEach(function(c) {
-        var d = new Date(c.createdAt);
-        var dateStr = d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-        html += '<tr style="border-top:1px solid var(--cl-border2);">';
-        html += '<td style="padding:10px 14px;color:var(--cl-muted);font-size:12px;">' + dateStr + '</td>';
-        html += '<td style="padding:10px 14px;font-weight:600;">' + (c.organisation || '—') + '</td>';
-        html += '<td style="padding:10px 14px;color:var(--green);font-weight:700;">' + (c.contacts || 0) + '</td>';
-        html += '<td style="padding:10px 14px;">' + (c.smsTotal || 0) + '</td>';
-        html += '<td style="padding:10px 14px;font-weight:700;">' + (c.cout || '—') + '</td>';
-        html += '<td style="padding:10px 14px;font-family:monospace;font-size:12px;">' + (c.sender || 'SenSMS') + '</td>';
-        html += '</tr>';
+        var d = new Date(c.createdAt).toLocaleDateString('fr-FR');
+        html += '<tr style="border-top:1px solid var(--cl-border);"><td style="padding:10px 14px;color:var(--cl-muted);">' + d + '</td><td style="padding:10px 14px;font-weight:600;">' + (c.organisation||'—') + '</td><td style="padding:10px 14px;color:var(--green);font-weight:700;">' + (c.contacts||0) + '</td><td style="padding:10px 14px;font-weight:700;">' + (c.cout||'—') + '</td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('histo-content').innerHTML = html;
     } else {
-      document.getElementById('histo-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--cl-muted);">📭 Aucune campagne pour le moment.<br><br><button onclick="closeAuth();_origShowDashboard()" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-weight:700;cursor:pointer;" class="auth-submit">Lancer ma première campagne →</button></div>';
+      document.getElementById('histo-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--cl-muted);">📭 Aucune campagne pour le moment.</div>';
     }
-  } catch(e) {
+  })
+  .catch(function() {
     document.getElementById('histo-content').innerHTML = '<div style="color:#EF4444;text-align:center;padding:20px;">Erreur de chargement</div>';
-  }
+  });
 }
 
 // ── Crédits ──
-async function openCredits() {
+function openCredits() {
   document.getElementById('user-menu').classList.remove('open');
   if (!senSmsToken || !senSmsUser) return;
-  document.getElementById('credits-user-info').textContent = senSmsUser.nom + ' · ' + senSmsUser.email;
+  document.getElementById('credits-user-info').textContent = (senSmsUser.nom || '') + ' · ' + senSmsUser.email;
   document.getElementById('credits-content').innerHTML = '<div style="text-align:center;padding:30px;color:var(--cl-muted);">⏳ Chargement...</div>';
   document.getElementById('credits-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  try {
-    var res = await fetch(API + '/api/sen-sms/credits', { headers: { 'Authorization': 'Bearer ' + senSmsToken } });
-    var data = await res.json();
+  fetch(API + '/api/sen-sms/credits', { headers: { 'Authorization': 'Bearer ' + senSmsToken } })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
     var credits = data.credits || 0;
     if (senSmsUser) senSmsUser.credits = credits;
     var cred = document.getElementById('user-badge-credits');
@@ -2162,17 +2175,13 @@ async function openCredits() {
     var html = '<div style="text-align:center;padding:20px 0;">';
     html += '<div style="font-family:var(--font-head);font-size:56px;font-weight:800;color:var(--green);">' + credits.toLocaleString('fr-FR') + '</div>';
     html += '<div style="font-size:16px;color:var(--cl-muted);margin-bottom:28px;">SMS disponibles</div>';
-    if (credits > 0) {
-      html += '<div style="background:var(--green-dim);border:1px solid rgba(0,200,83,0.2);border-radius:12px;padding:16px;font-size:13px;color:var(--cl-text2);margin-bottom:20px;">✅ Vous pouvez envoyer jusqu\'à <strong>' + credits.toLocaleString('fr-FR') + ' SMS</strong> sans passer par Wave.</div>';
-    } else {
-      html += '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:16px;font-size:13px;color:var(--cl-text2);margin-bottom:20px;">ℹ️ Votre portefeuille est vide. Achetez un pack pour alimenter votre compte.</div>';
-    }
-    html += '<button onclick="document.getElementById(\'credits-overlay\').classList.remove(\'open\');document.body.style.overflow=\'\';showDashboard();" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px 28px;font-family:var(--font-head);font-weight:800;font-size:15px;cursor:pointer;transition:all 0.2s;">💳 Acheter des SMS</button>';
+    html += '<button onclick="closeCreditsAndDash()" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px 28px;font-family:var(--font-head);font-weight:800;font-size:15px;cursor:pointer;">💳 Acheter des SMS</button>';
     html += '</div>';
     document.getElementById('credits-content').innerHTML = html;
-  } catch(e) {
+  })
+  .catch(function() {
     document.getElementById('credits-content').innerHTML = '<div style="color:#EF4444;text-align:center;padding:20px;">Erreur de chargement</div>';
-  }
+  });
 }
 
 // Sauvegarder campagne après envoi réussi
