@@ -15,7 +15,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Sen-SMS — SMS pro au Sénégal">
 <meta name="twitter:description" content="Campagnes SMS pour écoles, commerces, mosquées. Paiement Wave. 28 FCFA/SMS.">
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1733,10 +1733,15 @@ function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
 
 function processFile(file) {
   var ext=file.name.split('.').pop().toLowerCase();
-  showToast('Lecture du fichier...','success');
+  showToast('Chargement...','success');
   if(typeof XLSX==='undefined'){
+    // Essayer un CDN alternatif
+    var s=document.createElement('script');
+    s.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=function(){ processFile(file); };
+    s.onerror=function(){ showToast('Erreur chargement Excel — vérifiez votre connexion','error'); };
+    document.head.appendChild(s);
     showToast('Chargement librairie Excel...','success');
-    setTimeout(function(){ processFile(file); }, 800);
     return;
   }
   if(['xlsx','xls','csv'].includes(ext)){
@@ -1866,11 +1871,12 @@ function selPayOpt(opt) { payOpt=opt; document.getElementById('payopt-wave').cla
 
 async function initierPaiement() {
   var org=document.getElementById('org-name').value.trim(),phone=document.getElementById('org-phone').value.trim();
-  if(!org||!phone){showToast('Remplissez votre nom et telephone','error');return;}
-  if(!contacts.length){showToast('Ajoutez des contacts d abord','error');return;}
   var msg=document.getElementById('message-text').value;
-  var cost=Math.ceil(contacts.length*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
-  if(payOpt==='wave'){window.open(WAVE_BASE+cost,'_blank');showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
+  var cost=Math.ceil((contacts.length||1)*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
+  if(payOpt==='wave'){
+    if(!org||!phone){showToast('Remplissez votre nom et telephone avant de payer','error');return;}
+    window.open(WAVE_BASE+cost,'_blank');
+    showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
   else{FlutterwaveCheckout({public_key:FLW_KEY,tx_ref:'SENSMS-'+Date.now(),amount:cost,currency:'XOF',payment_options:'card',customer:{email:phone+'@sen-sms.sn',phone_number:phone,name:org},customizations:{title:'Sen-SMS',description:'Campagne SMS — '+contacts.length+' contacts',logo:''},callback:async function(r){if(r.status==='successful'){document.getElementById('code-validation').value=r.tx_ref;showToast('Paiement confirme !','success');}else{showToast('Paiement echoue','error');}},onclose:function(){}});}
 }
 
@@ -2214,7 +2220,7 @@ var LEGAL_CONTENT = {
   cookies: {
     title: 'Politique de cookies',
     date: 'Dernière mise à jour : mai 2026',
-    html: "<h3>Qu"est-ce qu'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite sur notre site.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème (clair/sombre). Durée : illimitée jusqu'à effacement.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d'acceptation ou de refus des cookies. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur visites pour l'affichage du compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Le processeur de paiement Flutterwave peut déposer des cookies lors du paiement par carte. Nous n'avons pas de contrôle sur ces cookies. Consultez la <a href="https://flutterwave.com/privacy" target="_blank">politique de Flutterwave</a>.</p><h3>Gérer vos préférences</h3><p>Vous pouvez à tout moment refuser les cookies non essentiels en cliquant sur "Refuser" dans la bannière. Notez que le refus des cookies peut affecter certaines fonctionnalités du site (thème, compteur).</p><p>Pour supprimer les cookies existants, videz le localStorage de votre navigateur (Paramètres → Confidentialité → Données de site).</p>'
+    html: "<h3>Qu'est-ce qu'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite sur notre site.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème (clair/sombre). Durée : illimitée jusqu'à effacement.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d'acceptation ou de refus des cookies. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur visites pour l'affichage du compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Le processeur de paiement Flutterwave peut déposer des cookies lors du paiement par carte. Nous n'avons pas de contrôle sur ces cookies. Consultez la <a href="https://flutterwave.com/privacy" target="_blank">politique de Flutterwave</a>.</p><h3>Gérer vos préférences</h3><p>Vous pouvez à tout moment refuser les cookies non essentiels en cliquant sur &quot;Refuser&quot; dans la bannière. Notez que le refus des cookies peut affecter certaines fonctionnalités du site (thème, compteur).</p><p>Pour supprimer les cookies existants, videz le localStorage de votre navigateur (Paramètres → Confidentialité → Données de site).</p>'
   }
 };
 
