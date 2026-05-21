@@ -1,32 +1,23 @@
 with open('server-at.js', 'r', encoding='utf-8') as f:
-    content = f.read()
+    lines = f.readlines()
 
-# Remplacer const PORT par var PORT dans le bloc startup ajouté
-old = "const PORT = process.env.PORT || 3000;\nconnectDB().then((dbInstance) => {"
-new = "var PORT = process.env.PORT || 3000;\nconnectDB().then((dbInstance) => {"
+print(f"Total lignes: {len(lines)}")
 
-if old in content:
-    content = content.replace(old, new)
-    print("✅ const PORT -> var PORT")
-else:
-    # Chercher et remplacer toutes les déclarations PORT en doublon
-    import re
-    ports = [(m.start(), m.group()) for m in re.finditer(r'(const|let|var) PORT\s*=', content)]
-    print(f"Déclarations PORT trouvées: {len(ports)}")
-    for pos, match in ports:
-        line = content[:pos].count('\n') + 1
-        print(f"  Ligne {line}: {match}")
+# Chercher toutes les déclarations PORT
+port_lines = [(i, l.rstrip()) for i, l in enumerate(lines) if 'PORT' in l and ('const PORT' in l or 'var PORT' in l or 'let PORT' in l)]
+print(f"Déclarations PORT trouvées: {len(port_lines)}")
+for i, l in port_lines:
+    print(f"  Ligne {i+1}: {l}")
+
+# Garder la première, supprimer les suivantes
+if len(port_lines) > 1:
+    # Supprimer toutes sauf la première
+    lines_to_remove = set(i for i, _ in port_lines[1:])
+    new_lines = [l for i, l in enumerate(lines) if i not in lines_to_remove]
     
-    # Garder la première, remplacer les suivantes par assignation simple
-    if len(ports) > 1:
-        for pos, match in ports[1:]:
-            content = content[:pos] + 'PORT =' + content[pos+len(match):]
-        print("✅ Doublons PORT corrigés")
-
-with open('server-at.js', 'w', encoding='utf-8') as f:
-    f.write(content)
-
-import subprocess
-r = subprocess.run(['Select-String', '-Path', 'server-at.js', '-Pattern', 'PORT.*=.*process'],
-                   capture_output=True, text=True, shell=True)
-print(r.stdout)
+    with open('server-at.js', 'w', encoding='utf-8') as f:
+        f.writelines(new_lines)
+    print(f"✅ Supprimé {len(lines_to_remove)} déclaration(s) PORT en doublon")
+    print(f"Lignes: {len(lines)} -> {len(new_lines)}")
+else:
+    print("Une seule déclaration PORT - OK")
