@@ -3335,11 +3335,6 @@ app.post('/api/sensms/register', async (req, res) => {
   } catch (e) { console.error('[SenSMS register]', e.message); res.json({ success: false, error: e.message }); }
 });
 
-// POST /api/sensms/login
-app.post('/api/sensms/login', async (req, res) => {
-  try {
-    var identifier = req.body.identifier; var password = req.body.password;
-    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
     var user = null;
     if (db) {
       user = await db.collection('sensms_users').findOne({ $or: [{ phone: identifier }, { email: identifier }] });
@@ -3390,6 +3385,76 @@ app.get('/api/sensms/users', async (req, res) => {
 
 // ─── DÉMARRAGE ─────────────────────────────────────────────
 app.get('/', (req,res) => res.sendFile(require('path').join(__dirname,'zama.html')));
+
+// ============================================================
+// ROUTES SENSMS AUTH
+// ============================================================
+var sensmsUsers = [];
+
+app.post('/api/sensms/register', async function(req, res) {
+  try {
+    var name = req.body.name;
+    var phone = req.body.phone;
+    var email = req.body.email || '';
+    var password = req.body.password;
+    if (!name || !phone || !password) return res.json({ ok: false, error: 'Champs manquants' });
+    if (!phone.startsWith('+')) phone = '+221' + phone;
+    if (db) {
+      var existing = await db.collection('sensms_users').findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
+      if (existing) return res.json({ ok: false, error: 'Numero deja enregistre' });
+      var newUser = { id: 'u_' + Date.now(), name: name, phone: phone, email: email, password: password, pack: 'Starter', credits: 0, sender_id: 'SenSMS', active: true, created_at: new Date() };
+      await db.collection('sensms_users').insertOne(newUser);
+      return res.json({ ok: true, user: { id: newUser.id, name: name, phone: phone, email: email, pack: 'Starter', credits: 0, sender_id: 'SenSMS' } });
+    }
+    var existingMem = sensmsUsers.find(function(u) { return u.phone === phone; });
+    if (existingMem) return res.json({ ok: false, error: 'Numero deja enregistre' });
+    var memUser = { id: 'u_' + Date.now(), name: name, phone: phone, email: email, password: password, pack: 'Starter', credits: 0, sender_id: 'SenSMS', active: true };
+    sensmsUsers.push(memUser);
+    return res.json({ ok: true, user: { id: memUser.id, name: name, phone: phone, email: email, pack: 'Starter', credits: 0, sender_id: 'SenSMS' } });
+  } catch(e) { console.error('SENSMS register error:', e); res.json({ ok: false, error: e.message }); }
+});
+
+    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
+    var user = null;
+    if (db) {
+      user = await db.collection('sensms_users').findOne({
+        $or: [{ phone: identifier }, { email: identifier }],
+        password: password
+      });
+    }
+    if (!user) {
+      user = sensmsUsers.find(function(u) {
+        return (u.phone === identifier || u.email === identifier) && u.password === password;
+      });
+    }
+    if (!user) return res.json({ ok: false, error: 'Identifiants incorrects' });
+    if (user.active === false) return res.json({ ok: false, error: 'Compte suspendu' });
+    return res.json({ ok: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
+  } catch(e) { console.error('SENSMS login error:', e); res.json({ ok: false, error: e.message }); }
+});
+
+// POST /api/sensms/login
+app.post('/api/sensms/login', async (req, res) => {
+  try {
+    var identifier = req.body.identifier || req.body.phone || req.body.email || '';
+    var password = req.body.password;
+    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
+    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
+    var user = null;
+    if (db) {
+      var SensmsUser = require('mongoose').model('SensmsUser');
+      user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
+    } else {
+      user = global.sensmsUsers ? global.sensmsUsers.find(function(u) { return u.phone === identifier || u.email === identifier; }) : null;
+    }
+    if (!user) return res.json({ success: false, error: 'Compte introuvable' });
+    var bcrypt = require('bcryptjs');
+    var ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
+    res.json({ success: true, user: { id: user._id || user.id, phone: user.phone, email: user.email, name: user.name, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
+  } catch(e) { console.error('SENSMS login error:', e); res.json({ success: false, error: e.message }); }
+});
+
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");

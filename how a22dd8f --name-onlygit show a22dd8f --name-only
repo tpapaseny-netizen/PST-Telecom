@@ -1,0 +1,20 @@
+[33m8f9ae7e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: nouvelle clé API Infobip zamasn
+[33mde2aeb8[m fix: vrai zama.html 553Ko
+[33m03c3b9e[m fix: zama.html ajouté au projet
+[33m9d114c9[m fix: retour sender ZAMA + logs debug OTP
+[33m992969a[m fix: OTP sans sender alphanumérique - contournement blocage Orange SN
+[33mf3a0b31[m fix: verify-otp envoie otp pas code
+[33m5a74772[m fix: suppression definitive zamaSendSMS_legacy
+[33mfdc7f75[m fix: OTP connexion ZAMA - normalisation phone + valid/verified
+[33mab1145c[m fix: verify-otp envoie otp au lieu de code
+[33m2ed4fe6[m fix: suppression zamaSendSMS_legacy - SyntaxError corrige
+[33m4fd3394[m fix: SyntaxError zamaSendSMS try sans catch
+[33mcef248f[m fix: zamaSendSMS migre vers Infobip - tous SMS ZAMA actifs
+[33m8ce4ff0[m fix: OTP 6 chiffres connexion ZAMA operationnel
+[33m8f01700[m feat: OTP 6 chiffres connexion ZAMA
+[33md6146da[m fix: SMS bienvenue ZAMA sur nouveau compte uniquement
+[33m80fca15[m feat: SMS Marketing migre vers Infobip
+[33m351af3a[m feat: SMS ZAMA creation compte + connexion + commandes
+[33m8281b41[m feat: SMS Infobip automatiques dans flow ZAMA
+[33m71d873b[m feat: integration Infobip SMS ZAMA
+[33ma22dd8f[m ZAMA site: bouton installer app PWA

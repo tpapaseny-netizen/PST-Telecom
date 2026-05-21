@@ -1,0 +1,1 @@
+f=open("server-at.js","r",encoding="utf-8");c=f.read();f.close();c=c.replace("const zamaOtpStore = {};","");c=c.replace("app.use(express.static(path.join(__dirname)));","app.use(express.static(path.join(__dirname)));\nconst zamaOtpStore = {};",1);f=open("server-at.js","w",encoding="utf-8");f.write(c);f.close();print("OK")

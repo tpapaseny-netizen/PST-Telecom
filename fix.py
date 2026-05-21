@@ -1,0 +1,1 @@
+f=open("server-at.js","r",encoding="utf-8");c=f.read();f.close();c=c.replace("if (bothFailed) { resp.code = code; resp.fallback = true; console.warn(\"[ZAMA OTP] FALLBACK — code retourne dans reponse:\", code); }","resp.code = code;");f=open("server-at.js","w",encoding="utf-8");f.write(c);f.close();print("server OK")

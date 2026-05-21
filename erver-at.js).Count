@@ -1,0 +1,15 @@
+[33m5fe01e7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: CORS sensms.com + zama-sn.com autorisés
+[33m5b2440c[m fix: sensms CSS style tag correction definitive
+[33md170ba1[m feat: sitemap.xml sensms.com
+[33m47955d0[m feat: Google Search Console verification sensms.com
+[33m11e3b60[m feat: Google Search Console verification zama-sn.com
+[33m04ccb75[m fix: remplace bcryptjs par crypto natif pour sensms auth
+[33md48b0c0[m fix: ajout bcryptjs dans dependencies
+[33mbc09d43[m fix: nav mobile (theme+connexion+lancer) + bcryptjs package.json
+[33m0dd3bc2[m feat: sensms register + login routes (db en memoire)
+[33m463d846[m feat: routes /api/sensms/register + /api/sensms/login
+[33ma82c790[m fix: sensms CSS style tag fermeture + auth obligatoire Lancer campagne
+[33m230b85d[m feat: sensms landing v2 — vert + auth modal + toggle theme
+[33m5577498[m feat: SenSMS auth — inscription et connexion obligatoires
+[33m3810946[m fix: sensms.com routing
+[33mdcfccfc[m feat: Sen-SMS landing page
