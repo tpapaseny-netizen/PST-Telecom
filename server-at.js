@@ -3222,65 +3222,43 @@ app.delete('/api/zama/user', async(req, res) => {
 // Route envoi campagne Sen-SMS
 app.post('/api/sen-sms/send', async (req, res) => {
   try {
-    const { campagne, messages, sender, scheduled, total } = req.body;
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Aucun message fourni' });
+    var messages = req.body.messages || [];
+    var sender = req.body.sender || 'SenSMS';
+    var campagne = req.body.campagne || 'Campagne';
+    if (!messages.length) return res.json({ success: false, error: 'Aucun message' });
+
+    var TECHSOFT_TOKEN = process.env.TECHSOFT_TOKEN || '1597|WVx84MHm3x4VoCzT7vzBm2RKZKANDok1N0wCtRd8f6f57823';
+    var results = [];
+    var errors = 0;
+
+    for (var i = 0; i < messages.length; i++) {
+      var msg = messages[i];
+      try {
+        var url = 'https://app.techsoft-sms.com/api/http/' +
+          '?token=' + encodeURIComponent(TECHSOFT_TOKEN) +
+          '&to=' + encodeURIComponent(msg.telephone) +
+          '&message=' + encodeURIComponent(msg.message) +
+          '&sender_id=' + encodeURIComponent(sender.substring(0, 11));
+        var r = await fetch(url);
+        var txt = await r.text();
+        results.push({ telephone: msg.telephone, status: txt });
+        if (txt.includes('ERROR') || txt.includes('error')) errors++;
+      } catch(e) {
+        errors++;
+        results.push({ telephone: msg.telephone, status: 'error: ' + e.message });
+      }
     }
 
-    const senderName = (sender || INFOBIP_SENDER).replace(/[^a-zA-Z0-9\-]/g, '').substring(0, 11) || INFOBIP_SENDER;
-
-    // Construction du payload Infobip bulk
-    const infobipMessages = messages.map(function(m) {
-      const dest = { to: m.telephone.replace(/\s/g, '') };
-      if (scheduled) dest.sendAt = new Date(scheduled).toISOString();
-      return {
-        from: senderName,
-        destinations: [dest],
-        text: m.message
-      };
+    res.json({
+      success: true,
+      sent: messages.length - errors,
+      errors: errors,
+      total: messages.length,
+      results: results.slice(0, 10)
     });
-
-    const payload = { messages: infobipMessages };
-
-    const response = await fetch(INFOBIP_BASE_URL + '/sms/2/text/advanced', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'App ' + INFOBIP_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error('[SEN-SMS] Infobip error:', JSON.stringify(result));
-      return res.status(response.status).json({ error: result.requestError || 'Erreur Infobip', details: result });
-    }
-
-    // Log MongoDB
-    try {
-      const db = client.db('pst_telecom');
-      await db.collection('sen_sms_campagnes').insertOne({
-        campagne: campagne || 'Sans nom',
-        sender: senderName,
-        total: messages.length,
-        scheduled: scheduled || null,
-        infobip_bulk_id: result.bulkId || null,
-        messages_ids: (result.messages || []).map(function(m) { return m.messageId; }),
-        created_at: new Date()
-      });
-    } catch(dbErr) {
-      console.warn('[SEN-SMS] Log MongoDB echoue:', dbErr.message);
-    }
-
-    console.log('[SEN-SMS] Campagne envoyee:', messages.length, 'SMS | bulkId:', result.bulkId);
-    res.json({ success: true, bulkId: result.bulkId, sent: messages.length, result: result });
-
-  } catch(err) {
-    console.error('[SEN-SMS] Erreur:', err.message);
-    res.status(500).json({ error: err.message });
+  } catch(e) {
+    console.error('SEN-SMS send error:', e);
+    res.json({ success: false, error: e.message });
   }
 });
 
