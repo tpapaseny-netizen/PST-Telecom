@@ -3314,15 +3314,22 @@ app.get('/api/sen-sms/campagnes', async (req, res) => {
 // ================================================
 
 // === SENSMS ROUTES ===
-var _sensmsSchema = new (require('mongoose').Schema)({
-  phone: String, email: String, name: String, password: String,
-  pack: { type: String, default: 'Starter' },
-  credits: { type: Number, default: 0 },
-  sender_id: { type: String, default: 'SenSMS' },
-  active: { type: Boolean, default: true },
-  created_at: { type: Date, default: Date.now }
-});
-var SensmsUser = require('mongoose').models.SensmsUser || require('mongoose').model('SensmsUser', _sensmsSchema);
+var SensmsUser = null;
+function getSensmsUser() {
+  if (!SensmsUser) {
+    var mongoose = require('mongoose');
+    var _sensmsSchema = new mongoose.Schema({
+      phone: String, email: String, name: String, password: String,
+      pack: { type: String, default: 'Starter' },
+      credits: { type: Number, default: 0 },
+      sender_id: { type: String, default: 'SenSMS' },
+      active: { type: Boolean, default: true },
+      created_at: { type: Date, default: Date.now }
+    });
+    SensmsUser = mongoose.models.SensmsUser || mongoose.model('SensmsUser', _sensmsSchema);
+  }
+  return SensmsUser;
+}
 
 // POST /api/sensms/register
 app.post('/api/sensms/register', async (req, res) => {
@@ -3331,11 +3338,11 @@ app.post('/api/sensms/register', async (req, res) => {
     if (!name || !phone || !password) return res.json({ success: false, error: 'Champs obligatoires manquants' });
     if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court (6 min)' });
     if (phone.match(/^[0-9]{9}$/)) phone = '+221' + phone;
-    var existing = await SensmsUser.findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
+    var existing = await getSensmsUser().findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
     if (existing) return res.json({ success: false, error: 'Compte deja existant avec ce numero ou email' });
     var bcrypt = require('bcryptjs');
     var hash = await bcrypt.hash(password, 10);
-    var newUser = new SensmsUser({ name: name, phone: phone, email: email, password: hash });
+    var newUser = new (getSensmsUser())({ name: name, phone: phone, email: email, password: hash });
     await newUser.save();
     res.json({ success: true, user: { id: newUser._id, name: newUser.name, phone: newUser.phone, email: newUser.email, pack: newUser.pack, credits: newUser.credits, sender_id: newUser.sender_id } });
   } catch(e) { console.error('SENSMS register error:', e); res.json({ success: false, error: e.message }); }
@@ -3348,7 +3355,7 @@ app.post('/api/sensms/login', async (req, res) => {
     var password = req.body.password;
     if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
     if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
-    var user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
+    var user = await getSensmsUser().findOne({ $or: [{ phone: identifier }, { email: identifier }] });
     if (!user) return res.json({ success: false, error: 'Compte introuvable' });
     var bcrypt = require('bcryptjs');
     var ok = await bcrypt.compare(password, user.password);
@@ -3360,7 +3367,7 @@ app.post('/api/sensms/login', async (req, res) => {
 // GET /api/sensms/profile/:id
 app.get('/api/sensms/profile/:id', async (req, res) => {
   try {
-    var user = await SensmsUser.findById(req.params.id).lean();
+    var user = await getSensmsUser().findById(req.params.id).lean();
     if (!user) return res.json({ success: false, error: 'Introuvable' });
     delete user.password;
     res.json({ success: true, user: user });
@@ -3373,7 +3380,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
     var id = req.body.id; var sender_id = req.body.sender_id;
     if (!id || !sender_id) return res.json({ success: false, error: 'Donnees manquantes' });
     if (sender_id.length > 11) return res.json({ success: false, error: 'Sender ID max 11 caracteres' });
-    await SensmsUser.updateOne({ _id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
+    await getSensmsUser().updateOne({ _id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
     res.json({ success: true, sender_id: sender_id.toUpperCase() });
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
@@ -3381,7 +3388,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
 // GET /api/sensms/users (admin)
 app.get('/api/sensms/users', async (req, res) => {
   try {
-    var users = await SensmsUser.find({}).sort({ created_at: -1 }).lean();
+    var users = await getSensmsUser().find({}).sort({ created_at: -1 }).lean();
     users.forEach(function(u) { delete u.password; });
     res.json({ success: true, users: users });
   } catch(e) { res.json({ success: false, error: e.message }); }
