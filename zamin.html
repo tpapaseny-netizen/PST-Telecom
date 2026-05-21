@@ -376,10 +376,131 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 }
 
 @media print{.app-bar,.tab-bar,.cmd-side,.adm-side,.export-row,.btn-row{display:none!important;}.tab-content,.cpanel,.adm-pane{display:block!important;}}
+
+/* ── CORBEILLE ── */
+.trash-btn{background:none;border:none;cursor:pointer;color:#ef4444;padding:2px 6px;border-radius:6px;font-size:13px;transition:background .15s;}
+.trash-btn:hover{background:#fee2e2;}
+.restore-btn{background:#dcfce7;border:1px solid #86efac;color:#166534;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;}
+.restore-btn:hover{background:#bbf7d0;}
+.trash-expired{color:#9ca3af;font-size:10px;}
+#corbeille-panel{position:fixed;top:0;right:-400px;width:380px;height:100vh;background:white;z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.15);transition:right .3s;overflow-y:auto;}
+#corbeille-panel.open{right:0;}
+.corbeille-header{background:linear-gradient(90deg,#0369a1,#0284c7);color:white;padding:16px;display:flex;justify-content:space-between;align-items:center;}
+.corbeille-header h3{font-size:15px;font-weight:700;}
+.corbeille-item{padding:14px;border-bottom:1px solid #e0f2fe;display:flex;flex-direction:column;gap:6px;}
+.corbeille-item-top{display:flex;justify-content:space-between;align-items:center;}
+.corbeille-item-name{font-weight:600;font-size:13px;color:#0f172a;}
+.corbeille-item-meta{font-size:11px;color:#64748b;}
+.corbeille-empty{text-align:center;padding:40px;color:#94a3b8;}
+
 </style>
 <link rel="manifest" id="pwa-manifest">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+/* ══════════════════════════════════════════
+   CORBEILLE — Suppression douce 30 jours
+══════════════════════════════════════════ */
+function getTrash(){return DB.getArr('trash_items');}
+function saveTrash(items){DB.set('trash_items',items);}
+
+function moveToTrash(item, type, label){
+  const trash = getTrash();
+  // Purger items > 30 jours
+  const now = Date.now();
+  const cleaned = trash.filter(t => now - t.deletedAt < 30*24*3600*1000);
+  cleaned.push({...item, _type:type, _label:label, _id:item.id||('t_'+now), deletedAt:now});
+  saveTrash(cleaned);
+}
+
+function restoreFromTrash(trashId){
+  const trash = getTrash();
+  const item = trash.find(t => t._id===trashId);
+  if(!item){toast('Item introuvable');return;}
+  const type = item._type;
+  // Restaurer selon le type
+  if(type==='edu_ref'){
+    const ref = DB.getArr('edu_ref_deleted');
+    const idx = ref.findIndex(r=>r[0]===item.nom);
+    if(idx>=0){ref.splice(idx,1);DB.set('edu_ref_deleted',ref);}
+    toast('✅ École restaurée');
+    cmdActivePanels['education']=false;buildCmdPanel('education');
+  } else if(type==='mission'){
+    saveMission(item);
+    toast('✅ Mission restaurée');
+    cmdActivePanels['missions']=false;buildCmdPanel('missions');
+  }
+  // Retirer de la corbeille
+  saveTrash(trash.filter(t=>t._id!==trashId));
+  buildCorbeilleList();
+}
+
+function deleteEduRef(nom){
+  const deleted = DB.getArr('edu_ref_deleted');
+  deleted.push(nom);
+  DB.set('edu_ref_deleted', deleted);
+  // Trouver dans EDU_REF
+  const item = EDU_REF.find(r=>r[0]===nom);
+  if(item) moveToTrash({id:'edu_'+nom, nom:nom, data:item}, 'edu_ref', nom+' (Référentiel Éducation)');
+  cmdActivePanels['education']=false;buildCmdPanel('education');
+  toast('Déplacé vers la corbeille');
+}
+
+function deleteMissionSoft(id){
+  const ms = getMissions();
+  const m = ms.find(x=>x.id===id);
+  if(!m)return;
+  if(!confirm('Mettre cette mission dans la corbeille ? Elle sera supprimée définitivement après 30 jours.'))return;
+  moveToTrash(m, 'mission', m.name+' (Mission)');
+  const newMs = ms.filter(x=>x.id!==id);
+  DB.set('missions',newMs);
+  cmdActivePanels['missions']=false;buildCmdPanel('missions');
+  toast('Mission déplacée vers la corbeille');
+}
+
+function openCorbeille(){
+  buildCorbeilleList();
+  document.getElementById('corbeille-panel').classList.add('open');
+  document.getElementById('corbeille-overlay').style.display='block';
+}
+
+function closeCorbeille(){
+  document.getElementById('corbeille-panel').classList.remove('open');
+  document.getElementById('corbeille-overlay').style.display='none';
+}
+
+function buildCorbeilleList(){
+  const el = document.getElementById('corbeille-list');
+  if(!el)return;
+  const trash = getTrash();
+  const now = Date.now();
+  // Purger > 30 jours
+  const valid = trash.filter(t => now - t.deletedAt < 30*24*3600*1000);
+  if(valid.length !== trash.length) saveTrash(valid);
+  
+  if(!valid.length){
+    el.innerHTML='<div class="corbeille-empty">🗑️<br>La corbeille est vide</div>';
+    return;
+  }
+  
+  el.innerHTML = valid.map(t => {
+    const daysLeft = Math.ceil((30*24*3600*1000 - (now - t.deletedAt)) / (24*3600*1000));
+    const dateStr = new Date(t.deletedAt).toLocaleDateString('fr-FR');
+    return '<div class="corbeille-item">' +
+      '<div class="corbeille-item-top">' +
+        '<span class="corbeille-item-name">' + (t._label||t.name||t.nom||'Item') + '</span>' +
+        '<button class="restore-btn" onclick="restoreFromTrash(\'' + t._id + '\')">↩ Restaurer</button>' +
+      '</div>' +
+      '<div class="corbeille-item-meta">Supprimé le ' + dateStr + ' · <span class="trash-expired">Expire dans ' + daysLeft + ' jour(s)</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function getCorbeilleCount(){
+  const now = Date.now();
+  return getTrash().filter(t => now - t.deletedAt < 30*24*3600*1000).length;
+}
+
+</script>
 <meta name="theme-color" content="#1e3a8a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1668,7 +1789,7 @@ function buildCmdMissions(){
   const email=currentCmd?.email||DB.get('cmd_session');
   const missions=getMyMissions();
   el.innerHTML=`<div class="stitle"><h2>Mes missions de collecte</h2><p>Gérez vos missions et codes d'accès enquêteurs</p></div>
-  <button class="btn btn-p btn-sm" onclick="createMission()" style="margin-bottom:14px">+ Créer une nouvelle mission</button>
+  <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-p btn-sm" onclick="createMission()">+ Créer une mission</button><button onclick="openCorbeille()" style="background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">🗑️ Corbeille</button></div>
   ${missions.length===0?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">Aucune mission créée. Cliquez sur "+ Créer une nouvelle mission".</div>`
   :missions.map(m=>`<div class="card" style="margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
@@ -1683,7 +1804,7 @@ function buildCmdMissions(){
     <div style="display:flex;gap:8px">
       <button onclick="toggleMission('${m.id}')" class="btn btn-s btn-sm">${m.active?'⏸ Désactiver':'▶ Activer'}</button>
       <button onclick="copyCode('${m.code}')" class="btn btn-s btn-sm">📋 Copier le code</button>
-      <button onclick="deleteMission('${m.id}')" class="btn btn-d btn-sm">🗑️ Supprimer</button>
+      <button onclick="deleteMissionSoft('${m.id}')" class="btn btn-d btn-sm">🗑️ Corbeille</button>
     </div>
     <div style="margin-top:8px;font-size:12px;color:var(--muted)">${DB.getArr('fiches').filter(f=>f.missionId===m.id).length} fiche(s) collectée(s)</div>
   </div>`).join('')}`;
@@ -1776,16 +1897,36 @@ function buildCmdEdu(){
     <button class="exp-btn exp-excel" onclick="exportExcel('ecole')">📊 Excel</button>
     <button class="exp-btn exp-pdf" onclick="exportPDF('ecole')">📋 PDF</button>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button onclick="openCorbeille()" style="background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600">🗑️ Corbeille (<span id="trash-count-edu">0</span>)</button>
+  </div>
   <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
-    <div class="kpi"><div class="kn" style="color:var(--teal)">71</div><div class="kl">Établissements (réf.)</div></div>
-    <div class="kpi"><div class="kn" style="color:var(--blue)">11 377</div><div class="kl">Élèves primaire (réf.)</div></div>
-    <div class="kpi"><div class="kn" style="color:var(--red)">−71</div><div class="kl">Salles manquantes</div></div>
+    <div class="kpi"><div class="kn" id="kpi-etab" style="color:var(--teal)">—</div><div class="kl">Établissements (réf.)</div></div>
+    <div class="kpi"><div class="kn" id="kpi-eleves" style="color:var(--blue)">—</div><div class="kl">Élèves primaire (réf.)</div></div>
+    <div class="kpi"><div class="kn" id="kpi-gaps" style="color:var(--red)">—</div><div class="kl">Salles manquantes</div></div>
     <div class="kpi"><div class="kn" style="color:var(--purple)">${fiches.length}</div><div class="kl">Fiches collectées</div></div>
   </div>
   <div class="card" style="overflow-x:auto;margin-bottom:14px"><div class="card-h">📊 Données de référence ODD 4 — Écoles primaires publiques</div>
-    <table class="tbl"><thead><tr><th>École</th><th>Élèves</th><th>Enseign.</th><th>Salles</th><th>Ratio</th><th>Gap ODD 4</th></tr></thead>
-    <tbody>${EDU_REF.map(([n,e,en,s])=>{const r=Math.round(e/en);const g=Math.ceil(e/40)-s;return `<tr><td style="font-weight:500">${n}</td><td>${e}</td><td>${en}</td><td>${s}</td><td><span class="pill ${r>50?'p-r':r>40?'p-a':'p-g'}">${r}</span></td><td><span class="pill ${g>0?'p-r':'p-g'}">${g>0?'+'+g:'OK'}</span></td></tr>`;}).join('')}</tbody></table>
+    <table class="tbl"><thead><tr><th>École</th><th>Élèves</th><th>Enseign.</th><th>Salles</th><th>Ratio</th><th>Gap ODD 4</th><th></th></tr></thead>
+    <tbody id="edu-ref-tbody"></tbody></table>
   </div>
+  <script>
+  (function(){
+    const deleted = DB.getArr('edu_ref_deleted');
+    const visible = EDU_REF.filter(r=>!deleted.includes(r[0]));
+    let etab=visible.length, eleves=0, gaps=0;
+    const tbody = document.getElementById('edu-ref-tbody');
+    if(tbody) tbody.innerHTML = visible.map(([n,e,en,s])=>{
+      const r=Math.round(e/en); const g=Math.ceil(e/40)-s;
+      eleves+=e; gaps+=Math.max(0,g);
+      return '<tr><td style="font-weight:500">'+n+'</td><td>'+e+'</td><td>'+en+'</td><td>'+s+'</td><td><span class="pill '+(r>50?'p-r':r>40?'p-a':'p-g')+'">'+r+'</span></td><td><span class="pill '+(g>0?'p-r':'p-g')+'">'+(g>0?'+'+g:'OK')+'</span></td><td><button class="trash-btn" onclick="deleteEduRef(\'' + n + '\')">🗑</button></td></tr>';
+    }).join('');
+    const ke=document.getElementById('kpi-etab'); if(ke) ke.textContent=etab;
+    const kl=document.getElementById('kpi-eleves'); if(kl) kl.textContent=eleves.toLocaleString('fr-FR');
+    const kg=document.getElementById('kpi-gaps'); if(kg) kg.textContent='-'+gaps;
+    const tc=document.getElementById('trash-count-edu'); if(tc) tc.textContent=getCorbeilleCount();
+  })();
+  <\/script>
   ${fiches.length?`<div class="card" style="overflow-x:auto"><div class="card-h">📋 Fiches collectées</div>
     <table class="tbl"><thead><tr><th>Nom</th><th>Quartier</th><th>Niveau</th><th>Élèves</th><th>Salles</th><th>Eau</th><th>Élec.</th><th>État</th><th>GPS</th></tr></thead>
     <tbody>${fiches.map(f=>`<tr><td style="font-weight:500">${f.nom}</td><td>${f.quartier||'—'}</td>
@@ -1907,7 +2048,18 @@ function exportExcel(secteur){
   const rows=[['ID','Secteur','Nom','Quartier','État','Date','Enquêteur','GPS Lat','GPS Lon','Mission']];
   fiches.forEach(f=>rows.push([f.id,f.secteur,f.nom||'',f.quartier||'',f.etat||'',f.date||'',f.enqueteur||'',f.gps?.lat||'',f.gps?.lon||'',f.missionId||'']));
   // Build HTML table that Excel can open
-  const html=`<html><head><meta charset="UTF-8"><style>th{background:#1e3a8a;color:white;padding:6px 10px;}td{padding:5px 10px;border:1px solid #ddd;}table{border-collapse:collapse;}</style></head><body><h2>ZAMIN — Collecte Terrain · Export ${secteur} · ${new Date().toLocaleDateString('fr-FR')}</h2><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table></body></html>`;
+  const html=`<html><head><meta charset="UTF-8"><style>th{background:#1e3a8a;color:white;padding:6px 10px;}td{padding:5px 10px;border:1px solid #ddd;}table{border-collapse:collapse;}</style></head><body><h2>ZAMIN — Collecte Terrain · Export ${secteur} · ${new Date().toLocaleDateString('fr-FR')}</h2><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table>
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
+</body></html>`;
   dl(html,`ZAMIN_${secteur}_${dt()}.xls`,'application/vnd.ms-excel');
   toast('📊 Export Excel téléchargé');
 }
@@ -1964,7 +2116,18 @@ function exportWord(secteur){
     <tr><td>ODD 6 — Couverture eau potable</td><td>100% des quartiers (5 bornes à réparer)</td></tr>
     <tr><td>ODD 6 — Dépôts clandestins</td><td>31 dépôts de déchets recensés</td></tr>
   </tbody></table>
-  </body></html>`;
+  
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
+</body></html>`;
   dl(html,`ZAMIN_Rapport_${secteur}_${dt()}.doc`,'application/msword');
   toast('📄 Rapport Word téléchargé');
 }
@@ -1985,7 +2148,18 @@ function exportPDF(secteur){
   <div class="no-print" style="margin-top:20px;text-align:center">
     <button onclick="window.print()" style="padding:10px 24px;background:#1e3a8a;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">🖨️ Imprimer / Enregistrer en PDF</button>
   </div>
-  </body></html>`);
+  
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
+</body></html>`);
   printWin.document.close();
   toast('📋 Fenêtre PDF ouverte — Utilisez Fichier > Imprimer');
 }
@@ -2198,7 +2372,18 @@ function exportAllExcel(){
   const fiches=DB.getArr('fiches').filter(f=>f._status==='sent');
   const rows=[['ID','Secteur','Nom','Quartier','État','GPS Lat','GPS Lon','Commanditaire','Enquêteur','Mission','Date']];
   fiches.forEach(f=>rows.push([f.id,f.secteur,f.nom||'',f.quartier||'',f.etat||'',f.gps?.lat||'',f.gps?.lon||'',f.cmdEmail||'',f.enqueteur||'',f.missionId||'',f.date||'']));
-  const html=`<html><head><meta charset="UTF-8"></head><body><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table></body></html>`;
+  const html=`<html><head><meta charset="UTF-8"></head><body><table>${rows.map((r,i)=>`<tr>${r.map(c=>`<${i===0?'th':'td'}>${c}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table>
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
+</body></html>`;
   dl(html,`ZAMIN_Global_${dt()}.xls`,'application/vnd.ms-excel');toast('📊 Excel global téléchargé');
 }
 function exportAllWord(){
@@ -2598,7 +2783,18 @@ function exportQuartierWord(quartier){
   <p>Généré le ${new Date().toLocaleDateString('fr-FR')} · ${fiches.length} fiche(s)</p>
   <table><thead><tr><th>Secteur</th><th>Nom</th><th>État</th><th>GPS Lat</th><th>GPS Lon</th><th>Enquêteur</th><th>Date</th></tr></thead>
   <tbody>${fiches.map(f=>`<tr><td>${f.secteur}</td><td>${f.nom||'—'}</td><td>${f.etat||'—'}</td><td>${f.gps?.lat?parseFloat(f.gps.lat).toFixed(6):'—'}</td><td>${f.gps?.lon?parseFloat(f.gps.lon).toFixed(6):'—'}</td><td>${f.enqueteur||'—'}</td><td>${f.date||'—'}</td></tr>`).join('')}
-  </tbody></table></body></html>`;
+  </tbody></table>
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
+</body></html>`;
   dl(html,`ZAMIN_${quartier.replace(/ /g,'_')}_${dt()}.doc`,'application/msword');
   toast(`📄 Rapport ${quartier} exporté`);
 }
@@ -2915,5 +3111,16 @@ function loadMissions() {
 }
 
 </script>
+
+<!-- CORBEILLE -->
+<div id="corbeille-panel">
+  <div class="corbeille-header">
+    <h3>🗑️ Corbeille — 30 jours</h3>
+    <button onclick="closeCorbeille()" style="background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+  </div>
+  <div id="corbeille-list" style="padding:8px;"></div>
+</div>
+<div id="corbeille-overlay" onclick="closeCorbeille()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:9998;"></div>
+
 </body>
 </html>
