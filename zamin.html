@@ -4,6 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>ZAMIN — Collecte Terrain</title>
+<script>
+// Exposition précoce du toggle thème
+window.toggleTheme = function(){
+  const current = localStorage.getItem('zamin_theme') || 'light';
+  const next = current==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', next==='dark'?'dark':'');
+  localStorage.setItem('zamin_theme', next);
+  setTimeout(function(){
+    document.querySelectorAll('.theme-toggle').forEach(function(btn){
+      btn.textContent = next==='dark' ? '☀️' : '🌙';
+      btn.title = next==='dark' ? 'Mode clair' : 'Mode sombre';
+    });
+  }, 30);
+};
+// Appliquer le thème sauvegardé immédiatement
+(function(){
+  const saved = localStorage.getItem('zamin_theme');
+  if(saved==='dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+</script>
 <style>
 /* ═══ THÈME CLAUDE — MODE CLAIR (défaut) ═══ */
 :root {
@@ -1920,15 +1940,83 @@ function copyCode(code){
 }
 
 /* ── ENQUÊTEURS ── */
+function getBlockedEnq(){return DB.getArr('blocked_enq');}
+function isEnqBlocked(name){return getBlockedEnq().includes(name);}
+
+function toggleBlockEnq(name){
+  const blocked = getBlockedEnq();
+  const isBlocked = blocked.includes(name);
+  if(isBlocked){
+    DB.set('blocked_enq', blocked.filter(b=>b!==name));
+    toast('✅ '+name+' débloqué');
+  } else {
+    if(!confirm('Bloquer '+name+' ? Il ne pourra plus soumettre de fiches.'))return;
+    blocked.push(name);
+    DB.set('blocked_enq', blocked);
+    toast('🚫 '+name+' bloqué');
+  }
+  cmdActivePanels['enqueteurs']=false;buildCmdPanel('enqueteurs');
+}
+
+function deleteEnqFiches(name){
+  if(!confirm('Supprimer toutes les fiches de '+name+' ? Cette action est irréversible.'))return;
+  const all = DB.getArr('fiches');
+  const email = currentCmd?.email||DB.get('cmd_session');
+  DB.set('fiches', all.filter(f=>!(f.cmdEmail===email&&(f.enqueteur||'Inconnu')===name)));
+  cmdActivePanels['enqueteurs']=false;buildCmdPanel('enqueteurs');
+  toast('🗑️ Fiches de '+name+' supprimées');
+}
+
 function buildCmdEnqueteurs(){
   const el=document.getElementById('cmd-panel-enqueteurs');if(!el)return;
   const email=currentCmd?.email||DB.get('cmd_session');
   const fiches=DB.getArr('fiches').filter(f=>f.cmdEmail===email);
-  const byEnq={};fiches.forEach(f=>{const e=f.enqueteur||'Inconnu';byEnq[e]=(byEnq[e]||{name:e,total:0,sent:0,missions:new Set()});byEnq[e].total++;if(f._status==='sent')byEnq[e].sent++;if(f.missionId)byEnq[e].missions.add(f.missionId);});
-  el.innerHTML=`<div class="stitle"><h2>Mes enquêteurs</h2><p>Activité par enquêteur</p></div>
-  ${Object.keys(byEnq).length===0?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">Aucun enquêteur n'a encore rejoint vos missions.</div>`
-  :`<table class="tbl"><thead><tr><th>Enquêteur</th><th>Fiches totales</th><th>Envoyées</th><th>En attente</th><th>Missions</th></tr></thead>
-  <tbody>${Object.values(byEnq).map(e=>`<tr><td style="font-weight:500">${e.name}</td><td>${e.total}</td><td><span class="pill p-g">${e.sent}</span></td><td><span class="pill p-a">${e.total-e.sent}</span></td><td>${e.missions.size}</td></tr>`).join('')}</tbody></table>`}`;
+  const byEnq={};
+  fiches.forEach(f=>{
+    const e=f.enqueteur||'Inconnu';
+    if(!byEnq[e])byEnq[e]={name:e,total:0,sent:0,missions:new Set(),lastDate:''};
+    byEnq[e].total++;
+    if(f._status==='sent')byEnq[e].sent++;
+    if(f.missionId)byEnq[e].missions.add(f.missionId);
+    if(f.date>byEnq[e].lastDate)byEnq[e].lastDate=f.date;
+  });
+
+  el.innerHTML=`<div class="stitle"><h2>Mes enquêteurs</h2><p>${Object.keys(byEnq).length} enquêteur(s) actif(s)</p></div>
+  ${Object.keys(byEnq).length===0
+    ?`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">Aucun enquêteur n'a encore rejoint vos missions.</div>`
+    :Object.values(byEnq).map(e=>{
+      const blocked = isEnqBlocked(e.name);
+      return `<div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${e.name}
+              ${blocked?`<span class="pill p-r" style="margin-left:6px;font-size:10px">Bloqué</span>`:'<span class="pill p-g" style="margin-left:6px;font-size:10px">Actif</span>'}
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Dernière activité : ${e.lastDate||'—'} · ${e.missions.size} mission(s)</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          <div style="background:var(--teal-l);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--teal-d)">${e.total}</div>
+            <div style="font-size:10px;color:var(--muted)">Fiches total</div>
+          </div>
+          <div style="background:var(--green-l);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--green)">${e.sent}</div>
+            <div style="font-size:10px;color:var(--muted)">Envoyées</div>
+          </div>
+          <div style="background:var(--amber-l);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--amber)">${e.total-e.sent}</div>
+            <div style="font-size:10px;color:var(--muted)">En attente</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="toggleBlockEnq('${e.name}')" class="btn ${blocked?'btn-p':'btn-s'} btn-sm">
+            ${blocked?'✅ Débloquer':'🚫 Bloquer'}
+          </button>
+          <button onclick="deleteEnqFiches('${e.name}')" class="btn btn-d btn-sm">🗑️ Supprimer fiches</button>
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 /* ── SECTEURS DONNÉES ── */
