@@ -15,7 +15,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Sen-SMS — SMS pro au Sénégal">
 <meta name="twitter:description" content="Campagnes SMS pour écoles, commerces, mosquées. Paiement Wave. 28 FCFA/SMS.">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1733,17 +1733,8 @@ function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
 
 function processFile(file) {
   var ext=file.name.split('.').pop().toLowerCase();
-  showToast('Chargement...','success');
-  if(typeof XLSX==='undefined'){
-    // Essayer un CDN alternatif
-    var s=document.createElement('script');
-    s.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload=function(){ processFile(file); };
-    s.onerror=function(){ showToast('Erreur chargement Excel — vérifiez votre connexion','error'); };
-    document.head.appendChild(s);
-    showToast('Chargement librairie Excel...','success');
-    return;
-  }
+  showToast('Lecture du fichier...','success');
+  if(typeof XLSX==='undefined'){showToast('Librairie Excel non chargee — rechargez la page','error');return;}
   if(['xlsx','xls','csv'].includes(ext)){
     var reader=new FileReader();
     reader.onerror=function(){showToast('Erreur lecture fichier','error');};
@@ -1869,18 +1860,17 @@ function updateSummary(overrideCount,smsEach) {
 
 function selPayOpt(opt) { payOpt=opt; document.getElementById('payopt-wave').classList.toggle('selected',opt==='wave'); document.getElementById('payopt-card').classList.toggle('selected',opt==='card'); }
 
-async function initierPaiement() {
+function initierPaiement() {
   var org=document.getElementById('org-name').value.trim(),phone=document.getElementById('org-phone').value.trim();
+  if(!org||!phone){showToast('Remplissez votre nom et telephone','error');return;}
+  if(!contacts.length){showToast('Ajoutez des contacts d abord','error');return;}
   var msg=document.getElementById('message-text').value;
-  var cost=Math.ceil((contacts.length||1)*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
-  if(payOpt==='wave'){
-    if(!org||!phone){showToast('Remplissez votre nom et telephone avant de payer','error');return;}
-    window.open(WAVE_BASE+cost,'_blank');
-    showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
+  var cost=Math.ceil(contacts.length*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
+  if(payOpt==='wave'){window.open(WAVE_BASE+cost,'_blank');showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
   else{FlutterwaveCheckout({public_key:FLW_KEY,tx_ref:'SENSMS-'+Date.now(),amount:cost,currency:'XOF',payment_options:'card',customer:{email:phone+'@sen-sms.sn',phone_number:phone,name:org},customizations:{title:'Sen-SMS',description:'Campagne SMS — '+contacts.length+' contacts',logo:''},callback:async function(r){if(r.status==='successful'){document.getElementById('code-validation').value=r.tx_ref;showToast('Paiement confirme !','success');}else{showToast('Paiement echoue','error');}},onclose:function(){}});}
 }
 
-async function lancerCampagne() {
+function lancerCampagne() {
   var msg=document.getElementById('message-text').value.trim();
   var org=document.getElementById('org-name').value.trim();
   var phone=document.getElementById('org-phone').value.trim();
@@ -1890,15 +1880,16 @@ async function lancerCampagne() {
   if(!org||!phone){showToast('Remplissez vos informations','error');return;}
   if(!ref||ref.length<5){showToast('Entrez votre reference de transaction','error');return;}
   var btn=document.getElementById('send-btn');btn.disabled=true;btn.innerHTML='⏳ Verification...';
-  try {
-    var res=await fetch(API+'/api/sms-marketing/verify-ref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:ref,telephone:phone,smsCount:contacts.length})});
-    var data=await res.json();
-    if(data.valid){showToast('Reference validee ! Envoi en cours...','success');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;confirmerEtEnvoyer(msg);}
-    else{showToast(data.error||'Reference non reconnue. Contactez +221 77 152 09 59','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
-  } catch(e){showToast('Erreur reseau — reessayez','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+  fetch(API+'/api/sms-marketing/verify-ref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:ref,telephone:phone,smsCount:contacts.length})})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.valid){showToast('Reference validee ! Envoi en cours...','success');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;confirmerEtEnvoyer(msg);}
+      else{showToast(data.error||'Reference non reconnue. Contactez +221 77 152 09 59','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+    })
+    .catch(function(){showToast('Erreur reseau — reessayez','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;});
 }
 
-async function confirmerEtEnvoyer(msgTemplate) {
+function confirmerEtEnvoyer(msgTemplate) {
   document.getElementById('modal').classList.add('open');
   document.getElementById('modal-icon').textContent='📤';
   document.getElementById('modal-title').textContent='Envoi en cours...';
@@ -1906,8 +1897,8 @@ async function confirmerEtEnvoyer(msgTemplate) {
   var sender=document.getElementById('sender-name').value||'SenSMS';
   var scheduled=scheduleMode==='later'?document.getElementById('schedule-datetime').value:null;
   var messages=contacts.map(function(c){return{telephone:c.telephone,message:personalizeMsg(msgTemplate,c)};});
-  try {
-    await fetch(API+'/api/sen-sms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campagne:document.getElementById('org-name').value,messages:messages,sender:sender,scheduled:scheduled,total:contacts.length})});
+  fetch(API+'/api/sen-sms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campagne:document.getElementById('org-name').value,messages:messages,sender:sender,scheduled:scheduled,total:contacts.length})})
+  .then(function(){
     var sent=0;
     var iv=setInterval(function(){
       sent=Math.min(sent+Math.ceil(contacts.length/10),contacts.length);
@@ -1915,18 +1906,28 @@ async function confirmerEtEnvoyer(msgTemplate) {
       document.getElementById('progress-fill').style.width=pct+'%';
       document.getElementById('progress-text').textContent=sent+' / '+contacts.length+' SMS envoyes';
       document.getElementById('modal-sub').textContent=pct+'% complete...';
-      if(sent>=contacts.length){clearInterval(iv);document.getElementById('modal-icon').textContent='✅';document.getElementById('modal-title').textContent='Campagne envoyee !';document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Techsoft.';
+      if(sent>=contacts.length){
+        clearInterval(iv);
+        document.getElementById('modal-icon').textContent='✅';
+        document.getElementById('modal-title').textContent='Campagne envoyee !';
+        document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Techsoft.';
+        document.getElementById('confirm-details').style.display='block';
         document.getElementById('conf-org').textContent=document.getElementById('org-name').value||'—';
         document.getElementById('conf-contacts').textContent=contacts.length+' contacts';
-        document.getElementById('conf-sender').textContent=document.getElementById('sender-name')?document.getElementById('sender-name').value||'SenSMS':'SenSMS';
+        document.getElementById('conf-sender').textContent=sender;
         document.getElementById('conf-date').textContent=new Date().toLocaleString('fr-FR');
         document.getElementById('conf-cost').textContent=document.getElementById('sum-cost').textContent;
-        document.getElementById('confirm-details').style.display='block';
         document.getElementById('dl-rapport-btn').style.display='block';
         document.getElementById('modal-close').style.display='inline-block';
-        sauvegarderCampagne({organisation:document.getElementById('org-name').value||'',sender:document.getElementById('sender-name')?document.getElementById('sender-name').value||'SenSMS':'SenSMS',message:document.getElementById('message-text')?document.getElementById('message-text').value:'',contacts:contacts.length,smsTotal:parseInt(document.getElementById('sum-total-sms').textContent)||contacts.length,cout:document.getElementById('sum-cost').textContent,pack:packData.name||''});}
+      }
     },400);
-  } catch(e){document.getElementById('modal-icon').textContent='❌';document.getElementById('modal-title').textContent='Erreur d envoi';document.getElementById('modal-sub').textContent='Verifiez votre connexion.';document.getElementById('modal-close').style.display='inline-block';}
+  })
+  .catch(function(){
+    document.getElementById('modal-icon').textContent='❌';
+    document.getElementById('modal-title').textContent='Erreur d envoi';
+    document.getElementById('modal-sub').textContent='Verifiez votre connexion.';
+    document.getElementById('modal-close').style.display='inline-block';
+  });
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('open');}
@@ -2208,22 +2209,21 @@ function refuserCookies() {
 // ── MODALES LÉGALES ──────────────────────
 var LEGAL_CONTENT = {
   apropos: {
-    title: 'À propos de Sen-SMS',
-    date: 'Dernière mise à jour : mai 2026',
-    html: "<h3>Qui sommes-nous ?</h3><p>Sen-SMS est une plateforme de SMS marketing professionnel dédiée au marché sénégalais, développée par <strong>PST Telecom</strong> (Pure Smart Telecom), opérateur télécom virtuel basé au Sénégal.</p><h3>Notre mission</h3><p>Rendre l"envoi de SMS en masse accessible à toutes les structures sénégalaises — écoles, commerces, mosquées, ONG, cliniques — avec des tarifs transparents et un service fiable.</p><h3>Notre réseau</h3><p>Sen-SMS s'appuie sur l'infrastructure Techsoft SMS pour garantir la livraison sur les trois opérateurs sénégalais : <strong>Orange, Free et Expresso</strong>.</p><h3>Contact</h3><p>📱 WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a><br>🌐 Site : <a href="https://sensms.com">sensms.com</a><br>🏢 PST Telecom · Dakar, Sénégal</p>'
+    title: 'A propos de Sen-SMS',
+    date: 'Derniere mise a jour : mai 2026',
+    html: '<h3>Qui sommes-nous ?</h3><p>Sen-SMS est une plateforme de SMS marketing professionnel dédiée au marché sénégalais, développée par <strong>PST Telecom</strong> (Pure Smart Telecom), opérateur télécom virtuel basé au Sénégal.</p><h3>Notre mission</h3><p>Rendre l\'envoi de SMS en masse accessible a toutes les structures sénégalaises — écoles, commerces, mosquées, ONG, cliniques — avec des tarifs transparents et un service fiable.</p><h3>Notre réseau</h3><p>Sen-SMS s\'appuie sur l\'infrastructure Techsoft SMS pour garantir la livraison sur les trois opérateurs sénégalais : <strong>Orange, Free et Expresso</strong>.</p><h3>Contact</h3><p>WhatsApp : +221 76 559 64 42<br>Site : sensms.com<br>PST Telecom · Dakar, Sénégal</p>'
   },
   confidentialite: {
     title: 'Politique de confidentialité',
-    date: 'Dernière mise à jour : mai 2026',
-    html: "<h3>Données collectées</h3><p>Lors de l'utilisation de Sen-SMS, nous collectons :</p><ul><li>Le nom ou nom de votre organisation</li><li>Votre numéro de téléphone (pour le suivi de campagne)</li><li>Les numéros de téléphone de vos contacts (traitement ponctuel, non stocké en base)</li><li>La référence de transaction Wave ou Flutterwave</li></ul><h3>Utilisation des données</h3><p>Vos données sont utilisées exclusivement pour :</p><ul><li>Traiter et envoyer votre campagne SMS</li><li>Vérifier votre paiement</li><li>Vous contacter en cas de problème technique</li></ul><h3>Conservation</h3><p>Les numéros de vos destinataires ne sont pas conservés après l'envoi de la campagne. Vos informations de contact sont conservées 12 mois à des fins de support.</p><h3>Partage des données</h3><p>Vos données ne sont jamais vendues ni partagées avec des tiers, sauf avec nos prestataires techniques (Techsoft SMS pour l'envoi, Wave/Flutterwave pour le paiement) dans le strict cadre de l'exécution du service.</p><h3>Vos droits</h3><p>Conformément à la loi sénégalaise sur la protection des données personnelles (loi n°2008-12), vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous via WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a></p>'
+    date: 'Derniere mise a jour : mai 2026',
+    html: '<h3>Données collectées</h3><p>Lors de l\'utilisation de Sen-SMS, nous collectons :</p><ul><li>Le nom ou nom de votre organisation</li><li>Votre numéro de téléphone</li><li>Les numéros de téléphone de vos contacts (traitement ponctuel, non stocké)</li><li>La référence de transaction Wave ou Flutterwave</li></ul><h3>Utilisation des données</h3><p>Vos données sont utilisées exclusivement pour traiter et envoyer votre campagne SMS, vérifier votre paiement, et vous contacter en cas de problème technique.</p><h3>Conservation</h3><p>Les numéros de vos destinataires ne sont pas conservés après l\'envoi. Vos informations de contact sont conservées 12 mois.</p><h3>Partage des données</h3><p>Vos données ne sont jamais vendues ni partagées avec des tiers, sauf avec nos prestataires techniques (Techsoft SMS, Wave, Flutterwave) dans le strict cadre de l\'exécution du service.</p><h3>Vos droits</h3><p>Conformément a la loi sénégalaise n°2008-12, vous disposez d\'un droit d\'accès, de rectification et de suppression. Contactez-nous via WhatsApp : +221 76 559 64 42</p>'
   },
   cookies: {
     title: 'Politique de cookies',
-    date: 'Dernière mise à jour : mai 2026',
-    html: "<h3>Qu'est-ce qu'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite sur notre site.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème (clair/sombre). Durée : illimitée jusqu'à effacement.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d'acceptation ou de refus des cookies. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur visites pour l'affichage du compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Le processeur de paiement Flutterwave peut déposer des cookies lors du paiement par carte. Nous n'avons pas de contrôle sur ces cookies. Consultez la <a href="https://flutterwave.com/privacy" target="_blank">politique de Flutterwave</a>.</p><h3>Gérer vos préférences</h3><p>Vous pouvez à tout moment refuser les cookies non essentiels en cliquant sur &quot;Refuser&quot; dans la bannière. Notez que le refus des cookies peut affecter certaines fonctionnalités du site (thème, compteur).</p><p>Pour supprimer les cookies existants, videz le localStorage de votre navigateur (Paramètres → Confidentialité → Données de site).</p>'
+    date: 'Derniere mise a jour : mai 2026',
+    html: '<h3>Qu\'est-ce qu\'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème. Durée : illimitée.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d\'acceptation. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Flutterwave peut déposer des cookies lors du paiement par carte. Consultez leur politique sur flutterwave.com.</p><h3>Gérer vos préférences</h3><p>Vous pouvez refuser les cookies non essentiels via la bannière. Pour supprimer les cookies existants, videz le localStorage de votre navigateur.</p>'
   }
 };
-
 function openLegal(page) {
   var data = LEGAL_CONTENT[page];
   if (!data) return;
