@@ -430,9 +430,9 @@ function updateThemeBtn() {
 // ── DASHBOARD SHOW/HIDE ────────────────────────────
 function showDashboard(packId) {
   var ds = document.getElementById('dashboard-section');
-  if (!ds) { console.error('dashboard-section introuvable'); return; }
+  if (!ds) return;
   ds.classList.add('active');
-  document.getElementById('dashboard-section').scrollIntoView({ behavior: 'smooth' });
+  ds.scrollIntoView({ behavior: 'smooth' });
   if (packId) {
     setTimeout(function() {
       var prices = { starter: 3500, pro: 33000, business: 150000, ecole: 280000 };
@@ -754,15 +754,548 @@ document.addEventListener('DOMContentLoaded', function() {
 // theme géré en haut de page
 
 // ── AUTH ─────────────────────────────────
-// showDashboard défini en haut de page
+var API_URL = 'https://pst-telecom-production.up.railway.app';
 
-// Après login, si pack en attente, ouvrir dashboard
-var _origUpdateNavAuth = updateNavAuth;
-function updateNavAuth(user) {
-  _origUpdateNavAuth(user);
+function showAuthModal() { document.getElementById('sensms-auth-modal').classList.remove('hidden'); }
+function hideAuthModal() { document.getElementById('sensms-auth-modal').classList.add('hidden'); }
+
+function authTab(tab) {
+  document.getElementById('sensms-login-form').style.display = tab==='login' ? 'block' : 'none';
+  document.getElementById('sensms-register-form').style.display = tab==='register' ? 'block' : 'none';
+  document.querySelectorAll('.sensms-auth-tab').forEach(function(t,i){
+    t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register'));
+  });
+  document.getElementById('sensms-auth-err').style.display='none';
 }
+
+function authErr(msg) {
+  var e = document.getElementById('sensms-auth-err');
+  e.textContent = msg; e.style.display = 'block';
+}
+
+function sensmsLogin() {
+  var id=document.getElementById('sauth-id').value.trim();
+  var pw=document.getElementById('sauth-pw').value.trim();
+  if(!id||!pw){authErr('Remplissez tous les champs');return;}
+  fetch(API_URL+'/api/sensms/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:id,password:pw})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.success){
+      localStorage.setItem('sensms_user',JSON.stringify(d.user));
+      updateNavAuth(d.user);
+      hideAuthModal();
+      if(window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; } else { showDashboard(); }
+    } else { authErr(d.error||'Identifiants incorrects'); }
+  }).catch(function(){authErr('Erreur réseau');});
+}
+
+function sensmsRegister() {
+  var name=document.getElementById('sreg-name').value.trim();
+  var phone=document.getElementById('sreg-phone').value.trim();
+  var email=document.getElementById('sreg-email').value.trim();
+  var pw=document.getElementById('sreg-pw').value.trim();
+  if(!name||!phone||!pw){authErr('Champs obligatoires manquants');return;}
+  if(pw.length<6){authErr('Mot de passe trop court (6 min)');return;}
+  fetch(API_URL+'/api/sensms/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,phone:phone,email:email,password:pw})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.success){
+      localStorage.setItem('sensms_user',JSON.stringify(d.user));
+      updateNavAuth(d.user);
+      hideAuthModal();
+      if(window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; } else { showDashboard(); }
+    } else { authErr(d.error||'Erreur inscription'); }
+  }).catch(function(){authErr('Erreur réseau');});
+}
+
+function updateNavAuth(user) {
+  var btn = document.getElementById('nav-auth-btn');
+  if(btn) { btn.innerHTML = '<a href="/noc?token=pst-admin-2026" style="color:#00C853;text-decoration:none;font-size:12px;margin-right:8px">Admin</a>' + (user.name || user.phone) + ' <span onclick="sensmsLogout()" style="color:#888;font-size:11px;cursor:pointer;margin-left:6px">[Déco]</span>'; btn.onclick = null; }
+}
+
+function sensmsLogout() {
+  localStorage.removeItem('sensms_user');
+  var btn = document.getElementById('nav-auth-btn');
+  if(btn) { btn.textContent = 'Connexion'; btn.onclick = showAuthModal; }
+}
+
+// Vérifier session au chargement
+(function(){
+  var s = localStorage.getItem('sensms_user');
+  if(s){ try{ updateNavAuth(JSON.parse(s)); }catch(e){} }
+})();
 </script>
 
+
+
+
+
+<!-- DASHBOARD SECTION -->
+<div id="dashboard-section" class="dashboard-section">
+  <div style="max-width:1200px;margin:0 auto;padding:20px 32px 10px;display:flex;align-items:center;gap:12px;">
+    <button onclick="hideDashboard()" style="background:none;border:1px solid var(--cl-border);color:var(--cl-muted);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">← Retour</button>
+    <span style="color:var(--green);font-weight:700;font-size:16px;">🚀 Lancer une campagne</span>
+  </div>
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">Sen<span>-SMS</span></div>
+    <div class="nav-tag">Sénégal SMS</div>
+    <span class="powered-by">⚡ Techsoft</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-link" href="https://pst-telecom.vercel.app">Accueil</a>
+    <a class="nav-link" href="https://pst-telecom-production.up.railway.app/dashboard">Mon espace</a>
+    <button class="nav-btn" onclick="scrollToPacks()">Commencer →</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">📩 Service SMS professionnel — Sénégal</div>
+  <h1>Envoyez des SMS<br>à des <span class="accent">milliers</span> de personnes</h1>
+  <p>Importez votre liste depuis Excel ou CSV. Personnalisez chaque message. Envoyez en masse en quelques clics. Parfait pour les écoles, concours, entreprises et associations.</p>
+</div>
+
+<div class="packs" id="packs-section">
+  <div class="pack" onclick="selPack('starter',3500,100)" id="pack-starter">
+    <div class="pack-name">Starter</div>
+    <div class="pack-sms">100 <span>SMS</span></div>
+    <div class="pack-price">3 500 FCFA</div>
+    <div class="pack-unit">35 FCFA / SMS</div>
+  </div>
+  <div class="pack popular selected" onclick="selPack('pro',33000,1000)" id="pack-pro">
+    <div class="pack-name">Pro</div>
+    <div class="pack-sms">1 000 <span>SMS</span></div>
+    <div class="pack-price">33 000 FCFA</div>
+    <div class="pack-unit">33 FCFA / SMS</div>
+  </div>
+  <div class="pack" onclick="selPack('business',150000,5000)" id="pack-business">
+    <div class="pack-name">Business</div>
+    <div class="pack-sms">5 000 <span>SMS</span></div>
+    <div class="pack-price">150 000 FCFA</div>
+    <div class="pack-unit">30 FCFA / SMS</div>
+  </div>
+  <div class="pack" onclick="selPack('ecole',280000,10000)" id="pack-ecole">
+    <div class="pack-name">École</div>
+    <div class="pack-sms">10 000 <span>SMS</span></div>
+    <div class="pack-price">280 000 FCFA</div>
+    <div class="pack-unit">28 FCFA / SMS</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(1)">
+        <div class="step-num" id="snum-1">1</div>
+        <div><div class="step-title">📋 Importer vos contacts</div><div class="step-sub">Excel, CSV — ou saisie manuelle</div></div>
+      </div>
+      <div class="step-body open" id="sbody-1">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('upload')">📁 Importer un fichier</button>
+          <button class="tab" onclick="switchTab('manual')">✏️ Saisie manuelle</button>
+        </div>
+        <div id="tab-upload">
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+            <div class="upload-icon">📂</div>
+            <div class="upload-title">Glissez votre fichier ici ou cliquez pour parcourir</div>
+            <div class="upload-sub">Supporte les listes d'élèves, candidats, clients...</div>
+            <div class="upload-formats"><span class="fmt-badge">.xlsx</span><span class="fmt-badge">.xls</span><span class="fmt-badge">.csv</span></div>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+          <div id="col-mapping" style="display:none;margin-top:16px;">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Associez les colonnes de votre fichier :</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="field"><label>Colonne Numéro de téléphone *</label><select id="col-phone" onchange="updatePreview()"></select></div>
+              <div class="field"><label>Colonne Nom</label><select id="col-nom" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Prénom</label><select id="col-prenom" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Classe / Groupe</label><select id="col-classe" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Matricule</label><select id="col-matricule" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne N° Table (examen)</label><select id="col-table" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Mention / Résultat</label><select id="col-mention" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Date</label><select id="col-date" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Centre d'examen</label><select id="col-centre" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Jury</label><select id="col-jury" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+            </div>
+            <div id="filter-section" style="margin-top:12px;display:none;">
+              <div class="field"><label>Filtrer par classe / groupe (optionnel)</label><select id="filter-classe" onchange="applyFilter()"><option value="">Tous les contacts</option></select></div>
+            </div>
+          </div>
+          <div class="contacts-preview" id="contacts-preview" style="display:none;">
+            <div class="contacts-header">
+              <div class="contacts-count"><strong id="contact-count">0</strong> contacts chargés <span id="filter-info" style="color:var(--orange);margin-left:8px;"></span></div>
+              <button onclick="clearContacts()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">✕ Effacer</button>
+            </div>
+            <div class="table-wrap"><table><thead id="preview-thead"></thead><tbody id="preview-tbody"></tbody></table></div>
+          </div>
+        </div>
+        <div id="tab-manual" style="display:none;">
+          <div class="manual-input">
+            <textarea id="manual-numbers" placeholder="Entrez les numéros, un par ligne :&#10;221771234567&#10;&#10;Ou avec le nom :&#10;Aliou Diallo,221771234567" oninput="parseManual()"></textarea>
+            <div class="manual-hint">📌 Format : numéro seul ou nom,numéro<br>✅ 221XXXXXXXXX ou 77XXXXXXX (Sénégal automatique)</div>
+          </div>
+          <div class="contacts-preview" id="manual-preview" style="display:none;margin-top:12px;">
+            <div class="contacts-header"><div class="contacts-count"><strong id="manual-count">0</strong> contacts</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(2)">
+        <div class="step-num" id="snum-2">2</div>
+        <div><div class="step-title">✍️ Rédiger votre message</div><div class="step-sub">Personnalisez avec les données de votre liste</div></div>
+      </div>
+      <div class="step-body" id="sbody-2">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Modèles rapides</div>
+        <div class="templates-grid">
+          <div class="template-card" onclick="useTemplate('convocation')"><h4>🏫 Convocation examen</h4><p>Bonjour {prenom}, convoqué(e) le {date}. Centre : {centre}. Table : {table}. Jury : {jury}.</p></div>
+          <div class="template-card" onclick="useTemplate('resultat')"><h4>📊 Résultats</h4><p>Bonjour {prenom}, résultats disponibles. Mention : {mention}. Félicitations !</p></div>
+          <div class="template-card" onclick="useTemplate('inscription')"><h4>📝 Rappel inscription</h4><p>Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées.</p></div>
+          <div class="template-card" onclick="useTemplate('mensualite')"><h4>💰 Rappel mensualité</h4><p>Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser.</p></div>
+          <div class="template-card" onclick="useTemplate('promo')"><h4>🎉 Promotion</h4><p>Bonjour {prenom}, offre spéciale ! Valable jusqu'au {date}. — Sen-SMS</p></div>
+          <div class="template-card" onclick="useTemplate('otp')"><h4>🔐 Code OTP</h4><p>Votre code de vérification : {code}. Valable 10 min.</p></div>
+        </div>
+        <div class="composer">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables — cliquez pour insérer</div>
+          <div class="vars-grid">
+            <span class="var-chip" onclick="insertVar('{prenom}')">{prenom}</span>
+            <span class="var-chip" onclick="insertVar('{nom}')">{nom}</span>
+            <span class="var-chip" onclick="insertVar('{classe}')">{classe}</span>
+            <span class="var-chip" onclick="insertVar('{matricule}')">{matricule}</span>
+            <span class="var-chip" onclick="insertVar('{table}')">{table}</span>
+            <span class="var-chip" onclick="insertVar('{mention}')">{mention}</span>
+            <span class="var-chip" onclick="insertVar('{date}')">{date}</span>
+            <span class="var-chip" onclick="insertVar('{centre}')">{centre}</span>
+            <span class="var-chip" onclick="insertVar('{jury}')">{jury}</span>
+          </div>
+          <textarea id="message-text" placeholder="Rédigez votre message ici..." oninput="updateComposer()" rows="5"></textarea>
+          <div class="composer-footer">
+            <div class="char-count" id="char-count">0 / 160 caractères (1 SMS)</div>
+            <div style="font-size:12px;color:var(--muted)" id="sms-count-msg"></div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:16px;">
+          <label>Nom de l'expéditeur (max 11 caractères)</label>
+          <input type="text" id="sender-name" placeholder="SenSMS" maxlength="11" value="SenSMS">
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(3)">
+        <div class="step-num" id="snum-3">3</div>
+        <div><div class="step-title">📅 Planifier l'envoi</div><div class="step-sub">Maintenant ou à une date précise</div></div>
+      </div>
+      <div class="step-body" id="sbody-3">
+        <div class="schedule-opts">
+          <div class="schedule-opt selected" id="sched-now" onclick="selSchedule('now')"><div class="icon">⚡</div><h4>Envoyer maintenant</h4><p>Envoi immédiat dès confirmation</p></div>
+          <div class="schedule-opt" id="sched-later" onclick="selSchedule('later')"><div class="icon">📅</div><h4>Planifier</h4><p>Choisir une date et heure précise</p></div>
+        </div>
+        <input type="datetime-local" id="schedule-datetime" class="datetime-input" onchange="updateSummary()">
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+    <div class="phone-preview" style="margin-bottom:16px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">📱 Aperçu SMS</div>
+      <div class="phone-mock">
+        <div class="phone-header">SenSMS</div>
+        <div class="sms-bubble">
+          <div class="sms-sender" id="preview-sender-name">SenSMS</div>
+          <div id="preview-msg" style="color:var(--muted);font-style:italic;">Votre message apparaîtra ici...</div>
+          <div class="sms-time" id="preview-time">Maintenant</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-title">📊 Résumé</div>
+      <div class="summary-row"><div class="summary-label">Pack sélectionné</div><div class="summary-val" id="sum-pack">Pro</div></div>
+      <div class="summary-row"><div class="summary-label">Contacts</div><div class="summary-val green" id="sum-contacts">0</div></div>
+      <div class="summary-row"><div class="summary-label">SMS par contact</div><div class="summary-val" id="sum-sms-each">1</div></div>
+      <div class="summary-row"><div class="summary-label">Total SMS</div><div class="summary-val orange" id="sum-total-sms">0</div></div>
+      <div class="summary-row"><div class="summary-label">Envoi</div><div class="summary-val" id="sum-schedule">Immédiat</div></div>
+      <div class="total-row"><div class="total-label">Coût total</div><div class="total-val" id="sum-cost">0 FCFA</div></div>
+    </div>
+
+    <div class="summary-card">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;">💳 Paiement</div>
+      <div class="field"><label>Nom / Organisation</label><input type="text" id="org-name" placeholder="École Privée XYZ"></div>
+      <div class="field"><label>Téléphone</label><input type="tel" id="org-phone" placeholder="+221 77 000 00 00"></div>
+      <div id="step-pay" style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Choisir le paiement</div>
+        <div class="pay-opts">
+          <button class="pay-opt selected" id="payopt-wave" onclick="selPayOpt('wave')">💚 Wave</button>
+          <button class="pay-opt" id="payopt-card" onclick="selPayOpt('card')">💳 Carte Visa</button>
+        </div>
+        <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+          💰 Procéder au paiement →
+        </button>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Après paiement, revenez avec votre référence</p>
+      </div>
+      <div id="step-code" style="border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--muted);line-height:1.8;">
+          📱 <strong style="color:#fff;">Wave</strong> → App Wave → <strong style="color:#fff;">Historique</strong> → copier la référence<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: T_XXXXXXXXXXXXXXXXX</span><br><br>
+          💳 <strong style="color:#fff;">Carte Visa</strong> → référence sur le reçu Flutterwave<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: FLW-MOCK-XXXXXXXXX</span>
+        </div>
+        <div class="field">
+          <label>Référence de transaction *</label>
+          <input type="text" id="code-validation" placeholder="T_XXXXXXXXXXXXXXXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:14px;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div style="margin-bottom:14px;">
+          <button onclick="toggleAide()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">❓ Je ne trouve pas ma référence Wave</button>
+          <div id="aide-ref" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8;">
+            1. Ouvrez l'app Wave<br>2. Appuyez sur <strong style="color:#fff;">Historique</strong><br>3. Cherchez le paiement Sen-SMS<br>4. Copiez la référence<br><br>
+            <strong style="color:var(--orange);">Aide :</strong> <strong style="color:#fff;">+221 77 152 09 59</strong>
+          </div>
+        </div>
+        <button class="send-btn" onclick="lancerCampagne()" id="send-btn">🚀 Lancer la campagne</button>
+        <div style="background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6;">
+          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation des destinataires. Sen-SMS décline toute responsabilité en cas d'utilisation abusive.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-icon" id="modal-icon">📤</div>
+    <h3 id="modal-title">Envoi en cours...</h3>
+    <p id="modal-sub">Préparation de votre campagne SMS</p>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-text" id="progress-text">0 / 0 SMS envoyés</div>
+    <button class="modal-close" id="modal-close" style="display:none;" onclick="closeModal()">✅ Terminer</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://checkout.flutterwave.com/v3.js"></script>
+<script>
+const API = 'https://pst-telecom-production.up.railway.app';
+const FLW_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
+const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
+
+let contacts = [], rawData = [], headers = [];
+let packData = { name:'Pro', price:8000, sms:1000 };
+let scheduleMode = 'now', payOpt = 'wave', activeTab = 'upload';
+
+const TEMPLATES = {
+  convocation: "Bonjour {prenom} {nom}, vous etes convoque(e) le {date} a 8h. Centre : {centre}. N Table : {table}. Jury : {jury}. Bon courage !",
+  resultat: "Bonjour {prenom} {nom}, vos resultats sont disponibles. Mention : {mention}. Felicitations ! Sen-SMS.",
+  inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitees. Contactez-nous.",
+  mensualite: "Bonjour {prenom} {nom}, votre mensualite est due. Veuillez regulariser votre situation.",
+  promo: "Bonjour {prenom}, offre speciale ! Profitez de nos services jusqu'au {date}. Sen-SMS",
+  otp: "Votre code Sen-SMS est : {code}. Valable 10 minutes. Ne le partagez pas."
+};
+
+window.addEventListener('load', function() {
+  if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'; document.head.appendChild(s); }
+  updateSummary(); selPack('pro', 33000, 1000);
+});
+
+function toggleAide() { var el=document.getElementById('aide-ref'); el.style.display=el.style.display==='none'?'block':'none'; }
+function selPack(id,price,sms) { document.querySelectorAll('.pack').forEach(function(p){p.classList.remove('selected');}); document.getElementById('pack-'+id).classList.add('selected'); packData={name:id.charAt(0).toUpperCase()+id.slice(1),price:price,sms:sms}; updateSummary(); }
+function scrollToPacks() { document.getElementById('packs-section').scrollIntoView({behavior:'smooth'}); }
+function toggleStep(n) { document.getElementById('sbody-'+n).classList.toggle('open'); }
+function switchTab(tab) { activeTab=tab; document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',(i===0&&tab==='upload')||(i===1&&tab==='manual'));}); document.getElementById('tab-upload').style.display=tab==='upload'?'block':'none'; document.getElementById('tab-manual').style.display=tab==='manual'?'block':'none'; }
+function dragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function dragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
+function dropFile(e) { e.preventDefault(); dragLeave(e); var f=e.dataTransfer.files[0]; if(f) processFile(f); }
+function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
+
+function processFile(file) {
+  var ext=file.name.split('.').pop().toLowerCase();
+  showToast('Lecture du fichier...','success');
+  if(typeof XLSX==='undefined'){showToast('Librairie Excel non chargee — rechargez la page','error');return;}
+  if(['xlsx','xls','csv'].includes(ext)){
+    var reader=new FileReader();
+    reader.onerror=function(){showToast('Erreur lecture fichier','error');};
+    reader.onload=function(ev){
+      try {
+        var wb=ext==='csv'?XLSX.read(ev.target.result,{type:'binary',raw:false}):XLSX.read(ev.target.result,{type:'binary'});
+        var idx=0;
+        if(wb.SheetNames.length>1){var c=prompt('Feuilles disponibles:\n'+wb.SheetNames.map(function(n,i){return (i+1)+'. '+n;}).join('\n')+'\n\nNumero ?','1');if(!c)return;idx=Math.max(0,Math.min(parseInt(c)-1,wb.SheetNames.length-1));}
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[idx]],{header:1,defval:''});
+        if(!rows||rows.length<2){showToast('Fichier vide','error');return;}
+        headers=rows[0].map(function(h){return String(h).trim();});
+        rawData=rows.slice(1).filter(function(r){return r.some(function(c){return String(c).trim()!=='';});});
+        if(!rawData.length){showToast('Aucune donnee trouvee','error');return;}
+        setupMapping();
+        showToast(rawData.length+' lignes chargees','success');
+      } catch(err){showToast('Erreur: '+err.message,'error');}
+    };
+    reader.readAsBinaryString(file);
+  } else {showToast('Format non supporte — utilisez .xlsx ou .csv','error');}
+}
+
+function setupMapping() {
+  ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'].forEach(function(id){
+    var sel=document.getElementById(id);if(!sel)return;
+    var hasIgnore=id!=='col-phone';
+    sel.innerHTML=(hasIgnore?'<option value="">— Ignorer —</option>':'')+headers.map(function(h,i){return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>';}).join('');
+  });
+  document.getElementById('col-mapping').style.display='block';
+  updatePreview();
+}
+
+function autoDetect(field,header) {
+  var h=header.toLowerCase();
+  var map={'col-phone':['telephone','tel','phone','numero','num','contact','mobile'],'col-nom':['nom','name','last'],'col-prenom':['prenom','firstname','first'],'col-classe':['classe','class','section','groupe','group','niveau'],'col-matricule':['matricule','mat','identifiant','ine'],'col-table':['table','place','salle'],'col-mention':['mention','resultat','note'],'col-date':['date','jour','convocation'],'col-centre':['centre','center','etablissement','lieu'],'col-jury':['jury','numjury']};
+  return (map[field]||[]).some(function(k){return h.includes(k);});
+}
+
+function updatePreview() {
+  var pEl=document.getElementById('col-phone');if(!pEl)return;
+  var pc=parseInt(pEl.value);if(isNaN(pc))return;
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  contacts=rawData.map(function(row){
+    return {telephone:formatPhone(String(row[pc]||'')),nom:g('col-nom')!==''?String(row[parseInt(g('col-nom'))]||''):'',prenom:g('col-prenom')!==''?String(row[parseInt(g('col-prenom'))]||''):'',classe:g('col-classe')!==''?String(row[parseInt(g('col-classe'))]||''):'',matricule:g('col-matricule')!==''?String(row[parseInt(g('col-matricule'))]||''):'',table:g('col-table')!==''?String(row[parseInt(g('col-table'))]||''):'',mention:g('col-mention')!==''?String(row[parseInt(g('col-mention'))]||''):'',date:g('col-date')!==''?String(row[parseInt(g('col-date'))]||''):'',centre:g('col-centre')!==''?String(row[parseInt(g('col-centre'))]||''):'',jury:g('col-jury')!==''?String(row[parseInt(g('col-jury'))]||''):''};
+  }).filter(function(c){return c.telephone.length>=8;});
+  var classes=[];contacts.forEach(function(c){if(c.classe&&classes.indexOf(c.classe)===-1)classes.push(c.classe);});
+  if(classes.length>0){document.getElementById('filter-section').style.display='block';document.getElementById('filter-classe').innerHTML='<option value="">Tous ('+contacts.length+')</option>'+classes.map(function(c){return '<option value="'+c+'">'+c+' ('+contacts.filter(function(x){return x.classe===c;}).length+')</option>';}).join('');}
+  renderPreviewTable(contacts.slice(0,50));
+  document.getElementById('contacts-preview').style.display='block';
+  document.getElementById('contact-count').textContent=contacts.length;
+  markStepDone(1);updateSummary();
+}
+
+function applyFilter() {
+  var val=document.getElementById('filter-classe').value;
+  var filtered=val?contacts.filter(function(c){return c.classe===val;}):contacts;
+  renderPreviewTable(filtered.slice(0,50));
+  document.getElementById('contact-count').textContent=filtered.length;
+  document.getElementById('filter-info').textContent=val?'(filtre: '+val+')':'';
+  updateSummary(filtered.length);
+}
+
+function renderPreviewTable(data) {
+  if(!data.length)return;
+  var cols=['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){return data.some(function(r){return r[c];});});
+  document.getElementById('preview-thead').innerHTML='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+  document.getElementById('preview-tbody').innerHTML=data.map(function(r){return '<tr>'+cols.map(function(c){return '<td class="'+(c==='telephone'?'col-phone':'')+'">'+( r[c]||'—')+'</td>';}).join('')+'</tr>';}).join('');
+}
+
+function clearContacts() { contacts=[];rawData=[];headers=[]; document.getElementById('contacts-preview').style.display='none'; document.getElementById('col-mapping').style.display='none'; document.getElementById('file-input').value=''; updateSummary(); }
+
+function formatPhone(num) {
+  num=num.replace(/\D/g,'');
+  if(num.startsWith('221'))return '+'+num;
+  if(num.startsWith('0'))num=num.slice(1);
+  if(num.length===9||num.length===8)return '+221'+num;
+  return '+'+num;
+}
+
+function parseManual() {
+  var lines=document.getElementById('manual-numbers').value.split('\n').filter(function(l){return l.trim();});
+  contacts=lines.map(function(line){var p=line.split(',');if(p.length>=2)return{nom:p[0].trim(),telephone:formatPhone(p[1].trim()),prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};return{telephone:formatPhone(line.trim()),nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};}).filter(function(c){return c.telephone.length>=8;});
+  document.getElementById('manual-count').textContent=contacts.length;
+  document.getElementById('manual-preview').style.display=contacts.length>0?'block':'none';
+  if(contacts.length>0)markStepDone(1);
+  updateSummary();
+}
+
+function useTemplate(key) { document.getElementById('message-text').value=TEMPLATES[key]; updateComposer(); document.getElementById('sbody-2').classList.add('open'); showToast('Modele applique','success'); }
+function insertVar(v) { var ta=document.getElementById('message-text'),pos=ta.selectionStart;ta.value=ta.value.slice(0,pos)+v+ta.value.slice(ta.selectionEnd);ta.selectionStart=ta.selectionEnd=pos+v.length;ta.focus();updateComposer(); }
+
+function updateComposer() {
+  var txt=document.getElementById('message-text').value,len=txt.length,sc=Math.ceil(len/160)||1;
+  var el=document.getElementById('char-count');
+  el.textContent=len+' / '+(sc*160)+' caracteres ('+sc+' SMS)';
+  el.className='char-count'+(len>320?' over':len>160?' warn':'');
+  document.getElementById('sms-count-msg').textContent=sc>1?'⚠️ '+sc+' SMS par contact':'';
+  var prev=personalizeMsg(txt,contacts[0]||{prenom:'Prenom',nom:'Nom',classe:'3B',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycee Seydou Nourou Tall',jury:'Jury 05'});
+  var pEl=document.getElementById('preview-msg');pEl.textContent=prev||'Votre message apparaitra ici...';pEl.style.color=prev?'var(--text)':'var(--muted)';pEl.style.fontStyle=prev?'normal':'italic';
+  var sEl=document.getElementById('sender-name');document.getElementById('preview-sender-name').textContent=(sEl?sEl.value:'')||'SenSMS';
+  document.getElementById('preview-time').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  markStepDone(2);updateSummary(null,sc);
+}
+
+function personalizeMsg(t,c) {
+  return t.replace(/{prenom}/g,c.prenom||'').replace(/{nom}/g,c.nom||'').replace(/{classe}/g,c.classe||'').replace(/{matricule}/g,c.matricule||'').replace(/{table}/g,c.table||'').replace(/{mention}/g,c.mention||'').replace(/{date}/g,c.date||'').replace(/{centre}/g,c.centre||'').replace(/{jury}/g,c.jury||'').replace(/{code}/g,String(Math.floor(100000+Math.random()*900000)));
+}
+
+function selSchedule(mode) { scheduleMode=mode; document.getElementById('sched-now').classList.toggle('selected',mode==='now'); document.getElementById('sched-later').classList.toggle('selected',mode==='later'); document.getElementById('schedule-datetime').style.display=mode==='later'?'block':'none'; updateSummary(); }
+
+function updateSummary(overrideCount,smsEach) {
+  var count=(overrideCount!==undefined&&overrideCount!==null)?overrideCount:contacts.length;
+  var ml=document.getElementById('message-text')?document.getElementById('message-text').value.length:0;
+  var each=(smsEach!==undefined&&smsEach!==null)?smsEach:(Math.ceil(ml/160)||1);
+  var total=count*each,cost=Math.ceil(total*(packData.price/packData.sms));
+  document.getElementById('sum-pack').textContent=packData.name;
+  document.getElementById('sum-contacts').textContent=count;
+  document.getElementById('sum-sms-each').textContent=each;
+  document.getElementById('sum-total-sms').textContent=total;
+  var sEl=document.getElementById('schedule-datetime');
+  document.getElementById('sum-schedule').textContent=scheduleMode==='now'?'Immediat':(sEl&&sEl.value?sEl.value:'Planifie');
+  document.getElementById('sum-cost').textContent=cost.toLocaleString('fr-FR')+' FCFA';
+}
+
+function selPayOpt(opt) { payOpt=opt; document.getElementById('payopt-wave').classList.toggle('selected',opt==='wave'); document.getElementById('payopt-card').classList.toggle('selected',opt==='card'); }
+
+async function initierPaiement() {
+  var org=document.getElementById('org-name').value.trim(),phone=document.getElementById('org-phone').value.trim();
+  if(!org||!phone){showToast('Remplissez votre nom et telephone','error');return;}
+  if(!contacts.length){showToast('Ajoutez des contacts d abord','error');return;}
+  var msg=document.getElementById('message-text').value;
+  var cost=Math.ceil(contacts.length*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
+  if(payOpt==='wave'){window.open(WAVE_BASE+cost,'_blank');showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
+  else{FlutterwaveCheckout({public_key:FLW_KEY,tx_ref:'SENSMS-'+Date.now(),amount:cost,currency:'XOF',payment_options:'card',customer:{email:phone+'@sen-sms.sn',phone_number:phone,name:org},customizations:{title:'Sen-SMS',description:'Campagne SMS — '+contacts.length+' contacts',logo:''},callback:async function(r){if(r.status==='successful'){document.getElementById('code-validation').value=r.tx_ref;showToast('Paiement confirme !','success');}else{showToast('Paiement echoue','error');}},onclose:function(){}});}
+}
+
+async function lancerCampagne() {
+  var msg=document.getElementById('message-text').value.trim();
+  var org=document.getElementById('org-name').value.trim();
+  var phone=document.getElementById('org-phone').value.trim();
+  var ref=document.getElementById('code-validation').value.trim().toUpperCase();
+  if(!contacts.length){showToast('Ajoutez des contacts','error');return;}
+  if(!msg){showToast('Redigez votre message','error');return;}
+  if(!org||!phone){showToast('Remplissez vos informations','error');return;}
+  if(!ref||ref.length<5){showToast('Entrez votre reference de transaction','error');return;}
+  var btn=document.getElementById('send-btn');btn.disabled=true;btn.innerHTML='⏳ Verification...';
+  try {
+    var res=await fetch(API+'/api/sms-marketing/verify-ref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:ref,telephone:phone,smsCount:contacts.length})});
+    var data=await res.json();
+    if(data.valid){showToast('Reference validee ! Envoi en cours...','success');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;confirmerEtEnvoyer(msg);}
+    else{showToast(data.error||'Reference non reconnue. Contactez +221 77 152 09 59','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+  } catch(e){showToast('Erreur reseau — reessayez','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+}
+
+async function confirmerEtEnvoyer(msgTemplate) {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal-icon').textContent='📤';
+  document.getElementById('modal-title').textContent='Envoi en cours...';
+  document.getElementById('modal-sub').textContent='0 / '+contacts.length+' SMS envoyes';
+  var sender=document.getElementById('sender-name').value||'SenSMS';
+  var scheduled=scheduleMode==='later'?document.getElementById('schedule-datetime').value:null;
+  var messages=contacts.map(function(c){return{telephone:c.telephone,message:personalizeMsg(msgTemplate,c)};});
+  try {
+    await fetch(API+'/api/sen-sms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campagne:document.getElementById('org-name').value,messages:messages,sender:sender,scheduled:scheduled,total:contacts.length})});
+    var sent=0;
+    var iv=setInterval(function(){
+      sent=Math.min(sent+Math.ceil(contacts.length/10),contacts.length);
+      var pct=Math.round(sent/contacts.length*100);
+      document.getElementById('progress-fill').style.width=pct+'%';
+      document.getElementById('progress-text').textContent=sent+' / '+contacts.length+' SMS envoyes';
+      document.getElementById('modal-sub').textContent=pct+'% complete...';
+      if(sent>=contacts.length){clearInterval(iv);document.getElementById('modal-icon').textContent='✅';document.getElementById('modal-title').textContent='Campagne envoyee !';document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Techsoft.';document.getElementById('modal-close').style.display='inline-block';}
+    },400);
+  } catch(e){document.getElementById('modal-icon').textContent='❌';document.getElementById('modal-title').textContent='Erreur d envoi';document.getElementById('modal-sub').textContent='Verifiez votre connexion.';document.getElementById('modal-close').style.display='inline-block';}
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function markStepDone(n){var el=document.getElementById('snum-'+n);el.classList.add('done');el.textContent='✓';}
+function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'success');setTimeout(function(){t.classList.add('show');},10);setTimeout(function(){t.classList.remove('show');},3500);}
+</script>
+</body>
+</div>
 
 </body>
 </html>
