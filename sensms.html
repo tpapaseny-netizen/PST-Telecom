@@ -1,626 +1,931 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
+<meta name="google-site-verification" content="2YVxAYfOL7olUiA7L1CH659_f7twxqlKYpzZn37-x-c" />
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sen-SMS — Plateforme SMS Professionnelle au Sénégal</title>
 <meta name="description" content="Envoyez des SMS en masse à vos clients, élèves et partenaires au Sénégal. Tarifs transparents, envoi immédiat, sender ID personnalisé.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2300C853'/><text x='16' y='23' font-family='Arial Black' font-size='20' font-weight='900' text-anchor='middle' fill='white'>S</text></svg>">
+<meta property="og:title" content="Sen-SMS — Plateforme SMS Professionnelle au Sénégal">
+<meta property="og:description" content="Envoyez des SMS en masse à vos élèves, clients et membres. 28–35 FCFA/SMS. Orange, Free, Expresso. Paiement Wave.">
+<meta property="og:image" content="https://sensms.com/og-image.png">
+<meta property="og:url" content="https://sensms.com">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sen-SMS — SMS pro au Sénégal">
+<meta name="twitter:description" content="Campagnes SMS pour écoles, commerces, mosquées. Paiement Wave. 28 FCFA/SMS.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+
+/* ══════════════════════════════════════════
+   THÈME CLAUDE — variables globales
+══════════════════════════════════════════ */
 :root {
-  --orange: #00C853;
-  --orange2: #00A843;
-  --orange3: #69F0AE;
-  --dark: #0A0A0A;
-  --dark2: #111111;
-  --dark3: #1A1A1A;
-  --white: #FFFFFF;
-  --gray: #9CA3AF;
-  --gray2: #4B5563;
-  --border: rgba(0,200,83,0.15);
+  /* Mode clair (défaut) */
+  --cl-bg:        #F5F0E8;
+  --cl-bg2:       #EDE8DF;
+  --cl-bg3:       #E5DDD0;
+  --cl-surface:   #FFFFFF;
+  --cl-text:      #1A1A1A;
+  --cl-text2:     #4A4540;
+  --cl-muted:     #7A7068;
+  --cl-border:    rgba(0,0,0,0.10);
+  --cl-border2:   rgba(0,0,0,0.06);
+  --cl-nav:       rgba(245,240,232,0.92);
+
+  /* Accent SenSMS vert */
+  --green:        #00C853;
+  --green2:       #00A843;
+  --green3:       #69F0AE;
+  --green-dim:    rgba(0,200,83,0.10);
+  --green-glow:   rgba(0,200,83,0.25);
+
   --font-head: 'Syne', sans-serif;
   --font-body: 'DM Sans', sans-serif;
+  --radius: 12px;
 }
+
+[data-theme="dark"] {
+  --cl-bg:        #1C1917;
+  --cl-bg2:       #231F1C;
+  --cl-bg3:       #2A2520;
+  --cl-surface:   #2E2924;
+  --cl-text:      #E8E3D8;
+  --cl-text2:     #B5AFA5;
+  --cl-muted:     #786E64;
+  --cl-border:    rgba(255,255,255,0.08);
+  --cl-border2:   rgba(255,255,255,0.04);
+  --cl-nav:       rgba(28,25,23,0.92);
+}
+
+/* ── RESET ── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-body);
-  background: var(--dark);
-  color: var(--white);
+  background: var(--cl-bg);
+  color: var(--cl-text);
   overflow-x: hidden;
   line-height: 1.6;
+  transition: background 0.3s, color 0.3s;
 }
 
 /* ── NAV ── */
-nav {
+nav.main-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 48px;
-  background: rgba(10,10,10,0.85);
+  padding: 14px 48px;
+  background: var(--cl-nav);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--cl-border);
+  transition: background 0.3s;
 }
-.nav-logo {
+.nav-logo-wrap {
   display: flex; align-items: center; gap: 12px;
   text-decoration: none;
 }
 .logo-s {
-  width: 44px; height: 44px;
-  background: var(--orange);
-  border-radius: 12px;
+  width: 40px; height: 40px;
+  background: var(--green);
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-head);
-  font-weight: 800; font-size: 26px;
+  font-weight: 800; font-size: 22px;
   color: #fff;
-  letter-spacing: -1px;
-  box-shadow: 0 0 20px rgba(0,200,83,0.4);
+  box-shadow: 0 0 16px var(--green-glow);
 }
 .logo-text {
   font-family: var(--font-head);
-  font-weight: 700; font-size: 20px;
-  color: var(--white);
+  font-weight: 700; font-size: 19px;
+  color: var(--cl-text);
 }
-.logo-text span { color: var(--orange); }
+.logo-text span { color: var(--green); }
 .nav-links {
-  display: flex; align-items: center; gap: 32px;
+  display: flex; align-items: center; gap: 28px;
   list-style: none;
 }
 .nav-links a {
-  color: var(--gray); text-decoration: none;
+  color: var(--cl-muted); text-decoration: none;
   font-size: 14px; font-weight: 500;
   transition: color 0.2s;
 }
-.nav-links a:hover { color: var(--white); }
+.nav-links a:hover { color: var(--cl-text); }
 .nav-cta {
-  background: var(--orange);
-  color: var(--dark) !important;
-  padding: 10px 22px;
+  background: var(--green);
+  color: #fff !important;
+  padding: 9px 20px;
   border-radius: 8px;
   font-weight: 700 !important;
   font-size: 14px !important;
   transition: all 0.2s !important;
 }
-.nav-cta:hover { background: var(--orange2) !important; transform: translateY(-1px); }
+.nav-cta:hover { background: var(--green2) !important; transform: translateY(-1px); }
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  width: 34px; height: 34px;
+  background: var(--cl-bg2);
+  border: 1px solid var(--cl-border);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px;
+  transition: all 0.2s;
+}
+.theme-toggle:hover { background: var(--cl-bg3); }
 
 /* ── HERO ── */
-.hero {
+.hero-main {
   min-height: 100vh;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   text-align: center;
   padding: 120px 24px 80px;
-  position: relative;
-  overflow: hidden;
+  position: relative; overflow: hidden;
 }
 .hero-bg {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,200,83,0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 80% 80%, rgba(0,200,83,0.06) 0%, transparent 60%);
-  pointer-events: none;
-}
-.hero-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(0,200,83,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,200,83,0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,200,83,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 80% 80%, rgba(0,200,83,0.04) 0%, transparent 60%);
   pointer-events: none;
 }
 .flag-badge {
   display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(0,200,83,0.1);
-  border: 1px solid rgba(0,200,83,0.25);
+  background: var(--green-dim);
+  border: 1px solid rgba(0,200,83,0.2);
   padding: 6px 16px; border-radius: 100px;
-  font-size: 12px; font-weight: 600; color: var(--orange3);
+  font-size: 12px; font-weight: 600; color: var(--green2);
   letter-spacing: 1px; text-transform: uppercase;
   margin-bottom: 28px;
   animation: fadeUp 0.6s ease both;
 }
-.hero h1 {
+.hero-main h1 {
   font-family: var(--font-head);
-  font-size: clamp(42px, 7vw, 80px);
-  font-weight: 800;
-  line-height: 1.05;
+  font-size: clamp(40px, 7vw, 76px);
+  font-weight: 800; line-height: 1.05;
   margin-bottom: 24px;
+  color: var(--cl-text);
   animation: fadeUp 0.6s 0.1s ease both;
 }
-.hero h1 span {
-  color: var(--orange);
-  position: relative;
-  display: inline-block;
+.hero-main h1 span {
+  color: var(--green);
+  position: relative; display: inline-block;
 }
-.hero h1 span::after {
+.hero-main h1 span::after {
   content: '';
   position: absolute; bottom: -4px; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--orange), transparent);
+  background: linear-gradient(90deg, var(--green), transparent);
   border-radius: 2px;
 }
 .hero-sub {
-  font-size: clamp(16px, 2.5vw, 20px);
-  color: var(--gray);
-  max-width: 560px;
-  margin: 0 auto 48px;
-  font-weight: 400;
+  font-size: clamp(15px, 2.2vw, 19px);
+  color: var(--cl-muted);
+  max-width: 540px; margin: 0 auto 48px;
   animation: fadeUp 0.6s 0.2s ease both;
 }
 .hero-btns {
-  display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
   animation: fadeUp 0.6s 0.3s ease both;
 }
 .btn-primary {
-  background: var(--orange);
-  color: var(--dark);
-  padding: 16px 32px;
-  border-radius: 10px;
-  font-family: var(--font-head);
-  font-weight: 700; font-size: 16px;
-  text-decoration: none;
-  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--green); color: #fff;
+  padding: 15px 30px; border-radius: 10px;
+  font-family: var(--font-head); font-weight: 700; font-size: 15px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
   transition: all 0.2s;
-  box-shadow: 0 8px 24px rgba(0,200,83,0.3);
+  box-shadow: 0 6px 20px var(--green-glow);
 }
-.btn-primary:hover { background: var(--orange2); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,200,83,0.4); }
+.btn-primary:hover { background: var(--green2); transform: translateY(-2px); }
 .btn-ghost {
-  background: transparent;
-  color: var(--white);
-  padding: 16px 32px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  font-family: var(--font-head);
-  font-weight: 600; font-size: 16px;
-  text-decoration: none;
-  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--cl-text);
+  padding: 15px 30px; border-radius: 10px;
+  border: 1px solid var(--cl-border);
+  font-family: var(--font-head); font-weight: 600; font-size: 15px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
   transition: all 0.2s;
 }
-.btn-ghost:hover { border-color: var(--orange); color: var(--orange); }
+.btn-ghost:hover { border-color: var(--green); color: var(--green); }
 
 /* ── STATS ── */
 .stats {
   display: flex; justify-content: center; flex-wrap: wrap; gap: 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid rgba(0,0,0,0.15);
+  border-bottom: 1px solid rgba(0,0,0,0.15);
   margin: 60px 0 0;
   animation: fadeUp 0.6s 0.4s ease both;
+  width: 100%; max-width: 720px;
 }
-.stat {
-  padding: 32px 48px; text-align: center;
-  border-right: 1px solid var(--border);
-}
+.stat { padding: 28px 44px; text-align: center; border-right: 1px solid rgba(0,0,0,0.12); }
 .stat:last-child { border-right: none; }
-.stat-num {
-  font-family: var(--font-head);
-  font-size: 36px; font-weight: 800;
-  color: var(--orange);
-  display: block;
-}
-.stat-lbl { font-size: 13px; color: var(--gray); margin-top: 4px; }
+.stat-num { font-family: var(--font-head); font-size: 32px; font-weight: 800; color: var(--green); display: block; }
+.stat-lbl { font-size: 13px; color: var(--cl-text2); margin-top: 4px; font-weight: 500; }
 
-/* ── SECTION TITLES ── */
-.section { padding: 100px 24px; max-width: 1100px; margin: 0 auto; }
+/* ── SECTIONS ── */
+.section { padding: 90px 24px; max-width: 1100px; margin: 0 auto; }
 .section-tag {
   display: inline-block;
-  background: rgba(0,200,83,0.1);
-  color: var(--orange);
+  background: var(--green-dim); color: var(--green2);
   font-size: 11px; font-weight: 700;
   letter-spacing: 2px; text-transform: uppercase;
   padding: 5px 14px; border-radius: 100px;
-  border: 1px solid rgba(0,200,83,0.2);
+  border: 1px solid rgba(0,200,83,0.18);
   margin-bottom: 16px;
 }
 .section-title {
   font-family: var(--font-head);
-  font-size: clamp(28px, 4vw, 44px);
+  font-size: clamp(26px, 4vw, 40px);
   font-weight: 800; line-height: 1.15;
-  margin-bottom: 16px;
+  margin-bottom: 16px; color: var(--cl-text);
 }
-.section-sub {
-  font-size: 17px; color: var(--gray);
-  max-width: 520px; line-height: 1.65;
-}
+.section-sub { font-size: 16px; color: var(--cl-muted); max-width: 500px; line-height: 1.65; }
 
-/* ── USE CASES ── */
-.cases-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px; margin-top: 56px;
-}
+/* ── CARDS ── */
+.cases-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; margin-top: 52px; }
 .case-card {
-  background: var(--dark2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px 24px;
-  transition: all 0.25s;
-  position: relative; overflow: hidden;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--radius); padding: 26px 22px;
+  transition: all 0.25s; position: relative; overflow: hidden;
 }
 .case-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--orange), transparent);
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--green), transparent);
   opacity: 0; transition: opacity 0.25s;
 }
-.case-card:hover { border-color: rgba(0,200,83,0.3); transform: translateY(-4px); }
+.case-card:hover { border-color: rgba(0,200,83,0.25); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
 .case-card:hover::before { opacity: 1; }
-.case-icon {
-  font-size: 32px; margin-bottom: 16px; display: block;
-}
-.case-title {
-  font-family: var(--font-head);
-  font-size: 18px; font-weight: 700;
-  margin-bottom: 8px;
-}
-.case-desc { font-size: 14px; color: var(--gray); line-height: 1.6; }
+.case-icon { font-size: 30px; margin-bottom: 14px; display: block; }
+.case-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--cl-text); }
+.case-desc { font-size: 13px; color: var(--cl-muted); line-height: 1.6; }
 .case-tag {
-  display: inline-block; margin-top: 14px;
-  background: rgba(0,200,83,0.1);
-  color: var(--orange3); font-size: 11px; font-weight: 700;
-  padding: 4px 10px; border-radius: 100px;
+  display: inline-block; margin-top: 12px;
+  background: var(--green-dim); color: var(--green2);
+  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 100px;
 }
 
 /* ── PACKS ── */
 .packs-section {
-  padding: 100px 24px;
-  background: var(--dark2);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  padding: 90px 24px;
+  background: var(--cl-bg2);
+  border-top: 1px solid var(--cl-border);
+  border-bottom: 1px solid var(--cl-border);
 }
 .packs-inner { max-width: 1100px; margin: 0 auto; }
-.packs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px; margin-top: 56px;
-}
+.packs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 52px; }
 .pack-card {
-  background: var(--dark);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 32px 24px; text-align: center;
-  position: relative; transition: all 0.25s;
-  cursor: pointer;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border); border-radius: 18px;
+  padding: 30px 22px; text-align: center; position: relative; transition: all 0.25s; cursor: pointer;
 }
-.pack-card:hover { border-color: rgba(0,200,83,0.4); transform: translateY(-4px); }
-.pack-card.popular {
-  border-color: var(--orange);
-  background: linear-gradient(135deg, rgba(0,200,83,0.05), var(--dark));
-}
+.pack-card:hover { border-color: rgba(0,200,83,0.35); transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.07); }
+.pack-card.popular { border-color: var(--green); background: linear-gradient(135deg, rgba(0,200,83,0.04), var(--cl-surface)); }
 .popular-badge {
-  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-  background: var(--orange); color: var(--dark);
-  font-size: 10px; font-weight: 800;
-  padding: 4px 14px; border-radius: 100px;
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  background: var(--green); color: #fff;
+  font-size: 10px; font-weight: 800; padding: 3px 14px; border-radius: 100px;
   letter-spacing: 1.5px; text-transform: uppercase;
 }
-.pack-name {
-  font-family: var(--font-head);
-  font-size: 16px; font-weight: 700;
-  color: var(--gray); margin-bottom: 20px;
-  text-transform: uppercase; letter-spacing: 1px;
-}
-.pack-sms-count {
-  font-family: var(--font-head);
-  font-size: 48px; font-weight: 800;
-  color: var(--orange); line-height: 1;
-}
-.pack-sms-unit { font-size: 14px; color: var(--gray); margin: 4px 0 20px; }
-.pack-price-val {
-  font-family: var(--font-head);
-  font-size: 26px; font-weight: 800;
-  margin-bottom: 4px;
-}
-.pack-unit-price { font-size: 12px; color: var(--gray); margin-bottom: 24px; }
+.pack-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--cl-muted); margin-bottom: 18px; text-transform: uppercase; letter-spacing: 1px; }
+.pack-sms-count { font-family: var(--font-head); font-size: 44px; font-weight: 800; color: var(--green); line-height: 1; }
+.pack-sms-unit { font-size: 13px; color: var(--cl-muted); margin: 4px 0 18px; }
+.pack-price-val { font-family: var(--font-head); font-size: 24px; font-weight: 800; margin-bottom: 4px; color: var(--cl-text); }
+.pack-unit-price { font-size: 12px; color: var(--cl-muted); margin-bottom: 22px; }
 .pack-btn {
-  width: 100%;
-  background: var(--orange);
-  color: var(--dark);
-  border: none; border-radius: 10px;
-  padding: 14px;
-  font-family: var(--font-head);
-  font-weight: 700; font-size: 15px;
+  width: 100%; background: var(--green); color: #fff;
+  border: none; border-radius: 9px; padding: 13px;
+  font-family: var(--font-head); font-weight: 700; font-size: 14px;
   cursor: pointer; transition: all 0.2s;
 }
-.pack-btn:hover { background: var(--orange2); }
-.pack-card.popular .pack-btn {
-  box-shadow: 0 8px 20px rgba(0,200,83,0.35);
-}
+.pack-btn:hover { background: var(--green2); }
 
-/* ── HOW IT WORKS ── */
-.steps-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 24px; margin-top: 56px;
-  position: relative;
-}
-.step-card {
-  background: var(--dark2);
-  border: 1px solid var(--border);
-  border-radius: 16px; padding: 32px 24px;
-  position: relative;
-}
-.step-num-big {
-  font-family: var(--font-head);
-  font-size: 64px; font-weight: 800;
-  color: rgba(0,200,83,0.1);
-  line-height: 1; margin-bottom: 16px;
-  position: absolute; top: 16px; right: 20px;
-}
-.step-icon { font-size: 28px; margin-bottom: 14px; display: block; }
-.step-title {
-  font-family: var(--font-head);
-  font-size: 18px; font-weight: 700; margin-bottom: 8px;
-}
-.step-desc { font-size: 14px; color: var(--gray); line-height: 1.6; }
+/* ── STEPS ── */
+.steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 22px; margin-top: 52px; position: relative; }
+.step-card { background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--radius); padding: 30px 22px; position: relative; }
+.step-num-big { font-family: var(--font-head); font-size: 60px; font-weight: 800; color: rgba(0,200,83,0.08); line-height: 1; margin-bottom: 14px; position: absolute; top: 14px; right: 18px; }
+.step-icon { font-size: 26px; margin-bottom: 12px; display: block; }
+.step-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--cl-text); }
+.step-desc { font-size: 13px; color: var(--cl-muted); line-height: 1.6; }
 
 /* ── FEATURES ── */
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 12px; margin-top: 56px;
-}
-.feat {
-  display: flex; gap: 16px; align-items: flex-start;
-  padding: 20px; background: var(--dark2);
-  border: 1px solid var(--border); border-radius: 12px;
-  transition: all 0.2s;
-}
-.feat:hover { border-color: rgba(0,200,83,0.3); }
-.feat-icon {
-  width: 40px; height: 40px; flex-shrink: 0;
-  background: rgba(0,200,83,0.1);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-}
-.feat-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-.feat-desc { font-size: 13px; color: var(--gray); line-height: 1.5; }
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; margin-top: 52px; }
+.feat { display: flex; gap: 14px; align-items: flex-start; padding: 18px; background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: 10px; transition: all 0.2s; }
+.feat:hover { border-color: rgba(0,200,83,0.25); }
+.feat-icon { width: 38px; height: 38px; flex-shrink: 0; background: var(--green-dim); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+.feat-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--cl-text); }
+.feat-desc { font-size: 13px; color: var(--cl-muted); line-height: 1.5; }
 
-/* ── CTA FINAL ── */
-.cta-section {
-  padding: 100px 24px;
-  text-align: center;
-  position: relative; overflow: hidden;
-}
-.cta-bg {
-  position: absolute; inset: 0;
-  background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(0,200,83,0.08) 0%, transparent 70%);
-  pointer-events: none;
-}
-.cta-box {
-  max-width: 680px; margin: 0 auto;
-  background: var(--dark2);
-  border: 1px solid rgba(0,200,83,0.3);
-  border-radius: 24px; padding: 64px 48px;
-  position: relative;
-}
-.cta-box::before {
-  content: '';
-  position: absolute; inset: -1px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(0,200,83,0.3), transparent, rgba(0,200,83,0.1));
-  z-index: -1;
-}
-.cta-title {
-  font-family: var(--font-head);
-  font-size: clamp(28px, 4vw, 42px);
-  font-weight: 800; margin-bottom: 16px;
-}
-.cta-sub { color: var(--gray); font-size: 16px; margin-bottom: 36px; }
+/* ── CTA ── */
+.cta-section { padding: 90px 24px; text-align: center; position: relative; overflow: hidden; }
+.cta-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(0,200,83,0.06) 0%, transparent 70%); pointer-events: none; }
+.cta-box { max-width: 660px; margin: 0 auto; background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: 22px; padding: 60px 44px; position: relative; }
+.cta-title { font-family: var(--font-head); font-size: clamp(26px, 4vw, 38px); font-weight: 800; margin-bottom: 14px; color: var(--cl-text); }
+.cta-sub { color: var(--cl-muted); font-size: 15px; margin-bottom: 32px; }
 .cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
 /* ── FOOTER ── */
 footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 48px;
+  border-top: 1px solid var(--cl-border);
+  padding: 36px 48px;
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 16px;
+  background: var(--cl-bg2);
 }
-.footer-logo {
-  display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-head); font-weight: 700;
-  font-size: 16px; text-decoration: none; color: var(--white);
-}
-.footer-logo .logo-s { width: 32px; height: 32px; font-size: 18px; border-radius: 8px; box-shadow: none; }
-.footer-links { display: flex; gap: 24px; }
-.footer-links a { font-size: 13px; color: var(--gray); text-decoration: none; transition: color 0.2s; }
-.footer-links a:hover { color: var(--orange); }
-.footer-copy { font-size: 12px; color: var(--gray2); }
+.footer-logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-head); font-weight: 700; font-size: 15px; text-decoration: none; color: var(--cl-text); }
+.footer-logo .logo-s { width: 30px; height: 30px; font-size: 16px; border-radius: 7px; box-shadow: none; }
+.footer-links { display: flex; gap: 22px; }
+.footer-links a { font-size: 13px; color: var(--cl-muted); text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--green); }
+.footer-copy { font-size: 12px; color: var(--cl-muted); }
 
 /* ── ANIMATIONS ── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.reveal {
-  opacity: 0; transform: translateY(32px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.6s ease, transform 0.6s ease; }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
-  nav { padding: 14px 20px; }
+  nav.main-nav { padding: 12px 18px; }
   .nav-links { display: none; }
-  .stat { padding: 24px 28px; border-right: none; border-bottom: 1px solid var(--border); }
+  .mobile-cta { display: inline-flex !important; font-size: 13px !important; padding: 8px 14px !important; }
+  .stat { padding: 20px 24px; border-right: none; border-bottom: 1px solid var(--cl-border); }
   .stat:last-child { border-bottom: none; }
   .stats { flex-direction: column; }
-  .cta-box { padding: 40px 24px; }
-  footer { flex-direction: column; text-align: center; padding: 32px 20px; }
-  .footer-links { flex-wrap: wrap; justify-content: center; }
+  .cta-box { padding: 36px 20px; }
+  footer { flex-direction: column; text-align: center; padding: 28px 18px; }
 }
-</style>
 
-/* ── MODE SOMBRE / CLAIR ── */
-body.light-mode {
-  --dark: #F8F9FA;
-  --dark2: #FFFFFF;
-  --dark3: #F0F2F5;
-  --white: #0A0A0A;
-  --gray: #4B5563;
-  --gray2: #9CA3AF;
-  --border: rgba(0,200,83,0.15);
+
+
+/* ── Dashboard container ── */
+.dashboard-section { display: none; }
+.dashboard-section.active { display: block; }
+
+/* ══ DASHBOARD INNER THEME OVERRIDE ══ */
+.dashboard-section {
+  --bg: var(--cl-bg);
+  --surface: var(--cl-surface);
+  --surface2: var(--cl-bg2);
+  --border: var(--cl-border);
+  --text: var(--cl-text);
+  --muted: var(--cl-muted);
+  --green: #00C853;
+  --green-dim: rgba(0,200,83,0.10);
+  --blue: #3B82F6;
+  --orange: #F59E0B;
+  --red: #EF4444;
+  --purple: #8B5CF6;
 }
-body.light-mode nav {
-  background: rgba(248,249,250,0.92);
+.dashboard-section * { color: inherit; }
+
+/* Fort contraste mode clair */
+:root .dashboard-section {
+  --surface:  #FFFFFF;
+  --surface2: #EDE8DF;
+  --border:   rgba(0,0,0,0.18);
+  --text:     #111111;
+  --muted:    #5A5048;
 }
-body.light-mode .case-card,
-body.light-mode .step-card,
-body.light-mode .feat,
-body.light-mode .pack-card,
-body.light-mode .cta-box {
-  background: #FFFFFF;
+[data-theme="dark"] .dashboard-section {
+  --surface:  #2E2924;
+  --surface2: #231F1C;
+  --border:   rgba(255,255,255,0.10);
+  --text:     #E8E3D8;
+  --muted:    #9A9088;
 }
-body.light-mode .packs-section {
-  background: #F0F2F5;
+
+.dashboard-section nav { background: var(--cl-nav) !important; border-color: var(--border) !important; }
+
+/* inputs / textarea */
+.dashboard-section .field input,
+.dashboard-section .field select,
+.dashboard-section textarea {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  color: var(--text) !important;
 }
-.theme-toggle {
-  width: 36px; height: 36px;
-  background: rgba(0,200,83,0.1);
-  border: 1px solid rgba(0,200,83,0.2);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 16px;
+.dashboard-section .field input:focus,
+.dashboard-section .field select:focus,
+.dashboard-section textarea:focus { border-color: var(--green) !important; box-shadow: 0 0 0 3px rgba(0,200,83,0.12) !important; }
+
+/* steps / cards */
+.dashboard-section .step,
+.dashboard-section .summary-card,
+.dashboard-section .phone-preview {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+.dashboard-section .step-header:hover { background: var(--surface2) !important; }
+.dashboard-section .step-title { color: var(--text) !important; }
+.dashboard-section .step-sub { color: var(--muted) !important; }
+
+/* tabs / schedule / pay */
+.dashboard-section .tabs { background: var(--surface2) !important; border: 1.5px solid var(--border) !important; }
+.dashboard-section .schedule-opts .schedule-opt,
+.dashboard-section .pay-opt { background: var(--surface2) !important; border: 1.5px solid var(--border) !important; color: var(--text) !important; }
+.dashboard-section .tab.active { background: var(--surface) !important; color: var(--text) !important; box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important; }
+
+/* template cards */
+.dashboard-section .template-card { background: var(--surface2) !important; border: 1.5px solid var(--border) !important; }
+.dashboard-section .template-card h4 { color: var(--text) !important; font-weight: 700 !important; }
+.dashboard-section .template-card p { color: var(--muted) !important; }
+
+/* labels */
+.dashboard-section .field label { color: var(--muted) !important; font-weight: 700 !important; }
+.dashboard-section .char-count { color: var(--muted) !important; }
+.dashboard-section .manual-hint { color: var(--muted) !important; }
+.dashboard-section .upload-sub { color: var(--muted) !important; }
+.dashboard-section .upload-title { color: var(--text) !important; font-weight: 600 !important; }
+
+/* table */
+.dashboard-section table th { background: var(--surface2) !important; color: var(--muted) !important; border-color: var(--border) !important; font-weight: 700 !important; }
+.dashboard-section table td { color: var(--text) !important; border-color: rgba(0,0,0,0.08) !important; }
+[data-theme="dark"] .dashboard-section table td { border-color: rgba(255,255,255,0.06) !important; }
+
+/* modal / toast */
+.dashboard-section .modal { background: var(--surface) !important; border: 1.5px solid var(--border) !important; }
+.dashboard-section .toast { background: var(--surface) !important; border: 1.5px solid var(--border) !important; color: var(--text) !important; }
+
+/* upload zone */
+.dashboard-section .upload-zone { border: 2px dashed var(--border) !important; }
+.dashboard-section .upload-zone:hover { border-color: var(--green) !important; background: var(--green-dim) !important; }
+
+/* badges / chips */
+.dashboard-section .fmt-badge { background: var(--surface2) !important; border: 1px solid var(--border) !important; color: var(--muted) !important; }
+.dashboard-section .var-chip { background: var(--surface2) !important; border: 1.5px solid rgba(0,200,83,0.4) !important; color: var(--green) !important; font-weight: 700 !important; }
+.dashboard-section .var-chip:hover { background: var(--green-dim) !important; border-color: var(--green) !important; }
+
+/* phone mock */
+.dashboard-section .phone-mock { background: var(--surface2) !important; border: 1.5px solid var(--border) !important; }
+.dashboard-section .sms-bubble { background: var(--surface) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
+.dashboard-section .sms-sender { color: var(--green) !important; }
+
+/* packs */
+.dashboard-section .pack { background: var(--surface) !important; border: 1.5px solid var(--border) !important; box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important; }
+.dashboard-section .pack:hover { border-color: rgba(0,200,83,0.4) !important; }
+.dashboard-section .pack.selected { border-color: var(--green) !important; background: var(--green-dim) !important; }
+.dashboard-section .pack-name { color: var(--text) !important; }
+.dashboard-section .pack-unit { color: var(--muted) !important; }
+
+/* summary */
+.dashboard-section .summary-title { color: var(--text) !important; }
+.dashboard-section .summary-label { color: var(--muted) !important; }
+.dashboard-section .summary-val { color: var(--text) !important; }
+.dashboard-section .total-label { color: var(--muted) !important; }
+</style>
+<style>
+/* Dashboard SenSMS */
+
+
+
+.dashboard-section { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
+.dashboard-section nav { display:flex; align-items:center; justify-content:space-between; padding:16px 32px; border-bottom:1px solid var(--border); background:var(--cl-nav); backdrop-filter:blur(12px); position:sticky; top:0; z-index:100; }
+.nav-brand { display:flex; align-items:center; gap:12px; }
+.nav-logo { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; }
+.nav-logo span { color:var(--green); }
+.nav-tag { background:rgba(0,230,118,0.12); border:1px solid rgba(0,230,118,0.25); color:var(--green); font-size:11px; padding:3px 10px; border-radius:100px; font-weight:600; }
+.powered-by { display:inline-flex; align-items:center; gap:6px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); color:#60a5fa; font-size:10px; padding:3px 10px; border-radius:100px; font-weight:600; }
+.nav-right { display:flex; align-items:center; gap:16px; }
+.nav-link { color:var(--muted); text-decoration:none; font-size:13px; transition:color .2s; }
+.nav-link:hover { color:#fff; }
+.nav-btn { background:var(--green); color:#000; border:none; padding:9px 20px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.hero { padding:60px 32px 40px; max-width:900px; margin:0 auto; text-align:center; }
+.hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,0.08); border:1px solid rgba(0,230,118,0.2); color:var(--green); font-size:12px; padding:6px 16px; border-radius:100px; margin-bottom:24px; }
+.hero h1 { font-family:'Syne',sans-serif; font-size:clamp(36px,5vw,60px); font-weight:800; line-height:1.1; margin-bottom:16px; }
+.hero h1 .accent { color:var(--green); }
+.hero p { color:var(--muted); font-size:16px; line-height:1.7; max-width:600px; margin:0 auto 40px; }
+.packs { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; max-width:1000px; margin:0 auto 60px; padding:0 32px; }
+.pack { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:22px 18px; text-align:center; cursor:pointer; transition:all .2s; position:relative; }
+.pack:hover { border-color:rgba(0,230,118,0.3); transform:translateY(-2px); }
+.pack.selected { border-color:var(--green); background:var(--green-dim); }
+.pack.popular::before { content:'POPULAIRE'; position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--green); color:#fff; font-size:9px; font-weight:700; padding:3px 10px; border-radius:100px; letter-spacing:1px; }
+.pack-name { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; margin-bottom:8px; }
+.pack-sms { font-size:28px; font-weight:800; color:var(--green); font-family:'Syne',sans-serif; }
+.pack-sms span { font-size:13px; color:var(--muted); font-weight:400; }
+.pack-price { font-size:18px; font-weight:700; margin:8px 0 4px; }
+.pack-unit { font-size:11px; color:var(--muted); }
+.main { max-width:1200px; margin:0 auto; padding:0 32px 80px; display:grid; grid-template-columns:1fr 380px; gap:24px; align-items:start; }
+.steps { display:flex; flex-direction:column; gap:20px; }
+.step { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+.step-header { padding:20px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; }
+.step-num { width:32px; height:32px; border-radius:50%; background:var(--green-dim); border:1.5px solid var(--green); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--green); flex-shrink:0; }
+.step-num.done { background:var(--green); color:#000; }
+.step-title { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; }
+.step-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.step-body { padding:0 24px 24px; display:none; }
+.step-body.open { display:block; }
+.upload-zone { border:2px dashed var(--border); border-radius:12px; padding:40px 20px; text-align:center; cursor:pointer; transition:all .2s; }
+.upload-zone:hover, .upload-zone.dragover { border-color:var(--green); background:var(--green-dim); }
+.upload-icon { font-size:40px; margin-bottom:12px; }
+.upload-title { font-weight:600; margin-bottom:6px; }
+.upload-sub { font-size:13px; color:var(--muted); }
+.upload-formats { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+.fmt-badge { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+#file-input { display:none; }
+.contacts-preview { margin-top:16px; }
+.contacts-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.contacts-count { font-size:13px; color:var(--muted); }
+.contacts-count strong { color:var(--green); }
+.table-wrap { max-height:280px; overflow:auto; border-radius:10px; border:1px solid var(--border); }
+.table-wrap::-webkit-scrollbar { width:4px; height:4px; }
+.table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { background:var(--surface2); padding:10px 14px; text-align:left; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-size:10px; white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; }
+td { padding:10px 14px; border-bottom:1px solid var(--cl-border2); white-space:nowrap; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--cl-bg2); }
+.col-phone { font-family:'JetBrains Mono',monospace; color:var(--green); }
+.manual-input { margin-top:16px; }
+.manual-input textarea { width:100%; background:var(--cl-bg2); border:1px solid var(--border); border-radius:10px; padding:14px; color:var(--cl-text); font-size:13px; font-family:'JetBrains Mono',monospace; outline:none; resize:vertical; min-height:120px; line-height:1.6; transition:border-color .2s; }
+.manual-input textarea:focus { border-color:var(--green); }
+.manual-hint { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.6; }
+.tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:4px; margin-bottom:16px; }
+.tab { flex:1; padding:8px; text-align:center; border-radius:7px; cursor:pointer; font-size:13px; font-weight:500; color:var(--muted); transition:all .2s; border:none; background:transparent; font-family:'DM Sans',sans-serif; }
+.tab.active { background:var(--surface); color:var(--cl-text); }
+.composer textarea { width:100%; background:var(--cl-bg2); border:1px solid var(--border); border-radius:10px; padding:14px; color:var(--cl-text); font-size:14px; font-family:'DM Sans',sans-serif; outline:none; resize:vertical; min-height:120px; line-height:1.6; transition:border-color .2s; margin-bottom:12px; }
+.composer textarea:focus { border-color:var(--green); }
+.vars-grid { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.var-chip { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:5px 12px; font-size:12px; color:var(--green); cursor:pointer; font-family:'JetBrains Mono',monospace; transition:all .2s; }
+.var-chip:hover { background:var(--green-dim); border-color:var(--green); }
+.composer-footer { display:flex; align-items:center; justify-content:space-between; }
+.char-count { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+.char-count.warn { color:var(--orange); }
+.char-count.over { color:var(--red); }
+.templates-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.template-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px; cursor:pointer; transition:all .2s; }
+.template-card:hover { border-color:rgba(0,230,118,0.3); }
+.template-card h4 { font-size:13px; font-weight:600; margin-bottom:6px; }
+.template-card p { font-size:11px; color:var(--muted); line-height:1.5; }
+.schedule-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.schedule-opt { border:1.5px solid var(--border); border-radius:10px; padding:14px; cursor:pointer; transition:all .2s; text-align:center; }
+.schedule-opt:hover { border-color:rgba(0,230,118,0.3); }
+.schedule-opt.selected { border-color:var(--green); background:var(--green-dim); }
+.schedule-opt .icon { font-size:24px; margin-bottom:6px; }
+.schedule-opt h4 { font-size:13px; font-weight:600; }
+.schedule-opt p { font-size:11px; color:var(--muted); margin-top:2px; }
+.datetime-input { margin-top:14px; display:none; background:var(--cl-bg2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--cl-text); font-size:14px; font-family:'DM Sans',sans-serif; outline:none; width:100%; }
+.datetime-input:focus { border-color:var(--green); }
+.sidebar { position:sticky; top:80px; }
+.summary-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:16px; }
+.summary-title { font-family:'Syne',sans-serif; font-weight:700; font-size:16px; margin-bottom:20px; }
+.summary-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--cl-border); }
+.summary-row:last-child { border-bottom:none; }
+.summary-label { font-size:13px; color:var(--muted); }
+.summary-val { font-size:13px; font-weight:600; }
+.summary-val.green { color:var(--green); }
+.summary-val.orange { color:var(--orange); }
+.total-row { background:var(--green-dim); border:1px solid rgba(0,230,118,0.2); border-radius:10px; padding:14px; margin-top:16px; display:flex; justify-content:space-between; align-items:center; }
+.total-label { font-size:13px; color:var(--muted); }
+.total-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--green); }
+.send-btn { width:100%; background:var(--green); color:#fff; border:none; border-radius:12px; padding:18px; font-family:'Syne',sans-serif; font-weight:800; font-size:16px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:10px; }
+.send-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,230,118,0.3); }
+.send-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+.pay-opts { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pay-opt { border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s; background:transparent; color:var(--text); font-family:'DM Sans',sans-serif; }
+.pay-opt:hover { border-color:rgba(255,255,255,0.2); }
+.pay-opt.selected { border-color:var(--green); background:var(--green-dim); }
+.phone-preview { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
+.phone-mock { background:var(--cl-bg3); border-radius:20px; padding:20px 16px; border:1px solid var(--cl-border); max-width:240px; margin:0 auto; }
+.phone-header { font-size:11px; color:var(--muted); text-align:center; margin-bottom:14px; }
+.sms-bubble { background:var(--cl-bg2); border-radius:14px 14px 14px 4px; padding:12px 14px; font-size:12px; line-height:1.6; color:var(--cl-text); word-break:break-word; }
+.sms-sender { font-size:10px; color:var(--green); font-weight:600; margin-bottom:4px; }
+.sms-time { font-size:10px; color:var(--muted); margin-top:8px; text-align:right; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:200; display:none; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; width:100%; max-width:480px; text-align:center; }
+.modal-icon { font-size:48px; margin-bottom:16px; }
+.modal h3 { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:8px; }
+.modal p { color:var(--muted); font-size:14px; margin-bottom:24px; }
+.progress-bar { background:var(--surface2); border-radius:100px; height:8px; overflow:hidden; margin-bottom:16px; }
+.progress-fill { height:100%; background:var(--green); border-radius:100px; transition:width .3s; width:0%; }
+.progress-text { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--green); }
+.modal-close { margin-top:24px; background:var(--green); color:#fff; border:none; border-radius:10px; padding:12px 32px; font-weight:700; cursor:pointer; font-family:'Syne',sans-serif; }
+.field { margin-bottom:14px; }
+.field label { display:block; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.field input, .field select { width:100%; background:var(--cl-bg2); border:1px solid var(--border); border-radius:8px; padding:11px 14px; color:var(--cl-text); font-size:14px; font-family:'DM Sans',sans-serif; outline:none; transition:border-color .2s; }
+.field input:focus, .field select:focus { border-color:var(--green); }
+.field select option { background:var(--cl-bg); color:var(--cl-text); }
+.toast { position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 20px; font-size:13px; z-index:999; transform:translateY(60px); opacity:0; transition:all .3s; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.success { border-color:rgba(0,230,118,0.4); }
+.toast.error { border-color:rgba(239,68,68,0.4); }
+@media(max-width:900px) { .main { grid-template-columns:1fr; } .packs { grid-template-columns:repeat(2,1fr); } .sidebar { position:static; } }
+@media(max-width:600px) { nav { padding:14px 16px; } .hero { padding:40px 16px 24px; } .packs { grid-template-columns:1fr 1fr; padding:0 16px; } .main { padding:0 16px 60px; } .templates-grid { grid-template-columns:1fr; } }
+
+
+/* ══ PAY-DARK — card paiement toujours sombre ══ */
+.pay-dark {
+  --pd-bg:      #151C28;
+  --pd-surface: #1C2535;
+  --pd-surface2:#232E42;
+  --pd-border:  rgba(255,255,255,0.10);
+  --pd-text:    #E8E3D8;
+  --pd-muted:   #8A9BB5;
+  background: var(--pd-surface) !important;
+  border-color: var(--pd-border) !important;
+  color: var(--pd-text) !important;
+}
+.pay-dark .field label { color: var(--pd-muted) !important; }
+.pay-dark .field input,
+.pay-dark .field select {
+  background: var(--pd-surface2) !important;
+  border: 1.5px solid var(--pd-border) !important;
+  color: var(--pd-text) !important;
+}
+.pay-dark .field input:focus { border-color: var(--green) !important; box-shadow: 0 0 0 3px rgba(0,200,83,0.15) !important; }
+.pay-dark .pay-opt {
+  background: var(--pd-surface2) !important;
+  border: 1.5px solid var(--pd-border) !important;
+  color: var(--pd-text) !important;
+}
+.pay-dark .pay-opt.selected { border-color: var(--green) !important; background: rgba(0,200,83,0.12) !important; color: var(--pd-text) !important; }
+.pay-dark .summary-title { color: var(--pd-text) !important; }
+
+/* ── COMPTEUR LIVE ── */
+.live-counter { display:flex; align-items:center; justify-content:center; gap:10px; background:var(--green-dim); border:1px solid rgba(0,200,83,0.25); border-radius:100px; padding:8px 22px; font-size:13px; font-weight:600; color:var(--cl-text); margin:0 auto 32px; width:fit-content; animation:fadeUp 0.6s 0.05s ease both; }
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse-dot 1.5s infinite; }
+@keyframes pulse-dot { 0%{box-shadow:0 0 0 0 rgba(0,200,83,0.4)} 70%{box-shadow:0 0 0 8px rgba(0,200,83,0)} 100%{box-shadow:0 0 0 0 rgba(0,200,83,0)} }
+.live-count { color:var(--green); font-family:var(--font-head); font-weight:800; }
+/* ── TÉMOIGNAGES ── */
+.testimonials-section { padding:90px 24px; background:var(--cl-bg2); border-top:1px solid var(--cl-border); border-bottom:1px solid var(--cl-border); }
+.testimonials-inner { max-width:1100px; margin:0 auto; }
+.testimonials-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:52px; }
+.testi-card { background:var(--cl-surface); border:1px solid var(--cl-border); border-radius:var(--radius); padding:28px 24px; transition:all 0.25s; }
+.testi-card:hover { border-color:rgba(0,200,83,0.3); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.06); }
+.testi-quote { font-size:32px; color:var(--green); opacity:0.3; font-family:Georgia,serif; line-height:1; margin-bottom:12px; }
+.testi-text { font-size:14px; color:var(--cl-text2); line-height:1.7; margin-bottom:20px; font-style:italic; }
+.testi-author { display:flex; align-items:center; gap:12px; }
+.testi-avatar { width:42px; height:42px; border-radius:50%; background:var(--green-dim); border:2px solid rgba(0,200,83,0.25); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.testi-name { font-weight:700; font-size:14px; color:var(--cl-text); }
+.testi-role { font-size:12px; color:var(--cl-muted); margin-top:2px; }
+.testi-stars { color:#F59E0B; font-size:12px; margin-top:3px; }
+/* ── CONFIRMATION MODALE ── */
+.confirm-details { background:rgba(0,200,83,0.06); border:1px solid rgba(0,200,83,0.2); border-radius:12px; padding:16px 20px; margin:16px 0; text-align:left; }
+.confirm-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
+.confirm-row:not(:last-child) { border-bottom:1px solid rgba(0,200,83,0.1); }
+.confirm-label { color:var(--cl-muted); }
+.confirm-val { font-weight:700; color:var(--cl-text); }
+.dl-rapport-btn { background:transparent; border:1.5px solid var(--green); color:var(--green); border-radius:10px; padding:10px 24px; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font-head); transition:all 0.2s; margin-top:8px; display:block; width:100%; }
+.dl-rapport-btn:hover { background:var(--green-dim); }
+
+
+/* ── COOKIE BANNER ── */
+.cookie-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+  background: var(--cl-bg);
+  border-top: 2px solid var(--cl-border);
+  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+}
+.cookie-banner.show { transform: translateY(0); }
+.cookie-text { font-size: 13px; color: var(--cl-text2); line-height: 1.6; flex: 1; min-width: 200px; }
+.cookie-text a { color: var(--green); text-decoration: underline; cursor: pointer; }
+.cookie-btns { display: flex; gap: 10px; flex-shrink: 0; }
+.cookie-accept {
+  background: var(--green); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 10px 22px; font-weight: 700; font-size: 13px;
+  cursor: pointer; font-family: var(--font-body);
+  transition: background 0.2s;
+}
+.cookie-accept:hover { background: var(--green2); }
+.cookie-refuse {
+  background: transparent; color: var(--cl-muted);
+  border: 1px solid var(--cl-border); border-radius: 8px;
+  padding: 10px 18px; font-size: 13px;
+  cursor: pointer; font-family: var(--font-body);
   transition: all 0.2s;
 }
-.theme-toggle:hover { background: rgba(0,200,83,0.2); }
+.cookie-refuse:hover { border-color: var(--cl-text); color: var(--cl-text); }
 
-/* ── AUTH MODAL ── */
-#sensms-auth-modal {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.8);
-  display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(4px);
+/* ── MODALES LÉGALES ── */
+.legal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.55);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
 }
-#sensms-auth-modal.hidden { display: none; }
-.sensms-auth-box {
-  background: #111;
-  border: 1px solid rgba(0,200,83,0.2);
-  border-radius: 20px;
-  padding: 40px 36px;
-  width: 90%; max-width: 420px;
+.legal-overlay.open { display: flex; }
+.legal-modal {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: 18px;
+  padding: 40px;
+  max-width: 680px; width: 100%;
+  max-height: 80vh; overflow-y: auto;
   position: relative;
 }
-.sensms-auth-close {
-  position: absolute; top: 16px; right: 20px;
-  color: #555; font-size: 20px; cursor: pointer;
-}
-.sensms-auth-logo {
-  text-align: center; margin-bottom: 24px;
-}
-.sensms-auth-logo .s-badge {
-  width: 48px; height: 48px; background: #00C853;
-  border-radius: 12px; display: inline-flex;
-  align-items: center; justify-content: center;
-  font-size: 26px; font-weight: 900; color: #fff;
-  box-shadow: 0 0 20px rgba(0,200,83,0.4);
-}
-.sensms-auth-logo .s-name {
-  font-size: 20px; font-weight: 700; color: #fff;
-  margin-top: 8px;
-}
-.sensms-auth-logo .s-name span { color: #00C853; }
-.sensms-auth-tabs {
-  display: flex; background: #1A1A1A;
-  border-radius: 10px; padding: 4px; margin-bottom: 24px;
-}
-.sensms-auth-tab {
-  flex: 1; padding: 9px; text-align: center;
-  border-radius: 8px; cursor: pointer;
-  font-size: 13px; font-weight: 600; color: #555;
+.legal-modal::-webkit-scrollbar { width: 4px; }
+.legal-modal::-webkit-scrollbar-thumb { background: var(--cl-border); border-radius: 4px; }
+.legal-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--cl-bg2); border: 1px solid var(--cl-border);
+  border-radius: 8px; width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--cl-muted);
   transition: all 0.2s;
 }
-.sensms-auth-tab.active { background: #00C853; color: #fff; }
-.sensms-auth-field { margin-bottom: 14px; }
-.sensms-auth-field label {
-  display: block; font-size: 11px; font-weight: 600;
-  color: #666; margin-bottom: 5px; text-transform: uppercase;
-  letter-spacing: 0.5px;
+.legal-modal-close:hover { background: var(--cl-bg3); color: var(--cl-text); }
+.legal-modal h2 { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--cl-text); margin-bottom: 8px; padding-right: 40px; }
+.legal-modal .legal-date { font-size: 12px; color: var(--cl-muted); margin-bottom: 28px; }
+.legal-modal h3 { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--cl-text); margin: 22px 0 8px; }
+.legal-modal p, .legal-modal li { font-size: 14px; color: var(--cl-text2); line-height: 1.75; }
+.legal-modal ul { padding-left: 20px; margin: 8px 0; }
+.legal-modal li { margin-bottom: 6px; }
+.legal-modal a { color: var(--green); }
+
+@media (max-width: 768px) {
+  .cookie-banner { padding: 14px 18px; }
+  .legal-modal { padding: 28px 20px; }
 }
-.sensms-auth-field input {
-  width: 100%; padding: 11px 14px;
-  background: #1A1A1A; border: 1px solid #2A2A2A;
-  border-radius: 8px; color: #fff; font-size: 14px;
-  outline: none; box-sizing: border-box;
+
+
+/* ══ AUTH MODAL ══ */
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 1001;
+  background: rgba(0,0,0,0.6);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.auth-overlay.open { display: flex; }
+.auth-modal {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 100%; max-width: 440px;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.15);
+  animation: fadeUp 0.3s ease both;
+}
+.auth-modal-close {
+  position: absolute; top: 14px; right: 14px;
+  background: var(--cl-bg2); border: 1px solid var(--cl-border);
+  border-radius: 8px; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px; color: var(--cl-muted);
+  transition: all 0.2s;
+}
+.auth-modal-close:hover { background: var(--cl-bg3); color: var(--cl-text); }
+.auth-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.auth-logo .logo-s { width: 36px; height: 36px; font-size: 18px; border-radius: 9px; }
+.auth-logo-text { font-family: var(--font-head); font-weight: 700; font-size: 17px; color: var(--cl-text); }
+.auth-logo-text span { color: var(--green); }
+.auth-tabs {
+  display: flex; gap: 4px;
+  background: var(--cl-bg2);
+  border-radius: 10px; padding: 4px;
+  margin-bottom: 28px;
+}
+.auth-tab {
+  flex: 1; padding: 9px; text-align: center;
+  border-radius: 7px; cursor: pointer;
+  font-size: 14px; font-weight: 600;
+  color: var(--cl-muted); background: transparent;
+  border: none; font-family: var(--font-body);
+  transition: all 0.2s;
+}
+.auth-tab.active {
+  background: var(--cl-surface);
+  color: var(--cl-text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.auth-field { margin-bottom: 14px; }
+.auth-field label {
+  display: block; font-size: 11px; font-weight: 700;
+  color: var(--cl-muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.auth-field input {
+  width: 100%;
+  background: var(--cl-bg);
+  border: 1.5px solid var(--cl-border);
+  border-radius: 9px; padding: 11px 14px;
+  color: var(--cl-text); font-size: 14px;
+  font-family: var(--font-body); outline: none;
   transition: border-color 0.2s;
 }
-.sensms-auth-field input:focus { border-color: #00C853; }
-.sensms-auth-btn {
-  width: 100%; padding: 13px;
-  background: #00C853; color: #fff;
-  border: none; border-radius: 8px;
-  font-size: 15px; font-weight: 700; cursor: pointer;
-  margin-top: 6px; transition: all 0.2s;
+.auth-field input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,200,83,0.12); }
+.auth-field input::placeholder { color: var(--cl-muted); }
+.auth-submit {
+  width: 100%; background: var(--green); color: #fff;
+  border: none; border-radius: 10px; padding: 14px;
+  font-family: var(--font-head); font-weight: 800; font-size: 15px;
+  cursor: pointer; transition: all 0.2s; margin-top: 6px;
 }
-.sensms-auth-btn:hover { background: #00A843; }
-.sensms-auth-err {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.3);
-  color: #FCA5A5; border-radius: 8px;
-  padding: 9px 12px; font-size: 12px;
-  margin-bottom: 12px; display: none;
+.auth-submit:hover { background: var(--green2); transform: translateY(-1px); }
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.auth-error {
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; color: #EF4444;
+  margin-bottom: 14px; display: none;
 }
-.sensms-auth-skip {
-  text-align: center; margin-top: 14px;
-  font-size: 12px; color: #444; cursor: pointer;
+.auth-success {
+  background: rgba(0,200,83,0.08); border: 1px solid rgba(0,200,83,0.25);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; color: var(--green);
+  margin-bottom: 14px; display: none;
 }
-.sensms-auth-skip span { color: #00C853; }
+.auth-sep { text-align: center; font-size: 12px; color: var(--cl-muted); margin: 10px 0 6px; }
+.auth-switch { text-align: center; font-size: 13px; color: var(--cl-muted); margin-top: 18px; }
+.auth-switch a { color: var(--green); cursor: pointer; font-weight: 600; text-decoration: none; }
+
+/* ── USER BADGE dans nav ── */
+.user-badge {
+  display: none; align-items: center; gap: 8px;
+  background: var(--green-dim);
+  border: 1px solid rgba(0,200,83,0.25);
+  border-radius: 100px; padding: 6px 14px;
+  font-size: 13px; font-weight: 600; color: var(--cl-text);
+  cursor: pointer; position: relative;
+}
+.user-badge .user-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.user-menu {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--cl-surface); border: 1px solid var(--cl-border);
+  border-radius: 12px; padding: 8px;
+  min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  z-index: 200;
+}
+.user-menu.open { display: block; }
+.user-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  font-size: 13px; color: var(--cl-text); cursor: pointer;
+  transition: background 0.15s;
+}
+.user-menu-item:hover { background: var(--cl-bg2); }
+.user-menu-item.danger { color: #EF4444; }
+.user-credits-badge {
+  background: var(--green-dim); border: 1px solid rgba(0,200,83,0.2);
+  border-radius: 6px; padding: 2px 8px;
+  font-size: 11px; color: var(--green); font-weight: 700;
+  margin-left: auto;
+}
+@media (max-width: 768px) {
+  .auth-modal { padding: 28px 20px; }
+  .user-badge span.user-name { display: none; }
+}
+
+</style>
 </head>
+
+<script>
+// ── THEME ─────────────────────────────────────────
+(function() {
+  var saved = localStorage.getItem('sensms_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+})();
+
+function toggleTheme() {
+  var html = document.documentElement;
+  var current = html.getAttribute('data-theme');
+  var next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('sensms_theme', next);
+  var btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+function updateThemeBtn() {
+  var btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+}
+
+// ── DASHBOARD SHOW/HIDE ────────────────────────────
+function showDashboard(packId) {
+  var ds = document.getElementById('dashboard-section');
+  if (!ds) return;
+  ds.classList.add('active');
+  ds.scrollIntoView({ behavior: 'smooth' });
+  if (packId) {
+    setTimeout(function() {
+      var prices = { starter: 3500, pro: 33000, business: 150000, ecole: 280000 };
+      var smsCounts = { starter: 100, pro: 1000, business: 5000, ecole: 10000 };
+      if (typeof selPack === 'function') selPack(packId, prices[packId]||33000, smsCounts[packId]||1000);
+    }, 300);
+  }
+}
+function hideDashboard() {
+  document.getElementById('dashboard-section').classList.remove('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function goToPlatform(packId) { showDashboard(packId); }
+</script>
+
 <body>
 
-<!-- AUTH MODAL -->
-<div id="sensms-auth-modal" class="hidden">
-  <div class="sensms-auth-box">
-    <span class="sensms-auth-close" onclick="hideAuthModal()">✕</span>
-    <div class="sensms-auth-logo">
-      <div class="s-badge">S</div>
-      <div class="s-name">Sen<span>SMS</span></div>
-    </div>
-    <div class="sensms-auth-tabs">
-      <div class="sensms-auth-tab active" onclick="authTab('login')">Connexion</div>
-      <div class="sensms-auth-tab" onclick="authTab('register')">Créer un compte</div>
-    </div>
-    <div id="sensms-auth-err" class="sensms-auth-err"></div>
-
-    <div id="sensms-login-form">
-      <div class="sensms-auth-field">
-        <label>Téléphone ou Email</label>
-        <input type="text" id="sauth-id" placeholder="+221 77 XXX XX XX">
-      </div>
-      <div class="sensms-auth-field">
-        <label>Mot de passe</label>
-        <input type="password" id="sauth-pw" placeholder="••••••••">
-      </div>
-      <button class="sensms-auth-btn" onclick="sensmsLogin()">Se connecter →</button>
-    </div>
-
-    <div id="sensms-register-form" style="display:none">
-      <div class="sensms-auth-field">
-        <label>Nom / Organisation</label>
-        <input type="text" id="sreg-name" placeholder="Ex: École Mariama Bâ">
-      </div>
-      <div class="sensms-auth-field">
-        <label>Téléphone</label>
-        <input type="text" id="sreg-phone" placeholder="+221 77 XXX XX XX">
-      </div>
-      <div class="sensms-auth-field">
-        <label>Email (optionnel)</label>
-        <input type="email" id="sreg-email" placeholder="votre@email.com">
-      </div>
-      <div class="sensms-auth-field">
-        <label>Mot de passe</label>
-        <input type="password" id="sreg-pw" placeholder="Minimum 6 caractères">
-      </div>
-      <button class="sensms-auth-btn" onclick="sensmsRegister()">Créer mon compte →</button>
-    </div>
-
-    <div class="sensms-auth-skip" onclick="hideAuthModal()">
-      Continuer sans compte — <span>accès démonstration</span>
-    </div>
-  </div>
-</div>
-
-<!-- NAV -->
-<nav>
-  <a href="#" class="nav-logo">
+<!-- ══════ NAV ══════ -->
+<nav class="main-nav">
+  <a href="#" class="nav-logo-wrap">
     <div class="logo-s">S</div>
     <span class="logo-text">Sen<span>SMS</span></span>
   </a>
@@ -629,18 +934,37 @@ body.light-mode .packs-section {
     <li><a href="#packs">Tarifs</a></li>
     <li><a href="#how">Comment ça marche</a></li>
     <li><a href="#features">Fonctionnalités</a></li>
-    <li><div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Mode clair/sombre">🌙</div></li>
-    <li><button onclick="showAuthModal()" style="background:transparent;border:1px solid rgba(0,200,83,0.3);color:#00C853;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer" id="nav-auth-btn">Connexion</button></li>
-    <li><a href="sen-sms.html" class="nav-cta">Lancer une campagne →</a></li>
+    <li><a href="#dashboard" onclick="showDashboard()" class="nav-cta">Lancer une campagne →</a></li>
   </ul>
+  <!-- Toggle + user badge toujours visibles -->
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="user-badge" id="user-badge" onclick="toggleUserMenu()">
+      <div class="user-dot"></div>
+      <span class="user-name" id="user-badge-name">Mon compte</span>
+      <span class="user-credits-badge" id="user-badge-credits">0 SMS</span>
+      <div class="user-menu" id="user-menu">
+        <div class="user-menu-item" onclick="openHistorique()">📋 Mes campagnes</div>
+        <div class="user-menu-item" onclick="openCredits()">💰 Mes crédits</div>
+        <div class="user-menu-item" style="border-top:1px solid var(--cl-border);margin-top:4px;padding-top:12px;" onclick="deconnexion()">🚪 <span style="color:var(--cl-text)">Se déconnecter</span></div>
+      </div>
+    </div>
+    <div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</div>
+    <a href="#dashboard" onclick="showDashboard()" class="nav-cta mobile-cta" style="display:none;">🚀</a>
+  </div>
 </nav>
 
+
+
 <!-- HERO -->
-<section class="hero">
+<section class="hero-main">
   <div class="hero-bg"></div>
-  <div class="hero-grid"></div>
 
   <div class="flag-badge">🇸🇳 Fièrement Sénégalais · sensms.com</div>
+
+  <div class="live-counter">
+    <div class="live-dot"></div>
+    <span><span class="live-count" id="live-sms-count">12 847</span> SMS envoyés ce mois</span>
+  </div>
 
   <h1>
     Envoyez des SMS<br>
@@ -652,7 +976,7 @@ body.light-mode .packs-section {
   </p>
 
   <div class="hero-btns">
-    <a href="sen-sms.html" class="btn-primary">
+    <a href="#dashboard" onclick="showDashboard()" class="btn-primary">
       🚀 Lancer ma campagne
     </a>
     <a href="#packs" class="btn-ghost">
@@ -662,12 +986,12 @@ body.light-mode .packs-section {
 
   <div class="stats">
     <div class="stat">
-      <span class="stat-num">6 FCFA</span>
-      <div class="stat-lbl">par SMS à partir de</div>
+      <span class="stat-num">28–35 FCFA</span>
+      <div class="stat-lbl">par SMS selon le volume</div>
     </div>
     <div class="stat">
-      <span class="stat-num">10 000</span>
-      <div class="stat-lbl">SMS max par campagne</div>
+      <span class="stat-num">Illimité</span>
+      <div class="stat-lbl">SMS par campagne</div>
     </div>
     <div class="stat">
       <span class="stat-num">3</span>
@@ -830,6 +1154,56 @@ body.light-mode .packs-section {
   </div>
 </section>
 
+
+<!-- TÉMOIGNAGES -->
+<section class="testimonials-section" id="testimonials">
+  <div class="testimonials-inner">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">Témoignages</div>
+      <h2 class="section-title">Ils nous font confiance</h2>
+      <p class="section-sub" style="margin:0 auto">Des structures sénégalaises qui utilisent Sen-SMS au quotidien.</p>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">Nous avons envoyé les résultats du BFEM à plus de 2 000 parents en moins de 10 minutes. Les familles ont apprécié la rapidité. C'est devenu notre outil officiel de communication.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🏫</div>
+          <div>
+            <div class="testi-name">Directeur Mamadou Diallo</div>
+            <div class="testi-role">Collège privé, Dakar</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">Pour les convocations du Grand Magal, on a touché toute notre communauté en un seul envoi. Le sender ID "DAHIRA-TID" a rassuré tout le monde. Vraiment simple et fiable.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🕌</div>
+          <div>
+            <div class="testi-name">Serigne Fallou Mbacké</div>
+            <div class="testi-role">Dahira Tidiane, Touba</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">J'envoie mes promos à ma base clients chaque vendredi. Mes ventes du weekend ont augmenté de 30% depuis que j'utilise Sen-SMS. Le paiement Wave est ultra pratique.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🏪</div>
+          <div>
+            <div class="testi-name">Aïssatou Ndiaye</div>
+            <div class="testi-role">Boutique prêt-à-porter, Thiès</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- CTA FINAL -->
 <section class="cta-section">
   <div class="cta-bg"></div>
@@ -838,7 +1212,7 @@ body.light-mode .packs-section {
     <h2 class="cta-title">Lancez votre première<br>campagne aujourd'hui</h2>
     <p class="cta-sub">Aucune inscription requise. Payez via Wave et envoyez en 5 minutes.</p>
     <div class="cta-btns">
-      <a href="sen-sms.html" class="btn-primary" style="font-size:17px; padding:18px 36px">
+      <a href="#dashboard" onclick="showDashboard()" class="btn-primary" style="font-size:17px; padding:18px 36px">
         🚀 Commencer maintenant
       </a>
       <a href="https://wa.me/221765596442" class="btn-ghost" target="_blank">
@@ -852,25 +1226,47 @@ body.light-mode .packs-section {
 <footer>
   <a href="#" class="footer-logo">
     <div class="logo-s">S</div>
-    Sen<span style="color:var(--orange)">SMS</span>
+    Sen<span style="color:var(--green)">SMS</span>
   </a>
   <div class="footer-links">
     <a href="#usecases">Cas d'usage</a>
     <a href="#packs">Tarifs</a>
     <a href="#how">Comment ça marche</a>
-    <a href="sen-sms.html">Lancer une campagne</a>
+    <a href="#dashboard" onclick="showDashboard()">Lancer une campagne</a>
     <a href="https://wa.me/221765596442">Contact</a>
+    <a href="javascript:void(0)" onclick="openLegal('apropos')">À propos</a>
+    <a href="javascript:void(0)" onclick="openLegal('confidentialite')">Confidentialité</a>
+    <a href="javascript:void(0)" onclick="openLegal('cookies')">Cookies</a>
   </div>
   <div class="footer-copy">© 2026 Sen-SMS · PST Telecom · sensms.com 🇸🇳</div>
 </footer>
 
+<!-- ══ COOKIE BANNER ══ -->
+<div class="cookie-banner" id="cookie-banner">
+  <div class="cookie-text">
+    🍪 Sen-SMS utilise des cookies pour améliorer votre expérience. En continuant, vous acceptez notre <a onclick="openLegal('cookies')">politique de cookies</a> et notre <a onclick="openLegal('confidentialite')">politique de confidentialité</a>.
+  </div>
+  <div class="cookie-btns">
+    <button class="cookie-refuse" onclick="refuserCookies()">Refuser</button>
+    <button class="cookie-accept" onclick="accepterCookies()">Accepter ✓</button>
+  </div>
+</div>
+
+<!-- ══ MODALES LÉGALES ══ -->
+<div class="legal-overlay" id="legal-overlay" onclick="closeLegalIfOutside(event)">
+  <div class="legal-modal" id="legal-modal">
+    <div class="legal-modal-close" onclick="closeLegal()">✕</div>
+    <div id="legal-content"></div>
+  </div>
+</div>
+
 <script>
 // ── PACKS DATA (modifiable ici) ──────────────────────
 const PACKS = [
-  { id:'starter', name:'Starter', sms:100,   price:1000,  unit:10, popular:false },
-  { id:'pro',     name:'Pro',     sms:1000,  price:8000,  unit:8,  popular:true  },
-  { id:'business',name:'Business',sms:5000,  price:35000, unit:7,  popular:false },
-  { id:'ecole',   name:'École',   sms:10000, price:60000, unit:6,  popular:false },
+  { id:'starter', name:'Starter', sms:100,   price:3500, unit:35, popular:false },
+  { id:'pro',     name:'Pro',     sms:1000,  price:33000, unit:33, popular:true  },
+  { id:'business',name:'Business',sms:5000,  price:150000,unit:30, popular:false },
+  { id:'ecole',   name:'École',   sms:10000, price:280000,unit:28, popular:false },
 ];
 
 function renderPacks() {
@@ -890,7 +1286,7 @@ function renderPacks() {
 }
 
 function goToPlatform(packId) {
-  window.location.href = 'sen-sms.html?pack=' + packId;
+  showDashboard(packId);
 }
 
 // ── SCROLL REVEAL ────────────────────────────────────
@@ -916,90 +1312,902 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+
+
+
+
+<!-- ══ AUTH MODAL ══ -->
+<div class="auth-overlay" id="auth-overlay" onclick="authCloseIfOutside(event)">
+  <div class="auth-modal">
+    <div class="auth-modal-close" onclick="closeAuth()">✕</div>
+    <div class="auth-logo">
+      <div class="logo-s">S</div>
+      <span class="auth-logo-text">Sen<span>SMS</span></span>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Connexion</button>
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Créer un compte</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="vous@exemple.com" autocomplete="email"></div>
+      <div class="auth-field"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="auth-submit" id="login-btn" onclick="doLogin()">🔑 Se connecter</button>
+      <div class="auth-switch">Pas encore de compte ? <a onclick="switchAuthTab('register')">Créer un compte</a></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="auth-field"><label>Prénom / Nom</label><input type="text" id="reg-nom" placeholder="Prénom Nom"></div>
+        <div class="auth-field"><label>Organisation</label><input type="text" id="reg-org" placeholder="École, Boutique..."></div>
+      </div>
+      <div class="auth-field"><label>Email</label><input type="email" id="reg-email" placeholder="vous@exemple.com" autocomplete="email"></div>
+      <div class="auth-field"><label>Téléphone (optionnel)</label><input type="tel" id="reg-tel" placeholder="+221 77 000 00 00"></div>
+      <div class="auth-field"><label>Mot de passe</label><input type="password" id="reg-password" placeholder="6 caractères minimum" autocomplete="new-password"></div>
+      <button class="auth-submit" id="register-btn" onclick="doRegister()">🚀 Créer mon compte</button>
+      <div class="auth-switch">Déjà un compte ? <a onclick="switchAuthTab('login')">Se connecter</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HISTORIQUE CAMPAGNES ══ -->
+<div class="legal-overlay" id="historique-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="legal-modal" style="max-width:780px;">
+    <div class="legal-modal-close" onclick="document.getElementById('historique-overlay').classList.remove('open')">✕</div>
+    <h2>📋 Mes campagnes</h2>
+    <div class="legal-date" id="histo-user-info">—</div>
+    <div id="histo-content" style="margin-top:20px;"></div>
+  </div>
+</div>
+
+<!-- ══ CRÉDITS ══ -->
+<div class="legal-overlay" id="credits-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="legal-modal" style="max-width:500px;">
+    <div class="legal-modal-close" onclick="document.getElementById('credits-overlay').classList.remove('open')">✕</div>
+    <h2>💰 Mon portefeuille SMS</h2>
+    <div class="legal-date" id="credits-user-info">—</div>
+    <div id="credits-content" style="margin-top:20px;"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD SECTION -->
+<div id="dashboard-section" class="dashboard-section">
+  <div style="max-width:1200px;margin:0 auto;padding:20px 32px 10px;display:flex;align-items:center;gap:12px;">
+    <button onclick="hideDashboard()" style="background:none;border:1px solid rgba(0,0,0,0.1);color:#666;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;">← Retour</button>
+    <span style="color:#00C853;font-weight:700;font-size:16px;">🚀 Lancer une campagne</span>
+  </div>
+
+<div class="hero">
+  <div class="hero-badge">📩 Service SMS professionnel — Sénégal</div>
+  <h1>Envoyez des SMS<br>à des <span class="accent">milliers</span> de personnes</h1>
+  <p>Importez votre liste depuis Excel ou CSV. Personnalisez chaque message. Envoyez en masse en quelques clics. Parfait pour les écoles, concours, entreprises et associations.</p>
+</div>
+
+<div class="packs" id="packs-section">
+  <div class="pack" onclick="selPack('starter',3500,100)" id="pack-starter">
+    <div class="pack-name">Starter</div>
+    <div class="pack-sms">100 <span>SMS</span></div>
+    <div class="pack-price">3 500 FCFA</div>
+    <div class="pack-unit">35 FCFA / SMS</div>
+  </div>
+  <div class="pack popular selected" onclick="selPack('pro',33000,1000)" id="pack-pro">
+    <div class="pack-name">Pro</div>
+    <div class="pack-sms">1 000 <span>SMS</span></div>
+    <div class="pack-price">33 000 FCFA</div>
+    <div class="pack-unit">33 FCFA / SMS</div>
+  </div>
+  <div class="pack" onclick="selPack('business',150000,5000)" id="pack-business">
+    <div class="pack-name">Business</div>
+    <div class="pack-sms">5 000 <span>SMS</span></div>
+    <div class="pack-price">150 000 FCFA</div>
+    <div class="pack-unit">30 FCFA / SMS</div>
+  </div>
+  <div class="pack" onclick="selPack('ecole',280000,10000)" id="pack-ecole">
+    <div class="pack-name">École</div>
+    <div class="pack-sms">10 000 <span>SMS</span></div>
+    <div class="pack-price">280 000 FCFA</div>
+    <div class="pack-unit">28 FCFA / SMS</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(1)">
+        <div class="step-num" id="snum-1">1</div>
+        <div><div class="step-title">📋 Importer vos contacts</div><div class="step-sub">Excel, CSV — ou saisie manuelle</div></div>
+      </div>
+      <div class="step-body open" id="sbody-1">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('upload')">📁 Importer un fichier</button>
+          <button class="tab" onclick="switchTab('manual')">✏️ Saisie manuelle</button>
+        </div>
+        <div id="tab-upload">
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+            <div class="upload-icon">📂</div>
+            <div class="upload-title">Glissez votre fichier ici ou cliquez pour parcourir</div>
+            <div class="upload-sub">Supporte les listes d'élèves, candidats, clients...</div>
+            <div class="upload-formats"><span class="fmt-badge">.xlsx</span><span class="fmt-badge">.xls</span><span class="fmt-badge">.csv</span></div>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+          <div id="col-mapping" style="display:none;margin-top:16px;">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Associez les colonnes de votre fichier :</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="field"><label>Colonne Numéro de téléphone *</label><select id="col-phone" onchange="updatePreview()"></select></div>
+              <div class="field"><label>Colonne Nom</label><select id="col-nom" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Prénom</label><select id="col-prenom" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Classe / Groupe</label><select id="col-classe" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Matricule</label><select id="col-matricule" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne N° Table (examen)</label><select id="col-table" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Mention / Résultat</label><select id="col-mention" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Date</label><select id="col-date" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Centre d'examen</label><select id="col-centre" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+              <div class="field"><label>Colonne Jury</label><select id="col-jury" onchange="updatePreview()"><option value="">— Ignorer —</option></select></div>
+            </div>
+            <div id="filter-section" style="margin-top:12px;display:none;">
+              <div class="field"><label>Filtrer par classe / groupe (optionnel)</label><select id="filter-classe" onchange="applyFilter()"><option value="">Tous les contacts</option></select></div>
+            </div>
+          </div>
+          <div class="contacts-preview" id="contacts-preview" style="display:none;">
+            <div class="contacts-header">
+              <div class="contacts-count"><strong id="contact-count">0</strong> contacts chargés <span id="filter-info" style="color:var(--orange);margin-left:8px;"></span></div>
+              <button onclick="clearContacts()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">✕ Effacer</button>
+            </div>
+            <div class="table-wrap"><table><thead id="preview-thead"></thead><tbody id="preview-tbody"></tbody></table></div>
+          </div>
+        </div>
+        <div id="tab-manual" style="display:none;">
+          <div class="manual-input">
+            <textarea id="manual-numbers" placeholder="Entrez les numéros, un par ligne :&#10;221771234567&#10;&#10;Ou avec le nom :&#10;Aliou Diallo,221771234567" oninput="parseManual()"></textarea>
+            <div class="manual-hint">📌 Format : numéro seul ou nom,numéro<br>✅ 221XXXXXXXXX ou 77XXXXXXX (Sénégal automatique)</div>
+          </div>
+          <div class="contacts-preview" id="manual-preview" style="display:none;margin-top:12px;">
+            <div class="contacts-header"><div class="contacts-count"><strong id="manual-count">0</strong> contacts</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(2)">
+        <div class="step-num" id="snum-2">2</div>
+        <div><div class="step-title">✍️ Rédiger votre message</div><div class="step-sub">Personnalisez avec les données de votre liste</div></div>
+      </div>
+      <div class="step-body" id="sbody-2">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Modèles rapides</div>
+        <div class="templates-grid">
+          <div class="template-card" onclick="useTemplate('convocation')"><h4>🏫 Convocation examen</h4><p>Bonjour {prenom}, convoqué(e) le {date}. Centre : {centre}. Table : {table}. Jury : {jury}.</p></div>
+          <div class="template-card" onclick="useTemplate('resultat')"><h4>📊 Résultats</h4><p>Bonjour {prenom}, résultats disponibles. Mention : {mention}. Félicitations !</p></div>
+          <div class="template-card" onclick="useTemplate('inscription')"><h4>📝 Rappel inscription</h4><p>Bonjour {prenom}, inscriptions 2026 ouvertes. Places limitées.</p></div>
+          <div class="template-card" onclick="useTemplate('mensualite')"><h4>💰 Rappel mensualité</h4><p>Bonjour {prenom} {nom}, votre mensualité est due. Veuillez régulariser.</p></div>
+          <div class="template-card" onclick="useTemplate('promo')"><h4>🎉 Promotion</h4><p>Bonjour {prenom}, offre spéciale ! Valable jusqu'au {date}. — Sen-SMS</p></div>
+          <div class="template-card" onclick="useTemplate('otp')"><h4>🔐 Code OTP</h4><p>Votre code de vérification : {code}. Valable 10 min.</p></div>
+        </div>
+        <div class="composer">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Variables — cliquez pour insérer</div>
+          <div class="vars-grid">
+            <span class="var-chip" onclick="insertVar('{prenom}')">{prenom}</span>
+            <span class="var-chip" onclick="insertVar('{nom}')">{nom}</span>
+            <span class="var-chip" onclick="insertVar('{classe}')">{classe}</span>
+            <span class="var-chip" onclick="insertVar('{matricule}')">{matricule}</span>
+            <span class="var-chip" onclick="insertVar('{table}')">{table}</span>
+            <span class="var-chip" onclick="insertVar('{mention}')">{mention}</span>
+            <span class="var-chip" onclick="insertVar('{date}')">{date}</span>
+            <span class="var-chip" onclick="insertVar('{centre}')">{centre}</span>
+            <span class="var-chip" onclick="insertVar('{jury}')">{jury}</span>
+          </div>
+          <textarea id="message-text" placeholder="Rédigez votre message ici..." oninput="updateComposer()" rows="5"></textarea>
+          <div class="composer-footer">
+            <div class="char-count" id="char-count">0 / 160 caractères (1 SMS)</div>
+            <div style="font-size:12px;color:var(--muted)" id="sms-count-msg"></div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:16px;">
+          <label>Nom de l'expéditeur (max 11 caractères)</label>
+          <input type="text" id="sender-name" placeholder="SenSMS" maxlength="11" value="SenSMS">
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(3)">
+        <div class="step-num" id="snum-3">3</div>
+        <div><div class="step-title">📅 Planifier l'envoi</div><div class="step-sub">Maintenant ou à une date précise</div></div>
+      </div>
+      <div class="step-body" id="sbody-3">
+        <div class="schedule-opts">
+          <div class="schedule-opt selected" id="sched-now" onclick="selSchedule('now')"><div class="icon">⚡</div><h4>Envoyer maintenant</h4><p>Envoi immédiat dès confirmation</p></div>
+          <div class="schedule-opt" id="sched-later" onclick="selSchedule('later')"><div class="icon">📅</div><h4>Planifier</h4><p>Choisir une date et heure précise</p></div>
+        </div>
+        <input type="datetime-local" id="schedule-datetime" class="datetime-input" onchange="updateSummary()">
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+    <div class="phone-preview" style="margin-bottom:16px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">📱 Aperçu SMS</div>
+      <div class="phone-mock">
+        <div class="phone-header">SenSMS</div>
+        <div class="sms-bubble">
+          <div class="sms-sender" id="preview-sender-name">SenSMS</div>
+          <div id="preview-msg" style="color:var(--muted);font-style:italic;">Votre message apparaîtra ici...</div>
+          <div class="sms-time" id="preview-time">Maintenant</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-title">📊 Résumé</div>
+      <div class="summary-row"><div class="summary-label">Pack sélectionné</div><div class="summary-val" id="sum-pack">Pro</div></div>
+      <div class="summary-row"><div class="summary-label">Contacts</div><div class="summary-val green" id="sum-contacts">0</div></div>
+      <div class="summary-row"><div class="summary-label">SMS par contact</div><div class="summary-val" id="sum-sms-each">1</div></div>
+      <div class="summary-row"><div class="summary-label">Total SMS</div><div class="summary-val orange" id="sum-total-sms">0</div></div>
+      <div class="summary-row"><div class="summary-label">Envoi</div><div class="summary-val" id="sum-schedule">Immédiat</div></div>
+      <div class="total-row"><div class="total-label">Coût total</div><div class="total-val" id="sum-cost">0 FCFA</div></div>
+    </div>
+
+    <div class="summary-card pay-dark">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;">💳 Paiement</div>
+      <div class="field"><label>Nom / Organisation</label><input type="text" id="org-name" placeholder="École Privée XYZ"></div>
+      <div class="field"><label>Téléphone</label><input type="tel" id="org-phone" placeholder="+221 77 000 00 00"></div>
+      <div id="step-pay" style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--pd-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 1 — Choisir le paiement</div>
+        <div class="pay-opts">
+          <button class="pay-opt selected" id="payopt-wave" onclick="selPayOpt('wave')"><img src="data:image/png;base64,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" style="width:22px;height:22px;object-fit:contain;border-radius:4px;vertical-align:middle;margin-right:6px;"> Wave</button>
+          <button class="pay-opt" id="payopt-card" onclick="selPayOpt('card')">💳 Carte Visa</button>
+        </div>
+        <button onclick="initierPaiement()" style="width:100%;margin-top:12px;background:var(--pd-surface2);border:1px solid var(--pd-border);color:var(--pd-text);border-radius:10px;padding:13px;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+          💰 Procéder au paiement →
+        </button>
+        <p style="text-align:center;font-size:11px;color:var(--pd-muted);margin-top:8px;">Après paiement, revenez avec votre référence</p>
+      </div>
+      <div id="step-code" style="border-top:1px solid var(--pd-border);padding-top:16px;">
+        <div style="font-size:11px;color:var(--pd-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Étape 2 — Référence du paiement</div>
+        <div style="background:var(--pd-surface2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--pd-muted);line-height:1.8;">
+          📱 <strong style="color:var(--pd-text);">Wave</strong> → App Wave → <strong style="color:var(--pd-text);">Historique</strong> → copier la référence<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: T_XXXXXXXXXXXXXXXXX</span><br><br>
+          💳 <strong style="color:var(--pd-text);">Carte Visa</strong> → référence sur le reçu Flutterwave<br>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">Format: FLW-MOCK-XXXXXXXXX</span>
+        </div>
+        <div class="field">
+          <label>Référence de transaction *</label>
+          <input type="text" id="code-validation" placeholder="T_XXXXXXXXXXXXXXXXX" style="text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;font-size:14px;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div style="margin-bottom:14px;">
+          <button onclick="toggleAide()" style="background:transparent;border:none;color:var(--pd-muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">❓ Je ne trouve pas ma référence Wave</button>
+          <div id="aide-ref" style="display:none;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--pd-muted);line-height:1.8;">
+            1. Ouvrez l'app Wave<br>2. Appuyez sur <strong style="color:var(--pd-text);">Historique</strong><br>3. Cherchez le paiement Sen-SMS<br>4. Copiez la référence<br><br>
+            <strong style="color:var(--orange);">Aide :</strong> <strong style="color:var(--pd-text);">+221 77 152 09 59</strong>
+          </div>
+        </div>
+        <button class="send-btn" onclick="lancerCampagne()" id="send-btn">🚀 Lancer la campagne</button>
+        <div style="background:rgba(255,152,0,0.10);border:1px solid rgba(255,152,0,0.35);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:var(--pd-text);line-height:1.6;">
+          ⚠️ <strong style="color:var(--orange);">Obligation légale :</strong> Vous devez avoir l'autorisation des destinataires. Sen-SMS décline toute responsabilité en cas d'utilisation abusive.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-icon" id="modal-icon">📤</div>
+    <h3 id="modal-title">Envoi en cours...</h3>
+    <p id="modal-sub">Préparation de votre campagne SMS</p>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-text" id="progress-text">0 / 0 SMS envoyés</div>
+    <div class="confirm-details" id="confirm-details" style="display:none;">
+      <div class="confirm-row"><span class="confirm-label">Organisation</span><span class="confirm-val" id="conf-org">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Contacts atteints</span><span class="confirm-val" id="conf-contacts">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Sender ID</span><span class="confirm-val" id="conf-sender">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Date d'envoi</span><span class="confirm-val" id="conf-date">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Coût total</span><span class="confirm-val green" id="conf-cost">—</span></div>
+    </div>
+    <button class="dl-rapport-btn" id="dl-rapport-btn" style="display:none;" onclick="telechargerRapport()">📄 Télécharger le rapport PDF</button>
+    <button class="modal-close" id="modal-close" style="display:none;" onclick="closeModal()">✅ Terminer</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://checkout.flutterwave.com/v3.js"></script>
 <script>
-// ── THEME ────────────────────────────────
-function toggleTheme() {
-  var isLight = document.body.classList.toggle('light-mode');
-  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
-  localStorage.setItem('sensms_theme', isLight ? 'light' : 'dark');
+const API = 'https://pst-telecom-production.up.railway.app';
+const FLW_KEY = 'FLWPUBK_TEST-286561587630ef206f4543d81df6f525-X';
+const WAVE_BASE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
+
+let contacts = [], rawData = [], headers = [];
+let packData = { name:'Pro', price:8000, sms:1000 };
+let scheduleMode = 'now', payOpt = 'wave', activeTab = 'upload';
+
+const TEMPLATES = {
+  convocation: "Bonjour {prenom} {nom}, vous etes convoque(e) le {date} a 8h. Centre : {centre}. N Table : {table}. Jury : {jury}. Bon courage !",
+  resultat: "Bonjour {prenom} {nom}, vos resultats sont disponibles. Mention : {mention}. Felicitations ! Sen-SMS.",
+  inscription: "Bonjour {prenom}, les inscriptions 2026 sont ouvertes. Places limitees. Contactez-nous.",
+  mensualite: "Bonjour {prenom} {nom}, votre mensualite est due. Veuillez regulariser votre situation.",
+  promo: "Bonjour {prenom}, offre speciale ! Profitez de nos services jusqu'au {date}. Sen-SMS",
+  otp: "Votre code Sen-SMS est : {code}. Valable 10 minutes. Ne le partagez pas."
+};
+
+window.addEventListener('load', function() {
+  if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'; document.head.appendChild(s); }
+  updateSummary(); selPack('pro', 33000, 1000);
+});
+
+function toggleAide() { var el=document.getElementById('aide-ref'); el.style.display=el.style.display==='none'?'block':'none'; }
+function selPack(id,price,sms) { document.querySelectorAll('.pack').forEach(function(p){p.classList.remove('selected');}); document.getElementById('pack-'+id).classList.add('selected'); packData={name:id.charAt(0).toUpperCase()+id.slice(1),price:price,sms:sms}; updateSummary(); }
+function scrollToPacks() { document.getElementById('packs-section').scrollIntoView({behavior:'smooth'}); }
+function toggleStep(n) { document.getElementById('sbody-'+n).classList.toggle('open'); }
+function switchTab(tab) { activeTab=tab; document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',(i===0&&tab==='upload')||(i===1&&tab==='manual'));}); document.getElementById('tab-upload').style.display=tab==='upload'?'block':'none'; document.getElementById('tab-manual').style.display=tab==='manual'?'block':'none'; }
+function dragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function dragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
+function dropFile(e) { e.preventDefault(); dragLeave(e); var f=e.dataTransfer.files[0]; if(f) processFile(f); }
+function handleFile(e) { var f=e.target.files[0]; if(f) processFile(f); }
+
+function processFile(file) {
+  var ext=file.name.split('.').pop().toLowerCase();
+  showToast('Lecture du fichier...','success');
+  if(typeof XLSX==='undefined'){showToast('Librairie Excel non chargee — rechargez la page','error');return;}
+  if(['xlsx','xls','csv'].includes(ext)){
+    var reader=new FileReader();
+    reader.onerror=function(){showToast('Erreur lecture fichier','error');};
+    reader.onload=function(ev){
+      try {
+        var wb=ext==='csv'?XLSX.read(ev.target.result,{type:'binary',raw:false}):XLSX.read(ev.target.result,{type:'binary'});
+        var idx=0;
+        if(wb.SheetNames.length>1){var c=prompt('Feuilles disponibles:\n'+wb.SheetNames.map(function(n,i){return (i+1)+'. '+n;}).join('\n')+'\n\nNumero ?','1');if(!c)return;idx=Math.max(0,Math.min(parseInt(c)-1,wb.SheetNames.length-1));}
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[idx]],{header:1,defval:''});
+        if(!rows||rows.length<2){showToast('Fichier vide','error');return;}
+        headers=rows[0].map(function(h){return String(h).trim();});
+        rawData=rows.slice(1).filter(function(r){return r.some(function(c){return String(c).trim()!=='';});});
+        if(!rawData.length){showToast('Aucune donnee trouvee','error');return;}
+        setupMapping();
+        showToast(rawData.length+' lignes chargees','success');
+      } catch(err){showToast('Erreur: '+err.message,'error');}
+    };
+    reader.readAsBinaryString(file);
+  } else {showToast('Format non supporte — utilisez .xlsx ou .csv','error');}
 }
-(function(){
-  if(localStorage.getItem('sensms_theme')==='light'){
-    document.body.classList.add('light-mode');
-    document.getElementById('theme-btn') && (document.getElementById('theme-btn').textContent='🌙');
+
+function setupMapping() {
+  ['col-phone','col-nom','col-prenom','col-classe','col-matricule','col-table','col-mention','col-date','col-centre','col-jury'].forEach(function(id){
+    var sel=document.getElementById(id);if(!sel)return;
+    var hasIgnore=id!=='col-phone';
+    sel.innerHTML=(hasIgnore?'<option value="">— Ignorer —</option>':'')+headers.map(function(h,i){return '<option value="'+i+'"'+(autoDetect(id,h)?' selected':'')+'>'+h+'</option>';}).join('');
+  });
+  document.getElementById('col-mapping').style.display='block';
+  updatePreview();
+}
+
+function autoDetect(field,header) {
+  var h=header.toLowerCase();
+  var map={'col-phone':['telephone','tel','phone','numero','num','contact','mobile'],'col-nom':['nom','name','last'],'col-prenom':['prenom','firstname','first'],'col-classe':['classe','class','section','groupe','group','niveau'],'col-matricule':['matricule','mat','identifiant','ine'],'col-table':['table','place','salle'],'col-mention':['mention','resultat','note'],'col-date':['date','jour','convocation'],'col-centre':['centre','center','etablissement','lieu'],'col-jury':['jury','numjury']};
+  return (map[field]||[]).some(function(k){return h.includes(k);});
+}
+
+function updatePreview() {
+  var pEl=document.getElementById('col-phone');if(!pEl)return;
+  var pc=parseInt(pEl.value);if(isNaN(pc))return;
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  contacts=rawData.map(function(row){
+    return {telephone:formatPhone(String(row[pc]||'')),nom:g('col-nom')!==''?String(row[parseInt(g('col-nom'))]||''):'',prenom:g('col-prenom')!==''?String(row[parseInt(g('col-prenom'))]||''):'',classe:g('col-classe')!==''?String(row[parseInt(g('col-classe'))]||''):'',matricule:g('col-matricule')!==''?String(row[parseInt(g('col-matricule'))]||''):'',table:g('col-table')!==''?String(row[parseInt(g('col-table'))]||''):'',mention:g('col-mention')!==''?String(row[parseInt(g('col-mention'))]||''):'',date:g('col-date')!==''?String(row[parseInt(g('col-date'))]||''):'',centre:g('col-centre')!==''?String(row[parseInt(g('col-centre'))]||''):'',jury:g('col-jury')!==''?String(row[parseInt(g('col-jury'))]||''):''};
+  }).filter(function(c){return c.telephone.length>=8;});
+  var classes=[];contacts.forEach(function(c){if(c.classe&&classes.indexOf(c.classe)===-1)classes.push(c.classe);});
+  if(classes.length>0){document.getElementById('filter-section').style.display='block';document.getElementById('filter-classe').innerHTML='<option value="">Tous ('+contacts.length+')</option>'+classes.map(function(c){return '<option value="'+c+'">'+c+' ('+contacts.filter(function(x){return x.classe===c;}).length+')</option>';}).join('');}
+  renderPreviewTable(contacts.slice(0,50));
+  document.getElementById('contacts-preview').style.display='block';
+  document.getElementById('contact-count').textContent=contacts.length;
+  markStepDone(1);updateSummary();
+}
+
+function applyFilter() {
+  var val=document.getElementById('filter-classe').value;
+  var filtered=val?contacts.filter(function(c){return c.classe===val;}):contacts;
+  renderPreviewTable(filtered.slice(0,50));
+  document.getElementById('contact-count').textContent=filtered.length;
+  document.getElementById('filter-info').textContent=val?'(filtre: '+val+')':'';
+  updateSummary(filtered.length);
+}
+
+function renderPreviewTable(data) {
+  if(!data.length)return;
+  var cols=['telephone','prenom','nom','classe','matricule','table','mention','date','centre','jury'].filter(function(c){return data.some(function(r){return r[c];});});
+  document.getElementById('preview-thead').innerHTML='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+  document.getElementById('preview-tbody').innerHTML=data.map(function(r){return '<tr>'+cols.map(function(c){return '<td class="'+(c==='telephone'?'col-phone':'')+'">'+( r[c]||'—')+'</td>';}).join('')+'</tr>';}).join('');
+}
+
+function clearContacts() { contacts=[];rawData=[];headers=[]; document.getElementById('contacts-preview').style.display='none'; document.getElementById('col-mapping').style.display='none'; document.getElementById('file-input').value=''; updateSummary(); }
+
+function formatPhone(num) {
+  num=num.replace(/\D/g,'');
+  if(num.startsWith('221'))return '+'+num;
+  if(num.startsWith('0'))num=num.slice(1);
+  if(num.length===9||num.length===8)return '+221'+num;
+  return '+'+num;
+}
+
+function parseManual() {
+  var lines=document.getElementById('manual-numbers').value.split('\n').filter(function(l){return l.trim();});
+  contacts=lines.map(function(line){var p=line.split(',');if(p.length>=2)return{nom:p[0].trim(),telephone:formatPhone(p[1].trim()),prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};return{telephone:formatPhone(line.trim()),nom:'',prenom:'',classe:'',matricule:'',table:'',mention:'',date:'',centre:'',jury:''};}).filter(function(c){return c.telephone.length>=8;});
+  document.getElementById('manual-count').textContent=contacts.length;
+  document.getElementById('manual-preview').style.display=contacts.length>0?'block':'none';
+  if(contacts.length>0)markStepDone(1);
+  updateSummary();
+}
+
+function useTemplate(key) { document.getElementById('message-text').value=TEMPLATES[key]; updateComposer(); document.getElementById('sbody-2').classList.add('open'); showToast('Modele applique','success'); }
+function insertVar(v) { var ta=document.getElementById('message-text'),pos=ta.selectionStart;ta.value=ta.value.slice(0,pos)+v+ta.value.slice(ta.selectionEnd);ta.selectionStart=ta.selectionEnd=pos+v.length;ta.focus();updateComposer(); }
+
+function updateComposer() {
+  var txt=document.getElementById('message-text').value,len=txt.length,sc=Math.ceil(len/160)||1;
+  var el=document.getElementById('char-count');
+  el.textContent=len+' / '+(sc*160)+' caracteres ('+sc+' SMS)';
+  el.className='char-count'+(len>320?' over':len>160?' warn':'');
+  document.getElementById('sms-count-msg').textContent=sc>1?'⚠️ '+sc+' SMS par contact':'';
+  var prev=personalizeMsg(txt,contacts[0]||{prenom:'Prenom',nom:'Nom',classe:'3B',matricule:'MAT001',table:'42',mention:'Bien',date:'15 juin',centre:'Lycee Seydou Nourou Tall',jury:'Jury 05'});
+  var pEl=document.getElementById('preview-msg');pEl.textContent=prev||'Votre message apparaitra ici...';pEl.style.color=prev?'var(--cl-text)':'var(--cl-muted)';pEl.style.fontStyle=prev?'normal':'italic';
+  var sEl=document.getElementById('sender-name');document.getElementById('preview-sender-name').textContent=(sEl?sEl.value:'')||'SenSMS';
+  document.getElementById('preview-time').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  markStepDone(2);updateSummary(null,sc);
+}
+
+function personalizeMsg(t,c) {
+  return t.replace(/{prenom}/g,c.prenom||'').replace(/{nom}/g,c.nom||'').replace(/{classe}/g,c.classe||'').replace(/{matricule}/g,c.matricule||'').replace(/{table}/g,c.table||'').replace(/{mention}/g,c.mention||'').replace(/{date}/g,c.date||'').replace(/{centre}/g,c.centre||'').replace(/{jury}/g,c.jury||'').replace(/{code}/g,String(Math.floor(100000+Math.random()*900000)));
+}
+
+function selSchedule(mode) { scheduleMode=mode; document.getElementById('sched-now').classList.toggle('selected',mode==='now'); document.getElementById('sched-later').classList.toggle('selected',mode==='later'); document.getElementById('schedule-datetime').style.display=mode==='later'?'block':'none'; updateSummary(); }
+
+function updateSummary(overrideCount,smsEach) {
+  var count=(overrideCount!==undefined&&overrideCount!==null)?overrideCount:contacts.length;
+  var ml=document.getElementById('message-text')?document.getElementById('message-text').value.length:0;
+  var each=(smsEach!==undefined&&smsEach!==null)?smsEach:(Math.ceil(ml/160)||1);
+  var total=count*each,cost=Math.ceil(total*(packData.price/packData.sms));
+  document.getElementById('sum-pack').textContent=packData.name;
+  document.getElementById('sum-contacts').textContent=count;
+  document.getElementById('sum-sms-each').textContent=each;
+  document.getElementById('sum-total-sms').textContent=total;
+  var sEl=document.getElementById('schedule-datetime');
+  document.getElementById('sum-schedule').textContent=scheduleMode==='now'?'Immediat':(sEl&&sEl.value?sEl.value:'Planifie');
+  document.getElementById('sum-cost').textContent=cost.toLocaleString('fr-FR')+' FCFA';
+}
+
+function selPayOpt(opt) { payOpt=opt; document.getElementById('payopt-wave').classList.toggle('selected',opt==='wave'); document.getElementById('payopt-card').classList.toggle('selected',opt==='card'); }
+
+async function initierPaiement() {
+  var org=document.getElementById('org-name').value.trim(),phone=document.getElementById('org-phone').value.trim();
+  if(!org||!phone){showToast('Remplissez votre nom et telephone','error');return;}
+  if(!contacts.length){showToast('Ajoutez des contacts d abord','error');return;}
+  var msg=document.getElementById('message-text').value;
+  var cost=Math.ceil(contacts.length*(Math.ceil((msg.length||1)/160)||1)*(packData.price/packData.sms));
+  if(payOpt==='wave'){window.open(WAVE_BASE+cost,'_blank');showToast('Payez via Wave puis entrez votre reference','success');setTimeout(function(){var cf=document.getElementById('code-validation');if(cf){cf.scrollIntoView({behavior:'smooth'});cf.focus();}},2000);}
+  else{FlutterwaveCheckout({public_key:FLW_KEY,tx_ref:'SENSMS-'+Date.now(),amount:cost,currency:'XOF',payment_options:'card',customer:{email:phone+'@sen-sms.sn',phone_number:phone,name:org},customizations:{title:'Sen-SMS',description:'Campagne SMS — '+contacts.length+' contacts',logo:''},callback:async function(r){if(r.status==='successful'){document.getElementById('code-validation').value=r.tx_ref;showToast('Paiement confirme !','success');}else{showToast('Paiement echoue','error');}},onclose:function(){}});}
+}
+
+async function lancerCampagne() {
+  var msg=document.getElementById('message-text').value.trim();
+  var org=document.getElementById('org-name').value.trim();
+  var phone=document.getElementById('org-phone').value.trim();
+  var ref=document.getElementById('code-validation').value.trim().toUpperCase();
+  if(!contacts.length){showToast('Ajoutez des contacts','error');return;}
+  if(!msg){showToast('Redigez votre message','error');return;}
+  if(!org||!phone){showToast('Remplissez vos informations','error');return;}
+  if(!ref||ref.length<5){showToast('Entrez votre reference de transaction','error');return;}
+  var btn=document.getElementById('send-btn');btn.disabled=true;btn.innerHTML='⏳ Verification...';
+  try {
+    var res=await fetch(API+'/api/sms-marketing/verify-ref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:ref,telephone:phone,smsCount:contacts.length})});
+    var data=await res.json();
+    if(data.valid){showToast('Reference validee ! Envoi en cours...','success');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;confirmerEtEnvoyer(msg);}
+    else{showToast(data.error||'Reference non reconnue. Contactez +221 77 152 09 59','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+  } catch(e){showToast('Erreur reseau — reessayez','error');btn.innerHTML='🚀 Lancer la campagne';btn.disabled=false;}
+}
+
+async function confirmerEtEnvoyer(msgTemplate) {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal-icon').textContent='📤';
+  document.getElementById('modal-title').textContent='Envoi en cours...';
+  document.getElementById('modal-sub').textContent='0 / '+contacts.length+' SMS envoyes';
+  var sender=document.getElementById('sender-name').value||'SenSMS';
+  var scheduled=scheduleMode==='later'?document.getElementById('schedule-datetime').value:null;
+  var messages=contacts.map(function(c){return{telephone:c.telephone,message:personalizeMsg(msgTemplate,c)};});
+  try {
+    await fetch(API+'/api/sen-sms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campagne:document.getElementById('org-name').value,messages:messages,sender:sender,scheduled:scheduled,total:contacts.length})});
+    var sent=0;
+    var iv=setInterval(function(){
+      sent=Math.min(sent+Math.ceil(contacts.length/10),contacts.length);
+      var pct=Math.round(sent/contacts.length*100);
+      document.getElementById('progress-fill').style.width=pct+'%';
+      document.getElementById('progress-text').textContent=sent+' / '+contacts.length+' SMS envoyes';
+      document.getElementById('modal-sub').textContent=pct+'% complete...';
+      if(sent>=contacts.length){clearInterval(iv);document.getElementById('modal-icon').textContent='✅';document.getElementById('modal-title').textContent='Campagne envoyee !';document.getElementById('modal-sub').textContent=contacts.length+' SMS envoyes avec succes via Techsoft.';
+        document.getElementById('conf-org').textContent=document.getElementById('org-name').value||'—';
+        document.getElementById('conf-contacts').textContent=contacts.length+' contacts';
+        document.getElementById('conf-sender').textContent=document.getElementById('sender-name')?document.getElementById('sender-name').value||'SenSMS':'SenSMS';
+        document.getElementById('conf-date').textContent=new Date().toLocaleString('fr-FR');
+        document.getElementById('conf-cost').textContent=document.getElementById('sum-cost').textContent;
+        document.getElementById('confirm-details').style.display='block';
+        document.getElementById('dl-rapport-btn').style.display='block';
+        document.getElementById('modal-close').style.display='inline-block';
+        sauvegarderCampagne({organisation:document.getElementById('org-name').value||'',sender:document.getElementById('sender-name')?document.getElementById('sender-name').value||'SenSMS':'SenSMS',message:document.getElementById('message-text')?document.getElementById('message-text').value:'',contacts:contacts.length,smsTotal:parseInt(document.getElementById('sum-total-sms').textContent)||contacts.length,cout:document.getElementById('sum-cost').textContent,pack:packData.name||''});}
+    },400);
+  } catch(e){document.getElementById('modal-icon').textContent='❌';document.getElementById('modal-title').textContent='Erreur d envoi';document.getElementById('modal-sub').textContent='Verifiez votre connexion.';document.getElementById('modal-close').style.display='inline-block';}
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+// ══════════════════════════════════════════════════
+// SEN-SMS AUTH
+// ══════════════════════════════════════════════════
+
+var senSmsToken = localStorage.getItem('sensms_token') || null;
+var senSmsUser  = null;
+var pendingPackId = null;
+
+// Charger user au démarrage
+(function initAuth() {
+  var t = localStorage.getItem('sensms_token');
+  if (!t) return;
+  fetch(API + '/api/sen-sms/me', { headers: { 'Authorization': 'Bearer ' + t } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.success) {
+        senSmsToken = t;
+        senSmsUser = d.user;
+        afficherUserBadge();
+      } else {
+        localStorage.removeItem('sensms_token');
+      }
+    }).catch(function() {});
+})();
+
+function afficherUserBadge() {
+  if (!senSmsUser) return;
+  var badge = document.getElementById('user-badge');
+  var name  = document.getElementById('user-badge-name');
+  var cred  = document.getElementById('user-badge-credits');
+  if (badge) badge.style.display = 'flex';
+  if (name)  name.textContent = senSmsUser.nom || senSmsUser.email.split('@')[0];
+  if (cred)  cred.textContent = (senSmsUser.credits || 0).toLocaleString('fr-FR') + ' SMS';
+}
+
+function toggleUserMenu() {
+  var m = document.getElementById('user-menu');
+  if (m) m.classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  var badge = document.getElementById('user-badge');
+  if (badge && !badge.contains(e.target)) {
+    var m = document.getElementById('user-menu');
+    if (m) m.classList.remove('open');
+  }
+});
+
+// ── Override showDashboard — exige auth ──
+var _origShowDashboard = showDashboard;
+showDashboard = function(packId) {
+  if (senSmsUser) {
+    _origShowDashboard(packId);
+  } else {
+    pendingPackId = packId || null;
+    openAuth();
+  }
+};
+
+function openAuth(tab) {
+  switchAuthTab(tab || 'login');
+  document.getElementById('auth-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(function() {
+    var el = document.getElementById(tab === 'register' ? 'reg-nom' : 'login-email');
+    if (el) el.focus();
+  }, 200);
+}
+function closeAuth() {
+  document.getElementById('auth-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+function authCloseIfOutside(e) {
+  if (e.target === document.getElementById('auth-overlay')) closeAuth();
+}
+function switchAuthTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('form-login').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display   = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+function showAuthError(msg) {
+  var el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-success').style.display = 'none';
+}
+function showAuthSuccess(msg) {
+  var el = document.getElementById('auth-success');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function doLogin() {
+  var btn = document.getElementById('login-btn');
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  if (!email || !password) { showAuthError('Remplissez tous les champs'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Connexion...';
+  try {
+    var res = await fetch(API + '/api/sen-sms/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    var data = await res.json();
+    if (data.success) {
+      senSmsToken = data.token;
+      senSmsUser = data.user;
+      localStorage.setItem('sensms_token', data.token);
+      showAuthSuccess('Connexion réussie ! Bienvenue ' + (data.user.nom || data.user.email) + ' 👋');
+      afficherUserBadge();
+      setTimeout(function() {
+        closeAuth();
+        _origShowDashboard(pendingPackId);
+        pendingPackId = null;
+      }, 900);
+    } else {
+      showAuthError(data.error || 'Erreur de connexion');
+    }
+  } catch(e) { showAuthError('Erreur réseau — réessayez'); }
+  btn.disabled = false; btn.innerHTML = '🔑 Se connecter';
+}
+
+async function doRegister() {
+  var btn = document.getElementById('register-btn');
+  var nom = document.getElementById('reg-nom').value.trim();
+  var org = document.getElementById('reg-org').value.trim();
+  var email = document.getElementById('reg-email').value.trim();
+  var tel = document.getElementById('reg-tel').value.trim();
+  var password = document.getElementById('reg-password').value;
+  if (!email || !password) { showAuthError('Email et mot de passe requis'); return; }
+  if (password.length < 6) { showAuthError('Mot de passe trop court (6 caractères minimum)'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Création...';
+  try {
+    var res = await fetch(API + '/api/sen-sms/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, nom, organisation: org, telephone: tel }) });
+    var data = await res.json();
+    if (data.success) {
+      senSmsToken = data.token;
+      senSmsUser = data.user;
+      localStorage.setItem('sensms_token', data.token);
+      showAuthSuccess('Compte créé avec succès ! Bienvenue ' + (data.user.nom || data.user.email) + ' 🎉');
+      afficherUserBadge();
+      setTimeout(function() {
+        closeAuth();
+        _origShowDashboard(pendingPackId);
+        pendingPackId = null;
+      }, 900);
+    } else {
+      showAuthError(data.error || 'Erreur lors de la création');
+    }
+  } catch(e) { showAuthError('Erreur réseau — réessayez'); }
+  btn.disabled = false; btn.innerHTML = '🚀 Créer mon compte';
+}
+
+function deconnexion() {
+  senSmsToken = null; senSmsUser = null;
+  localStorage.removeItem('sensms_token');
+  var badge = document.getElementById('user-badge');
+  if (badge) badge.style.display = 'none';
+  showToast('Déconnexion réussie', 'success');
+  var ds = document.getElementById('dashboard-section');
+  if (ds && ds.classList.contains('active')) {
+    ds.classList.remove('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ── Historique campagnes ──
+async function openHistorique() {
+  document.getElementById('user-menu').classList.remove('open');
+  if (!senSmsToken || !senSmsUser) return;
+  document.getElementById('histo-user-info').textContent = senSmsUser.nom + ' · ' + senSmsUser.email;
+  document.getElementById('histo-content').innerHTML = '<div style="text-align:center;padding:30px;color:var(--cl-muted);">⏳ Chargement...</div>';
+  document.getElementById('historique-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    var res = await fetch(API + '/api/sen-sms/campaigns', { headers: { 'Authorization': 'Bearer ' + senSmsToken } });
+    var data = await res.json();
+    if (data.success && data.campaigns.length > 0) {
+      var html = '<div style="overflow-x:auto;border-radius:10px;border:1px solid var(--cl-border);">';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html += '<thead><tr style="background:var(--cl-bg2);">';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Date</th>';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Organisation</th>';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Contacts</th>';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">SMS</th>';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Coût</th>';
+      html += '<th style="padding:10px 14px;text-align:left;color:var(--cl-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Sender</th>';
+      html += '</tr></thead><tbody>';
+      data.campaigns.forEach(function(c) {
+        var d = new Date(c.createdAt);
+        var dateStr = d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        html += '<tr style="border-top:1px solid var(--cl-border2);">';
+        html += '<td style="padding:10px 14px;color:var(--cl-muted);font-size:12px;">' + dateStr + '</td>';
+        html += '<td style="padding:10px 14px;font-weight:600;">' + (c.organisation || '—') + '</td>';
+        html += '<td style="padding:10px 14px;color:var(--green);font-weight:700;">' + (c.contacts || 0) + '</td>';
+        html += '<td style="padding:10px 14px;">' + (c.smsTotal || 0) + '</td>';
+        html += '<td style="padding:10px 14px;font-weight:700;">' + (c.cout || '—') + '</td>';
+        html += '<td style="padding:10px 14px;font-family:monospace;font-size:12px;">' + (c.sender || 'SenSMS') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('histo-content').innerHTML = html;
+    } else {
+      document.getElementById('histo-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--cl-muted);">📭 Aucune campagne pour le moment.<br><br><button onclick="closeAuth();_origShowDashboard()" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-weight:700;cursor:pointer;" class="auth-submit">Lancer ma première campagne →</button></div>';
+    }
+  } catch(e) {
+    document.getElementById('histo-content').innerHTML = '<div style="color:#EF4444;text-align:center;padding:20px;">Erreur de chargement</div>';
+  }
+}
+
+// ── Crédits ──
+async function openCredits() {
+  document.getElementById('user-menu').classList.remove('open');
+  if (!senSmsToken || !senSmsUser) return;
+  document.getElementById('credits-user-info').textContent = senSmsUser.nom + ' · ' + senSmsUser.email;
+  document.getElementById('credits-content').innerHTML = '<div style="text-align:center;padding:30px;color:var(--cl-muted);">⏳ Chargement...</div>';
+  document.getElementById('credits-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    var res = await fetch(API + '/api/sen-sms/credits', { headers: { 'Authorization': 'Bearer ' + senSmsToken } });
+    var data = await res.json();
+    var credits = data.credits || 0;
+    if (senSmsUser) senSmsUser.credits = credits;
+    var cred = document.getElementById('user-badge-credits');
+    if (cred) cred.textContent = credits.toLocaleString('fr-FR') + ' SMS';
+    var html = '<div style="text-align:center;padding:20px 0;">';
+    html += '<div style="font-family:var(--font-head);font-size:56px;font-weight:800;color:var(--green);">' + credits.toLocaleString('fr-FR') + '</div>';
+    html += '<div style="font-size:16px;color:var(--cl-muted);margin-bottom:28px;">SMS disponibles</div>';
+    if (credits > 0) {
+      html += '<div style="background:var(--green-dim);border:1px solid rgba(0,200,83,0.2);border-radius:12px;padding:16px;font-size:13px;color:var(--cl-text2);margin-bottom:20px;">✅ Vous pouvez envoyer jusqu\'à <strong>' + credits.toLocaleString('fr-FR') + ' SMS</strong> sans passer par Wave.</div>';
+    } else {
+      html += '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:16px;font-size:13px;color:var(--cl-text2);margin-bottom:20px;">ℹ️ Votre portefeuille est vide. Achetez un pack pour alimenter votre compte.</div>';
+    }
+    html += '<button onclick="document.getElementById(\'credits-overlay\').classList.remove(\'open\');document.body.style.overflow=\'\';showDashboard();" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px 28px;font-family:var(--font-head);font-weight:800;font-size:15px;cursor:pointer;transition:all 0.2s;">💳 Acheter des SMS</button>';
+    html += '</div>';
+    document.getElementById('credits-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('credits-content').innerHTML = '<div style="color:#EF4444;text-align:center;padding:20px;">Erreur de chargement</div>';
+  }
+}
+
+// Sauvegarder campagne après envoi réussi
+function sauvegarderCampagne(dataObj) {
+  if (!senSmsToken) return;
+  fetch(API + '/api/sen-sms/campaigns', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + senSmsToken },
+    body: JSON.stringify(dataObj)
+  }).catch(function() {});
+}
+
+// Touche Entrée sur les champs auth
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  var overlay = document.getElementById('auth-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  var activeTab = document.getElementById('tab-login').classList.contains('active') ? 'login' : 'register';
+  if (activeTab === 'login') doLogin();
+  else doRegister();
+});
+
+// ── COOKIES ──────────────────────────────
+(function() {
+  if (!localStorage.getItem('sensms_cookies_choice')) {
+    setTimeout(function() {
+      var b = document.getElementById('cookie-banner');
+      if (b) b.classList.add('show');
+    }, 1500);
   }
 })();
 
-// ── AUTH ─────────────────────────────────
-var API_URL = 'https://pst-telecom-production.up.railway.app';
-
-function showAuthModal() { document.getElementById('sensms-auth-modal').classList.remove('hidden'); }
-function hideAuthModal() { document.getElementById('sensms-auth-modal').classList.add('hidden'); }
-
-function authTab(tab) {
-  document.getElementById('sensms-login-form').style.display = tab==='login' ? 'block' : 'none';
-  document.getElementById('sensms-register-form').style.display = tab==='register' ? 'block' : 'none';
-  document.querySelectorAll('.sensms-auth-tab').forEach(function(t,i){
-    t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register'));
-  });
-  document.getElementById('sensms-auth-err').style.display='none';
+function accepterCookies() {
+  localStorage.setItem('sensms_cookies_choice', 'accepted');
+  document.getElementById('cookie-banner').classList.remove('show');
+}
+function refuserCookies() {
+  localStorage.setItem('sensms_cookies_choice', 'refused');
+  document.getElementById('cookie-banner').classList.remove('show');
 }
 
-function authErr(msg) {
-  var e = document.getElementById('sensms-auth-err');
-  e.textContent = msg; e.style.display = 'block';
+// ── MODALES LÉGALES ──────────────────────
+var LEGAL_CONTENT = {
+  apropos: {
+    title: 'À propos de Sen-SMS',
+    date: 'Dernière mise à jour : mai 2026',
+    html: "<h3>Qui sommes-nous ?</h3><p>Sen-SMS est une plateforme de SMS marketing professionnel dédiée au marché sénégalais, développée par <strong>PST Telecom</strong> (Pure Smart Telecom), opérateur télécom virtuel basé au Sénégal.</p><h3>Notre mission</h3><p>Rendre l"envoi de SMS en masse accessible à toutes les structures sénégalaises — écoles, commerces, mosquées, ONG, cliniques — avec des tarifs transparents et un service fiable.</p><h3>Notre réseau</h3><p>Sen-SMS s'appuie sur l'infrastructure Techsoft SMS pour garantir la livraison sur les trois opérateurs sénégalais : <strong>Orange, Free et Expresso</strong>.</p><h3>Contact</h3><p>📱 WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a><br>🌐 Site : <a href="https://sensms.com">sensms.com</a><br>🏢 PST Telecom · Dakar, Sénégal</p>'
+  },
+  confidentialite: {
+    title: 'Politique de confidentialité',
+    date: 'Dernière mise à jour : mai 2026',
+    html: "<h3>Données collectées</h3><p>Lors de l"utilisation de Sen-SMS, nous collectons :</p><ul><li>Le nom ou nom de votre organisation</li><li>Votre numéro de téléphone (pour le suivi de campagne)</li><li>Les numéros de téléphone de vos contacts (traitement ponctuel, non stocké en base)</li><li>La référence de transaction Wave ou Flutterwave</li></ul><h3>Utilisation des données</h3><p>Vos données sont utilisées exclusivement pour :</p><ul><li>Traiter et envoyer votre campagne SMS</li><li>Vérifier votre paiement</li><li>Vous contacter en cas de problème technique</li></ul><h3>Conservation</h3><p>Les numéros de vos destinataires ne sont pas conservés après l'envoi de la campagne. Vos informations de contact sont conservées 12 mois à des fins de support.</p><h3>Partage des données</h3><p>Vos données ne sont jamais vendues ni partagées avec des tiers, sauf avec nos prestataires techniques (Techsoft SMS pour l'envoi, Wave/Flutterwave pour le paiement) dans le strict cadre de l'exécution du service.</p><h3>Vos droits</h3><p>Conformément à la loi sénégalaise sur la protection des données personnelles (loi n°2008-12), vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous via WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a></p>'
+  },
+  cookies: {
+    title: 'Politique de cookies',
+    date: 'Dernière mise à jour : mai 2026',
+    html: "<h3>Qu"est-ce qu'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite sur notre site.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème (clair/sombre). Durée : illimitée jusqu'à effacement.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d'acceptation ou de refus des cookies. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur visites pour l'affichage du compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Le processeur de paiement Flutterwave peut déposer des cookies lors du paiement par carte. Nous n'avons pas de contrôle sur ces cookies. Consultez la <a href="https://flutterwave.com/privacy" target="_blank">politique de Flutterwave</a>.</p><h3>Gérer vos préférences</h3><p>Vous pouvez à tout moment refuser les cookies non essentiels en cliquant sur "Refuser" dans la bannière. Notez que le refus des cookies peut affecter certaines fonctionnalités du site (thème, compteur).</p><p>Pour supprimer les cookies existants, videz le localStorage de votre navigateur (Paramètres → Confidentialité → Données de site).</p>'
+  }
+};
+
+function openLegal(page) {
+  var data = LEGAL_CONTENT[page];
+  if (!data) return;
+  document.getElementById('legal-content').innerHTML =
+    '<h2>' + data.title + '</h2>' +
+    '<div class="legal-date">' + data.date + '</div>' +
+    data.html;
+  document.getElementById('legal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegal() {
+  document.getElementById('legal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeLegalIfOutside(e) {
+  if (e.target === document.getElementById('legal-overlay')) closeLegal();
 }
 
-function sensmsLogin() {
-  var id=document.getElementById('sauth-id').value.trim();
-  var pw=document.getElementById('sauth-pw').value.trim();
-  if(!id||!pw){authErr('Remplissez tous les champs');return;}
-  fetch(API_URL+'/api/sensms/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:id,password:pw})})
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d.success){
-      localStorage.setItem('sensms_user',JSON.stringify(d.user));
-      updateNavAuth(d.user);
-      hideAuthModal();
-    } else { authErr(d.error||'Identifiants incorrects'); }
-  }).catch(function(){authErr('Erreur réseau');});
-}
 
-function sensmsRegister() {
-  var name=document.getElementById('sreg-name').value.trim();
-  var phone=document.getElementById('sreg-phone').value.trim();
-  var email=document.getElementById('sreg-email').value.trim();
-  var pw=document.getElementById('sreg-pw').value.trim();
-  if(!name||!phone||!pw){authErr('Champs obligatoires manquants');return;}
-  if(pw.length<6){authErr('Mot de passe trop court (6 min)');return;}
-  fetch(API_URL+'/api/sensms/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,phone:phone,email:email,password:pw})})
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d.success){
-      localStorage.setItem('sensms_user',JSON.stringify(d.user));
-      updateNavAuth(d.user);
-      hideAuthModal();
-    } else { authErr(d.error||'Erreur inscription'); }
-  }).catch(function(){authErr('Erreur réseau');});
-}
-
-function updateNavAuth(user) {
-  var btn = document.getElementById('nav-auth-btn');
-  if(btn) { btn.textContent = user.name || user.phone; btn.onclick = sensmsLogout; }
-}
-
-function sensmsLogout() {
-  localStorage.removeItem('sensms_user');
-  var btn = document.getElementById('nav-auth-btn');
-  if(btn) { btn.textContent = 'Connexion'; btn.onclick = showAuthModal; }
-}
-
-// Vérifier session au chargement
-(function(){
-  var s = localStorage.getItem('sensms_user');
-  if(s){ try{ updateNavAuth(JSON.parse(s)); }catch(e){} }
+// ── COMPTEUR LIVE ──
+(function animateLiveCounter() {
+  var base = 12847;
+  var el = document.getElementById('live-sms-count');
+  if (!el) return;
+  var stored = parseInt(localStorage.getItem('sensms_count') || base);
+  // add random between 0-12 per visit
+  stored += Math.floor(Math.random() * 12);
+  localStorage.setItem('sensms_count', stored);
+  var current = base;
+  var target = stored;
+  var step = Math.ceil((target - current) / 40);
+  var iv = setInterval(function() {
+    current += step;
+    if (current >= target) { current = target; clearInterval(iv); }
+    el.textContent = current.toLocaleString('fr-FR');
+  }, 30);
 })();
+
+// ── RAPPORT PDF (simple HTML→print) ──
+function telechargerRapport() {
+  var org = document.getElementById('conf-org').textContent;
+  var contacts = document.getElementById('conf-contacts').textContent;
+  var sender = document.getElementById('conf-sender').textContent;
+  var date = document.getElementById('conf-date').textContent;
+  var cost = document.getElementById('conf-cost').textContent;
+  var msg = document.getElementById('message-text') ? document.getElementById('message-text').value : '';
+  var rapport = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport Sen-SMS</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#111;} h1{color:#00C853;} table{width:100%;border-collapse:collapse;margin:20px 0;} td,th{padding:10px 14px;border:1px solid #ddd;text-align:left;} th{background:#f5f5f5;} .green{color:#00C853;font-weight:700;} .footer{margin-top:40px;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;}</style></head><body>';
+  rapport += '<h1>✅ Rapport de campagne SMS</h1>';
+  rapport += '<table><tr><th>Champ</th><th>Valeur</th></tr>';
+  rapport += '<tr><td>Organisation</td><td>' + org + '</td></tr>';
+  rapport += '<tr><td>Contacts atteints</td><td>' + contacts + '</td></tr>';
+  rapport += '<tr><td>Sender ID</td><td>' + sender + '</td></tr>';
+  rapport += '<tr><td>Date d\'envoi</td><td>' + date + '</td></tr>';
+  rapport += '<tr><td>Coût total</td><td class="green">' + cost + '</td></tr>';
+  rapport += '</table>';
+  if (msg) { rapport += '<h3>Message envoyé</h3><p style="background:#f9f9f9;padding:14px;border-radius:8px;font-size:13px;">' + msg.replace(/</g,'&lt;') + '</p>'; }
+  rapport += '<div class="footer">Sen-SMS · PST Telecom · sensms.com · ' + new Date().getFullYear() + '</div>';
+  rapport += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(rapport);
+  win.document.close();
+  setTimeout(function() { win.print(); }, 500);
+}
+function markStepDone(n){var el=document.getElementById('snum-'+n);el.classList.add('done');el.textContent='✓';}
+function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'success');setTimeout(function(){t.classList.add('show');},10);setTimeout(function(){t.classList.remove('show');},3500);}
 </script>
+</body>
+</div>
 
 </body>
 </html>
