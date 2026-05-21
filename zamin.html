@@ -5,19 +5,39 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>ZAMIN — Collecte Terrain</title>
 <style>
-:root{
-  --teal:#1A56DB;--teal-d:#1e3a8a;--teal-l:#EFF6FF;--teal-xl:#F0F7FF;
-  --amber:#BA7517;--amber-l:#FAEEDA;--amber-d:#412402;
-  --red:#A32D2D;--red-l:#FCEBEB;--red-d:#501313;
-  --blue:#185FA5;--blue-l:#E6F1FB;--blue-d:#042C53;
-  --green:#3B6D11;--green-l:#EAF3DE;
-  --purple:#534AB7;--purple-l:#EEEDFE;
-  --gray:#5F5E5A;--gray-l:#1E293B;--gray-d:#2C2C2A;
-  --bg:#f0f9ff;--card:#ffffff;--text:#0f172a;--muted:#475569;
-  --border:rgba(14,165,233,0.2);--r:12px;--rs:8px;
+/* ═══ THÈME CLAUDE — MODE CLAIR (défaut) ═══ */
+:root {
+  /* Palette Claude */
+  --claude-orange:#d97757;--claude-orange-l:#fdf4ef;--claude-orange-d:#b85c3a;
+  --claude-sand:#f5f0e8;--claude-cream:#faf9f5;
+  --teal:#d97757;--teal-d:#b85c3a;--teal-l:#fdf4ef;--teal-xl:#faf9f5;
+  --amber:#d97757;--amber-l:#fdf4ef;--amber-d:#7c3d22;
+  --red:#dc2626;--red-l:#fef2f2;--red-d:#7f1d1d;
+  --blue:#7c6fcd;--blue-l:#f0eeff;--blue-d:#3730a3;
+  --green:#16a34a;--green-l:#f0fdf4;
+  --purple:#7c6fcd;--purple-l:#f0eeff;
+  --gray:#6b7280;--gray-l:#f3f4f6;--gray-d:#374151;
+  /* Thème clair Claude */
+  --bg:#faf9f5;--card:#ffffff;--text:#1a1a1a;--muted:#6b7280;
+  --border:rgba(217,119,87,0.15);--r:12px;--rs:8px;
+  --sidebar-bg:#f5f0e8;--sidebar-text:#3d2f1e;--sidebar-active:#d97757;
+  --appbar-from:#d97757;--appbar-to:#c4694a;
+  --input-bg:#ffffff;--input-border:#e8ddd4;
+}
+
+/* ═══ MODE SOMBRE — Inspiré Claude.ai ═══ */
+[data-theme="dark"] {
+  --bg:#1c1917;--card:#292524;--text:#e8e3dc;--muted:#a8a29e;
+  --border:rgba(168,162,158,0.15);
+  --teal:#d97757;--teal-d:#c4694a;--teal-l:#2d1f17;--teal-xl:#231812;
+  --sidebar-bg:#211f1e;--sidebar-text:#c4b5a5;--sidebar-active:#d97757;
+  --appbar-from:#1c1917;--appbar-to:#211f1e;
+  --input-bg:#292524;--input-border:#44403c;
+  --red-l:#2d1515;--green-l:#14231a;--blue-l:#1a1730;
+  --gray-l:#292524;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172a;min-height:100vh;overflow-x:hidden;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s;}
 /* iOS safe area support */
 .app-bar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));}
 #cmd-mobile-nav,#adm-mobile-nav{padding-bottom:env(safe-area-inset-bottom,0px);}
@@ -28,12 +48,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 .screen.active{display:block;}
 
 /* ── ROLE SELECT ── */
-#scr-role{background:linear-gradient(160deg,#e0f2fe 0%,#7dd3fc 50%,#38bdf8 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
+#scr-role{background:linear-gradient(160deg,var(--claude-cream) 0%,#f0ebe0 40%,#e8d5c4 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
 .role-box{background:white;border-radius:20px;padding:36px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.22);}
 .role-logo{text-align:center;margin-bottom:28px;}
 .role-logo .licon{width:64px;height:64px;background:var(--teal-d);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;cursor:pointer;user-select:none;transition:transform .1s;}
 .role-logo .licon:active{transform:scale(.93);}
-.role-logo h1{font-size:20px;font-weight:700;color:#0c4a6e;}
+.role-logo h1{font-size:20px;font-weight:700;color:#7c3d22;}
 .role-logo p{font-size:12px;color:var(--muted);margin-top:3px;}
 .role-cards{display:flex;flex-direction:column;gap:10px;}
 .rcard{border:2px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .18s;}
@@ -44,7 +64,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 .rcard .arr{color:var(--teal);font-size:20px;margin-left:auto;flex-shrink:0;}
 
 /* ── APP BAR ── */
-.app-bar{background:linear-gradient(90deg,#0369a1,#0284c7);color:white;height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.app-bar{background:linear-gradient(90deg,var(--appbar-from),var(--appbar-to));color:white;height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .ab-back{width:34px;height:34px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;border:none;color:white;}
 .ab-title{flex:1;min-width:0;}
 .ab-title h1{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -55,9 +75,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
 
 /* ── TAB BAR ── */
-.tab-bar{background:#f0f9ff;border-bottom:1px solid #bae6fd;display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
+.tab-bar{background:var(--bg);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;position:sticky;top:56px;z-index:190;-webkit-overflow-scrolling:touch;}
 .tab-bar::-webkit-scrollbar{display:none;}
-.tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#0369a1;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
+.tab-item{flex-shrink:0;padding:0 14px;height:44px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--teal-d);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;}
 .tab-item .ti{font-size:15px;}
 .tab-item.active{color:var(--teal-d);border-bottom-color:var(--teal);font-weight:600;}
 .tab-item:hover{color:var(--teal-d);background:var(--teal-xl);}
@@ -67,7 +87,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 .tab-content.active{display:block;}
 
 /* ── CARDS ── */
-.card{background:#ffffff;border:1px solid #bae6fd;border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(14,165,233,0.08);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:background .3s;}
 .card-h{font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .ci{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 
@@ -75,7 +95,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
 .req{color:var(--red);}
-.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid #bae6fd;border-radius:var(--rs);font-size:14px;background:#ffffff;color:#0f172a;outline:none;transition:border .18s;-webkit-appearance:none;font-family:inherit;}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--input-border);border-radius:var(--rs);font-size:14px;background:var(--input-bg);color:var(--text);outline:none;transition:border .18s;-webkit-appearance:none;font-family:inherit;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(29,158,117,.1);}
 .field textarea{resize:vertical;min-height:80px;line-height:1.5;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -108,7 +128,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 
 /* ── BUTTONS ── */
 .btn{padding:12px 18px;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;}
-.btn-p{background:var(--teal);color:white;}
+.btn-p{background:var(--claude-orange);color:white;}
 .btn-p:hover{background:var(--teal-d);}
 .btn-s{background:var(--gray-l);color:var(--gray-d);}
 .btn-s:hover{background:#d3d1c7;}
@@ -225,12 +245,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 
 /* ── COMMANDITAIRE LAYOUT ── */
 .cmd-layout{display:flex;min-height:calc(100vh - 56px);}
-.cmd-side{width:210px;background:white;border-right:1px solid var(--border);padding:10px 8px;flex-shrink:0;overflow-y:auto;}
+.cmd-side{width:210px;background:var(--sidebar-bg);border-right:1px solid var(--border);padding:10px 8px;flex-shrink:0;overflow-y:auto;}
 .cmd-side::-webkit-scrollbar{display:none;}
 .cmd-side .cs-section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:12px 8px 6px;margin-top:4px;}
 .cmd-nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;background:none;border:none;border-radius:8px;text-align:left;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;margin-bottom:1px;}
 .cmd-nav-btn:hover{background:var(--teal-l);color:var(--teal-d);}
-.cmd-nav-btn.active{background:var(--teal-l);color:var(--teal-d);font-weight:600;}
+.cmd-nav-btn.active{background:var(--teal-l);color:var(--teal-d);font-weight:600;border-left:3px solid var(--claude-orange);}
 .cmd-nav-btn svg{flex-shrink:0;}.cmd-nav-btn .nbadge{margin-left:auto;background:var(--red);color:white;font-size:9px;border-radius:10px;padding:1px 5px;font-weight:700;}
 .cmd-main{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px;max-width:100%;}
 
@@ -377,19 +397,24 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 
 @media print{.app-bar,.tab-bar,.cmd-side,.adm-side,.export-row,.btn-row{display:none!important;}.tab-content,.cpanel,.adm-pane{display:block!important;}}
 
+
+/* ── THEME TOGGLE ── */
+.theme-toggle{background:rgba(255,255,255,.18);border:none;color:white;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.theme-toggle:hover{background:rgba(255,255,255,.28);}
+
 /* ── CORBEILLE ── */
 .trash-btn{background:none;border:none;cursor:pointer;color:#ef4444;padding:2px 6px;border-radius:6px;font-size:13px;transition:background .15s;}
 .trash-btn:hover{background:#fee2e2;}
 .restore-btn{background:#dcfce7;border:1px solid #86efac;color:#166534;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;}
 .restore-btn:hover{background:#bbf7d0;}
 .trash-expired{color:#9ca3af;font-size:10px;}
-#corbeille-panel{position:fixed;top:0;right:-400px;width:380px;height:100vh;background:white;z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.15);transition:right .3s;overflow-y:auto;}
+#corbeille-panel{position:fixed;top:0;right:-400px;width:380px;height:100vh;background:var(--card);z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.15);transition:right .3s;overflow-y:auto;}
 #corbeille-panel.open{right:0;}
 .corbeille-header{background:linear-gradient(90deg,#0369a1,#0284c7);color:white;padding:16px;display:flex;justify-content:space-between;align-items:center;}
 .corbeille-header h3{font-size:15px;font-weight:700;}
-.corbeille-item{padding:14px;border-bottom:1px solid #e0f2fe;display:flex;flex-direction:column;gap:6px;}
+.corbeille-item{padding:14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
 .corbeille-item-top{display:flex;justify-content:space-between;align-items:center;}
-.corbeille-item-name{font-weight:600;font-size:13px;color:#0f172a;}
+.corbeille-item-name{font-weight:600;font-size:13px;color:var(--text);}
 .corbeille-item-meta{font-size:11px;color:#64748b;}
 .corbeille-empty{text-align:center;padding:40px;color:#94a3b8;}
 
@@ -397,6 +422,34 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f9ff;color:#0f172
 <link rel="manifest" id="pwa-manifest">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+
+/* ══════════════════════════════════════════
+   THEME TOGGLE — Mode Claude clair/sombre
+══════════════════════════════════════════ */
+function initTheme(){
+  const saved = localStorage.getItem('zamin_theme') || 'light';
+  applyTheme(saved);
+}
+
+function applyTheme(mode){
+  document.documentElement.setAttribute('data-theme', mode==='dark'?'dark':'');
+  localStorage.setItem('zamin_theme', mode);
+  // Mettre à jour tous les boutons toggle
+  document.querySelectorAll('.theme-toggle').forEach(btn=>{
+    btn.textContent = mode==='dark' ? '☀️' : '🌙';
+    btn.title = mode==='dark' ? 'Mode clair' : 'Mode sombre';
+  });
+}
+
+function toggleTheme(){
+  const current = localStorage.getItem('zamin_theme') || 'light';
+  applyTheme(current==='dark'?'light':'dark');
+}
+
+// Init au chargement
+document.addEventListener('DOMContentLoaded', initTheme);
+window.addEventListener('load', initTheme);
+
 /* ══════════════════════════════════════════
    CORBEILLE — Suppression douce 30 jours
 ══════════════════════════════════════════ */
@@ -622,7 +675,8 @@ function getCorbeilleCount(){
   <div class="app-bar">
     <button class="ab-back" onclick="cmdLogout()">🏘️</button>
     <div class="ab-title"><h1>Tableau de bord</h1><p><span class="live-dot"></span>Live · <span id="cmd-time">—</span></p></div>
-    <button class="ab-btn" onclick="cmdLogout()">Déconn.</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre">🌙</button>
+      <button class="ab-btn" onclick="cmdLogout()">Déconn.</button>
   </div>
   <div class="cmd-layout">
     <aside class="cmd-side" id="cmd-side"></aside>
@@ -690,7 +744,8 @@ function getCorbeilleCount(){
   <div class="app-bar">
     <button class="ab-back" onclick="admLogout()">🏘️</button>
     <div class="ab-title"><h1>Administration ZAMIN</h1><p><span class="live-dot"></span>Supervision globale</p></div>
-    <button class="ab-btn" onclick="admLogout()">Déconn.</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre">🌙</button>
+      <button class="ab-btn" onclick="admLogout()">Déconn.</button>
   </div>
   <div class="adm-layout">
     <aside class="adm-side" id="adm-side"></aside>
