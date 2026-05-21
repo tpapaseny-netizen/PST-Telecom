@@ -3373,7 +3373,7 @@ app.get('/api/sensms/users', async (req, res) => {
 });
 
 // ── DÉMARRAGE ─────────────────────────────
-const PORT = process.env.PORT || 3000;
+var PORT = process.env.PORT || 3000;
 connectDB().then((dbInstance) => {
   db = dbInstance;
   app.listen(PORT, () => {
