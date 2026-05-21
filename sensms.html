@@ -346,113 +346,7 @@ footer {
   footer { flex-direction: column; text-align: center; padding: 28px 18px; }
 }
 
-/* ══════════════════════════════════════════
-   AUTH MODAL — thème Claude
-══════════════════════════════════════════ */
-#sensms-auth-modal {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.45);
-  display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(6px);
-  padding: 20px;
-}
-#sensms-auth-modal.hidden { display: none; }
 
-.auth-card {
-  background: var(--cl-surface);
-  border: 1px solid var(--cl-border);
-  border-radius: 18px;
-  padding: 36px 32px;
-  width: 100%; max-width: 400px;
-  position: relative;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.15);
-  animation: fadeUp 0.25s ease both;
-}
-
-.auth-close {
-  position: absolute; top: 14px; right: 16px;
-  width: 30px; height: 30px;
-  background: var(--cl-bg2);
-  border: 1px solid var(--cl-border);
-  border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 14px; color: var(--cl-muted);
-  transition: all 0.2s;
-}
-.auth-close:hover { background: var(--cl-bg3); color: var(--cl-text); }
-
-.auth-logo {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 24px;
-}
-.auth-logo .logo-s { width: 38px; height: 38px; font-size: 20px; }
-.auth-logo-text { font-family: var(--font-head); font-weight: 700; font-size: 18px; color: var(--cl-text); }
-.auth-logo-text span { color: var(--green); }
-
-.auth-tabs {
-  display: flex;
-  background: var(--cl-bg2);
-  border-radius: 9px; padding: 3px;
-  margin-bottom: 22px;
-  border: 1px solid var(--cl-border);
-}
-.auth-tab {
-  flex: 1; padding: 8px 12px; text-align: center;
-  border-radius: 7px; cursor: pointer;
-  font-size: 13px; font-weight: 600; color: var(--cl-muted);
-  transition: all 0.2s; border: none; background: transparent;
-  font-family: var(--font-body);
-}
-.auth-tab.active {
-  background: var(--cl-surface);
-  color: var(--cl-text);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-}
-
-.auth-field { margin-bottom: 13px; }
-.auth-field label {
-  display: block; font-size: 11px; font-weight: 600;
-  color: var(--cl-muted); margin-bottom: 5px;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.auth-field input {
-  width: 100%; padding: 10px 13px;
-  background: var(--cl-bg);
-  border: 1px solid var(--cl-border);
-  border-radius: 8px; color: var(--cl-text); font-size: 14px;
-  outline: none; box-sizing: border-box;
-  transition: border-color 0.2s;
-  font-family: var(--font-body);
-}
-.auth-field input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,200,83,0.08); }
-
-.auth-btn {
-  width: 100%; padding: 12px;
-  background: var(--green); color: #fff;
-  border: none; border-radius: 9px;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  margin-top: 6px; transition: all 0.2s;
-  font-family: var(--font-body);
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.auth-btn:hover { background: var(--green2); transform: translateY(-1px); }
-.auth-btn:active { transform: translateY(0); }
-
-.auth-err {
-  background: rgba(239,68,68,0.08);
-  border: 1px solid rgba(239,68,68,0.25);
-  color: #dc2626; border-radius: 8px;
-  padding: 9px 12px; font-size: 12px;
-  margin-bottom: 12px; display: none;
-}
-[data-theme="dark"] .auth-err { color: #FCA5A5; }
-
-.auth-skip {
-  text-align: center; margin-top: 14px;
-  font-size: 12px; color: var(--cl-muted); cursor: pointer;
-}
-.auth-skip span { color: var(--green); font-weight: 600; }
-.auth-skip:hover span { text-decoration: underline; }
 
 /* ── Dashboard container ── */
 .dashboard-section { display: none; }
@@ -535,13 +429,6 @@ function updateThemeBtn() {
 
 // ── DASHBOARD SHOW/HIDE ────────────────────────────
 function showDashboard(packId) {
-  var user = null;
-  try { user = JSON.parse(localStorage.getItem('sensms_user')); } catch(e) {}
-  if (!user) {
-    showAuthModal();
-    window._pendingPack = packId;
-    return;
-  }
   document.getElementById('dashboard-section').classList.add('active');
   document.getElementById('dashboard-section').scrollIntoView({ behavior: 'smooth' });
   if (packId) {
@@ -561,67 +448,6 @@ function goToPlatform(packId) { showDashboard(packId); }
 
 <body>
 
-<!-- ══════ AUTH MODAL ══════ -->
-<div id="sensms-auth-modal" class="hidden">
-  <div class="auth-card">
-    <div class="auth-close" onclick="hideAuthModal()">✕</div>
-
-    <div class="auth-logo">
-      <div class="logo-s">S</div>
-      <div class="auth-logo-text">Sen<span>SMS</span></div>
-    </div>
-
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login-btn" onclick="authTab('login')">Connexion</button>
-      <button class="auth-tab" id="tab-register-btn" onclick="authTab('register')">Créer un compte</button>
-    </div>
-
-    <div id="sensms-auth-err" class="auth-err"></div>
-
-    <!-- Formulaire Connexion -->
-    <div id="sensms-login-form">
-      <div class="auth-field">
-        <label>Téléphone ou Email</label>
-        <input type="text" id="sauth-id" placeholder="+221 77 XXX XX XX" autocomplete="username">
-      </div>
-      <div class="auth-field">
-        <label>Mot de passe</label>
-        <input type="password" id="sauth-pw" placeholder="••••••••" autocomplete="current-password">
-      </div>
-      <button class="auth-btn" onclick="sensmsLogin()">
-        <span id="login-btn-text">Se connecter</span> →
-      </button>
-    </div>
-
-    <!-- Formulaire Inscription -->
-    <div id="sensms-register-form" style="display:none">
-      <div class="auth-field">
-        <label>Nom / Organisation</label>
-        <input type="text" id="sreg-name" placeholder="Ex: École Mariama Bâ" autocomplete="name">
-      </div>
-      <div class="auth-field">
-        <label>Téléphone</label>
-        <input type="text" id="sreg-phone" placeholder="+221 77 XXX XX XX" autocomplete="tel">
-      </div>
-      <div class="auth-field">
-        <label>Email (optionnel)</label>
-        <input type="email" id="sreg-email" placeholder="votre@email.com" autocomplete="email">
-      </div>
-      <div class="auth-field">
-        <label>Mot de passe</label>
-        <input type="password" id="sreg-pw" placeholder="Minimum 6 caractères" autocomplete="new-password">
-      </div>
-      <button class="auth-btn" onclick="sensmsRegister()">
-        <span id="reg-btn-text">Créer mon compte</span> →
-      </button>
-    </div>
-
-    <div class="auth-skip" onclick="hideAuthModal()">
-      Continuer sans compte — <span>accès démonstration</span>
-    </div>
-  </div>
-</div>
-
 <!-- ══════ NAV ══════ -->
 <nav class="main-nav">
   <a href="#" class="nav-logo-wrap">
@@ -634,7 +460,7 @@ function goToPlatform(packId) { showDashboard(packId); }
     <li><a href="#how">Comment ça marche</a></li>
     <li><a href="#features">Fonctionnalités</a></li>
     <li><div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</div></li>
-    <li><span id="nav-auth-btn" style="color:var(--green);font-size:14px;font-weight:600;cursor:pointer"></span></li>
+    
     <li><a href="#dashboard" onclick="showDashboard()" class="nav-cta">Lancer une campagne →</a></li>
   </ul>
 </nav>
@@ -1000,117 +826,7 @@ function sensmsLogout() {
 
 
 
-<script>
-// ── AUTH ─────────────────────────────────
-var API_URL = 'https://pst-telecom-production.up.railway.app';
 
-function showAuthModal() {
-  document.getElementById('sensms-auth-modal').classList.remove('hidden');
-}
-function hideAuthModal() {
-  document.getElementById('sensms-auth-modal').classList.add('hidden');
-  // Reset forms
-  document.getElementById('sensms-auth-err').style.display = 'none';
-  document.getElementById('sauth-id').value = '';
-  document.getElementById('sauth-pw').value = '';
-}
-
-function authTab(tab) {
-  document.getElementById('sensms-login-form').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('sensms-register-form').style.display = tab === 'register' ? 'block' : 'none';
-  document.getElementById('tab-login-btn').classList.toggle('active', tab === 'login');
-  document.getElementById('tab-register-btn').classList.toggle('active', tab === 'register');
-  document.getElementById('sensms-auth-err').style.display = 'none';
-}
-
-function authErr(msg) {
-  var e = document.getElementById('sensms-auth-err');
-  e.textContent = msg; e.style.display = 'block';
-}
-
-function sensmsLogin() {
-  var id = document.getElementById('sauth-id').value.trim();
-  var pw = document.getElementById('sauth-pw').value.trim();
-  if (!id || !pw) { authErr('Remplissez tous les champs'); return; }
-  var btn = document.getElementById('login-btn-text');
-  btn.textContent = 'Connexion...';
-  fetch(API_URL + '/api/sensms/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier: id, password: pw })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    btn.textContent = 'Se connecter';
-    if (d.success) {
-      localStorage.setItem('sensms_user', JSON.stringify(d.user));
-      updateNavAuth(d.user);
-      hideAuthModal();
-      if (window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; }
-      else { showDashboard(); }
-    } else { authErr(d.error || 'Identifiants incorrects'); }
-  })
-  .catch(function() { btn.textContent = 'Se connecter'; authErr('Erreur réseau'); });
-}
-
-function sensmsRegister() {
-  var name = document.getElementById('sreg-name').value.trim();
-  var phone = document.getElementById('sreg-phone').value.trim();
-  var email = document.getElementById('sreg-email').value.trim();
-  var pw = document.getElementById('sreg-pw').value.trim();
-  if (!name || !phone || !pw) { authErr('Champs obligatoires manquants'); return; }
-  if (pw.length < 6) { authErr('Mot de passe trop court (6 min)'); return; }
-  var btn = document.getElementById('reg-btn-text');
-  btn.textContent = 'Création...';
-  fetch(API_URL + '/api/sensms/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name, phone: phone, email: email, password: pw })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    btn.textContent = 'Créer mon compte';
-    if (d.success) {
-      localStorage.setItem('sensms_user', JSON.stringify(d.user));
-      updateNavAuth(d.user);
-      hideAuthModal();
-      if (window._pendingPack !== undefined) { showDashboard(window._pendingPack); window._pendingPack = undefined; }
-      else { showDashboard(); }
-    } else { authErr(d.error || 'Erreur inscription'); }
-  })
-  .catch(function() { btn.textContent = 'Créer mon compte'; authErr('Erreur réseau'); });
-}
-
-function updateNavAuth(user) {
-  var btn = document.getElementById('nav-auth-btn');
-  if (btn) {
-    btn.innerHTML = (user.name || user.phone) + ' <span onclick="sensmsLogout()" style="color:var(--cl-muted);font-size:11px;cursor:pointer;margin-left:6px">[Déco]</span>';
-    btn.onclick = null;
-  }
-}
-
-function sensmsLogout() {
-  localStorage.removeItem('sensms_user');
-  var btn = document.getElementById('nav-auth-btn');
-  if (btn) { btn.textContent = 'Connexion'; btn.onclick = showAuthModal; }
-}
-
-// Session au chargement
-(function() {
-  updateThemeBtn();
-  var s = localStorage.getItem('sensms_user');
-  if (s) { try { updateNavAuth(JSON.parse(s)); } catch(e) {} }
-  else {
-    var btn = document.getElementById('nav-auth-btn');
-    if (btn) { btn.textContent = 'Connexion'; btn.onclick = showAuthModal; }
-  }
-  // Reveal observer
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
-})();
-</script>
 
 <!-- DASHBOARD SECTION -->
 <div id="dashboard-section" class="dashboard-section">
