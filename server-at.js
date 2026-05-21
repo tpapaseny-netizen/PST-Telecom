@@ -6,22 +6,16 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 
-
-// CORS — autoriser sensms.com et autres origines
+// CORS - doit etre AVANT toutes les routes
 app.use(function(req, res, next) {
-  var allowed = ['https://sensms.com', 'https://www.sensms.com', 'https://pst-telecom.vercel.app', 'http://localhost:3000'];
-  var origin = req.headers.origin;
-  if (!origin || allowed.indexOf(origin) !== -1 || origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
+
+
 app.use(cors({ origin: ['https://www.sensms.com', 'https://sensms.com', 'https://zama-sn.com', 'https://www.zama-sn.com', 'https://pst-telecom.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
