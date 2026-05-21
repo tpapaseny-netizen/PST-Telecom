@@ -348,6 +348,7 @@ footer {
 @media (max-width: 768px) {
   nav.main-nav { padding: 12px 18px; }
   .nav-links { display: none; }
+  .mobile-cta { display: inline-flex !important; font-size: 13px !important; padding: 8px 14px !important; }
   .stat { padding: 20px 24px; border-right: none; border-bottom: 1px solid var(--cl-border); }
   .stat:last-child { border-bottom: none; }
   .stats { flex-direction: column; }
@@ -669,6 +670,81 @@ tr:hover td { background:var(--cl-bg2); }
 .dl-rapport-btn { background:transparent; border:1.5px solid var(--green); color:var(--green); border-radius:10px; padding:10px 24px; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font-head); transition:all 0.2s; margin-top:8px; display:block; width:100%; }
 .dl-rapport-btn:hover { background:var(--green-dim); }
 
+
+/* ── COOKIE BANNER ── */
+.cookie-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+  background: var(--cl-bg);
+  border-top: 2px solid var(--cl-border);
+  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+}
+.cookie-banner.show { transform: translateY(0); }
+.cookie-text { font-size: 13px; color: var(--cl-text2); line-height: 1.6; flex: 1; min-width: 200px; }
+.cookie-text a { color: var(--green); text-decoration: underline; cursor: pointer; }
+.cookie-btns { display: flex; gap: 10px; flex-shrink: 0; }
+.cookie-accept {
+  background: var(--green); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 10px 22px; font-weight: 700; font-size: 13px;
+  cursor: pointer; font-family: var(--font-body);
+  transition: background 0.2s;
+}
+.cookie-accept:hover { background: var(--green2); }
+.cookie-refuse {
+  background: transparent; color: var(--cl-muted);
+  border: 1px solid var(--cl-border); border-radius: 8px;
+  padding: 10px 18px; font-size: 13px;
+  cursor: pointer; font-family: var(--font-body);
+  transition: all 0.2s;
+}
+.cookie-refuse:hover { border-color: var(--cl-text); color: var(--cl-text); }
+
+/* ── MODALES LÉGALES ── */
+.legal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.55);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.legal-overlay.open { display: flex; }
+.legal-modal {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: 18px;
+  padding: 40px;
+  max-width: 680px; width: 100%;
+  max-height: 80vh; overflow-y: auto;
+  position: relative;
+}
+.legal-modal::-webkit-scrollbar { width: 4px; }
+.legal-modal::-webkit-scrollbar-thumb { background: var(--cl-border); border-radius: 4px; }
+.legal-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--cl-bg2); border: 1px solid var(--cl-border);
+  border-radius: 8px; width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--cl-muted);
+  transition: all 0.2s;
+}
+.legal-modal-close:hover { background: var(--cl-bg3); color: var(--cl-text); }
+.legal-modal h2 { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--cl-text); margin-bottom: 8px; padding-right: 40px; }
+.legal-modal .legal-date { font-size: 12px; color: var(--cl-muted); margin-bottom: 28px; }
+.legal-modal h3 { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--cl-text); margin: 22px 0 8px; }
+.legal-modal p, .legal-modal li { font-size: 14px; color: var(--cl-text2); line-height: 1.75; }
+.legal-modal ul { padding-left: 20px; margin: 8px 0; }
+.legal-modal li { margin-bottom: 6px; }
+.legal-modal a { color: var(--green); }
+
+@media (max-width: 768px) {
+  .cookie-banner { padding: 14px 18px; }
+  .legal-modal { padding: 28px 20px; }
+}
+
 </style>
 </head>
 
@@ -728,10 +804,13 @@ function goToPlatform(packId) { showDashboard(packId); }
     <li><a href="#packs">Tarifs</a></li>
     <li><a href="#how">Comment ça marche</a></li>
     <li><a href="#features">Fonctionnalités</a></li>
-    <li><div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</div></li>
-    
     <li><a href="#dashboard" onclick="showDashboard()" class="nav-cta">Lancer une campagne →</a></li>
   </ul>
+  <!-- Toggle toujours visible, hors nav-links -->
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</div>
+    <a href="#dashboard" onclick="showDashboard()" class="nav-cta mobile-cta" style="display:none;">🚀</a>
+  </div>
 </nav>
 
 
@@ -1007,7 +1086,7 @@ function goToPlatform(packId) { showDashboard(packId); }
 <footer>
   <a href="#" class="footer-logo">
     <div class="logo-s">S</div>
-    Sen<span style="color:var(--orange)">SMS</span>
+    Sen<span style="color:var(--green)">SMS</span>
   </a>
   <div class="footer-links">
     <a href="#usecases">Cas d'usage</a>
@@ -1015,9 +1094,31 @@ function goToPlatform(packId) { showDashboard(packId); }
     <a href="#how">Comment ça marche</a>
     <a href="#dashboard" onclick="showDashboard()">Lancer une campagne</a>
     <a href="https://wa.me/221765596442">Contact</a>
+    <a href="javascript:void(0)" onclick="openLegal('apropos')">À propos</a>
+    <a href="javascript:void(0)" onclick="openLegal('confidentialite')">Confidentialité</a>
+    <a href="javascript:void(0)" onclick="openLegal('cookies')">Cookies</a>
   </div>
   <div class="footer-copy">© 2026 Sen-SMS · PST Telecom · sensms.com 🇸🇳</div>
 </footer>
+
+<!-- ══ COOKIE BANNER ══ -->
+<div class="cookie-banner" id="cookie-banner">
+  <div class="cookie-text">
+    🍪 Sen-SMS utilise des cookies pour améliorer votre expérience. En continuant, vous acceptez notre <a onclick="openLegal('cookies')">politique de cookies</a> et notre <a onclick="openLegal('confidentialite')">politique de confidentialité</a>.
+  </div>
+  <div class="cookie-btns">
+    <button class="cookie-refuse" onclick="refuserCookies()">Refuser</button>
+    <button class="cookie-accept" onclick="accepterCookies()">Accepter ✓</button>
+  </div>
+</div>
+
+<!-- ══ MODALES LÉGALES ══ -->
+<div class="legal-overlay" id="legal-overlay" onclick="closeLegalIfOutside(event)">
+  <div class="legal-modal" id="legal-modal">
+    <div class="legal-modal-close" onclick="closeLegal()">✕</div>
+    <div id="legal-content"></div>
+  </div>
+</div>
 
 <script>
 // ── PACKS DATA (modifiable ici) ──────────────────────
@@ -1531,6 +1632,62 @@ async function confirmerEtEnvoyer(msgTemplate) {
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('open');}
+// ── COOKIES ──────────────────────────────
+(function() {
+  if (!localStorage.getItem('sensms_cookies_choice')) {
+    setTimeout(function() {
+      var b = document.getElementById('cookie-banner');
+      if (b) b.classList.add('show');
+    }, 1500);
+  }
+})();
+
+function accepterCookies() {
+  localStorage.setItem('sensms_cookies_choice', 'accepted');
+  document.getElementById('cookie-banner').classList.remove('show');
+}
+function refuserCookies() {
+  localStorage.setItem('sensms_cookies_choice', 'refused');
+  document.getElementById('cookie-banner').classList.remove('show');
+}
+
+// ── MODALES LÉGALES ──────────────────────
+var LEGAL_CONTENT = {
+  apropos: {
+    title: 'À propos de Sen-SMS',
+    date: 'Dernière mise à jour : mai 2026',
+    html: '<h3>Qui sommes-nous ?</h3><p>Sen-SMS est une plateforme de SMS marketing professionnel dédiée au marché sénégalais, développée par <strong>PST Telecom</strong> (Pure Smart Telecom), opérateur télécom virtuel basé au Sénégal.</p><h3>Notre mission</h3><p>Rendre l'envoi de SMS en masse accessible à toutes les structures sénégalaises — écoles, commerces, mosquées, ONG, cliniques — avec des tarifs transparents et un service fiable.</p><h3>Notre réseau</h3><p>Sen-SMS s'appuie sur l'infrastructure Techsoft SMS pour garantir la livraison sur les trois opérateurs sénégalais : <strong>Orange, Free et Expresso</strong>.</p><h3>Contact</h3><p>📱 WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a><br>🌐 Site : <a href="https://sensms.com">sensms.com</a><br>🏢 PST Telecom · Dakar, Sénégal</p>'
+  },
+  confidentialite: {
+    title: 'Politique de confidentialité',
+    date: 'Dernière mise à jour : mai 2026',
+    html: '<h3>Données collectées</h3><p>Lors de l'utilisation de Sen-SMS, nous collectons :</p><ul><li>Le nom ou nom de votre organisation</li><li>Votre numéro de téléphone (pour le suivi de campagne)</li><li>Les numéros de téléphone de vos contacts (traitement ponctuel, non stocké en base)</li><li>La référence de transaction Wave ou Flutterwave</li></ul><h3>Utilisation des données</h3><p>Vos données sont utilisées exclusivement pour :</p><ul><li>Traiter et envoyer votre campagne SMS</li><li>Vérifier votre paiement</li><li>Vous contacter en cas de problème technique</li></ul><h3>Conservation</h3><p>Les numéros de vos destinataires ne sont pas conservés après l'envoi de la campagne. Vos informations de contact sont conservées 12 mois à des fins de support.</p><h3>Partage des données</h3><p>Vos données ne sont jamais vendues ni partagées avec des tiers, sauf avec nos prestataires techniques (Techsoft SMS pour l'envoi, Wave/Flutterwave pour le paiement) dans le strict cadre de l'exécution du service.</p><h3>Vos droits</h3><p>Conformément à la loi sénégalaise sur la protection des données personnelles (loi n°2008-12), vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous via WhatsApp : <a href="https://wa.me/221765596442">+221 76 559 64 42</a></p>'
+  },
+  cookies: {
+    title: 'Politique de cookies',
+    date: 'Dernière mise à jour : mai 2026',
+    html: '<h3>Qu'est-ce qu'un cookie ?</h3><p>Un cookie est un petit fichier texte stocké sur votre appareil lors de votre visite sur notre site.</p><h3>Cookies utilisés par Sen-SMS</h3><ul><li><strong>sensms_theme</strong> — mémorise votre préférence de thème (clair/sombre). Durée : illimitée jusqu'à effacement.</li><li><strong>sensms_cookies_choice</strong> — enregistre votre choix d'acceptation ou de refus des cookies. Durée : 12 mois.</li><li><strong>sensms_count</strong> — compteur visites pour l'affichage du compteur SMS live. Donnée locale uniquement.</li></ul><h3>Cookies tiers</h3><p>Le processeur de paiement Flutterwave peut déposer des cookies lors du paiement par carte. Nous n'avons pas de contrôle sur ces cookies. Consultez la <a href="https://flutterwave.com/privacy" target="_blank">politique de Flutterwave</a>.</p><h3>Gérer vos préférences</h3><p>Vous pouvez à tout moment refuser les cookies non essentiels en cliquant sur "Refuser" dans la bannière. Notez que le refus des cookies peut affecter certaines fonctionnalités du site (thème, compteur).</p><p>Pour supprimer les cookies existants, videz le localStorage de votre navigateur (Paramètres → Confidentialité → Données de site).</p>'
+  }
+};
+
+function openLegal(page) {
+  var data = LEGAL_CONTENT[page];
+  if (!data) return;
+  document.getElementById('legal-content').innerHTML =
+    '<h2>' + data.title + '</h2>' +
+    '<div class="legal-date">' + data.date + '</div>' +
+    data.html;
+  document.getElementById('legal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegal() {
+  document.getElementById('legal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeLegalIfOutside(e) {
+  if (e.target === document.getElementById('legal-overlay')) closeLegal();
+}
+
 
 // ── COMPTEUR LIVE ──
 (function animateLiveCounter() {
