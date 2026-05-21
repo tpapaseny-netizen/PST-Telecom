@@ -434,11 +434,12 @@ function initTheme(){
 function applyTheme(mode){
   document.documentElement.setAttribute('data-theme', mode==='dark'?'dark':'');
   localStorage.setItem('zamin_theme', mode);
-  // Mettre à jour tous les boutons toggle
-  document.querySelectorAll('.theme-toggle').forEach(btn=>{
-    btn.textContent = mode==='dark' ? '☀️' : '🌙';
-    btn.title = mode==='dark' ? 'Mode clair' : 'Mode sombre';
-  });
+  setTimeout(function(){
+    document.querySelectorAll('.theme-toggle').forEach(function(btn){
+      btn.textContent = mode==='dark' ? '☀️' : '🌙';
+      btn.title = mode==='dark' ? 'Mode clair' : 'Mode sombre';
+    });
+  }, 50);
 }
 
 function toggleTheme(){
@@ -481,6 +482,18 @@ function restoreFromTrash(trashId){
     saveMission(item);
     toast('✅ Mission restaurée');
     cmdActivePanels['missions']=false;buildCmdPanel('missions');
+  } else if(type.startsWith('fiche_')){
+    const secteur = type.replace('fiche_','');
+    const all = DB.getArr('fiches');
+    // Retirer les champs corbeille
+    const clean = {...item};
+    delete clean._type; delete clean._label; delete clean._id; delete clean.deletedAt;
+    all.push(clean);
+    DB.set('fiches', all);
+    toast('✅ Fiche restaurée');
+    const panelMap={sante:'sante',eau:'eau',energie:'energie',routes:'routes',autres:'autres',ecole:'education'};
+    cmdActivePanels[panelMap[secteur]||secteur]=false;
+    buildCmdPanel(panelMap[secteur]||secteur);
   }
   // Retirer de la corbeille
   saveTrash(trash.filter(t=>t._id!==trashId));
@@ -1919,24 +1932,55 @@ function buildCmdEnqueteurs(){
 }
 
 /* ── SECTEURS DONNÉES ── */
+function deleteFicheSoft(ficheId, secteur){
+  const all = DB.getArr('fiches');
+  const f = all.find(x=>x.id===ficheId);
+  if(!f)return;
+  if(!confirm('Mettre cette fiche dans la corbeille ?'))return;
+  moveToTrash({...f, id:ficheId}, 'fiche_'+secteur, (f.nom||'Fiche')+' — '+(f.quartier||secteur));
+  DB.set('fiches', all.filter(x=>x.id!==ficheId));
+  cmdActivePanels[secteur]=false;
+  // Retrouver le panel id correct
+  const panelMap={sante:'sante',eau:'eau',energie:'energie',routes:'routes',autres:'autres'};
+  const pid=panelMap[secteur]||secteur;
+  buildCmdPanel(pid);
+  toast('Fiche déplacée vers la corbeille');
+}
+
+function restoreFicheFromTrash(trashId, secteur){
+  const trash = getTrash();
+  const item = trash.find(t=>t._id===trashId);
+  if(!item)return;
+  const all = DB.getArr('fiches');
+  all.push(item);
+  DB.set('fiches', all);
+  saveTrash(trash.filter(t=>t._id!==trashId));
+  toast('✅ Fiche restaurée');
+  buildCorbeilleList();
+}
+
 function buildSectorCmdPanel(panelId,secteur,title,kpisData,tableMapper){
   const el=document.getElementById('cmd-panel-'+panelId);if(!el)return;
   const fiches=getMyCmdFiches(secteur);
   el.innerHTML=`<div class="stitle"><h2>${title}</h2><p>${fiches.length} fiche(s) reçue(s)</p></div>
-  <div class="export-row">
-    <button class="exp-btn exp-word" onclick="exportWord('${secteur}')">📄 Word</button>
-    <button class="exp-btn exp-excel" onclick="exportExcel('${secteur}')">📊 Excel</button>
-    <button class="exp-btn exp-pdf" onclick="exportPDF('${secteur}')">📋 PDF</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="export-row" style="margin:0">
+      <button class="exp-btn exp-word" onclick="exportWord('${secteur}')">📄 Word</button>
+      <button class="exp-btn exp-excel" onclick="exportExcel('${secteur}')">📊 Excel</button>
+      <button class="exp-btn exp-pdf" onclick="exportPDF('${secteur}')">📋 PDF</button>
+    </div>
+    <button onclick="openCorbeille()" style="background:var(--teal-l);border:1px solid var(--border);color:var(--teal-d);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">🗑️ Corbeille</button>
   </div>
   <div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpisData.map(([n,l,c])=>`<div class="kpi"><div class="kn" style="color:${c}">${n}</div><div class="kl">${l}</div></div>`).join('')}</div>
   ${fiches.length?`<div class="card" style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Date</th><th>Enquêteur</th></tr></thead>
+    <thead><tr><th>Nom</th><th>Quartier</th><th>État</th><th>GPS</th><th>Date</th><th>Enquêteur</th><th></th></tr></thead>
     <tbody>${fiches.map(f=>`<tr>
       <td style="font-weight:500">${f.nom}</td><td>${f.quartier||'—'}</td>
       <td><span class="pill ${f.etat==='Bon état'?'p-g':f.etat==='Non fonctionnel'?'p-r':f.etat?'p-a':'p-gr'}">${f.etat||'—'}</span></td>
       <td style="font-size:10px;color:var(--teal-d)">${f.gps?`📍 ${parseFloat(f.gps.lat).toFixed(4)},${parseFloat(f.gps.lon).toFixed(4)}`:'—'}</td>
       <td style="font-size:11px;color:var(--muted)">${f.date||'—'}</td>
       <td style="font-size:11px;color:var(--muted)">${f.enqueteur||'—'}</td>
+      <td><button class="trash-btn" onclick="deleteFicheSoft('${f.id}','${secteur}')">🗑</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`:`<div class="card" style="text-align:center;padding:30px;color:var(--muted)">📭 En attente de fiches pour ce secteur</div>`}`;
 }
