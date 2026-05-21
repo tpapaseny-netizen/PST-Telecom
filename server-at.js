@@ -3680,9 +3680,8 @@ app.get('/api/sensms/users', async (req, res) => {
 // ── DÉMARRAGE ─────────────────────────────
 
 // ══ SEN-SMS AUTH ROUTES ══
-const mongoose_sms = require('mongoose');
 
-const SenSmsUserSchema = new mongoose_sms.Schema({
+const SenSmsUserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   nom: { type: String, default: '' },
@@ -3693,8 +3692,8 @@ const SenSmsUserSchema = new mongoose_sms.Schema({
 });
 const SenSmsUser = mongoose.models.SenSmsUser || mongoose.model('SenSmsUser', SenSmsUserSchema);
 
-const SenSmsCampaignSchema = new mongoose_sms.Schema({
-  userId: { type: mongoose_sms.Schema.Types.ObjectId, ref: 'SenSmsUser' },
+const SenSmsCampaignSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'SenSmsUser' },
   organisation: String, sender: String, message: String,
   contacts: Number, smsTotal: Number, cout: String, pack: String,
   statut: { type: String, default: 'envoyee' },
