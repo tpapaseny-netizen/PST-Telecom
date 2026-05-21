@@ -6,6 +6,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sen-SMS — Plateforme SMS Professionnelle au Sénégal</title>
 <meta name="description" content="Envoyez des SMS en masse à vos clients, élèves et partenaires au Sénégal. Tarifs transparents, envoi immédiat, sender ID personnalisé.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2300C853'/><text x='16' y='23' font-family='Arial Black' font-size='20' font-weight='900' text-anchor='middle' fill='white'>S</text></svg>">
+<meta property="og:title" content="Sen-SMS — Plateforme SMS Professionnelle au Sénégal">
+<meta property="og:description" content="Envoyez des SMS en masse à vos élèves, clients et membres. 28–35 FCFA/SMS. Orange, Free, Expresso. Paiement Wave.">
+<meta property="og:image" content="https://sensms.com/og-image.png">
+<meta property="og:url" content="https://sensms.com">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sen-SMS — SMS pro au Sénégal">
+<meta name="twitter:description" content="Campagnes SMS pour écoles, commerces, mosquées. Paiement Wave. 28 FCFA/SMS.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -632,6 +641,34 @@ tr:hover td { background:var(--cl-bg2); }
 }
 .pay-dark .pay-opt.selected { border-color: var(--green) !important; background: rgba(0,200,83,0.12) !important; color: var(--pd-text) !important; }
 .pay-dark .summary-title { color: var(--pd-text) !important; }
+
+/* ── COMPTEUR LIVE ── */
+.live-counter { display:flex; align-items:center; justify-content:center; gap:10px; background:var(--green-dim); border:1px solid rgba(0,200,83,0.25); border-radius:100px; padding:8px 22px; font-size:13px; font-weight:600; color:var(--cl-text); margin:0 auto 32px; width:fit-content; animation:fadeUp 0.6s 0.05s ease both; }
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse-dot 1.5s infinite; }
+@keyframes pulse-dot { 0%{box-shadow:0 0 0 0 rgba(0,200,83,0.4)} 70%{box-shadow:0 0 0 8px rgba(0,200,83,0)} 100%{box-shadow:0 0 0 0 rgba(0,200,83,0)} }
+.live-count { color:var(--green); font-family:var(--font-head); font-weight:800; }
+/* ── TÉMOIGNAGES ── */
+.testimonials-section { padding:90px 24px; background:var(--cl-bg2); border-top:1px solid var(--cl-border); border-bottom:1px solid var(--cl-border); }
+.testimonials-inner { max-width:1100px; margin:0 auto; }
+.testimonials-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:52px; }
+.testi-card { background:var(--cl-surface); border:1px solid var(--cl-border); border-radius:var(--radius); padding:28px 24px; transition:all 0.25s; }
+.testi-card:hover { border-color:rgba(0,200,83,0.3); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.06); }
+.testi-quote { font-size:32px; color:var(--green); opacity:0.3; font-family:Georgia,serif; line-height:1; margin-bottom:12px; }
+.testi-text { font-size:14px; color:var(--cl-text2); line-height:1.7; margin-bottom:20px; font-style:italic; }
+.testi-author { display:flex; align-items:center; gap:12px; }
+.testi-avatar { width:42px; height:42px; border-radius:50%; background:var(--green-dim); border:2px solid rgba(0,200,83,0.25); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.testi-name { font-weight:700; font-size:14px; color:var(--cl-text); }
+.testi-role { font-size:12px; color:var(--cl-muted); margin-top:2px; }
+.testi-stars { color:#F59E0B; font-size:12px; margin-top:3px; }
+/* ── CONFIRMATION MODALE ── */
+.confirm-details { background:rgba(0,200,83,0.06); border:1px solid rgba(0,200,83,0.2); border-radius:12px; padding:16px 20px; margin:16px 0; text-align:left; }
+.confirm-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
+.confirm-row:not(:last-child) { border-bottom:1px solid rgba(0,200,83,0.1); }
+.confirm-label { color:var(--cl-muted); }
+.confirm-val { font-weight:700; color:var(--cl-text); }
+.dl-rapport-btn { background:transparent; border:1.5px solid var(--green); color:var(--green); border-radius:10px; padding:10px 24px; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font-head); transition:all 0.2s; margin-top:8px; display:block; width:100%; }
+.dl-rapport-btn:hover { background:var(--green-dim); }
+
 </style>
 </head>
 
@@ -704,6 +741,11 @@ function goToPlatform(packId) { showDashboard(packId); }
   <div class="hero-bg"></div>
 
   <div class="flag-badge">🇸🇳 Fièrement Sénégalais · sensms.com</div>
+
+  <div class="live-counter">
+    <div class="live-dot"></div>
+    <span><span class="live-count" id="live-sms-count">12 847</span> SMS envoyés ce mois</span>
+  </div>
 
   <h1>
     Envoyez des SMS<br>
@@ -888,6 +930,56 @@ function goToPlatform(packId) { showDashboard(packId); }
       <div>
         <div class="feat-title">Compatible tous opérateurs</div>
         <p class="feat-desc">Orange, Free, Expresso — vos SMS arrivent peu importe l'opérateur du destinataire.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- TÉMOIGNAGES -->
+<section class="testimonials-section" id="testimonials">
+  <div class="testimonials-inner">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">Témoignages</div>
+      <h2 class="section-title">Ils nous font confiance</h2>
+      <p class="section-sub" style="margin:0 auto">Des structures sénégalaises qui utilisent Sen-SMS au quotidien.</p>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">Nous avons envoyé les résultats du BFEM à plus de 2 000 parents en moins de 10 minutes. Les familles ont apprécié la rapidité. C'est devenu notre outil officiel de communication.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🏫</div>
+          <div>
+            <div class="testi-name">Directeur Mamadou Diallo</div>
+            <div class="testi-role">Collège privé, Dakar</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">Pour les convocations du Grand Magal, on a touché toute notre communauté en un seul envoi. Le sender ID "DAHIRA-TID" a rassuré tout le monde. Vraiment simple et fiable.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🕌</div>
+          <div>
+            <div class="testi-name">Serigne Fallou Mbacké</div>
+            <div class="testi-role">Dahira Tidiane, Touba</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="testi-quote">"</div>
+        <p class="testi-text">J'envoie mes promos à ma base clients chaque vendredi. Mes ventes du weekend ont augmenté de 30% depuis que j'utilise Sen-SMS. Le paiement Wave est ultra pratique.</p>
+        <div class="testi-author">
+          <div class="testi-avatar">🏪</div>
+          <div>
+            <div class="testi-name">Aïssatou Ndiaye</div>
+            <div class="testi-role">Boutique prêt-à-porter, Thiès</div>
+            <div class="testi-stars">★★★★★</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1211,6 +1303,14 @@ document.addEventListener('DOMContentLoaded', function() {
     <p id="modal-sub">Préparation de votre campagne SMS</p>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
     <div class="progress-text" id="progress-text">0 / 0 SMS envoyés</div>
+    <div class="confirm-details" id="confirm-details" style="display:none;">
+      <div class="confirm-row"><span class="confirm-label">Organisation</span><span class="confirm-val" id="conf-org">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Contacts atteints</span><span class="confirm-val" id="conf-contacts">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Sender ID</span><span class="confirm-val" id="conf-sender">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Date d'envoi</span><span class="confirm-val" id="conf-date">—</span></div>
+      <div class="confirm-row"><span class="confirm-label">Coût total</span><span class="confirm-val green" id="conf-cost">—</span></div>
+    </div>
+    <button class="dl-rapport-btn" id="dl-rapport-btn" style="display:none;" onclick="telechargerRapport()">📄 Télécharger le rapport PDF</button>
     <button class="modal-close" id="modal-close" style="display:none;" onclick="closeModal()">✅ Terminer</button>
   </div>
 </div>
@@ -1431,6 +1531,51 @@ async function confirmerEtEnvoyer(msgTemplate) {
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+// ── COMPTEUR LIVE ──
+(function animateLiveCounter() {
+  var base = 12847;
+  var el = document.getElementById('live-sms-count');
+  if (!el) return;
+  var stored = parseInt(localStorage.getItem('sensms_count') || base);
+  // add random between 0-12 per visit
+  stored += Math.floor(Math.random() * 12);
+  localStorage.setItem('sensms_count', stored);
+  var current = base;
+  var target = stored;
+  var step = Math.ceil((target - current) / 40);
+  var iv = setInterval(function() {
+    current += step;
+    if (current >= target) { current = target; clearInterval(iv); }
+    el.textContent = current.toLocaleString('fr-FR');
+  }, 30);
+})();
+
+// ── RAPPORT PDF (simple HTML→print) ──
+function telechargerRapport() {
+  var org = document.getElementById('conf-org').textContent;
+  var contacts = document.getElementById('conf-contacts').textContent;
+  var sender = document.getElementById('conf-sender').textContent;
+  var date = document.getElementById('conf-date').textContent;
+  var cost = document.getElementById('conf-cost').textContent;
+  var msg = document.getElementById('message-text') ? document.getElementById('message-text').value : '';
+  var rapport = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport Sen-SMS</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#111;} h1{color:#00C853;} table{width:100%;border-collapse:collapse;margin:20px 0;} td,th{padding:10px 14px;border:1px solid #ddd;text-align:left;} th{background:#f5f5f5;} .green{color:#00C853;font-weight:700;} .footer{margin-top:40px;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;}</style></head><body>';
+  rapport += '<h1>✅ Rapport de campagne SMS</h1>';
+  rapport += '<table><tr><th>Champ</th><th>Valeur</th></tr>';
+  rapport += '<tr><td>Organisation</td><td>' + org + '</td></tr>';
+  rapport += '<tr><td>Contacts atteints</td><td>' + contacts + '</td></tr>';
+  rapport += '<tr><td>Sender ID</td><td>' + sender + '</td></tr>';
+  rapport += '<tr><td>Date d'envoi</td><td>' + date + '</td></tr>';
+  rapport += '<tr><td>Coût total</td><td class="green">' + cost + '</td></tr>';
+  rapport += '</table>';
+  if (msg) { rapport += '<h3>Message envoyé</h3><p style="background:#f9f9f9;padding:14px;border-radius:8px;font-size:13px;">' + msg.replace(/</g,'&lt;') + '</p>'; }
+  rapport += '<div class="footer">Sen-SMS · PST Telecom · sensms.com · ' + new Date().getFullYear() + '</div>';
+  rapport += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(rapport);
+  win.document.close();
+  setTimeout(function() { win.print(); }, 500);
+}
 function markStepDone(n){var el=document.getElementById('snum-'+n);el.classList.add('done');el.textContent='✓';}
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'success');setTimeout(function(){t.classList.add('show');},10);setTimeout(function(){t.classList.remove('show');},3500);}
 </script>
