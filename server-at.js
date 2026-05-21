@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
@@ -173,6 +173,8 @@ app.get("/noc", (req,res) => res.sendFile(path.join(__dirname,"noc.html")));
 app.get("/trax", (req,res) => res.sendFile(path.join(__dirname,"pst-trax.html")));
 app.get("/trax-driver", (req,res) => res.sendFile(path.join(__dirname,"pst-trax-driver.html")));
 app.get("/zama", (req,res) => res.sendFile(path.join(__dirname,"zama.html")));
+app.get("/sensms", (req,res) => res.sendFile(path.join(__dirname,"sensms.html")));
+app.get("/zamin", (req,res) => res.sendFile(path.join(__dirname,"zamin.html")));
 app.get("/crypto-admin", (req,res) => res.sendFile(path.join(__dirname,"crypto-dashboard.html")));
 app.get("/izipay-widget.js", (req,res) => res.sendFile(path.join(__dirname,"izipay-widget.js")));
 
