@@ -131,7 +131,7 @@ function genNumero() {
   const n = Math.floor(Math.random()*9000000)+1000000;
   return "+221 " + p + " " + String(n).slice(0,3) + " " + String(n).slice(3,5) + " " + String(n).slice(5);
 }
-async function getAbonnes() { if (db) return db.collection("abonnes").find({}).sort({createdAt:-1}).toArray(); return global._abonnes||[]; }
+async function getAbonnes() { if (db) return db.collection("abonnes").find({}).sort({createdAt:-1}).lean(); return global._abonnes||[]; }
 async function saveAbonne(a) { if (db) await db.collection("abonnes").insertOne(a); else { global._abonnes=global._abonnes||[]; global._abonnes.push(a); } }
 async function updateAbonne(userId, update) { if (db) await db.collection("abonnes").updateOne({userId},{$set:update}); else { global._abonnes=(global._abonnes||[]).map(a=>a.userId===userId?{...a,...update}:a); } }
 async function deleteAbonne(userId) { if (db) await db.collection("abonnes").deleteOne({userId}); else { global._abonnes=(global._abonnes||[]).filter(a=>a.userId!==userId); } }
@@ -181,11 +181,11 @@ app.get("/izipay-widget.js", (req,res) => res.sendFile(path.join(__dirname,"izip
 // ROUTES NOC / RECHARGE / ADMIN STATS
 // ═══════════════════════════════════════════════════════════
 app.get("/api/noc/agent/status", async(req,res) => {
-  try { if(!db) return res.json({cameras:0,online:0,offline:0}); const cams=await db.collection("cameras").find({}).toArray(); res.json({cameras:cams.length,online:cams.filter(c=>c.statut==="online").length,offline:cams.filter(c=>c.statut!=="online").length}); }
+  try { if(!db) return res.json({cameras:0,online:0,offline:0}); const cams=await db.collection("cameras").find({}).lean(); res.json({cameras:cams.length,online:cams.filter(c=>c.statut==="online").length,offline:cams.filter(c=>c.statut!=="online").length}); }
   catch(e){res.json({cameras:0,online:0,offline:0});}
 });
 app.get("/api/recharge/stats", async(req,res) => {
-  try { if(!db) return res.json({recharges:0,reussies:0,echecs:0,fcfa:0}); const r=await db.collection("recharges").find({}).toArray(); res.json({recharges:r.length,reussies:r.filter(x=>x.statut==="success").length,echecs:r.filter(x=>x.statut==="failed").length,fcfa:r.filter(x=>x.statut==="success").reduce((s,x)=>s+(x.montant||0),0)}); }
+  try { if(!db) return res.json({recharges:0,reussies:0,echecs:0,fcfa:0}); const r=await db.collection("recharges").find({}).lean(); res.json({recharges:r.length,reussies:r.filter(x=>x.statut==="success").length,echecs:r.filter(x=>x.statut==="failed").length,fcfa:r.filter(x=>x.statut==="success").reduce((s,x)=>s+(x.montant||0),0)}); }
   catch(e){res.json({recharges:0,reussies:0,echecs:0,fcfa:0});}
 });
 app.get("/api/admin/stats", async(req,res) => {
@@ -194,7 +194,7 @@ app.get("/api/admin/stats", async(req,res) => {
 });
 app.get("/api/admin/abonnes", async(req,res) => { try{res.json(await getAbonnes());}catch(e){res.status(500).json({error:e.message});} });
 app.get("/api/admin/users", async(req,res) => { try{if(!db)return res.json([]); res.json(await db.collection("abonnes").find({}).sort({createdAt:-1}).toArray());}catch(e){res.json([]);} });
-app.get("/api/admin/activity", async(req,res) => { try{const l=await db.collection("activity_logs").find({}).sort({createdAt:-1}).limit(50).toArray(); res.json(l.map(x=>({type:x.type,message:x.message,time:new Date(x.createdAt).toLocaleTimeString("fr-FR")})));}catch(e){res.json([]);} });
+app.get("/api/admin/activity", async(req,res) => { try{const l=await db.collection("activity_logs").find({}).sort({createdAt:-1}).limit(50).lean(); res.json(l.map(x=>({type:x.type,message:x.message,time:new Date(x.createdAt).toLocaleTimeString("fr-FR")})));}catch(e){res.json([]);} });
 
 // ═══════════════════════════════════════════════════════════
 // ROUTES ABONNES
@@ -294,8 +294,8 @@ app.post("/api/sms-marketing/send", async(req,res)=>{ try{const{campagne,message
     }catch(e){echecs++;}
   }
   await db.collection("sms_campagnes").updateOne({_id:result.insertedId},{$set:{envoyes,echecs,statut:"termine",finishedAt:new Date()}}); res.json({success:true,envoyes,echecs,total:messages.length});}catch(e){res.status(500).json({error:e.message});} });
-app.get("/api/sms-marketing/campagnes", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({},{projection:{messages:0}}).sort({createdAt:-1}).limit(50).toArray(); res.json(c);}catch(e){res.json([]);} });
-app.get("/api/sms-marketing/stats", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({}).toArray(); res.json({totalCampagnes:c.length,totalEnvoyes:c.reduce((s,x)=>s+(x.envoyes||0),0),totalEchecs:c.reduce((s,x)=>s+(x.echecs||0),0)});}catch(e){res.json({totalCampagnes:0,totalEnvoyes:0,totalEchecs:0});} });
+app.get("/api/sms-marketing/campagnes", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({},{projection:{messages:0}}).sort({createdAt:-1}).limit(50).lean(); res.json(c);}catch(e){res.json([]);} });
+app.get("/api/sms-marketing/stats", async(req,res)=>{ try{const c=await db.collection("sms_campagnes").find({}).lean(); res.json({totalCampagnes:c.length,totalEnvoyes:c.reduce((s,x)=>s+(x.envoyes||0),0),totalEchecs:c.reduce((s,x)=>s+(x.echecs||0),0)});}catch(e){res.json({totalCampagnes:0,totalEnvoyes:0,totalEchecs:0});} });
 app.post("/api/sms-marketing/verify-ref", async(req,res)=>{ try{const{reference,telephone,smsCount}=req.body; if(!reference||reference.length<5)return res.json({valid:false,error:"Reference trop courte"}); const ref=reference.toUpperCase().trim(); const ex=await db.collection("sms_refs_utilisees").findOne({reference:ref}); if(ex)return res.json({valid:false,error:"Reference deja utilisee"}); await db.collection("sms_refs_utilisees").insertOne({reference:ref,telephone,smsCount:parseInt(smsCount)||0,utiliseeAt:new Date()}); res.json({valid:true});}catch(e){res.status(500).json({valid:false,error:e.message});} });
 app.post("/api/sms-marketing/generate-code", async(req,res)=>{ try{const{telephone,smsCount,pack,montant,notes}=req.body; const code="PST-"+Math.random().toString(36).slice(2,6).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase(); const expireAt=new Date(Date.now()+7*24*60*60*1000); await db.collection("sms_codes").insertOne({code,telephone,smsCount:parseInt(smsCount)||0,pack:pack||"",montant:parseInt(montant)||0,notes:notes||"",statut:"actif",utilise:false,createdAt:new Date(),expireAt}); res.json({success:true,code,expireAt});}catch(e){res.status(500).json({error:e.message});} });
 app.post("/api/sms-marketing/verify-code", async(req,res)=>{ try{const{code,telephone,smsCount}=req.body; if(!code)return res.status(400).json({valid:false,error:"Code requis"}); const doc=await db.collection("sms_codes").findOne({code:code.toUpperCase().trim(),statut:"actif",utilise:false,expireAt:{$gt:new Date()}}); if(!doc)return res.json({valid:false,error:"Code invalide ou expire"}); await db.collection("sms_codes").updateOne({code:code.toUpperCase().trim()},{$set:{utilise:true,utiliseAt:new Date(),utilisePar:telephone}}); res.json({valid:true,smsCount:doc.smsCount,pack:doc.pack});}catch(e){res.status(500).json({valid:false,error:e.message});} });
@@ -329,15 +329,15 @@ app.post("/api/channels", async(req,res)=>{ try{const{channels}=req.body; if(!db
 app.post("/api/trax/register", async(req,res)=>{ try{const{name,phone,role,vid,vType,password}=req.body; if(!phone||!name)return res.status(400).json({error:"Donnees manquantes"}); const np=normalizePhone(phone); if(db){const ex=await db.collection("trax_users").findOne({$or:[{phone:np},{phone:"+221"+np}]}); if(ex)return res.status(409).json({exists:true,error:"Numero deja inscrit"}); const user={id:"U-"+Date.now(),name,phone:np,role,password:password||"",vid:vid||null,typeLabel:vType&&vType.label||null,typeIcon:vType&&vType.icon||null,createdAt:new Date()}; await db.collection("trax_users").insertOne(user); return res.json({success:true,user:{id:user.id,name:user.name,phone:user.phone,role:user.role,vid:user.vid,typeLabel:user.typeLabel}});} res.json({success:true,user:{id:"U-"+Date.now(),name,phone:np,role,vid}});}catch(e){res.status(500).json({error:e.message});} });
 app.post("/api/trax/login", async(req,res)=>{ try{const{phone,password}=req.body; if(!phone)return res.status(400).json({error:"Telephone requis"}); const np=normalizePhone(phone); if(db){const user=await db.collection("trax_users").findOne({$or:[{phone:np},{phone:"+221"+np}]}); if(!user)return res.status(404).json({error:"Compte introuvable"}); if(user.password&&user.password!==password)return res.status(401).json({error:"wrong_password"}); return res.json({success:true,user:{id:user.id,name:user.name,phone:np,role:user.role,vid:user.vid,typeLabel:user.typeLabel}});} res.status(503).json({error:"DB indisponible"});}catch(e){res.status(500).json({error:e.message});} });
 app.post("/api/trax/reset-password", async(req,res)=>{ try{const{phone,newPassword}=req.body; if(!phone||!newPassword)return res.status(400).json({error:"Donnees manquantes"}); const np=normalizePhone(phone); if(!db)return res.status(503).json({error:"DB indisponible"}); const r=await db.collection("trax_users").updateOne({$or:[{phone:np},{phone:"+221"+np}]},{$set:{password:newPassword,updatedAt:new Date()}}); if(r.matchedCount===0)return res.status(404).json({error:"Compte introuvable"}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
-app.get("/api/trax/vehicles", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").find({}).toArray(); return res.json(v.map(x=>{const{_id,...r}=x;return r;}));} res.json([]);}catch(e){res.json([]);} });
+app.get("/api/trax/vehicles", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").find({}).lean(); return res.json(v.map(x=>{const{_id,...r}=x;return r;}));} res.json([]);}catch(e){res.json([]);} });
 app.post("/api/trax/vehicles", async(req,res)=>{ try{const v=req.body; if(!Array.isArray(v))return res.status(400).json({error:"Format invalide"}); if(db){await db.collection("trax_vehicles").deleteMany({}); if(v.length>0){const clean=v.map(x=>{const{_id,...r}=x;return r;}); await db.collection("trax_vehicles").insertMany(clean);}} res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 app.post("/api/trax/position", async(req,res)=>{ try{const d=req.body; if(!d.id||!d.lat||!d.lng)return res.status(400).json({error:"GPS manquant"}); if(db)await db.collection("trax_vehicles").updateOne({id:d.id},{$set:{lat:d.lat,lng:d.lng,speed:d.speed||0,status:d.status||"online",lastSeen:d.lastSeen||Date.now(),driver:d.driver,phone:d.phone}},{upsert:true}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 app.get("/api/trax/vehicles/:vehicleId", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").findOne({vehicleId:req.params.vehicleId}); return res.json(v||{});} res.json({});}catch(e){res.json({});} });
-app.get("/api/trax/history/:vehicleId", async(req,res)=>{ try{const{hours=24}=req.query; const since=new Date(Date.now()-hours*60*60*1000); if(db){const p=await db.collection("trax_positions").find({vehicleId:req.params.vehicleId,createdAt:{$gte:since}}).sort({createdAt:1}).limit(1000).toArray(); return res.json(p);} res.json([]);}catch(e){res.json([]);} });
+app.get("/api/trax/history/:vehicleId", async(req,res)=>{ try{const{hours=24}=req.query; const since=new Date(Date.now()-hours*60*60*1000); if(db){const p=await db.collection("trax_positions").find({vehicleId:req.params.vehicleId,createdAt:{$gte:since}}).sort({createdAt:1}).limit(1000).lean(); return res.json(p);} res.json([]);}catch(e){res.json([]);} });
 app.post("/api/trax/cut/:vehicleId", async(req,res)=>{ try{const{cut=true}=req.body; if(db)await db.collection("trax_vehicles").updateOne({vehicleId:req.params.vehicleId},{$set:{cut:!!cut,cutAt:new Date()}}); res.json({success:true,cut:!!cut});}catch(e){res.status(500).json({error:e.message});} });
 app.get("/api/trax/commands/:vehicleId", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").findOne({vehicleId:req.params.vehicleId}); if(!v)return res.json({cut:false}); const r={cut:v.cut||false,message:v.pendingMessage||null}; if(v.pendingMessage)await db.collection("trax_vehicles").updateOne({vehicleId:req.params.vehicleId},{$unset:{pendingMessage:""}}); return res.json(r);} res.json({cut:false});}catch(e){res.json({cut:false});} });
 app.post("/api/trax/message/:vehicleId", async(req,res)=>{ try{if(db)await db.collection("trax_vehicles").updateOne({vehicleId:req.params.vehicleId},{$set:{pendingMessage:req.body.message}}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
-app.get("/api/trax/stats", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").find({}).toArray(); return res.json({total:v.length,moving:v.filter(x=>x.status==="moving").length,stopped:v.filter(x=>x.status==="stopped").length,offline:v.filter(x=>x.status==="offline").length,alert:v.filter(x=>x.status==="alert").length});} res.json({total:0,moving:0,stopped:0,offline:0,alert:0});}catch(e){res.json({total:0,moving:0,stopped:0,offline:0,alert:0});} });
+app.get("/api/trax/stats", async(req,res)=>{ try{if(db){const v=await db.collection("trax_vehicles").find({}).lean(); return res.json({total:v.length,moving:v.filter(x=>x.status==="moving").length,stopped:v.filter(x=>x.status==="stopped").length,offline:v.filter(x=>x.status==="offline").length,alert:v.filter(x=>x.status==="alert").length});} res.json({total:0,moving:0,stopped:0,offline:0,alert:0});}catch(e){res.json({total:0,moving:0,stopped:0,offline:0,alert:0});} });
 app.delete("/api/trax/vehicles/:vehicleId", async(req,res)=>{ try{if(db){await db.collection("trax_vehicles").deleteOne({vehicleId:req.params.vehicleId}); await db.collection("trax_positions").deleteMany({vehicleId:req.params.vehicleId});} res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 
 // ═══════════════════════════════════════════════════════════
@@ -363,9 +363,9 @@ app.post("/api/zama/kyc", async(req,res)=>{ try{const{user_id,doc_type,doc_num,d
 
 app.post("/api/zama/kyc/approve", async(req,res)=>{ try{const{user_id,approved}=req.body; const token=req.headers["x-admin-token"]||req.query.token; if(token!==(process.env.ADMIN_PASSWORD||"pst-admin-2026"))return res.status(403).json({error:"Non autorise"}); if(db)await db.collection("zama_users").updateOne({id:user_id},{$set:{kyc:approved,kyc_pending:false,kyc_approved:approved,kyc_reviewed_at:new Date()}}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 
-app.get("/api/zama/users", async(req,res)=>{ try{if(!db)return res.json([]); const u=await db.collection("zama_users").find({}).sort({created:-1}).limit(200).toArray(); res.json(u.map(x=>{const{_id,...r}=x; delete r.password; return r;}));}catch(e){res.status(500).json({error:e.message});} });
+app.get("/api/zama/users", async(req,res)=>{ try{if(!db)return res.json([]); const u=await db.collection("zama_users").find({}).sort({created:-1}).limit(200).lean(); res.json(u.map(x=>{const{_id,...r}=x; delete r.password; return r;}));}catch(e){res.status(500).json({error:e.message});} });
 
-app.get("/api/zama/kyc/pending", async(req,res)=>{ try{if(!db)return res.json([]); const u=await db.collection("zama_users").find({kyc_pending:true}).sort({kyc_submitted_at:-1}).toArray(); res.json(u.map(x=>{const{_id,...r}=x; delete r.password; return r;}));}catch(e){res.status(500).json({error:e.message});} });
+app.get("/api/zama/kyc/pending", async(req,res)=>{ try{if(!db)return res.json([]); const u=await db.collection("zama_users").find({kyc_pending:true}).sort({kyc_submitted_at:-1}).lean(); res.json(u.map(x=>{const{_id,...r}=x; delete r.password; return r;}));}catch(e){res.status(500).json({error:e.message});} });
 
 // Create order
 app.post("/api/zama/create", async(req,res)=>{ try{const{src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,message,user_id}=req.body; const orderId="ZAMA-"+Date.now(); const amtUSD=src_currency==="USD"?amount:parseFloat((amount*(rate_fcfa/606)).toFixed(2)); const paymentUrl = "https://pay.izichange.com/pos/a1b8f972-befb-4186-b0e6-45c982750402?memo=" + orderId; console.log("[ZAMA] POS URL:", paymentUrl); if(db)await db.collection("zama_orders").insertOne({order_id:orderId,src_currency,amount,rate_fcfa,net_fcfa,receiver_name,receiver_phone,receiver_mm,sender_name,sender_email,message,user_id:user_id||null,status:"pending",created_at:new Date(),updated_at:new Date()}); try{const nodemailer=require("nodemailer"); const t=nodemailer.createTransport({service:"gmail",auth:{user:process.env.GMAIL_USER,pass:process.env.GMAIL_APP_PASSWORD}}); await t.sendMail({from:process.env.GMAIL_USER,to:process.env.GMAIL_USER,subject:"ZAMA Nouvelle commande: "+orderId,html:"<h2>Commande ZAMA</h2><p>"+amount+" "+src_currency+" → "+net_fcfa+" FCFA</p><p>Destinataire: "+receiver_name+" "+receiver_phone+" ("+receiver_mm+")</p>"});}catch(e){} // SMS confirmation commande au sender
@@ -382,10 +382,10 @@ app.post("/api/zama/create", async(req,res)=>{ try{const{src_currency,amount,rat
 app.get("/api/zama/status/:orderId", async(req,res)=>{ try{if(!db)return res.json({status:"pending",order_id:req.params.orderId}); const o=await db.collection("zama_orders").findOne({order_id:req.params.orderId}); if(!o)return res.json({status:"not_found"}); const{_id,...r}=o; res.json(r);}catch(e){res.status(500).json({error:e.message});} });
 
 // Orders admin
-app.get("/api/zama/orders", async(req,res)=>{ try{if(!db)return res.json([]); const o=await db.collection("zama_orders").find({}).sort({created_at:-1}).limit(200).toArray(); res.json(o.map(x=>{const{_id,...r}=x;return r;}));}catch(e){res.status(500).json({error:e.message});} });
+app.get("/api/zama/orders", async(req,res)=>{ try{if(!db)return res.json([]); const o=await db.collection("zama_orders").find({}).sort({created_at:-1}).limit(200).lean(); res.json(o.map(x=>{const{_id,...r}=x;return r;}));}catch(e){res.status(500).json({error:e.message});} });
 
 // History user
-app.get("/api/zama/history/:userId", async(req,res)=>{ try{if(!db)return res.json([]); const o=await db.collection("zama_orders").find({user_id:req.params.userId}).sort({created_at:-1}).limit(20).toArray(); res.json(o.map(x=>{const{_id,...r}=x;return r;}));}catch(e){res.status(500).json({error:e.message});} });
+app.get("/api/zama/history/:userId", async(req,res)=>{ try{if(!db)return res.json([]); const o=await db.collection("zama_orders").find({user_id:req.params.userId}).sort({created_at:-1}).limit(20).lean(); res.json(o.map(x=>{const{_id,...r}=x;return r;}));}catch(e){res.status(500).json({error:e.message});} });
 
 // Contact
 app.post("/api/zama/contact", async(req,res)=>{ try{const{name,email,message}=req.body; if(db)await db.collection("zama_contacts").insertOne({name,email,message,created_at:new Date()}); try{const nodemailer=require("nodemailer"); const t=nodemailer.createTransport({service:"gmail",auth:{user:process.env.GMAIL_USER,pass:process.env.GMAIL_APP_PASSWORD}}); await t.sendMail({from:process.env.GMAIL_USER,to:process.env.GMAIL_USER,subject:"ZAMA Contact: "+name,html:"<p>De: "+name+" ("+email+")</p><p>"+message+"</p>"});}catch(e){} res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
@@ -1345,7 +1345,7 @@ app.get('/api/pstpay/admin/merchants', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const list = await db.collection('pstpay_merchants').find({}, { projection: { api_key: 0 } }).sort({ created_at: -1 }).toArray();
+    const list = await db.collection('pstpay_merchants').find({}, { projection: { api_key: 0 } }).sort({ created_at: -1 }).lean();
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1531,7 +1531,7 @@ app.get('/api/zama/epargne/user/:user_id', async (req, res) => {
     const list = await db.collection('zama_epargnes')
       .find({ user_id: req.params.user_id })
       .sort({ created_at: -1 })
-      .toArray();
+      .lean();
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1797,7 +1797,7 @@ app.get('/api/zama/tontine/user/:user_id', async (req, res) => {
         { createur_id: req.params.user_id },
         { 'membres.user_id': req.params.user_id },
       ]
-    }).sort({ created_at: -1 }).toArray();
+    }).sort({ created_at: -1 }).lean();
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1810,8 +1810,8 @@ app.get('/api/zama/tontine/admin/all', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const list = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).limit(100).toArray();
-    const epargnes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).limit(100).toArray();
+    const list = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).limit(100).lean();
+    const epargnes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).limit(100).lean();
     const total_epargne = epargnes.reduce((s, e) => s + e.solde_fcfa, 0);
     const total_tontine = list.reduce((s, t) => s + t.pot_total, 0);
     res.json({ tontines: list, epargnes, stats: { total_epargne, total_tontine, nb_tontines: list.length, nb_epargnes: epargnes.length } });
@@ -2027,7 +2027,7 @@ app.get('/api/zama/epargne/admin/depots-pending', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const pending = await db.collection('zama_depots_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).toArray();
+    const pending = await db.collection('zama_depots_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ pending, count: pending.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2040,7 +2040,7 @@ app.post('/api/zama/epargne/admin/appliquer-interets', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const epargnes = await db.collection('zama_epargnes').find({ status: 'actif', solde_fcfa: { $gt: 0 } }).toArray();
+    const epargnes = await db.collection('zama_epargnes').find({ status: 'actif', solde_fcfa: { $gt: 0 } }).lean();
     let total = 0, nb = 0;
     for (const ep of epargnes) {
       const interet = Math.round(ep.solde_fcfa * ZAMA_INTERET_MENSUEL);
@@ -2191,7 +2191,7 @@ app.get('/api/zama/epargne/admin/retraits-pending', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const pending = await db.collection('zama_retraits_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).toArray();
+    const pending = await db.collection('zama_retraits_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ pending, count: pending.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2238,9 +2238,9 @@ app.get('/api/zama/epargne/admin/tous-comptes', async (req, res) => {
     const token = req.headers['x-admin-token'] || req.query.token;
     if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
-    const comptes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).toArray();
+    const comptes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).lean();
     const total_sous_gestion = comptes.filter(c => c.status === 'actif').reduce((s, c) => s + c.solde_fcfa, 0);
-    const revenus = await db.collection('zama_revenus').find({}).toArray();
+    const revenus = await db.collection('zama_revenus').find({}).lean();
     const total_revenus = revenus.reduce((s, r) => s + (r.montant_frais || 0), 0);
     res.json({ comptes, total_sous_gestion, total_revenus, nb_actifs: comptes.filter(c => c.status === 'actif').length });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2353,7 +2353,7 @@ app.post('/api/zama/tontine/:tontine_id/cotiser-demande', async (req, res) => {
 app.get('/api/zama/tontine/admin/cotisations-pending', async (req, res) => {
   try {
     if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
-    const list = await db.collection('zama_cotisations').find({ statut: 'en_attente' }).sort({ created_at: -1 }).toArray();
+    const list = await db.collection('zama_cotisations').find({ statut: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ cotisations: list });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2454,7 +2454,7 @@ app.get('/api/zama/tontine/admin/rejeter-cotisation/:cotisation_id', async (req,
 app.get('/api/zama/tontine/admin/distributions-pending', async (req, res) => {
   try {
     if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
-    const list = await db.collection('zama_distributions').find({ statut: 'en_attente' }).sort({ created_at: -1 }).toArray();
+    const list = await db.collection('zama_distributions').find({ statut: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ distributions: list });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2519,8 +2519,8 @@ app.get('/api/zama/tontine/admin/rejeter-distribution/:distribution_id', async (
 app.get('/api/zama/tontine/admin/tous-comptes', async (req, res) => {
   try {
     if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
-    const tontines = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).toArray();
-    const distributions = await db.collection('zama_distributions').find({ statut: 'distribue' }).toArray();
+    const tontines = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).lean();
+    const distributions = await db.collection('zama_distributions').find({ statut: 'distribue' }).lean();
     const total_distribue = distributions.reduce((s, d) => s + (d.montant_net || 0), 0);
     const total_frais = distributions.reduce((s, d) => s + (d.montant_frais || 0), 0);
     const nb_actives = tontines.filter(t => t.status === 'actif').length;
@@ -2671,7 +2671,7 @@ app.post('/api/zama/epargne/admin/appliquer-interets-plans', async (req, res) =>
       taux_annuel: { $gt: 0 },
       solde_fcfa: { $gt: 0 },
       date_prochain_interet: { $lte: maintenant }
-    }).toArray();
+    }).lean();
 
     let traites = 0;
     let total_interets = 0;
@@ -2793,7 +2793,7 @@ app.post('/api/zama/pret/demander', async (req, res) => {
     // Vérifier épargne suffisante
     const epargnes = await db.collection('zama_epargnes').find({
       user_id, status: 'actif'
-    }).toArray();
+    }).lean();
     const total_epargne = epargnes.reduce((s, e) => s + (e.solde_fcfa || 0), 0);
 
     if (total_epargne < PRET_EPARGNE_MIN) {
@@ -2998,7 +2998,7 @@ app.post('/api/zama/pret/:pret_id/rembourser', async (req, res) => {
 app.get('/api/zama/pret/user/:user_id', async (req, res) => {
   try {
     if (!db) return res.json([]);
-    const prets = await db.collection('zama_prets').find({ user_id: req.params.user_id }).sort({ created_at: -1 }).toArray();
+    const prets = await db.collection('zama_prets').find({ user_id: req.params.user_id }).sort({ created_at: -1 }).lean();
     res.json(prets.map(p => { const { _id, ...r } = p; return r; }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3008,7 +3008,7 @@ app.get('/api/zama/pret/admin/tous', async (req, res) => {
   try {
     if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.json({ prets: [], stats: {} });
-    const prets = await db.collection('zama_prets').find({}).sort({ created_at: -1 }).limit(100).toArray();
+    const prets = await db.collection('zama_prets').find({}).sort({ created_at: -1 }).limit(100).lean();
     const en_attente = prets.filter(p => p.status === 'en_attente').length;
     const actifs = prets.filter(p => p.status === 'actif').length;
     const total_encours = prets.filter(p => p.status === 'actif').reduce((s, p) => s + p.solde_restant, 0);
@@ -3023,7 +3023,7 @@ app.get('/api/zama/pret/eligibilite/:user_id', async (req, res) => {
     if (!db) return res.json({ eligible: false, raison: 'DB indisponible' });
     const u = await db.collection('zama_users').findOne({ id: req.params.user_id });
     if (!u || !u.kyc || u.kyc_pending) return res.json({ eligible: false, raison: 'KYC requis', kyc_required: true });
-    const epargnes = await db.collection('zama_epargnes').find({ user_id: req.params.user_id, status: 'actif' }).toArray();
+    const epargnes = await db.collection('zama_epargnes').find({ user_id: req.params.user_id, status: 'actif' }).lean();
     const total = epargnes.reduce((s, e) => s + (e.solde_fcfa || 0), 0);
     const pret_actif = await db.collection('zama_prets').findOne({ user_id: req.params.user_id, status: { $in: ['en_attente', 'actif'] } });
     if (pret_actif) return res.json({ eligible: false, raison: 'Prêt en cours actif', pret_actif: pret_actif.pret_id });
@@ -3301,7 +3301,7 @@ app.get('/api/sen-sms/status/:bulkId', async (req, res) => {
 app.get('/api/sen-sms/campagnes', async (req, res) => {
   try {
     const db = client.db('pst_telecom');
-    const campagnes = await db.collection('sen_sms_campagnes').find({}).sort({ created_at: -1 }).limit(50).toArray();
+    const campagnes = await db.collection('sen_sms_campagnes').find({}).sort({ created_at: -1 }).limit(50).lean();
     res.json({ success: true, campagnes });
   } catch(err) {
     res.status(500).json({ error: err.message });
@@ -3324,9 +3324,9 @@ app.post('/api/sensms/register', async (req, res) => {
     var id = 'sms_' + Date.now();
     var user = { id: id, name: name, phone: phone, email: email, password: hash, credits: 0, sender_id: '', created_at: new Date() };
     if (db) {
-      var existing = await db.collection('sensms_users').findOne({ phone: phone });
+      var existing = await SensmsUser.findOne({ phone: phone });
       if (existing) return res.json({ success: false, error: 'Numero deja enregistre' });
-      await db.collection('sensms_users').insertOne(user);
+      var newSensmsDoc = new SensmsUser(user); await newSensmsDoc.save();
     } else {
       if (_sensmsUsers[phone]) return res.json({ success: false, error: 'Numero deja enregistre' });
       _sensmsUsers[phone] = user;
@@ -3337,7 +3337,7 @@ app.post('/api/sensms/register', async (req, res) => {
 
     var user = null;
     if (db) {
-      user = await db.collection('sensms_users').findOne({ $or: [{ phone: identifier }, { email: identifier }] });
+      user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
     } else {
       user = _sensmsUsers[identifier] || Object.values(_sensmsUsers).find(function(u){ return u.email === identifier; });
     }
@@ -3351,10 +3351,11 @@ app.post('/api/sensms/register', async (req, res) => {
 // GET /api/sensms/profile/:id
 app.get('/api/sensms/profile/:id', async (req, res) => {
   try {
-    if (!db) return res.json({ success: false, error: 'DB indisponible' });
-    var user = await db.collection('sensms_users').findOne({ id: req.params.id });
+    var mongoose = require('mongoose');
+    var SensmsUser = mongoose.models.SensmsUser || mongoose.model('SensmsUser');
+    var user = await SensmsUser.findById(req.params.id).lean();
     if (!user) return res.json({ success: false, error: 'Introuvable' });
-    delete user.password; delete user._id;
+    delete user.password;
     res.json({ success: true, user: user });
   } catch (e) { res.json({ success: false, error: e.message }); }
 });
@@ -3365,7 +3366,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
     var id = req.body.id; var sender_id = req.body.sender_id;
     if (!id || !sender_id) return res.json({ success: false, error: 'Donnees manquantes' });
     if (sender_id.length > 11) return res.json({ success: false, error: 'Sender ID max 11 caracteres' });
-    if (db) await db.collection('sensms_users').updateOne({ id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
+    await SensmsUser.updateOne({ _id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
     res.json({ success: true, sender_id: sender_id.toUpperCase() });
   } catch (e) { res.json({ success: false, error: e.message }); }
 });
@@ -3376,7 +3377,7 @@ app.get('/api/sensms/users', async (req, res) => {
     var token = req.headers['x-admin-token'] || req.query.token;
     if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
-    var users = await db.collection('sensms_users').find({}).sort({ created_at: -1 }).toArray();
+    var users = await SensmsUser.find({}).sort({ created_at: -1 }).lean();
     res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -3400,10 +3401,10 @@ app.post('/api/sensms/register', async function(req, res) {
     if (!name || !phone || !password) return res.json({ ok: false, error: 'Champs manquants' });
     if (!phone.startsWith('+')) phone = '+221' + phone;
     if (db) {
-      var existing = await db.collection('sensms_users').findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
+      var existing = await SensmsUser.findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
       if (existing) return res.json({ ok: false, error: 'Numero deja enregistre' });
       var newUser = { id: 'u_' + Date.now(), name: name, phone: phone, email: email, password: password, pack: 'Starter', credits: 0, sender_id: 'SenSMS', active: true, created_at: new Date() };
-      await db.collection('sensms_users').insertOne(newUser);
+      var newSensmsDoc = new SensmsUser(newUser); await newSensmsDoc.save();
       return res.json({ ok: true, user: { id: newUser.id, name: name, phone: phone, email: email, pack: 'Starter', credits: 0, sender_id: 'SenSMS' } });
     }
     var existingMem = sensmsUsers.find(function(u) { return u.phone === phone; });
@@ -3417,7 +3418,7 @@ app.post('/api/sensms/register', async function(req, res) {
     if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
     var user = null;
     if (db) {
-      user = await db.collection('sensms_users').findOne({
+      user = await SensmsUser.findOne({
         $or: [{ phone: identifier }, { email: identifier }],
         password: password
       });
