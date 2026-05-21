@@ -3313,46 +3313,58 @@ app.get('/api/sen-sms/campagnes', async (req, res) => {
 // SEN-SMS AUTH (MongoDB)
 // ================================================
 
+// === SENSMS ROUTES ===
+var _sensmsSchema = new (require('mongoose').Schema)({
+  phone: String, email: String, name: String, password: String,
+  pack: { type: String, default: 'Starter' },
+  credits: { type: Number, default: 0 },
+  sender_id: { type: String, default: 'SenSMS' },
+  active: { type: Boolean, default: true },
+  created_at: { type: Date, default: Date.now }
+});
+var SensmsUser = require('mongoose').models.SensmsUser || require('mongoose').model('SensmsUser', _sensmsSchema);
+
 // POST /api/sensms/register
-var _sensmsUsers = {};
 app.post('/api/sensms/register', async (req, res) => {
   try {
     var name = req.body.name; var phone = req.body.phone; var email = req.body.email || ''; var password = req.body.password;
     if (!name || !phone || !password) return res.json({ success: false, error: 'Champs obligatoires manquants' });
     if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court (6 min)' });
-    var hash = crypto.createHash('sha256').update(password).digest('hex');
-    var id = 'sms_' + Date.now();
-    var user = { id: id, name: name, phone: phone, email: email, password: hash, credits: 0, sender_id: '', created_at: new Date() };
-    if (db) {
-      var existing = await SensmsUser.findOne({ phone: phone });
-      if (existing) return res.json({ success: false, error: 'Numero deja enregistre' });
-      var newSensmsDoc = new SensmsUser(user); await newSensmsDoc.save();
-    } else {
-      if (_sensmsUsers[phone]) return res.json({ success: false, error: 'Numero deja enregistre' });
-      _sensmsUsers[phone] = user;
-    }
-    res.json({ success: true, user: { id: id, name: name, phone: phone, email: email, credits: 0 } });
-  } catch (e) { console.error('[SenSMS register]', e.message); res.json({ success: false, error: e.message }); }
+    if (phone.match(/^[0-9]{9}$/)) phone = '+221' + phone;
+    var existing = await SensmsUser.findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
+    if (existing) return res.json({ success: false, error: 'Compte deja existant avec ce numero ou email' });
+    var bcrypt = require('bcryptjs');
+    var hash = await bcrypt.hash(password, 10);
+    var newUser = new SensmsUser({ name: name, phone: phone, email: email, password: hash });
+    await newUser.save();
+    res.json({ success: true, user: { id: newUser._id, name: newUser.name, phone: newUser.phone, email: newUser.email, pack: newUser.pack, credits: newUser.credits, sender_id: newUser.sender_id } });
+  } catch(e) { console.error('SENSMS register error:', e); res.json({ success: false, error: e.message }); }
 });
 
-    var user = null;
+// POST /api/sensms/login
+app.post('/api/sensms/login', async (req, res) => {
+  try {
+    var identifier = req.body.identifier || req.body.phone || req.body.email || '';
+    var password = req.body.password;
+    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
+    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
+    var user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
     if (!user) return res.json({ success: false, error: 'Compte introuvable' });
-    var ok = (crypto.createHash('sha256').update(password).digest('hex') === user.password);
+    var bcrypt = require('bcryptjs');
+    var ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
-    res.json({ success: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email, credits: user.credits || 0, sender_id: user.sender_id || '' } });
-  } catch (e) { console.error('[SenSMS login]', e.message); res.json({ success: false, error: e.message }); }
+    res.json({ success: true, user: { id: user._id, phone: user.phone, email: user.email, name: user.name, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
+  } catch(e) { console.error('SENSMS login error:', e); res.json({ success: false, error: e.message }); }
 });
 
 // GET /api/sensms/profile/:id
 app.get('/api/sensms/profile/:id', async (req, res) => {
   try {
-    var mongoose = require('mongoose');
-    var SensmsUser = mongoose.models.SensmsUser || mongoose.model('SensmsUser');
     var user = await SensmsUser.findById(req.params.id).lean();
     if (!user) return res.json({ success: false, error: 'Introuvable' });
     delete user.password;
     res.json({ success: true, user: user });
-  } catch (e) { res.json({ success: false, error: e.message }); }
+  } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
 // POST /api/sensms/update-sender
@@ -3363,98 +3375,15 @@ app.post('/api/sensms/update-sender', async (req, res) => {
     if (sender_id.length > 11) return res.json({ success: false, error: 'Sender ID max 11 caracteres' });
     await SensmsUser.updateOne({ _id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
     res.json({ success: true, sender_id: sender_id.toUpperCase() });
-  } catch (e) { res.json({ success: false, error: e.message }); }
+  } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
 // GET /api/sensms/users (admin)
 app.get('/api/sensms/users', async (req, res) => {
   try {
-    var token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
-    if (!db) return res.json([]);
     var users = await SensmsUser.find({}).sort({ created_at: -1 }).lean();
-    res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    users.forEach(function(u) { delete u.password; });
+    res.json({ success: true, users: users });
+  } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// FIN SEN-SMS AUTH
-
-// ─── DÉMARRAGE ─────────────────────────────────────────────
-app.get('/', (req,res) => res.sendFile(require('path').join(__dirname,'zama.html')));
-
-// ============================================================
-// ROUTES SENSMS AUTH
-// ============================================================
-var sensmsUsers = [];
-
-app.post('/api/sensms/register', async function(req, res) {
-  try {
-    var name = req.body.name;
-    var phone = req.body.phone;
-    var email = req.body.email || '';
-    var password = req.body.password;
-    if (!name || !phone || !password) return res.json({ ok: false, error: 'Champs manquants' });
-    if (!phone.startsWith('+')) phone = '+221' + phone;
-    if (db) {
-      var existing = await SensmsUser.findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
-      if (existing) return res.json({ ok: false, error: 'Numero deja enregistre' });
-      var newUser = { id: 'u_' + Date.now(), name: name, phone: phone, email: email, password: password, pack: 'Starter', credits: 0, sender_id: 'SenSMS', active: true, created_at: new Date() };
-      var newSensmsDoc = new SensmsUser(newUser); await newSensmsDoc.save();
-      return res.json({ ok: true, user: { id: newUser.id, name: name, phone: phone, email: email, pack: 'Starter', credits: 0, sender_id: 'SenSMS' } });
-    }
-    var existingMem = sensmsUsers.find(function(u) { return u.phone === phone; });
-    if (existingMem) return res.json({ ok: false, error: 'Numero deja enregistre' });
-    var memUser = { id: 'u_' + Date.now(), name: name, phone: phone, email: email, password: password, pack: 'Starter', credits: 0, sender_id: 'SenSMS', active: true };
-    sensmsUsers.push(memUser);
-    return res.json({ ok: true, user: { id: memUser.id, name: name, phone: phone, email: email, pack: 'Starter', credits: 0, sender_id: 'SenSMS' } });
-  } catch(e) { console.error('SENSMS register error:', e); res.json({ ok: false, error: e.message }); }
-});
-
-    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
-    var user = null;
-    if (db) {
-      user = await SensmsUser.findOne({
-        $or: [{ phone: identifier }, { email: identifier }],
-        password: password
-      });
-    }
-    if (!user) {
-      user = sensmsUsers.find(function(u) {
-        return (u.phone === identifier || u.email === identifier) && u.password === password;
-      });
-    }
-    if (!user) return res.json({ ok: false, error: 'Identifiants incorrects' });
-    if (user.active === false) return res.json({ ok: false, error: 'Compte suspendu' });
-    return res.json({ ok: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
-  } catch(e) { console.error('SENSMS login error:', e); res.json({ ok: false, error: e.message }); }
-});
-
-// POST /api/sensms/login
-app.post('/api/sensms/login', async (req, res) => {
-  try {
-    var identifier = req.body.identifier || req.body.phone || req.body.email || '';
-    var password = req.body.password;
-    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
-    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
-    var user = null;
-    if (db) {
-      var SensmsUser = require('mongoose').model('SensmsUser');
-      user = await SensmsUser.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
-    } else {
-      user = global.sensmsUsers ? global.sensmsUsers.find(function(u) { return u.phone === identifier || u.email === identifier; }) : null;
-    }
-    if (!user) return res.json({ success: false, error: 'Compte introuvable' });
-    var bcrypt = require('bcryptjs');
-    var ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
-    res.json({ success: true, user: { id: user._id || user.id, phone: user.phone, email: user.email, name: user.name, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
-  } catch(e) { console.error('SENSMS login error:', e); res.json({ success: false, error: e.message }); }
-});
-
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log("\nPST — Pure Smart Telecom");
-    console.log("http://localhost:" + PORT);
-    console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
-  });
-});
