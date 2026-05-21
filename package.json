@@ -12,7 +12,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
     "@vonage/server-sdk": "^3.27.0",
     "africastalking": "^0.7.9",
     "axios": "^1.16.0",
