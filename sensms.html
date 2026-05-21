@@ -901,7 +901,7 @@ function updateThemeBtn() {
 }
 
 // ── DASHBOARD SHOW/HIDE ────────────────────────────
-function showDashboard(packId) {
+function _origShowDashboard(packId) {
   var ds = document.getElementById('dashboard-section');
   if (!ds) return;
   ds.classList.add('active');
@@ -914,6 +914,8 @@ function showDashboard(packId) {
     }, 300);
   }
 }
+// showDashboard sera overridé par le système auth plus bas
+var showDashboard = function(packId) { _origShowDashboard(packId); };
 function hideDashboard() {
   document.getElementById('dashboard-section').classList.remove('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1889,7 +1891,6 @@ document.addEventListener('click', function(e) {
 });
 
 // ── Override showDashboard — exige auth ──
-var _origShowDashboard = showDashboard;
 showDashboard = function(packId) {
   if (senSmsUser) {
     _origShowDashboard(packId);
