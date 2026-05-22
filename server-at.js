@@ -62,8 +62,19 @@ const COIN_MAP = {
 };
 
 let db;
+let client;
 
 // ─── MongoDB ───────────────────────────────────────────────
+async function connectDB() {
+  if (!MONGODB_URI) { console.warn("WARNING MONGODB_URI manquant"); return null; }
+  try {
+    client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    console.log("OK MongoDB Atlas connecte");
+    return client.db('pst_telecom');
+  } catch(err) { console.error("ERREUR MongoDB:", err.message); return null; }
+}
+
 // ══ CORS ══
 app.use(function(req, res, next) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -151,8 +162,6 @@ app.post('/api/sen-sms/campaigns', senSmsAuth, async (req, res) => {
   } catch(e) { res.json({ success: false, error: 'Erreur serveur' }); }
 });
 // ══ FIN SEN-SMS AUTH ══
-
-
 
 // ─── izichangePay helpers ──────────────────────────────────
 function iziHeaders() {
