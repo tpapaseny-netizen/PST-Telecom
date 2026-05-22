@@ -76,7 +76,7 @@ body {
   font-family: var(--font-body);
   background: var(--cl-bg);
   color: var(--cl-text);
-  overflow-x: hidden;
+  overflow-x: clip;
   line-height: 1.6;
   transition: background 0.3s, color 0.3s;
 }
@@ -1314,7 +1314,7 @@ function goToPlatform(packId) { showDashboard(packId); }
 
 
 <!-- CONTACT -->
-<section id="contact" style="background:var(--green);padding:72px 20px;text-align:center;">
+<section id="contact" style="background:var(--green);padding:64px 20px 56px;text-align:center;">
   <div style="max-width:800px;margin:0 auto;">
     <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:rgba(0,0,0,0.5);text-transform:uppercase;margin-bottom:16px;">Besoin d'aide ?</div>
     <h2 style="font-family:'Syne',sans-serif;font-size:clamp(32px,5vw,52px);font-weight:800;color:#1C1917;margin-bottom:18px;line-height:1.15;">
@@ -1324,31 +1324,31 @@ function goToPlatform(packId) { showDashboard(packId); }
       Notre équipe est disponible pour vous accompagner.<br>
       Répondons à vos questions en moins de 24h.
     </p>
-    <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-bottom:44px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;justify-items:center;margin-bottom:36px;width:100%;max-width:700px;margin-left:auto;margin-right:auto;">
       <!-- WhatsApp -->
       <a href="https://wa.me/221765596442" target="_blank"
-         style="display:flex;align-items:center;gap:12px;background:#1C1917;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;transition:transform 0.2s;">
-        <span style="font-size:22px;">📱</span>
+         style="display:flex;align-items:center;gap:14px;background:#1C1917;color:#fff;padding:18px 24px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;width:100%;box-sizing:border-box;">
+        <span style="font-size:26px;flex-shrink:0;">📱</span>
         <div style="text-align:left;">
-          <div style="font-size:11px;opacity:0.6;font-weight:500;letter-spacing:1px;">WHATSAPP</div>
+          <div style="font-size:11px;opacity:0.55;font-weight:500;letter-spacing:1px;margin-bottom:3px;">WHATSAPP</div>
           <div>+221 76 559 64 42</div>
         </div>
       </a>
       <!-- Email -->
       <a href="mailto:contact@sensms.com"
-         style="display:flex;align-items:center;gap:12px;background:#1C1917;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;">
-        <span style="font-size:22px;">✉️</span>
+         style="display:flex;align-items:center;gap:14px;background:#1C1917;color:#fff;padding:18px 24px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;width:100%;box-sizing:border-box;">
+        <span style="font-size:26px;flex-shrink:0;">✉️</span>
         <div style="text-align:left;">
-          <div style="font-size:11px;opacity:0.6;font-weight:500;letter-spacing:1px;">EMAIL</div>
+          <div style="font-size:11px;opacity:0.55;font-weight:500;letter-spacing:1px;margin-bottom:3px;">EMAIL</div>
           <div>contact@sensms.com</div>
         </div>
       </a>
       <!-- Site -->
       <a href="https://www.sensms.com"
-         style="display:flex;align-items:center;gap:12px;background:#1C1917;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;">
-        <span style="font-size:22px;">🌐</span>
+         style="display:flex;align-items:center;gap:14px;background:#1C1917;color:#fff;padding:18px 24px;border-radius:14px;text-decoration:none;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;width:100%;box-sizing:border-box;">
+        <span style="font-size:26px;flex-shrink:0;">🌐</span>
         <div style="text-align:left;">
-          <div style="font-size:11px;opacity:0.6;font-weight:500;letter-spacing:1px;">SITE WEB</div>
+          <div style="font-size:11px;opacity:0.55;font-weight:500;letter-spacing:1px;margin-bottom:3px;">SITE WEB</div>
           <div>www.sensms.com</div>
         </div>
       </a>
