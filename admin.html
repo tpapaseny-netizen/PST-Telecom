@@ -1,6 +1,4 @@
-<!DOC
-<div class="nav-item" onclick="window.open('/securcam-admin?token=pst-admin-2026','_blank')" style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:8px;margin:8px 12px;color:#06B6D4;"><span class="nav-icon">­ƒô╣</span> PST SecurCam</div>
-TYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -253,7 +251,10 @@ textarea.field-input { resize:vertical; min-height:80px; }
     <label class="login-label">Adresse email</label>
     <input class="login-input" type="email" id="login-email" placeholder="votre@email.com" onkeydown="if(event.key==='Enter')doLogin()">
     <label class="login-label">Mot de passe admin</label>
-    <input class="login-input" type="password" id="login-pw" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="position:relative;">
+      <input class="login-input" type="password" id="login-pw" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:46px;width:100%;box-sizing:border-box;">
+      <button type="button" onclick="togglePwVis()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:20px;opacity:0.6;" id="pw-eye">👁️</button>
+    </div>
     <button class="login-btn" onclick="doLogin()">Accéder au panneau 📊</button>
     <p class="login-error" id="login-err">Email non autorisé ou mot de passe incorrect.</p>
   </div>
@@ -271,7 +272,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
     <nav class="sidebar-nav">
       <div class="nav-group-label">Tableau de bord</div>
       <button class="nav-item active" onclick="showSection('dashboard')" id="nav-dashboard">
-        <span class="nav-icon">­ƒôè</span> Vue générale
+        <span class="nav-icon">📈</span> Vue générale
       </button>
       <button class="nav-item" onclick="showSection('activity')" id="nav-activity">
         <span class="nav-icon">⚡</span> Activité temps réel
@@ -311,7 +312,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
         <span id="sensms-badge" style="display:none;background:#00C853;color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;margin-left:6px;">NEW</span>
       </button>
       <button class="nav-item" onclick="showSection('noc-clients')" id="nav-noc-clients">
-        <span class="nav-icon">­ƒô╣</span> NOC Clients
+        <span class="nav-icon">📷</span> NOC Clients
       </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
@@ -335,7 +336,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
         </div>
       </div>
       <button class="logout-btn" onclick="logout()">­ƒÜ¬ 
-<div class="nav-item" onclick="window.open('/securcam-admin?token=pst-admin-2026','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">­ƒô╣</span> PST SecurCam 📷</div>
+<div class="nav-item" onclick="window.open('/securcam-admin?token=pst-admin-2026','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">📷</span> PST SecurCam 📷</div>
 Déconnexion</button>
     </div>
   </aside>
@@ -935,7 +936,7 @@ setInterval(loadNocStatus, 60000);
         <!-- GÉNÉRER UN CODE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒöæ Générer un code de validation</div>
+            <div class="panel-title">🛡️ Générer un code de validation</div>
           </div>
           <div style="padding:24px;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
@@ -962,7 +963,7 @@ setInterval(loadNocStatus, 60000);
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:center;">
-              <button class="save-btn" onclick="genererCode()">­ƒöæ Générer le code</button>
+              <button class="save-btn" onclick="genererCode()">🛡️ Générer le code</button>
               <div id="code-result" style="display:none;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:12px 20px;">
                 <span style="font-size:12px;color:var(--muted);">Code généré : </span>
                 <strong id="code-value" style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--green);letter-spacing:2px;"></strong>
@@ -1001,7 +1002,7 @@ setInterval(loadNocStatus, 60000);
         <!-- HISTORIQUE CAMPAGNES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒôè Historique des campagnes</div>
+            <div class="panel-title">📈 Historique des campagnes</div>
             <button class="refresh-btn" onclick="loadSmsMktStats()">🔃 Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:500px;">
@@ -1131,7 +1132,7 @@ setInterval(loadNocStatus, 60000);
             </div>
             <div id="facture-result" style="display:none;margin-top:16px;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;">
               <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">✅ Facture générée !</div>
-              <a id="facture-link" href="#" target="_blank" style="background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">­ƒôä Voir / Télécharger la facture</a>
+              <a id="facture-link" href="#" target="_blank" style="background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📊 Voir / Télécharger la facture</a>
             </div>
           </div>
         </div>
@@ -1397,7 +1398,7 @@ setInterval(loadNocStatus, 60000);
 
         <!-- APERCU MARGES -->
         <div class="panel" style="margin-top:20px;padding:24px;">
-          <div class="panel-title" style="margin-bottom:16px;">­ƒôè Aper├ºu marges (coût AT ~4 FCFA/SMS)</div>
+          <div class="panel-title" style="margin-bottom:16px;">📈 Aper├ºu marges (coût AT ~4 FCFA/SMS)</div>
           <table class="data-table">
             <thead><tr><th>Pack</th><th>SMS</th><th>Prix client</th><th>Coût AT</th><th>Marge</th><th>%</th></tr></thead>
             <tbody id="marges-table"></tbody>
@@ -1480,7 +1481,7 @@ setInterval(loadNocStatus, 60000);
 
 <script>
 const API = 'https://pst-telecom-production.up.railway.app';
-const TOKEN = 'pst-admin-2026';
+const TOKEN = 'Pstdiama@1';
 const WAVE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
 const FORFAIT_PRICES = { starter: 2990, smart: 5990, business: 15990 };
 
@@ -1516,11 +1517,11 @@ function startApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const isSuper = currentAdmin.role === 'super';
-  document.getElementById('role-badge').textContent = isSuper ? '🔐 SUPER ADMIN' : '­ƒöæ ADMIN';
+  document.getElementById('role-badge').textContent = isSuper ? '🔐 SUPER ADMIN' : '🛡️ ADMIN';
   document.getElementById('role-badge').className = 'role-badge' + (isSuper ? '' : ' admin');
   document.getElementById('sidebar-name').textContent = currentAdmin.name;
   document.getElementById('sidebar-email').textContent = currentAdmin.email;
-  document.getElementById('sidebar-avatar').textContent = isSuper ? '🔐' : '­ƒöæ';
+  document.getElementById('sidebar-avatar').textContent = isSuper ? '🔐' : '🛡️';
   if(isSuper) {
     document.getElementById('nav-admins').style.display = 'flex';
     document.getElementById('nav-content').style.display = 'flex';
@@ -1833,7 +1834,7 @@ function renderAdmins() {
     const isMe = a.email === currentAdmin?.email;
     return `<div class="admin-row">
       <div class="admin-row-left">
-        <div class="admin-row-avatar ${isSuper?'super-av':''}">${isSuper?'🔐':'­ƒöæ'}</div>
+        <div class="admin-row-avatar ${isSuper?'super-av':''}">${isSuper?'🔐':'🛡️'}</div>
         <div>
           <div class="admin-row-name">${a.name || a.email.split('@')[0]} ${isMe?'<span style="color:var(--muted);font-size:11px">(moi)</span>':''}</div>
           <div class="admin-row-email">${a.email}</div>
@@ -2120,7 +2121,7 @@ async function loadFactures() {
     tbody.innerHTML = factures.map(function(f) {
       const date = new Date(f.createdAt).toLocaleDateString('fr-FR');
       const total = (f.lignes||[]).reduce(function(s,l){ return s+(l.quantite*l.prix); }, 0);
-      return '<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--green)">' + (f.numeroFacture||'—') + '</span></td><td><strong>' + (f.clientNom||'—') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (f.clientEmail||f.clientTel||'') + '</span></td><td><strong style="color:var(--green)">' + total.toLocaleString('fr-FR') + ' FCFA</strong></td><td style="font-size:12px;color:var(--muted)">' + date + '</td><td><a href="' + API + '/api/facture/' + f._id + '" target="_blank" class="act-btn" style="text-decoration:none;">­ƒôä Voir</a></td></tr>';
+      return '<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--green)">' + (f.numeroFacture||'—') + '</span></td><td><strong>' + (f.clientNom||'—') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (f.clientEmail||f.clientTel||'') + '</span></td><td><strong style="color:var(--green)">' + total.toLocaleString('fr-FR') + ' FCFA</strong></td><td style="font-size:12px;color:var(--muted)">' + date + '</td><td><a href="' + API + '/api/facture/' + f._id + '" target="_blank" class="act-btn" style="text-decoration:none;">📊 Voir</a></td></tr>';
     }).join('');
   } catch(e) {}
 }
@@ -2654,6 +2655,18 @@ function deleteSenSmsUser(userId) {
   });
 }
 // ══ FIN SENSMS ADMIN ══
+
+function togglePwVis() {
+  var inp = document.getElementById('login-pw');
+  var eye = document.getElementById('pw-eye');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    eye.textContent = '👁️';
+  } else {
+    inp.type = 'password';
+    eye.textContent = '👁️';
+  }
+}
 </script>
 </body>
 </html>
