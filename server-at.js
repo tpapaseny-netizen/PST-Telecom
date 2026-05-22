@@ -3754,6 +3754,65 @@ app.get('/api/sensms/users', async (req, res) => {
 
 // FIN SEN-SMS AUTH
 
+
+// ══ FORGOT PASSWORD SEN-SMS ══
+var senSmsOtpStore = {};
+
+app.post('/api/sen-sms/forgot', async (req, res) => {
+  try {
+    var { phone } = req.body;
+    if (!phone) return res.json({ success: false, error: 'Téléphone requis' });
+    // Normaliser le numéro
+    var p = phone.replace(/\s/g, '');
+    if (!p.startsWith('+')) p = '+221' + p;
+    // Vérifier que le compte existe
+    if (db) {
+      var user = await db.collection('sensms_users').findOne({ telephone: { $regex: p.replace('+221',''), $options:'i' } });
+      if (!user) return res.json({ success: false, error: 'Aucun compte avec ce numéro' });
+    }
+    // Générer OTP 6 chiffres
+    var otp = Math.floor(100000 + Math.random() * 900000).toString();
+    senSmsOtpStore[p] = { otp, expires: Date.now() + 10 * 60 * 1000 };
+    // Envoyer via Techsoft
+    var TECHSOFT_TOKEN = process.env.TECHSOFT_TOKEN || '1597|WVx84MHm3x4VoCzT7vzBm2RKZKANDok1N0wCtRd8f6f57823';
+    var msg = 'SenSMS - Code de reinitialisation: ' + otp + '. Valable 10 minutes.';
+    var url = 'https://app.techsoft-sms.com/api/http/' +
+      '?token=' + encodeURIComponent(TECHSOFT_TOKEN) +
+      '&to=' + encodeURIComponent(p) +
+      '&message=' + encodeURIComponent(msg) +
+      '&sender_id=SENSMS';
+    var r = await fetch(url);
+    var txt = await r.text();
+    console.log('[SenSMS Forgot]', p, txt);
+    res.json({ success: true });
+  } catch(e) { console.error('forgot:', e.message); res.json({ success: false, error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sen-sms/reset-password', async (req, res) => {
+  try {
+    var { phone, otp, newPassword } = req.body;
+    if (!phone || !otp || !newPassword) return res.json({ success: false, error: 'Données manquantes' });
+    var p = phone.replace(/\s/g, '');
+    if (!p.startsWith('+')) p = '+221' + p;
+    var record = senSmsOtpStore[p];
+    if (!record) return res.json({ success: false, error: 'Code non demandé ou expiré' });
+    if (Date.now() > record.expires) { delete senSmsOtpStore[p]; return res.json({ success: false, error: 'Code expiré' }); }
+    if (record.otp !== otp.trim()) return res.json({ success: false, error: 'Code invalide' });
+    delete senSmsOtpStore[p];
+    if (newPassword.length < 6) return res.json({ success: false, error: 'Mot de passe trop court' });
+    var hash = await require('bcryptjs').hash(newPassword, 10);
+    if (db) {
+      var numCourt = p.replace('+221','');
+      await db.collection('sensms_users').updateOne(
+        { telephone: { $regex: numCourt, $options:'i' } },
+        { $set: { password: hash, updatedAt: new Date() } }
+      );
+    }
+    res.json({ success: true });
+  } catch(e) { console.error('reset-password:', e.message); res.json({ success: false, error: 'Erreur serveur' }); }
+});
+// ══ FIN FORGOT PASSWORD ══
+
 // ── DÉMARRAGE ─────────────────────────────
 
 connectDB().then((dbInstance) => {

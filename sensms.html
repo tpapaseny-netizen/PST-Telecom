@@ -1425,7 +1425,26 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="vous@exemple.com" autocomplete="email"></div>
       <div class="auth-field"><label>Mot de passe</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"></div>
       <button class="auth-submit" id="login-btn" onclick="doLogin()">🔑 Se connecter</button>
+      <div class="auth-switch" style="margin-top:8px;"><a onclick="switchAuthTab('forgot')" style="color:#00C853;cursor:pointer;">Mot de passe oublié ?</a></div>
       <div class="auth-switch">Pas encore de compte ? <a onclick="switchAuthTab('register')">Créer un compte</a></div>
+    </div>
+
+    <!-- FORGOT -->
+    <div id="form-forgot" style="display:none;">
+      <p style="font-size:13px;color:#888;margin-bottom:16px;">Entrez votre numéro de téléphone enregistré — vous recevrez un code par SMS.</p>
+      <div class="auth-field"><label>Téléphone</label><input type="tel" id="forgot-phone" placeholder="+221 77 000 00 00"></div>
+      <button class="auth-submit" id="forgot-btn" onclick="doForgot()">📱 Envoyer le code</button>
+      <div class="auth-switch"><a onclick="switchAuthTab('login')" style="cursor:pointer;">← Retour à la connexion</a></div>
+    </div>
+
+    <!-- OTP -->
+    <div id="form-otp" style="display:none;">
+      <p style="font-size:13px;color:#888;margin-bottom:16px;">Code à 6 chiffres envoyé par SMS. Valable 10 minutes.</p>
+      <div class="auth-field"><label>Code OTP</label><input type="text" id="otp-code" placeholder="123456" maxlength="6" style="letter-spacing:6px;font-size:22px;text-align:center;"></div>
+      <div class="auth-field"><label>Nouveau mot de passe</label><input type="password" id="otp-newpw" placeholder="6 caractères minimum"></div>
+      <div class="auth-field"><label>Confirmer</label><input type="password" id="otp-confirmpw" placeholder="Répétez le mot de passe"></div>
+      <button class="auth-submit" id="otp-btn" onclick="doResetPassword()">✅ Réinitialiser</button>
+      <div class="auth-switch"><a onclick="switchAuthTab('forgot')" style="cursor:pointer;">← Renvoyer le code</a></div>
     </div>
 
     <!-- REGISTER -->
@@ -2026,6 +2045,8 @@ function switchAuthTab(tab) {
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
   document.getElementById('form-login').style.display    = tab === 'login'    ? 'block' : 'none';
   document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  var ff = document.getElementById('form-forgot'); if(ff) ff.style.display = tab === 'forgot' ? 'block' : 'none';
+  var fo = document.getElementById('form-otp');    if(fo) fo.style.display = tab === 'otp'    ? 'block' : 'none';
   document.getElementById('auth-error').style.display   = 'none';
   document.getElementById('auth-success').style.display = 'none';
 }
@@ -2306,6 +2327,59 @@ function telechargerRapport() {
 }
 function markStepDone(n){var el=document.getElementById('snum-'+n);el.classList.add('done');el.textContent='✓';}
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'success');setTimeout(function(){t.classList.add('show');},10);setTimeout(function(){t.classList.remove('show');},3500);}
+
+// ══ MOT DE PASSE OUBLIE ══
+var forgotPhone = '';
+
+function doForgot() {
+  var btn = document.getElementById('forgot-btn');
+  forgotPhone = document.getElementById('forgot-phone').value.trim();
+  if (!forgotPhone) { showAuthError('Entrez votre numéro de téléphone'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Envoi...';
+  fetch(API + '/api/sen-sms/forgot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: forgotPhone })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      showAuthSuccess('Code envoyé au ' + forgotPhone);
+      setTimeout(function() { switchAuthTab('otp'); }, 800);
+    } else {
+      showAuthError(data.error || 'Erreur envoi SMS');
+    }
+    btn.disabled = false; btn.textContent = '📱 Envoyer le code';
+  })
+  .catch(function() { showAuthError('Erreur réseau'); btn.disabled = false; btn.textContent = '📱 Envoyer le code'; });
+}
+
+function doResetPassword() {
+  var btn = document.getElementById('otp-btn');
+  var code = document.getElementById('otp-code').value.trim();
+  var newpw = document.getElementById('otp-newpw').value;
+  var confirmpw = document.getElementById('otp-confirmpw').value;
+  if (!code || code.length !== 6) { showAuthError('Code à 6 chiffres requis'); return; }
+  if (!newpw || newpw.length < 6) { showAuthError('Mot de passe trop court'); return; }
+  if (newpw !== confirmpw) { showAuthError('Les mots de passe ne correspondent pas'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Réinitialisation...';
+  fetch(API + '/api/sen-sms/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: forgotPhone, otp: code, newPassword: newpw })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      showAuthSuccess('Mot de passe réinitialisé ! Connectez-vous.');
+      setTimeout(function() { switchAuthTab('login'); }, 1200);
+    } else {
+      showAuthError(data.error || 'Code invalide ou expiré');
+    }
+    btn.disabled = false; btn.textContent = '✅ Réinitialiser';
+  })
+  .catch(function() { showAuthError('Erreur réseau'); btn.disabled = false; btn.textContent = '✅ Réinitialiser'; });
+}
 </script>
 </body>
 </div>
