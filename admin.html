@@ -281,31 +281,31 @@ textarea.field-input { resize:vertical; min-height:80px; }
 
       <div class="nav-group-label">Gestion</div>
       <button class="nav-item" onclick="showSection('users')" id="nav-users">
-        <span class="nav-icon">­ƒæÑ</span> Abonnés
+        <span class="nav-icon">👥</span> Abonnés
       </button>
       <button class="nav-item" onclick="showSection('sms-logs')" id="nav-sms-logs">
         <span class="nav-icon">❌´©Å</span> SMS Verif
       </button>
       <button class="nav-item" onclick="showSection('calls')" id="nav-calls">
-        <span class="nav-icon">­ƒô×</span> Appels
+        <span class="nav-icon">­✖️</span> Appels
       </button>
       <button class="nav-item" onclick="showSection('payments')" id="nav-payments">
-        <span class="nav-icon">­ƒÆ░</span> Paiements
+        <span class="nav-icon">­🎨</span> Paiements
       </button>
       <button class="nav-item" onclick="showSection('revenue')" id="nav-revenue">
-        <span class="nav-icon">­ƒôê</span> Revenus
+        <span class="nav-icon">💰</span> Revenus
       </button>
       <button class="nav-item" onclick="showSection('sms-marketing')" id="nav-sms-marketing">
-        <span class="nav-icon">­ƒô®</span> SMS Marketing
+        <span class="nav-icon">­📱</span> SMS Marketing
       </button>
       <button class="nav-item" onclick="showSection('recharge')" id="nav-recharge">
         <span class="nav-icon">⚡</span> Recharges
       </button>
       <button class="nav-item" onclick="showSection('securite')" id="nav-securite">
-        <span class="nav-icon">­ƒöÆ</span> Sécurité
+        <span class="nav-icon">🔐</span> Sécurité
       </button>
       <button class="nav-item" onclick="showSection('factures')" id="nav-factures">
-        <span class="nav-icon">­ƒº¥</span> Factures
+        <span class="nav-icon">🧾</span> Factures
       </button>
       <button class="nav-item" onclick="showSection('sensms')" id="nav-sensms">
         <span class="nav-icon">💬</span> SenSMS
@@ -321,7 +321,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
           <span>Crypto Payments</span>
         </div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
-        <span class="nav-icon">­ƒöÉ</span> Gérer les admins
+        <span class="nav-icon">👑</span> Gérer les admins
       </button>
       <button class="nav-item" onclick="showSection('content')" id="nav-content" style="display:none">
         <span class="nav-icon">❎´©Å</span> Contenu du site
@@ -329,14 +329,14 @@ textarea.field-input { resize:vertical; min-height:80px; }
     </nav>
     <div class="sidebar-footer">
       <div class="admin-user">
-        <div class="admin-avatar" id="sidebar-avatar">­ƒæñ</div>
+        <div class="admin-avatar" id="sidebar-avatar">👤</div>
         <div class="admin-info">
           <div class="name" id="sidebar-name">—</div>
           <div class="email" id="sidebar-email">—</div>
         </div>
       </div>
-      <button class="logout-btn" onclick="logout()">­ƒÜ¬ 
-<div class="nav-item" onclick="window.open('/securcam-admin?token=pst-admin-2026','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">📷</span> PST SecurCam 📷</div>
+      <button class="logout-btn" onclick="logout()">🚪 
+<div class="nav-item" onclick="window.open('/securcam-admin?token=Pstdiama@1','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">📷</span> PST SecurCam 📷</div>
 Déconnexion</button>
     </div>
   </aside>
@@ -377,7 +377,7 @@ Déconnexion</button>
   </div>
   <div style="margin-left:auto;display:flex;gap:8px">
     <button onclick="nocCheckNow()" style="padding:6px 12px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:7px;color:#00d4ff;font-size:11px;cursor:pointer">Verifier maintenant</button>
-    <a href="/noc?token=pst-admin-2026" target="_blank" style="padding:6px 12px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:7px;color:#00d4ff;font-size:11px;cursor:pointer;text-decoration:none">Ouvrir NOC</a>
+    <a href="/noc?token=Pstdiama@1" target="_blank" style="padding:6px 12px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:7px;color:#00d4ff;font-size:11px;cursor:pointer;text-decoration:none">Ouvrir NOC</a>
   </div>
   <div id="noc-last-check" style="width:100%;font-size:10px;color:#475569;margin-top:4px"></div>
 </div>
@@ -442,7 +442,7 @@ Déconnexion</button>
 </div>
 <script>
 function loadRechargeStats(){
-  fetch('/api/recharge/stats?token=pst-admin-2026')
+  fetch('/api/recharge/stats?token=Pstdiama@1')
   .then(function(r){return r.json();})
   .then(function(d){
     document.getElementById('rech-total').textContent = d.total || 0;
@@ -457,7 +457,7 @@ setInterval(loadRechargeStats, 60000);
 
 <script>
 function loadSmsStats(){
-  fetch('/api/sms-marketing/stats?token=pst-admin-2026')
+  fetch('/api/sms-marketing/stats?token=Pstdiama@1')
   .then(function(r){return r.json();})
   .then(function(d){
     document.getElementById('sms-total-camp').textContent = d.totalCampagnes || d.total || 0;
@@ -474,7 +474,7 @@ setInterval(loadSmsStats, 60000);
 </style>
 <script>
 function loadNocStatus(){
-  fetch('/api/noc/agent/status?token=pst-admin-2026')
+  fetch('/api/noc/agent/status?token=Pstdiama@1')
   .then(function(r){return r.json();})
   .then(function(d){
     document.getElementById('noc-total').textContent = d.cameras || 0;
@@ -503,7 +503,7 @@ function nocCheckNow(){
   var btn = event.target;
   btn.textContent = 'Verification...';
   btn.disabled = true;
-  fetch('/api/noc/agent/check-now?token=pst-admin-2026',{
+  fetch('/api/noc/agent/check-now?token=Pstdiama@1',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:'{}'
@@ -639,7 +639,7 @@ setInterval(loadNocStatus, 60000);
 
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒæÑ Tous les abonnés</div>
+            <div class="panel-title">👥 Tous les abonnés</div>
             <div style="display:flex;gap:10px;">
               <input id="search-users" placeholder="Rechercher..." style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:#fff;font-size:13px;outline:none;width:200px;" oninput="filterUsers()">
               <button class="refresh-btn" onclick="loadUsers()">🔃</button>
@@ -710,13 +710,13 @@ setInterval(loadNocStatus, 60000);
       <div class="section" id="section-calls">
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒô× Historique des appels</div>
+            <div class="panel-title">­✖️ Historique des appels</div>
             <button class="refresh-btn" onclick="loadCalls()">🔃</button>
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
               <thead><tr><th>Heure</th><th>Appelant</th><th>Destination</th><th>Durée</th><th>Statut</th></tr></thead>
-              <tbody id="calls-table"><tr><td colspan="5" class="empty"><div class="empty-icon">­ƒô×</div><p>Aucun appel enregistré</p></td></tr></tbody>
+              <tbody id="calls-table"><tr><td colspan="5" class="empty"><div class="empty-icon">­✖️</div><p>Aucun appel enregistré</p></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -766,7 +766,7 @@ setInterval(loadNocStatus, 60000);
                 <option value="confirme">Confirmé ✅</option>
                 <option value="en_attente">En attente 🔒</option>
               </select>
-              <button class="save-btn" onclick="addPayment()">­ƒÆ░ Enregistrer</button>
+              <button class="save-btn" onclick="addPayment()">­🎨 Enregistrer</button>
             </div>
           </div>
         </div>
@@ -774,7 +774,7 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE PAIEMENTS -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒÆ░ Tous les paiements</div>
+            <div class="panel-title">­🎨 Tous les paiements</div>
             <div style="display:flex;gap:10px;">
               <select id="pay-filter" class="field-input" style="width:160px;padding:7px 12px;font-size:13px;" onchange="filterPayments()">
                 <option value="tous">Tous</option>
@@ -866,12 +866,12 @@ setInterval(loadNocStatus, 60000);
         <div class="panel" style="margin-bottom:20px;padding:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
             <div>
-              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">­ƒô® Plateforme SMS Marketing</div>
+              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">­📱 Plateforme SMS Marketing</div>
               <div style="font-size:13px;color:var(--muted);">Envoyez des SMS en masse — import Excel, personnalisation, planification</div>
             </div>
             <a href="https://pst-telecom-production.up.railway.app/sms-marketing" target="_blank"
                style="background:var(--green);color:#000;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;white-space:nowrap;">
-              ­ƒÜÇ Ouvrir la plateforme 📊
+              🚀 Ouvrir la plateforme 📊
             </a>
           </div>
         </div>
@@ -879,11 +879,11 @@ setInterval(loadNocStatus, 60000);
         <!-- AUTORISER UNE RÉFÉRENCE WAVE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒÆÜ Autoriser une référence Wave/Visa</div>
+            <div class="panel-title">✅ Autoriser une référence Wave/Visa</div>
           </div>
           <div style="padding:24px;">
             <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--muted);">
-              ­ƒôï <strong style="color:#fff;">Workflow :</strong> Client paie Wave 📊 tu re├ºois la notification 📊 tu entres sa référence ici 📊 il peut l'utiliser sur la plateforme
+              💡 <strong style="color:#fff;">Workflow :</strong> Client paie Wave 📊 tu re├ºois la notification 📊 tu entres sa référence ici 📊 il peut l'utiliser sur la plateforme
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
               <div>
@@ -910,7 +910,7 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE RÉFÉRENCES AUTORISÉES -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒôï Références autorisées</div>
+            <div class="panel-title">💡 Références autorisées</div>
             <button class="refresh-btn" onclick="loadRefs()">🔃 Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:300px;">
@@ -976,7 +976,7 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE DES CODES -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒôï Codes générés</div>
+            <div class="panel-title">💡 Codes générés</div>
             <button class="refresh-btn" onclick="loadCodes()">🔃 Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:300px;">
@@ -1069,7 +1069,7 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE RECHARGES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒôï Historique des recharges</div>
+            <div class="panel-title">💡 Historique des recharges</div>
             <button class="refresh-btn" onclick="loadRecharges()">🔃 Actualiser</button>
           </div>
           <div class="panel-body">
@@ -1097,7 +1097,7 @@ setInterval(loadNocStatus, 60000);
         <!-- GÉNÉRER UNE FACTURE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒº¥ Générer une facture</div>
+            <div class="panel-title">🧾 Générer une facture</div>
           </div>
           <div style="padding:24px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
@@ -1127,8 +1127,8 @@ setInterval(loadNocStatus, 60000);
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <button class="save-btn" onclick="genererFacture(false)">­ƒº¥ Générer PDF</button>
-              <button class="save-btn" style="background:var(--blue);" onclick="genererFacture(true)">­ƒôº Générer + Envoyer par email</button>
+              <button class="save-btn" onclick="genererFacture(false)">🧾 Générer PDF</button>
+              <button class="save-btn" style="background:var(--blue);" onclick="genererFacture(true)">📧 Générer + Envoyer par email</button>
             </div>
             <div id="facture-result" style="display:none;margin-top:16px;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;">
               <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">✅ Facture générée !</div>
@@ -1140,7 +1140,7 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE FACTURES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒôï Historique des factures</div>
+            <div class="panel-title">💡 Historique des factures</div>
             <button class="refresh-btn" onclick="loadFactures()">🔃 Actualiser</button>
           </div>
           <div class="panel-body">
@@ -1258,7 +1258,7 @@ setInterval(loadNocStatus, 60000);
         </div>
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">­ƒÆ¥ Backups automatiques</div>
+            <div class="panel-title">💾 Backups automatiques</div>
             <button class="refresh-btn" onclick="backupNow()">💾 Backup maintenant</button>
           </div>
           <div class="panel-body">
@@ -1270,7 +1270,7 @@ setInterval(loadNocStatus, 60000);
         </div>
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">­ƒÜ¿ Logs de sécurité</div>
+            <div class="panel-title">⚠️ Logs de sécurité</div>
             <button class="refresh-btn" onclick="loadSecurityLogs()">🔃 Actualiser</button>
           </div>
           <div class="panel-body">
@@ -1283,7 +1283,7 @@ setInterval(loadNocStatus, 60000);
       </div>
       <div class="section" id="section-admins">
         <div class="panel" style="padding:28px;margin-bottom:20px;">
-          <div class="panel-header"><div class="panel-title">­ƒöÉ Administrateurs autorisés</div></div>
+          <div class="panel-header"><div class="panel-title">👑 Administrateurs autorisés</div></div>
           <div class="panel-body" style="padding:24px;">
             <div class="admins-list" id="admins-list">
               <!-- populated by JS -->
@@ -1307,7 +1307,7 @@ setInterval(loadNocStatus, 60000);
       <div class="section" id="section-content">
         <div class="editor-grid">
           <div class="editor-card">
-            <h3>­ƒÅá Page d'accueil</h3>
+            <h3>🏠 Page d'accueil</h3>
             <div class="field-group">
               <label class="field-label">Titre principal</label>
               <input class="field-input" id="c-hero-title" placeholder="L'opérateur intelligent du Sénégal">
@@ -1324,10 +1324,10 @@ setInterval(loadNocStatus, 60000);
               <label class="field-label">Stat 1 — label</label>
               <input class="field-input" id="c-stat1-label" placeholder="Services SMS">
             </div>
-            <button class="save-btn" onclick="saveContent()">­ƒÆ¥ Sauvegarder</button>
+            <button class="save-btn" onclick="saveContent()">💾 Sauvegarder</button>
           </div>
           <div class="editor-card">
-            <h3>­ƒÆ░ Forfaits</h3>
+            <h3>­🎨 Forfaits</h3>
             <div class="field-group">
               <label class="field-label">Prix Starter (FCFA)</label>
               <input class="field-input" type="number" id="c-price-starter" placeholder="2990">
@@ -1348,14 +1348,14 @@ setInterval(loadNocStatus, 60000);
               <label class="field-label">Prix Business (FCFA)</label>
               <input class="field-input" type="number" id="c-price-business" placeholder="15990">
             </div>
-            <button class="save-btn" onclick="saveContent()">­ƒÆ¥ Sauvegarder</button>
+            <button class="save-btn" onclick="saveContent()">💾 Sauvegarder</button>
           </div>
         </div>
 
         <!-- SMS MARKETING PACKS -->
         <div class="editor-grid" style="margin-top:20px;">
           <div class="editor-card">
-            <h3>­ƒô® Packs SMS Marketing</h3>
+            <h3>­📱 Packs SMS Marketing</h3>
             <div class="field-group">
               <label class="field-label">Pack Starter — SMS</label>
               <input class="field-input" type="number" id="c-sms-starter-qty" placeholder="100">
@@ -1372,10 +1372,10 @@ setInterval(loadNocStatus, 60000);
               <label class="field-label">Pack Pro — Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-pro-price" placeholder="8000">
             </div>
-            <button class="save-btn" onclick="saveSmsContent()">­ƒÆ¥ Sauvegarder</button>
+            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
           </div>
           <div class="editor-card">
-            <h3>­ƒô® Packs SMS Marketing (suite)</h3>
+            <h3>­📱 Packs SMS Marketing (suite)</h3>
             <div class="field-group">
               <label class="field-label">Pack Business — SMS</label>
               <input class="field-input" type="number" id="c-sms-business-qty" placeholder="5000">
@@ -1392,7 +1392,7 @@ setInterval(loadNocStatus, 60000);
               <label class="field-label">Pack École — Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-ecole-price" placeholder="60000">
             </div>
-            <button class="save-btn" onclick="saveSmsContent()">­ƒÆ¥ Sauvegarder</button>
+            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
           </div>
         </div>
 
@@ -1574,12 +1574,12 @@ function loadStats() {
 
       // Detect new activity
       if(lastUserCount > 0 && total > lastUserCount) {
-        addActivity('green','­ƒæñ','Nouvel abonné inscrit', new Date().toLocaleTimeString('fr-FR'));
+        addActivity('green','👤','Nouvel abonné inscrit', new Date().toLocaleTimeString('fr-FR'));
         newActivityCount++;
         updateActivityBadge();
       }
       if(lastRevenue > 0 && revenus > lastRevenue) {
-        addActivity('orange','­ƒÆ░','Nouveau paiement re├ºu via Wave', new Date().toLocaleTimeString('fr-FR'));
+        addActivity('orange','­🎨','Nouveau paiement re├ºu via Wave', new Date().toLocaleTimeString('fr-FR'));
         newActivityCount++;
         updateActivityBadge();
       }
@@ -1643,7 +1643,7 @@ function renderUsers(users) {
         ${u.statut!=='actif' ? `<button class="act-btn activate" onclick="activateUser('${u.userId}')">✔ Activer</button>` : ''}
         ${u.statut==='actif' ? `<button class="act-btn suspend" onclick="suspendUser('${u.userId}')">🚫 Suspendre</button>` : ''}
         <button class="act-btn edit" onclick="editUser('${u.userId}')">❎´©Å</button>
-        <button class="act-btn delete" onclick="deleteUser('${u.userId}')">­ƒùæ</button>
+        <button class="act-btn delete" onclick="deleteUser('${u.userId}')">🗑️</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -1674,7 +1674,7 @@ function suspendUser(id) {
 function deleteUser(id) {
   if(!confirm('Supprimer cet abonné ?')) return;
   fetch(API + '/api/admin/users/' + id, {method:'DELETE'})
-    .then(r=>r.json()).then(d=>{ showToast('­ƒùæ Supprimé','success'); loadUsers(); loadStats(); })
+    .then(r=>r.json()).then(d=>{ showToast('🗑️ Supprimé','success'); loadUsers(); loadStats(); })
     .catch(()=>showToast('Erreur','error'));
 }
 
@@ -1750,7 +1750,7 @@ function loadActivity() {
     if(logs.length) {
       activityLog = logs.map(l=>({
         color: l.type==='inscription'?'green':l.type==='paiement'?'orange':l.type==='sms'?'blue':'red',
-        icon: l.type==='inscription'?'­ƒæñ':l.type==='paiement'?'­ƒÆ░':l.type==='sms'?'❌´©Å':'­ƒô×',
+        icon: l.type==='inscription'?'👤':l.type==='paiement'?'­🎨':l.type==='sms'?'❌´©Å':'­✖️',
         msg: l.message || l.msg || l.description || JSON.stringify(l),
         time: l.time || l.createdAt || '—'
       }));
@@ -1793,7 +1793,7 @@ async function addUserManual() {
       const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + prices[forfait];
       document.getElementById('add-wave-link').style.display = 'block';
       document.getElementById('add-wave-url').href = waveUrl;
-      document.getElementById('add-wave-url').textContent = '­ƒÆÜ Lien Wave ' + forfait + ' 📊';
+      document.getElementById('add-wave-url').textContent = '✅ Lien Wave ' + forfait + ' 📊';
       showToast('✅ Abonné créé : ' + data.userId, 'success');
       document.getElementById('add-nom').value = '';
       document.getElementById('add-prenom').value = '';
@@ -1986,11 +1986,11 @@ function renderPayments(payments) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement</td></tr>';
     return;
   }
-  const moyenIcon = { wave:'­ƒÆÜ', orange_money:'­ƒƒá', especes:'­ƒÆÁ', carte:'­ƒÆ│', autre:'­ƒöù' };
+  const moyenIcon = { wave:'✅', orange_money:'🟠', especes:'💵', carte:'💳', autre:'🔵' };
   const typeLabel = { forfait:'Forfait', sms:'Points SMS', renouvellement:'Renouvellement' };
   tbody.innerHTML = payments.map(p => {
     const date = p.createdAt ? new Date(p.createdAt).toLocaleString('fr-FR') : '—';
-    const icon = moyenIcon[p.moyen] || '­ƒÆ░';
+    const icon = moyenIcon[p.moyen] || '­🎨';
     const statBadge = p.statut === 'confirme'
       ? '<span class="badge active">✅ Confirmé</span>'
       : '<span class="badge pending">🔒 En attente</span>';
@@ -2004,7 +2004,7 @@ function renderPayments(payments) {
       <td>${statBadge}</td>
       <td><div class="action-group">
         ${p.statut !== 'confirme' ? `<button class="act-btn activate" onclick="validatePayment('${p._id}')">✅ Valider</button>` : ''}
-        <button class="act-btn delete" onclick="deletePayment('${p._id}')">­ƒùæ</button>
+        <button class="act-btn delete" onclick="deletePayment('${p._id}')">🗑️</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -2028,7 +2028,7 @@ async function addPayment() {
       if (statut === 'confirme') {
         await fetch(API + '/api/admin/users/' + userId + '/activate', { method: 'POST' });
       }
-      showToast('­ƒÆ░ Paiement enregistré', 'success');
+      showToast('­🎨 Paiement enregistré', 'success');
       document.getElementById('pay-userid').value = '';
       document.getElementById('pay-montant').value = '';
       document.getElementById('pay-ref').value = '';
@@ -2053,7 +2053,7 @@ async function deletePayment(id) {
   try {
     const res = await fetch(API + '/api/admin/payments/' + id, { method: 'DELETE' });
     const data = await res.json();
-    if (data.success) { showToast('­ƒùæ Transaction supprimée', 'success'); loadPayments(); loadStats(); }
+    if (data.success) { showToast('🗑️ Transaction supprimée', 'success'); loadPayments(); loadStats(); }
   } catch(e) { showToast('Erreur', 'error'); }
 }
 
@@ -2188,7 +2188,7 @@ async function loadRecharges() {
     const res = await fetch(API + '/api/admin/recharges');
     const recharges = await res.json();
     const tbody = document.getElementById('recharges-table');
-    const opEmoji = {orange:'­ƒƒá',free:'­ƒö┤',expresso:'­ƒöÁ'};
+    const opEmoji = {orange:'🟠',free:'🟡',expresso:'🟡'};
     const opName = {orange:'Orange',free:'Free',expresso:'Expresso'};
     if(!recharges.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Aucune recharge</td></tr>';
@@ -2205,7 +2205,7 @@ async function loadRecharges() {
       return `<tr>
         <td style="font-size:12px;color:var(--muted)">${date}</td>
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green)">${r.numero}</span></td>
-        <td>${opEmoji[r.operateur]||'­ƒô▒'} ${opName[r.operateur]||r.operateur}</td>
+        <td>${opEmoji[r.operateur]||'­📱'} ${opName[r.operateur]||r.operateur}</td>
         <td><strong>${(r.montant||0).toLocaleString('fr-FR')} FCFA</strong></td>
         <td style="font-size:12px">${r.nom||'—'}</td>
         <td>${statut}${sandbox}</td>
@@ -2357,7 +2357,7 @@ async function loadSmsMktStats() {
       const statBadge = c.statut === 'termine'
         ? '<span class="badge active">✅ Terminée</span>'
         : c.statut === 'planifie'
-        ? '<span class="badge pending">­ƒôà Planifiée</span>'
+        ? '<span class="badge pending">🕐 Planifiée</span>'
         : '<span class="badge sms-only">🔒 En cours</span>';
       return `<tr>
         <td style="font-size:12px;color:var(--muted)">${date}</td>
@@ -2442,7 +2442,7 @@ document.body.appendChild(modal);
 }
 async function npCharger(){
   try{
-    var r=await fetch(API+'/api/noc/clients/liste?token=pst-admin-2026');
+    var r=await fetch(API+'/api/noc/clients/liste?token=Pstdiama@1');
     if(!r.ok){
       document.getElementById('noc-liste').innerHTML='<div style="padding:20px;text-align:center;color:#ef4444">Erreur: '+r.status+'</div>';
       return;
@@ -2450,7 +2450,7 @@ async function npCharger(){
     var cls=await r.json();
     document.getElementById('noc-cli-total').textContent=cls.length;
     document.getElementById('noc-cli-actifs').textContent=cls.filter(function(x){return x.statut!='inactif';}).length;
-    var cr=await fetch(API+'/api/noc/cameras?token=pst-admin-2026');
+    var cr=await fetch(API+'/api/noc/cameras?token=Pstdiama@1');
     var cams=[];try{cams=await cr.json();}catch(e){}
     document.getElementById('noc-cli-cameras').textContent=Array.isArray(cams)?cams.length:0;
     var liste=document.getElementById('noc-liste');
@@ -2486,7 +2486,7 @@ async function npCharger(){
 }
 async function npSupp(id){
   if(!confirm('Supprimer ce client NOC?'))return;
-  await fetch(API+'/api/noc/clients/'+id+'?token=pst-admin-2026',{method:'DELETE'});
+  await fetch(API+'/api/noc/clients/'+id+'?token=Pstdiama@1',{method:'DELETE'});
   npCharger();
 }
 
@@ -2507,7 +2507,7 @@ function npAssigner(btn){
   var code=btn.getAttribute('data-code');
   var nom=btn.getAttribute('data-nom');
   // Show modal to assign cameras
-  fetch(API+'/api/noc/cameras?token=pst-admin-2026')
+  fetch(API+'/api/noc/cameras?token=Pstdiama@1')
   .then(function(r){return r.json();})
   .then(function(cams){
     var modal=document.createElement('div');
@@ -2535,7 +2535,7 @@ async function npDoAssigner(btn, code, nom){
   if(!ids.length){alert('Selectionnez au moins une camera');return;}
   btn.textContent='En cours...';btn.disabled=true;
   for(var i=0;i<ids.length;i++){
-    await fetch(API+'/api/noc/cameras/'+ids[i]+'/assigner?token=pst-admin-2026',{
+    await fetch(API+'/api/noc/cameras/'+ids[i]+'/assigner?token=Pstdiama@1',{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({clientCode:code,clientName:nom})
