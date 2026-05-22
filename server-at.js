@@ -152,11 +152,7 @@ app.post('/api/sen-sms/campaigns', senSmsAuth, async (req, res) => {
 });
 // ══ FIN SEN-SMS AUTH ══
 
-    await client.connect();
-    db = client.db("pst_telecom");
-    console.log("OK MongoDB Atlas connecte");
-  } catch (err) { console.error("ERREUR MongoDB:", err.message); }
-}
+
 
 // ─── izichangePay helpers ──────────────────────────────────
 function iziHeaders() {
