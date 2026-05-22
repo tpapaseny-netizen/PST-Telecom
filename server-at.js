@@ -64,16 +64,6 @@ const COIN_MAP = {
 let db;
 
 // ─── MongoDB ───────────────────────────────────────────────
-async function connectDB() {
-  if (!MONGODB_URI) { console.warn("WARNING MONGODB_URI manquant"); return null; }
-  try {
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    console.log("MongoDB connecte");
-    return client.db('pst_telecom');
-  } catch(e) { console.error("MongoDB erreur:", e.message); return null; }
-}
-
 // ══ CORS ══
 app.use(function(req, res, next) {
   res.setHeader('Access-Control-Allow-Origin', '*');
