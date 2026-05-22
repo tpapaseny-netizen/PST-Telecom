@@ -306,6 +306,9 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <button class="nav-item" onclick="showSection('factures')" id="nav-factures">
         <span class="nav-icon">­ƒº¥</span> Factures
       </button>
+      <button class="nav-item" onclick="showSection('sensms')" id="nav-sensms">
+        <span class="nav-icon">💬</span> SenSMS
+      </button>
       <button class="nav-item" onclick="showSection('noc-clients')" id="nav-noc-clients">
         <span class="nav-icon">­ƒô╣</span> NOC Clients
       </button>
@@ -1401,6 +1404,60 @@ setInterval(loadNocStatus, 60000);
         </div>
       </div>
 
+
+      <!-- ══ SECTION SENSMS ══ -->
+      <div class="section" id="section-sensms">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <h2 style="font-family:'Syne',sans-serif;font-size:22px;color:#fff;">💬 SenSMS — Gestion</h2>
+          <a href="https://www.sensms.com" target="_blank" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);color:var(--green);padding:8px 16px;border-radius:8px;font-size:13px;text-decoration:none;">↗ Ouvrir sensms.com</a>
+        </div>
+
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
+          <div class="panel" style="padding:20px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--green);" id="ss-total-users">—</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Comptes inscrits</div>
+          </div>
+          <div class="panel" style="padding:20px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--blue);" id="ss-total-campaigns">—</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Campagnes envoyées</div>
+          </div>
+          <div class="panel" style="padding:20px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--orange);" id="ss-total-sms">—</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">SMS totaux</div>
+          </div>
+        </div>
+
+        <!-- Utilisateurs -->
+        <div class="panel" style="padding:24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="panel-title">👥 Utilisateurs SenSMS</div>
+            <button onclick="loadSenSmsUsers()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">🔄 Actualiser</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Organisation</th><th>Crédits</th><th>Inscription</th><th>Actions</th></tr></thead>
+              <tbody id="ss-users-table"><tr><td colspan="7" style="text-align:center;color:var(--muted);">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Campagnes récentes -->
+        <div class="panel" style="padding:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="panel-title">📊 Campagnes récentes</div>
+            <button onclick="loadSenSmsCampaigns()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">🔄 Actualiser</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>Utilisateur</th><th>Campagne</th><th>SMS</th><th>Date</th></tr></thead>
+              <tbody id="ss-campaigns-table"><tr><td colspan="4" style="text-align:center;color:var(--muted);">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- ══ FIN SECTION SENSMS ══ -->
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -2003,7 +2060,7 @@ const SECTION_TITLES = {
   dashboard:'Vue g├®n├®rale', activity:'Activit├® temps r├®el', users:'Abonn├®s',
   'sms-logs':'SMS Verif', calls:'Appels', payments:'Paiements', revenue:'Revenus',
   'sms-marketing':'SMS Marketing', admins:'G├®rer les admins', content:'├ëditeur de contenu'
-};
+, 'sensms': '💬 SenSMS'};
 
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -2018,6 +2075,7 @@ function showSection(id) {
   if(id==='factures') { loadFactures(); }
 
   if(id==='activity') { newActivityCount=0; updateActivityBadge(); }
+  if(id==='sensms') { loadSenSmsUsers(); loadSenSmsCampaigns(); }
 }
 
 // ÔöÇÔöÇÔöÇ FACTURES ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -2479,6 +2537,99 @@ async function npDoAssigner(btn, code, nom){
   npCharger();
 }
 
+
+// ══ SENSMS ADMIN ══
+function loadSenSmsUsers() {
+  fetch(API + '/api/sensms/users', { headers: { 'Authorization': TOKEN } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var users = Array.isArray(data) ? data : (data.users || []);
+      document.getElementById('ss-total-users').textContent = users.length;
+      var html = '';
+      if (!users.length) {
+        html = '<tr><td colspan="7" style="text-align:center;color:var(--muted);">Aucun utilisateur</td></tr>';
+      } else {
+        users.forEach(function(u) {
+          var date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '—';
+          html += '<tr>' +
+            '<td>' + (u.nom || '—') + '</td>' +
+            '<td>' + (u.email || '—') + '</td>' +
+            '<td>' + (u.telephone || '—') + '</td>' +
+            '<td>' + (u.organisation || '—') + '</td>' +
+            '<td><span style="color:var(--green);font-weight:700;">' + (u.credits || 0) + '</span></td>' +
+            '<td>' + date + '</td>' +
+            '<td>' +
+              '<button onclick="addSenSmsCredits('' + (u._id || u.id) + '','' + (u.email||'') + '')" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">+ Crédits</button>' +
+              '<button onclick="deleteSenSmsUser('' + (u._id || u.id) + '')" style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.2);color:var(--red);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">Supprimer</button>' +
+            '</td>' +
+          '</tr>';
+        });
+      }
+      document.getElementById('ss-users-table').innerHTML = html;
+    })
+    .catch(function() {
+      document.getElementById('ss-users-table').innerHTML = '<tr><td colspan="7" style="color:var(--red);text-align:center;">Erreur chargement</td></tr>';
+    });
+}
+
+function loadSenSmsCampaigns() {
+  fetch(API + '/api/sensms/campaigns', { headers: { 'Authorization': TOKEN } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var camps = Array.isArray(data) ? data : (data.campaigns || []);
+      document.getElementById('ss-total-campaigns').textContent = camps.length;
+      var totalSms = camps.reduce(function(s, c) { return s + (c.total || 0); }, 0);
+      document.getElementById('ss-total-sms').textContent = totalSms;
+      var html = '';
+      if (!camps.length) {
+        html = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Aucune campagne</td></tr>';
+      } else {
+        camps.forEach(function(c) {
+          var date = c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-FR') : '—';
+          html += '<tr>' +
+            '<td>' + (c.userId || '—') + '</td>' +
+            '<td>' + (c.campagne || '—') + '</td>' +
+            '<td>' + (c.total || 0) + '</td>' +
+            '<td>' + date + '</td>' +
+          '</tr>';
+        });
+      }
+      document.getElementById('ss-campaigns-table').innerHTML = html;
+    })
+    .catch(function() {
+      document.getElementById('ss-campaigns-table').innerHTML = '<tr><td colspan="4" style="color:var(--red);text-align:center;">Erreur chargement</td></tr>';
+    });
+}
+
+function addSenSmsCredits(userId, email) {
+  var n = prompt('Nombre de crédits SMS à ajouter pour ' + email + ' :');
+  if (!n || isNaN(n) || parseInt(n) <= 0) return;
+  fetch(API + '/api/sensms/add-credits', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
+    body: JSON.stringify({ userId: userId, credits: parseInt(n) })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) { showToast(n + ' crédits ajoutés ✅'); loadSenSmsUsers(); }
+    else showToast('Erreur: ' + (data.error || '?'), 'error');
+  });
+}
+
+function deleteSenSmsUser(userId) {
+  if (!confirm('Supprimer cet utilisateur SenSMS ?')) return;
+  fetch(API + '/api/sensms/delete-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
+    body: JSON.stringify({ userId: userId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) { showToast('Utilisateur supprimé'); loadSenSmsUsers(); }
+    else showToast('Erreur: ' + (data.error || '?'), 'error');
+  });
+}
+// ══ FIN SENSMS ADMIN ══
 </script>
 </body>
 </html>

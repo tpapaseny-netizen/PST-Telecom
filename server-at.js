@@ -3813,6 +3813,59 @@ app.post('/api/sen-sms/reset-password', async (req, res) => {
 });
 // ══ FIN FORGOT PASSWORD ══
 
+
+// ══ SENSMS ADMIN ROUTES ══
+app.get('/api/sensms/users', async (req, res) => {
+  try {
+    var auth = req.headers.authorization || '';
+    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var users = await db.collection('sensms_users').find({}).sort({ createdAt: -1 }).toArray();
+    users.forEach(function(u) { delete u.password; });
+    res.json(users);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/sensms/campaigns', async (req, res) => {
+  try {
+    var auth = req.headers.authorization || '';
+    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var camps = await db.collection('sensms_campaigns').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(camps);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/sensms/add-credits', async (req, res) => {
+  try {
+    var auth = req.headers.authorization || '';
+    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    var { userId, credits } = req.body;
+    if (!userId || !credits) return res.json({ success: false, error: 'Donnees manquantes' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    const { ObjectId } = require('mongodb');
+    await db.collection('sensms_users').updateOne(
+      { _id: new ObjectId(userId) },
+      { $inc: { credits: parseInt(credits) } }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/sensms/delete-user', async (req, res) => {
+  try {
+    var auth = req.headers.authorization || '';
+    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    var { userId } = req.body;
+    if (!userId) return res.json({ success: false, error: 'userId requis' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    const { ObjectId } = require('mongodb');
+    await db.collection('sensms_users').deleteOne({ _id: new ObjectId(userId) });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+// ══ FIN SENSMS ADMIN ROUTES ══
+
 // ── DÉMARRAGE ─────────────────────────────
 
 connectDB().then((dbInstance) => {
