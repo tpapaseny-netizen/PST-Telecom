@@ -1034,6 +1034,7 @@ function goToPlatform(packId) { showDashboard(packId); }
       <div class="user-menu" id="user-menu">
         <div class="user-menu-item" onclick="openHistorique()">📋 Mes campagnes</div>
         <div class="user-menu-item" onclick="openCredits()">💰 Mes crédits</div>
+        <div class="user-menu-item" id="admin-menu-item" style="display:none;border-top:1px solid var(--cl-border);margin-top:4px;padding-top:12px;" onclick="ouvrirAdmin()">⚙️ <span style="color:#FFD700;font-weight:700;">Administration</span></div>
         <div class="user-menu-item" style="border-top:1px solid var(--cl-border);margin-top:4px;padding-top:12px;" onclick="deconnexion()">🚪 <span style="color:var(--cl-text)">Se déconnecter</span></div>
       </div>
     </div>
@@ -1990,6 +1991,8 @@ var pendingPackId = null;
     }).catch(function() {});
 })();
 
+var SENSMS_SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
+
 function afficherUserBadge() {
   if (!senSmsUser) return;
   var badge = document.getElementById('user-badge');
@@ -1998,6 +2001,15 @@ function afficherUserBadge() {
   if (badge) badge.style.display = 'flex';
   if (name)  name.textContent = senSmsUser.nom || senSmsUser.email.split('@')[0];
   if (cred)  cred.textContent = (senSmsUser.credits || 0).toLocaleString('fr-FR') + ' SMS';
+  // Afficher lien admin si super-admin
+  var adminItem = document.getElementById('admin-menu-item');
+  if (adminItem && SENSMS_SUPER_ADMINS.indexOf(senSmsUser.email) !== -1) {
+    adminItem.style.display = 'block';
+  }
+}
+
+function ouvrirAdmin() {
+  window.open('https://pst-telecom-production.up.railway.app/admin?token=pst-admin-2026', '_blank');
 }
 
 function toggleUserMenu() {
