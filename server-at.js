@@ -234,7 +234,7 @@ function normalizePhone(p) { let n=(p||"").replace(/\s/g,"").replace(/[^\d]/g,""
 const SUPER_ADMINS = ["tpapaseny@ept.sn","papasenytoure@gmail.com"];
 function authAdmin(req, res, next) {
   const token = req.query.token || req.headers["x-admin-token"];
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "pst-admin-2026";
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Pstdiama@1";
   if (token !== ADMIN_PASSWORD) {
     return res.send("<!DOCTYPE html><html><head><meta charset=UTF-8><title>PST Admin</title><style>body{font-family:sans-serif;background:#0d2137;color:white;min-height:100vh;display:flex;align-items:center;justify-content:center}.box{background:#111c2a;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:2rem;width:320px;text-align:center}.logo{font-size:2rem;font-weight:900;color:#00c864;margin-bottom:.5rem}input{width:100%;padding:.85rem;background:#0d2137;border:1.5px solid rgba(255,255,255,.1);border-radius:8px;color:white;font-size:1rem;outline:none;margin-bottom:1rem}.btn{width:100%;padding:.85rem;background:#00c864;color:#0d2137;border:none;border-radius:8px;font-weight:700;cursor:pointer}</style></head><body><div class=box><div class=logo>PST</div><input type=password id=p placeholder=Mot de passe><button class=btn onclick=\"location.href='/admin?token='+p.value\">OK</button></div></body></html>");
   }
@@ -321,7 +321,7 @@ app.delete("/api/admin/abonne/:userId", async(req,res) => {
 app.post("/api/admin/login", (req,res) => {
   const{email,password}=req.body;
   if(!email||!password) return res.status(400).json({error:"Email et mot de passe requis"});
-  if(password!==(process.env.ADMIN_PASSWORD||"pst-admin-2026")) return res.status(403).json({error:"Mot de passe incorrect"});
+  if(password!==(process.env.ADMIN_PASSWORD||"Pstdiama@1")) return res.status(403).json({error:"Mot de passe incorrect"});
   res.json({success:true,role:SUPER_ADMINS.includes(email.toLowerCase())?"super":"admin",name:email.split("@")[0]});
 });
 
@@ -453,7 +453,7 @@ app.post("/api/zama/register", async(req,res)=>{ try{
 
 app.post("/api/zama/kyc", async(req,res)=>{ try{const{user_id,doc_type,doc_num,dob,nationality,photo_recto,photo_verso,photo_selfie}=req.body; const kycData={kyc:true,kyc_pending:true,kyc_submitted_at:new Date(),kyc_data:{doc_type,doc_num,dob,nationality},kyc_photos:{recto:photo_recto||null,verso:photo_verso||null,selfie:photo_selfie||null}}; if(db)await db.collection("zama_users").updateOne({id:user_id},{$set:kycData},{upsert:true}); try{const nodemailer=require("nodemailer"); const t=nodemailer.createTransport({service:"gmail",auth:{user:process.env.GMAIL_USER,pass:process.env.GMAIL_APP_PASSWORD}}); await t.sendMail({from:process.env.GMAIL_USER,to:process.env.GMAIL_USER,subject:"ZAMA KYC — "+doc_num,html:"<h2>Nouveau KYC ZAMA</h2><p>User: "+user_id+"</p><p>Doc: "+doc_type+" "+doc_num+"</p>"});}catch(e){} res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 
-app.post("/api/zama/kyc/approve", async(req,res)=>{ try{const{user_id,approved}=req.body; const token=req.headers["x-admin-token"]||req.query.token; if(token!==(process.env.ADMIN_PASSWORD||"pst-admin-2026"))return res.status(403).json({error:"Non autorise"}); if(db)await db.collection("zama_users").updateOne({id:user_id},{$set:{kyc:approved,kyc_pending:false,kyc_approved:approved,kyc_reviewed_at:new Date()}}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
+app.post("/api/zama/kyc/approve", async(req,res)=>{ try{const{user_id,approved}=req.body; const token=req.headers["x-admin-token"]||req.query.token; if(token!==(process.env.ADMIN_PASSWORD||"Pstdiama@1"))return res.status(403).json({error:"Non autorise"}); if(db)await db.collection("zama_users").updateOne({id:user_id},{$set:{kyc:approved,kyc_pending:false,kyc_approved:approved,kyc_reviewed_at:new Date()}}); res.json({success:true});}catch(e){res.status(500).json({error:e.message});} });
 
 app.get("/api/zama/users", async(req,res)=>{ try{if(!db)return res.json([]); const u=await db.collection("zama_users").find({}).sort({created:-1}).limit(200).lean(); res.json(u.map(x=>{const{_id,...r}=x; delete r.password; return r;}));}catch(e){res.status(500).json({error:e.message});} });
 
@@ -1414,7 +1414,7 @@ async function checkStatus() {
 app.get('/api/pstpay/admin/overview', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
 
     const [merchants, checkouts, payouts] = await Promise.all([
@@ -1435,7 +1435,7 @@ app.get('/api/pstpay/admin/overview', async (req, res) => {
 app.get('/api/pstpay/admin/merchants', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const list = await db.collection('pstpay_merchants').find({}, { projection: { api_key: 0 } }).sort({ created_at: -1 }).lean();
     res.json(list);
@@ -1900,7 +1900,7 @@ app.get('/api/zama/tontine/user/:user_id', async (req, res) => {
 app.get('/api/zama/tontine/admin/all', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const list = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).limit(100).lean();
     const epargnes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).limit(100).lean();
@@ -1974,8 +1974,8 @@ app.post('/api/zama/epargne/:epargne_id/depot-demande', async (req, res) => {
 
     // Envoyer email aux admins avec liens valider/rejeter
     const base = 'https://pst-telecom-production.up.railway.app';
-    const lien_valider = base + '/api/zama/epargne/admin/valider-depot/' + depot_id + '?token=pst-admin-2026';
-    const lien_rejeter = base + '/api/zama/epargne/admin/rejeter-depot/' + depot_id + '?token=pst-admin-2026';
+    const lien_valider = base + '/api/zama/epargne/admin/valider-depot/' + depot_id + '?token=Pstdiama@1';
+    const lien_rejeter = base + '/api/zama/epargne/admin/rejeter-depot/' + depot_id + '?token=Pstdiama@1';
 
     const emailHtml = `
       <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto">
@@ -2024,7 +2024,7 @@ app.post('/api/zama/epargne/:epargne_id/depot-demande', async (req, res) => {
 app.get('/api/zama/epargne/admin/valider-depot/:depot_id', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    if (token !== 'Pstdiama@1') return res.status(403).send('Non autorisé');
     if (!db) return res.status(503).send('DB indisponible');
 
     const depot = await db.collection('zama_depots_pending').findOne({
@@ -2084,7 +2084,7 @@ app.get('/api/zama/epargne/admin/valider-depot/:depot_id', async (req, res) => {
 app.get('/api/zama/epargne/admin/rejeter-depot/:depot_id', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    if (token !== 'Pstdiama@1') return res.status(403).send('Non autorisé');
     if (!db) return res.status(503).send('DB indisponible');
 
     const depot = await db.collection('zama_depots_pending').findOne({
@@ -2117,7 +2117,7 @@ app.get('/api/zama/epargne/admin/rejeter-depot/:depot_id', async (req, res) => {
 app.get('/api/zama/epargne/admin/depots-pending', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const pending = await db.collection('zama_depots_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ pending, count: pending.length });
@@ -2130,7 +2130,7 @@ app.get('/api/zama/epargne/admin/depots-pending', async (req, res) => {
 app.post('/api/zama/epargne/admin/appliquer-interets', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const epargnes = await db.collection('zama_epargnes').find({ status: 'actif', solde_fcfa: { $gt: 0 } }).lean();
     let total = 0, nb = 0;
@@ -2258,8 +2258,8 @@ app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
 
     // Email aux admins
     const base = 'https://pst-telecom-production.up.railway.app';
-    const lv = base + '/api/zama/epargne/admin/valider-retrait/' + retrait_id + '?token=pst-admin-2026';
-    const lr = base + '/api/zama/epargne/admin/rejeter-retrait/' + retrait_id + '?token=pst-admin-2026';
+    const lv = base + '/api/zama/epargne/admin/valider-retrait/' + retrait_id + '?token=Pstdiama@1';
+    const lr = base + '/api/zama/epargne/admin/rejeter-retrait/' + retrait_id + '?token=Pstdiama@1';
 
     try {
       const nodemailer = require('nodemailer');
@@ -2281,7 +2281,7 @@ app.post('/api/zama/epargne/:id/retrait-demande', async (req, res) => {
 app.get('/api/zama/epargne/admin/retraits-pending', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const pending = await db.collection('zama_retraits_pending').find({ status: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ pending, count: pending.length });
@@ -2292,7 +2292,7 @@ app.get('/api/zama/epargne/admin/retraits-pending', async (req, res) => {
 app.get('/api/zama/epargne/admin/valider-retrait/:retrait_id', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).send('Non autorise');
+    if (token !== 'Pstdiama@1') return res.status(403).send('Non autorise');
     if (!db) return res.status(503).send('DB indisponible');
     const retrait = await db.collection('zama_retraits_pending').findOne({ retrait_id: req.params.retrait_id, status: 'en_attente' });
     if (!retrait) return res.send('<h2>Retrait introuvable ou deja traite</h2>');
@@ -2315,7 +2315,7 @@ app.get('/api/zama/epargne/admin/valider-retrait/:retrait_id', async (req, res) 
 app.get('/api/zama/epargne/admin/rejeter-retrait/:retrait_id', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).send('Non autorise');
+    if (token !== 'Pstdiama@1') return res.status(403).send('Non autorise');
     if (!db) return res.status(503).send('DB indisponible');
     const retrait = await db.collection('zama_retraits_pending').findOne({ retrait_id: req.params.retrait_id });
     await db.collection('zama_retraits_pending').updateOne({ retrait_id: req.params.retrait_id }, { $set: { status: 'rejete', rejete_at: new Date() } });
@@ -2328,7 +2328,7 @@ app.get('/api/zama/epargne/admin/rejeter-retrait/:retrait_id', async (req, res) 
 app.get('/api/zama/epargne/admin/tous-comptes', async (req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const comptes = await db.collection('zama_epargnes').find({}).sort({ created_at: -1 }).lean();
     const total_sous_gestion = comptes.filter(c => c.status === 'actif').reduce((s, c) => s + c.solde_fcfa, 0);
@@ -2416,8 +2416,8 @@ app.post('/api/zama/tontine/:tontine_id/cotiser-demande', async (req, res) => {
       const nodemailer = require('nodemailer');
       const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
       const base = 'https://pst-telecom-production.up.railway.app';
-      const lv = base + '/api/zama/tontine/admin/valider-cotisation/' + cotisation_id + '?token=pst-admin-2026';
-      const lr = base + '/api/zama/tontine/admin/rejeter-cotisation/' + cotisation_id + '?token=pst-admin-2026';
+      const lv = base + '/api/zama/tontine/admin/valider-cotisation/' + cotisation_id + '?token=Pstdiama@1';
+      const lr = base + '/api/zama/tontine/admin/rejeter-cotisation/' + cotisation_id + '?token=Pstdiama@1';
       await t.sendMail({
         from: process.env.GMAIL_USER,
         to: 'tpapaseny@ept.sn,papasenytoure@gmail.com',
@@ -2444,7 +2444,7 @@ app.post('/api/zama/tontine/:tontine_id/cotiser-demande', async (req, res) => {
 // ── Admin: cotisations en attente ───────────────────────────────────
 app.get('/api/zama/tontine/admin/cotisations-pending', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     const list = await db.collection('zama_cotisations').find({ statut: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ cotisations: list });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2453,7 +2453,7 @@ app.get('/api/zama/tontine/admin/cotisations-pending', async (req, res) => {
 // ── Admin: valider une cotisation ────────────────────────────────────
 app.get('/api/zama/tontine/admin/valider-cotisation/:cotisation_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const cotis = await db.collection('zama_cotisations').findOne({ cotisation_id: req.params.cotisation_id });
     if (!cotis) return res.status(404).json({ error: 'Cotisation introuvable' });
@@ -2496,8 +2496,8 @@ app.get('/api/zama/tontine/admin/valider-cotisation/:cotisation_id', async (req,
           const nodemailer = require('nodemailer');
           const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
           const base = 'https://pst-telecom-production.up.railway.app';
-          const lv = base + '/api/zama/tontine/admin/valider-distribution/' + dist_id + '?token=pst-admin-2026';
-          const lr = base + '/api/zama/tontine/admin/rejeter-distribution/' + dist_id + '?token=pst-admin-2026';
+          const lv = base + '/api/zama/tontine/admin/valider-distribution/' + dist_id + '?token=Pstdiama@1';
+          const lr = base + '/api/zama/tontine/admin/rejeter-distribution/' + dist_id + '?token=Pstdiama@1';
           await t.sendMail({
             from: process.env.GMAIL_USER,
             to: 'tpapaseny@ept.sn,papasenytoure@gmail.com',
@@ -2530,7 +2530,7 @@ app.get('/api/zama/tontine/admin/valider-cotisation/:cotisation_id', async (req,
 // ── Admin: rejeter une cotisation ────────────────────────────────────
 app.get('/api/zama/tontine/admin/rejeter-cotisation/:cotisation_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     const cotis = await db.collection('zama_cotisations').findOne({ cotisation_id: req.params.cotisation_id });
     if (!cotis) return res.status(404).json({ error: 'Cotisation introuvable' });
     await db.collection('zama_cotisations').updateOne(
@@ -2545,7 +2545,7 @@ app.get('/api/zama/tontine/admin/rejeter-cotisation/:cotisation_id', async (req,
 // ── Admin: distributions en attente ─────────────────────────────────
 app.get('/api/zama/tontine/admin/distributions-pending', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     const list = await db.collection('zama_distributions').find({ statut: 'en_attente' }).sort({ created_at: -1 }).lean();
     res.json({ distributions: list });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2554,7 +2554,7 @@ app.get('/api/zama/tontine/admin/distributions-pending', async (req, res) => {
 // ── Admin: valider une distribution ─────────────────────────────────
 app.get('/api/zama/tontine/admin/valider-distribution/:distribution_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     const dist = await db.collection('zama_distributions').findOne({ distribution_id: req.params.distribution_id });
     if (!dist) return res.status(404).json({ error: 'Distribution introuvable' });
     if (dist.statut !== 'en_attente') return res.status(400).json({ error: 'Deja traitee' });
@@ -2598,7 +2598,7 @@ app.get('/api/zama/tontine/admin/valider-distribution/:distribution_id', async (
 // ── Admin: rejeter une distribution ─────────────────────────────────
 app.get('/api/zama/tontine/admin/rejeter-distribution/:distribution_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     await db.collection('zama_distributions').updateOne(
       { distribution_id: req.params.distribution_id },
       { $set: { statut: 'annule', annule_at: new Date() } }
@@ -2610,7 +2610,7 @@ app.get('/api/zama/tontine/admin/rejeter-distribution/:distribution_id', async (
 // ── Admin: tous les comptes tontine ──────────────────────────────────
 app.get('/api/zama/tontine/admin/tous-comptes', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     const tontines = await db.collection('zama_tontines').find({}).sort({ created_at: -1 }).lean();
     const distributions = await db.collection('zama_distributions').find({ statut: 'distribue' }).lean();
     const total_distribue = distributions.reduce((s, d) => s + (d.montant_net || 0), 0);
@@ -2753,7 +2753,7 @@ app.post('/api/zama/epargne/plan/create', async (req, res) => {
 app.post('/api/zama/epargne/admin/appliquer-interets-plans', async (req, res) => {
   try {
     const token = req.query.token || req.body.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
 
     const maintenant = new Date();
@@ -2843,7 +2843,7 @@ app.get('/api/zama/config', async (req, res) => {
 app.post('/api/zama/config', async (req, res) => {
   try {
     const token = req.query.token || req.body.token;
-    if (token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.status(503).json({ error: 'DB indisponible' });
     const { data } = req.body;
     if (!data) return res.status(400).json({ error: 'data requis' });
@@ -2959,8 +2959,8 @@ app.post('/api/zama/pret/demander', async (req, res) => {
       const nodemailer = require('nodemailer');
       const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
       const base = 'https://pst-telecom-production.up.railway.app';
-      const lv = base + '/api/zama/pret/admin/approuver/' + pret_id + '?token=pst-admin-2026';
-      const lr = base + '/api/zama/pret/admin/rejeter/' + pret_id + '?token=pst-admin-2026';
+      const lv = base + '/api/zama/pret/admin/approuver/' + pret_id + '?token=Pstdiama@1';
+      const lr = base + '/api/zama/pret/admin/rejeter/' + pret_id + '?token=Pstdiama@1';
       await t.sendMail({
         from: process.env.GMAIL_USER,
         to: 'tpapaseny@ept.sn,papasenytoure@gmail.com',
@@ -2987,7 +2987,7 @@ app.post('/api/zama/pret/demander', async (req, res) => {
 // Admin: approuver un prêt
 app.get('/api/zama/pret/admin/approuver/:pret_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).send('Non autorisé');
     const pret = await db.collection('zama_prets').findOne({ pret_id: req.params.pret_id });
     if (!pret) return res.status(404).send('Prêt introuvable');
     if (pret.status !== 'en_attente') return res.send('<h2>Déjà traité</h2>');
@@ -3012,7 +3012,7 @@ app.get('/api/zama/pret/admin/approuver/:pret_id', async (req, res) => {
 // Admin: rejeter un prêt
 app.get('/api/zama/pret/admin/rejeter/:pret_id', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).send('Non autorisé');
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).send('Non autorisé');
     const pret = await db.collection('zama_prets').findOne({ pret_id: req.params.pret_id });
     if (!pret) return res.status(404).send('Prêt introuvable');
 
@@ -3098,7 +3098,7 @@ app.get('/api/zama/pret/user/:user_id', async (req, res) => {
 // Admin: tous les prêts
 app.get('/api/zama/pret/admin/tous', async (req, res) => {
   try {
-    if (req.query.token !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorisé' });
+    if (req.query.token !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorisé' });
     if (!db) return res.json({ prets: [], stats: {} });
     const prets = await db.collection('zama_prets').find({}).sort({ created_at: -1 }).limit(100).lean();
     const en_attente = prets.filter(p => p.status === 'en_attente').length;
@@ -3164,7 +3164,7 @@ async function envoyerSMSInfobip(telephone, message) {
 // Route test SMS Infobip (admin uniquement)
 app.post('/api/infobip/test-sms', async (req, res) => {
   const { telephone, message, token } = req.body;
-  if (token !== 'pst-admin-2026') {
+  if (token !== 'Pstdiama@1') {
     return res.status(403).json({ error: 'Accès refusé' });
   }
   if (!telephone || !message) {
@@ -3292,7 +3292,7 @@ app.post('/api/zama/send-otp', async(req, res) => {
 app.delete('/api/zama/user', async(req, res) => {
   try {
     const token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) {
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) {
       return res.status(403).json({ error: 'Non autorise' });
     }
     const { phone } = req.body;
@@ -3529,7 +3529,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
 app.get('/api/sensms/users', async (req, res) => {
   try {
     var token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var users = await db.collection('sensms_users').find({}).sort({ created_at: -1 }).toArray();
     res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
@@ -3601,7 +3601,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
 app.get('/api/sensms/users', async (req, res) => {
   try {
     var token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var users = await db.collection('sensms_users').find({}).sort({ created_at: -1 }).toArray();
     res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
@@ -3673,7 +3673,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
 app.get('/api/sensms/users', async (req, res) => {
   try {
     var token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var users = await db.collection('sensms_users').find({}).sort({ created_at: -1 }).toArray();
     res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
@@ -3745,7 +3745,7 @@ app.post('/api/sensms/update-sender', async (req, res) => {
 app.get('/api/sensms/users', async (req, res) => {
   try {
     var token = req.headers['x-admin-token'] || req.query.token;
-    if (token !== (process.env.ADMIN_PASSWORD || 'pst-admin-2026')) return res.status(403).json({ error: 'Non autorise' });
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var users = await db.collection('sensms_users').find({}).sort({ created_at: -1 }).toArray();
     res.json(users.map(function(u) { delete u.password; delete u._id; return u; }));
@@ -3818,7 +3818,7 @@ app.post('/api/sen-sms/reset-password', async (req, res) => {
 app.get('/api/sensms/users', async (req, res) => {
   try {
     var auth = req.headers.authorization || '';
-    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (auth !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var users = await db.collection('sensms_users').find({}).sort({ createdAt: -1 }).toArray();
     users.forEach(function(u) { delete u.password; });
@@ -3829,7 +3829,7 @@ app.get('/api/sensms/users', async (req, res) => {
 app.get('/api/sensms/campaigns', async (req, res) => {
   try {
     var auth = req.headers.authorization || '';
-    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (auth !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     if (!db) return res.json([]);
     var camps = await db.collection('sensms_campaigns').find({}).sort({ createdAt: -1 }).limit(100).toArray();
     res.json(camps);
@@ -3839,7 +3839,7 @@ app.get('/api/sensms/campaigns', async (req, res) => {
 app.post('/api/sensms/add-credits', async (req, res) => {
   try {
     var auth = req.headers.authorization || '';
-    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (auth !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     var { userId, credits } = req.body;
     if (!userId || !credits) return res.json({ success: false, error: 'Donnees manquantes' });
     if (!db) return res.json({ success: false, error: 'DB indisponible' });
@@ -3855,7 +3855,7 @@ app.post('/api/sensms/add-credits', async (req, res) => {
 app.post('/api/sensms/delete-user', async (req, res) => {
   try {
     var auth = req.headers.authorization || '';
-    if (auth !== 'pst-admin-2026') return res.status(403).json({ error: 'Non autorise' });
+    if (auth !== 'Pstdiama@1') return res.status(403).json({ error: 'Non autorise' });
     var { userId } = req.body;
     if (!userId) return res.json({ success: false, error: 'userId requis' });
     if (!db) return res.json({ success: false, error: 'DB indisponible' });
