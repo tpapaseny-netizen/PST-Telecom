@@ -104,7 +104,7 @@ app.post('/api/sen-sms/register', async (req, res) => {
     const users = db.collection('sensms_users');
     var existing = await users.findOne({ email: email.toLowerCase() });
     if (existing) return res.json({ success: false, error: 'Email deja utilise' });
-    var hash = await require('bcrypt').hash(password, 10);
+    var hash = await require('bcryptjs').hash(password, 10);
     var result = await users.insertOne({ email: email.toLowerCase(), password: hash, nom: nom||'', organisation: organisation||'', telephone: telephone||'', credits: 0, createdAt: new Date() });
     var token = require('jsonwebtoken').sign({ id: result.insertedId, email: email.toLowerCase(), nom: nom||'', organisation: organisation||'' }, process.env.JWT_SECRET || 'pst-secret-2026', { expiresIn: '30d' });
     res.json({ success: true, token, user: { id: result.insertedId, email: email.toLowerCase(), nom: nom||'', organisation: organisation||'', credits: 0 } });
@@ -119,7 +119,7 @@ app.post('/api/sen-sms/login', async (req, res) => {
     const users = db.collection('sensms_users');
     var user = await users.findOne({ email: email.toLowerCase() });
     if (!user) return res.json({ success: false, error: 'Email ou mot de passe incorrect' });
-    var ok = await require('bcrypt').compare(password, user.password);
+    var ok = await require('bcryptjs').compare(password, user.password);
     if (!ok) return res.json({ success: false, error: 'Email ou mot de passe incorrect' });
     var token = require('jsonwebtoken').sign({ id: user._id, email: user.email, nom: user.nom||'', organisation: user.organisation||'' }, process.env.JWT_SECRET || 'pst-secret-2026', { expiresIn: '30d' });
     res.json({ success: true, token, user: { id: user._id, email: user.email, nom: user.nom||'', organisation: user.organisation||'', credits: user.credits||0 } });
