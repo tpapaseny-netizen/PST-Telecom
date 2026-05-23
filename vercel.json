@@ -1,1 +1,5 @@
-﻿{"rewrites":[{"source":"/sensms","destination":"/sensms.html"},{"source":"/(.*)","destination":"/zama-landing.html"}]}
+﻿{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/zama.html" }
+  ]
+}
