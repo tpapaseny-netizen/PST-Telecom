@@ -1,1 +1,1 @@
-﻿{"redirects":[{"source":"/","destination":"/zama-site/index.html","permanent":false},{"source":"/www","destination":"/zama-site/index.html","permanent":false}]}
+﻿{"redirects":[{"source":"/","destination":"/zama/index.html","permanent":false}],"rewrites":[{"source":"/sensms","destination":"/sensms.html"}]}
