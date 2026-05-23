@@ -1,1 +1,1 @@
-{"rewrites":[{"source":"/","destination":"/sensms.html"}]}
+﻿{"rewrites":[{"has":[{"type":"host","value":"zama-sn.com"}],"source":"/(.*)","destination":"/zama.html"},{"has":[{"type":"host","value":"www.zama-sn.com"}],"source":"/(.*)","destination":"/zama.html"},{"source":"/","destination":"/sensms.html"}]}
