@@ -1341,7 +1341,7 @@ function goToPlatform(packId) { showDashboard(packId); }
         <textarea id="avis-texte" rows="4" placeholder="Partagez votre expérience avec SenSMS..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--cl-border);border-radius:12px;padding:14px;color:var(--cl-text);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;outline:none;box-sizing:border-box;"></textarea>
       </div>
       <div id="avis-error" style="display:none;color:#f44336;font-size:13px;margin-bottom:12px;"></div>
-      <button onclick="soumettreAvis()" style="background:var(--green);color:#000;border:none;border-radius:10px;padding:13px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">🚀 Publier mon avis</button>
+      <button id="avis-submit-btn" onclick="soumettreAvis()" style="background:var(--green);color:#000;border:none;border-radius:10px;padding:13px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">🚀 Publier mon avis</button>
     </div>
 
     <!-- Message si non connecté -->
@@ -2098,6 +2098,7 @@ var SENSMS_SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
 
 function afficherUserBadge() {
   updateAvisUI();
+  checkMonAvis();
   if (!senSmsUser) return;
   var badge = document.getElementById('user-badge');
   var name  = document.getElementById('user-badge-name');
@@ -2516,6 +2517,32 @@ function updateAvisUI() {
   if (loginPrompt) loginPrompt.style.display = loggedIn ? 'none' : 'block';
 }
 
+function checkMonAvis() {
+  if (!senSmsUser) return;
+  fetch(API + '/api/sensms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var zone = document.getElementById('avis-form-zone');
+      var btn = document.getElementById('avis-submit-btn');
+      if (data && data.note) {
+        // A déjà un avis - montrer bouton modifier
+        if (btn) btn.textContent = '✏️ Modifier mon avis';
+        editingAvis = false; // reset, sera true quand il clique
+        var modZone = document.getElementById('mon-avis-apercu');
+        if (!modZone) {
+          modZone = document.createElement('div');
+          modZone.id = 'mon-avis-apercu';
+          modZone.style.cssText = 'background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.3);border-radius:14px;padding:16px 20px;margin-bottom:16px;';
+          modZone.innerHTML = '<div style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:6px;">MON AVIS ACTUEL</div>' +
+            '<div style="color:#FFD700;">' + '★'.repeat(data.note) + '☆'.repeat(5-data.note) + '</div>' +
+            '<p style="font-size:13px;color:var(--cl-text);margin:6px 0 12px;">' + (data.commentaire||'') + '</p>' +
+            '<button onclick="modifierMonAvis()" style="background:rgba(0,200,83,0.15);border:1px solid var(--green);color:var(--green);padding:8px 16px;border-radius:8px;font-family:Syne,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✏️ Modifier</button>';
+          if (zone) zone.insertBefore(modZone, zone.firstChild);
+        }
+      }
+    }).catch(function(){});
+}
+
 function chargerAvis() {
   fetch(API + '/api/sensms/avis')
     .then(function(r) { return r.json(); })
@@ -2578,7 +2605,7 @@ function soumettreAvis() {
       document.getElementById('avis-texte').value = '';
       setStars(0);
       chargerAvis();
-      alert('Merci pour votre avis !');
+      showSenSmsToast('✅ Merci pour votre avis !', 'success');
     } else {
       document.getElementById('avis-error').style.display='block';
       document.getElementById('avis-error').textContent = d.error || 'Erreur';
@@ -2591,8 +2618,47 @@ function soumettreAvis() {
 document.addEventListener('DOMContentLoaded', function() {
   chargerAvis();
   updateAvisUI();
+  if (senSmsUser) checkMonAvis();
 });
 // ══ FIN AVIS ══
+
+// ══ TOAST SENSMS ══
+function showSenSmsToast(msg, type) {
+  var existing = document.getElementById('sensms-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.id = 'sensms-toast';
+  t.style.cssText = 'position:fixed;bottom:28px;right:24px;z-index:9999;' +
+    'background:' + (type==='success' ? '#00C853' : type==='error' ? '#f44336' : '#1C1917') + ';' +
+    'color:' + (type==='success' ? '#000' : '#fff') + ';' +
+    'padding:14px 22px;border-radius:14px;font-family:Syne,sans-serif;font-weight:700;font-size:14px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,0.3);transform:translateY(80px);opacity:0;transition:all 0.35s;' +
+    'max-width:320px;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.style.transform='translateY(0)'; t.style.opacity='1'; }, 10);
+  setTimeout(function() { t.style.transform='translateY(80px)'; t.style.opacity='0'; setTimeout(function(){t.remove();},400); }, 3500);
+}
+
+// ══ MODIFIER AVIS ══
+var editingAvis = false;
+
+function modifierMonAvis() {
+  editingAvis = true;
+  // Récupérer l'avis existant de l'utilisateur
+  fetch(API + '/api/sensms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.note) {
+        setStars(data.note);
+        document.getElementById('avis-texte').value = data.commentaire || '';
+        document.getElementById('avis-form-zone').style.display = 'block';
+        document.getElementById('avis-submit-btn').textContent = '✏️ Modifier mon avis';
+        document.getElementById('avis-form-zone').scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+}
+// ══ FIN MODIFIER AVIS ══
 </script>
 </body>
 </div>

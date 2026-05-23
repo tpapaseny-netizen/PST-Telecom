@@ -3594,6 +3594,32 @@ app.post('/api/sensms/avis/moderer', async (req, res) => {
 });
 // ══ FIN AVIS SENSMS ══
 
+
+// GET mon avis
+app.get('/api/sensms/avis/mon-avis', async (req, res) => {
+  try {
+    var userId = req.query.userId;
+    if (!userId || !db) return res.json(null);
+    var avis = await db.collection('sensms_avis').findOne({ userId: userId });
+    if (avis) { delete avis._id; }
+    res.json(avis || null);
+  } catch(e) { res.json(null); }
+});
+
+// PUT modifier son avis
+app.put('/api/sensms/avis', async (req, res) => {
+  try {
+    var { userId, nom, email, organisation, note, commentaire } = req.body;
+    if (!userId || !note || !commentaire) return res.json({ success: false, error: 'Données manquantes' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    await db.collection('sensms_avis').updateOne(
+      { userId: userId },
+      { $set: { nom, email, organisation, note: parseInt(note), commentaire, updatedAt: new Date(), approuve: true } }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
 // ── DÉMARRAGE ─────────────────────────────
 
 connectDB().then((dbInstance) => {
