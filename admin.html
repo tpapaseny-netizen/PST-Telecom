@@ -1457,6 +1457,19 @@ setInterval(loadNocStatus, 60000);
             </table>
           </div>
         </div>
+      <!-- Avis -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">⭐ Avis utilisateurs</div>
+          <button onclick="loadAvisSenSms()" class="refresh-btn">🔄 Actualiser</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Utilisateur</th><th>Note</th><th>Commentaire</th><th>Date</th><th>Statut</th><th>Action</th></tr></thead>
+            <tbody id="ss-avis-table"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
       </div>
       <!-- ══ FIN SECTION SENSMS ══ -->
 
@@ -2720,6 +2733,48 @@ function togglePwVis() {
     eye.textContent = '👁️';
   }
 }
+
+// ══ AVIS ADMIN ══
+function loadAvisSenSms() {
+  fetch(API + '/api/sensms/avis/admin', { headers: { 'Authorization': TOKEN } })
+    .then(r => r.json())
+    .then(data => {
+      var html = '';
+      if (!data.length) {
+        html = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Aucun avis</td></tr>';
+      } else {
+        data.forEach(a => {
+          var etoiles = '★'.repeat(a.note) + '☆'.repeat(5-a.note);
+          var date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
+          var statut = a.approuve ? '<span class="badge active">✅ Publié</span>' : '<span class="badge pending">⏳ En attente</span>';
+          html += '<tr>' +
+            '<td><strong>' + (a.nom||'—') + '</strong><br><small style="color:var(--muted);">' + (a.email||'') + '</small></td>' +
+            '<td style="color:#FFD700;font-size:16px;">' + etoiles + '</td>' +
+            '<td style="max-width:300px;font-size:12px;">' + (a.commentaire||'—') + '</td>' +
+            '<td style="font-size:11px;">' + date + '</td>' +
+            '<td>' + statut + '</td>' +
+            '<td>' +
+              '<button onclick="modererAvis(\'' + a._id + '\', ' + !a.approuve + ')" class="act-btn ' + (a.approuve ? 'suspend' : 'activate') + '">' + (a.approuve ? '🙈 Masquer' : '✅ Publier') + '</button>' +
+            '</td>' +
+          '</tr>';
+        });
+      }
+      document.getElementById('ss-avis-table').innerHTML = html;
+    })
+    .catch(() => {});
+}
+
+function modererAvis(avisId, approuve) {
+  fetch(API + '/api/sensms/avis/moderer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
+    body: JSON.stringify({ avisId, approuve })
+  }).then(r => r.json()).then(d => {
+    if (d.success) { showToast(approuve ? 'Avis publié ✅' : 'Avis masqué'); loadAvisSenSms(); }
+    else showToast('Erreur: ' + (d.error||'?'), 'error');
+  });
+}
+// ══ FIN AVIS ADMIN ══
 </script>
 </body>
 </html>

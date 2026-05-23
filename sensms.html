@@ -1313,6 +1313,58 @@ function goToPlatform(packId) { showDashboard(packId); }
 </section>
 
 
+
+<!-- AVIS UTILISATEURS -->
+<section id="avis" style="background:var(--cl-bg);padding:80px 20px;">
+  <div style="max-width:900px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:48px;">
+      <div style="display:inline-block;background:rgba(0,200,83,0.1);color:var(--green);font-size:12px;font-weight:700;letter-spacing:2px;padding:6px 16px;border-radius:100px;text-transform:uppercase;margin-bottom:16px;">Avis clients</div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800;color:var(--cl-text);margin-bottom:12px;">Ce que disent nos utilisateurs</h2>
+      <p style="color:var(--cl-muted);font-size:16px;">Partagez votre expérience avec SenSMS</p>
+    </div>
+
+    <!-- Formulaire avis (connecté seulement) -->
+    <div id="avis-form-zone" style="display:none;background:var(--cl-surface);border:1px solid var(--cl-border);border-radius:20px;padding:32px;margin-bottom:40px;">
+      <h3 style="font-family:'Syne',sans-serif;font-size:18px;color:var(--cl-text);margin-bottom:20px;">✍️ Laisser un avis</h3>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;color:var(--cl-muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Note</label>
+        <div id="star-input" style="display:flex;gap:8px;">
+          <span class="star-btn" data-val="1" onclick="setStars(1)" style="font-size:28px;cursor:pointer;opacity:0.3;">★</span>
+          <span class="star-btn" data-val="2" onclick="setStars(2)" style="font-size:28px;cursor:pointer;opacity:0.3;">★</span>
+          <span class="star-btn" data-val="3" onclick="setStars(3)" style="font-size:28px;cursor:pointer;opacity:0.3;">★</span>
+          <span class="star-btn" data-val="4" onclick="setStars(4)" style="font-size:28px;cursor:pointer;opacity:0.3;">★</span>
+          <span class="star-btn" data-val="5" onclick="setStars(5)" style="font-size:28px;cursor:pointer;opacity:0.3;">★</span>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:var(--cl-muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Votre commentaire</label>
+        <textarea id="avis-texte" rows="4" placeholder="Partagez votre expérience avec SenSMS..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--cl-border);border-radius:12px;padding:14px;color:var(--cl-text);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;outline:none;box-sizing:border-box;"></textarea>
+      </div>
+      <div id="avis-error" style="display:none;color:#f44336;font-size:13px;margin-bottom:12px;"></div>
+      <button onclick="soumettreAvis()" style="background:var(--green);color:#000;border:none;border-radius:10px;padding:13px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">🚀 Publier mon avis</button>
+    </div>
+
+    <!-- Message si non connecté -->
+    <div id="avis-login-prompt" style="background:var(--cl-surface);border:1px solid var(--cl-border);border-radius:20px;padding:28px;margin-bottom:40px;text-align:center;">
+      <p style="color:var(--cl-muted);margin-bottom:16px;">Connectez-vous pour laisser un avis</p>
+      <button onclick="ouvrirAuth('login')" style="background:var(--green);color:#000;border:none;border-radius:10px;padding:11px 24px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🔑 Se connecter</button>
+    </div>
+
+    <!-- Liste des avis -->
+    <div id="avis-liste" style="display:flex;flex-direction:column;gap:16px;">
+      <div style="text-align:center;color:var(--cl-muted);padding:24px;">Chargement des avis...</div>
+    </div>
+
+    <!-- Note moyenne -->
+    <div id="avis-stats" style="display:none;background:var(--cl-surface);border:1px solid var(--cl-border);border-radius:16px;padding:24px;margin-top:32px;text-align:center;">
+      <div id="avis-moyenne" style="font-family:'Syne',sans-serif;font-size:48px;font-weight:800;color:var(--green);"></div>
+      <div id="avis-etoiles-moy" style="font-size:24px;color:#FFD700;margin:8px 0;"></div>
+      <div id="avis-count" style="font-size:13px;color:var(--cl-muted);"></div>
+    </div>
+  </div>
+</section>
+<!-- FIN AVIS -->
+
 <!-- CONTACT -->
 <section id="contact" style="background:var(--green);padding:64px 20px 56px;text-align:center;">
   <div style="max-width:800px;margin:0 auto;">
@@ -2045,6 +2097,7 @@ var pendingPackId = null;
 var SENSMS_SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
 
 function afficherUserBadge() {
+  updateAvisUI();
   if (!senSmsUser) return;
   var badge = document.getElementById('user-badge');
   var name  = document.getElementById('user-badge-name');
@@ -2443,6 +2496,103 @@ function doResetPassword() {
   })
   .catch(function() { showAuthError('Erreur réseau'); btn.disabled = false; btn.textContent = '✅ Réinitialiser'; });
 }
+
+// ══ AVIS UTILISATEURS ══
+var selectedStars = 0;
+
+function setStars(n) {
+  selectedStars = n;
+  document.querySelectorAll('.star-btn').forEach(function(s, i) {
+    s.style.opacity = i < n ? '1' : '0.3';
+    s.style.color = i < n ? '#FFD700' : '';
+  });
+}
+
+function updateAvisUI() {
+  var loggedIn = !!senSmsUser;
+  var formZone = document.getElementById('avis-form-zone');
+  var loginPrompt = document.getElementById('avis-login-prompt');
+  if (formZone) formZone.style.display = loggedIn ? 'block' : 'none';
+  if (loginPrompt) loginPrompt.style.display = loggedIn ? 'none' : 'block';
+}
+
+function chargerAvis() {
+  fetch(API + '/api/sensms/avis')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var liste = document.getElementById('avis-liste');
+      var stats = document.getElementById('avis-stats');
+      if (!data.length) {
+        liste.innerHTML = '<div style="text-align:center;color:var(--cl-muted);padding:32px;">Soyez le premier à laisser un avis !</div>';
+        return;
+      }
+      // Stats
+      var moy = data.reduce(function(s,a) { return s+a.note; }, 0) / data.length;
+      document.getElementById('avis-moyenne').textContent = moy.toFixed(1);
+      document.getElementById('avis-etoiles-moy').textContent = '★'.repeat(Math.round(moy)) + '☆'.repeat(5-Math.round(moy));
+      document.getElementById('avis-count').textContent = data.length + ' avis';
+      if (stats) stats.style.display = 'block';
+      // Liste
+      liste.innerHTML = data.map(function(a) {
+        var etoiles = '★'.repeat(a.note) + '☆'.repeat(5-a.note);
+        var date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '';
+        return '<div style="background:var(--cl-surface);border:1px solid var(--cl-border);border-radius:16px;padding:24px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+              '<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,200,83,0.15);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--green);">' + (a.nom||'?').charAt(0).toUpperCase() + '</div>' +
+              '<div><div style="font-weight:700;color:var(--cl-text);font-size:14px;">' + (a.nom||'Anonyme') + '</div>' +
+                '<div style="font-size:11px;color:var(--cl-muted);">' + (a.organisation||'') + '</div></div>' +
+            '</div>' +
+            '<div style="text-align:right;"><div style="color:#FFD700;font-size:18px;">' + etoiles + '</div><div style="font-size:11px;color:var(--cl-muted);">' + date + '</div></div>' +
+          '</div>' +
+          '<p style="color:var(--cl-text);font-size:14px;line-height:1.6;margin:0;">' + (a.commentaire||'') + '</p>' +
+        '</div>';
+      }).join('');
+    })
+    .catch(function() {
+      document.getElementById('avis-liste').innerHTML = '<div style="text-align:center;color:var(--cl-muted);">Impossible de charger les avis.</div>';
+    });
+}
+
+function soumettreAvis() {
+  if (!senSmsUser) { ouvrirAuth('login'); return; }
+  if (!selectedStars) { document.getElementById('avis-error').style.display='block'; document.getElementById('avis-error').textContent='Veuillez sélectionner une note.'; return; }
+  var texte = document.getElementById('avis-texte').value.trim();
+  if (texte.length < 10) { document.getElementById('avis-error').style.display='block'; document.getElementById('avis-error').textContent='Commentaire trop court (10 caractères min).'; return; }
+  document.getElementById('avis-error').style.display='none';
+  fetch(API + '/api/sensms/avis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: senSmsUser.id || senSmsUser._id,
+      nom: senSmsUser.nom || senSmsUser.name,
+      email: senSmsUser.email,
+      organisation: senSmsUser.organisation || senSmsUser.org || '',
+      note: selectedStars,
+      commentaire: texte
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      document.getElementById('avis-texte').value = '';
+      setStars(0);
+      chargerAvis();
+      alert('Merci pour votre avis !');
+    } else {
+      document.getElementById('avis-error').style.display='block';
+      document.getElementById('avis-error').textContent = d.error || 'Erreur';
+    }
+  })
+  .catch(function() { alert('Erreur réseau'); });
+}
+
+// Charger les avis au démarrage
+document.addEventListener('DOMContentLoaded', function() {
+  chargerAvis();
+  updateAvisUI();
+});
+// ══ FIN AVIS ══
 </script>
 </body>
 </div>

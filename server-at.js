@@ -3537,6 +3537,63 @@ app.post('/api/sensms/delete-user', async (req, res) => {
 });
 // ══ FIN SENSMS ADMIN ROUTES ══
 
+
+// ══ AVIS SENSMS ══
+app.get('/api/sensms/avis', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    var avis = await db.collection('sensms_avis').find({ approuve: true }).sort({ createdAt: -1 }).toArray();
+    avis.forEach(function(a) { delete a._id; });
+    res.json(avis);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/sensms/avis', async (req, res) => {
+  try {
+    var { userId, nom, email, organisation, note, commentaire } = req.body;
+    if (!userId || !note || !commentaire) return res.json({ success: false, error: 'Données manquantes' });
+    if (note < 1 || note > 5) return res.json({ success: false, error: 'Note invalide' });
+    if (commentaire.length < 10) return res.json({ success: false, error: 'Commentaire trop court' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    // Vérifier doublon
+    var existant = await db.collection('sensms_avis').findOne({ userId: userId });
+    if (existant) return res.json({ success: false, error: 'Vous avez déjà laissé un avis' });
+    var avis = {
+      userId, nom, email, organisation,
+      note: parseInt(note),
+      commentaire,
+      approuve: true, // auto-approuvé
+      createdAt: new Date()
+    };
+    await db.collection('sensms_avis').insertOne(avis);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// Admin: voir tous les avis
+app.get('/api/sensms/avis/admin', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var avis = await db.collection('sensms_avis').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(avis);
+  } catch(e) { res.json([]); }
+});
+
+// Admin: approuver/rejeter un avis
+app.post('/api/sensms/avis/moderer', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    var { avisId, approuve } = req.body;
+    const { ObjectId } = require('mongodb');
+    await db.collection('sensms_avis').updateOne({ _id: new ObjectId(avisId) }, { $set: { approuve: approuve } });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+// ══ FIN AVIS SENSMS ══
+
 // ── DÉMARRAGE ─────────────────────────────
 
 connectDB().then((dbInstance) => {
