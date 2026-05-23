@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="ZAMA â€” Bureau de change digital sÃ©nÃ©galais. Transfert international, Ã©pargne jusqu'Ã  5%/an, tontine digitale et crÃ©dit en 24h. Fonds virÃ©s sur Wave et Orange Money.">
+<meta name="keywords" content="transfert argent SÃ©nÃ©gal, bureau de change, Wave, Orange Money, Ã©pargne FCFA, tontine digitale, crÃ©dit rapide">
+<meta property="og:title" content="ZAMA â€” Votre fintech sÃ©nÃ©galaise">
+<meta property="og:description" content="Envoyez de l'argent au SÃ©nÃ©gal. Ã‰pargnez jusqu'Ã  5%/an. CrÃ©dit en 24h.">
+<meta property="og:image" content="https://pst-telecom-production.up.railway.app/icons/zama-512.png">
+<meta property="og:url" content="https://zama-sn.com">
+<title>ZAMA â€” Votre fintech sÃ©nÃ©galaise</title>
+<link rel="manifest" href="https://pst-telecom-production.up.railway.app/manifest.json">
+<link rel="icon" href="https://pst-telecom-production.up.railway.app/icons/zama-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --gold:#F5B014;
+  --gold-l:#FCD34D;
+  --green:#22C55E;
+  --purple:#8B5CF6;
+  --bg:#04080F;
+  --s1:#070D1A;
+  --s2:#0C1526;
+  --border:rgba(255,255,255,.07);
+  --text:rgba(255,255,255,.9);
+  --text2:rgba(255,255,255,.55);
+  --text3:rgba(255,255,255,.3);
+  --font:'Outfit',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+
+/* â”€â”€ CURSOR â”€â”€ */
+body{cursor:none;}
+.cursor{position:fixed;width:10px;height:10px;border-radius:50%;background:var(--gold);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,opacity .2s;mix-blend-mode:difference;}
+.cursor-ring{position:fixed;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(245,176,20,.4);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .12s ease-out;}
+
+/* â”€â”€ NAV â”€â”€ */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:18px 48px;background:rgba(4,8,15,.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(245,176,20,.08);}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+.nav-logo-icon{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold-l));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#000;letter-spacing:-.5px;box-shadow:0 4px 16px rgba(245,176,20,.3);}
+.nav-logo-txt{font-size:20px;font-weight:800;color:#fff;letter-spacing:.5px;}
+.nav-logo-sub{font-size:10px;color:rgba(245,176,20,.6);font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-left:2px;}
+.nav-links{display:flex;align-items:center;gap:32px;}
+.nav-links a{color:var(--text2);font-size:14px;font-weight:500;text-decoration:none;transition:color .2s;}
+.nav-links a:hover{color:var(--text);}
+.nav-cta{padding:10px 24px;border-radius:50px;background:linear-gradient(135deg,var(--gold),var(--gold-l));color:#000;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);transition:transform .15s,box-shadow .15s;text-decoration:none;}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(245,176,20,.4);}
+
+/* â”€â”€ HERO â”€â”€ */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 24px 80px;text-align:center;position:relative;overflow:hidden;}
+.hero-noise{position:absolute;inset:0;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");background-size:200px;}
+.hero-glow{position:absolute;inset:0;background:
+  radial-gradient(ellipse 70% 50% at 50% -10%,rgba(245,176,20,.15) 0%,transparent 60%),
+  radial-gradient(ellipse 40% 40% at 85% 85%,rgba(34,197,94,.06) 0%,transparent 50%),
+  radial-gradient(ellipse 30% 30% at 10% 60%,rgba(139,92,246,.06) 0%,transparent 50%);
+  pointer-events:none;}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(245,176,20,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,176,20,.03) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,#000 20%,transparent 80%);pointer-events:none;}
+
+.hero-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(245,176,20,.08);border:1px solid rgba(245,176,20,.2);border-radius:50px;padding:7px 18px;font-size:12px;color:var(--gold);font-weight:600;margin-bottom:32px;letter-spacing:.5px;animation:fadeUp .8s ease both;}
+.pill-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(245,176,20,.4);}50%{opacity:.7;box-shadow:0 0 0 6px rgba(245,176,20,0);}}
+
+h1{font-size:clamp(40px,7vw,80px);font-weight:900;color:#fff;line-height:1;letter-spacing:-2.5px;margin-bottom:24px;animation:fadeUp .8s .1s ease both;}
+h1 .accent{background:linear-gradient(135deg,var(--gold),var(--gold-l) 50%,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+h1 .line2{display:block;font-size:clamp(32px,5.5vw,62px);color:rgba(255,255,255,.7);font-weight:300;letter-spacing:-1px;margin-top:4px;}
+
+.hero-sub{font-size:clamp(15px,2.5vw,19px);color:var(--text2);line-height:1.7;max-width:540px;margin:0 auto 40px;font-weight:400;animation:fadeUp .8s .2s ease both;}
+
+.hero-btns{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-bottom:56px;animation:fadeUp .8s .3s ease both;}
+.btn-primary{padding:17px 36px;border-radius:50px;background:linear-gradient(135deg,var(--gold),var(--gold-l));color:#000;font-size:16px;font-weight:800;cursor:pointer;border:none;font-family:var(--font);transition:all .2s;box-shadow:0 8px 32px rgba(245,176,20,.25);text-decoration:none;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(245,176,20,.4);}
+.btn-secondary{padding:17px 36px;border-radius:50px;background:transparent;color:var(--text);font-size:16px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:var(--font);transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:8px;}
+.btn-secondary:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.04);}
+.btn-install{padding:17px 36px;border-radius:50px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;cursor:pointer;border:1.5px solid rgba(255,255,255,.25);font-family:var(--font);transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-install:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.5);}
+
+/* Rate ticker */
+.rate-ticker{display:inline-flex;align-items:center;gap:12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:14px;padding:12px 20px;animation:fadeUp .8s .4s ease both;}
+.rate-live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;}
+.rate-label{font-size:13px;color:var(--text2);}
+.rate-val{font-family:var(--mono);font-size:16px;font-weight:500;color:#fff;}
+.rate-val span{color:var(--green);}
+
+/* Scroll indicator */
+.scroll-ind{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text3);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;animation:fadeUp .8s .6s ease both;}
+.scroll-arrow{width:20px;height:20px;border-right:1.5px solid var(--text3);border-bottom:1.5px solid var(--text3);transform:rotate(45deg);animation:scrollBounce 1.5s ease-in-out infinite;}
+@keyframes scrollBounce{0%,100%{transform:rotate(45deg) translateY(0);}50%{transform:rotate(45deg) translateY(5px);}}
+
+/* â”€â”€ STATS â”€â”€ */
+.stats{padding:0 48px;margin-top:-40px;position:relative;z-index:2;max-width:1100px;margin-left:auto;margin-right:auto;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-radius:20px;overflow:hidden;border:1px solid var(--border);}
+.stat-card{background:var(--s1);padding:28px 24px;text-align:center;}
+.stat-num{font-size:32px;font-weight:900;color:var(--gold);font-family:var(--mono);letter-spacing:-1px;margin-bottom:4px;}
+.stat-label{font-size:12px;color:var(--text3);font-weight:500;letter-spacing:.5px;}
+
+/* â”€â”€ FEATURES â”€â”€ */
+.section{padding:100px 48px;max-width:1100px;margin:0 auto;}
+.section-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:rgba(245,176,20,.7);margin-bottom:14px;}
+.section-title{font-size:clamp(28px,4vw,48px);font-weight:800;color:#fff;line-height:1.1;letter-spacing:-1.5px;margin-bottom:16px;}
+.section-sub{font-size:16px;color:var(--text2);line-height:1.7;max-width:520px;}
+
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+.feat-card{background:var(--s1);border:1px solid var(--border);border-radius:24px;padding:28px;transition:all .25s;position:relative;overflow:hidden;}
+.feat-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .25s;border-radius:24px;}
+.feat-card:hover{transform:translateY(-4px);border-color:rgba(245,176,20,.2);}
+.feat-card:hover::before{opacity:1;background:radial-gradient(ellipse 60% 60% at 0% 0%,rgba(245,176,20,.06) 0%,transparent 70%);}
+.feat-ico{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:22px;}
+.feat-title{font-size:17px;font-weight:700;color:#fff;margin-bottom:10px;}
+.feat-desc{font-size:13px;color:var(--text2);line-height:1.7;}
+.feat-tag{display:inline-block;margin-top:14px;font-size:11px;font-weight:600;padding:4px 12px;border-radius:50px;}
+
+/* â”€â”€ SERVICES â”€â”€ */
+.serv-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px;}
+.serv-card{border-radius:24px;padding:28px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;text-decoration:none;display:block;}
+.serv-card:hover{transform:scale(1.02);}
+.serv-card-big{grid-row:span 2;}
+.serv-num{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.3);margin-bottom:16px;letter-spacing:2px;}
+.serv-ico{font-size:36px;margin-bottom:16px;display:block;}
+.serv-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;}
+.serv-rate{font-size:15px;font-weight:700;margin-bottom:6px;}
+.serv-desc{font-size:13px;color:rgba(255,255,255,.45);line-height:1.6;}
+.serv-arrow{position:absolute;bottom:24px;right:24px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.serv-card:hover .serv-arrow{background:rgba(255,255,255,.15);transform:translate(2px,-2px);}
+
+/* â”€â”€ TAUX â”€â”€ */
+.taux-section{padding:80px 48px;background:var(--s1);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.taux-inner{max-width:1100px;margin:0 auto;}
+.taux-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:32px;}
+.taux-card{background:var(--s2);border:1px solid var(--border);border-radius:18px;padding:20px;text-align:center;transition:all .2s;}
+.taux-card:hover{border-color:rgba(245,176,20,.2);background:rgba(245,176,20,.04);}
+.taux-flag{font-size:28px;margin-bottom:8px;}
+.taux-code{font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600;letter-spacing:1px;}
+.taux-val{font-size:24px;font-weight:800;color:var(--gold);font-family:var(--mono);margin-bottom:2px;}
+.taux-sub{font-size:11px;color:var(--text3);}
+
+/* â”€â”€ HOW â”€â”€ */
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:48px;position:relative;}
+.how-grid::before{content:'';position:absolute;top:24px;left:12.5%;right:12.5%;height:1px;background:linear-gradient(90deg,transparent,rgba(245,176,20,.3),transparent);}
+.how-step{text-align:center;padding:0 16px;}
+.how-num{width:48px;height:48px;border-radius:50%;background:var(--s2);border:1px solid rgba(245,176,20,.2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--gold);margin:0 auto 20px;}
+.how-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;}
+.how-desc{font-size:13px;color:var(--text2);line-height:1.6;}
+
+/* â”€â”€ TESTIMONIALS â”€â”€ */
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+.testi-card{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:24px;}
+.testi-stars{color:var(--gold);font-size:14px;margin-bottom:14px;letter-spacing:2px;}
+.testi-text{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:16px;font-style:italic;}
+.testi-author{display:flex;align-items:center;gap:10px;}
+.testi-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-l));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;}
+.testi-name{font-size:13px;font-weight:700;color:#fff;}
+.testi-loc{font-size:11px;color:var(--text3);}
+
+/* â”€â”€ CTA FINAL â”€â”€ */
+.cta-section{padding:120px 48px;text-align:center;position:relative;overflow:hidden;}
+.cta-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(245,176,20,.07) 0%,transparent 70%);pointer-events:none;}
+.cta-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:50px;padding:6px 16px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:24px;}
+.cta-title{font-size:clamp(32px,5vw,60px);font-weight:900;color:#fff;letter-spacing:-2px;line-height:1;margin-bottom:20px;}
+.cta-sub{font-size:16px;color:var(--text2);margin-bottom:40px;line-height:1.7;}
+.cta-btns{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:24px;}
+.cta-note{font-size:12px;color:var(--text3);}
+
+/* â”€â”€ FOOTER â”€â”€ */
+footer{padding:48px;border-top:1px solid var(--border);}
+.footer-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;}
+.footer-brand{}
+.footer-logo{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.footer-tagline{font-size:13px;color:var(--text2);line-height:1.7;max-width:260px;margin-bottom:20px;}
+.footer-social{display:flex;gap:10px;}
+.footer-social a{width:36px;height:36px;border-radius:10px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);text-decoration:none;font-size:15px;transition:all .2s;}
+.footer-social a:hover{border-color:rgba(245,176,20,.3);color:var(--gold);}
+.footer-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:16px;}
+.footer-col a{display:block;font-size:14px;color:var(--text2);text-decoration:none;margin-bottom:10px;transition:color .2s;}
+.footer-col a:hover{color:var(--text);}
+.footer-bottom{max-width:1100px;margin:32px auto 0;padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text3);}
+
+/* â”€â”€ ANIMATIONS â”€â”€ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+/* â”€â”€ MOBILE â”€â”€ */
+@media(max-width:768px){
+  /* NAV */
+  nav{padding:12px 16px;}
+  .nav-links{display:none;}
+  .nav-cta{padding:8px 16px;font-size:13px;}
+
+  /* HERO */
+  .hero{padding:80px 16px 60px;min-height:auto;}
+  .hero-pill{font-size:11px;padding:5px 14px;margin-bottom:20px;}
+  .hero-btns{flex-direction:column;align-items:center;gap:10px;margin-bottom:32px;}
+  .btn-primary,.btn-secondary{width:100%;max-width:320px;justify-content:center;padding:15px 24px;font-size:15px;}
+  .rate-ticker{flex-wrap:wrap;justify-content:center;gap:6px;padding:10px 14px;font-size:12px;}
+  .scroll-ind{display:none;}
+
+  /* BADGES CRYPTO */
+  [style*="display:flex;flex-wrap:wrap;gap:10px;justify-content:center"]{gap:6px !important;}
+
+  /* STATS */
+  .stats{padding:0 16px !important;margin:-20px auto 0 !important;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .stat-card{padding:16px 12px;}
+  .stat-num{font-size:24px;}
+
+  /* SECTIONS */
+  .section{padding:48px 16px;}
+  .section-title{letter-spacing:-1px;}
+
+  /* FEATURES */
+  .feat-grid{grid-template-columns:1fr;gap:12px;}
+  .feat-card{padding:20px;}
+
+  /* SERVICES */
+  .serv-layout{grid-template-columns:1fr;gap:12px;}
+  .serv-card-big{grid-row:auto;}
+  .serv-card{padding:20px;}
+  .serv-title{font-size:18px;}
+
+  /* ECHANGE CRYPTO */
+  [style*="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px"]{
+    grid-template-columns:1fr !important;
+  }
+
+  /* TAUX */
+  .taux-section{padding:48px 16px;}
+  .taux-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .taux-card{padding:14px 10px;}
+  .taux-val{font-size:20px;}
+
+  /* COMMENT CA MARCHE */
+  .how-grid{grid-template-columns:1fr 1fr;gap:16px;}
+  .how-grid::before{display:none;}
+  .how-step{padding:0 8px;}
+  .how-title{font-size:13px;}
+  .how-desc{font-size:11px;}
+
+  /* TEMOIGNAGES */
+  .testi-grid{grid-template-columns:1fr;gap:12px;}
+
+  /* CTA */
+  .cta-section{padding:60px 16px;}
+  .cta-title{letter-spacing:-1px;}
+  .cta-btns .btn-primary{width:100%;max-width:320px;font-size:15px;padding:16px 24px;}
+
+  /* FOOTER */
+  footer{padding:32px 16px;}
+  .footer-inner{grid-template-columns:1fr;gap:20px;}
+  .footer-bottom{flex-direction:column;gap:8px;text-align:center;}
+  .footer-col{display:none;}
+}
+
+/* TrÃ¨s petits Ã©crans */
+.crypto-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:768px){.crypto-grid{grid-template-columns:1fr !important;}}
+@media(max-width:380px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .taux-grid{grid-template-columns:repeat(2,1fr);}
+  .how-grid{grid-template-columns:1fr;}
+  h1{letter-spacing:-2px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Curseur custom (desktop) -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- â”€â”€ NAV â”€â”€ -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-icon">ZA</div>
+    <div>
+      <div class="nav-logo-txt">ZAMA</div>
+      <div class="nav-logo-sub">by PST Telecom</div>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#taux">Taux</a>
+    <a href="#comment">Comment Ã§a marche</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <a class="nav-cta" href="https://zama-sn.com/zama" target="_blank">Ouvrir l'app â†’</a>
+</nav>
+
+<!-- â”€â”€ HERO â”€â”€ -->
+<section class="hero">
+  <div class="hero-noise"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-pill">
+    <span class="pill-dot"></span>
+    Fintech sÃ©nÃ©galaise Â· Disponible maintenant
+  </div>
+
+  <h1>
+    <span class="accent">L'argent africain</span>
+    <span class="line2">enfin Ã  votre rythme</span>
+  </h1>
+
+  <p class="hero-sub">
+    Ã‰changez vos USDT en FCFA en toute sÃ©curitÃ© et instantanÃ©ment. Envoyez vers le SÃ©nÃ©gal, Ã©pargnez jusqu'Ã  5%/an, organisez votre tontine et accÃ©dez au crÃ©dit en 24h.
+  </p>
+
+  <div class="hero-btns">
+    <a class="btn-primary" href="https://zama-sn.com/zama" target="_blank">
+      ðŸš€ Commencer gratuitement
+    </a>
+    <button class="btn-install" id="btn-install" onclick="installApp()" style="display:none">
+      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Installer l'app
+    </button>
+    <a class="btn-secondary" href="#services">
+      DÃ©couvrir les services â†“
+    </a>
+  </div>
+  <!-- BanniÃ¨re install iOS -->
+  <div id="ios-banner" style="display:none;margin-top:16px;background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.3);border-radius:14px;padding:12px 18px;font-size:13px;color:rgba(255,255,255,.8);text-align:center;animation:fadeUp .5s ease">
+    ðŸ“± Sur iPhone : appuyez sur <strong style="color:var(--gold)">â†‘ Partager</strong> puis <strong style="color:var(--gold)">"Sur l'Ã©cran d'accueil"</strong>
+  </div>
+
+  <div class="rate-ticker">
+    <div class="rate-live-dot"></div>
+    <span class="rate-label">Taux en direct :</span>
+    <span class="rate-val">1 USD = <span id="hero-rate">...</span> FCFA</span>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px;animation:fadeUp .8s .5s ease both">
+    <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(38,161,123,.1);border:1px solid rgba(38,161,123,.25);border-radius:50px;padding:8px 18px;font-size:13px;font-weight:700;color:#26A17B">
+      <svg viewBox="0 0 32 32" width="18" height="18"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg>
+      USDT â†’ FCFA instantanÃ©
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(247,147,26,.1);border:1px solid rgba(247,147,26,.25);border-radius:50px;padding:8px 18px;font-size:13px;font-weight:700;color:#F7931A">
+      <svg viewBox="0 0 32 32" width="18" height="18"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14c.3-2-1.2-3-3.3-3.8l.7-2.7-1.7-.4-.6 2.6-1-.2.6-2.7-1.7-.4-.6 2.7-1.9-.5v-.1l-2.3-.5-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8.9l-2 7.9c-.1.2-.4.5-.9.4l-1.2-.3-.9 1.8 2.2.5.5.1-.7 2.8 1.7.4.7-2.8.9.2-.7 2.8 1.7.4.7-2.8c2.8.5 4.9.3 5.7-2.2.7-2-.1-3.1-1.4-3.8 1-.3 1.7-1 1.8-2.5zm-3.2 4.5c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.6.8 4.1 2.9zm.5-4.6c-.5 1.8-3.3.9-4.3.6l.8-3.2c1 .2 4 .7 3.5 2.6z" fill="white"/></svg>
+      BTC acceptÃ©
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(98,126,234,.1);border:1px solid rgba(98,126,234,.25);border-radius:50px;padding:8px 18px;font-size:13px;font-weight:700;color:#627EEA">
+      <svg viewBox="0 0 32 32" width="18" height="18"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 5v8.9l7.5 3.3L16.5 5z" fill="white" opacity=".6"/><path d="M16.5 5L9 17.2l7.5-3.3V5z" fill="white"/><path d="M16.5 22.1v5.9l7.5-10.4-7.5 4.5z" fill="white" opacity=".6"/><path d="M16.5 28v-5.9L9 17.6l7.5 10.4z" fill="white"/></svg>
+      ETH Â· 25 cryptos
+    </div>
+  </div>
+
+  <div class="scroll-ind">
+    <div class="scroll-arrow"></div>
+    <span>DÃ©filer</span>
+  </div>
+</section>
+
+<!-- â”€â”€ STATS â”€â”€ -->
+<div class="stats" style="max-width:1100px;margin:-40px auto 0;">
+  <div class="stats-grid reveal">
+    <div class="stat-card">
+      <div class="stat-num">5%</div>
+      <div class="stat-label">Taux Ã©pargne/an</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">24h</div>
+      <div class="stat-label">RÃ©ponse crÃ©dit</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">25</div>
+      <div class="stat-label">Cryptos acceptÃ©es</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">0%</div>
+      <div class="stat-label">Frais Ã  l'Ã©chÃ©ance</div>
+    </div>
+  </div>
+</div>
+
+<!-- â”€â”€ FEATURES â”€â”€ -->
+<!-- â•â• CRYPTO EXCHANGE â•â• -->
+<section class="section" style="padding-top:80px" id="exchange">
+  <div class="section-tag reveal">Bureau de change digital</div>
+  <h2 class="section-title reveal">Ã‰changez vos crypto<br><span style="color:var(--gold)">en FCFA instantanÃ©ment</span></h2>
+  <p class="section-sub reveal">ZAMA est le premier bureau de change digital sÃ©nÃ©galais. Envoyez vos USDT, Bitcoin ou Ethereum et recevez des FCFA directement sur Wave ou Orange Money.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px" class="reveal crypto-grid">
+
+    <!-- Simulateur visuel -->
+    <div style="background:var(--s1);border:1px solid rgba(38,161,123,.2);border-radius:24px;padding:28px">
+      <div style="font-size:12px;color:rgba(38,161,123,.7);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px">Simulation d'Ã©change</div>
+      <div style="background:var(--s2);border-radius:14px;padding:16px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Vous envoyez</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:28px;font-weight:900;color:#fff" id="sim-crypto-val">100</div>
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(38,161,123,.15);border:1px solid rgba(38,161,123,.3);border-radius:50px;padding:6px 14px">
+            <svg viewBox="0 0 32 32" width="18" height="18"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path d="M17.9 17.2v-.1c3.3-.2 5.7-1 5.7-2s-2.4-1.8-5.7-2v-2.3h-3.8v2.3c-3.3.2-5.7 1-5.7 2s2.4 1.8 5.7 2v5.5h3.8zm-1.9-.5c-2.9 0-5.2-.5-5.2-1.1s2.3-1.1 5.2-1.1 5.2.5 5.2 1.1-2.3 1.1-5.2 1.1z" fill="white"/></svg>
+            <span style="font-size:13px;font-weight:700;color:#26A17B">USDT</span>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:8px;color:var(--text3);font-size:18px">â†“</div>
+      <div style="background:var(--s2);border-radius:14px;padding:16px;margin-bottom:20px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Vous recevez</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:28px;font-weight:900;color:var(--gold)" id="sim-fcfa-val">56 400</div>
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(245,176,20,.15);border:1px solid rgba(245,176,20,.3);border-radius:50px;padding:6px 14px">
+            <span style="font-size:13px;font-weight:700;color:var(--gold)">FCFA</span>
+          </div>
+        </div>
+      </div>
+      <input type="range" min="10" max="1000" value="100" oninput="updateSim(this.value)"
+        style="width:100%;accent-color:var(--gold);cursor:pointer;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:16px">Glissez pour simuler Â· Taux : 1 USDT â‰ˆ <span id="sim-rate">564</span> FCFA</div>
+      <a href="https://zama-sn.com/zama" target="_blank"
+        style="display:block;text-align:center;padding:13px;border-radius:12px;background:linear-gradient(135deg,#26A17B,#1a8a65);color:#fff;font-size:14px;font-weight:700;text-decoration:none;transition:all .2s">
+        Ã‰changer maintenant â†’
+      </a>
+    </div>
+
+    <!-- Avantages -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;align-items:flex-start;gap:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(38,161,123,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">âš¡</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px">InstantanÃ©</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">DÃ¨s que votre paiement crypto est confirmÃ©, les FCFA sont virÃ©s sur Wave ou Orange Money. Pas d'attente.</div>
+        </div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;align-items:flex-start;gap:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(245,176,20,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">ðŸ”’</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px">SÃ©curisÃ©</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">Paiement via izichangePay certifiÃ©. 25 cryptos acceptÃ©es sur TRC20, BEP20, ERC20 et TON.</div>
+        </div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;align-items:flex-start;gap:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(139,92,246,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">ðŸ“±</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px">Simple</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">Choisissez votre crypto, scannez l'adresse, confirmez. Le destinataire reÃ§oit en FCFA directement sur son tÃ©lÃ©phone.</div>
+        </div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;align-items:flex-start;gap:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">ðŸ’±</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px">25 cryptos acceptÃ©es</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">USDT TRC20, USDT BEP20, Bitcoin, Ethereum, BNB, TRON, TON, XRP et bien d'autres.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="section" id="services">
+  <div class="section-tag reveal">Ce que ZAMA fait pour vous</div>
+  <h2 class="section-title reveal">Une plateforme.<br>Tous vos besoins financiers.</h2>
+  <p class="section-sub reveal">ZAMA regroupe tout ce dont vous avez besoin pour gÃ©rer votre argent, envoyer des fonds et faire fructifier vos Ã©conomies.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(245,176,20,.1)">ðŸ’¸</div>
+      <div class="feat-title">Transfert international</div>
+      <div class="feat-desc">Envoyez depuis la France, les USA, le Canada ou partout dans le monde. Le destinataire reÃ§oit en FCFA sur Wave ou Orange Money en quelques heures.</div>
+      <span class="feat-tag" style="background:rgba(245,176,20,.1);color:var(--gold)">Crypto Â· Wave Â· OM</span>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(34,197,94,.1)">ðŸ“ˆ</div>
+      <div class="feat-title">Ã‰pargne rÃ©munÃ©rÃ©e</div>
+      <div class="feat-desc">Choisissez parmi 4 plans : Libre (0%), 3 mois (1%), 6 mois (2.5%) ou 1 an (5%). IntÃ©rÃªts crÃ©ditÃ©s chaque mois, 0% de frais Ã  l'Ã©chÃ©ance.</div>
+      <span class="feat-tag" style="background:rgba(34,197,94,.1);color:var(--green)">Jusqu'Ã  5%/an</span>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(139,92,246,.1)">ðŸ’³</div>
+      <div class="feat-title">CrÃ©dit express</div>
+      <div class="feat-desc">Votre Ã©pargne devient votre caution. Empruntez jusqu'Ã  2Ã— votre solde Ã©pargnÃ©. RÃ©ponse en 24h, fonds virÃ©s directement sur Wave ou Orange Money.</div>
+      <span class="feat-tag" style="background:rgba(139,92,246,.1);color:var(--purple)">3%/mois Â· 24h</span>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(245,176,20,.1)">ðŸ¤</div>
+      <div class="feat-title">Tontine digitale</div>
+      <div class="feat-desc">Organisez votre tontine en ligne. Invitez vos membres par tÃ©lÃ©phone, suivez les cotisations en temps rÃ©el et recevez votre pot automatiquement.</div>
+      <span class="feat-tag" style="background:rgba(245,176,20,.1);color:var(--gold)">Transparent Â· SÃ©curisÃ©</span>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(34,197,94,.1)">ðŸ”</div>
+      <div class="feat-title">SÃ©curitÃ© bancaire</div>
+      <div class="feat-desc">PIN 4 chiffres, vÃ©rification KYC, chiffrement des transactions. Chaque dÃ©pÃ´t est validÃ© par notre Ã©quipe avant crÃ©dit. Votre argent est protÃ©gÃ©.</div>
+      <span class="feat-tag" style="background:rgba(34,197,94,.1);color:var(--green)">KYC Â· PIN Â· ChiffrÃ©</span>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-ico" style="background:rgba(0,170,228,.1)">ðŸŒ</div>
+      <div class="feat-title">25 cryptos acceptÃ©es</div>
+      <div class="feat-desc">USDT TRC20, BEP20, ERC20, TON, Bitcoin, Ethereum, BNB et bien d'autres. Paiement crypto natif sans iframe, via izichangePay certifiÃ©.</div>
+      <span class="feat-tag" style="background:rgba(0,170,228,.1);color:#00AAE4">USDT Â· BTC Â· ETH Â· BNB</span>
+    </div>
+  </div>
+</section>
+
+<!-- â”€â”€ SERVICES VISUELS â”€â”€ -->
+<section class="section" style="padding-top:0">
+  <div class="section-tag reveal">Nos offres</div>
+  <h2 class="section-title reveal">Tout commence avec<br>votre Ã©pargne</h2>
+
+  <div class="serv-layout reveal">
+    <a class="serv-card serv-card-big" href="https://zama-sn.com/zama" target="_blank" style="background:linear-gradient(160deg,#0A1F14,#152B1E);border:1px solid rgba(34,197,94,.2)">
+      <div class="serv-num">01 â€” Ã‰PARGNE</div>
+      <span class="serv-ico">ðŸ’°</span>
+      <div class="serv-title">Ã‰pargnez et gagnez</div>
+      <div class="serv-rate" style="color:var(--green)">Jusqu'Ã  5%/an Â· 0% frais Ã  l'Ã©chÃ©ance</div>
+      <div class="serv-desc">Quatre plans adaptÃ©s Ã  chaque objectif. IntÃ©rÃªts mensuels notifiÃ©s par SMS. Aucun frais cachÃ©, aucune surprise.</div>
+      <div class="serv-arrow">
+        <svg viewBox="0 0 24 24" width="16" fill="none" stroke="white" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7,7 17,7 17,17"/></svg>
+      </div>
+    </a>
+    <a class="serv-card" href="https://zama-sn.com/zama" target="_blank" style="background:linear-gradient(135deg,#1A1A0F,#2A2A1A);border:1px solid rgba(245,176,20,.2)">
+      <div class="serv-num">02 â€” TONTINE</div>
+      <span class="serv-ico" style="font-size:28px">ðŸ¤</span>
+      <div class="serv-title" style="font-size:18px">Tontine digitale</div>
+      <div class="serv-rate" style="color:var(--gold)">Distribution automatique</div>
+      <div class="serv-desc" style="font-size:12px">Invitez, cotisez, recevez. Historique transparent pour tous.</div>
+      <div class="serv-arrow"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="white" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7,7 17,7 17,17"/></svg></div>
+    </a>
+    <a class="serv-card" href="https://zama-sn.com/zama" target="_blank" style="background:linear-gradient(135deg,#150A28,#1E1040);border:1px solid rgba(139,92,246,.2)">
+      <div class="serv-num">03 â€” CRÃ‰DIT</div>
+      <span class="serv-ico" style="font-size:28px">ðŸ’³</span>
+      <div class="serv-title" style="font-size:18px">PrÃªt express</div>
+      <div class="serv-rate" style="color:var(--purple)">2Ã— votre Ã©pargne Â· 24h</div>
+      <div class="serv-desc" style="font-size:12px">Votre Ã©pargne garantit votre prÃªt. Simple et rapide.</div>
+      <div class="serv-arrow"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="white" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7,7 17,7 17,17"/></svg></div>
+    </a>
+  </div>
+</section>
+
+<!-- â”€â”€ TAUX â”€â”€ -->
+<section class="taux-section" id="taux">
+  <div class="taux-inner">
+    <div class="section-tag reveal">Transparence totale</div>
+    <h2 class="section-title reveal">Taux de change<br>en temps rÃ©el</h2>
+    <div class="taux-grid reveal">
+      <div class="taux-card">
+        <div class="taux-flag">ðŸ‡ºðŸ‡¸</div>
+        <div class="taux-code">USD</div>
+        <div class="taux-val" id="r-usd">--</div>
+        <div class="taux-sub">FCFA</div>
+      </div>
+      <div class="taux-card">
+        <div class="taux-flag">ðŸ‡ªðŸ‡º</div>
+        <div class="taux-code">EUR</div>
+        <div class="taux-val" id="r-eur">--</div>
+        <div class="taux-sub">FCFA</div>
+      </div>
+      <div class="taux-card">
+        <div class="taux-flag">ðŸ‡¬ðŸ‡§</div>
+        <div class="taux-code">GBP</div>
+        <div class="taux-val" id="r-gbp">--</div>
+        <div class="taux-sub">FCFA</div>
+      </div>
+      <div class="taux-card">
+        <div class="taux-flag">ðŸ‡¨ðŸ‡¦</div>
+        <div class="taux-code">CAD</div>
+        <div class="taux-val" id="r-cad">--</div>
+        <div class="taux-sub">FCFA</div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:16px">Taux mis Ã  jour toutes les 60 secondes Â· Source: ExchangeRate-API</p>
+  </div>
+</section>
+
+<!-- â”€â”€ COMMENT Ã‡A MARCHE â”€â”€ -->
+<section class="section" id="comment">
+  <div class="section-tag reveal">Simple comme bonjour</div>
+  <h2 class="section-title reveal">PrÃªt en 2 minutes</h2>
+
+  <div class="how-grid reveal">
+    <div class="how-step">
+      <div class="how-num">01</div>
+      <div class="how-title">CrÃ©ez votre compte</div>
+      <div class="how-desc">Inscrivez-vous avec votre numÃ©ro de tÃ©lÃ©phone. Gratuit, sans frais d'inscription.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">02</div>
+      <div class="how-title">VÃ©rifiez votre identitÃ©</div>
+      <div class="how-desc">KYC simple : piÃ¨ce d'identitÃ© + selfie. VÃ©rification sous 1h par notre Ã©quipe.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">03</div>
+      <div class="how-title">Choisissez votre service</div>
+      <div class="how-desc">Transfert, Ã©pargne, tontine ou crÃ©dit. Tout est disponible depuis l'application.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">04</div>
+      <div class="how-title">Payez et recevez</div>
+      <div class="how-desc">Wave, Orange Money ou crypto. Fonds virÃ©s rapidement, confirmÃ© par SMS.</div>
+    </div>
+  </div>
+</section>
+
+<!-- â”€â”€ TÃ‰MOIGNAGES â”€â”€ -->
+<section class="section" style="padding-top:0">
+  <div class="section-tag reveal">Ils nous font confiance</div>
+  <h2 class="section-title reveal">Ce que disent<br>nos utilisateurs</h2>
+
+  <div class="testi-grid">
+    <div class="testi-card reveal">
+      <div class="testi-stars">â˜…â˜…â˜…â˜…â˜…</div>
+      <p class="testi-text">"J'envoie de l'argent Ã  ma famille Ã  Dakar chaque mois. Avec ZAMA c'est simple, rapide et le taux est toujours meilleur que Western Union."</p>
+      <div class="testi-author">
+        <div class="testi-av">AM</div>
+        <div>
+          <div class="testi-name">Amadou M.</div>
+          <div class="testi-loc">Paris, France</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card reveal">
+      <div class="testi-stars">â˜…â˜…â˜…â˜…â˜…</div>
+      <p class="testi-text">"La tontine digitale a changÃ© notre groupe. Plus de disputes, tout est transparent. Chacun voit qui a cotisÃ© et le pot est distribuÃ© automatiquement."</p>
+      <div class="testi-author">
+        <div class="testi-av">FD</div>
+        <div>
+          <div class="testi-name">Fatou D.</div>
+          <div class="testi-loc">Dakar, SÃ©nÃ©gal</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card reveal">
+      <div class="testi-stars">â˜…â˜…â˜…â˜…â˜…</div>
+      <p class="testi-text">"J'ai obtenu un prÃªt en 18h pour mon commerce. J'avais mon Ã©pargne ZAMA comme caution. Processus simple, Ã©quipe rÃ©active."</p>
+      <div class="testi-author">
+        <div class="testi-av">IB</div>
+        <div>
+          <div class="testi-name">Ibrahima B.</div>
+          <div class="testi-loc">ThiÃ¨s, SÃ©nÃ©gal</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- â”€â”€ CTA FINAL â”€â”€ -->
+<section class="cta-section">
+  <div class="cta-bg"></div>
+  <div class="cta-badge">âœ¦ Gratuit Â· Sans engagement Â· SÃ©curisÃ©</div>
+  <h2 class="cta-title">Votre argent mÃ©rite<br><span style="color:var(--gold)">mieux.</span></h2>
+  <p class="cta-sub">Rejoignez ZAMA et prenez le contrÃ´le de vos finances.<br>Inscription en 2 minutes, sans frais.</p>
+  <div class="cta-btns">
+    <a class="btn-primary" href="https://zama-sn.com/zama" target="_blank" style="font-size:17px;padding:18px 44px">
+      ðŸš€ Ouvrir ZAMA maintenant
+    </a>
+    <button class="btn-install" id="btn-install-2" onclick="installApp()" style="display:none;font-size:16px;padding:17px 36px">
+      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Installer l'app gratuitement
+    </button>
+  </div>
+  <p class="cta-note">Fonctionne sur iOS et Android Â· Aucun tÃ©lÃ©chargement requis Â· Installable en 1 clic</p>
+  <div id="ios-banner-2" style="display:none;margin-top:16px;background:rgba(245,176,20,.1);border:1px solid rgba(245,176,20,.3);border-radius:14px;padding:12px 18px;font-size:13px;color:rgba(255,255,255,.8);text-align:center">
+    ðŸ“± Sur iPhone : appuyez sur <strong style="color:var(--gold)">â†‘ Partager</strong> puis <strong style="color:var(--gold)">"Sur l'Ã©cran d'accueil"</strong>
+  </div>
+</section>
+
+<!-- â”€â”€ FOOTER â”€â”€ -->
+<footer id="contact">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">
+        <div class="nav-logo-icon">ZA</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#fff">ZAMA</div>
+          <div style="font-size:10px;color:var(--text3);letter-spacing:1px">by PST Telecom</div>
+        </div>
+      </div>
+      <p class="footer-tagline">Bureau de change digital sÃ©nÃ©galais. Transfert, Ã©pargne, tontine et crÃ©dit depuis votre tÃ©lÃ©phone.</p>
+      <div class="footer-social">
+        <a href="#" title="Facebook">f</a>
+        <a href="#" title="WhatsApp">w</a>
+        <a href="#" title="Instagram">ig</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">Services</div>
+      <a href="https://zama-sn.com/zama" target="_blank">Transfert international</a>
+      <a href="https://zama-sn.com/zama" target="_blank">Ã‰pargne rÃ©munÃ©rÃ©e</a>
+      <a href="https://zama-sn.com/zama" target="_blank">Tontine digitale</a>
+      <a href="https://zama-sn.com/zama" target="_blank">CrÃ©dit express</a>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">PST Telecom</div>
+      <a href="https://pst-telecom.vercel.app" target="_blank">Site principal</a>
+      <a href="https://pst-telecom-production.up.railway.app/trax" target="_blank">PST-TRAX</a>
+      <a href="https://pst-telecom-production.up.railway.app/noc" target="_blank">PST NOC</a>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">Contact</div>
+      <a href="mailto:support@zama-sn.com">support@zama-sn.com</a>
+      <a href="tel:+221765596442">+221 76 559 64 42</a>
+      <a href="#">Dakar, SÃ©nÃ©gal</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>Â© 2025 ZAMA by PST Telecom Â· Tous droits rÃ©servÃ©s</span>
+    <span>Fait avec â¤ï¸ au SÃ©nÃ©gal</span>
+  </div>
+</footer>
+
+<script>
+// â”€â”€ Simulateur crypto â”€â”€
+var _simRate = 564;
+function updateSim(val) {
+  var v = document.getElementById('sim-crypto-val');
+  var f = document.getElementById('sim-fcfa-val');
+  if (v) v.textContent = val;
+  if (f) f.textContent = Math.round(val * _simRate).toLocaleString('fr-FR');
+}
+// Mettre Ã  jour le taux du simulateur quand on charge les taux
+var _origFetchRates = null;
+
+// â”€â”€ PWA Install â”€â”€
+var _deferredPrompt = null;
+var _isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+var _isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// Ã‰couter l'Ã©vÃ©nement beforeinstallprompt (Android/Chrome)
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredPrompt = e;
+  // Afficher les boutons installer
+  var b1 = document.getElementById('btn-install');
+  var b2 = document.getElementById('btn-install-2');
+  if (b1) b1.style.display = 'inline-flex';
+  if (b2) b2.style.display = 'inline-flex';
+});
+
+// Si iOS et pas encore installÃ©, afficher la banniÃ¨re iOS
+if (_isIOS && !_isInStandaloneMode) {
+  window.addEventListener('load', function() {
+    var b1 = document.getElementById('btn-install');
+    var b2 = document.getElementById('btn-install-2');
+    var ios1 = document.getElementById('ios-banner');
+    var ios2 = document.getElementById('ios-banner-2');
+    if (b1) b1.style.display = 'inline-flex';
+    if (b2) b2.style.display = 'inline-flex';
+    // Au clic sur iOS, afficher les instructions
+  });
+}
+
+function installApp() {
+  if (_isIOS) {
+    // Afficher instructions iOS
+    var ios1 = document.getElementById('ios-banner');
+    var ios2 = document.getElementById('ios-banner-2');
+    if (ios1) ios1.style.display = ios1.style.display === 'none' ? 'block' : 'none';
+    if (ios2) ios2.style.display = ios2.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(function(result) {
+      if (result.outcome === 'accepted') {
+        var b1 = document.getElementById('btn-install');
+        var b2 = document.getElementById('btn-install-2');
+        if (b1) b1.style.display = 'none';
+        if (b2) b2.style.display = 'none';
+      }
+      _deferredPrompt = null;
+    });
+  } else {
+    // Fallback: ouvrir l'app
+    window.open('https://zama-sn.com/zama', '_blank');
+  }
+}
+
+// DÃ©tecter si dÃ©jÃ  installÃ©
+window.addEventListener('appinstalled', function() {
+  var b1 = document.getElementById('btn-install');
+  var b2 = document.getElementById('btn-install-2');
+  if (b1) b1.style.display = 'none';
+  if (b2) b2.style.display = 'none';
+  _deferredPrompt = null;
+});
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// â”€â”€ Curseur custom â”€â”€
+var cur = document.getElementById('cursor');
+var ring = document.getElementById('cursorRing');
+if (window.matchMedia('(pointer:fine)').matches) {
+  document.addEventListener('mousemove', function(e) {
+    cur.style.left = e.clientX + 'px';
+    cur.style.top = e.clientY + 'px';
+    setTimeout(function() {
+      ring.style.left = e.clientX + 'px';
+      ring.style.top = e.clientY + 'px';
+    }, 60);
+  });
+  document.querySelectorAll('a,button').forEach(function(el) {
+    el.addEventListener('mouseenter', function() {
+      cur.style.width = '16px'; cur.style.height = '16px';
+      ring.style.width = '52px'; ring.style.height = '52px';
+    });
+    el.addEventListener('mouseleave', function() {
+      cur.style.width = '10px'; cur.style.height = '10px';
+      ring.style.width = '36px'; ring.style.height = '36px';
+    });
+  });
+} else {
+  cur.style.display = 'none'; ring.style.display = 'none';
+}
+
+// â”€â”€ Taux en direct â”€â”€
+async function fetchRates() {
+  try {
+    var r = await fetch('https://open.er-api.com/v6/latest/USD');
+    var d = await r.json();
+    if (!d.rates) throw new Error();
+    var xof = d.rates.XOF || 606;
+    var set = function(id, val) { var e = document.getElementById(id); if (e) e.textContent = Math.round(val); };
+    var hr = document.getElementById('hero-rate'); if (hr) hr.textContent = Math.round(xof);
+    _simRate = Math.round(xof);
+    var sr = document.getElementById('sim-rate'); if(sr) sr.textContent = Math.round(xof);
+    updateSim(document.querySelector('input[type=range]') ? document.querySelector('input[type=range]').value : 100);
+    set('r-usd', xof);
+    set('r-eur', xof / d.rates.EUR);
+    set('r-gbp', xof / d.rates.GBP);
+    set('r-cad', xof / d.rates.CAD);
+  } catch(e) {
+    var set = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+    var hr = document.getElementById('hero-rate'); if (hr) hr.textContent = '606';
+    set('r-usd', '606'); set('r-eur', '656'); set('r-gbp', '752'); set('r-cad', '412');
+  }
+}
+fetchRates();
+setInterval(fetchRates, 60000);
+
+// â”€â”€ Reveal au scroll â”€â”€
+var reveals = document.querySelectorAll('.reveal');
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+reveals.forEach(function(el) { observer.observe(el); });
+
+// â”€â”€ Nav transparente au scroll â”€â”€
+window.addEventListener('scroll', function() {
+  var nav = document.querySelector('nav');
+  if (window.scrollY > 80) {
+    nav.style.background = 'rgba(4,8,15,.95)';
+  } else {
+    nav.style.background = 'rgba(4,8,15,.7)';
+  }
+});
+</script>
+</body>
+</html>
+
