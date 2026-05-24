@@ -1,1 +1,6 @@
-{"rewrites":[{"source":"/(.*)","destination":"/zama.html"}]}
+{
+  "rewrites": [
+    { "source": "/zama", "destination": "/zama.html" },
+    { "source": "/app", "destination": "/zama.html" }
+  ]
+}
