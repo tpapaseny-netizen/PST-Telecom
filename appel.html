@@ -341,9 +341,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 </div><!-- #app -->
 
+<script src="https://rtc.infobip.com/latest/infobip.rtc.js"></script>
 <script>
 const API = 'https://pst-telecom-production.up.railway.app';
-const VONAGE_KEY = '3aba9072';
+const INFOBIP_API_KEY = '75a5af9fb5283bf136262f4f920d795a-5b0115bb-0f6f-4416-9f35-1c5f484efe0c';
+const INFOBIP_BASE_URL = 'https://y42xy1.api.infobip.com';
 const WAVE_LINK = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/';
 
 let num = '+221';
@@ -355,8 +357,10 @@ let callSecs = 0;
 let userId = localStorage.getItem('pst_uid') || '';
 let userNum = localStorage.getItem('pst_num') || '';
 let callHist = JSON.parse(localStorage.getItem('pst_hist') || '[]');
+let infobipRTC = null;
+let activeCall = null;
 
-// ÔöÇÔöÇ INIT ÔöÇÔöÇ
+// ── INIT ──
 window.addEventListener('load', function() {
   if (userId && userNum) {
     seConnecter(true);
@@ -367,7 +371,7 @@ window.addEventListener('load', function() {
   upNum();
 });
 
-// ÔöÇÔöÇ TABS ÔöÇÔöÇ
+// ── TABS ──
 function showTab(t) {
   ['dial','hist','forf'].forEach(function(id) {
     document.getElementById('tab-'+id).className = 'tab' + (id===t?' on':'');
@@ -376,7 +380,7 @@ function showTab(t) {
   if (t === 'hist') renderHist();
 }
 
-// ÔöÇÔöÇ CONNEXION ÔöÇÔöÇ
+// ── CONNEXION ──
 function showConnForm() {
   document.getElementById('dial-main').style.display = 'none';
   document.getElementById('conn-form').style.display = 'block';
@@ -389,63 +393,64 @@ function seConnecter(auto) {
   userId = uid; userNum = num2;
   localStorage.setItem('pst_uid', uid);
   localStorage.setItem('pst_num', num2);
-  // Init Vonage
-  initVonage(uid, num2);
+  initInfobip(uid, num2);
 }
 
-function initVonage(uid, num2) {
+async function initInfobip(uid, num2) {
   var dot = document.getElementById('sdot');
   var txt = document.getElementById('statut-txt');
   dot.className = 'sdot connecting';
   txt.textContent = 'Connexion...';
   txt.style.color = 'var(--gold)';
-  // Appel au backend pour token JWT Vonage
-  fetch(API + '/api/appel/token', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({user_id: uid, number: num2})
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.token) {
-      // Initialiser Vonage Client SDK
-      if (typeof NexmoClient !== 'undefined') {
-        var client = new NexmoClient({debug: false});
-        client.login(d.token).then(function(app) {
-          connected = true;
-          dot.className = 'sdot on';
-          txt.textContent = num2;
-          txt.style.color = 'var(--green)';
-          document.getElementById('dial-main').style.display = 'block';
-          document.getElementById('conn-form').style.display = 'none';
-          // ├ëcouter appels entrants
-          app.on('member:call', function(member, call) {
-            showIncoming(call.from || 'Inconnu', call);
-          });
-        }).catch(function(e) {
-          fallbackConnected(num2, dot, txt);
-        });
-      } else {
-        fallbackConnected(num2, dot, txt);
-      }
-    } else {
-      fallbackConnected(num2, dot, txt);
-    }
-  })
-  .catch(function() {
-    fallbackConnected(num2, dot, txt);
-  });
-}
+  try {
+    // Obtenir un token WebRTC depuis le backend
+    var resp = await fetch(API + '/api/appel/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: uid, number: num2, provider: 'infobip'})
+    });
+    var data = await resp.json();
+    var token = data.token;
+    if (!token) throw new Error('Pas de token');
 
-function fallbackConnected(num2, dot, txt) {
-  // Mode d├®mo si SDK non disponible
-  connected = true;
-  dot.className = 'sdot on';
-  txt.textContent = num2 || userNum;
-  txt.style.color = 'var(--green)';
-  document.getElementById('dial-main').style.display = 'block';
-  document.getElementById('conn-form').style.display = 'none';
-  toast('Connect├® (mode d├®mo)', 'info');
+    // Initialiser Infobip RTC
+    infobipRTC = InfobipRTC(token, {debug: false});
+
+    infobipRTC.on('connected', function(e) {
+      connected = true;
+      dot.className = 'sdot on';
+      txt.textContent = num2;
+      txt.style.color = 'var(--green)';
+      document.getElementById('dial-main').style.display = 'block';
+      document.getElementById('conn-form').style.display = 'none';
+      toast('Connecté VoIP Infobip', 'ok');
+    });
+
+    infobipRTC.on('disconnected', function(e) {
+      connected = false;
+      dot.className = 'sdot off';
+      txt.textContent = 'Déconnecté';
+      txt.style.color = 'var(--text3)';
+    });
+
+    // Appel entrant
+    infobipRTC.on('incoming-webrtc-call', function(e) {
+      activeCall = e.incomingCall;
+      showIncoming(activeCall.counterpart().identifier || 'Inconnu', activeCall);
+    });
+
+    infobipRTC.connect();
+
+  } catch(err) {
+    // Mode démo si pas de token
+    connected = true;
+    dot.className = 'sdot on';
+    txt.textContent = num2;
+    txt.style.color = 'var(--green)';
+    document.getElementById('dial-main').style.display = 'block';
+    document.getElementById('conn-form').style.display = 'none';
+    toast('Connecté (mode démo)', 'info');
+  }
 }
 
 // ÔöÇÔöÇ CLAVIER ÔöÇÔöÇ
@@ -525,17 +530,60 @@ function raccrocher() {
   try { fetch(API + '/api/appel/hangup', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:userId})}); } catch(e) {}
 }
 
-// ÔöÇÔöÇ MUTE ÔöÇÔöÇ
+// ── APPEL ──
+async function appeler() {
+  if (!connected) { toast('Connectez-vous d\'abord', 'err'); showConnForm(); return; }
+  if (inCall) return;
+  if (!num || num.length < 8) { toast('Numéro incomplet', 'err'); return; }
+  inCall = true;
+  var av = num.replace(/\D/g,'').slice(-2) || '??';
+  document.getElementById('call-av').textContent = av;
+  document.getElementById('call-name').textContent = num;
+  document.getElementById('call-status').textContent = 'Appel en cours...';
+  document.getElementById('call-timer').textContent = '00:00';
+  document.getElementById('in-call').classList.add('on');
+  document.getElementById('dial-main').querySelector('.dial-num').style.display = 'none';
+  document.getElementById('btn-call').style.display = 'none';
+  document.getElementById('btn-hang').style.display = 'flex';
+  document.getElementById('lbl-call').textContent = 'Raccrocher';
+  try {
+    if (infobipRTC) {
+      var callReq = infobipRTC.callPhone(num, {from: userNum});
+      activeCall = callReq;
+      callReq.on('established', function() { document.getElementById('call-status').textContent = 'En appel'; startTimer(); });
+      callReq.on('hangup', function() { raccrocher(); });
+      callReq.on('error', function() { toast('Erreur appel', 'err'); raccrocher(); });
+    } else { startTimer(); }
+  } catch(e) { startTimer(); }
+  addHist(num, 'out');
+}
+
+function raccrocher() {
+  inCall = false;
+  stopTimer();
+  if (activeCall) { try { activeCall.hangup(); } catch(e) {} activeCall = null; }
+  document.getElementById('in-call').classList.remove('on');
+  document.getElementById('dial-main').querySelector('.dial-num').style.display = '';
+  document.getElementById('btn-call').style.display = 'flex';
+  document.getElementById('btn-hang').style.display = 'none';
+  document.getElementById('lbl-call').textContent = 'Appeler';
+  document.getElementById('call-status').textContent = '';
+  toast('Appel terminé — ' + fmtTime(callSecs), 'info');
+  callSecs = 0;
+}
+
+// ── MUTE ──
 function toggleMute() {
   muted = !muted;
+  if (activeCall) { try { muted ? activeCall.mute() : activeCall.unmute(); } catch(e) {} }
   var btn = document.getElementById('btn-mute');
   var lbl = document.getElementById('lbl-mute');
   btn.className = 'da-btn da-mute' + (muted ? ' on' : '');
-  lbl.textContent = muted ? 'Son coup├®' : 'Muet';
-  toast(muted ? 'Micro coup├®' : 'Micro activ├®', 'info');
+  lbl.textContent = muted ? 'Son coupé' : 'Muet';
+  toast(muted ? 'Micro coupé' : 'Micro activé', 'info');
 }
 
-// ÔöÇÔöÇ INCOMING ÔöÇÔöÇ
+// ── INCOMING ──
 function showIncoming(fromNum, callObj) {
   var inc = document.getElementById('incoming');
   var av = (fromNum||'?').replace(/\D/g,'').slice(-2)||'??';
@@ -559,18 +607,18 @@ function accepter() {
   document.getElementById('btn-hang').style.display = 'flex';
   startTimer();
   addHist(fromNum, 'in');
-  if (inc._call && inc._call.answer) inc._call.answer();
+  if (inc._call && inc._call.accept) inc._call.accept();
 }
 function refuser() {
   var inc = document.getElementById('incoming');
   var fromNum = document.getElementById('inc-num').textContent;
   inc.classList.remove('on');
   addHist(fromNum, 'mis');
-  toast('Appel refus├®', '');
-  if (inc._call && inc._call.reject) inc._call.reject();
+  toast('Appel refusé', '');
+  if (inc._call && inc._call.decline) inc._call.decline();
 }
 
-// ÔöÇÔöÇ TIMER ÔöÇÔöÇ
+// ── TIMER ──
 function startTimer() {
   callSecs = 0;
   callTimer = setInterval(function() {
@@ -587,7 +635,7 @@ function fmtTime(s) {
   return (m<10?'0'+m:m) + ':' + (sc<10?'0'+sc:sc);
 }
 
-// ÔöÇÔöÇ HISTORIQUE ÔöÇÔöÇ
+// ── HISTORIQUE ──
 function addHist(n, type) {
   callHist.unshift({num:n, type:type, dur:callSecs, ts:new Date().toISOString()});
   callHist = callHist.slice(0,50);
@@ -598,15 +646,15 @@ function renderHist() {
   var el = document.getElementById('hist-list');
   if (!el) return;
   if (!callHist.length) {
-    el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg><div class="empty-t">Aucun appel r├®cent</div><div class="empty-s">Vos appels VoIP PST appara├«tront ici</div></div>';
+    el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg><div class="empty-t">Aucun appel récent</div><div class="empty-s">Vos appels VoIP PST apparaîtront ici</div></div>';
     return;
   }
   el.innerHTML = callHist.map(function(h) {
-    var typeLabel = h.type==='out'?'Sortant':h.type==='in'?'Entrant':'Manqu├®';
+    var typeLabel = h.type==='out'?'Sortant':h.type==='in'?'Entrant':'Manqué';
     var typeCls = h.type==='out'?'out':h.type==='in'?'inc':'mis';
     var av = (h.num||'?').replace(/\D/g,'').slice(-2)||'??';
     var dt = new Date(h.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    return '<div class="hi" onclick="setNum(\''+h.num+'\')">' +
+    return '<div class="hi" onclick="setNum(&apos;'+h.num+'&apos;)">'+
       '<div class="hi-av">'+av+'</div>' +
       '<div class="hi-info"><div class="hi-name">'+h.num+'</div><div class="hi-num">'+dt+'</div></div>' +
       '<div class="hi-right"><div class="hi-type '+typeCls+'">'+typeLabel+'</div><div class="hi-dur">'+(h.dur?fmtTime(h.dur):'--')+'</div></div>' +
@@ -614,24 +662,21 @@ function renderHist() {
   }).join('');
 }
 
-// ÔöÇÔöÇ FORFAITS & PAIEMENT ÔöÇÔöÇ
+// ── FORFAITS & PAIEMENT ──
 function acheterForfait(nom, prix, mins) {
-  // Calculer montant Wave en FCFA (1 USD Ôëê 606 FCFA)
   var fcfa = Math.round(prix * 606);
   var waveUrl = WAVE_LINK + '?amount=' + fcfa;
-  // Ouvrir Wave si disponible, sinon page izichange
   if (confirm('Payer ' + prix + '$ (' + fcfa.toLocaleString('fr-FR') + ' FCFA) via Wave ?')) {
     window.open(waveUrl, '_blank');
-    toast('Wave ouvert ÔÇö revenez apr├¿s paiement', 'info');
+    toast('Wave ouvert — revenez après paiement', 'info');
   }
 }
 
 function payerWaveForfait() {
-  // Lien Wave g├®n├®ral pour forfait
   window.open(WAVE_LINK, '_blank');
 }
 
-// ÔöÇÔöÇ TOAST ÔöÇÔöÇ
+// ── TOAST ──
 var _tt;
 function toast(msg, type) {
   var t = document.getElementById('toast');
