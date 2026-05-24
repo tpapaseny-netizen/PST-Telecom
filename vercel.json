@@ -1,5 +1,8 @@
 ﻿{
   "rewrites": [
+    { "source": "/appel", "destination": "/appel.html" },
+    { "source": "/sensms", "destination": "/sensms.html" },
+    { "source": "/zama", "destination": "/zama.html" },
     { "source": "/(.*)", "destination": "/zama.html" }
   ]
 }
