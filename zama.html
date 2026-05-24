@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta name="google-site-verification" content="W8_dNlCeBAlIQoTUhfDlNqvX-TEqasFzYWEqiMsEHmg" />
@@ -576,7 +576,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <body>
 <div id="app">
 <!-- ══ LANDING PAGE ZAMA ══ -->
-<div id="landing" style="display:none;position:fixed;inset:0;z-index:99999;overflow-y:auto;background:#04080F;font-family:'Sora',sans-serif">
+<div id="landing" style="display:block;position:fixed;inset:0;z-index:99999;overflow-y:auto;background:#04080F;font-family:'Sora',sans-serif">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
@@ -4578,5 +4578,21 @@ function initLanding() {
   </div>
 </div>
 
+
+<script>
+// Logique affichage landing vs dashboard
+(function() {
+  var token = localStorage.getItem('zama_token') || sessionStorage.getItem('zama_token');
+  var landing = document.getElementById('landing');
+  var app = document.getElementById('app');
+  if (token) {
+    // Connecte : cacher le landing
+    if (landing) landing.style.display = 'none';
+  } else {
+    // Non connecte : afficher le landing
+    if (landing) landing.style.display = 'block';
+  }
+})();
+</script>
 </body>
 </html>
