@@ -3684,7 +3684,6 @@ app.put('/api/sensms/avis', async (req, res) => {
 //  À injecter dans server-at.js avant le bloc DÉMARRAGE
 // ============================================================
 
-// mongoose déjà importé
 
 // ---- SCHEMA ----
 const SondageSchema = new mongoose.Schema({
@@ -3854,6 +3853,8 @@ connectDB().then((dbInstance) => {
     console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
   });
 });
+
+
 
 
 
