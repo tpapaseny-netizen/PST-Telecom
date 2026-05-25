@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#070D1A">
 <title>SenBet</title>
+<link rel="manifest" href="/senbet-manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ══ THEMES ══ */
@@ -457,6 +458,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);posi
           <div class="pmenu-text"><div class="pmenu-title">Thème</div><div class="pmenu-sub">Clair / Sombre</div></div>
           <div class="pmenu-arrow">›</div>
         </div>
+        <div class="pmenu-item" onclick="requestNotifPermission().then(ok=>showToast(ok?'🔔 Notifications activées !':'⚠️ Autorise les notifications dans ton navigateur',!ok))">
+          <div class="pmenu-icon" style="background:rgba(245,158,11,.1)">🔔</div>
+          <div class="pmenu-text"><div class="pmenu-title">Notifications</div><div class="pmenu-sub">Paris, résultats, dépôts</div></div>
+          <div class="pmenu-arrow">›</div>
+        </div>
         <div class="pmenu-item" onclick="logout()" style="border-color:rgba(227,27,35,.15)">
           <div class="pmenu-icon" style="background:rgba(227,27,35,.08)">🚪</div>
           <div class="pmenu-text"><div class="pmenu-title" style="color:#f87171">Se déconnecter</div></div>
@@ -841,6 +847,8 @@ function confirmBet(){
   window.open(waveUrl, '_blank');
   closeModal('bet-modal');
   showToast('✅ Pari de ' + amt.toLocaleString() + ' FCFA — paiement Wave ouvert !');
+  // Notification pari enregistré
+  setTimeout(()=>{ notifPariEnregistre(currentBetEvent?.title||'Événement', amt, currentBetLabel||'—'); }, 3000);
 }
 
 // ══ SLIP ══
@@ -951,6 +959,8 @@ function onUserLogin(){
   if(currentUser.email && adminList.includes(currentUser.email.toLowerCase())){
     document.getElementById('bot-admin').style.display = '';
   }
+  // Request notif permission and check pending
+  requestNotifPermission().then(ok => { if(ok) checkPendingNotifs(); });
   renderProfile();
   renderBetsPage();
 }
@@ -1043,20 +1053,56 @@ function renderUsers(){
     const userLogs = logs.filter(l => l.id === u.id).slice(-1)[0];
     const lastSeen = userLogs ? new Date(userLogs.time).toLocaleString('fr-FR') : 'Jamais';
     const dur = userLogs && userLogs.duration ? Math.round(userLogs.duration/60) + ' min' : '—';
-    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:13px;font-weight:700">${u.name}</div>
+    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:800">${u.name}</div>
         <div style="font-size:10px;color:var(--muted)">${new Date(u.created).toLocaleDateString('fr-FR')}</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--muted2)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px;color:var(--muted2);margin-bottom:10px">
         <div>📱 ${u.phone}</div>
         <div>📧 ${u.email||'—'}</div>
         <div>💰 ${(u.balance||0).toLocaleString()} FCFA</div>
         <div>⏱ ${dur}</div>
-        <div style="grid-column:1/-1">🕐 Dernière connexion: ${lastSeen}</div>
+        <div style="grid-column:1/-1">🕐 ${lastSeen}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button onclick="adminConfirmDepot('${u.id}','${u.name}')" style="flex:1;min-width:120px;background:rgba(0,133,63,.1);border:1px solid rgba(0,133,63,.25);color:#4ade80;border-radius:8px;padding:7px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Outfit">
+          ✅ Confirmer dépôt
+        </button>
+        <button onclick="adminMarkWon('${u.id}','${u.name}')" style="flex:1;min-width:100px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:var(--yellow);border-radius:8px;padding:7px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Outfit">
+          🎉 Pari gagné
+        </button>
+        <button onclick="adminMarkLost('${u.id}','${u.name}')" style="flex:1;min-width:100px;background:rgba(227,27,35,.08);border:1px solid rgba(227,27,35,.15);color:#f87171;border-radius:8px;padding:7px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:Outfit">
+          😔 Pari perdu
+        </button>
       </div>
     </div>`;
   }).join('');
+}
+
+// Admin action dialogs
+function adminConfirmDepot(userId, userName){
+  const amt = parseInt(prompt('Montant à créditer pour ' + userName + ' (FCFA) :'));
+  if(!amt || isNaN(amt) || amt < 1) return;
+  // Credit user balance
+  const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
+  const idx = stored.findIndex(u=>u.id===userId);
+  if(idx>-1){ stored[idx].balance = (stored[idx].balance||0) + amt; localStorage.setItem('senbet_users',JSON.stringify(stored)); }
+  adminSendDepotConfirm(userId, amt);
+}
+function adminMarkWon(userId, userName){
+  const evTitle = prompt('Nom de l'événement gagné ?') || 'Événement';
+  const gain = parseInt(prompt('Gain à créditer (FCFA) :'));
+  if(!gain || isNaN(gain)) return;
+  const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
+  const idx = stored.findIndex(u=>u.id===userId);
+  if(idx>-1){ stored[idx].balance = (stored[idx].balance||0) + gain; localStorage.setItem('senbet_users',JSON.stringify(stored)); }
+  adminSendPariResult(userId, evTitle, true, gain);
+}
+function adminMarkLost(userId, userName){
+  const evTitle = prompt('Nom de l'événement perdu ?') || 'Événement';
+  const mise = parseInt(prompt('Montant de la mise perdue (FCFA) :')) || 0;
+  adminSendPariResult(userId, evTitle, false, mise);
 }
 function renderAdminEvents(){
   const el = document.getElementById('admin-events-list');
@@ -1107,6 +1153,8 @@ function submitEvent(){
   } else {
     events.unshift({id:Date.now(),cat,live,title,desc,opts,pool,parieurs:0,closes,img:uploadedImg});
     showToast('✅ Publié !');
+    // Notify all users of new event
+    notifNouvelEvenement(title, cat);
   }
   resetForm(); renderEvents();
 }
@@ -1173,6 +1221,107 @@ document.querySelectorAll('.modal-bg').forEach(m=>{m.addEventListener('click',fu
 let _tt;
 function showToast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' err':'');t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);}
 
+// ══ NOTIFICATIONS ══
+let notifPermission = false;
+
+async function requestNotifPermission(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'granted'){ notifPermission = true; return true; }
+  if(Notification.permission !== 'denied'){
+    const perm = await Notification.requestPermission();
+    notifPermission = perm === 'granted';
+    return notifPermission;
+  }
+  return false;
+}
+
+function sendNotif(title, body, icon){
+  if(!('Notification' in window)) return;
+  if(Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: icon || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="14" fill="%23070D1A"/><text x="32" y="46" font-size="36" text-anchor="middle">🦁</text></svg>',
+      badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="8" fill="%2300853F"/></svg>',
+      tag: 'senbet-' + Date.now(),
+      requireInteraction: false,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e) {}
+}
+
+// Notification types
+function notifPariEnregistre(evTitle, montant, choix){
+  sendNotif('🎟️ Pari enregistré !', choix + ' · ' + montant.toLocaleString() + ' FCFA
+' + evTitle);
+}
+function notifPariGagne(evTitle, gain){
+  sendNotif('🎉 Pari GAGNÉ !', '+' + gain.toLocaleString() + ' FCFA
+' + evTitle);
+}
+function notifPariPerdu(evTitle, mise){
+  sendNotif('😔 Pari perdu', mise.toLocaleString() + ' FCFA perdus
+' + evTitle);
+}
+function notifDepotValide(montant){
+  sendNotif('✅ Dépôt confirmé !', montant.toLocaleString() + ' FCFA crédités sur ton compte SenBet');
+}
+function notifNouvelEvenement(evTitle, cat){
+  sendNotif('🔥 Nouvel événement !', evTitle + '
+Parie maintenant !');
+}
+function notifEvenementLive(evTitle){
+  sendNotif('🔴 EN DIRECT', evTitle + '
+Le pari est ouvert !');
+}
+
+// Admin: send notif to user (simulated — local storage based)
+function adminSendDepotConfirm(userId, montant){
+  // Store pending notif for user
+  const pending = JSON.parse(localStorage.getItem('senbet_pending_notifs')||'[]');
+  pending.push({userId, type:'depot', montant, time: new Date().toISOString(), read: false});
+  localStorage.setItem('senbet_pending_notifs', JSON.stringify(pending));
+  // If current user is this user, send immediately
+  if(currentUser && currentUser.id === userId){
+    // Credit balance
+    currentUser.balance = (currentUser.balance||0) + montant;
+    const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
+    const idx = stored.findIndex(u=>u.id===userId);
+    if(idx>-1){stored[idx]=currentUser;localStorage.setItem('senbet_users',JSON.stringify(stored));}
+    localStorage.setItem('senbet_session',JSON.stringify(currentUser));
+    document.getElementById('nav-balance').textContent = '💰 '+currentUser.balance.toLocaleString()+' FCFA';
+    const ub = document.getElementById('user-balance-disp');
+    if(ub) ub.textContent = currentUser.balance.toLocaleString();
+    notifDepotValide(montant);
+  }
+  showToast('✅ Notification envoyée à l'utilisateur');
+}
+
+function adminSendPariResult(userId, evTitle, won, montant){
+  const pending = JSON.parse(localStorage.getItem('senbet_pending_notifs')||'[]');
+  pending.push({userId, type: won?'won':'lost', evTitle, montant, time: new Date().toISOString(), read: false});
+  localStorage.setItem('senbet_pending_notifs', JSON.stringify(pending));
+  if(currentUser && currentUser.id === userId){
+    if(won) notifPariGagne(evTitle, montant);
+    else notifPariPerdu(evTitle, montant);
+  }
+  showToast(won ? '🎉 Résultat gagné envoyé' : '😔 Résultat perdu envoyé');
+}
+
+// Check pending notifs for current user
+function checkPendingNotifs(){
+  if(!currentUser) return;
+  const pending = JSON.parse(localStorage.getItem('senbet_pending_notifs')||'[]');
+  const mine = pending.filter(n => n.userId === currentUser.id && !n.read);
+  mine.forEach(n => {
+    if(n.type === 'depot') notifDepotValide(n.montant);
+    else if(n.type === 'won') notifPariGagne(n.evTitle, n.montant);
+    else if(n.type === 'lost') notifPariPerdu(n.evTitle, n.montant);
+    n.read = true;
+  });
+  if(mine.length) localStorage.setItem('senbet_pending_notifs', JSON.stringify(pending));
+}
+
 // ══ INIT ══
 renderEvents();
 renderLeaderboard();
@@ -1181,6 +1330,8 @@ renderLeaderboard();
   const s=localStorage.getItem('senbet_session');
   if(s){currentUser=JSON.parse(s);onUserLogin();}
   loadCld();
+  // Request notification permission after 2s
+  setTimeout(()=>{ if(currentUser) requestNotifPermission().then(ok=>{ if(ok) checkPendingNotifs(); }); }, 2000);
 })();
 </script>
 </body>
