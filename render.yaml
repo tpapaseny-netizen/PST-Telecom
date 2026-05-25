@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: PST-Telecom
+    runtime: node
+    branch: main
+    buildCommand: npm install
+    startCommand: node server-at.js
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://tpaseny_db_user:Pstdiama2026@cluster0.jozvjqr.mongodb.net/pst_telecom?appName=Cluster0
+      - key: JWT_SECRET
+        value: pst-jwt-2026-xK9mPq7nR3
+      - key: NODE_ENV
+        value: production
+      - key: GMAIL_USER
+        value: papasenytoure@gmail.com
+      - key: GMAIL_APP_PASSWORD
+        value: gwwjmwlgrigemvmd
+      - key: INFOBIP_API_KEY
+        value: 31f52d00c3a4fbb92c00c72139556f43-e7142bf0-5334-471d-b7a3-4a8aa24c1492
+      - key: INFOBIP_SENDER
+        value: ZAMA
+      - key: IZIPAY_API_KEY
+        value: "14|6GaXhhqoxsaly2PsAnv888xqDsxlNuXgUYJv1Wfi56393680"
+      - key: IZIPAY_IPN_SECRET
+        value: "kRx1HjF(WLp6BJ0FZ:Ty{#NmO0=9%fWO46]4A3k}"
+      - key: IZIPAY_SECRET_KEY
+        value: "kRx1HjF(WLp6BJ0FZ:Ty{#NmO0=9%fWO46]4A3k}"
+      - key: VONAGE_API_KEY
+        value: 3aba9072
+      - key: VONAGE_API_SECRET
+        value: wJCvIFHW4POixSjJ
+      - key: VONAGE_NUMBER
+        value: "12345678901"
+      - key: RESEND_API_KEY
+        value: re_Q3PNE63g_9YV2UaYcfoccpNL3YRpii1Nh
+      - key: TECHSOFT_TOKEN
+        value: "1597|WVx84MHm3x4VoCzT7vzBm2RKZKANDok1N0wCtRd8f6f57823"
+      - key: GO2RTC_URL
+        value: https://pst-rtsp-production.up.railway.app
