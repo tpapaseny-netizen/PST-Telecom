@@ -1091,7 +1091,7 @@ function adminConfirmDepot(userId, userName){
   adminSendDepotConfirm(userId, amt);
 }
 function adminMarkWon(userId, userName){
-  const evTitle = prompt('Nom de l'événement gagné ?') || 'Événement';
+  const evTitle = prompt('Nom de l\'événement gagné ?') || 'Événement';
   const gain = parseInt(prompt('Gain à créditer (FCFA) :'));
   if(!gain || isNaN(gain)) return;
   const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
@@ -1100,7 +1100,7 @@ function adminMarkWon(userId, userName){
   adminSendPariResult(userId, evTitle, true, gain);
 }
 function adminMarkLost(userId, userName){
-  const evTitle = prompt('Nom de l'événement perdu ?') || 'Événement';
+  const evTitle = prompt('Nom de l\'événement perdu ?') || 'Événement';
   const mise = parseInt(prompt('Montant de la mise perdue (FCFA) :')) || 0;
   adminSendPariResult(userId, evTitle, false, mise);
 }
@@ -1252,27 +1252,22 @@ function sendNotif(title, body, icon){
 
 // Notification types
 function notifPariEnregistre(evTitle, montant, choix){
-  sendNotif('🎟️ Pari enregistré !', choix + ' · ' + montant.toLocaleString() + ' FCFA
-' + evTitle);
+  sendNotif('🎟️ Pari enregistré !', choix + ' · ' + montant.toLocaleString() + ' FCFA - ' + evTitle);
 }
 function notifPariGagne(evTitle, gain){
-  sendNotif('🎉 Pari GAGNÉ !', '+' + gain.toLocaleString() + ' FCFA
-' + evTitle);
+  sendNotif('🎉 Pari GAGNÉ !', '+' + gain.toLocaleString() + ' FCFA - ' + evTitle);
 }
 function notifPariPerdu(evTitle, mise){
-  sendNotif('😔 Pari perdu', mise.toLocaleString() + ' FCFA perdus
-' + evTitle);
+  sendNotif('😔 Pari perdu', mise.toLocaleString() + ' FCFA perdus - ' + evTitle);
 }
 function notifDepotValide(montant){
   sendNotif('✅ Dépôt confirmé !', montant.toLocaleString() + ' FCFA crédités sur ton compte SenBet');
 }
 function notifNouvelEvenement(evTitle, cat){
-  sendNotif('🔥 Nouvel événement !', evTitle + '
-Parie maintenant !');
+  sendNotif('🔥 Nouvel événement !', evTitle + ' - Parie maintenant !');
 }
 function notifEvenementLive(evTitle){
-  sendNotif('🔴 EN DIRECT', evTitle + '
-Le pari est ouvert !');
+  sendNotif('🔴 EN DIRECT', evTitle + ' - Le pari est ouvert !');
 }
 
 // Admin: send notif to user (simulated — local storage based)
@@ -1294,7 +1289,7 @@ function adminSendDepotConfirm(userId, montant){
     if(ub) ub.textContent = currentUser.balance.toLocaleString();
     notifDepotValide(montant);
   }
-  showToast('✅ Notification envoyée à l'utilisateur');
+  showToast('✅ Notification envoyée à l\'utilisateur');
 }
 
 function adminSendPariResult(userId, evTitle, won, montant){
