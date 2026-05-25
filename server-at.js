@@ -3461,6 +3461,97 @@ var SensmsUser = null;
 function getSensmsUser() {
   if (!SensmsUser) {
     var mongoose = require('mongoose');
+// ============================================================
+//  AFRIVOTE — Routes API
+// ============================================================
+const SondageSchema = new mongoose.Schema({
+  titre: { type: String, required: true },
+  description: { type: String, default: '' },
+  categorie: { type: String, default: 'societe' },
+  options: [{ label: String, votes: { type: Number, default: 0 } }],
+  totalVotes: { type: Number, default: 0 },
+  actif: { type: Boolean, default: true },
+  dureeJours: { type: Number, default: 7 },
+  closedAt: { type: Date, default: null },
+  votants: [String],
+}, { timestamps: true });
+const Sondage = mongoose.models.Sondage || mongoose.model('Sondage', SondageSchema);
+const AFRIVOTE_PASS = 'Pstdiama@1';
+
+app.get('/afrivote', (req,res) => res.sendFile(path.join(__dirname,'afrivote.html')));
+app.get('/api/afrivote/sondages', async (req,res) => {
+  try { const s = await Sondage.find().sort({createdAt:-1}).lean(); res.json({success:true,sondages:s}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.get('/api/afrivote/resultats/:id', async (req,res) => {
+  try { const s = await Sondage.findById(req.params.id).lean(); if(!s) return res.status(404).json({success:false}); res.json({success:true,options:s.options,totalVotes:s.totalVotes,actif:s.actif}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.post('/api/afrivote/sondages', async (req,res) => {
+  const {titre,description,categorie,options,dureeJours,adminPass} = req.body;
+  if(adminPass !== AFRIVOTE_PASS) return res.status(403
+
+
+$routes = @'
+
+// ============================================================
+//  AFRIVOTE — Routes API
+// ============================================================
+const SondageSchema = new mongoose.Schema({
+  titre: { type: String, required: true },
+  description: { type: String, default: '' },
+  categorie: { type: String, default: 'societe' },
+  options: [{ label: String, votes: { type: Number, default: 0 } }],
+  totalVotes: { type: Number, default: 0 },
+  actif: { type: Boolean, default: true },
+  dureeJours: { type: Number, default: 7 },
+  closedAt: { type: Date, default: null },
+  votants: [String],
+}, { timestamps: true });
+const Sondage = mongoose.models.Sondage || mongoose.model('Sondage', SondageSchema);
+const AFRIVOTE_PASS = 'Pstdiama@1';
+
+app.get('/afrivote', (req,res) => res.sendFile(path.join(__dirname,'afrivote.html')));
+app.get('/api/afrivote/sondages', async (req,res) => {
+  try { const s = await Sondage.find().sort({createdAt:-1}).lean(); res.json({success:true,sondages:s}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.get('/api/afrivote/resultats/:id', async (req,res) => {
+  try { const s = await Sondage.findById(req.params.id).lean(); if(!s) return res.status(404).json({success:false}); res.json({success:true,options:s.options,totalVotes:s.totalVotes,actif:s.actif}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.post('/api/afrivote/sondages', async (req,res) => {
+  const {titre,description,categorie,options,dureeJours,adminPass} = req.body;
+  if(adminPass !== AFRIVOTE_PASS) return res.status(403).json({success:false,message:'Non autorise'});
+  if(!titre||!options||options.length<2) return res.status(400).json({success:false,message:'Titre et 2 options requis'});
+  try { const s = new Sondage({titre,description,categorie,options:options.map(l=>({label:typeof l==='string'?l:l.label,votes:0})),dureeJours:dureeJours||7}); await s.save(); res.json({success:true,sondage:s}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.post('/api/afrivote/vote', async (req,res) => {
+  const {sondageId,optionIdx} = req.body;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress||'unknown';
+  const voterKey = 'ip_'+ip;
+  try {
+    const s = await Sondage.findById(sondageId);
+    if(!s) return res.status(404).json({success:false,message:'Introuvable'});
+    if(!s.actif) return res.status(400).json({success:false,message:'Sondage cloture'});
+    if(s.votants.includes(voterKey)) return res.status(400).json({success:false,message:'Deja vote'});
+    if(optionIdx<0||optionIdx>=s.options.length) return res.status(400).json({success:false,message:'Option invalide'});
+    s.options[optionIdx].votes+=1; s.totalVotes+=1; s.votants.push(voterKey); s.markModified('options');
+    await s.save(); res.json({success:true,totalVotes:s.totalVotes,options:s.options});
+  } catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.post('/api/afrivote/sondages/:id/close', async (req,res) => {
+  if(req.body.adminPass!==AFRIVOTE_PASS) return res.status(403).json({success:false});
+  try { await Sondage.findByIdAndUpdate(req.params.id,{actif:false,closedAt:new Date()}); res.json({success:true}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+app.delete('/api/afrivote/sondages/:id', async (req,res) => {
+  if(req.body.adminPass!==AFRIVOTE_PASS) return res.status(403).json({success:false});
+  try { await Sondage.findByIdAndDelete(req.params.id); res.json({success:true}); }
+  catch(e) { res.status(500).json({success:false,message:e.message}); }
+});
+// ============================================================
 
 
     var _sensmsSchema = new mongoose.Schema({
@@ -3684,3 +3775,4 @@ connectDB().then((dbInstance) => {
     console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
   });
 });
+
