@@ -576,258 +576,256 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <body>
 <div id="app">
 <!-- ══ LANDING PAGE ZAMA ══ -->
-<div id="landing" style="display:block;position:fixed;inset:0;z-index:99999;overflow-y:auto;background:#F5F0E8;font-family:'Inter',sans-serif">
+<div id="landing" style="display:block;position:fixed;inset:0;z-index:99999;overflow-y:auto;background:#F5F0E8;">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-#landing,#landing *{box-sizing:border-box;margin:0;padding:0;}
-#landing{-webkit-overflow-scrolling:touch;color:#1C1917;}
-.Lnav{background:rgba(245,240,232,.96);border-bottom:1px solid rgba(28,25,23,.1);padding:0 40px;height:62px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
-.Lnav-brand{display:flex;align-items:center;gap:9px;}
-.Lnav-ico{width:32px;height:32px;background:#070D1A;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#F5F0E8;flex-shrink:0;}
-.Lnav-name{font-size:15px;font-weight:800;letter-spacing:1.5px;color:#070D1A;}
-.Lnav-links{display:flex;gap:28px;}
-.Lnav-link{font-size:14px;color:#78716c;cursor:pointer;background:none;border:none;font-family:inherit;}
-.Lnav-right{display:flex;gap:10px;align-items:center;}
-.Lbtn-ghost{padding:8px 16px;border-radius:8px;border:1.5px solid rgba(28,25,23,.18);background:transparent;color:#1C1917;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
-.Lbtn-solid{padding:8px 16px;border-radius:8px;background:#070D1A;color:#F5F0E8;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;}
-.Lhero{padding:90px 40px 72px;text-align:center;background:#F5F0E8;display:flex;flex-direction:column;align-items:center;}
-.Lbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(28,25,23,.06);border:1px solid rgba(28,25,23,.1);border-radius:50px;padding:5px 14px;font-size:13px;color:#78716c;margin-bottom:28px;font-weight:600;}
-.Ldot{width:7px;height:7px;border-radius:50%;background:#22C55E;flex-shrink:0;}
-.Lh1{font-size:58px;font-weight:900;color:#070D1A;line-height:1.04;letter-spacing:-2.5px;margin-bottom:22px;max-width:740px;}
-.Lh1 u{text-decoration-thickness:4px;text-underline-offset:6px;}
-.Lsub{font-size:18px;color:#78716c;line-height:1.7;max-width:480px;margin:0 auto 36px;}
-.Lhero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:36px;}
-.Lbtn-main{padding:15px 30px;border-radius:10px;background:#070D1A;color:#F5F0E8;font-size:16px;font-weight:700;border:none;cursor:pointer;font-family:inherit;}
-.Lbtn-sec{padding:15px 30px;border-radius:10px;background:transparent;color:#1C1917;font-size:16px;font-weight:600;border:1.5px solid rgba(28,25,23,.22);cursor:pointer;font-family:inherit;}
-.Lbtn-pwa{padding:15px 30px;border-radius:10px;background:#F5F0E8;color:#070D1A;font-size:16px;font-weight:700;border:2px solid #070D1A;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;}
-.Lrate{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid rgba(28,25,23,.08);border-radius:12px;padding:10px 20px;font-size:14px;color:#78716c;}
-.Lrate strong{color:#070D1A;font-weight:700;font-size:15px;}
-.Lhero-cards{display:flex;gap:16px;margin-top:48px;width:100%;max-width:900px;justify-content:center;}
-.Lhero-card{background:#fff;border:1px solid rgba(28,25,23,.07);border-radius:16px;padding:24px;flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;}
-.Lhero-card-ttl{font-size:14px;font-weight:700;color:#1C1917;}
-.Lhero-card-sub{font-size:13px;color:#78716c;}
-.Lstats{background:#070D1A;display:flex;justify-content:center;}
-.Lstat{flex:1;max-width:200px;text-align:center;padding:28px 16px;border-right:1px solid rgba(245,240,232,.08);}
-.Lstat:last-child{border:none;}
-.Lstat-v{font-size:32px;font-weight:900;color:#F5F0E8;letter-spacing:-1px;}
-.Lstat-l{font-size:12px;color:rgba(245,240,232,.4);margin-top:4px;font-weight:500;}
-.Lsec{padding:80px 40px;max-width:1000px;margin:0 auto;}
-.Lsec-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#a8a29e;margin-bottom:8px;}
-.Lsec-ttl{font-size:36px;font-weight:800;color:#070D1A;letter-spacing:-1px;margin-bottom:48px;line-height:1.15;}
-.Lfeat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-.Lfeat-card{background:#fff;border:1px solid rgba(28,25,23,.07);border-radius:16px;padding:28px;}
-.Lfeat-ico{width:48px;height:48px;border-radius:12px;background:rgba(7,13,26,.05);display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
-.Lfeat-ttl{font-size:16px;font-weight:700;color:#1C1917;margin-bottom:8px;}
-.Lfeat-desc{font-size:14px;color:#78716c;line-height:1.65;}
-.Lserv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
-.Lserv-card{background:#fff;border:1px solid rgba(28,25,23,.07);border-radius:16px;padding:26px;display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer;}
-.Lserv-ico{font-size:28px;margin-bottom:12px;}
-.Lserv-ttl{font-size:16px;font-weight:700;color:#1C1917;margin-bottom:4px;}
-.Lserv-sub{font-size:13px;font-weight:600;margin-bottom:3px;}
-.Lserv-note{font-size:12px;color:#a8a29e;}
-.Lserv-arr{font-size:20px;color:#c9c4bc;}
-.Ltaux-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.Ltaux-card{background:#fff;border:1px solid rgba(28,25,23,.07);border-radius:14px;padding:24px;text-align:center;}
-.Ltaux-flag{font-size:28px;margin-bottom:8px;}
-.Ltaux-code{font-size:11px;color:#a8a29e;font-weight:700;letter-spacing:1px;margin-bottom:6px;}
-.Ltaux-val{font-size:24px;font-weight:800;color:#070D1A;letter-spacing:-0.5px;}
-.Ltaux-lbl{font-size:11px;color:#a8a29e;margin-top:3px;}
-.Linstall{background:#fff;border-top:1px solid rgba(28,25,23,.08);border-bottom:1px solid rgba(28,25,23,.08);padding:36px 40px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
-.Linstall-txt h3{font-size:22px;font-weight:800;color:#070D1A;margin-bottom:8px;}
-.Linstall-txt p{font-size:15px;color:#78716c;line-height:1.6;}
-.Linstall-btns{display:flex;gap:12px;flex-shrink:0;}
-.Lbtn-dl{padding:13px 22px;border-radius:10px;background:#070D1A;color:#F5F0E8;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;}
-.Lbtn-dl-sec{padding:13px 22px;border-radius:10px;background:transparent;color:#070D1A;font-size:14px;font-weight:600;border:1.5px solid rgba(28,25,23,.2);cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;}
-.Lcta{background:#070D1A;padding:90px 40px;text-align:center;}
-.Lcta-ttl{font-size:44px;font-weight:900;color:#F5F0E8;letter-spacing:-1.5px;margin-bottom:12px;}
-.Lcta-sub{font-size:16px;color:rgba(245,240,232,.4);margin-bottom:32px;}
-.Lbtn-cta{padding:15px 36px;border-radius:10px;background:#F5F0E8;color:#070D1A;font-size:16px;font-weight:700;border:none;cursor:pointer;font-family:inherit;}
-.Lfooter{background:#F5F0E8;border-top:1px solid rgba(28,25,23,.08);padding:28px 40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
-.Lfooter-l{display:flex;align-items:center;gap:8px;}
-.Lfooter-copy{font-size:12px;color:#a8a29e;}
-.Lfooter-r{display:flex;gap:20px;}
-.Lfooter-link{font-size:12px;color:#78716c;text-decoration:none;}
-.Ldiv{height:1px;background:rgba(28,25,23,.07);}
-@media(max-width:700px){
-  .Lnav-links{display:none;}
-  .Lfeat-grid{grid-template-columns:1fr;}
-  .Lserv-grid{grid-template-columns:1fr;}
-  .Ltaux-grid{grid-template-columns:repeat(2,1fr);}
-  .Lstats{flex-wrap:wrap;}
-  .Lstat{min-width:50%;}
-  .Lsec{padding:56px 20px;}
-  .Lhero{padding:72px 20px 48px;}
-  .Lnav{padding:0 16px;}
-  .Lcta{padding:64px 20px;}
-  .Lfooter{flex-direction:column;text-align:center;}
-  .Linstall{flex-direction:column;}
-  .Lh1{font-size:36px;}
-  .Lhero-cards{flex-direction:column;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* Reset complet isolé dans #landing */
+#landing { font-family: 'Inter', sans-serif !important; color: #1C1917; -webkit-overflow-scrolling: touch; }
+#landing *, #landing *::before, #landing *::after { box-sizing: border-box !important; margin: 0 !important; padding: 0 !important; font-family: 'Inter', sans-serif !important; }
+#landing button { cursor: pointer; border: none; background: none; font-family: 'Inter', sans-serif !important; }
+#landing a { text-decoration: none; }
+
+/* NAV */
+#landing .nav { position: fixed !important; top: 0; left: 0; right: 0; z-index: 100000; background: rgba(245,240,232,.97) !important; border-bottom: 1px solid rgba(28,25,23,.1); height: 64px; display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 0 48px !important; }
+#landing .nav-brand { display: flex !important; align-items: center !important; gap: 10px !important; }
+#landing .nav-icon { width: 34px !important; height: 34px !important; background: #070D1A !important; border-radius: 9px !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 11px !important; font-weight: 900 !important; color: #F5F0E8 !important; flex-shrink: 0 !important; }
+#landing .nav-name { font-size: 15px !important; font-weight: 800 !important; letter-spacing: 1.5px !important; color: #070D1A !important; }
+#landing .nav-links { display: flex !important; gap: 32px !important; }
+#landing .nav-link { font-size: 14px !important; color: #78716c !important; background: none !important; border: none !important; cursor: pointer !important; }
+#landing .nav-right { display: flex !important; gap: 10px !important; align-items: center !important; }
+#landing .btn-login { padding: 8px 18px !important; border-radius: 8px !important; border: 1.5px solid rgba(28,25,23,.18) !important; background: transparent !important; color: #1C1917 !important; font-size: 14px !important; font-weight: 600 !important; }
+#landing .btn-signup { padding: 8px 18px !important; border-radius: 8px !important; background: #070D1A !important; color: #F5F0E8 !important; font-size: 14px !important; font-weight: 600 !important; border: none !important; }
+
+/* HERO */
+#landing .hero { padding: 130px 60px 80px !important; text-align: center !important; background: #F5F0E8 !important; }
+#landing .badge { display: inline-flex !important; align-items: center !important; gap: 7px !important; background: rgba(28,25,23,.06) !important; border: 1px solid rgba(28,25,23,.1) !important; border-radius: 50px !important; padding: 6px 16px !important; font-size: 13px !important; color: #78716c !important; margin-bottom: 28px !important; font-weight: 600 !important; }
+#landing .badge-dot { width: 7px !important; height: 7px !important; border-radius: 50% !important; background: #22C55E !important; flex-shrink: 0 !important; display: inline-block !important; }
+#landing .hero-h1 { font-size: clamp(38px,5.5vw,68px) !important; font-weight: 900 !important; color: #070D1A !important; line-height: 1.04 !important; letter-spacing: -2.5px !important; margin: 0 auto 22px !important; max-width: 780px !important; }
+#landing .hero-h1 u { text-decoration-thickness: 3px !important; text-underline-offset: 6px !important; }
+#landing .hero-sub { font-size: 18px !important; color: #78716c !important; line-height: 1.7 !important; max-width: 500px !important; margin: 0 auto 36px !important; }
+#landing .hero-btns { display: flex !important; gap: 12px !important; justify-content: center !important; flex-wrap: wrap !important; margin-bottom: 36px !important; }
+#landing .btn-main { padding: 14px 30px !important; border-radius: 10px !important; background: #070D1A !important; color: #F5F0E8 !important; font-size: 16px !important; font-weight: 700 !important; border: none !important; }
+#landing .btn-connect { padding: 14px 30px !important; border-radius: 10px !important; background: transparent !important; color: #1C1917 !important; font-size: 16px !important; font-weight: 600 !important; border: 1.5px solid rgba(28,25,23,.2) !important; }
+#landing .btn-open { padding: 14px 30px !important; border-radius: 10px !important; background: #F5F0E8 !important; color: #070D1A !important; font-size: 16px !important; font-weight: 700 !important; border: 2px solid #070D1A !important; display: inline-flex !important; align-items: center !important; gap: 8px !important; }
+#landing .rate-bar { display: inline-flex !important; align-items: center !important; gap: 10px !important; background: #fff !important; border: 1px solid rgba(28,25,23,.08) !important; border-radius: 12px !important; padding: 10px 20px !important; font-size: 15px !important; color: #78716c !important; margin-bottom: 52px !important; }
+#landing .rate-bar strong { color: #070D1A !important; font-weight: 700 !important; }
+
+/* HERO CARDS */
+#landing .hero-cards { display: grid !important; grid-template-columns: repeat(4,1fr) !important; gap: 16px !important; max-width: 940px !important; margin: 0 auto !important; }
+#landing .hero-card { background: #fff !important; border: 1px solid rgba(28,25,23,.07) !important; border-radius: 16px !important; padding: 26px 20px !important; text-align: center !important; }
+#landing .hero-card-ttl { font-size: 15px !important; font-weight: 700 !important; color: #1C1917 !important; margin: 12px 0 6px !important; }
+#landing .hero-card-sub { font-size: 13px !important; color: #78716c !important; line-height: 1.5 !important; }
+
+/* STATS */
+#landing .stats { background: #070D1A !important; display: flex !important; justify-content: center !important; }
+#landing .stat { flex: 1 !important; max-width: 220px !important; text-align: center !important; padding: 32px 16px !important; border-right: 1px solid rgba(245,240,232,.08) !important; }
+#landing .stat:last-child { border: none !important; }
+#landing .stat-val { font-size: 34px !important; font-weight: 900 !important; color: #F5F0E8 !important; letter-spacing: -1px !important; }
+#landing .stat-lbl { font-size: 13px !important; color: rgba(245,240,232,.4) !important; margin-top: 5px !important; }
+
+/* SECTIONS */
+#landing .sec { padding: 80px 48px !important; max-width: 1020px !important; margin: 0 auto !important; }
+#landing .sec-lbl { font-size: 12px !important; font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 2px !important; color: #a8a29e !important; margin-bottom: 10px !important; }
+#landing .sec-ttl { font-size: clamp(28px,3.5vw,40px) !important; font-weight: 800 !important; color: #070D1A !important; letter-spacing: -1px !important; margin-bottom: 48px !important; line-height: 1.15 !important; }
+
+/* FEATURES */
+#landing .feat-grid { display: grid !important; grid-template-columns: repeat(3,1fr) !important; gap: 16px !important; }
+#landing .feat-card { background: #fff !important; border: 1px solid rgba(28,25,23,.07) !important; border-radius: 16px !important; padding: 28px !important; }
+#landing .feat-icon { width: 48px !important; height: 48px !important; border-radius: 12px !important; background: rgba(7,13,26,.05) !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-bottom: 18px !important; }
+#landing .feat-ttl { font-size: 16px !important; font-weight: 700 !important; color: #1C1917 !important; margin-bottom: 10px !important; }
+#landing .feat-desc { font-size: 14px !important; color: #78716c !important; line-height: 1.7 !important; }
+
+/* SERVICES */
+#landing .serv-grid { display: grid !important; grid-template-columns: repeat(2,1fr) !important; gap: 14px !important; }
+#landing .serv-card { background: #fff !important; border: 1px solid rgba(28,25,23,.07) !important; border-radius: 16px !important; padding: 28px !important; display: flex !important; justify-content: space-between !important; align-items: flex-start !important; cursor: pointer !important; }
+#landing .serv-ico { font-size: 28px !important; margin-bottom: 14px !important; display: block !important; }
+#landing .serv-ttl { font-size: 17px !important; font-weight: 700 !important; color: #1C1917 !important; margin-bottom: 5px !important; }
+#landing .serv-sub { font-size: 14px !important; font-weight: 600 !important; margin-bottom: 4px !important; }
+#landing .serv-note { font-size: 13px !important; color: #a8a29e !important; }
+#landing .serv-arr { font-size: 22px !important; color: #c9c4bc !important; flex-shrink: 0 !important; margin-left: 16px !important; }
+
+/* TAUX */
+#landing .taux-grid { display: grid !important; grid-template-columns: repeat(4,1fr) !important; gap: 14px !important; }
+#landing .taux-card { background: #fff !important; border: 1px solid rgba(28,25,23,.07) !important; border-radius: 14px !important; padding: 28px !important; text-align: center !important; }
+#landing .taux-flag { font-size: 30px !important; margin-bottom: 10px !important; display: block !important; }
+#landing .taux-code { font-size: 11px !important; color: #a8a29e !important; font-weight: 700 !important; letter-spacing: 1px !important; margin-bottom: 8px !important; display: block !important; }
+#landing .taux-val { font-size: 28px !important; font-weight: 800 !important; color: #070D1A !important; letter-spacing: -0.5px !important; display: block !important; }
+#landing .taux-lbl { font-size: 12px !important; color: #a8a29e !important; margin-top: 4px !important; display: block !important; }
+
+/* INSTALL */
+#landing .install { background: #fff !important; border-top: 1px solid rgba(28,25,23,.08) !important; border-bottom: 1px solid rgba(28,25,23,.08) !important; padding: 44px 60px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 32px !important; }
+#landing .install h3 { font-size: 22px !important; font-weight: 800 !important; color: #070D1A !important; margin-bottom: 10px !important; }
+#landing .install p { font-size: 15px !important; color: #78716c !important; line-height: 1.6 !important; max-width: 500px !important; }
+#landing .install-btns { display: flex !important; gap: 12px !important; flex-shrink: 0 !important; }
+#landing .btn-dl { padding: 13px 24px !important; border-radius: 10px !important; background: #070D1A !important; color: #F5F0E8 !important; font-size: 15px !important; font-weight: 700 !important; border: none !important; white-space: nowrap !important; }
+#landing .btn-dl-sec { padding: 13px 24px !important; border-radius: 10px !important; background: transparent !important; color: #070D1A !important; font-size: 15px !important; font-weight: 600 !important; border: 1.5px solid rgba(28,25,23,.2) !important; white-space: nowrap !important; }
+
+/* CTA */
+#landing .cta { background: #070D1A !important; padding: 100px 48px !important; text-align: center !important; }
+#landing .cta-ttl { font-size: clamp(30px,4vw,52px) !important; font-weight: 900 !important; color: #F5F0E8 !important; letter-spacing: -1.5px !important; margin-bottom: 14px !important; }
+#landing .cta-sub { font-size: 17px !important; color: rgba(245,240,232,.4) !important; margin-bottom: 36px !important; }
+#landing .btn-cta { padding: 16px 40px !important; border-radius: 10px !important; background: #F5F0E8 !important; color: #070D1A !important; font-size: 17px !important; font-weight: 700 !important; border: none !important; }
+
+/* FOOTER */
+#landing .footer { background: #F5F0E8 !important; border-top: 1px solid rgba(28,25,23,.08) !important; padding: 32px 60px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 16px !important; }
+#landing .footer-l { display: flex !important; align-items: center !important; gap: 10px !important; }
+#landing .footer-copy { font-size: 13px !important; color: #a8a29e !important; }
+#landing .footer-r { display: flex !important; gap: 24px !important; }
+#landing .footer-link { font-size: 13px !important; color: #78716c !important; text-decoration: none !important; }
+#landing .divider { height: 1px !important; background: rgba(28,25,23,.07) !important; }
+
+@media(max-width:768px){
+  #landing .nav { padding: 0 20px !important; }
+  #landing .nav-links { display: none !important; }
+  #landing .hero { padding: 90px 24px 60px !important; }
+  #landing .hero-cards { grid-template-columns: repeat(2,1fr) !important; }
+  #landing .feat-grid { grid-template-columns: 1fr !important; }
+  #landing .serv-grid { grid-template-columns: 1fr !important; }
+  #landing .taux-grid { grid-template-columns: repeat(2,1fr) !important; }
+  #landing .stats { flex-wrap: wrap !important; }
+  #landing .stat { min-width: 50% !important; }
+  #landing .sec { padding: 56px 24px !important; }
+  #landing .install { flex-direction: column !important; padding: 36px 24px !important; }
+  #landing .install-btns { flex-direction: column !important; width: 100% !important; }
+  #landing .cta { padding: 72px 24px !important; }
+  #landing .footer { flex-direction: column !important; padding: 28px 24px !important; text-align: center !important; }
 }
 </style>
 
-<nav class="Lnav">
-  <div class="Lnav-brand"><div class="Lnav-ico">ZA</div><span class="Lnav-name">ZAMA</span></div>
-  <div class="Lnav-links">
-    <button class="Lnav-link" onclick="document.getElementById('Lfeatures').scrollIntoView({behavior:'smooth'})">Services</button>
-    <button class="Lnav-link" onclick="document.getElementById('Ltaux').scrollIntoView({behavior:'smooth'})">Taux</button>
-    <button class="Lnav-link" onclick="document.getElementById('Lservices').scrollIntoView({behavior:'smooth'})">Produits</button>
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-icon">ZA</div>
+    <span class="nav-name">ZAMA</span>
   </div>
-  <div class="Lnav-right">
-    <button class="Lbtn-ghost" onclick="entrerDansApp()">Connexion</button>
-    <button class="Lbtn-solid" onclick="entrerDansApp()">Inscription →</button>
+  <div class="nav-links">
+    <button class="nav-link" onclick="document.getElementById('sec-feat').scrollIntoView({behavior:'smooth'})">Services</button>
+    <button class="nav-link" onclick="document.getElementById('sec-prod').scrollIntoView({behavior:'smooth'})">Produits</button>
+    <button class="nav-link" onclick="document.getElementById('sec-taux').scrollIntoView({behavior:'smooth'})">Taux</button>
+  </div>
+  <div class="nav-right">
+    <button class="btn-login" onclick="entrerDansApp()">Connexion</button>
+    <button class="btn-signup" onclick="entrerDansApp()">Inscription →</button>
   </div>
 </nav>
 
-<section class="Lhero">
-  <div class="Lbadge"><span class="Ldot"></span>Disponible au Sénégal · Sécurisé · Gratuit</div>
-  <h1 class="Lh1">Envoyez de l'argent<br>au Sénégal <u>sans frais cachés</u></h1>
-  <p class="Lsub">Bureau de change digital. Transfert international, épargne rémunérée, tontine et crédit. Tout depuis votre téléphone.</p>
-  <div class="Lhero-btns">
-    <button class="Lbtn-main" onclick="entrerDansApp()">Créer un compte gratuit</button>
-    <button class="Lbtn-sec" onclick="entrerDansApp()">Se connecter</button>
-    <button class="Lbtn-pwa" id="Lbtn-install" onclick="installerApp()" style="display:none">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v13M7 11l5 5 5-5"/><path d="M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/></svg>
-      Installer l'app
-    </button>
-    <button class="Lbtn-pwa" onclick="entrerDansApp()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+<section class="hero">
+  <div class="badge"><span class="badge-dot"></span>Disponible au Sénégal · Sécurisé · Gratuit</div>
+  <h1 class="hero-h1">Envoyez de l'argent au Sénégal <u>sans frais cachés</u></h1>
+  <p class="hero-sub">Bureau de change digital. Transfert international, épargne rémunérée, tontine et crédit. Tout depuis votre téléphone.</p>
+  <div class="hero-btns">
+    <button class="btn-main" onclick="entrerDansApp()">Créer un compte gratuit</button>
+    <button class="btn-connect" onclick="entrerDansApp()">Se connecter</button>
+    <button class="btn-open" onclick="entrerDansApp()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
       Ouvrir l'app
     </button>
   </div>
-  <div class="Lrate"><span class="Ldot"></span><span>Taux en direct :</span><strong id="lnd-rate">1 USD = … FCFA</strong></div>
-  <div class="Lhero-cards">
-    <div class="Lhero-card">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#EEF2FF"/><rect x="12" y="20" width="40" height="28" rx="6" fill="#070D1A"/><rect x="16" y="30" width="16" height="3" rx="1.5" fill="rgba(245,240,232,.5)"/><rect x="16" y="36" width="10" height="3" rx="1.5" fill="rgba(245,240,232,.3)"/><circle cx="44" cy="34" r="6" fill="#22C55E"/><path d="M41 34l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="Lhero-card-ttl">Transfert sécurisé</div>
-      <div class="Lhero-card-sub">Vos fonds arrivent en quelques heures</div>
+  <div class="rate-bar"><span class="badge-dot"></span>Taux en direct : <strong id="lnd-rate">1 USD = … FCFA</strong></div>
+  <div class="hero-cards">
+    <div class="hero-card">
+      <svg width="52" height="52" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#EEF2FF"/><rect x="12" y="20" width="40" height="28" rx="6" fill="#070D1A"/><rect x="16" y="30" width="16" height="3" rx="1.5" fill="rgba(245,240,232,.5)"/><rect x="16" y="36" width="10" height="3" rx="1.5" fill="rgba(245,240,232,.3)"/><circle cx="44" cy="34" r="7" fill="#22C55E"/><path d="M41 34l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="hero-card-ttl">Transfert sécurisé</div>
+      <div class="hero-card-sub">Vos fonds arrivent en quelques heures</div>
     </div>
-    <div class="Lhero-card">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#F0FDF4"/><rect x="14" y="38" width="8" height="14" rx="2" fill="#070D1A" opacity=".2"/><rect x="26" y="28" width="8" height="24" rx="2" fill="#070D1A" opacity=".5"/><rect x="38" y="18" width="8" height="34" rx="2" fill="#070D1A"/><path d="M14 38 L30 26 L42 16" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/></svg>
-      <div class="Lhero-card-ttl">Épargne rentable</div>
-      <div class="Lhero-card-sub">Jusqu'à 5% d'intérêts par an</div>
+    <div class="hero-card">
+      <svg width="52" height="52" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#F0FDF4"/><rect x="14" y="40" width="8" height="12" rx="2" fill="#070D1A" opacity=".2"/><rect x="26" y="28" width="8" height="24" rx="2" fill="#070D1A" opacity=".5"/><rect x="38" y="16" width="8" height="36" rx="2" fill="#070D1A"/><path d="M14 38L30 24L42 14" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <div class="hero-card-ttl">Épargne rentable</div>
+      <div class="hero-card-sub">Jusqu'à 5% d'intérêts par an</div>
     </div>
-    <div class="Lhero-card">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#FFF7ED"/><circle cx="32" cy="32" r="16" stroke="#070D1A" stroke-width="2.5"/><circle cx="24" cy="30" r="4" fill="#070D1A" opacity=".2"/><circle cx="32" cy="22" r="4" fill="#070D1A" opacity=".5"/><circle cx="40" cy="30" r="4" fill="#070D1A"/><path d="M24 30 L32 22 M32 22 L40 30 M40 30 L24 30" stroke="#d97706" stroke-width="1.5" stroke-dasharray="2 2"/></svg>
-      <div class="Lhero-card-ttl">Tontine digitale</div>
-      <div class="Lhero-card-sub">Épargnez ensemble, distribuez automatiquement</div>
+    <div class="hero-card">
+      <svg width="52" height="52" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#FFF7ED"/><circle cx="32" cy="32" r="18" stroke="#070D1A" stroke-width="2.5"/><circle cx="22" cy="30" r="4" fill="#070D1A" opacity=".25"/><circle cx="32" cy="20" r="4" fill="#070D1A" opacity=".5"/><circle cx="42" cy="30" r="4" fill="#070D1A"/><path d="M22 30L32 20M32 20L42 30M42 30L22 30" stroke="#d97706" stroke-width="1.5" stroke-dasharray="2 2"/></svg>
+      <div class="hero-card-ttl">Tontine digitale</div>
+      <div class="hero-card-sub">Épargnez ensemble, automatiquement</div>
     </div>
-    <div class="Lhero-card">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#EFF6FF"/><rect x="20" y="16" width="24" height="32" rx="6" fill="#070D1A"/><rect x="24" y="22" width="16" height="2" rx="1" fill="rgba(245,240,232,.4)"/><rect x="24" y="27" width="10" height="2" rx="1" fill="rgba(245,240,232,.2)"/><rect x="24" y="32" width="13" height="2" rx="1" fill="rgba(245,240,232,.2)"/><rect x="24" y="37" width="16" height="5" rx="2.5" fill="#22C55E"/></svg>
-      <div class="Lhero-card-ttl">App mobile PWA</div>
-      <div class="Lhero-card-sub">Installez sur iOS et Android sans store</div>
+    <div class="hero-card">
+      <svg width="52" height="52" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#EFF6FF"/><rect x="20" y="14" width="24" height="36" rx="6" fill="#070D1A"/><rect x="24" y="20" width="16" height="2" rx="1" fill="rgba(245,240,232,.35)"/><rect x="24" y="26" width="10" height="2" rx="1" fill="rgba(245,240,232,.2)"/><rect x="24" y="32" width="13" height="2" rx="1" fill="rgba(245,240,232,.2)"/><rect x="24" y="37" width="16" height="7" rx="3.5" fill="#22C55E"/></svg>
+      <div class="hero-card-ttl">App mobile PWA</div>
+      <div class="hero-card-sub">iOS et Android, sans store</div>
     </div>
   </div>
 </section>
 
-<div class="Lstats">
-  <div class="Lstat"><div class="Lstat-v">565</div><div class="Lstat-l">FCFA par USD</div></div>
-  <div class="Lstat"><div class="Lstat-v">5%</div><div class="Lstat-l">Épargne / an</div></div>
-  <div class="Lstat"><div class="Lstat-v">24h</div><div class="Lstat-l">Crédit en</div></div>
-  <div class="Lstat"><div class="Lstat-v">25+</div><div class="Lstat-l">Cryptos</div></div>
+<div class="stats">
+  <div class="stat"><div class="stat-val">565</div><div class="stat-lbl">FCFA par USD</div></div>
+  <div class="stat"><div class="stat-val">5%</div><div class="stat-lbl">Épargne / an</div></div>
+  <div class="stat"><div class="stat-val">24h</div><div class="stat-lbl">Crédit en</div></div>
+  <div class="stat"><div class="stat-val">25+</div><div class="stat-lbl">Cryptos</div></div>
 </div>
 
-<div style="background:#F5F0E8">
-<section class="Lsec" id="Lfeatures">
-  <div class="Lsec-lbl">Pourquoi ZAMA ?</div>
-  <div class="Lsec-ttl">Une fintech conçue<br>pour l'Afrique de l'Ouest</div>
-  <div class="Lfeat-grid">
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="Lfeat-ttl">Transfert international</div><div class="Lfeat-desc">Envoyez depuis l'Europe, les USA ou le Canada. Réception en FCFA sur Wave ou Orange Money en quelques heures.</div></div>
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div class="Lfeat-ttl">Épargne jusqu'à 5%/an</div><div class="Lfeat-desc">4 plans d'épargne avec intérêts mensuels. 0% de frais à l'échéance. Vos intérêts tombent chaque mois.</div></div>
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><div class="Lfeat-ttl">Crédit en 24h</div><div class="Lfeat-desc">Obtenez jusqu'à 2× votre épargne. Réponse en 24h, fonds virés sur Wave ou Orange Money.</div></div>
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="Lfeat-ttl">Tontine digitale</div><div class="Lfeat-desc">Cotisations vérifiées, distribution automatique et historique transparent pour tous les membres.</div></div>
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div class="Lfeat-ttl">Sécurité bancaire</div><div class="Lfeat-desc">PIN 4 chiffres, vérification KYC, transactions chiffrées. Votre argent est protégé à chaque étape.</div></div>
-    <div class="Lfeat-card"><div class="Lfeat-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div><div class="Lfeat-ttl">25 cryptos acceptées</div><div class="Lfeat-desc">USDT, Bitcoin, Ethereum, BNB et 21 autres cryptomonnaies acceptées via izichangePay.</div></div>
+<div style="background:#F5F0E8" id="sec-feat">
+<div class="sec">
+  <div class="sec-lbl">Pourquoi ZAMA ?</div>
+  <div class="sec-ttl">Une fintech conçue<br>pour l'Afrique de l'Ouest</div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="feat-ttl">Transfert international</div><div class="feat-desc">Envoyez depuis l'Europe, les USA ou le Canada. Réception en FCFA sur Wave ou Orange Money en quelques heures.</div></div>
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div class="feat-ttl">Épargne jusqu'à 5%/an</div><div class="feat-desc">4 plans d'épargne avec intérêts mensuels. 0% de frais à l'échéance. Vos intérêts tombent chaque mois.</div></div>
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><div class="feat-ttl">Crédit en 24h</div><div class="feat-desc">Obtenez jusqu'à 2× votre épargne. Réponse en 24h, fonds virés sur Wave ou Orange Money.</div></div>
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div><div class="feat-ttl">Tontine digitale</div><div class="feat-desc">Cotisations vérifiées, distribution automatique et historique transparent pour tous les membres.</div></div>
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div class="feat-ttl">Sécurité bancaire</div><div class="feat-desc">PIN 4 chiffres, vérification KYC, transactions chiffrées. Votre argent est protégé à chaque étape.</div></div>
+    <div class="feat-card"><div class="feat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div><div class="feat-ttl">25 cryptos acceptées</div><div class="feat-desc">USDT, Bitcoin, Ethereum, BNB et 21 autres cryptomonnaies acceptées via izichangePay.</div></div>
   </div>
-</section>
+</div>
 </div>
 
-<div class="Ldiv"></div>
+<div class="divider"></div>
 
-<div style="background:#fff">
-<section class="Lsec" id="Lservices">
-  <div class="Lsec-lbl">Nos produits</div>
-  <div class="Lsec-ttl">Tout ce dont vous<br>avez besoin</div>
-  <div class="Lserv-grid">
-    <div class="Lserv-card" onclick="entrerDansApp()"><div><div class="Lserv-ico">💰</div><div class="Lserv-ttl">Épargne</div><div class="Lserv-sub" style="color:#16a34a">Jusqu'à 5%/an</div><div class="Lserv-note">0% frais à l'échéance</div></div><span class="Lserv-arr">→</span></div>
-    <div class="Lserv-card" onclick="entrerDansApp()"><div><div class="Lserv-ico">🤝</div><div class="Lserv-ttl">Tontine</div><div class="Lserv-sub" style="color:#d97706">Cotisez en groupe</div><div class="Lserv-note">Distribution automatique</div></div><span class="Lserv-arr">→</span></div>
-    <div class="Lserv-card" onclick="entrerDansApp()"><div><div class="Lserv-ico">💳</div><div class="Lserv-ttl">Prêt</div><div class="Lserv-sub" style="color:#7c3aed">Jusqu'à 2× l'épargne</div><div class="Lserv-note">Réponse sous 24h</div></div><span class="Lserv-arr">→</span></div>
-    <div class="Lserv-card" onclick="entrerDansApp()"><div><div class="Lserv-ico">🌍</div><div class="Lserv-ttl">Transfert</div><div class="Lserv-sub" style="color:#2563eb">International</div><div class="Lserv-note">Wave · Orange Money · Crypto</div></div><span class="Lserv-arr">→</span></div>
+<div style="background:#fff" id="sec-prod">
+<div class="sec">
+  <div class="sec-lbl">Nos produits</div>
+  <div class="sec-ttl">Tout ce dont vous<br>avez besoin</div>
+  <div class="serv-grid">
+    <div class="serv-card" onclick="entrerDansApp()"><div><span class="serv-ico">💰</span><div class="serv-ttl">Épargne</div><div class="serv-sub" style="color:#16a34a">Jusqu'à 5%/an</div><div class="serv-note">0% frais à l'échéance</div></div><span class="serv-arr">→</span></div>
+    <div class="serv-card" onclick="entrerDansApp()"><div><span class="serv-ico">🤝</span><div class="serv-ttl">Tontine</div><div class="serv-sub" style="color:#d97706">Cotisez en groupe</div><div class="serv-note">Distribution automatique</div></div><span class="serv-arr">→</span></div>
+    <div class="serv-card" onclick="entrerDansApp()"><div><span class="serv-ico">💳</span><div class="serv-ttl">Prêt</div><div class="serv-sub" style="color:#7c3aed">Jusqu'à 2× l'épargne</div><div class="serv-note">Réponse sous 24h</div></div><span class="serv-arr">→</span></div>
+    <div class="serv-card" onclick="entrerDansApp()"><div><span class="serv-ico">🌍</span><div class="serv-ttl">Transfert</div><div class="serv-sub" style="color:#2563eb">International</div><div class="serv-note">Wave · Orange Money · Crypto</div></div><span class="serv-arr">→</span></div>
   </div>
-</section>
+</div>
 </div>
 
-<div class="Ldiv"></div>
-
-<div class="Linstall">
-  <div class="Linstall-txt">
+<div class="install">
+  <div>
     <h3>Installez ZAMA sur votre téléphone</h3>
     <p>Application web progressive (PWA) — fonctionne sur iOS et Android sans passer par un store. Accès direct depuis votre écran d'accueil.</p>
   </div>
-  <div class="Linstall-btns">
-    <button class="Lbtn-dl" id="Lbtn-install2" onclick="installerApp()" style="display:none">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5F0E8" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v13M7 11l5 5 5-5"/><path d="M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/></svg>
-      Installer sur iOS / Android
-    </button>
-    <button class="Lbtn-dl" onclick="entrerDansApp()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5F0E8" stroke-width="2.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-      Ouvrir l'application
-    </button>
-    <button class="Lbtn-dl-sec" onclick="entrerDansApp()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#070D1A" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      Ouvrir dans le navigateur
-    </button>
+  <div class="install-btns">
+    <button class="btn-dl" onclick="entrerDansApp()">📱 Ouvrir l'application</button>
+    <button class="btn-dl-sec" onclick="entrerDansApp()">Ouvrir dans le navigateur ↗</button>
   </div>
 </div>
 
-<div class="Ldiv"></div>
+<div class="divider"></div>
 
-<div style="background:#F5F0E8">
-<section class="Lsec" id="Ltaux">
-  <div class="Lsec-lbl">Taux en direct</div>
-  <div class="Lsec-ttl">1 devise = combien de FCFA ?</div>
-  <div class="Ltaux-grid">
-    <div class="Ltaux-card"><div class="Ltaux-flag">🇺🇸</div><div class="Ltaux-code">USD</div><div class="Ltaux-val" id="lnd-r1">--</div><div class="Ltaux-lbl">FCFA</div></div>
-    <div class="Ltaux-card"><div class="Ltaux-flag">🇪🇺</div><div class="Ltaux-code">EUR</div><div class="Ltaux-val" id="lnd-r2">--</div><div class="Ltaux-lbl">FCFA</div></div>
-    <div class="Ltaux-card"><div class="Ltaux-flag">🇬🇧</div><div class="Ltaux-code">GBP</div><div class="Ltaux-val" id="lnd-r3">--</div><div class="Ltaux-lbl">FCFA</div></div>
-    <div class="Ltaux-card"><div class="Ltaux-flag">🇨🇦</div><div class="Ltaux-code">CAD</div><div class="Ltaux-val" id="lnd-r4">--</div><div class="Ltaux-lbl">FCFA</div></div>
+<div style="background:#F5F0E8" id="sec-taux">
+<div class="sec">
+  <div class="sec-lbl">Taux en direct</div>
+  <div class="sec-ttl">1 devise = combien de FCFA ?</div>
+  <div class="taux-grid">
+    <div class="taux-card"><span class="taux-flag">🇺🇸</span><span class="taux-code">USD</span><span class="taux-val" id="lnd-r1">--</span><span class="taux-lbl">FCFA</span></div>
+    <div class="taux-card"><span class="taux-flag">🇪🇺</span><span class="taux-code">EUR</span><span class="taux-val" id="lnd-r2">--</span><span class="taux-lbl">FCFA</span></div>
+    <div class="taux-card"><span class="taux-flag">🇬🇧</span><span class="taux-code">GBP</span><span class="taux-val" id="lnd-r3">--</span><span class="taux-lbl">FCFA</span></div>
+    <div class="taux-card"><span class="taux-flag">🇨🇦</span><span class="taux-code">CAD</span><span class="taux-val" id="lnd-r4">--</span><span class="taux-lbl">FCFA</span></div>
   </div>
-</section>
+</div>
 </div>
 
-<section class="Lcta">
-  <div class="Lcta-ttl">Prêt à commencer ?</div>
-  <div class="Lcta-sub">Créez votre compte en 2 minutes. Aucun frais d'inscription.</div>
-  <button class="Lbtn-cta" onclick="entrerDansApp()">Créer un compte gratuit →</button>
+<section class="cta">
+  <div class="cta-ttl">Prêt à commencer ?</div>
+  <div class="cta-sub">Créez votre compte en 2 minutes. Aucun frais d'inscription.</div>
+  <button class="btn-cta" onclick="entrerDansApp()">Créer un compte gratuit →</button>
 </section>
 
-<footer class="Lfooter">
-  <div class="Lfooter-l"><div class="Lnav-ico">ZA</div><span style="font-size:14px;font-weight:700;color:#070D1A;letter-spacing:1px;margin-left:4px">ZAMA</span><span class="Lfooter-copy" style="margin-left:10px">by PST Telecom · Bureau de change digital</span></div>
-  <div class="Lfooter-r"><a class="Lfooter-link" href="mailto:support@zama-sn.com">support@zama-sn.com</a><span class="Lfooter-copy">Sénégal · © 2025 ZAMA</span></div>
+<footer class="footer">
+  <div class="footer-l">
+    <div class="nav-icon">ZA</div>
+    <span style="font-size:15px !important;font-weight:700 !important;color:#070D1A !important;letter-spacing:1px !important">ZAMA</span>
+    <span class="footer-copy" style="margin-left:10px !important">by PST Telecom · Bureau de change digital</span>
+  </div>
+  <div class="footer-r">
+    <a class="footer-link" href="mailto:support@zama-sn.com">support@zama-sn.com</a>
+    <span class="footer-copy">Sénégal · © 2025 ZAMA</span>
+  </div>
 </footer>
-
-<script>
-var _deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  _deferredPrompt = e;
-  var b1 = document.getElementById('Lbtn-install');
-  var b2 = document.getElementById('Lbtn-install2');
-  if(b1) b1.style.display = 'flex';
-  if(b2) b2.style.display = 'flex';
-});
-function installerApp() {
-  if(_deferredPrompt) {
-    _deferredPrompt.prompt();
-    _deferredPrompt.userChoice.then(function(r) {
-      _deferredPrompt = null;
-      if(r.outcome === 'accepted') { entrerDansApp(); }
-    });
-  } else {
-    entrerDansApp();
-  }
-}
-</script>
 
 </div>
 <!-- ══ FIN LANDING ══ -->
