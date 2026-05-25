@@ -265,6 +265,8 @@ app.get("/trax", (req,res) => res.sendFile(path.join(__dirname,"pst-trax.html"))
 app.get("/trax-driver", (req,res) => res.sendFile(path.join(__dirname,"pst-trax-driver.html")));
 app.get("/zama", (req,res) => res.sendFile(path.join(__dirname,"zama.html")));
 app.get("/sensms", (req,res) => res.sendFile(path.join(__dirname,"sensms.html")));
+app.get("/afrivote", (req,res) => res.sendFile(path.join(__dirname,"afrivote.html")));
+
 app.get("/senbet", (req,res) => res.sendFile(path.join(__dirname,"senbet.html")));
 app.get("/zamin", (req,res) => res.sendFile(path.join(__dirname,"zamin.html")));
 app.get("/crypto-admin", (req,res) => res.sendFile(path.join(__dirname,"crypto-dashboard.html")));
@@ -3852,4 +3854,6 @@ connectDB().then((dbInstance) => {
     console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
   });
 });
+
+
 
