@@ -489,6 +489,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);posi
       <div class="admin-tabs">
         <button class="atab active" onclick="switchAdmTab('create',this)">➕ Créer</button>
         <button class="atab" onclick="switchAdmTab('manage',this)">📋 Gérer</button>
+        <button class="atab" onclick="switchAdmTab('users',this)">👁️ Users</button>
         <button class="atab" onclick="switchAdmTab('admins',this)" id="admins-tab-btn">👥</button>
         <button class="atab" onclick="switchAdmTab('config',this)">☁️</button>
       </div>
@@ -535,6 +536,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);posi
       <!-- MANAGE -->
       <div class="atab-content" id="atab-manage">
         <div id="admin-events-list"></div>
+      </div>
+
+      <!-- USERS -->
+      <div class="atab-content" id="atab-users">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:700">Utilisateurs inscrits</div>
+          <div id="users-count" style="font-size:11px;color:var(--muted)"></div>
+        </div>
+        <div id="users-list"></div>
       </div>
 
       <!-- ADMINS -->
@@ -605,7 +615,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);posi
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="bet-modal-title">PLACER UN PARI</div>
     <div style="background:rgba(0,133,63,.08);border:1px solid rgba(0,133,63,.2);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:#4ade80;margin-bottom:16px" id="bet-modal-choice"></div>
-    <div class="field"><label>Numéro Wave</label><input type="tel" id="bet-phone" placeholder="7X XXX XX XX"></div>
     <div class="field"><label>Montant FCFA</label><input type="number" id="bet-amount" placeholder="Min. 200 FCFA" oninput="updPotential()"></div>
     <div style="background:rgba(0,133,63,.06);border:1px solid rgba(0,133,63,.15);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <span style="font-size:12px;color:var(--muted)">Gain potentiel</span>
@@ -826,12 +835,12 @@ function updPotential(){
   document.getElementById('bet-potential').textContent = amt && currentBetOdd ? Math.round(amt * currentBetOdd).toLocaleString() + ' FCFA' : '—';
 }
 function confirmBet(){
-  const phone = document.getElementById('bet-phone').value.trim();
   const amt = parseFloat(document.getElementById('bet-amount').value) || 0;
-  if(!phone){ showToast('⚠️ Numéro Wave requis', true); return; }
   if(amt < 200){ showToast('⚠️ Minimum 200 FCFA', true); return; }
+  const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + amt;
+  window.open(waveUrl, '_blank');
   closeModal('bet-modal');
-  showToast('✅ Pari de ' + amt.toLocaleString() + ' FCFA confirmé !');
+  showToast('✅ Pari de ' + amt.toLocaleString() + ' FCFA — paiement Wave ouvert !');
 }
 
 // ══ SLIP ══
@@ -858,7 +867,9 @@ function confirmSlip(){
   const amt = parseFloat(document.getElementById('slip-amt').value) || 0;
   if(!slipItems.length){ showToast('⚠️ Ajoute des sélections', true); return; }
   if(amt < 200){ showToast('⚠️ Minimum 200 FCFA', true); return; }
-  showToast('✅ ' + slipItems.length + ' pari(s) confirmé(s) via Wave !');
+  const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + amt;
+  window.open(waveUrl, '_blank');
+  showToast('✅ ' + slipItems.length + ' pari(s) — paiement Wave ouvert !');
   slipItems = []; updateSlipBadge(); closeModal('slip-modal');
 }
 
@@ -888,6 +899,11 @@ function doLogin(){
   const user = stored.find(u => (u.phone === id || u.email === id) && u.pass === btoa(pass));
   if(!user){ showToast('❌ Identifiants incorrects', true); return; }
   currentUser = user;
+  // Track login
+  const logs = JSON.parse(localStorage.getItem('senbet_logs')||'[]');
+  logs.push({id: user.id, name: user.name, phone: user.phone, email: user.email||'', time: new Date().toISOString(), duration: 0});
+  if(logs.length > 500) logs.splice(0, logs.length - 500);
+  localStorage.setItem('senbet_logs', JSON.stringify(logs));
   localStorage.setItem('senbet_session', JSON.stringify(user));
   closeAuth();
   onUserLogin();
@@ -912,6 +928,15 @@ function doSignup(){
   showToast('🎉 Compte créé ! Bienvenue ' + name);
 }
 function logout(){
+  if(currentUser){
+    // Update session duration
+    const logs = JSON.parse(localStorage.getItem('senbet_logs')||'[]');
+    const last = logs.filter(l => l.id === currentUser.id).pop();
+    if(last){
+      last.duration = (Date.now() - new Date(last.time).getTime()) / 1000;
+      localStorage.setItem('senbet_logs', JSON.stringify(logs));
+    }
+  }
   currentUser = null;
   localStorage.removeItem('senbet_session');
   onUserLogout();
@@ -966,22 +991,12 @@ function selAmt(v, el){
 function selAmtFree(){ selectedDepAmt = parseFloat(document.getElementById('dep-amt').value)||0; document.querySelectorAll('.wave-amt-btn').forEach(b=>b.classList.remove('sel')); }
 function submitDeposit(){
   const amt = selectedDepAmt || parseFloat(document.getElementById('dep-amt').value)||0;
-  const ref = document.getElementById('dep-ref').value.trim();
   if(!amt || amt < 200){ showToast('⚠️ Montant minimum 200 FCFA', true); return; }
-  if(!ref){ showToast('⚠️ Référence Wave requise', true); return; }
-  // Simulate credit
-  if(currentUser){
-    currentUser.balance = (currentUser.balance||0) + amt;
-    const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
-    const idx = stored.findIndex(u=>u.id===currentUser.id);
-    if(idx>-1){stored[idx]=currentUser;localStorage.setItem('senbet_users',JSON.stringify(stored));}
-    localStorage.setItem('senbet_session',JSON.stringify(currentUser));
-    document.getElementById('nav-balance').textContent = '💰 '+currentUser.balance.toLocaleString()+' FCFA';
-    document.getElementById('user-balance-disp').textContent = currentUser.balance.toLocaleString();
-    document.getElementById('p-balance').textContent = currentUser.balance.toLocaleString();
-  }
+  // Open Wave payment link with amount
+  const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + amt;
+  window.open(waveUrl, '_blank');
   closeDeposit();
-  showToast('✅ Dépôt de '+amt.toLocaleString()+' FCFA confirmé !');
+  showToast('📱 Paiement Wave ouvert — reviens après confirmation');
 }
 
 // ══ ADMIN ══
@@ -1013,6 +1028,35 @@ function switchAdmTab(name, el){
   el.classList.add('active');
   if(name === 'manage') renderAdminEvents();
   if(name === 'admins') renderAdminMgmt();
+  if(name === 'users') renderUsers();
+}
+function renderUsers(){
+  const stored = JSON.parse(localStorage.getItem('senbet_users')||'[]');
+  const logs = JSON.parse(localStorage.getItem('senbet_logs')||'[]');
+  const el = document.getElementById('users-list');
+  document.getElementById('users-count').textContent = stored.length + ' membre(s)';
+  if(!stored.length){
+    el.innerHTML = '<div class="empty-state"><div class="ei" style="font-size:32px">👤</div><p>Aucun utilisateur inscrit</p></div>';
+    return;
+  }
+  el.innerHTML = stored.map(u => {
+    const userLogs = logs.filter(l => l.id === u.id).slice(-1)[0];
+    const lastSeen = userLogs ? new Date(userLogs.time).toLocaleString('fr-FR') : 'Jamais';
+    const dur = userLogs && userLogs.duration ? Math.round(userLogs.duration/60) + ' min' : '—';
+    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:13px;font-weight:700">${u.name}</div>
+        <div style="font-size:10px;color:var(--muted)">${new Date(u.created).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--muted2)">
+        <div>📱 ${u.phone}</div>
+        <div>📧 ${u.email||'—'}</div>
+        <div>💰 ${(u.balance||0).toLocaleString()} FCFA</div>
+        <div>⏱ ${dur}</div>
+        <div style="grid-column:1/-1">🕐 Dernière connexion: ${lastSeen}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 function renderAdminEvents(){
   const el = document.getElementById('admin-events-list');
