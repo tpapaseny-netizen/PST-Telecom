@@ -3511,7 +3511,6 @@ const SondageSchema = new mongoose.Schema({
 const Sondage = mongoose.models.Sondage || mongoose.model('Sondage', SondageSchema);
 const AFRIVOTE_PASS = 'Pstdiama@1';
 
-app.get('/afrivote', (req,res) => res.sendFile(path.join(__dirname,'afrivote.html')));
 app.get('/api/afrivote/sondages', async (req,res) => {
   try { const s = await Sondage.find().sort({createdAt:-1}).lean(); res.json({success:true,sondages:s}); }
   catch(e) { res.status(500).json({success:false,message:e.message}); }
@@ -3775,4 +3774,5 @@ connectDB().then((dbInstance) => {
     console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
   });
 });
+
 

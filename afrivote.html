@@ -1,1034 +1,1343 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AfriVote — La voix de l'Afrique</title>
+<meta property="og:title" content="AfriVote — La voix de l'Afrique">
+<meta property="og:description" content="Plateforme professionnelle de sondages pour l'Afrique">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #07080F;
-  --bg2: #0D0F1C;
-  --bg3: #13162A;
-  --card: #161929;
-  --card2: #1C2038;
-  --border: rgba(255,255,255,0.07);
-  --gold: #E8B84B;
-  --gold2: #F5D06A;
-  --green: #2ECC71;
-  --red: #E74C3C;
-  --blue: #3498DB;
-  --purple: #9B59B6;
-  --text: #F0F2FF;
-  --text2: #A0A8CC;
-  --text3: #5A6080;
-  --radius: 14px;
-  --shadow: 0 8px 40px rgba(0,0,0,0.5);
+  --bg:#07080F;--bg2:#0D0F1C;--bg3:#13162A;--card:#161929;--card2:#1C2038;
+  --border:rgba(255,255,255,0.07);--gold:#E8B84B;--gold2:#F5D06A;
+  --green:#2ECC71;--red:#E74C3C;--blue:#3498DB;--purple:#9B59B6;
+  --text:#F0F2FF;--text2:#A0A8CC;--text3:#5A6080;--radius:14px;
+}
+[data-theme="light"] {
+  --bg:#F5F5F0;--bg2:#EBEBЕ5;--bg3:#E0E0D8;--card:#FFFFFF;--card2:#F8F8F2;
+  --border:rgba(0,0,0,0.09);--text:#1A1A2E;--text2:#4A4A6A;--text3:#9A9AB0;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
-
-/* NOISE OVERLAY */
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:0.4;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:70px;transition:background 0.3s,color 0.3s;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:0.3;}
 
 /* NAV */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;background:rgba(7,8,15,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
-.nav-logo{display:flex;align-items:center;gap:10px;cursor:pointer;}
-.nav-logo-icon{width:36px;height:36px;background:var(--gold);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
-.nav-logo-text{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;letter-spacing:-0.5px;}
-.nav-logo-text span{color:var(--gold);}
-.nav-actions{display:flex;align-items:center;gap:10px;}
-.btn{padding:9px 18px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all 0.2s;}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;background:rgba(7,8,15,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+[data-theme="light"] nav{background:rgba(245,245,240,0.92);}
+.logo{display:flex;align-items:center;gap:9px;cursor:pointer;}
+.logo-icon{width:36px;height:36px;border-radius:9px;overflow:hidden;flex-shrink:0;}
+.logo-text{font-family:'Playfair Display',serif;font-size:18px;font-weight:900;}
+.logo-text span{color:var(--gold);}
+.nav-right{display:flex;align-items:center;gap:8px;}
+.btn{padding:8px 15px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.2s;}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
 .btn-ghost:hover{background:var(--card);color:var(--text);}
-.btn-gold{background:var(--gold);color:#07080F;font-weight:600;}
-.btn-gold:hover{background:var(--gold2);transform:translateY(-1px);}
-.btn-sm{padding:7px 14px;font-size:13px;}
+.btn-gold{background:var(--gold);color:#07080F;font-weight:700;}
+.btn-gold:hover{background:var(--gold2);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-danger{background:rgba(231,76,60,0.15);color:#f1948a;border:1px solid rgba(231,76,60,0.2);}
+#nav-user{display:none;align-items:center;gap:9px;}
+.nav-avatar{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#07080F;cursor:pointer;}
+
+/* THEME TOGGLE */
+.theme-toggle{width:32px;height:32px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.2s;}
+
+/* TICKER */
+.ticker{background:var(--card);border-bottom:1px solid var(--border);overflow:hidden;padding:9px 0;margin-top:61px;}
+.ticker-inner{display:flex;gap:40px;animation:tick 40s linear infinite;white-space:nowrap;}
+@keyframes tick{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.tick-item{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);}
+.tick-item strong{color:var(--gold);}
+.tick-dot{width:4px;height:4px;background:var(--gold);border-radius:50%;flex-shrink:0;}
 
 /* PAGES */
-.page{display:none;min-height:100vh;padding-top:70px;}
+.page{display:none;}
 .page.active{display:block;}
 
-/* HERO */
-.hero{padding:80px 24px 60px;text-align:center;position:relative;}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,184,75,0.1);border:1px solid rgba(232,184,75,0.3);border-radius:100px;padding:8px 18px;font-size:13px;color:var(--gold);margin-bottom:32px;}
-.hero-badge::before{content:'';width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(1.3);}}
-.hero h1{font-family:'Playfair Display',serif;font-size:clamp(36px,7vw,72px);font-weight:900;line-height:1.05;margin-bottom:20px;letter-spacing:-2px;}
+/* LANDING PAGE */
+.landing{min-height:100vh;display:flex;flex-direction:column;}
+.hero{padding:52px 20px 40px;text-align:center;position:relative;}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(232,184,75,0.1);border:1px solid rgba(232,184,75,0.3);border-radius:100px;padding:7px 16px;font-size:12px;color:var(--gold);margin-bottom:24px;}
+.pulse{width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(1.5);}}
+.hero h1{font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,66px);font-weight:900;line-height:1.05;margin-bottom:16px;letter-spacing:-1.5px;}
 .hero h1 em{color:var(--gold);font-style:normal;}
-.hero p{font-size:18px;color:var(--text2);max-width:520px;margin:0 auto 40px;line-height:1.6;font-weight:300;}
-.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
-.btn-hero{padding:14px 32px;font-size:16px;border-radius:12px;font-weight:600;}
+.hero p{font-size:16px;color:var(--text2);max-width:480px;margin:0 auto 28px;line-height:1.6;font-weight:300;}
+.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.btn-lg{padding:13px 28px;font-size:15px;border-radius:11px;font-weight:600;}
 
-/* STATS BAR */
-.stats-bar{display:flex;justify-content:center;gap:0;margin:48px auto;max-width:700px;background:var(--card);border-radius:16px;border:1px solid var(--border);overflow:hidden;}
-.stat-item{flex:1;padding:24px 20px;text-align:center;border-right:1px solid var(--border);}
-.stat-item:last-child{border-right:none;}
-.stat-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);}
-.stat-lbl{font-size:12px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px;}
+/* FEATURES STRIP */
+.features-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--border);margin:0 20px 24px;border-radius:14px;overflow:hidden;}
+.feat{background:var(--card);padding:18px 16px;display:flex;align-items:center;gap:10px;}
+.feat-icon{font-size:22px;flex-shrink:0;}
+.feat-txt{font-size:13px;font-weight:500;}
+.feat-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* STATS */
+.stats-row{display:flex;margin:0 20px 24px;background:var(--card);border-radius:14px;border:1px solid var(--border);overflow:hidden;}
+.stat{flex:1;padding:18px 12px;text-align:center;border-right:1px solid var(--border);}
+.stat:last-child{border-right:none;}
+.stat-n{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--gold);}
+.stat-l{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.8px;}
+
+/* PILLS */
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:0 20px;}
+.pill{padding:7px 14px;background:var(--card);border:1px solid var(--border);border-radius:100px;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;color:var(--text2);}
+.pill.active{background:var(--gold);color:#07080F;border-color:var(--gold);}
 
 /* SECTION */
-.section{padding:40px 24px;max-width:1100px;margin:0 auto;}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
-.section-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;}
-.section-title span{color:var(--gold);}
-.live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.3);color:#ff6b5a;border-radius:100px;padding:5px 12px;font-size:12px;font-weight:600;}
-.live-dot{width:6px;height:6px;background:#ff6b5a;border-radius:50%;animation:pulse 1.5s infinite;}
+.section{padding:0 20px 20px;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sec-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;}
+.sec-title span{color:var(--gold);}
+.live-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.25);color:#ff6b5a;border-radius:100px;padding:4px 10px;font-size:11px;font-weight:700;}
 
-/* SONDAGE CARDS */
-.polls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
-.poll-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;}
+/* POLL CARDS */
+.polls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:13px;}
+.poll-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;}
 .poll-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),transparent);}
-.poll-card:hover{transform:translateY(-3px);border-color:rgba(232,184,75,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.4);}
-.poll-card.live::before{animation:shimmer 2s infinite;}
-@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
-.poll-meta{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-.cat-tag{font-size:11px;font-weight:600;padding:4px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:0.5px;}
+.poll-card:hover{transform:translateY(-3px);border-color:rgba(232,184,75,0.3);box-shadow:0 16px 50px rgba(0,0,0,0.35);}
+.poll-meta{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.cat-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:100px;text-transform:uppercase;letter-spacing:0.4px;}
 .cat-politique{background:rgba(155,89,182,0.2);color:#c39bd3;}
 .cat-sport{background:rgba(46,204,113,0.2);color:#82e0aa;}
 .cat-economie{background:rgba(52,152,219,0.2);color:#85c1e9;}
 .cat-societe{background:rgba(232,184,75,0.2);color:var(--gold);}
 .cat-culture{background:rgba(231,76,60,0.2);color:#f1948a;}
 .cat-sante{background:rgba(26,188,156,0.2);color:#76d7c4;}
-.poll-card h3{font-size:16px;font-weight:600;line-height:1.4;margin-bottom:12px;color:var(--text);}
-.poll-desc{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px;}
-.poll-preview{margin-bottom:16px;}
-.mini-bar-wrap{margin-bottom:8px;}
-.mini-bar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px;}
-.mini-bar-track{height:5px;background:var(--bg3);border-radius:100px;overflow:hidden;}
-.mini-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:100px;transition:width 1s cubic-bezier(0.4,0,0.2,1);}
-.poll-footer{display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--border);}
-.poll-votes{font-size:12px;color:var(--text3);}
+.live-dot-sm{width:6px;height:6px;background:#ff6b5a;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0;}
+.poll-card h3{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:10px;}
+.mini-bar{margin-bottom:6px;}
+.mini-bar-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px;}
+.mini-bar-track{height:4px;background:var(--bg3);border-radius:100px;overflow:hidden;}
+.mini-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:100px;transition:width 1.2s cubic-bezier(0.4,0,0.2,1);}
+.poll-foot{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-top:8px;}
+.poll-votes{font-size:11px;color:var(--text3);}
 .poll-votes strong{color:var(--text2);}
-.poll-time{font-size:12px;color:var(--text3);}
-.poll-status-live{color:#ff6b5a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
-.poll-status-closed{color:var(--text3);font-size:11px;font-weight:600;}
-
-/* RELIABILITY BADGE */
-.reliability{display:inline-flex;align-items:center;gap:6px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.2);border-radius:8px;padding:6px 10px;font-size:11px;color:#82e0aa;margin-top:8px;}
-
-/* FILTER PILLS */
-.filter-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px;}
-.pill{padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:100px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;color:var(--text2);}
-.pill:hover{border-color:rgba(232,184,75,0.4);color:var(--text);}
-.pill.active{background:var(--gold);color:#07080F;border-color:var(--gold);}
-
-/* EMPTY STATE */
-.empty{text-align:center;padding:60px 20px;color:var(--text3);}
-.empty-icon{font-size:48px;margin-bottom:16px;}
+.rel-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#82e0aa;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.15);border-radius:6px;padding:3px 7px;}
+.voted-chip{font-size:10px;color:#82e0aa;font-weight:600;}
 
 /* VOTE PAGE */
-.vote-page{max-width:720px;margin:0 auto;padding:40px 24px;}
-.back-btn{display:inline-flex;align-items:center;gap:8px;color:var(--text2);font-size:14px;cursor:pointer;margin-bottom:32px;transition:color 0.2s;}
-.back-btn:hover{color:var(--gold);}
-.vote-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px;margin-bottom:24px;}
-.vote-title{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;line-height:1.3;margin-bottom:12px;}
-.vote-desc{color:var(--text2);line-height:1.6;margin-bottom:28px;}
-.vote-options{display:flex;flex-direction:column;gap:12px;margin-bottom:28px;}
-.vote-opt{padding:16px 20px;background:var(--bg3);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;}
-.vote-opt::before{content:'';position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,rgba(232,184,75,0.1),transparent);transition:width 0.3s;}
-.vote-opt:hover{border-color:rgba(232,184,75,0.4);}
-.vote-opt:hover::before{width:100%;}
-.vote-opt.selected{border-color:var(--gold);background:rgba(232,184,75,0.08);}
-.vote-opt.selected::before{width:100%;}
-.vote-opt-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
-.vote-opt.selected .vote-opt-radio{border-color:var(--gold);background:var(--gold);}
-.vote-opt.selected .vote-opt-radio::after{content:'';width:8px;height:8px;background:#07080F;border-radius:50%;}
-.vote-opt-label{font-size:15px;font-weight:500;}
-.vote-opt-pct{margin-left:auto;font-size:14px;font-weight:600;color:var(--gold);opacity:0;}
-.vote-submitted .vote-opt-pct{opacity:1;}
-.vote-submitted .vote-opt{cursor:default;}
+.vote-wrap{max-width:680px;margin:0 auto;padding:20px;}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:20px;transition:color 0.2s;}
+.back:hover{color:var(--gold);}
+.vote-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:14px;}
+.vote-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;line-height:1.3;margin:10px 0 8px;}
+.vote-desc{color:var(--text2);line-height:1.6;margin-bottom:20px;font-size:14px;}
+.poll-timer{display:inline-flex;align-items:center;gap:6px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.2);border-radius:8px;padding:5px 11px;font-size:12px;color:#f1948a;margin-bottom:14px;}
+.vote-opts{display:flex;flex-direction:column;gap:9px;margin-bottom:18px;}
+.vote-opt{padding:13px 16px;background:var(--bg3);border:2px solid var(--border);border-radius:11px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:11px;position:relative;overflow:hidden;}
+.vote-opt:hover:not(.disabled){border-color:rgba(232,184,75,0.4);}
+.vote-opt.selected{border-color:var(--gold);background:rgba(232,184,75,0.05);}
+.vote-opt.disabled{cursor:default;}
+.opt-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(232,184,75,0.07);width:0;transition:width 1.2s cubic-bezier(0.4,0,0.2,1);z-index:0;}
+.opt-bar.winner{background:rgba(46,204,113,0.07);}
+.opt-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s;position:relative;z-index:1;}
+.vote-opt.selected .opt-radio{border-color:var(--gold);background:var(--gold);}
+.vote-opt.selected .opt-radio::after{content:'';width:6px;height:6px;background:#07080F;border-radius:50%;}
+.opt-label{font-size:14px;font-weight:500;flex:1;position:relative;z-index:1;}
+.opt-pct{font-size:13px;font-weight:700;color:var(--gold);opacity:0;transition:opacity 0.3s;position:relative;z-index:1;}
+.show-results .opt-pct{opacity:1;}
+.vote-btn{width:100%;padding:13px;background:var(--gold);color:#07080F;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;border:none;border-radius:11px;cursor:pointer;transition:all 0.2s;}
+.vote-btn:hover{background:var(--gold2);}
+.vote-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.already-msg{text-align:center;padding:11px;background:rgba(46,204,113,0.07);border:1px solid rgba(46,204,113,0.18);border-radius:10px;color:#82e0aa;font-size:13px;margin-top:10px;display:none;}
 
-/* RESULTS BAR */
-.result-bar-wrap{margin-top:8px;display:none;}
-.vote-submitted .result-bar-wrap{display:block;}
-.result-bar-track{height:6px;background:var(--bg);border-radius:100px;overflow:hidden;margin-top:4px;}
-.result-bar-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width 1.2s cubic-bezier(0.4,0,0.2,1);}
-.result-bar-fill.winner{background:linear-gradient(90deg,#2ECC71,#82e0aa);}
-
-.vote-btn{width:100%;padding:16px;background:var(--gold);color:#07080F;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:all 0.2s;margin-top:8px;}
-.vote-btn:hover{background:var(--gold2);transform:translateY(-1px);}
-.vote-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
-.already-voted{text-align:center;padding:14px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.2);border-radius:10px;color:#82e0aa;font-size:14px;margin-top:12px;display:none;}
-
-/* LIVE RESULTS BOX */
-.live-results{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;}
-.live-results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
-.live-results-title{font-size:16px;font-weight:600;}
-.refresh-info{font-size:12px;color:var(--text3);}
-.result-row{margin-bottom:20px;}
-.result-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-.result-label{font-size:14px;font-weight:500;}
-.result-pct{font-size:14px;font-weight:700;color:var(--gold);}
-.result-track{height:10px;background:var(--bg3);border-radius:100px;overflow:hidden;}
-.result-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width 1s cubic-bezier(0.4,0,0.2,1);}
+/* RESULTS */
+.results-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:14px;}
+.results-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.results-title{font-size:15px;font-weight:600;}
+.refresh-txt{font-size:11px;color:var(--text3);}
+.result-row{margin-bottom:14px;}
+.result-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.result-lbl{font-size:13px;font-weight:500;}
+.result-pct-big{font-size:14px;font-weight:700;color:var(--gold);}
+.result-track{height:8px;background:var(--bg3);border-radius:100px;overflow:hidden;}
+.result-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width 1.2s cubic-bezier(0.4,0,0.2,1);}
 .result-fill.top{background:linear-gradient(90deg,#2ECC71,#82e0aa);}
-.result-votes-count{font-size:11px;color:var(--text3);margin-top:4px;}
+.result-count{font-size:10px;color:var(--text3);margin-top:3px;}
 
-/* RELIABILITY METER */
-.reliability-box{background:var(--bg3);border-radius:12px;padding:16px 20px;margin-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:gap;}
-.rel-score{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--green);}
-.rel-details{font-size:12px;color:var(--text3);line-height:1.6;}
-.rel-label{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px;}
+/* CHART DONUT */
+.donut-wrap{display:flex;align-items:center;justify-content:center;gap:20px;margin:16px 0;flex-wrap:wrap;}
+.donut-legend{display:flex;flex-direction:column;gap:8px;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
-/* ADMIN PAGE */
-.admin-page{max-width:900px;margin:0 auto;padding:40px 24px;}
-.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:36px;}
-.admin-stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
-.admin-stat-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);}
-.admin-stat-lbl{font-size:12px;color:var(--text3);margin-top:4px;}
+/* RELIABILITY */
+.rel-box{background:var(--bg3);border-radius:11px;padding:14px 18px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.rel-score-big{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--green);flex-shrink:0;}
+.rel-info-lbl{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px;}
+.rel-info-sub{font-size:11px;color:var(--text3);line-height:1.5;}
+
+/* SHARE */
+.share-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px;}
+.share-title{font-size:14px;font-weight:600;margin-bottom:11px;}
+.share-btns{display:flex;gap:7px;flex-wrap:wrap;}
+.share-btn{display:flex;align-items:center;gap:5px;padding:8px 13px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all 0.2s;}
+.share-wa{background:#25D366;color:#fff;}
+.share-fb{background:#1877F2;color:#fff;}
+.share-tw{background:#1DA1F2;color:#fff;}
+.share-cp{background:var(--bg3);color:var(--text2);border:1px solid var(--border);}
+
+/* CLOUDINARY CONFIG */
+/* CLOUD_NAME et UPLOAD_PRESET à configurer */
+
+/* PHOTO GALLERY */
+.poll-cover{width:100%;height:160px;object-fit:cover;border-radius:10px 10px 0 0;display:block;margin:-18px -18px 14px;width:calc(100% + 36px);}
+.photo-gallery{display:grid;gap:6px;margin-bottom:16px;}
+.photo-gallery.g1{grid-template-columns:1fr;}
+.photo-gallery.g2{grid-template-columns:1fr 1fr;}
+.photo-gallery.g3{grid-template-columns:1fr 1fr 1fr;}
+.photo-gallery.g4{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
+.photo-gallery.gn{grid-template-columns:repeat(3,1fr);}
+.gallery-img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;cursor:zoom-in;transition:opacity 0.2s;}
+.gallery-img:hover{opacity:0.85;}
+.gallery-more{position:relative;}
+.gallery-more .gallery-img{filter:brightness(0.4);}
+.gallery-more-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;pointer-events:none;}
+
+/* LIGHTBOX */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.lightbox.open{display:flex;}
+.lightbox-img{max-width:90vw;max-height:85vh;object-fit:contain;border-radius:12px;}
+.lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;width:38px;height:38px;border-radius:50%;color:#fff;font-size:18px;cursor:pointer;}
+.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;width:42px;height:42px;border-radius:50%;color:#fff;font-size:20px;cursor:pointer;transition:background 0.2s;}
+.lightbox-prev{left:16px;}
+.lightbox-next{right:16px;}
+.lightbox-prev:hover,.lightbox-next:hover{background:rgba(255,255,255,0.3);}
+.lightbox-counter{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;padding:5px 12px;border-radius:100px;}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:11px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px;}
+.upload-zone:hover{border-color:var(--gold);background:rgba(232,184,75,0.04);}
+.upload-zone-icon{font-size:28px;margin-bottom:8px;}
+.upload-zone-txt{font-size:13px;color:var(--text2);}
+.upload-zone-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.photo-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.photo-thumb{position:relative;width:70px;height:70px;}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.photo-thumb-rm{position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:#E74C3C;border:none;border-radius:50%;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.upload-progress{height:3px;background:var(--gold);border-radius:100px;margin-top:6px;transition:width 0.3s;}
+
+/* CARD WITH COVER */
+.poll-card.has-cover{padding-top:0;overflow:hidden;}
+.poll-card.has-cover .poll-card-body{padding:14px 18px 18px;}
+
+.embed-code{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:10px 14px;font-size:11px;font-family:monospace;color:var(--text2);margin-top:12px;word-break:break-all;cursor:pointer;}
+
+/* COMMENTS */
+.comments-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:14px;}
+.comments-title{font-size:15px;font-weight:600;margin-bottom:16px;}
+.comment-form{display:flex;gap:8px;margin-bottom:16px;}
+.comment-input{flex:1;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;}
+.comment-input:focus{border-color:rgba(232,184,75,0.4);}
+.comment-send{background:var(--gold);color:#07080F;border:none;padding:10px 16px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;}
+.comment-item{padding:12px 0;border-bottom:1px solid var(--border);}
+.comment-item:last-child{border-bottom:none;}
+.comment-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.comment-avatar{width:26px;height:26px;background:linear-gradient(135deg,var(--gold),var(--gold2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#07080F;flex-shrink:0;}
+.comment-author{font-size:12px;font-weight:600;}
+.comment-time{font-size:11px;color:var(--text3);}
+.comment-text{font-size:13px;color:var(--text2);line-height:1.5;}
+.no-comments{text-align:center;padding:20px;color:var(--text3);font-size:13px;}
+
+/* PDF BUTTON */
+.pdf-btn{display:flex;align-items:center;gap:7px;padding:11px 18px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--text2);width:100%;justify-content:center;margin-bottom:14px;}
+.pdf-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ADMIN */
+.admin-wrap{max-width:900px;margin:0 auto;padding:20px;}
+.admin-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+.admin-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;}
+.admin-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+.adm-tab{padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);transition:all 0.2s;}
+.adm-tab.active{background:var(--gold);color:#07080F;border-color:var(--gold);}
+.adm-panel{display:none;}
+.adm-panel.active{display:block;}
+.admin-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;}
+.adm-stat{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px;}
+.adm-stat-n{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--gold);}
+.adm-stat-l{font-size:11px;color:var(--text3);margin-top:2px;}
+.chart-bar-admin{display:flex;flex-direction:column;gap:8px;}
+.cba-row{display:flex;align-items:center;gap:10px;}
+.cba-label{font-size:12px;color:var(--text2);width:100px;flex-shrink:0;}
+.cba-track{flex:1;height:18px;background:var(--bg3);border-radius:6px;overflow:hidden;}
+.cba-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:6px;transition:width 1s;}
+.cba-val{font-size:12px;font-weight:600;color:var(--gold);width:50px;text-align:right;flex-shrink:0;}
 
 /* FORM */
-.form-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin-bottom:24px;}
-.form-title{font-size:18px;font-weight:600;margin-bottom:24px;display:flex;align-items:center;gap:10px;}
-.form-group{margin-bottom:18px;}
-label{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:8px;}
-input,textarea,select{width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;}
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px;}
+.form-card-title{font-size:15px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.form-group{margin-bottom:13px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;}
+input,textarea,select{width:100%;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
 input:focus,textarea:focus,select:focus{border-color:rgba(232,184,75,0.5);}
 select option{background:var(--bg3);}
-textarea{resize:vertical;min-height:80px;}
-.opts-builder{display:flex;flex-direction:column;gap:8px;}
-.opt-row{display:flex;gap:8px;align-items:center;}
+textarea{resize:vertical;min-height:70px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.opts-list{display:flex;flex-direction:column;gap:6px;}
+.opt-row{display:flex;gap:6px;align-items:center;}
 .opt-row input{flex:1;}
-.btn-rm-opt{background:rgba(231,76,60,0.15);color:#f1948a;border:none;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0;}
-.btn-add-opt{background:var(--bg3);color:var(--text2);border:1px dashed var(--border);padding:10px;border-radius:10px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;transition:all 0.2s;width:100%;}
-.btn-add-opt:hover{border-color:var(--gold);color:var(--gold);}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.rm-opt{background:rgba(231,76,60,0.12);color:#f1948a;border:none;width:33px;height:33px;border-radius:8px;cursor:pointer;font-size:13px;flex-shrink:0;}
+.add-opt{background:var(--bg3);color:var(--text2);border:1px dashed var(--border);padding:9px;border-radius:9px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.2s;width:100%;margin-top:5px;}
+.add-opt:hover{border-color:var(--gold);color:var(--gold);}
+.adm-poll{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:11px;}
+.adm-poll-info h4{font-size:13px;font-weight:600;margin-bottom:3px;}
+.adm-poll-info p{font-size:11px;color:var(--text3);}
+.adm-poll-btns{display:flex;gap:5px;flex-shrink:0;}
+.btn-close-poll{background:rgba(232,184,75,0.1);color:var(--gold);border:1px solid rgba(232,184,75,0.2);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-del{background:rgba(231,76,60,0.1);color:#f1948a;border:1px solid rgba(231,76,60,0.2);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 
-/* ADMIN POLLS LIST */
-.admin-poll-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
-.admin-poll-info h4{font-size:14px;font-weight:600;margin-bottom:4px;}
-.admin-poll-info p{font-size:12px;color:var(--text3);}
-.admin-poll-actions{display:flex;gap:8px;flex-shrink:0;}
-.btn-danger{background:rgba(231,76,60,0.15);color:#f1948a;border:1px solid rgba(231,76,60,0.2);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
-.btn-danger:hover{background:rgba(231,76,60,0.3);}
-.btn-close-poll{background:rgba(232,184,75,0.15);color:var(--gold);border:1px solid rgba(232,184,75,0.2);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
-.btn-close-poll:hover{background:rgba(232,184,75,0.3);}
+/* PROFILE */
+.profile-wrap{max-width:480px;margin:0 auto;padding:20px;}
+.profile-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:center;margin-bottom:14px;}
+.profile-avatar{width:68px;height:68px;background:linear-gradient(135deg,var(--gold),var(--gold2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#07080F;margin:0 auto 14px;}
+.profile-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:3px;}
+.profile-sub{font-size:12px;color:var(--text2);margin-bottom:14px;}
+.profile-badges{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:600;}
+.badge-gold{background:rgba(232,184,75,0.12);color:var(--gold);border:1px solid rgba(232,184,75,0.25);}
+.badge-green{background:rgba(46,204,113,0.12);color:#82e0aa;border:1px solid rgba(46,204,113,0.25);}
+.votes-list{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;}
+.vl-title{font-size:14px;font-weight:600;margin-bottom:13px;}
+.vl-item{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);}
+.vl-item:last-child{border-bottom:none;}
+.vl-q{font-size:12px;color:var(--text2);flex:1;margin-right:10px;}
+.vl-choice{font-size:10px;font-weight:700;color:var(--gold);background:rgba(232,184,75,0.08);padding:3px 8px;border-radius:6px;}
 
 /* AUTH MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
-.modal-overlay.open{display:flex;}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:420px;animation:modalIn 0.3s ease;}
-@keyframes modalIn{from{opacity:0;transform:scale(0.95)translateY(10px);}to{opacity:1;transform:scale(1)translateY(0);}}
-.modal-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:8px;}
-.modal-sub{color:var(--text2);font-size:14px;margin-bottom:24px;}
-.modal-close{position:absolute;top:16px;right:16px;background:var(--bg3);border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;color:var(--text2);font-size:16px;}
-.modal{position:relative;}
-.tabs{display:flex;background:var(--bg3);border-radius:10px;padding:4px;margin-bottom:24px;}
-.tab{flex:1;padding:9px;text-align:center;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);transition:all 0.2s;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(12px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;width:100%;max-width:400px;position:relative;animation:mIn 0.3s ease;}
+@keyframes mIn{from{opacity:0;transform:scale(0.93)translateY(12px);}to{opacity:1;transform:scale(1)translateY(0);}}
+.modal-close{position:absolute;top:13px;right:13px;background:var(--bg3);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;color:var(--text2);font-size:13px;}
+.modal-title{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;margin-bottom:5px;}
+.modal-sub{color:var(--text2);font-size:12px;margin-bottom:18px;}
+.tabs{display:flex;background:var(--bg3);border-radius:9px;padding:3px;margin-bottom:18px;}
+.tab{flex:1;padding:7px;text-align:center;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);transition:all 0.2s;}
 .tab.active{background:var(--card2);color:var(--text);}
-.tab-content{display:none;}
-.tab-content.active{display:block;}
-
-/* TOAST */
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:500;z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.toast.err{border-color:rgba(231,76,60,0.4);color:#f1948a;}
-
-/* TRENDING TICKER */
-.ticker{background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border);overflow:hidden;padding:12px 0;margin-bottom:0;}
-.ticker-inner{display:flex;gap:40px;animation:tick 30s linear infinite;white-space:nowrap;}
-@keyframes tick{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
-.tick-item{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
-.tick-item span{color:var(--gold);font-weight:600;}
-.tick-dot{width:4px;height:4px;background:var(--gold);border-radius:50%;}
+.tab-c{display:none;}
+.tab-c.active{display:block;}
 
 /* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,28,0.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);z-index:100;display:flex;}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px 14px;cursor:pointer;color:var(--text3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;transition:color 0.2s;}
-.nav-item.active{color:var(--gold);}
-.nav-item svg{width:22px;height:22px;}
+.bnav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,28,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);z-index:100;display:flex;}
+[data-theme="light"] .bnav{background:rgba(245,245,240,0.97);}
+.bni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px 12px;cursor:pointer;color:var(--text3);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;transition:color 0.2s;}
+.bni.active{color:var(--gold);}
+.bni svg{width:20px;height:20px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:10px 17px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.err{border-color:rgba(231,76,60,0.4);color:#f1948a;}
+.toast.ok{border-color:rgba(46,204,113,0.3);color:#82e0aa;}
 
 /* LOADING */
-.loading{text-align:center;padding:60px 20px;color:var(--text3);}
-.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+.loading{text-align:center;padding:40px 20px;color:var(--text3);}
+.spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 10px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px;}
 
-/* SCROLLBAR */
-::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--card2);border-radius:100px;}
 
-/* ADMIN LOGIN */
-.admin-login{max-width:420px;margin:60px auto;padding:0 24px;}
+/* PRIVATE POLL BADGE */
+.private-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#85c1e9;background:rgba(52,152,219,0.1);border:1px solid rgba(52,152,219,0.2);border-radius:6px;padding:2px 7px;}
 </style>
 </head>
 <body>
 
-<!-- NAV -->
 <nav>
-  <div class="nav-logo" onclick="goHome()">
-    <div class="nav-logo-icon">🗳️</div>
-    <div class="nav-logo-text">Afri<span>Vote</span></div>
-  </div>
-  <div class="nav-actions">
-    <div id="nav-user" style="display:none;align-items:center;gap:10px;">
-      <span id="nav-username" style="font-size:13px;color:var(--text2);"></span>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">Déconnexion</button>
+  <div class="logo" onclick="goHome()">
+    <div class="logo-icon">
+      <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" fill="#E8B84B" rx="8"/>
+        <path d="M13 5.5C11 5.5 9.2 6.5 8.8 8.5C8.4 10.5 9.2 11.5 9.2 13C9.2 14.5 8.3 15.5 8.3 17C8.3 18.5 9.2 19.5 9.7 21C10.2 22.5 10.2 23.5 11.2 25C12.2 26.5 13 27.5 14 29C15 30.5 16 31.5 17.5 32C19 32.5 20 31.5 21 30.5C22 29.5 23 28.5 23.5 27C24 25.5 24.5 24.5 25 23C25.5 21.5 26 20.5 26 19C26 17.5 25.5 16.5 25 15.5C24.5 14.5 24 13.5 24.5 12.5C25 11.5 26 11 26 10C26 9 25 8 24 7.5C23 7 22 6.5 21 6C20 5.5 19 5.5 18 5.5C17 5.5 15 5.5 13 5.5Z" fill="#07080F" opacity="0.8"/>
+        <rect x="14.5" y="20" width="7" height="5" rx="1" fill="#07080F" opacity="0.85"/>
+        <rect x="13.5" y="19" width="9" height="1.8" rx="0.9" fill="#07080F" opacity="0.85"/>
+        <line x1="18" y1="15.5" x2="18" y2="19" stroke="#07080F" stroke-width="1.2" stroke-linecap="round" opacity="0.85"/>
+        <path d="M16 17 L18 15.5 L20 17" stroke="#07080F" stroke-width="1.1" fill="none" stroke-linecap="round" opacity="0.85"/>
+      </svg>
     </div>
-    <div id="nav-auth" style="display:flex;gap:8px;">
+    <div class="logo-text">Afri<span>Vote</span></div>
+  </div>
+  <div class="nav-right">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
+    <div id="nav-user">
+      <div class="nav-avatar" id="nav-avatar"></div>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sortir</button>
+    </div>
+    <div id="nav-auth" style="display:flex;gap:6px;">
       <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Connexion</button>
-      <button class="btn btn-gold btn-sm" onclick="openAuth('signup')">S\'inscrire</button>
+      <button class="btn btn-gold btn-sm" onclick="openAuth('signup')">S'inscrire</button>
     </div>
   </div>
 </nav>
 
-<!-- TICKER -->
-<div class="ticker" id="ticker" style="display:none;margin-top:70px;">
+<div class="ticker" id="ticker" style="display:none;">
   <div class="ticker-inner" id="ticker-inner"></div>
 </div>
 
-<!-- PAGE: ACCUEIL -->
+<!-- PAGE ACCUEIL -->
 <div class="page active" id="page-home">
   <div class="hero">
-    <div class="hero-badge">🌍 Sondages en direct en Afrique</div>
-    <h1>Que pense<br>réellement <em>l\'Afrique ?</em></h1>
-    <p>La plateforme de référence pour les sondages d\'opinion, études de marché et consultations politiques.</p>
-    <div class="hero-cta">
-      <button class="btn btn-gold btn-hero" onclick="openAuth('signup')">Créer un compte</button>
-      <button class="btn btn-ghost btn-hero" onclick="scrollToPolls()">Voir les sondages</button>
+    <div class="hero-badge"><div class="pulse"></div>Sondages en direct · Afrique</div>
+    <h1>Que pense<br>vraiment <em>l'Afrique ?</em></h1>
+    <p>La plateforme de référence pour les sondages d'opinion, études de marché et consultations citoyennes en Afrique.</p>
+    <div class="hero-btns">
+      <button class="btn btn-gold btn-lg" onclick="openAuth('signup')">Rejoindre AfriVote</button>
+      <button class="btn btn-ghost btn-lg" onclick="document.getElementById('polls-section').scrollIntoView({behavior:'smooth'})">Voir les sondages ↓</button>
     </div>
-    <div class="stats-bar" id="stats-bar">
-      <div class="stat-item"><div class="stat-num" id="stat-votes">—</div><div class="stat-lbl">Votes total</div></div>
-      <div class="stat-item"><div class="stat-num" id="stat-polls">—</div><div class="stat-lbl">Sondages</div></div>
-      <div class="stat-item"><div class="stat-num" id="stat-live">—</div><div class="stat-lbl">En direct</div></div>
-    </div>
+  </div>
+
+  <div class="features-strip">
+    <div class="feat"><div class="feat-icon">🔒</div><div><div class="feat-txt">Anti-fraude 3 couches</div><div class="feat-sub">Compte + cookie + fingerprint</div></div></div>
+    <div class="feat"><div class="feat-icon">📊</div><div><div class="feat-txt">Résultats en direct</div><div class="feat-sub">Actualisation toutes les 5s</div></div></div>
+    <div class="feat"><div class="feat-icon">📱</div><div><div class="feat-txt">Partage facile</div><div class="feat-sub">WhatsApp, Facebook, embed</div></div></div>
+    <div class="feat"><div class="feat-icon">📄</div><div><div class="feat-txt">Rapports PDF</div><div class="feat-sub">Exportez vos résultats</div></div></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n" id="st-votes">—</div><div class="stat-l">Votes</div></div>
+    <div class="stat"><div class="stat-n" id="st-polls">—</div><div class="stat-l">Sondages</div></div>
+    <div class="stat"><div class="stat-n" id="st-live">—</div><div class="stat-l">En direct</div></div>
+    <div class="stat"><div class="stat-n" id="st-users">—</div><div class="stat-l">Membres</div></div>
+  </div>
+
+  <div class="pills" id="filter-pills">
+    <div class="pill active" onclick="filterPolls('tous',this)">🌍 Tous</div>
+    <div class="pill" onclick="filterPolls('politique',this)">🏛️ Politique</div>
+    <div class="pill" onclick="filterPolls('sport',this)">⚽ Sport</div>
+    <div class="pill" onclick="filterPolls('economie',this)">📈 Économie</div>
+    <div class="pill" onclick="filterPolls('societe',this)">🌐 Société</div>
+    <div class="pill" onclick="filterPolls('culture',this)">🎭 Culture</div>
+    <div class="pill" onclick="filterPolls('sante',this)">❤️ Santé</div>
   </div>
 
   <div class="section" id="polls-section">
-    <div class="section-header">
-      <div class="section-title">Sondages <span>en cours</span></div>
-      <div class="live-badge"><div class="live-dot"></div> Live</div>
+    <div class="sec-head">
+      <div class="sec-title">Sondages <span>en cours</span></div>
+      <div class="live-badge"><div class="pulse" style="background:#ff6b5a;width:5px;height:5px;"></div>Live</div>
     </div>
-    <div class="filter-pills" id="filter-pills">
-      <div class="pill active" onclick="filterPolls('tous',this)">🌍 Tous</div>
-      <div class="pill" onclick="filterPolls('politique',this)">🏛️ Politique</div>
-      <div class="pill" onclick="filterPolls('sport',this)">⚽ Sport</div>
-      <div class="pill" onclick="filterPolls('economie',this)">📈 Économie</div>
-      <div class="pill" onclick="filterPolls('societe',this)">🌐 Société</div>
-      <div class="pill" onclick="filterPolls('culture',this)">🎭 Culture</div>
-      <div class="pill" onclick="filterPolls('sante',this)">❤️ Santé</div>
-    </div>
-    <div id="polls-loading" class="loading"><div class="spinner"></div>Chargement des sondages...</div>
+    <div id="polls-loading" class="loading"><div class="spinner"></div>Chargement...</div>
     <div class="polls-grid" id="polls-grid" style="display:none;"></div>
-    <div id="polls-empty" class="empty" style="display:none;">
-      <div class="empty-icon">📊</div>
-      <div>Aucun sondage dans cette catégorie pour l\'instant.</div>
-    </div>
+    <div id="polls-empty" class="empty" style="display:none;">📊 Aucun sondage dans cette catégorie.</div>
   </div>
 </div>
 
-<!-- PAGE: VOTE -->
+<!-- PAGE VOTE -->
 <div class="page" id="page-vote">
-  <div class="vote-page">
-    <div class="back-btn" onclick="goHome()">← Retour aux sondages</div>
-    <div class="vote-card" id="vote-card">
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
-        <span class="cat-tag" id="vote-cat-tag"></span>
-        <span id="vote-live-badge" class="live-badge" style="display:none;"><div class="live-dot"></div> En direct</span>
+  <div class="vote-wrap">
+    <div class="back" onclick="goHome()">← Retour</div>
+    <div class="vote-card">
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+        <span class="cat-tag" id="v-cat"></span>
+        <span id="v-live" style="display:none;font-size:10px;color:#ff6b5a;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="live-dot-sm"></span>LIVE</span>
+        <span id="v-private" class="private-badge" style="display:none;">🔒 Privé</span>
       </div>
-      <div class="vote-title" id="vote-title"></div>
-      <div class="vote-desc" id="vote-desc"></div>
-      <div class="vote-options" id="vote-options"></div>
-      <button class="vote-btn" id="vote-btn" onclick="submitVote()">Voter maintenant</button>
-      <div class="already-voted" id="already-voted">✅ Vous avez déjà participé à ce sondage.</div>
+      <div class="vote-title" id="v-title"></div>
+      <div class="vote-desc" id="v-desc"></div>
+      <div id="v-gallery" style="display:none;margin-bottom:16px;"></div>
+      <div id="v-timer" class="poll-timer" style="display:none;">⏱️ <span id="v-timer-txt"></span></div>
+      <div class="vote-opts show-results" id="v-opts"></div>
+      <button class="vote-btn" id="v-btn" onclick="submitVote()" disabled>Voter</button>
+      <div class="already-msg" id="v-already"></div>
     </div>
-    <div class="live-results" id="live-results">
-      <div class="live-results-header">
-        <div class="live-results-title">📊 Résultats en direct</div>
-        <div class="refresh-info" id="refresh-info">Mise à jour toutes les 5s</div>
+
+    <button class="pdf-btn" onclick="generatePDF()" id="pdf-btn">📄 Télécharger le rapport PDF</button>
+
+    <div class="results-card">
+      <div class="results-head">
+        <div class="results-title">📊 Résultats en direct</div>
+        <div class="refresh-txt" id="refresh-txt"></div>
       </div>
       <div id="results-bars"></div>
-      <div class="reliability-box" id="reliability-box"></div>
+      <div class="donut-wrap" id="donut-wrap"></div>
+      <div class="rel-box" id="rel-box"></div>
+    </div>
+
+    <div class="share-card">
+      <div class="share-title">🔗 Partager ce sondage</div>
+      <div class="share-btns">
+        <button class="share-btn share-wa" onclick="shareWA()">📱 WhatsApp</button>
+        <button class="share-btn share-fb" onclick="shareFB()">📘 Facebook</button>
+        <button class="share-btn share-tw" onclick="shareTW()">🐦 Twitter</button>
+        <button class="share-btn share-cp" onclick="copyLink()">🔗 Copier</button>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">💻 Code embed pour votre site</div>
+        <div class="embed-code" id="embed-code" onclick="copyEmbed()">Chargement...</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Cliquez pour copier</div>
+      </div>
+    </div>
+
+    <div class="comments-card">
+      <div class="comments-title">💬 Commentaires (<span id="comments-count">0</span>)</div>
+      <div class="comment-form" id="comment-form" style="display:none;">
+        <input class="comment-input" id="comment-input" placeholder="Votre avis sur ce sondage..." maxlength="200">
+        <button class="comment-send" onclick="sendComment()">Envoyer</button>
+      </div>
+      <div id="comment-login-prompt" style="font-size:12px;color:var(--text3);margin-bottom:14px;display:none;">
+        <a onclick="openAuth('login')" style="color:var(--gold);cursor:pointer;">Connectez-vous</a> pour commenter.
+      </div>
+      <div id="comments-list"></div>
     </div>
   </div>
 </div>
 
-<!-- PAGE: ADMIN -->
+<!-- PAGE ADMIN -->
 <div class="page" id="page-admin">
-  <div class="admin-page">
-    <div id="admin-login-section">
-      <div class="admin-login">
-        <div style="margin-bottom:32px;">
-          <div style="font-family:\'Playfair Display\',serif;font-size:28px;font-weight:700;margin-bottom:8px;">Administration</div>
-          <div style="color:var(--text2);font-size:14px;">Accès réservé aux administrateurs AfriVote</div>
-        </div>
-        <div class="form-group"><label>Email admin</label><input type="email" id="adm-email" placeholder="admin@afrivote.com"></div>
+  <div class="admin-wrap">
+    <div id="adm-login">
+      <div style="max-width:360px;margin:40px auto;">
+        <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:5px;">Administration</div>
+        <div style="color:var(--text2);font-size:13px;margin-bottom:22px;">Accès réservé aux administrateurs AfriVote</div>
+        <div class="form-group"><label>Email administrateur</label><input type="email" id="adm-email" placeholder="admin@afrivote.com"></div>
         <div class="form-group"><label>Mot de passe</label><input type="password" id="adm-pass" placeholder="••••••••"></div>
-        <button class="btn btn-gold" style="width:100%;padding:14px;" onclick="adminLogin()">Accéder au tableau de bord</button>
+        <button class="btn btn-gold" style="width:100%;padding:12px;" onclick="adminLogin()">Accéder au tableau de bord</button>
       </div>
     </div>
-    <div id="admin-dashboard" style="display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;">
-        <div style="font-family:\'Playfair Display\',serif;font-size:28px;font-weight:700;">Tableau de bord</div>
+    <div id="adm-dash" style="display:none;">
+      <div class="admin-head">
+        <div class="admin-title">Tableau de bord</div>
         <button class="btn btn-ghost btn-sm" onclick="adminLogout()">Déconnexion</button>
       </div>
-      <div class="admin-grid" id="admin-stats"></div>
-      <div class="form-card">
-        <div class="form-title">➕ Créer un sondage</div>
-        <div class="form-group"><label>Question / Titre *</label><input type="text" id="f-title" placeholder="Ex: Qui sera le prochain président ?"></div>
-        <div class="form-group"><label>Description</label><textarea id="f-desc" placeholder="Contexte du sondage..."></textarea></div>
-        <div class="form-row">
-          <div class="form-group"><label>Catégorie *</label>
-            <select id="f-cat">
-              <option value="politique">🏛️ Politique</option>
-              <option value="sport">⚽ Sport</option>
-              <option value="economie">📈 Économie</option>
-              <option value="societe">🌐 Société</option>
-              <option value="culture">🎭 Culture</option>
-              <option value="sante">❤️ Santé</option>
-            </select>
-          </div>
-          <div class="form-group"><label>Durée</label>
-            <select id="f-dur">
-              <option value="1">1 jour</option>
-              <option value="3">3 jours</option>
-              <option value="7" selected>7 jours</option>
-              <option value="14">14 jours</option>
-              <option value="30">30 jours</option>
-              <option value="0">Sans limite</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Options de réponse *</label>
-          <div class="opts-builder" id="opts-builder">
-            <div class="opt-row"><input placeholder="Option 1" value="OUI"><button class="btn-rm-opt" onclick="rmOpt(this)">✕</button></div>
-            <div class="opt-row"><input placeholder="Option 2" value="NON"><button class="btn-rm-opt" onclick="rmOpt(this)">✕</button></div>
-          </div>
-          <button class="btn-add-opt" onclick="addOpt()">+ Ajouter une option</button>
-        </div>
-        <button class="btn btn-gold" style="width:100%;padding:14px;font-size:15px;" onclick="createPoll()">Publier le sondage</button>
+      <div class="admin-tabs">
+        <div class="adm-tab active" onclick="switchAdmTab('stats',this)">📊 Analytics</div>
+        <div class="adm-tab" onclick="switchAdmTab('create',this)">➕ Créer</div>
+        <div class="adm-tab" onclick="switchAdmTab('polls',this)">📋 Sondages</div>
+        <div class="adm-tab" onclick="switchAdmTab('users',this)">👥 Membres</div>
       </div>
-      <div class="form-card">
-        <div class="form-title">📋 Sondages actifs</div>
-        <div id="admin-polls-list"><div style="color:var(--text3);font-size:14px;">Chargement...</div></div>
+
+      <!-- ANALYTICS -->
+      <div class="adm-panel active" id="adm-stats-panel">
+        <div class="admin-stats" id="adm-stats"></div>
+        <div class="form-card">
+          <div class="form-card-title">📈 Votes par catégorie</div>
+          <div class="chart-bar-admin" id="cat-chart"></div>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">🌍 Top pays des membres</div>
+          <div class="chart-bar-admin" id="country-chart"></div>
+        </div>
+      </div>
+
+      <!-- CREATE -->
+      <div class="adm-panel" id="adm-create-panel">
+        <div class="form-card">
+          <div class="form-card-title">➕ Nouveau sondage</div>
+          <div class="form-group"><label>Question *</label><input type="text" id="f-title" placeholder="Ex: Qui sera le prochain champion ?"></div>
+          <div class="form-group"><label>Description</label><textarea id="f-desc" placeholder="Contexte du sondage..."></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>Catégorie</label>
+              <select id="f-cat">
+                <option value="politique">🏛️ Politique</option>
+                <option value="sport">⚽ Sport</option>
+                <option value="economie">📈 Économie</option>
+                <option value="societe">🌐 Société</option>
+                <option value="culture">🎭 Culture</option>
+                <option value="sante">❤️ Santé</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Durée</label>
+              <select id="f-dur">
+                <option value="1">1 jour</option>
+                <option value="3">3 jours</option>
+                <option value="7" selected>7 jours</option>
+                <option value="14">14 jours</option>
+                <option value="30">30 jours</option>
+                <option value="0">Sans limite</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Photos du sondage (max 20)</label>
+            <div class="upload-zone" onclick="document.getElementById('photo-input').click()">
+              <div class="upload-zone-icon">📸</div>
+              <div class="upload-zone-txt">Cliquez pour ajouter des photos</div>
+              <div class="upload-zone-sub">JPG, PNG, WebP · Max 20 photos · Upload vers Cloudinary</div>
+            </div>
+            <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="handlePhotoFiles(this.files)">
+            <div id="photo-count" style="font-size:11px;color:var(--text3);margin-bottom:8px;">0/20 photos</div>
+            <div class="photo-thumbs" id="photo-thumbs"></div>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <label style="margin:0;">Sondage privé</label>
+              <input type="checkbox" id="f-private" style="width:auto;padding:0;">
+              <span style="font-size:11px;color:var(--text3);">Lien secret uniquement</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Options de réponse *</label>
+            <div class="opts-list" id="opts-list">
+              <div class="opt-row"><input placeholder="Option 1" value="OUI"><button class="rm-opt" onclick="rmOpt(this)">✕</button></div>
+              <div class="opt-row"><input placeholder="Option 2" value="NON"><button class="rm-opt" onclick="rmOpt(this)">✕</button></div>
+            </div>
+            <button class="add-opt" onclick="addOpt()">+ Ajouter une option</button>
+          </div>
+          <button class="btn btn-gold" style="width:100%;padding:12px;" onclick="createPoll()">Publier le sondage</button>
+        </div>
+      </div>
+
+      <!-- POLLS LIST -->
+      <div class="adm-panel" id="adm-polls-panel">
+        <div class="form-card">
+          <div class="form-card-title">📋 Tous les sondages</div>
+          <div id="adm-list"></div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="adm-panel" id="adm-users-panel">
+        <div class="form-card">
+          <div class="form-card-title">👥 Membres inscrits</div>
+          <div id="adm-users-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE PROFIL -->
+<div class="page" id="page-profile">
+  <div class="profile-wrap">
+    <div id="profile-login-prompt" style="text-align:center;padding:60px 20px;">
+      <div style="font-size:44px;margin-bottom:14px;">👤</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:7px;">Connectez-vous</div>
+      <div style="color:var(--text2);font-size:13px;margin-bottom:18px;">Accédez à votre profil et historique de votes</div>
+      <button class="btn btn-gold" onclick="openAuth('login')">Se connecter</button>
+    </div>
+    <div id="profile-content" style="display:none;">
+      <div class="profile-card">
+        <div class="profile-avatar" id="p-avatar"></div>
+        <div class="profile-name" id="p-name"></div>
+        <div class="profile-sub" id="p-sub"></div>
+        <div class="profile-badges" id="p-badges"></div>
+      </div>
+      <div class="votes-list">
+        <div class="vl-title">Mes votes récents</div>
+        <div id="vl-list"></div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- AUTH MODAL -->
-<div class="modal-overlay" id="auth-modal">
+<div class="overlay" id="auth-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('auth-modal')">✕</button>
     <div class="modal-title">AfriVote</div>
-    <div class="modal-sub">Rejoignez la communauté et faites entendre votre voix.</div>
+    <div class="modal-sub">Votez et faites entendre votre voix en Afrique.</div>
     <div class="tabs">
       <div class="tab active" onclick="switchTab('login')">Connexion</div>
       <div class="tab" onclick="switchTab('signup')">Inscription</div>
     </div>
-    <div class="tab-content active" id="tab-login">
-      <div class="form-group"><label>Email ou téléphone</label><input type="text" id="l-id" placeholder="votre@email.com"></div>
+    <div class="tab-c active" id="tab-login">
+      <div class="form-group"><label>Email</label><input type="email" id="l-id" placeholder="votre@email.com"></div>
       <div class="form-group"><label>Mot de passe</label><input type="password" id="l-pass" placeholder="••••••••"></div>
-      <button class="btn btn-gold" style="width:100%;padding:13px;" onclick="doLogin()">Se connecter</button>
+      <button class="btn btn-gold" style="width:100%;padding:12px;" onclick="doLogin()">Se connecter</button>
     </div>
-    <div class="tab-content" id="tab-signup">
-      <div class="form-group"><label>Prénom et nom</label><input type="text" id="s-name" placeholder="Mamadou Diallo"></div>
+    <div class="tab-c" id="tab-signup">
+      <div class="form-group"><label>Prénom et nom *</label><input type="text" id="s-name" placeholder="Mamadou Diallo"></div>
       <div class="form-row">
         <div class="form-group"><label>Pays</label>
           <select id="s-country">
-            <option value="SN">🇸🇳 Sénégal</option>
-            <option value="CI">🇨🇮 Côte d\'Ivoire</option>
-            <option value="ML">🇲🇱 Mali</option>
-            <option value="BF">🇧🇫 Burkina Faso</option>
-            <option value="GN">🇬🇳 Guinée</option>
-            <option value="CM">🇨🇲 Cameroun</option>
-            <option value="GA">🇬🇦 Gabon</option>
-            <option value="TG">🇹🇬 Togo</option>
-            <option value="BJ">🇧🇯 Bénin</option>
-            <option value="NE">🇳🇪 Niger</option>
+            <option value="SN">🇸🇳 Sénégal</option><option value="CI">🇨🇮 Côte d'Ivoire</option>
+            <option value="ML">🇲🇱 Mali</option><option value="BF">🇧🇫 Burkina Faso</option>
+            <option value="GN">🇬🇳 Guinée</option><option value="CM">🇨🇲 Cameroun</option>
+            <option value="GA">🇬🇦 Gabon</option><option value="TG">🇹🇬 Togo</option>
+            <option value="BJ">🇧🇯 Bénin</option><option value="NE">🇳🇪 Niger</option>
+            <option value="MA">🇲🇦 Maroc</option><option value="DZ">🇩🇿 Algérie</option>
+            <option value="NG">🇳🇬 Nigeria</option><option value="GH">🇬🇭 Ghana</option>
             <option value="Other">🌍 Autre</option>
           </select>
         </div>
         <div class="form-group"><label>Âge</label>
           <select id="s-age">
-            <option value="18-24">18-24</option>
-            <option value="25-34">25-34</option>
-            <option value="35-44">35-44</option>
-            <option value="45-54">45-54</option>
-            <option value="55+">55+</option>
+            <option value="18-24">18-24 ans</option><option value="25-34">25-34 ans</option>
+            <option value="35-44">35-44 ans</option><option value="45-54">45-54 ans</option>
+            <option value="55+">55+ ans</option>
           </select>
         </div>
       </div>
-      <div class="form-group"><label>Email</label><input type="email" id="s-email" placeholder="votre@email.com"></div>
-      <div class="form-group"><label>Mot de passe</label><input type="password" id="s-pass" placeholder="Min. 6 caractères"></div>
-      <button class="btn btn-gold" style="width:100%;padding:13px;" onclick="doSignup()">Créer mon compte</button>
+      <div class="form-group"><label>Email *</label><input type="email" id="s-email" placeholder="votre@email.com"></div>
+      <div class="form-group"><label>Mot de passe * (min. 6 car.)</label><input type="password" id="s-pass" placeholder="••••••••"></div>
+      <button class="btn btn-gold" style="width:100%;padding:12px;" onclick="doSignup()">Créer mon compte</button>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;">En vous inscrivant, vous acceptez nos conditions d'utilisation</div>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <div class="nav-item active" id="nav-home" onclick="switchPage('home')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Accueil
+<div class="bnav">
+  <div class="bni active" id="bni-home" onclick="switchPage('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Accueil
   </div>
-  <div class="nav-item" id="nav-trending" onclick="switchPage('home');filterPolls('tous')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-    Tendances
+  <div class="bni" id="bni-profile" onclick="switchPage('profile')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profil
   </div>
-  <div class="nav-item" id="nav-admin-btn" onclick="switchPage('admin')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    Admin
+  <div class="bni" id="bni-admin" onclick="switchPage('admin')" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Admin
   </div>
 </div>
 
 <script>
-const API = '';  // même origine
+const API = '';
+
+// ── CLOUDINARY ──
+const CLOUDINARY_CLOUD = 'YOUR_CLOUD_NAME'; // ← remplace par ton cloud name
+const CLOUDINARY_PRESET = 'YOUR_UPLOAD_PRESET'; // ← remplace par ton upload preset unsigned
+
+let lbPhotos=[], lbIdx=0;
+
+function openLightbox(photos, idx){
+  lbPhotos=photos; lbIdx=idx;
+  document.getElementById('lb-img').src=photos[idx];
+  document.getElementById('lb-counter').textContent=(idx+1)+' / '+photos.length;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeLightbox(e){
+  if(e&&e.target!==document.getElementById('lightbox')&&e.target!==document.querySelector('.lightbox-close'))return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow='';
+}
+function lbNav(dir){
+  lbIdx=(lbIdx+dir+lbPhotos.length)%lbPhotos.length;
+  document.getElementById('lb-img').src=lbPhotos[lbIdx];
+  document.getElementById('lb-counter').textContent=(lbIdx+1)+' / '+lbPhotos.length;
+}
+
+async function uploadToCloudinary(file){
+  const fd=new FormData();
+  fd.append('file',file);
+  fd.append('upload_preset',CLOUDINARY_PRESET);
+  fd.append('folder','afrivote');
+  const r=await fetch('https://api.cloudinary.com/v1_1/'+CLOUDINARY_CLOUD+'/image/upload',{method:'POST',body:fd});
+  const d=await r.json();
+  if(d.secure_url)return d.secure_url;
+  throw new Error(d.error?.message||'Upload échoué');
+}
+
+let pendingPhotos=[]; // URLs Cloudinary en attente
+
+async function handlePhotoFiles(files){
+  const remaining=20-pendingPhotos.length;
+  const toUpload=Array.from(files).slice(0,remaining);
+  if(!toUpload.length){showToast('Maximum 20 photos atteint',true);return;}
+  showToast('📤 Upload en cours...');
+  for(const file of toUpload){
+    try{
+      const url=await uploadToCloudinary(file);
+      pendingPhotos.push(url);
+      renderPhotoThumbs();
+      showToast('✅ Photo ajoutée ('+(pendingPhotos.length)+'/20)','ok');
+    }catch(e){showToast('❌ Erreur upload: '+e.message,true);}
+  }
+}
+
+function renderPhotoThumbs(){
+  const container=document.getElementById('photo-thumbs');
+  if(!container)return;
+  container.innerHTML=pendingPhotos.map((url,i)=>`
+    <div class="photo-thumb">
+      <img src="${url}" alt="Photo ${i+1}">
+      <button class="photo-thumb-rm" onclick="removePhoto(${i})">✕</button>
+    </div>`).join('');
+  document.getElementById('photo-count').textContent=pendingPhotos.length+'/20 photos';
+}
+
+function removePhoto(idx){
+  pendingPhotos.splice(idx,1);
+  renderPhotoThumbs();
+}
+
+function renderPhotoGallery(photos, pollId){
+  if(!photos||!photos.length)return '';
+  const show=photos.slice(0,9);
+  const extra=photos.length-show.length;
+  const gridClass=photos.length===1?'g1':photos.length===2?'g2':photos.length===3?'g3':photos.length===4?'g4':'gn';
+  return `<div class="photo-gallery ${gridClass}">
+    ${show.map((url,i)=>{
+      const isLast=i===show.length-1&&extra>0;
+      return `<div class="${isLast?'gallery-more':''}">
+        <img class="gallery-img" src="${url}" loading="lazy" onclick="openLightbox(${JSON.stringify(photos)},${i});event.stopPropagation()">
+        ${isLast?`<div class="gallery-more-txt">+${extra}</div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
 const ADMIN_PASS = 'Pstdiama@1';
 const ADMIN_EMAILS = ['tpapaseny@ept.sn','papasenytoure@gmail.com'];
+const COLORS = ['#E8B84B','#2ECC71','#3498DB','#9B59B6','#E74C3C','#1ABC9C','#F39C12'];
 
-let currentUser = null;
-let currentPollId = null;
-let currentFilter = 'tous';
-let refreshInterval = null;
-let allPolls = [];
-let adminLoggedIn = false;
+let currentUser=null, currentPollId=null, currentFilter='tous';
+let allPolls=[], refreshInterval=null, adminOK=false, selectedOptIdx=null;
+let currentTheme = localStorage.getItem('afrivote_theme')||'dark';
 
-// ---- INIT ----
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('afrivote_session');
-  if (saved) {
-    currentUser = JSON.parse(saved);
-    updateNavUser();
-  }
-  loadPolls();
-  setInterval(loadPolls, 30000);
+// ── FINGERPRINT ──
+function getFingerprint(){
+  const fp=[navigator.language,screen.width,screen.height,screen.colorDepth,new Date().getTimezoneOffset(),navigator.hardwareConcurrency||0,navigator.platform].join('|');
+  let h=0; for(let i=0;i<fp.length;i++){h=((h<<5)-h)+fp.charCodeAt(i);h|=0;} return 'fp_'+Math.abs(h).toString(36);
+}
+function getVoterToken(){let t=localStorage.getItem('av_tok');if(!t){t='tok_'+Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem('av_tok',t);}return t;}
+const FP=getFingerprint(), VT=getVoterToken();
+
+// ── THEME ──
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'🌙':'☀️';
+  currentTheme=t; localStorage.setItem('afrivote_theme',t);
+}
+function toggleTheme(){applyTheme(currentTheme==='dark'?'light':'dark');}
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded',()=>{
+  applyTheme(currentTheme);
+  const s=localStorage.getItem('av_session');
+  if(s){currentUser=JSON.parse(s);updateNavUser();}
+  loadPolls().then(()=>{
+    // Deep link: ouvre directement le sondage si #poll=ID dans l'URL
+    const hash=location.hash;
+    if(hash&&hash.startsWith('#poll=')){
+      const pollId=hash.slice(6);
+      setTimeout(()=>{
+        const poll=allPolls.find(p=>p._id===pollId);
+        if(poll)openPoll(pollId);
+      },300);
+    }
+  });
+  setInterval(loadPolls,30000);
+
+  // Retour accueil efface le hash
+  window.addEventListener('hashchange',()=>{
+    if(!location.hash||location.hash==='#')goHome();
+  });
 });
 
-// ---- POLLS ----
-async function loadPolls() {
-  try {
-    const r = await fetch(API + '/api/afrivote/sondages');
-    const data = await r.json();
-    if (data.success) {
-      allPolls = data.sondages;
-      renderPolls();
-      updateStats();
-      renderTicker();
-    }
-  } catch(e) {
-    // Offline: show demo
-    allPolls = getDemoPolls();
-    renderPolls();
-    updateStats();
-    renderTicker();
-  }
+// ── POLLS ──
+async function loadPolls(){
+  try{
+    const r=await fetch(API+'/api/afrivote/sondages');
+    const d=await r.json();
+    if(d.success){allPolls=d.sondages;renderPolls();updateStats();renderTicker();}
+    else loadDemo();
+  }catch(e){loadDemo();}
 }
 
-function getDemoPolls() {
-  return [
-    {_id:'demo1',titre:'Êtes-vous favorable à la création d\'une monnaie unique africaine ?',description:'Une proposition longuement débattue lors du dernier sommet de l\'Union Africaine.',categorie:'economie',options:[{label:'Oui, absolument',votes:1842},{label:'Non, trop risqué',votes:934},{label:'Je ne sais pas',votes:421}],totalVotes:3197,actif:true,createdAt:new Date(Date.now()-2*86400000)},
-    {_id:'demo2',titre:'Quelle est la priorité absolue pour les gouvernements africains en 2025 ?',description:'Sondage lancé suite aux récents rapports de l\'ONU sur le développement.',categorie:'politique',options:[{label:'Éducation',votes:2104},{label:'Santé',votes:1876},{label:'Emploi',votes:3201},{label:'Sécurité',votes:987}],totalVotes:8168,actif:true,createdAt:new Date(Date.now()-1*86400000)},
-    {_id:'demo3',titre:'Lions du Sénégal : qualification pour la CAN 2026 ?',description:'La phase qualificative est lancée. Votre pronostic ?',categorie:'sport',options:[{label:'Oui, ils se qualifient',votes:4521},{label:'Non, pas cette fois',votes:891},{label:'Difficile à dire',votes:654}],totalVotes:6066,actif:true,createdAt:new Date(Date.now()-3600000)},
-    {_id:'demo4',titre:'Faut-il rendre le vote obligatoire en Afrique de l\'Ouest ?',description:'Plusieurs pays européens ont adopté cette mesure pour renforcer la démocratie.',categorie:'politique',options:[{label:'Oui',votes:721},{label:'Non',votes:1243},{label:'Plutôt une éducation civique',votes:892}],totalVotes:2856,actif:false,createdAt:new Date(Date.now()-7*86400000)},
+function loadDemo(){
+  allPolls=[
+    {_id:'d1',titre:'Êtes-vous favorable à une monnaie unique africaine ?',description:'Débattu lors du dernier sommet de l\'Union Africaine. Votre avis compte.',categorie:'economie',options:[{label:'Oui, absolument',votes:1842},{label:'Non, trop risqué',votes:934},{label:'Je ne sais pas',votes:421}],totalVotes:3197,actif:true,dureeJours:7,prive:false,photos:['https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80','https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80'],createdAt:new Date(Date.now()-2*86400000)},
+    {_id:'d2',titre:'Quelle est la priorité absolue pour les gouvernements africains ?',description:'Sondage lancé suite aux rapports de l\'ONU sur le développement humain.',categorie:'politique',options:[{label:'Éducation',votes:2104},{label:'Santé',votes:1876},{label:'Emploi',votes:3201},{label:'Sécurité',votes:987}],totalVotes:8168,actif:true,dureeJours:14,prive:false,createdAt:new Date(Date.now()-86400000)},
+    {_id:'d3',titre:'Lions du Sénégal : qualification pour la CAN 2026 ?',description:'La phase qualificative est lancée. Le Sénégal défend son titre de champion.',categorie:'sport',options:[{label:'Oui, ils se qualifient',votes:4521},{label:'Non, pas cette fois',votes:891},{label:'Difficile à dire',votes:654}],totalVotes:6066,actif:true,dureeJours:3,prive:false,photos:['https://images.unsplash.com/photo-1431324155629-1a6dae1434d5?w=800&q=80'],createdAt:new Date(Date.now()-3600000)},
+    {_id:'d4',titre:'Délestages Sénégal : résolus avant fin 2026 ?',description:'La Senelec a promis une fin des coupures. Y croyez-vous ?',categorie:'societe',options:[{label:'Oui',votes:542},{label:'Non',votes:1876},{label:'Partiellement',votes:723}],totalVotes:3141,actif:true,dureeJours:30,prive:false,createdAt:new Date(Date.now()-5*3600000)},
+    {_id:'d5',titre:'Faut-il rendre le vote obligatoire en Afrique de l\'Ouest ?',description:'Plusieurs pays européens ont adopté cette mesure pour renforcer la démocratie.',categorie:'politique',options:[{label:'Oui',votes:721},{label:'Non',votes:1243},{label:'Éducation civique d\'abord',votes:892}],totalVotes:2856,actif:false,dureeJours:7,prive:false,createdAt:new Date(Date.now()-8*86400000)},
   ];
+  renderPolls();updateStats();renderTicker();
 }
 
-function renderPolls() {
-  const grid = document.getElementById('polls-grid');
-  const loading = document.getElementById('polls-loading');
-  const empty = document.getElementById('polls-empty');
-  loading.style.display = 'none';
-
-  const filtered = currentFilter === 'tous' ? allPolls : allPolls.filter(p => p.categorie === currentFilter);
-
-  if (!filtered.length) {
-    grid.style.display = 'none';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  grid.style.display = 'grid';
-
-  grid.innerHTML = filtered.map(p => {
-    const total = p.totalVotes || p.options.reduce((a,o)=>a+o.votes,0);
-    const top = [...p.options].sort((a,b)=>b.votes-a.votes)[0];
-    const barsHtml = p.options.slice(0,2).map(o => {
-      const pct = total ? Math.round(o.votes/total*100) : 0;
-      return `<div class="mini-bar-wrap">
-        <div class="mini-bar-label"><span>${o.label}</span><span>${pct}%</span></div>
-        <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
-      </div>`;
+function renderPolls(){
+  const grid=document.getElementById('polls-grid');
+  const loading=document.getElementById('polls-loading');
+  const empty=document.getElementById('polls-empty');
+  loading.style.display='none';
+  const filtered=currentFilter==='tous'?allPolls.filter(p=>!p.prive):allPolls.filter(p=>p.categorie===currentFilter&&!p.prive);
+  if(!filtered.length){grid.style.display='none';empty.style.display='block';return;}
+  empty.style.display='none';grid.style.display='grid';
+  grid.innerHTML=filtered.map(p=>{
+    const total=p.totalVotes||0;
+    const bars=p.options.slice(0,2).map(o=>{
+      const pct=total?Math.round(o.votes/total*100):0;
+      return `<div class="mini-bar"><div class="mini-bar-labels"><span>${o.label}</span><span>${pct}%</span></div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:0" data-w="${pct}%"></div></div></div>`;
     }).join('');
-    const ago = timeAgo(new Date(p.createdAt));
-    const reliability = calcReliability(total);
-    return `<div class="poll-card${p.actif?' live':''}" onclick="openPoll('${p._id}')">
-      <div class="poll-meta">
-        <span class="cat-tag cat-${p.categorie}">${catLabel(p.categorie)}</span>
-        ${p.actif?'<span class="poll-status-live">● Live</span>':'<span class="poll-status-closed">Clôturé</span>'}
-      </div>
-      <h3>${p.titre}</h3>
-      <div class="poll-preview">${barsHtml}</div>
-      <div class="reliability">${reliability.icon} Fiabilité ${reliability.score}% · ±${reliability.margin}%</div>
-      <div class="poll-footer">
-        <div class="poll-votes"><strong>${total.toLocaleString('fr-FR')}</strong> votes</div>
-        <div class="poll-time">${ago}</div>
+    const rel=calcRel(total);
+    const voted=hasVoted(p._id);
+    const cover=p.photos&&p.photos.length?p.photos[0]:'';
+    return `<div class="poll-card${cover?' has-cover':''}" onclick="openPoll('${p._id}')">
+      ${cover?`<img class="poll-cover" src="${cover}" loading="lazy" alt="${p.titre}" onerror="this.style.display='none'">`:''}
+      <div class="${cover?'poll-card-body':''}">
+        <div class="poll-meta">
+          <span class="cat-tag cat-${p.categorie}">${catLbl(p.categorie)}</span>
+          ${p.actif?`<div class="live-dot-sm"></div><span style="font-size:10px;color:#ff6b5a;font-weight:700;">LIVE</span>`:'<span style="font-size:10px;color:var(--text3);font-weight:600;">CLÔTURÉ</span>'}
+          ${voted?'<span class="voted-chip">✓ Voté</span>':''}
+        </div>
+        <h3>${p.titre}</h3>
+        <div>${bars}</div>
+        <div class="poll-foot">
+          <div class="poll-votes"><strong>${total.toLocaleString('fr-FR')}</strong> votes</div>
+          <div class="rel-chip">${rel.icon} ${rel.score}% fiable</div>
+        </div>
       </div>
     </div>`;
   }).join('');
-
-  // Animate bars after render
-  setTimeout(() => {
-    document.querySelectorAll('.mini-bar-fill').forEach(b => {
-      const w = b.style.width;
-      b.style.width = '0';
-      setTimeout(() => b.style.width = w, 50);
-    });
-  }, 100);
+  setTimeout(()=>document.querySelectorAll('.mini-bar-fill').forEach(b=>{const w=b.dataset.w;b.style.width='0';setTimeout(()=>b.style.width=w,80);}),100);
 }
 
-function updateStats() {
-  const total = allPolls.reduce((a,p)=>a+(p.totalVotes||0),0);
-  const live = allPolls.filter(p=>p.actif).length;
-  animateNum('stat-votes', total);
-  animateNum('stat-polls', allPolls.length);
-  animateNum('stat-live', live);
+function updateStats(){
+  const total=allPolls.reduce((a,p)=>a+(p.totalVotes||0),0);
+  const live=allPolls.filter(p=>p.actif).length;
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]').length;
+  animNum('st-votes',total);animNum('st-polls',allPolls.length);
+  animNum('st-live',live);animNum('st-users',users);
 }
 
-function renderTicker() {
-  const ticker = document.getElementById('ticker');
-  const inner = document.getElementById('ticker-inner');
-  if (!allPolls.length) return;
-  ticker.style.display = 'block';
-  const items = allPolls.slice(0,6).map(p => {
-    const total = p.totalVotes||0;
-    return `<div class="tick-item"><div class="tick-dot"></div> ${p.titre.slice(0,40)}... — <span>${total.toLocaleString('fr-FR')} votes</span></div>`;
-  }).join('');
-  inner.innerHTML = items + items; // duplicate for seamless loop
+function renderTicker(){
+  const ticker=document.getElementById('ticker');
+  const inner=document.getElementById('ticker-inner');
+  if(!allPolls.length)return;
+  ticker.style.display='block';
+  const items=allPolls.filter(p=>!p.prive).map(p=>`<div class="tick-item"><div class="tick-dot"></div>${p.titre.slice(0,45)}... — <strong>${(p.totalVotes||0).toLocaleString('fr-FR')} votes</strong></div>`).join('');
+  inner.innerHTML=items+items;
 }
 
-function filterPolls(cat, el) {
-  currentFilter = cat;
+function filterPolls(cat,el){
+  currentFilter=cat;
   document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
-  if (el) el.classList.add('active');
-  else document.querySelector('.pill').classList.add('active');
+  if(el)el.classList.add('active');
   renderPolls();
 }
 
-// ---- OPEN POLL ----
-function openPoll(id) {
-  const poll = allPolls.find(p=>p._id===id) || getDemoPolls().find(p=>p._id===id);
-  if (!poll) return;
-  currentPollId = id;
+// ── VOTE ──
+function openPoll(id){
+  const poll=allPolls.find(p=>p._id===id);
+  if(!poll)return;
+  currentPollId=id;selectedOptIdx=null;
+  clearInterval(refreshInterval);
 
-  document.getElementById('vote-cat-tag').textContent = catLabel(poll.categorie);
-  document.getElementById('vote-cat-tag').className = 'cat-tag cat-' + poll.categorie;
-  document.getElementById('vote-live-badge').style.display = poll.actif ? 'inline-flex' : 'none';
-  document.getElementById('vote-title').textContent = poll.titre;
-  document.getElementById('vote-desc').textContent = poll.description || '';
+  document.getElementById('v-cat').textContent=catLbl(poll.categorie);
+  document.getElementById('v-cat').className='cat-tag cat-'+poll.categorie;
+  const vLive=document.getElementById('v-live');
+  vLive.style.display=poll.actif?'inline-flex':'none';
+  document.getElementById('v-private').style.display=poll.prive?'inline-flex':'none';
+  document.getElementById('v-title').textContent=poll.titre;
+  document.getElementById('v-desc').textContent=poll.description||'';
 
-  const hasVoted = hasVotedBefore(id);
-  const closed = !poll.actif;
-
-  // Options
-  const optsEl = document.getElementById('vote-options');
-  optsEl.innerHTML = poll.options.map((o,i) => `
-    <div class="vote-opt${hasVoted||closed?' vote-submitted':''}" onclick="${(!hasVoted&&!closed)?`selectOpt(this,${i})`:''}">
-      <div class="vote-opt-radio"></div>
-      <div class="vote-opt-label">${o.label}</div>
-      <div class="vote-opt-pct">${calcPct(o.votes, poll.totalVotes||0)}%</div>
-      ${hasVoted||closed?`<div class="result-bar-wrap"><div class="result-bar-track"><div class="result-bar-fill${isWinner(o,poll.options)?' winner':''}" style="width:0" data-w="${calcPct(o.votes,poll.totalVotes||0)}%"></div></div></div>`:''}
-    </div>`).join('');
-
-  const btn = document.getElementById('vote-btn');
-  const alreadyEl = document.getElementById('already-voted');
-  if (hasVoted || closed) {
-    btn.style.display = 'none';
-    alreadyEl.style.display = 'block';
-    alreadyEl.textContent = closed ? '🔒 Ce sondage est clôturé.' : '✅ Vous avez déjà participé à ce sondage.';
-  } else {
-    btn.style.display = 'block';
-    btn.disabled = true;
-    alreadyEl.style.display = 'none';
+  // Photo gallery
+  const galleryEl=document.getElementById('v-gallery');
+  if(galleryEl){
+    if(poll.photos&&poll.photos.length){
+      galleryEl.innerHTML=renderPhotoGallery(poll.photos, id);
+      galleryEl.style.display='block';
+    } else {
+      galleryEl.innerHTML=''; galleryEl.style.display='none';
+    }
   }
+
+  // Deep link URL
+  const deepUrl=location.origin+location.pathname+'#poll='+id;
+  history.replaceState(null,'',location.pathname+'#poll='+id);
+
+  if(poll.actif&&poll.dureeJours>0){
+    const end=new Date(new Date(poll.createdAt).getTime()+poll.dureeJours*86400000);
+    const diff=end-new Date();
+    if(diff>0){document.getElementById('v-timer').style.display='inline-flex';document.getElementById('v-timer-txt').textContent=fmtDur(diff);}
+    else document.getElementById('v-timer').style.display='none';
+  } else document.getElementById('v-timer').style.display='none';
+
+  const voted=hasVoted(id),closed=!poll.actif,showR=voted||closed;
+  const total=poll.totalVotes||0,maxV=Math.max(...poll.options.map(o=>o.votes));
+  const optsEl=document.getElementById('v-opts');
+  optsEl.className='vote-opts'+(showR?' show-results':'');
+  optsEl.innerHTML=poll.options.map((o,i)=>{
+    const pct=total?Math.round(o.votes/total*100):0;
+    const isTop=o.votes===maxV&&maxV>0;
+    return `<div class="vote-opt${showR?' disabled':''}" onclick="${!showR?`selectOpt(this,${i})`:''}">
+      <div class="opt-bar${isTop?' winner':''}" style="width:${showR?pct:0}%" data-w="${pct}%"></div>
+      <div class="opt-radio"></div>
+      <div class="opt-label">${o.label}${isTop&&showR?' 🏆':''}</div>
+      <div class="opt-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  const btn=document.getElementById('v-btn'),alreadyEl=document.getElementById('v-already');
+  if(showR){btn.style.display='none';alreadyEl.style.display='block';alreadyEl.textContent=closed?'🔒 Ce sondage est clôturé.':'✅ Vous avez déjà participé.';}
+  else{btn.style.display='block';btn.disabled=true;btn.textContent='Voter';alreadyEl.style.display='none';}
+
+  // embed code
+  document.getElementById('embed-code').textContent=`<iframe src="${location.origin+location.pathname}#poll=${id}" width="100%" height="400" frameborder="0" style="border-radius:12px"></iframe>`;
+
+  // comments
+  loadComments(id);
+  document.getElementById('comment-form').style.display=currentUser?'flex':'none';
+  document.getElementById('comment-login-prompt').style.display=currentUser?'none':'block';
 
   switchPage('vote');
-  renderLiveResults(poll);
+  renderResults(poll);
 
-  setTimeout(() => {
-    document.querySelectorAll('.result-bar-fill').forEach(b => {
-      b.style.width = b.dataset.w || '0';
-    });
-  }, 300);
+  setTimeout(()=>document.querySelectorAll('.opt-bar').forEach(b=>b.style.width=b.dataset.w),200);
 
-  // Live refresh
-  clearInterval(refreshInterval);
-  if (poll.actif) {
-    refreshInterval = setInterval(() => refreshResults(id), 5000);
+  if(poll.actif){
+    refreshInterval=setInterval(async()=>{
+      try{const r=await fetch(API+'/api/afrivote/resultats/'+id);const d=await r.json();if(d.success){const p=allPolls.find(x=>x._id===id);if(p){p.options=d.options;p.totalVotes=d.totalVotes;renderResults(p);}}}catch(e){}
+    },5000);
   }
 }
 
-let selectedOptIdx = null;
-function selectOpt(el, idx) {
-  document.querySelectorAll('.vote-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedOptIdx = idx;
-  document.getElementById('vote-btn').disabled = false;
+function selectOpt(el,idx){
+  document.querySelectorAll('.vote-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');selectedOptIdx=idx;
+  document.getElementById('v-btn').disabled=false;
 }
 
-async function submitVote() {
-  if (selectedOptIdx === null) return;
-  if (!currentUser) { openAuth('login'); showToast('Connectez-vous pour voter', true); return; }
-  const btn = document.getElementById('vote-btn');
-  btn.textContent = 'Envoi...';
-  btn.disabled = true;
-  try {
-    const r = await fetch(API + '/api/afrivote/vote', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
-      body: JSON.stringify({sondageId: currentPollId, optionIdx: selectedOptIdx})
-    });
-    const data = await r.json();
-    if (data.success) {
-      markVoted(currentPollId);
-      showToast('✅ Vote enregistré !');
-      await loadPolls();
-      openPoll(currentPollId);
-    } else {
-      showToast(data.message || 'Erreur lors du vote', true);
-      btn.textContent = 'Voter maintenant';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    // Demo mode
-    markVoted(currentPollId);
-    showToast('✅ Vote enregistré ! (démo)');
-    const poll = allPolls.find(p=>p._id===currentPollId) || getDemoPolls().find(p=>p._id===currentPollId);
-    if (poll) { poll.options[selectedOptIdx].votes++; poll.totalVotes = (poll.totalVotes||0)+1; }
+async function submitVote(){
+  if(selectedOptIdx===null)return;
+  if(!currentUser){openAuth('login');showToast('Connectez-vous pour voter',true);return;}
+  const btn=document.getElementById('v-btn');
+  btn.textContent='Envoi...';btn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/afrivote/vote',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({sondageId:currentPollId,optionIdx:selectedOptIdx,fingerprint:FP,voterToken:VT})});
+    const d=await r.json();
+    if(d.success){markVoted(currentPollId,selectedOptIdx);showToast('✅ Vote enregistré !','ok');await loadPolls();openPoll(currentPollId);}
+    else{showToast(d.message||'Erreur',true);btn.textContent='Voter';btn.disabled=false;}
+  }catch(e){
+    const poll=allPolls.find(p=>p._id===currentPollId);
+    if(poll){poll.options[selectedOptIdx].votes++;poll.totalVotes=(poll.totalVotes||0)+1;}
+    markVoted(currentPollId,selectedOptIdx);
+    showToast('✅ Vote enregistré !','ok');
     openPoll(currentPollId);
   }
 }
 
-async function refreshResults(id) {
-  try {
-    const r = await fetch(API + '/api/afrivote/resultats/' + id);
-    const data = await r.json();
-    if (data.success) {
-      const poll = allPolls.find(p=>p._id===id);
-      if (poll) {
-        poll.options = data.options;
-        poll.totalVotes = data.totalVotes;
-        renderLiveResults(poll);
-      }
-    }
-  } catch(e){}
-}
-
-function renderLiveResults(poll) {
-  const total = poll.totalVotes || poll.options.reduce((a,o)=>a+o.votes,0);
-  const maxVotes = Math.max(...poll.options.map(o=>o.votes));
-  const reliability = calcReliability(total);
-  const barsHtml = poll.options.map(o => {
-    const pct = total ? Math.round(o.votes/total*100) : 0;
-    const isTop = o.votes === maxVotes && maxVotes > 0;
+function renderResults(poll){
+  const total=poll.totalVotes||0;
+  const maxV=Math.max(...poll.options.map(o=>o.votes));
+  const rel=calcRel(total);
+  document.getElementById('results-bars').innerHTML=poll.options.map(o=>{
+    const pct=total?Math.round(o.votes/total*100):0;
+    const isTop=o.votes===maxV&&maxV>0;
     return `<div class="result-row">
-      <div class="result-row-head"><span class="result-label">${isTop?'🏆 ':''}${o.label}</span><span class="result-pct">${pct}%</span></div>
+      <div class="result-row-head"><span class="result-lbl">${isTop?'🏆 ':''}${o.label}</span><span class="result-pct-big">${pct}%</span></div>
       <div class="result-track"><div class="result-fill${isTop?' top':''}" style="width:${pct}%"></div></div>
-      <div class="result-votes-count">${o.votes.toLocaleString('fr-FR')} votes</div>
+      <div class="result-count">${o.votes.toLocaleString('fr-FR')} votes</div>
     </div>`;
   }).join('');
 
-  document.getElementById('results-bars').innerHTML = barsHtml;
-  document.getElementById('reliability-box').innerHTML = `
-    <div>
-      <div class="rel-label">Indice de fiabilité</div>
-      <div class="rel-details">Basé sur ${total.toLocaleString('fr-FR')} réponses · Marge d\'erreur ±${reliability.margin}%</div>
+  // Donut chart SVG
+  renderDonut(poll);
+
+  document.getElementById('rel-box').innerHTML=`
+    <div><div class="rel-info-lbl">Indice de fiabilité AfriVote</div>
+    <div class="rel-info-sub">${total.toLocaleString('fr-FR')} réponses · Marge ±${rel.margin}%<br>Méthode : compte + cookie + fingerprint navigateur</div></div>
+    <div class="rel-score-big">${rel.score}%</div>`;
+  const rt=document.getElementById('refresh-txt');
+  if(rt)rt.textContent='Mis à jour '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function renderDonut(poll){
+  const total=poll.totalVotes||0;
+  if(!total){document.getElementById('donut-wrap').innerHTML='';return;}
+  const cx=70,cy=70,r=55,pi=Math.PI;
+  let startAngle=-pi/2;
+  let paths='';
+  const legend=poll.options.map((o,i)=>{
+    const pct=o.votes/total;
+    const angle=pct*2*pi;
+    const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle);
+    startAngle+=angle;
+    const x2=cx+r*Math.cos(startAngle),y2=cy+r*Math.sin(startAngle);
+    const large=angle>pi?1:0;
+    paths+=`<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${COLORS[i%COLORS.length]}" opacity="0.85"/>`;
+    return `<div class="legend-item"><div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div><span>${o.label} — <strong>${Math.round(pct*100)}%</strong></span></div>`;
+  }).join('');
+  document.getElementById('donut-wrap').innerHTML=`
+    <svg width="140" height="140" viewBox="0 0 140 140"><circle cx="70" cy="70" r="55" fill="var(--bg3)"/>${paths}<circle cx="70" cy="70" r="30" fill="var(--card)"/><text x="70" y="75" text-anchor="middle" fill="var(--text)" font-size="13" font-family="DM Sans" font-weight="600">${total.toLocaleString('fr-FR')}<tspan x="70" dy="14" font-size="9" fill="var(--text3)">votes</tspan></text></svg>
+    <div class="donut-legend">${legend}</div>`;
+}
+
+// ── COMMENTS ──
+function getComments(pollId){return JSON.parse(localStorage.getItem('av_comments_'+pollId)||'[]');}
+function saveComments(pollId,comments){localStorage.setItem('av_comments_'+pollId,JSON.stringify(comments));}
+
+function loadComments(pollId){
+  const comments=getComments(pollId);
+  const list=document.getElementById('comments-list');
+  document.getElementById('comments-count').textContent=comments.length;
+  if(!comments.length){list.innerHTML='<div class="no-comments">Aucun commentaire. Soyez le premier !</div>';return;}
+  list.innerHTML=comments.map(c=>`<div class="comment-item">
+    <div class="comment-head">
+      <div class="comment-avatar">${c.author.charAt(0).toUpperCase()}</div>
+      <div class="comment-author">${c.author}</div>
+      <div class="comment-time">${new Date(c.at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
     </div>
-    <div class="rel-score">${reliability.score}%</div>`;
-
-  const info = document.getElementById('refresh-info');
-  if (info) info.textContent = 'Mis à jour à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    <div class="comment-text">${c.text}</div>
+  </div>`).join('');
 }
 
-// ---- ADMIN ----
-function adminLogin() {
-  const email = document.getElementById('adm-email').value.trim();
-  const pass = document.getElementById('adm-pass').value;
-  if (!ADMIN_EMAILS.includes(email)) { showToast('Email non autorisé', true); return; }
-  if (pass !== ADMIN_PASS) { showToast('Mot de passe incorrect', true); return; }
-  adminLoggedIn = true;
-  document.getElementById('admin-login-section').style.display = 'none';
-  document.getElementById('admin-dashboard').style.display = 'block';
-  loadAdminDashboard();
+function sendComment(){
+  if(!currentUser){showToast('Connectez-vous pour commenter',true);return;}
+  const input=document.getElementById('comment-input');
+  const text=input.value.trim();
+  if(!text){showToast('Écrivez un commentaire',true);return;}
+  if(text.length>200){showToast('Maximum 200 caractères',true);return;}
+  const comments=getComments(currentPollId);
+  comments.unshift({author:currentUser.name,text,at:new Date().toISOString(),userId:currentUser.id});
+  saveComments(currentPollId,comments);
+  input.value='';
+  loadComments(currentPollId);
+  showToast('💬 Commentaire ajouté !','ok');
 }
 
-function adminLogout() {
-  adminLoggedIn = false;
-  document.getElementById('admin-login-section').style.display = 'block';
-  document.getElementById('admin-dashboard').style.display = 'none';
+// ── PDF REPORT ──
+function generatePDF(){
+  const poll=allPolls.find(p=>p._id===currentPollId);
+  if(!poll)return;
+  const total=poll.totalVotes||0;
+  const rel=calcRel(total);
+  const rows=poll.options.map(o=>{
+    const pct=total?Math.round(o.votes/total*100):0;
+    return `<tr><td style="padding:10px;border-bottom:1px solid #eee;">${o.label}</td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">${o.votes.toLocaleString('fr-FR')}</td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;color:#E8B84B;font-weight:700;">${pct}%</td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport AfriVote — ${poll.titre}</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#1a1a2e;}.header{background:#07080F;color:#E8B84B;padding:30px;border-radius:12px;margin-bottom:30px;}.header h1{font-size:14px;margin-bottom:8px;color:#A0A8CC;}.header h2{font-size:22px;margin:0;}.meta{display:flex;gap:20px;margin:20px 0;font-size:13px;color:#666;}.meta span{background:#f5f5f0;padding:5px 10px;border-radius:6px;}table{width:100%;border-collapse:collapse;margin:20px 0;}th{background:#07080F;color:#E8B84B;padding:12px;text-align:left;}td{padding:10px;border-bottom:1px solid #eee;}.rel{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px;margin:20px 0;}.score{font-size:36px;font-weight:700;color:#16a34a;}.footer{margin-top:30px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:15px;}</style></head><body>
+    <div class="header"><h1>RAPPORT DE SONDAGE — AfriVote</h1><h2>${poll.titre}</h2></div>
+    <div class="meta"><span>📅 ${new Date(poll.createdAt).toLocaleDateString('fr-FR')}</span><span>🏷️ ${catLbl(poll.categorie)}</span><span>🗳️ ${total.toLocaleString('fr-FR')} votes</span><span>${poll.actif?'🟢 En cours':'🔴 Clôturé'}</span></div>
+    ${poll.description?`<p style="color:#555;line-height:1.6;margin:20px 0;">${poll.description}</p>`:''}
+    <table><thead><tr><th>Option</th><th style="text-align:center">Votes</th><th style="text-align:center">Pourcentage</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="rel"><div style="font-size:13px;font-weight:600;margin-bottom:8px;">Indice de fiabilité AfriVote</div><div class="score">${rel.score}%</div><div style="font-size:12px;color:#555;margin-top:4px;">${total.toLocaleString('fr-FR')} réponses · Marge d'erreur ±${rel.margin}% · Méthode : compte obligatoire + cookie persistant + empreinte navigateur</div></div>
+    <div class="footer">Rapport généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')} · AfriVote — La voix de l'Afrique · pst-telecom.onrender.com/afrivote</div>
+    
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-prev" onclick="lbNav(-1);event.stopPropagation()">‹</button>
+  <img class="lightbox-img" id="lb-img" src="" alt="">
+  <button class="lightbox-next" onclick="lbNav(1);event.stopPropagation()">›</button>
+  <div class="lightbox-counter" id="lb-counter"></div>
+</div>
+
+</body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),500);
 }
 
-async function loadAdminDashboard() {
-  const total = allPolls.reduce((a,p)=>a+(p.totalVotes||0),0);
-  const live = allPolls.filter(p=>p.actif).length;
-  document.getElementById('admin-stats').innerHTML = `
-    <div class="admin-stat"><div class="admin-stat-num">${allPolls.length}</div><div class="admin-stat-lbl">Sondages total</div></div>
-    <div class="admin-stat"><div class="admin-stat-num">${live}</div><div class="admin-stat-lbl">En direct</div></div>
-    <div class="admin-stat"><div class="admin-stat-num">${total.toLocaleString('fr-FR')}</div><div class="admin-stat-lbl">Votes total</div></div>
-    <div class="admin-stat"><div class="admin-stat-num">${allPolls.length - live}</div><div class="admin-stat-lbl">Clôturés</div></div>`;
+// ── SHARE ──
+function getPollDeepLink(){return location.origin+location.pathname+'#poll='+currentPollId;}
+function shareWA(){const url=getPollDeepLink();window.open('https://wa.me/?text='+encodeURIComponent('🗳️ Votez sur AfriVote : '+document.getElementById('v-title').textContent+' → '+url));}
+function shareFB(){window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(getPollDeepLink()));}
+function shareTW(){const url=getPollDeepLink();window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('🗳️ Je vote sur AfriVote ! '+document.getElementById('v-title').textContent+' → '+url));}
+function copyLink(){navigator.clipboard.writeText(getPollDeepLink());showToast('🔗 Lien copié !','ok');}
+function copyEmbed(){navigator.clipboard.writeText(document.getElementById('embed-code').textContent);showToast('💻 Code embed copié !','ok');}
 
-  const list = document.getElementById('admin-polls-list');
-  if (!allPolls.length) { list.innerHTML = '<div style="color:var(--text3);font-size:14px;">Aucun sondage.</div>'; return; }
-  list.innerHTML = allPolls.map(p => `
-    <div class="admin-poll-item">
-      <div class="admin-poll-info">
-        <h4>${p.titre.slice(0,60)}${p.titre.length>60?'...':''}</h4>
-        <p>${(p.totalVotes||0).toLocaleString('fr-FR')} votes · ${p.actif?'<span style="color:#82e0aa">En direct</span>':'<span style="color:var(--text3)">Clôturé</span>'}</p>
-      </div>
-      <div class="admin-poll-actions">
-        ${p.actif?`<button class="btn-close-poll" onclick="closePoll('${p._id}')">Clôturer</button>`:''}
-        <button class="btn-danger" onclick="deletePoll('${p._id}')">Supprimer</button>
-      </div>
-    </div>`).join('');
+// ── ADMIN ──
+function adminLogin(){
+  const email=document.getElementById('adm-email').value.trim();
+  const pass=document.getElementById('adm-pass').value;
+  if(!ADMIN_EMAILS.includes(email)){showToast('Email non autorisé',true);return;}
+  if(pass!==ADMIN_PASS){showToast('Mot de passe incorrect',true);return;}
+  adminOK=true;
+  document.getElementById('bni-admin').style.display='flex';
+  document.getElementById('adm-login').style.display='none';
+  document.getElementById('adm-dash').style.display='block';
+  loadAdminDash();
+}
+function adminLogout(){
+  adminOK=false;
+  document.getElementById('bni-admin').style.display='none';
+  document.getElementById('adm-login').style.display='block';
+  document.getElementById('adm-dash').style.display='none';
+  goHome();
 }
 
-function addOpt() {
-  const builder = document.getElementById('opts-builder');
-  const div = document.createElement('div');
-  div.className = 'opt-row';
-  const n = builder.children.length + 1;
-  div.innerHTML = `<input placeholder="Option ${n}"><button class="btn-rm-opt" onclick="rmOpt(this)">✕</button>`;
-  builder.appendChild(div);
+function switchAdmTab(name,el){
+  document.querySelectorAll('.adm-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.adm-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('adm-'+name+'-panel').classList.add('active');
+  if(name==='stats')renderAdminCharts();
+  if(name==='polls')renderAdminPollsList();
+  if(name==='users')renderAdminUsers();
 }
 
-function rmOpt(btn) {
-  const builder = document.getElementById('opts-builder');
-  if (builder.children.length <= 2) { showToast('Minimum 2 options requises', true); return; }
-  btn.closest('.opt-row').remove();
+function loadAdminDash(){
+  const total=allPolls.reduce((a,p)=>a+(p.totalVotes||0),0);
+  const live=allPolls.filter(p=>p.actif).length;
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]');
+  document.getElementById('adm-stats').innerHTML=`
+    <div class="adm-stat"><div class="adm-stat-n">${allPolls.length}</div><div class="adm-stat-l">Sondages</div></div>
+    <div class="adm-stat"><div class="adm-stat-n">${live}</div><div class="adm-stat-l">En direct</div></div>
+    <div class="adm-stat"><div class="adm-stat-n">${total.toLocaleString('fr-FR')}</div><div class="adm-stat-l">Votes total</div></div>
+    <div class="adm-stat"><div class="adm-stat-n">${users.length}</div><div class="adm-stat-l">Membres</div></div>`;
+  renderAdminCharts();
+  renderAdminPollsList();
 }
 
-async function createPoll() {
-  const titre = document.getElementById('f-title').value.trim();
-  const desc = document.getElementById('f-desc').value.trim();
-  const cat = document.getElementById('f-cat').value;
-  const dur = parseInt(document.getElementById('f-dur').value);
-  const opts = Array.from(document.querySelectorAll('#opts-builder input')).map(i=>i.value.trim()).filter(Boolean);
+function renderAdminCharts(){
+  // Votes par catégorie
+  const cats={};
+  allPolls.forEach(p=>{cats[p.categorie]=(cats[p.categorie]||0)+(p.totalVotes||0);});
+  const maxCat=Math.max(...Object.values(cats),1);
+  document.getElementById('cat-chart').innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,v])=>`
+    <div class="cba-row"><div class="cba-label">${catLbl(cat)}</div><div class="cba-track"><div class="cba-fill" style="width:${Math.round(v/maxCat*100)}%"></div></div><div class="cba-val">${v.toLocaleString('fr-FR')}</div></div>`).join('');
 
-  if (!titre) { showToast('Le titre est requis', true); return; }
-  if (opts.length < 2) { showToast('Minimum 2 options', true); return; }
+  // Pays membres
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]');
+  const countries={};
+  users.forEach(u=>{countries[u.country||'SN']=(countries[u.country||'SN']||0)+1;});
+  const maxC=Math.max(...Object.values(countries),1);
+  document.getElementById('country-chart').innerHTML=Object.entries(countries).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([c,n])=>`
+    <div class="cba-row"><div class="cba-label">${c}</div><div class="cba-track"><div class="cba-fill" style="width:${Math.round(n/maxC*100)}%;background:linear-gradient(90deg,#3498DB,#85c1e9)"></div></div><div class="cba-val">${n} membre${n>1?'s':''}</div></div>`).join('')||'<div style="color:var(--text3);font-size:13px;">Aucun membre encore.</div>';
+}
 
-  try {
-    const r = await fetch(API + '/api/afrivote/sondages', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({titre, description: desc, categorie: cat, dureeJours: dur, options: opts, adminPass: ADMIN_PASS})
-    });
-    const data = await r.json();
-    if (data.success) {
-      showToast('✅ Sondage publié !');
-      document.getElementById('f-title').value = '';
-      document.getElementById('f-desc').value = '';
-      await loadPolls();
-      loadAdminDashboard();
-    } else {
-      showToast(data.message || 'Erreur', true);
-    }
-  } catch(e) {
-    // Demo mode
-    const newPoll = {_id:'demo'+Date.now(),titre,description:desc,categorie:cat,options:opts.map(l=>({label:l,votes:0})),totalVotes:0,actif:true,createdAt:new Date()};
-    allPolls.unshift(newPoll);
-    showToast('✅ Sondage publié ! (démo)');
-    document.getElementById('f-title').value = '';
-    loadAdminDashboard();
-    renderPolls();
+function renderAdminPollsList(){
+  const list=document.getElementById('adm-list');
+  list.innerHTML=allPolls.length?allPolls.map(p=>`<div class="adm-poll">
+    <div class="adm-poll-info"><h4>${p.titre.slice(0,55)}${p.titre.length>55?'...':''} ${p.prive?'🔒':''}</h4>
+    <p>${(p.totalVotes||0).toLocaleString('fr-FR')} votes · ${p.actif?'<span style="color:#82e0aa">En direct</span>':'Clôturé'} · ${catLbl(p.categorie)}</p></div>
+    <div class="adm-poll-btns">
+      ${p.actif?`<button class="btn-close-poll" onclick="closePoll('${p._id}')">Clôturer</button>`:''}
+      <button class="btn-del" onclick="deletePoll('${p._id}')">Supprimer</button>
+    </div>
+  </div>`).join(''):'<div style="color:var(--text3);font-size:13px;">Aucun sondage.</div>';
+}
+
+function renderAdminUsers(){
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]');
+  document.getElementById('adm-users-list').innerHTML=users.length?users.map(u=>`
+    <div class="adm-poll">
+      <div class="adm-poll-info"><h4>${u.name}</h4><p>${u.email} · ${u.country||'SN'} · ${u.age||''} · ${new Date(u.createdAt).toLocaleDateString('fr-FR')}</p></div>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;">Aucun membre encore.</div>';
+}
+
+function addOpt(){const b=document.getElementById('opts-list');const d=document.createElement('div');d.className='opt-row';d.innerHTML=`<input placeholder="Option ${b.children.length+1}"><button class="rm-opt" onclick="rmOpt(this)">✕</button>`;b.appendChild(d);}
+function rmOpt(btn){const b=document.getElementById('opts-list');if(b.children.length<=2){showToast('Minimum 2 options',true);return;}btn.closest('.opt-row').remove();}
+
+async function createPoll(){
+  const titre=document.getElementById('f-title').value.trim();
+  const desc=document.getElementById('f-desc').value.trim();
+  const cat=document.getElementById('f-cat').value;
+  const dur=parseInt(document.getElementById('f-dur').value);
+  const prive=document.getElementById('f-private').checked;
+  const opts=Array.from(document.querySelectorAll('#opts-list input')).map(i=>i.value.trim()).filter(Boolean);
+  if(!titre){showToast('Titre requis',true);return;}
+  if(opts.length<2){showToast('Minimum 2 options',true);return;}
+  const photos=[...pendingPhotos];
+  try{
+    const r=await fetch(API+'/api/afrivote/sondages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({titre,description:desc,categorie:cat,dureeJours:dur,options:opts,prive,photos,adminPass:ADMIN_PASS})});
+    const d=await r.json();
+    if(d.success){showToast('✅ Sondage publié !','ok');document.getElementById('f-title').value='';document.getElementById('f-desc').value='';pendingPhotos=[];renderPhotoThumbs();await loadPolls();loadAdminDash();}
+    else showToast(d.message||'Erreur',true);
+  }catch(e){
+    const np={_id:'d'+Date.now(),titre,description:desc,categorie:cat,options:opts.map(l=>({label:l,votes:0})),totalVotes:0,actif:true,dureeJours:dur,prive,photos,createdAt:new Date()};
+    allPolls.unshift(np);renderPolls();loadAdminDash();showToast('✅ Publié (démo)','ok');
+    document.getElementById('f-title').value='';pendingPhotos=[];renderPhotoThumbs();
   }
 }
 
-async function closePoll(id) {
-  if (!confirm('Clôturer ce sondage ?')) return;
-  try {
-    const r = await fetch(API + '/api/afrivote/sondages/'+id+'/close', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({adminPass: ADMIN_PASS})
-    });
-    const data = await r.json();
-    if (data.success) { showToast('Sondage clôturé'); await loadPolls(); loadAdminDashboard(); }
-  } catch(e) {
-    const p = allPolls.find(x=>x._id===id);
-    if (p) p.actif = false;
-    showToast('Sondage clôturé (démo)');
-    loadAdminDashboard(); renderPolls();
-  }
+async function closePoll(id){
+  if(!confirm('Clôturer ce sondage ?'))return;
+  try{const r=await fetch(API+'/api/afrivote/sondages/'+id+'/close',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPass:ADMIN_PASS})});const d=await r.json();if(d.success){showToast('Clôturé');await loadPolls();loadAdminDash();}}
+  catch(e){const p=allPolls.find(x=>x._id===id);if(p)p.actif=false;renderPolls();renderAdminPollsList();showToast('Clôturé (démo)');}
+}
+async function deletePoll(id){
+  if(!confirm('Supprimer définitivement ?'))return;
+  try{const r=await fetch(API+'/api/afrivote/sondages/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPass:ADMIN_PASS})});const d=await r.json();if(d.success){showToast('Supprimé');await loadPolls();loadAdminDash();}}
+  catch(e){allPolls=allPolls.filter(p=>p._id!==id);renderPolls();renderAdminPollsList();showToast('Supprimé (démo)');}
 }
 
-async function deletePoll(id) {
-  if (!confirm('Supprimer définitivement ce sondage ?')) return;
-  try {
-    const r = await fetch(API + '/api/afrivote/sondages/'+id, {
-      method: 'DELETE', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({adminPass: ADMIN_PASS})
-    });
-    const data = await r.json();
-    if (data.success) { showToast('Supprimé'); await loadPolls(); loadAdminDashboard(); }
-  } catch(e) {
-    allPolls = allPolls.filter(p=>p._id!==id);
-    showToast('Supprimé (démo)');
-    loadAdminDashboard(); renderPolls();
-  }
+// ── AUTH ──
+function doLogin(){
+  const id=document.getElementById('l-id').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  if(!id||!pass){showToast('Remplissez tous les champs',true);return;}
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]');
+  const user=users.find(u=>u.email===id&&u.pass===btoa(pass));
+  if(!user){showToast('Identifiants incorrects',true);return;}
+  currentUser=user;localStorage.setItem('av_session',JSON.stringify(user));
+  updateNavUser();closeModal('auth-modal');showToast('✅ Bienvenue '+user.name+' !','ok');
+}
+function doSignup(){
+  const name=document.getElementById('s-name').value.trim();
+  const email=document.getElementById('s-email').value.trim();
+  const pass=document.getElementById('s-pass').value;
+  const country=document.getElementById('s-country').value;
+  const age=document.getElementById('s-age').value;
+  if(!name||!email||!pass){showToast('Remplissez les champs obligatoires',true);return;}
+  if(pass.length<6){showToast('Mot de passe trop court',true);return;}
+  const users=JSON.parse(localStorage.getItem('av_users')||'[]');
+  if(users.find(u=>u.email===email)){showToast('Email déjà utilisé',true);return;}
+  const user={id:'u'+Date.now(),name,email,pass:btoa(pass),country,age,fingerprint:FP,voterToken:VT,createdAt:new Date()};
+  users.push(user);localStorage.setItem('av_users',JSON.stringify(users));
+  currentUser=user;localStorage.setItem('av_session',JSON.stringify(user));
+  updateNavUser();closeModal('auth-modal');showToast('🎉 Bienvenue '+name+' !','ok');
+  updateStats();
+}
+function logout(){currentUser=null;localStorage.removeItem('av_session');updateNavUser();showToast('👋 Déconnecté');if(document.getElementById('page-profile').classList.contains('active'))goHome();}
+
+function updateNavUser(){
+  const nu=document.getElementById('nav-user'),na=document.getElementById('nav-auth');
+  if(currentUser){nu.style.display='flex';na.style.display='none';document.getElementById('nav-avatar').textContent=currentUser.name.charAt(0).toUpperCase();renderProfile();}
+  else{nu.style.display='none';na.style.display='flex';}
+}
+function getToken(){return currentUser?btoa(JSON.stringify({id:currentUser.id,email:currentUser.email})):'';}
+
+function renderProfile(){
+  if(!currentUser)return;
+  document.getElementById('profile-login-prompt').style.display='none';
+  document.getElementById('profile-content').style.display='block';
+  document.getElementById('p-avatar').textContent=currentUser.name.charAt(0).toUpperCase();
+  document.getElementById('p-name').textContent=currentUser.name;
+  document.getElementById('p-sub').textContent=`${currentUser.country||'Afrique'} · ${currentUser.age||''} ans · Membre depuis ${new Date(currentUser.createdAt).toLocaleDateString('fr-FR')}`;
+  const voted=JSON.parse(localStorage.getItem('afrivote_voted')||'{}');
+  const nV=Object.keys(voted).length;
+  document.getElementById('p-badges').innerHTML=`<span class="badge badge-gold">🗳️ ${nV} vote${nV>1?'s':''}</span>${nV>=5?'<span class="badge badge-green">⭐ Voteur actif</span>':''}${nV>=10?'<span class="badge badge-gold">🏆 Expert</span>':''}`;
+  const entries=Object.values(voted).reverse().slice(0,6);
+  document.getElementById('vl-list').innerHTML=entries.length?entries.map(v=>`<div class="vl-item"><div class="vl-q">${v.pollTitle||'Sondage'}</div><div class="vl-choice">${v.choice||'—'}</div></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">Aucun vote encore. Participez à un sondage !</div>';
 }
 
-// ---- AUTH ----
-function doLogin() {
-  const id = document.getElementById('l-id').value.trim();
-  const pass = document.getElementById('l-pass').value;
-  if (!id||!pass) { showToast('Remplissez tous les champs', true); return; }
-  const users = JSON.parse(localStorage.getItem('afrivote_users')||'[]');
-  const user = users.find(u=>(u.email===id||u.phone===id) && u.pass===btoa(pass));
-  if (!user) { showToast('Identifiants incorrects', true); return; }
-  currentUser = user;
-  localStorage.setItem('afrivote_session', JSON.stringify(user));
-  updateNavUser();
-  closeModal('auth-modal');
-  showToast('✅ Bienvenue ' + user.name + ' !');
-}
+// ── HELPERS ──
+function calcRel(votes){const score=Math.min(99,Math.round(55+Math.log10(Math.max(1,votes))*13));const margin=votes>0?(1.96*Math.sqrt(0.25/votes)*100).toFixed(1):'N/A';const icon=score>=90?'🟢':score>=70?'🟡':'🔴';return{score,margin,icon};}
+function catLbl(c){return{politique:'🏛️ Politique',sport:'⚽ Sport',economie:'📈 Économie',societe:'🌐 Société',culture:'🎭 Culture',sante:'❤️ Santé'}[c]||c;}
+function fmtDur(ms){const d=Math.floor(ms/86400000),h=Math.floor((ms%86400000)/3600000),m=Math.floor((ms%3600000)/60000);return d>0?`${d}j ${h}h restants`:`${h}h ${m}min restants`;}
+function animNum(id,target){const el=document.getElementById(id);if(!el)return;const start=parseInt(el.textContent.replace(/\D/g,''))||0;const diff=target-start;let i=0;const iv=setInterval(()=>{i++;el.textContent=Math.round(start+diff*(i/30)).toLocaleString('fr-FR');if(i>=30)clearInterval(iv);},20);}
+function hasVoted(id){return !!(JSON.parse(localStorage.getItem('afrivote_voted')||'{}')[id]);}
+function markVoted(id,idx){const poll=allPolls.find(p=>p._id===id);const v=JSON.parse(localStorage.getItem('afrivote_voted')||'{}');v[id]={idx,choice:poll?.options[idx]?.label||'',pollTitle:poll?.titre||'',at:new Date().toISOString()};localStorage.setItem('afrivote_voted',JSON.stringify(v));}
 
-function doSignup() {
-  const name = document.getElementById('s-name').value.trim();
-  const email = document.getElementById('s-email').value.trim();
-  const pass = document.getElementById('s-pass').value;
-  const country = document.getElementById('s-country').value;
-  const age = document.getElementById('s-age').value;
-  if (!name||!email||!pass) { showToast('Remplissez tous les champs', true); return; }
-  if (pass.length < 6) { showToast('Mot de passe trop court', true); return; }
-  const users = JSON.parse(localStorage.getItem('afrivote_users')||'[]');
-  if (users.find(u=>u.email===email)) { showToast('Email déjà utilisé', true); return; }
-  const user = {id:'u'+Date.now(), name, email, pass:btoa(pass), country, age, createdAt:new Date()};
-  users.push(user);
-  localStorage.setItem('afrivote_users', JSON.stringify(users));
-  currentUser = user;
-  localStorage.setItem('afrivote_session', JSON.stringify(user));
-  updateNavUser();
-  closeModal('auth-modal');
-  showToast('🎉 Compte créé ! Bienvenue ' + name);
-}
-
-function logout() {
-  currentUser = null;
-  localStorage.removeItem('afrivote_session');
-  updateNavUser();
-  showToast('👋 Déconnecté');
-}
-
-function updateNavUser() {
-  const navUser = document.getElementById('nav-user');
-  const navAuth = document.getElementById('nav-auth');
-  if (currentUser) {
-    navUser.style.display = 'flex';
-    navAuth.style.display = 'none';
-    document.getElementById('nav-username').textContent = currentUser.name;
-  } else {
-    navUser.style.display = 'none';
-    navAuth.style.display = 'flex';
-  }
-}
-
-function getToken() {
-  return currentUser ? btoa(JSON.stringify({id:currentUser.id,email:currentUser.email})) : '';
-}
-
-// ---- HELPERS ----
-function calcReliability(votes) {
-  const score = Math.min(99, Math.round(60 + Math.log10(Math.max(1,votes)) * 12));
-  const margin = votes > 1000 ? (1.96*Math.sqrt(0.25/votes)*100).toFixed(1) : votes > 100 ? (1.96*Math.sqrt(0.25/votes)*100).toFixed(1) : '>10';
-  const icon = score >= 90 ? '🟢' : score >= 75 ? '🟡' : '🔴';
-  return {score, margin, icon};
-}
-
-function calcPct(votes, total) {
-  return total ? Math.round(votes/total*100) : 0;
-}
-
-function isWinner(opt, opts) {
-  return opt.votes === Math.max(...opts.map(o=>o.votes)) && opt.votes > 0;
-}
-
-function catLabel(cat) {
-  const m = {politique:'🏛️ Politique',sport:'⚽ Sport',economie:'📈 Économie',societe:'🌐 Société',culture:'🎭 Culture',sante:'❤️ Santé'};
-  return m[cat] || cat;
-}
-
-function timeAgo(date) {
-  const s = Math.floor((new Date()-date)/1000);
-  if (s < 60) return 'À l\'instant';
-  if (s < 3600) return Math.floor(s/60) + ' min';
-  if (s < 86400) return Math.floor(s/3600) + 'h';
-  return Math.floor(s/86400) + 'j';
-}
-
-function hasVotedBefore(id) {
-  const v = JSON.parse(localStorage.getItem('afrivote_voted')||'[]');
-  return v.includes(id);
-}
-
-function markVoted(id) {
-  const v = JSON.parse(localStorage.getItem('afrivote_voted')||'[]');
-  v.push(id);
-  localStorage.setItem('afrivote_voted', JSON.stringify(v));
-}
-
-function animateNum(id, target) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const start = parseInt(el.textContent.replace(/\D/g,''))||0;
-  const diff = target - start;
-  const steps = 30;
-  let i = 0;
-  const iv = setInterval(() => {
-    i++;
-    el.textContent = Math.round(start + diff*(i/steps)).toLocaleString('fr-FR');
-    if (i >= steps) clearInterval(iv);
-  }, 20);
-}
-
-// ---- NAVIGATION ----
-function switchPage(name) {
+// ── NAVIGATION ──
+function switchPage(name){
   clearInterval(refreshInterval);
+  if(name==='admin'&&!adminOK){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.bni').forEach(b=>b.classList.remove('active'));
+    document.getElementById('page-admin').classList.add('active');
+    document.getElementById('adm-login').style.display='block';
+    document.getElementById('adm-dash').style.display='none';
+    return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.bni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  document.getElementById('nav-'+name)?.classList.add('active');
-  if (name === 'admin') document.getElementById('nav-admin-btn')?.classList.add('active');
+  document.getElementById('bni-'+name)?.classList.add('active');
+  if(name==='profile')renderProfile();
+  window.scrollTo(0,0);
 }
-
-function goHome() {
-  switchPage('home');
-  document.getElementById('nav-home').classList.add('active');
-}
-
-function scrollToPolls() {
-  document.getElementById('polls-section').scrollIntoView({behavior:'smooth'});
-}
-
-function openAuth(tab) {
-  openModal('auth-modal');
-  switchTab(tab);
-}
-
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function switchTab(tab) {
+function goHome(){switchPage('home');document.getElementById('bni-home').classList.add('active');}
+function openAuth(tab){openModal('auth-modal');switchTab(tab);}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function switchTab(tab){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-c').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.tab:${tab==='login'?'first-child':'last-child'}`).classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
 }
-
 let _tt;
-function showToast(msg, err=false) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast' + (err?' err':'');
-  t.classList.add('show');
-  clearTimeout(_tt);
-  _tt = setTimeout(()=>t.classList.remove('show'), 3000);
-}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(type?' '+type:'');t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);}
 </script>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-prev" onclick="lbNav(-1);event.stopPropagation()">‹</button>
+  <img class="lightbox-img" id="lb-img" src="" alt="">
+  <button class="lightbox-next" onclick="lbNav(1);event.stopPropagation()">›</button>
+  <div class="lightbox-counter" id="lb-counter"></div>
+</div>
+
 </body>
 </html>
