@@ -15,7 +15,7 @@ const zamaOtpStore = {}; // OTP store ZAMA
 app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'node_modules/xlsx/dist/xlsx.full.min.js')); });
 
 // ─── CONFIG ────────────────────────────────────────────────
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tpaseny_db_user:PstMongo2026@cluster0.jozvjqr.mongodb.net/pst_telecom?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://pst2026:Pst2026@cluster0.jozvjqr.mongodb.net/pst_telecom?appName=Cluster0';
 const AT_API_KEY       = process.env.AT_API_KEY;
 const AT_USERNAME      = process.env.AT_USERNAME || 'sandbox';
 // ─── ZAMA get-address (pour écran Recevoir) ───────────────
