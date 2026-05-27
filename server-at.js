@@ -3516,7 +3516,7 @@ app.post("/api/sen-sms/register", async (req, res) => {
       id: Date.now().toString(),
       nom: nom || email.split("@")[0],
       organisation: org,
-      phone: phone,
+      phone: phone, telephone: phone,
       email: email,
       password: hashedPw,
       credits: 0,
