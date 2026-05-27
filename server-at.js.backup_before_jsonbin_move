@@ -3676,6 +3676,9 @@ app.put('/api/sensms/avis', async (req, res) => {
 
 // ── DÉMARRAGE ─────────────────────────────
 
+connectDB().then((dbInstance) => {
+  db = dbInstance;
+  
 // ═══════════════════════════════════════════════════════════════
 // ─── JSONBIN.IO — Stockage persistant SenSMS (remplace MongoDB)
 // ═══════════════════════════════════════════════════════════════
@@ -3995,11 +3998,6 @@ app.get("/api/sen-sms/bins", async (req, res) => {
   res.json({ success: true, bins: BINS,
     message: "Sauvegarde ces IDs dans les variables Render !" });
 });
-
-
-connectDB().then((dbInstance) => {
-  db = dbInstance;
-  
 
 
 app.listen(PORT, () => {
