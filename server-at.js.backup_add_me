@@ -3736,20 +3736,6 @@ connectDB().then((dbInstance) => {
   
 
 
-app.get('/api/sen-sms/me', senSmsAuth, async (req, res) => {
-  try {
-    const userId = String(req.senSmsUser.id || req.senSmsUser._id || '');
-    const db = await jbGet(BINS.users) || { users: [] };
-    const user = db.users.find(u => String(u.id) === userId);
-    if (!user) return res.json({ success: false, error: 'Introuvable' });
-    const { password: _, ...userSafe } = user;
-    res.json({ success: true, user: userSafe });
-  } catch(e) {
-    console.error('sen-sms/me error:', e.message);
-    res.json({ success: false, error: 'Erreur serveur' });
-  }
-});
-
 app.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
     console.log("http://localhost:" + PORT);
