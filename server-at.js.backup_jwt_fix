@@ -89,7 +89,7 @@ function senSmsAuth(req, res, next) {
   var token = (req.headers.authorization || '').replace('Bearer ', '').trim();
   if (!token) return res.status(401).json({ success: false, error: 'Non authentifie' });
   try {
-    var decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'pst-jwt-2026-xK9mPq7nR3');
+    var decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'pst-secret-2026');
     req.senSmsUser = decoded;
     next();
   } catch(e) { return res.status(401).json({ success: false, error: 'Token invalide' }); }
