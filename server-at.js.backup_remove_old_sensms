@@ -3458,6 +3458,221 @@ app.get('/api/sen-sms/campagnes', async (req, res) => {
 
 // === SENSMS ROUTES ===
 var SensmsUser = null;
+function getSensmsUser() {
+  if (!SensmsUser) {
+    var mongoose = require('mongoose');
+
+
+    var _sensmsSchema = new mongoose.Schema({
+      phone: String, email: String, name: String, password: String,
+      pack: { type: String, default: 'Starter' },
+      credits: { type: Number, default: 0 },
+      sender_id: { type: String, default: 'SenSMS' },
+      active: { type: Boolean, default: true },
+      created_at: { type: Date, default: Date.now }
+    });
+    SensmsUser = mongoose.models.SensmsUser || mongoose.model('SensmsUser', _sensmsSchema);
+  }
+  return SensmsUser;
+}
+
+// POST /api/sensms/register
+app.post('/api/sensms/register', async (req, res) => {
+  try {
+    var name = req.body.name; var phone = req.body.phone; var email = req.body.email || ''; var password = req.body.password;
+    if (!name || !phone || !password) return res.json({ success: false, error: 'Champs obligatoires manquants' });
+    if (password.length < 6) return res.json({ success: false, error: 'Mot de passe trop court (6 min)' });
+    if (phone.match(/^[0-9]{9}$/)) phone = '+221' + phone;
+    var existing = await getSensmsUser().findOne({ $or: [{ phone: phone }, { email: email && email.length > 0 ? email : null }] });
+    if (existing) return res.json({ success: false, error: 'Compte deja existant avec ce numero ou email' });
+    var bcrypt = require('bcryptjs');
+    var hash = await bcrypt.hash(password, 10);
+    var newUser = new (getSensmsUser())({ name: name, phone: phone, email: email, password: hash });
+    await newUser.save();
+    res.json({ success: true, user: { id: newUser._id, name: newUser.name, phone: newUser.phone, email: newUser.email, pack: newUser.pack, credits: newUser.credits, sender_id: newUser.sender_id } });
+  } catch(e) { console.error('SENSMS register error:', e); res.json({ success: false, error: e.message }); }
+});
+
+// POST /api/sensms/login
+app.post('/api/sensms/login', async (req, res) => {
+  try {
+    var identifier = req.body.identifier || req.body.phone || req.body.email || '';
+    var password = req.body.password;
+    if (!identifier || !password) return res.json({ success: false, error: 'Champs manquants' });
+    if (identifier.match(/^[0-9]{9}$/)) identifier = '+221' + identifier;
+    var user = await getSensmsUser().findOne({ $or: [{ phone: identifier }, { email: identifier }] });
+    if (!user) return res.json({ success: false, error: 'Compte introuvable' });
+    var bcrypt = require('bcryptjs');
+    var ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.json({ success: false, error: 'Mot de passe incorrect' });
+    res.json({ success: true, user: { id: user._id, phone: user.phone, email: user.email, name: user.name, pack: user.pack || 'Starter', credits: user.credits || 0, sender_id: user.sender_id || 'SenSMS' } });
+  } catch(e) { console.error('SENSMS login error:', e); res.json({ success: false, error: e.message }); }
+});
+
+// GET /api/sensms/profile/:id
+app.get('/api/sensms/profile/:id', async (req, res) => {
+  try {
+    var user = await getSensmsUser().findById(req.params.id).lean();
+    if (!user) return res.json({ success: false, error: 'Introuvable' });
+    delete user.password;
+    res.json({ success: true, user: user });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
+// POST /api/sensms/update-sender
+app.post('/api/sensms/update-sender', async (req, res) => {
+  try {
+    var id = req.body.id; var sender_id = req.body.sender_id;
+    if (!id || !sender_id) return res.json({ success: false, error: 'Donnees manquantes' });
+    if (sender_id.length > 11) return res.json({ success: false, error: 'Sender ID max 11 caracteres' });
+    await getSensmsUser().updateOne({ _id: id }, { $set: { sender_id: sender_id.toUpperCase() } });
+    res.json({ success: true, sender_id: sender_id.toUpperCase() });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
+// GET /api/sensms/users (admin)
+
+
+
+
+
+// ══ SENSMS ADMIN ROUTES ══
+app.get('/api/sensms/users', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.headers['x-admin-token'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var users = await db.collection('sensms_users').find({}).sort({ createdAt: -1 }).toArray();
+    users.forEach(function(u) { delete u.password; });
+    res.json(users);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/sensms/campaigns', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.headers['x-admin-token'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var camps = await db.collection('sensms_campaigns').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+    res.json(camps);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/sensms/add-credits', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.headers['x-admin-token'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    var { userId, credits } = req.body;
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    const { ObjectId } = require('mongodb');
+    try {
+      await db.collection('sensms_users').updateOne({ _id: new ObjectId(userId) }, { $inc: { credits: parseInt(credits) } });
+    } catch(e2) {
+      await db.collection('sensms_users').updateOne({ id: userId }, { $inc: { credits: parseInt(credits) } });
+    }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/sensms/delete-user', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.headers['x-admin-token'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    var { userId } = req.body;
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    const { ObjectId } = require('mongodb');
+    try {
+      await db.collection('sensms_users').deleteOne({ _id: new ObjectId(userId) });
+    } catch(e2) {
+      await db.collection('sensms_users').deleteOne({ id: userId });
+    }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+// ══ FIN SENSMS ADMIN ROUTES ══
+
+
+// ══ AVIS SENSMS ══
+app.get('/api/sensms/avis', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    var avis = await db.collection('sensms_avis').find({ approuve: true }).sort({ createdAt: -1 }).toArray();
+    avis.forEach(function(a) { delete a._id; });
+    res.json(avis);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/sensms/avis', async (req, res) => {
+  try {
+    var { userId, nom, email, organisation, note, commentaire } = req.body;
+    if (!userId || !note || !commentaire) return res.json({ success: false, error: 'Données manquantes' });
+    if (note < 1 || note > 5) return res.json({ success: false, error: 'Note invalide' });
+    if (commentaire.length < 10) return res.json({ success: false, error: 'Commentaire trop court' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    // Vérifier doublon
+    var existant = await db.collection('sensms_avis').findOne({ userId: userId });
+    if (existant) return res.json({ success: false, error: 'Vous avez déjà laissé un avis' });
+    var avis = {
+      userId, nom, email, organisation,
+      note: parseInt(note),
+      commentaire,
+      approuve: true, // auto-approuvé
+      createdAt: new Date()
+    };
+    await db.collection('sensms_avis').insertOne(avis);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// Admin: voir tous les avis
+app.get('/api/sensms/avis/admin', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    if (!db) return res.json([]);
+    var avis = await db.collection('sensms_avis').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(avis);
+  } catch(e) { res.json([]); }
+});
+
+// Admin: approuver/rejeter un avis
+app.post('/api/sensms/avis/moderer', async (req, res) => {
+  try {
+    var token = req.headers['authorization'] || req.query.token;
+    if (token !== (process.env.ADMIN_PASSWORD || 'Pstdiama@1')) return res.status(403).json({ error: 'Non autorise' });
+    var { avisId, approuve } = req.body;
+    const { ObjectId } = require('mongodb');
+    await db.collection('sensms_avis').updateOne({ _id: new ObjectId(avisId) }, { $set: { approuve: approuve } });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+// ══ FIN AVIS SENSMS ══
+
+
+// GET mon avis
+app.get('/api/sensms/avis/mon-avis', async (req, res) => {
+  try {
+    var userId = req.query.userId;
+    if (!userId || !db) return res.json(null);
+    var avis = await db.collection('sensms_avis').findOne({ userId: userId });
+    if (avis) { delete avis._id; }
+    res.json(avis || null);
+  } catch(e) { res.json(null); }
+});
+
+// PUT modifier son avis
+app.put('/api/sensms/avis', async (req, res) => {
+  try {
+    var { userId, nom, email, organisation, note, commentaire } = req.body;
+    if (!userId || !note || !commentaire) return res.json({ success: false, error: 'Données manquantes' });
+    if (!db) return res.json({ success: false, error: 'DB indisponible' });
+    await db.collection('sensms_avis').updateOne(
+      { userId: userId },
+      { $set: { nom, email, organisation, note: parseInt(note), commentaire, updatedAt: new Date(), approuve: true } }
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
 
 // ── DÉMARRAGE ─────────────────────────────
 
