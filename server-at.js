@@ -3489,7 +3489,7 @@ app.get('/api/afrivote/resultats/:id', async (req,res) => {
 });
 app.post('/api/afrivote/sondages', async (req,res) => {
   const {titre,description,categorie,options,dureeJours,adminPass} = req.body;
-  if(adminPass !== AFRIVOTE_PASS) return res.status(403
+  if(adminPass !== AFRIVOTE_PASS) return res.status(403).json({error:" Non autorise\})
 
 
 $routes = @'
@@ -3521,7 +3521,7 @@ app.get('/api/afrivote/resultats/:id', async (req,res) => {
 });
 app.post('/api/afrivote/sondages', async (req,res) => {
   const {titre,description,categorie,options,dureeJours,adminPass} = req.body;
-  if(adminPass !== AFRIVOTE_PASS) return res.status(403).json({success:false,message:'Non autorise'});
+  if(adminPass !== AFRIVOTE_PASS) return res.status(403).json({error:" Non autorise\})).json({success:false,message:'Non autorise'});
   if(!titre||!options||options.length<2) return res.status(400).json({success:false,message:'Titre et 2 options requis'});
   try { const s = new Sondage({titre,description,categorie,options:options.map(l=>({label:typeof l==='string'?l:l.label,votes:0})),dureeJours:dureeJours||7}); await s.save(); res.json({success:true,sondage:s}); }
   catch(e) { res.status(500).json({success:false,message:e.message}); }
