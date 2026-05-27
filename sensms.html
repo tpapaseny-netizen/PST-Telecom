@@ -2519,7 +2519,7 @@ function updateAvisUI() {
 
 function checkMonAvis() {
   if (!senSmsUser) return;
-  fetch(API + '/api/sensms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
+  fetch(API + '/api/sen-sms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var zone = document.getElementById('avis-form-zone');
@@ -2544,7 +2544,7 @@ function checkMonAvis() {
 }
 
 function chargerAvis() {
-  fetch(API + '/api/sensms/avis')
+  fetch(API + '/api/sen-sms/avis')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var liste = document.getElementById('avis-liste');
@@ -2587,7 +2587,7 @@ function soumettreAvis() {
   var texte = document.getElementById('avis-texte').value.trim();
   if (texte.length < 10) { document.getElementById('avis-error').style.display='block'; document.getElementById('avis-error').textContent='Commentaire trop court (10 caractères min).'; return; }
   document.getElementById('avis-error').style.display='none';
-  fetch(API + '/api/sensms/avis', {
+  fetch(API + '/api/sen-sms/avis', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -2646,7 +2646,7 @@ var editingAvis = false;
 function modifierMonAvis() {
   editingAvis = true;
   // Récupérer l'avis existant de l'utilisateur
-  fetch(API + '/api/sensms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
+  fetch(API + '/api/sen-sms/avis/mon-avis?userId=' + (senSmsUser.id || senSmsUser._id))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data && data.note) {
