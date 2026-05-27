@@ -246,8 +246,8 @@ textarea.field-input { resize:vertical; min-height:80px; }
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">P<span>S</span>T</div>
-    <p class="login-sub">Panneau d'administration scuris</p>
-    <div class="login-badge"> Accs rserv aux super-admins et admins autoriss</div>
+    <p class="login-sub">Panneau d'administration sécurisé</p>
+    <div class="login-badge"> Accès réservé aux super-admins et admins autorisés</div>
     <label class="login-label">Adresse email</label>
     <input class="login-input" type="email" id="login-email" placeholder="votre@email.com" onkeydown="if(event.key==='Enter')doLogin()">
     <label class="login-label">Mot de passe admin</label>
@@ -255,8 +255,8 @@ textarea.field-input { resize:vertical; min-height:80px; }
       <input class="login-input" type="password" id="login-pw" placeholder="" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:46px;width:100%;box-sizing:border-box;">
       <button type="button" onclick="togglePwVis()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:20px;opacity:0.6;" id="pw-eye"></button>
     </div>
-    <button class="login-btn" onclick="doLogin()">Accder au panneau </button>
-    <p class="login-error" id="login-err">Email non autoris ou mot de passe incorrect.</p>
+    <button class="login-btn" onclick="doLogin()">Accéder au panneau </button>
+    <p class="login-error" id="login-err">Email non autorisé ou mot de passe incorrect.</p>
   </div>
 </div>
 
@@ -302,7 +302,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
         <span class="nav-icon"></span> Recharges
       </button>
       <button class="nav-item" onclick="showSection('securite')" id="nav-securite">
-        <span class="nav-icon"></span> Scurit
+        <span class="nav-icon"></span> Sécurité
       </button>
       <button class="nav-item" onclick="showSection('factures')" id="nav-factures">
         <span class="nav-icon"></span> Factures
@@ -321,7 +321,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
           <span>Crypto Payments</span>
         </div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
-        <span class="nav-icon"></span> Grer les admins
+        <span class="nav-icon"></span> Gérer les admins
       </button>
       <button class="nav-item" onclick="showSection('content')" id="nav-content" style="display:none">
         <span class="nav-icon"></span> Contenu du site
@@ -337,7 +337,7 @@ textarea.field-input { resize:vertical; min-height:80px; }
       </div>
       <button class="logout-btn" onclick="logout()"> 
 <div class="nav-item" onclick="window.open('/securcam-admin?token=Pstdiama@1','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon"></span> PST SecurCam </div>
-Dconnexion</button>
+Déconnexion</button>
     </div>
   </aside>
 
@@ -396,12 +396,12 @@ Dconnexion</button>
       <div style="font-size:10px;color:#64748b">Campagnes</div>
     </div>
     <div style="text-align:center">
-      <div id="sms-total-envoyes" style="font-size:20px;font-weight:800;color:#00e676">-</div>
-      <div style="font-size:10px;color:#64748b">SMS envoyes</div>
+      <div id="sms-total-envoyées" style="font-size:20px;font-weight:800;color:#00e676">-</div>
+      <div style="font-size:10px;color:#64748b">SMS envoyées</div>
     </div>
     <div style="text-align:center">
-      <div id="sms-total-echecs" style="font-size:20px;font-weight:800;color:#ef4444">-</div>
-      <div style="font-size:10px;color:#64748b">Echecs</div>
+      <div id="sms-total-eÉchecs" style="font-size:20px;font-weight:800;color:#ef4444">-</div>
+      <div style="font-size:10px;color:#64748b">EÉchecs</div>
     </div>
   </div>
   <div style="margin-left:auto;display:flex;gap:8px">
@@ -428,8 +428,8 @@ Dconnexion</button>
       <div style="font-size:10px;color:#64748b">Reussies</div>
     </div>
     <div style="text-align:center">
-      <div id="rech-echecs" style="font-size:20px;font-weight:800;color:#ef4444">-</div>
-      <div style="font-size:10px;color:#64748b">Echecs</div>
+      <div id="rech-eÉchecs" style="font-size:20px;font-weight:800;color:#ef4444">-</div>
+      <div style="font-size:10px;color:#64748b">EÉchecs</div>
     </div>
     <div style="text-align:center">
       <div id="rech-volume" style="font-size:20px;font-weight:800;color:#00d4ff">-</div>
@@ -447,7 +447,7 @@ function loadRechargeStats(){
   .then(function(d){
     document.getElementById('rech-total').textContent = d.total || 0;
     document.getElementById('rech-reussies').textContent = d.reussies || 0;
-    document.getElementById('rech-echecs').textContent = d.echecs || 0;
+    document.getElementById('rech-eÉchecs').textContent = d.eÉchecs || 0;
     document.getElementById('rech-volume').textContent = (d.volume||0).toLocaleString('fr-FR');
   }).catch(function(){});
 }
@@ -461,8 +461,8 @@ function loadSmsStats(){
   .then(function(r){return r.json();})
   .then(function(d){
     document.getElementById('sms-total-camp').textContent = d.totalCampagnes || d.total || 0;
-    document.getElementById('sms-total-envoyes').textContent = d.totalEnvoyes || d.envoyes || 0;
-    document.getElementById('sms-total-echecs').textContent = d.totalEchecs || 0;
+    document.getElementById('sms-total-envoyées').textContent = d.totalEnvoyées || d.envoyées || 0;
+    document.getElementById('sms-total-eÉchecs').textContent = d.totalEÉchecs || 0;
   }).catch(function(){});
 }
 loadSmsStats();
@@ -608,11 +608,11 @@ setInterval(loadNocStatus, 60000);
                 <input class="field-input" id="add-nom" placeholder="Tour">
               </div>
               <div>
-                <label class="field-label">Prnom</label>
+                <label class="field-label">Prénom</label>
                 <input class="field-input" id="add-prenom" placeholder="Papa Seny">
               </div>
               <div>
-                <label class="field-label">Tlphone *</label>
+                <label class="field-label">Téléphone *</label>
                 <input class="field-input" id="add-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -647,7 +647,7 @@ setInterval(loadNocStatus, 60000);
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>Nom</th><th>Tlphone</th><th>Forfait</th><th>Minutes</th><th>Statut</th><th>Actions</th></tr></thead>
+              <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Forfait</th><th>Minutes</th><th>Statut</th><th>Actions</th></tr></thead>
               <tbody id="users-table"></tbody>
             </table>
           </div>
@@ -670,11 +670,11 @@ setInterval(loadNocStatus, 60000);
                 <input class="field-input" id="sms-nom" placeholder="Tour">
               </div>
               <div>
-                <label class="field-label">Prnom</label>
+                <label class="field-label">Prénom</label>
                 <input class="field-input" id="sms-prenom" placeholder="Papa Seny">
               </div>
               <div>
-                <label class="field-label">Tlphone *</label>
+                <label class="field-label">Téléphone *</label>
                 <input class="field-input" id="sms-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -699,7 +699,7 @@ setInterval(loadNocStatus, 60000);
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>Nom</th><th>Tlphone</th><th>Points</th><th>Points utiliss</th><th>Statut</th></tr></thead>
+              <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Points</th><th>Points utiliss</th><th>Statut</th></tr></thead>
               <tbody id="sms-table"></tbody>
             </table>
           </div>
@@ -846,8 +846,8 @@ setInterval(loadNocStatus, 60000);
             <div class="kpi-sub">total</div>
           </div>
           <div class="kpi blue">
-            <div class="kpi-label">SMS envoys</div>
-            <div class="kpi-val blue" id="smsm-envoyes"></div>
+            <div class="kpi-label">SMS envoyés</div>
+            <div class="kpi-val blue" id="smsm-envoyées"></div>
             <div class="kpi-sub">tous canaux</div>
           </div>
           <div class="kpi orange">
@@ -856,8 +856,8 @@ setInterval(loadNocStatus, 60000);
             <div class="kpi-sub">livraison</div>
           </div>
           <div class="kpi red">
-            <div class="kpi-label">checs</div>
-            <div class="kpi-val red" id="smsm-echecs"></div>
+            <div class="kpi-label">Échecs</div>
+            <div class="kpi-val red" id="smsm-eÉchecs"></div>
             <div class="kpi-sub">non livrs</div>
           </div>
         </div>
@@ -891,7 +891,7 @@ setInterval(loadNocStatus, 60000);
                 <input class="field-input" id="ref-wave" placeholder="T_PUDLIORG..." style="font-family:'JetBrains Mono',monospace;">
               </div>
               <div>
-                <label class="field-label">Tlphone client</label>
+                <label class="field-label">Téléphone client</label>
                 <input class="field-input" id="ref-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -903,14 +903,14 @@ setInterval(loadNocStatus, 60000);
                 <input class="field-input" id="ref-notes" placeholder="Pro  cole XYZ">
               </div>
             </div>
-            <button class="save-btn" onclick="autoriserRef()"> Autoriser cette rfrence</button>
+            <button class="save-btn" onclick="autoriséerRef()"> Autoriser cette rfrence</button>
           </div>
         </div>
 
         <!-- LISTE RFRENCES AUTORISES -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title"> Rfrences autorises</div>
+            <div class="panel-title"> Rfrences autorisées</div>
             <button class="refresh-btn" onclick="loadRefs()"> Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:300px;">
@@ -918,7 +918,7 @@ setInterval(loadNocStatus, 60000);
               <thead>
                 <tr>
                   <th>Rfrence</th>
-                  <th>Tlphone</th>
+                  <th>Téléphone</th>
                   <th>Montant</th>
                   <th>Note</th>
                   <th>Statut</th>
@@ -941,7 +941,7 @@ setInterval(loadNocStatus, 60000);
           <div style="padding:24px;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
               <div>
-                <label class="field-label">Tlphone client</label>
+                <label class="field-label">Téléphone client</label>
                 <input class="field-input" id="code-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -984,7 +984,7 @@ setInterval(loadNocStatus, 60000);
               <thead>
                 <tr>
                   <th>Code</th>
-                  <th>Tlphone</th>
+                  <th>Téléphone</th>
                   <th>Pack</th>
                   <th>Montant</th>
                   <th>Statut</th>
@@ -1011,10 +1011,10 @@ setInterval(loadNocStatus, 60000);
                 <tr>
                   <th>Date</th>
                   <th>Campagne</th>
-                  <th>Expditeur</th>
+                  <th>Expéditeur</th>
                   <th>Total</th>
-                  <th>Envoys</th>
-                  <th>checs</th>
+                  <th>Envoyés</th>
+                  <th>Échecs</th>
                   <th>Statut</th>
                 </tr>
               </thead>
@@ -1043,10 +1043,10 @@ setInterval(loadNocStatus, 60000);
           <div class="kpi orange">
             <div class="kpi-label">Volume total</div>
             <div class="kpi-val" id="rch-montant"></div>
-            <div class="kpi-sub">FCFA envoys</div>
+            <div class="kpi-sub">FCFA envoyés</div>
           </div>
           <div class="kpi red">
-            <div class="kpi-label">checs</div>
+            <div class="kpi-label">Échecs</div>
             <div class="kpi-val" id="rch-failed"></div>
             <div class="kpi-sub">erreurs</div>
           </div>
@@ -1110,7 +1110,7 @@ setInterval(loadNocStatus, 60000);
                 <input class="field-input" id="f-org" placeholder="Institut XYZ">
               </div>
               <div>
-                <label class="field-label">Tlphone client</label>
+                <label class="field-label">Téléphone client</label>
                 <input class="field-input" id="f-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -1270,7 +1270,7 @@ setInterval(loadNocStatus, 60000);
         </div>
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title"> Logs de scurit</div>
+            <div class="panel-title"> Logs de sécurité</div>
             <button class="refresh-btn" onclick="loadSecurityLogs()"> Actualiser</button>
           </div>
           <div class="panel-body">
@@ -1283,7 +1283,7 @@ setInterval(loadNocStatus, 60000);
       </div>
       <div class="section" id="section-admins">
         <div class="panel" style="padding:28px;margin-bottom:20px;">
-          <div class="panel-header"><div class="panel-title"> Administrateurs autoriss</div></div>
+          <div class="panel-header"><div class="panel-title"> Administrateurs autorisés</div></div>
           <div class="panel-body" style="padding:24px;">
             <div class="admins-list" id="admins-list">
               <!-- populated by JS -->
@@ -1422,7 +1422,7 @@ setInterval(loadNocStatus, 60000);
           </div>
           <div class="panel" style="padding:20px;text-align:center;">
             <div style="font-size:28px;font-weight:800;color:var(--blue);" id="ss-total-campaigns"></div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Campagnes envoyes</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Campagnes envoyées</div>
           </div>
           <div class="panel" style="padding:20px;text-align:center;">
             <div style="font-size:28px;font-weight:800;color:var(--orange);" id="ss-total-sms"></div>
@@ -1438,21 +1438,21 @@ setInterval(loadNocStatus, 60000);
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table">
-              <thead><tr><th>Nom</th><th>Email</th><th>Tlphone</th><th>Organisation</th><th>Crdits</th><th>Inscription</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Organisation</th><th>Crédits</th><th>Inscription</th><th>Actions</th></tr></thead>
               <tbody id="ss-users-table"><tr><td colspan="7" style="text-align:center;color:var(--muted);">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
 
-        <!-- Campagnes rcentes -->
+        <!-- Campagnes récentes -->
         <div class="panel" style="padding:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="panel-title"> Campagnes rcentes</div>
+            <div class="panel-title"> Campagnes récentes</div>
             <button onclick="loadSenSmsCampaigns()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;"> Actualiser</button>
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table">
-              <thead><tr><th>Campagne</th><th>Expditeur</th><th>Total</th><th>Envoys</th><th>checs</th><th>Statut</th><th>Date</th><th>PDF</th></tr></thead>
+              <thead><tr><th>Campagne</th><th>Expéditeur</th><th>Total</th><th>Envoyés</th><th>Échecs</th><th>Statut</th><th>Date</th><th>PDF</th></tr></thead>
               <tbody id="ss-campaigns-table"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Chargement...</td></tr></tbody>
             </table>
           </div>
@@ -1513,7 +1513,7 @@ function doLogin() {
   const pw = document.getElementById('login-pw').value.trim();
   const admin = adminList.find(a => a.email.toLowerCase() === email);
   const errEl = document.getElementById('login-err');
-  if (!admin) { errEl.style.display='block'; errEl.textContent='Email non autoris.'; return; }
+  if (!admin) { errEl.style.display='block'; errEl.textContent='Email non autorisé.'; return; }
   // password check via API
   fetch(API + '/api/admin/login', {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -1561,7 +1561,7 @@ function refreshAll() {
   loadUsers();
   loadSmsUsers();
   loadActivity();
-  document.getElementById('last-update').textContent = 'Mis  jour ' + new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('last-update').textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr-FR');
 }
 
 //  STATS 
@@ -1791,7 +1791,7 @@ async function addUserManual() {
   const telephone = document.getElementById('add-tel').value.trim();
   const forfait = document.getElementById('add-forfait').value;
   const statut = document.getElementById('add-statut').value;
-  if (!nom || !telephone) { showToast('Nom et tlphone requis', 'error'); return; }
+  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
   try {
     const res = await fetch(API + '/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1822,7 +1822,7 @@ async function addSmsUserManual() {
   const telephone = document.getElementById('sms-tel').value.trim();
   const points = parseInt(document.getElementById('sms-points').value) || 5;
   const statut = document.getElementById('sms-statut').value;
-  if (!nom || !telephone) { showToast('Nom et tlphone requis', 'error'); return; }
+  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
   try {
     const res = await fetch(API + '/api/sms/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2074,7 +2074,7 @@ async function deletePayment(id) {
 const SECTION_TITLES = {
   dashboard:'Vue gnrale', activity:'Activit temps rel', users:'Abonns',
   'sms-logs':'SMS Verif', calls:'Appels', payments:'Paiements', revenue:'Revenus',
-  'sms-marketing':'SMS Marketing', admins:'Grer les admins', content:'diteur de contenu'
+  'sms-marketing':'SMS Marketing', admins:'Gérer les admins', content:'diteur de contenu'
 , 'sensms': ' SenSMS'};
 
 function showSection(id) {
@@ -2228,20 +2228,20 @@ async function loadRecharges() {
 }
 
 //  RFRENCES WAVE 
-async function autoriserRef() {
+async function autoriséerRef() {
   const ref = document.getElementById('ref-wave').value.trim();
   const tel = document.getElementById('ref-tel').value.trim();
   const montant = document.getElementById('ref-montant').value;
   const notes = document.getElementById('ref-notes').value.trim();
   if(!ref) { showToast('Rfrence requise', 'error'); return; }
   try {
-    const res = await fetch(API + '/api/sms-marketing/autoriser-ref', {
+    const res = await fetch(API + '/api/sms-marketing/autoriséer-ref', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ reference: ref, telephone: tel, montant, notes })
     });
     const data = await res.json();
     if(data.success) {
-      showToast(' Rfrence autorise  le client peut maintenant l\'utiliser', 'success');
+      showToast(' Rfrence autorisée  le client peut maintenant l\'utiliser', 'success');
       document.getElementById('ref-wave').value = '';
       document.getElementById('ref-tel').value = '';
       document.getElementById('ref-montant').value = '';
@@ -2288,7 +2288,7 @@ async function genererCode() {
   const notes = document.getElementById('code-notes').value.trim();
   const smsMap = { starter:100, pro:1000, business:5000, ecole:10000 };
 
-  if(!tel) { showToast('Tlphone requis', 'error'); return; }
+  if(!tel) { showToast('Téléphone requis', 'error'); return; }
 
   try {
     const res = await fetch(API + '/api/sms-marketing/generate-code', {
@@ -2352,9 +2352,9 @@ async function loadSmsMktStats() {
     const res = await fetch(API + '/api/sms-marketing/stats');
     const d = await res.json();
     document.getElementById('smsm-campagnes').textContent = d.totalCampagnes || 0;
-    document.getElementById('smsm-envoyes').textContent = (d.totalEnvoyes||0).toLocaleString('fr-FR');
-    document.getElementById('smsm-echecs').textContent = d.totalEchecs || 0;
-    const taux = d.totalEnvoyes > 0 ? Math.round(d.totalEnvoyes/(d.totalEnvoyes+d.totalEchecs)*100) : 0;
+    document.getElementById('smsm-envoyées').textContent = (d.totalEnvoyées||0).toLocaleString('fr-FR');
+    document.getElementById('smsm-eÉchecs').textContent = d.totalEÉchecs || 0;
+    const taux = d.totalEnvoyées > 0 ? Math.round(d.totalEnvoyées/(d.totalEnvoyées+d.totalEÉchecs)*100) : 0;
     document.getElementById('smsm-taux').textContent = taux + '%';
 
     // Campagnes
@@ -2377,8 +2377,8 @@ async function loadSmsMktStats() {
         <td><strong>${c.campagne||''}</strong></td>
         <td><span class="mono">${c.sender||'PST-Telecom'}</span></td>
         <td>${c.total||0}</td>
-        <td><strong style="color:var(--green)">${c.envoyes||0}</strong></td>
-        <td style="color:var(--red)">${c.echecs||0}</td>
+        <td><strong style="color:var(--green)">${c.envoyées||0}</strong></td>
+        <td style="color:var(--red)">${c.eÉchecs||0}</td>
         <td>${statBadge}</td>
       </tr>`;
     }).join('');
@@ -2594,10 +2594,10 @@ function loadSenSmsUsers() {
             '<td>' + (u.email || '') + '</td>' +
             '<td>' + (u.telephone || '') + '</td>' +
             '<td>' + (u.organisation || '') + '</td>' +
-            '<td><span style="color:var(--green);font-weight:700;">' + (u.credits || 0) + '</span></td>' +
+            '<td><span style="color:var(--green);font-weight:700;">' + (u.crédits || 0) + '</span></td>' +
             '<td style="font-size:11px;">' + date + '</td>' +
             '<td>' +
-              '<button onclick="addSenSmsCredits(\'' + (u._id || u.id) + '\',\'' + (u.email||'') + '\')" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">+ Crdits</button>' +
+              '<button onclick="addSenSmsCredits(\'' + (u._id || u.id) + '\',\'' + (u.email||'') + '\')" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">+ Crédits</button>' +
               '<button onclick="deleteSenSmsUser(\'' + (u._id || u.id) + '\')" style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.2);color:var(--red);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;"></button>' +
             '</td>' +
           '</tr>';
@@ -2623,7 +2623,7 @@ function loadSenSmsCampaigns() {
       document.getElementById('ss-total-sms').textContent = totalSms;
       var html = '';
       if (!camps.length) {
-        html = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Aucune campagne pour linstant</td></tr>';
+        html = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Aucune campagne pour l'instant</td></tr>';
       } else {
         camps.forEach(function(c, i) {
           var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '';
@@ -2635,8 +2635,8 @@ function loadSenSmsCampaigns() {
             '<td><strong>' + (c.campagne || '') + '</strong></td>' +
             '<td>' + (c.sender || '') + '</td>' +
             '<td>' + (c.total || 0) + '</td>' +
-            '<td style="color:var(--green);">' + (c.envoyes || 0) + '</td>' +
-            '<td style="color:var(--red);">' + (c.echecs || 0) + '</td>' +
+            '<td style="color:var(--green);">' + (c.envoyées || 0) + '</td>' +
+            '<td style="color:var(--red);">' + (c.eÉchecs || 0) + '</td>' +
             '<td>' + statut + '</td>' +
             '<td style="font-size:11px;">' + date + '</td>' +
             '<td><button onclick="genererPDFCampagne(' + i + ')" style="background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);color:#2196F3;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;"> PDF</button></td>' +
@@ -2655,7 +2655,7 @@ function genererPDFCampagne(index) {
   if (!c) return;
   var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '';
   var statut = c.statut === 'success' ? 'Succs' : c.statut === 'failed' ? 'chec' : c.statut || '';
-  var taux = c.total ? Math.round((c.envoyes || 0) / c.total * 100) : 0;
+  var taux = c.total ? Math.round((c.envoyées || 0) / c.total * 100) : 0;
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport - ' + (c.campagne||'SMS') + '</title><style>' +
     'body{font-family:Arial,sans-serif;padding:40px;color:#1C1917;margin:0;}' +
     '.header{background:#1C1917;color:#fff;padding:24px 32px;border-radius:12px;margin-bottom:32px;display:flex;align-items:center;gap:16px;}' +
@@ -2673,13 +2673,13 @@ function genererPDFCampagne(index) {
     '<div class="header"><div class="logo">S</div><div><div style="font-size:20px;font-weight:700;">Rapport de Campagne SMS</div><div style="opacity:0.7;font-size:13px;margin-top:4px;">SenSMS  sensms.com</div></div></div>' +
     '<div class="stats">' +
     '<div class="stat"><div class="stat-val">' + (c.total||0) + '</div><div class="stat-label">Total</div></div>' +
-    '<div class="stat"><div class="stat-val" style="color:#00C853;">' + (c.envoyes||0) + '</div><div class="stat-label">Envoys</div></div>' +
-    '<div class="stat"><div class="stat-val" style="color:#f44336;">' + (c.echecs||0) + '</div><div class="stat-label">checs</div></div>' +
+    '<div class="stat"><div class="stat-val" style="color:#00C853;">' + (c.envoyées||0) + '</div><div class="stat-label">Envoyés</div></div>' +
+    '<div class="stat"><div class="stat-val" style="color:#f44336;">' + (c.eÉchecs||0) + '</div><div class="stat-label">Échecs</div></div>' +
     '<div class="stat"><div class="stat-val">' + taux + '%</div><div class="stat-label">Succs</div></div>' +
     '</div>' +
     '<div class="section"><h3>Informations de la campagne</h3>' +
     '<div class="row"><span>Nom</span><strong>' + (c.campagne||'') + '</strong></div>' +
-    '<div class="row"><span>Expditeur</span><strong>' + (c.sender||'') + '</strong></div>' +
+    '<div class="row"><span>Expéditeur</span><strong>' + (c.sender||'') + '</strong></div>' +
     '<div class="row"><span>Statut</span><strong>' + statut + '</strong></div>' +
     '<div class="row"><span>Date envoi</span><strong>' + date + '</strong></div>' +
     '<div class="row"><span>Compte</span><strong>' + (c.userId||'') + '</strong></div>' +
@@ -2695,10 +2695,10 @@ function genererPDFCampagne(index) {
 function addSenSmsCredits(userId, email) {
   var n = prompt('Nombre de crdits SMS  ajouter pour ' + email + ' :');
   if (!n || isNaN(n) || parseInt(n) <= 0) return;
-  fetch(API + '/api/sen-sms/admin/credits', {
+  fetch(API + '/api/sen-sms/admin/crédits', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
-    body: JSON.stringify({ userId: userId, credits: parseInt(n) })
+    body: JSON.stringify({ userId: userId, crédits: parseInt(n) })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
