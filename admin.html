@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -246,17 +246,17 @@ textarea.field-input { resize:vertical; min-height:80px; }
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">P<span>S</span>T</div>
-    <p class="login-sub">Panneau d'administration sécurisé</p>
-    <div class="login-badge">🔐 Accès réservé aux super-admins et admins autorisés</div>
+    <p class="login-sub">Panneau d'administration sÃ©curisÃ©</p>
+    <div class="login-badge">ðŸ” AccÃ¨s rÃ©servÃ© aux super-admins et admins autorisÃ©s</div>
     <label class="login-label">Adresse email</label>
     <input class="login-input" type="email" id="login-email" placeholder="votre@email.com" onkeydown="if(event.key==='Enter')doLogin()">
     <label class="login-label">Mot de passe admin</label>
     <div style="position:relative;">
-      <input class="login-input" type="password" id="login-pw" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:46px;width:100%;box-sizing:border-box;">
-      <button type="button" onclick="togglePwVis()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:20px;opacity:0.6;" id="pw-eye">👁️</button>
+      <input class="login-input" type="password" id="login-pw" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:46px;width:100%;box-sizing:border-box;">
+      <button type="button" onclick="togglePwVis()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:20px;opacity:0.6;" id="pw-eye">ðŸ‘ï¸</button>
     </div>
-    <button class="login-btn" onclick="doLogin()">Accéder au panneau 📊</button>
-    <p class="login-error" id="login-err">Email non autorisé ou mot de passe incorrect.</p>
+    <button class="login-btn" onclick="doLogin()">AccÃ©der au panneau ðŸ“Š</button>
+    <p class="login-error" id="login-err">Email non autorisÃ© ou mot de passe incorrect.</p>
   </div>
 </div>
 
@@ -272,83 +272,83 @@ textarea.field-input { resize:vertical; min-height:80px; }
     <nav class="sidebar-nav">
       <div class="nav-group-label">Tableau de bord</div>
       <button class="nav-item active" onclick="showSection('dashboard')" id="nav-dashboard">
-        <span class="nav-icon">📈</span> Vue générale
+        <span class="nav-icon">ðŸ“ˆ</span> Vue gÃ©nÃ©rale
       </button>
       <button class="nav-item" onclick="showSection('activity')" id="nav-activity">
-        <span class="nav-icon">⚡</span> Activité temps réel
+        <span class="nav-icon">âš¡</span> ActivitÃ© temps rÃ©el
         <span class="nav-badge" id="activity-badge" style="display:none">0</span>
       </button>
 
       <div class="nav-group-label">Gestion</div>
       <button class="nav-item" onclick="showSection('users')" id="nav-users">
-        <span class="nav-icon">👥</span> Abonnés
+        <span class="nav-icon">ðŸ‘¥</span> AbonnÃ©s
       </button>
       <button class="nav-item" onclick="showSection('sms-logs')" id="nav-sms-logs">
-        <span class="nav-icon">✅</span> SMS Verif
+        <span class="nav-icon">âœ…</span> SMS Verif
       </button>
       <button class="nav-item" onclick="showSection('calls')" id="nav-calls">
-        <span class="nav-icon">🚫</span> Appels
+        <span class="nav-icon">ðŸš«</span> Appels
       </button>
       <button class="nav-item" onclick="showSection('payments')" id="nav-payments">
-        <span class="nav-icon">💳</span> Paiements
+        <span class="nav-icon">ðŸ’³</span> Paiements
       </button>
       <button class="nav-item" onclick="showSection('revenue')" id="nav-revenue">
-        <span class="nav-icon">💰</span> Revenus
+        <span class="nav-icon">ðŸ’°</span> Revenus
       </button>
       <button class="nav-item" onclick="showSection('sms-marketing')" id="nav-sms-marketing">
-        <span class="nav-icon">📱</span> SMS Marketing
+        <span class="nav-icon">ðŸ“±</span> SMS Marketing
       </button>
       <button class="nav-item" onclick="showSection('recharge')" id="nav-recharge">
-        <span class="nav-icon">⚡</span> Recharges
+        <span class="nav-icon">âš¡</span> Recharges
       </button>
       <button class="nav-item" onclick="showSection('securite')" id="nav-securite">
-        <span class="nav-icon">🔐</span> Sécurité
+        <span class="nav-icon">ðŸ”</span> SÃ©curitÃ©
       </button>
       <button class="nav-item" onclick="showSection('factures')" id="nav-factures">
-        <span class="nav-icon">🧾</span> Factures
+        <span class="nav-icon">ðŸ§¾</span> Factures
       </button>
       <button class="nav-item" onclick="showSection('sensms')" id="nav-sensms">
-        <span class="nav-icon">💬</span> SenSMS
+        <span class="nav-icon">ðŸ’¬</span> SenSMS
         <span id="sensms-badge" style="display:none;background:#00C853;color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;margin-left:6px;">NEW</span>
       </button>
       <button class="nav-item" onclick="showSection('noc-clients')" id="nav-noc-clients">
-        <span class="nav-icon">📷</span> NOC Clients
+        <span class="nav-icon">ðŸ“·</span> NOC Clients
       </button>
 
       <div class="nav-group-label" id="super-only-label">Super Admin</div>
         <div class="nav-item" onclick="window.open('/crypto-admin','_blank')" style="background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.3)">
-          <span style="font-size:18px">⚡</span>
+          <span style="font-size:18px">âš¡</span>
           <span>Crypto Payments</span>
         </div>
       <button class="nav-item" onclick="showSection('admins')" id="nav-admins" style="display:none">
-        <span class="nav-icon">👑</span> Gérer les admins
+        <span class="nav-icon">ðŸ‘‘</span> GÃ©rer les admins
       </button>
       <button class="nav-item" onclick="showSection('content')" id="nav-content" style="display:none">
-        <span class="nav-icon">✅</span> Contenu du site
+        <span class="nav-icon">âœ…</span> Contenu du site
       </button>
     </nav>
     <div class="sidebar-footer">
       <div class="admin-user">
-        <div class="admin-avatar" id="sidebar-avatar">👤</div>
+        <div class="admin-avatar" id="sidebar-avatar">ðŸ‘¤</div>
         <div class="admin-info">
-          <div class="name" id="sidebar-name">—</div>
-          <div class="email" id="sidebar-email">—</div>
+          <div class="name" id="sidebar-name">â€”</div>
+          <div class="email" id="sidebar-email">â€”</div>
         </div>
       </div>
-      <button class="logout-btn" onclick="logout()">🚪 
-<div class="nav-item" onclick="window.open('/securcam-admin?token=Pstdiama@1','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">📷</span> PST SecurCam 📷</div>
-Déconnexion</button>
+      <button class="logout-btn" onclick="logout()">ðŸšª 
+<div class="nav-item" onclick="window.open('/securcam-admin?token=Pstdiama@1','_blank')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;margin:4px 12px;color:#06B6D4;font-weight:600;"><span class="nav-icon">ðŸ“·</span> PST SecurCam ðŸ“·</div>
+DÃ©connexion</button>
     </div>
   </aside>
 
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
-      <div class="page-title" id="page-title">Vue générale</div>
+      <div class="page-title" id="page-title">Vue gÃ©nÃ©rale</div>
       <div class="topbar-right">
         <div class="live-dot">En direct</div>
-        <button class="refresh-btn" onclick="refreshAll()">🔃 Actualiser</button>
-        <div style="font-size:12px;color:var(--muted)" id="last-update">—</div>
+        <button class="refresh-btn" onclick="refreshAll()">ðŸ”ƒ Actualiser</button>
+        <div style="font-size:12px;color:var(--muted)" id="last-update">â€”</div>
       </div>
     </div>
 
@@ -529,32 +529,32 @@ setInterval(loadNocStatus, 60000);
       <div class="section active" id="section-dashboard">
         <div class="kpi-grid">
           <div class="kpi green">
-            <div class="kpi-label">Abonnés actifs</div>
-            <div class="kpi-val green" id="kpi-actifs">—</div>
+            <div class="kpi-label">AbonnÃ©s actifs</div>
+            <div class="kpi-val green" id="kpi-actifs">â€”</div>
             <div class="kpi-sub" id="kpi-actifs-sub">chargement...</div>
           </div>
           <div class="kpi orange">
             <div class="kpi-label">En attente</div>
-            <div class="kpi-val orange" id="kpi-pending">—</div>
-            <div class="kpi-sub">paiement non confirmé</div>
+            <div class="kpi-val orange" id="kpi-pending">â€”</div>
+            <div class="kpi-sub">paiement non confirmÃ©</div>
           </div>
           <div class="kpi blue">
             <div class="kpi-label">Revenus totaux</div>
-            <div class="kpi-val blue" id="kpi-revenus">—</div>
-            <div class="kpi-sub">FCFA cumulés</div>
+            <div class="kpi-val blue" id="kpi-revenus">â€”</div>
+            <div class="kpi-sub">FCFA cumulÃ©s</div>
           </div>
           <div class="kpi red">
             <div class="kpi-label">SMS Verif vendus</div>
-            <div class="kpi-val red" id="kpi-sms">—</div>
-            <div class="kpi-sub">points utilisés</div>
+            <div class="kpi-val red" id="kpi-sms">â€”</div>
+            <div class="kpi-sub">points utilisÃ©s</div>
           </div>
         </div>
 
         <div class="panels">
           <div class="panel">
             <div class="panel-header">
-              <div class="panel-title">Derniers abonnés</div>
-              <button class="refresh-btn" onclick="loadUsers()">🔃</button>
+              <div class="panel-title">Derniers abonnÃ©s</div>
+              <button class="refresh-btn" onclick="loadUsers()">ðŸ”ƒ</button>
             </div>
             <div class="panel-body">
               <table class="data-table">
@@ -565,12 +565,12 @@ setInterval(loadNocStatus, 60000);
           </div>
           <div class="panel">
             <div class="panel-header">
-              <div class="panel-title">Activité récente</div>
-              <span style="font-size:11px;color:var(--green)">🟢 live</span>
+              <div class="panel-title">ActivitÃ© rÃ©cente</div>
+              <span style="font-size:11px;color:var(--green)">ðŸŸ¢ live</span>
             </div>
             <div class="panel-body">
               <div class="activity-feed" id="activity-feed">
-                <div class="empty"><div class="empty-icon">⚡</div><p>En attente d'activité...</p></div>
+                <div class="empty"><div class="empty-icon">âš¡</div><p>En attente d'activitÃ©...</p></div>
               </div>
             </div>
           </div>
@@ -581,12 +581,12 @@ setInterval(loadNocStatus, 60000);
       <div class="section" id="section-activity">
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">⚡ Flux d'activité en temps réel</div>
-            <button class="refresh-btn" onclick="loadActivity()">🔃 Actualiser</button>
+            <div class="panel-title">âš¡ Flux d'activitÃ© en temps rÃ©el</div>
+            <button class="refresh-btn" onclick="loadActivity()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:600px;">
             <div class="activity-feed" id="activity-feed-full">
-              <div class="empty"><div class="empty-icon">⚡</div><p>Aucune activité enregistrée</p></div>
+              <div class="empty"><div class="empty-icon">âš¡</div><p>Aucune activitÃ© enregistrÃ©e</p></div>
             </div>
           </div>
         </div>
@@ -598,40 +598,40 @@ setInterval(loadNocStatus, 60000);
         <!-- AJOUT MANUEL -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">➕ Ajouter un abonné manuellement</div>
+            <div class="panel-title">âž• Ajouter un abonnÃ© manuellement</div>
             <button class="refresh-btn" onclick="toggleAddForm('appel')">+ Forfait appels</button>
           </div>
           <div id="add-appel-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
               <div>
                 <label class="field-label">Nom *</label>
-                <input class="field-input" id="add-nom" placeholder="Touré">
+                <input class="field-input" id="add-nom" placeholder="TourÃ©">
               </div>
               <div>
-                <label class="field-label">Prénom</label>
+                <label class="field-label">PrÃ©nom</label>
                 <input class="field-input" id="add-prenom" placeholder="Papa Seny">
               </div>
               <div>
-                <label class="field-label">Téléphone *</label>
+                <label class="field-label">TÃ©lÃ©phone *</label>
                 <input class="field-input" id="add-tel" placeholder="+221771234567">
               </div>
               <div>
                 <label class="field-label">Forfait *</label>
                 <select class="field-input" id="add-forfait">
-                  <option value="starter">Starter — 200 min — 2 990 FCFA</option>
-                  <option value="smart" selected>Smart — 300 min — 5 990 FCFA</option>
-                  <option value="business">Business — Illimité — 15 990 FCFA</option>
+                  <option value="starter">Starter â€” 200 min â€” 2 990 FCFA</option>
+                  <option value="smart" selected>Smart â€” 300 min â€” 5 990 FCFA</option>
+                  <option value="business">Business â€” IllimitÃ© â€” 15 990 FCFA</option>
                 </select>
               </div>
             </div>
             <div style="display:flex;gap:12px;margin-top:16px;align-items:center;">
               <select class="field-input" id="add-statut" style="width:180px;">
                 <option value="en_attente">En attente de paiement</option>
-                <option value="actif">Actif (paiement confirmé)</option>
+                <option value="actif">Actif (paiement confirmÃ©)</option>
               </select>
-              <button class="save-btn" onclick="addUserManual()">✅ Créer l'abonné</button>
+              <button class="save-btn" onclick="addUserManual()">âœ… CrÃ©er l'abonnÃ©</button>
               <div id="add-wave-link" style="display:none;">
-                Lien Wave : <a id="add-wave-url" href="#" target="_blank" style="color:var(--green);font-weight:700;">Copier 📊</a>
+                Lien Wave : <a id="add-wave-url" href="#" target="_blank" style="color:var(--green);font-weight:700;">Copier ðŸ“Š</a>
               </div>
             </div>
           </div>
@@ -639,15 +639,15 @@ setInterval(loadNocStatus, 60000);
 
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">👥 Tous les abonnés</div>
+            <div class="panel-title">ðŸ‘¥ Tous les abonnÃ©s</div>
             <div style="display:flex;gap:10px;">
               <input id="search-users" placeholder="Rechercher..." style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:#fff;font-size:13px;outline:none;width:200px;" oninput="filterUsers()">
-              <button class="refresh-btn" onclick="loadUsers()">🔃</button>
+              <button class="refresh-btn" onclick="loadUsers()">ðŸ”ƒ</button>
             </div>
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Forfait</th><th>Minutes</th><th>Statut</th><th>Actions</th></tr></thead>
+              <thead><tr><th>ID</th><th>Nom</th><th>TÃ©lÃ©phone</th><th>Forfait</th><th>Minutes</th><th>Statut</th><th>Actions</th></tr></thead>
               <tbody id="users-table"></tbody>
             </table>
           </div>
@@ -660,21 +660,21 @@ setInterval(loadNocStatus, 60000);
         <!-- AJOUT MANUEL SMS -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">➕ Ajouter un utilisateur SMS manuellement</div>
+            <div class="panel-title">âž• Ajouter un utilisateur SMS manuellement</div>
             <button class="refresh-btn" onclick="toggleAddForm('sms')">+ Compte SMS</button>
           </div>
           <div id="add-sms-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
               <div>
                 <label class="field-label">Nom *</label>
-                <input class="field-input" id="sms-nom" placeholder="Touré">
+                <input class="field-input" id="sms-nom" placeholder="TourÃ©">
               </div>
               <div>
-                <label class="field-label">Prénom</label>
+                <label class="field-label">PrÃ©nom</label>
                 <input class="field-input" id="sms-prenom" placeholder="Papa Seny">
               </div>
               <div>
-                <label class="field-label">Téléphone *</label>
+                <label class="field-label">TÃ©lÃ©phone *</label>
                 <input class="field-input" id="sms-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -687,19 +687,19 @@ setInterval(loadNocStatus, 60000);
                 <option value="en_attente">En attente de paiement</option>
                 <option value="actif">Actif (points offerts)</option>
               </select>
-              <button class="save-btn" onclick="addSmsUserManual()">✅ Créer le compte SMS</button>
+              <button class="save-btn" onclick="addSmsUserManual()">âœ… CrÃ©er le compte SMS</button>
             </div>
           </div>
         </div>
 
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">✅ Utilisateurs SMS Verif</div>
-            <button class="refresh-btn" onclick="loadSmsUsers()">🔃</button>
+            <div class="panel-title">âœ… Utilisateurs SMS Verif</div>
+            <button class="refresh-btn" onclick="loadSmsUsers()">ðŸ”ƒ</button>
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Points</th><th>Points utilisés</th><th>Statut</th></tr></thead>
+              <thead><tr><th>ID</th><th>Nom</th><th>TÃ©lÃ©phone</th><th>Points</th><th>Points utilisÃ©s</th><th>Statut</th></tr></thead>
               <tbody id="sms-table"></tbody>
             </table>
           </div>
@@ -710,13 +710,13 @@ setInterval(loadNocStatus, 60000);
       <div class="section" id="section-calls">
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">🚫 Historique des appels</div>
-            <button class="refresh-btn" onclick="loadCalls()">🔃</button>
+            <div class="panel-title">ðŸš« Historique des appels</div>
+            <button class="refresh-btn" onclick="loadCalls()">ðŸ”ƒ</button>
           </div>
           <div class="panel-body" style="max-height:600px;">
             <table class="data-table">
-              <thead><tr><th>Heure</th><th>Appelant</th><th>Destination</th><th>Durée</th><th>Statut</th></tr></thead>
-              <tbody id="calls-table"><tr><td colspan="5" class="empty"><div class="empty-icon">🚫</div><p>Aucun appel enregistré</p></td></tr></tbody>
+              <thead><tr><th>Heure</th><th>Appelant</th><th>Destination</th><th>DurÃ©e</th><th>Statut</th></tr></thead>
+              <tbody id="calls-table"><tr><td colspan="5" class="empty"><div class="empty-icon">ðŸš«</div><p>Aucun appel enregistrÃ©</p></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -728,13 +728,13 @@ setInterval(loadNocStatus, 60000);
         <!-- AJOUTER PAIEMENT MANUEL -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">➕ Enregistrer un paiement manuel</div>
+            <div class="panel-title">âž• Enregistrer un paiement manuel</div>
             <button class="refresh-btn" onclick="togglePayForm()">+ Nouveau paiement</button>
           </div>
           <div id="pay-form" style="display:none;padding:24px;border-top:1px solid var(--border);">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
               <div>
-                <label class="field-label">ID Abonné *</label>
+                <label class="field-label">ID AbonnÃ© *</label>
                 <input class="field-input" id="pay-userid" placeholder="PST-XXXXXXXX">
               </div>
               <div>
@@ -746,7 +746,7 @@ setInterval(loadNocStatus, 60000);
                 <select class="field-input" id="pay-moyen">
                   <option value="wave">Wave</option>
                   <option value="orange_money">Orange Money</option>
-                  <option value="especes">Espèces</option>
+                  <option value="especes">EspÃ¨ces</option>
                   <option value="carte">Carte bancaire</option>
                   <option value="autre">Autre</option>
                 </select>
@@ -761,12 +761,12 @@ setInterval(loadNocStatus, 60000);
               </div>
             </div>
             <div style="display:flex;gap:12px;margin-top:16px;align-items:center;">
-              <input class="field-input" id="pay-ref" placeholder="Référence / Note (optionnel)" style="flex:1;">
+              <input class="field-input" id="pay-ref" placeholder="RÃ©fÃ©rence / Note (optionnel)" style="flex:1;">
               <select class="field-input" id="pay-statut" style="width:180px;">
-                <option value="confirme">Confirmé ✅</option>
-                <option value="en_attente">En attente 🔒</option>
+                <option value="confirme">ConfirmÃ© âœ…</option>
+                <option value="en_attente">En attente ðŸ”’</option>
               </select>
-              <button class="save-btn" onclick="addPayment()">💳 Enregistrer</button>
+              <button class="save-btn" onclick="addPayment()">ðŸ’³ Enregistrer</button>
             </div>
           </div>
         </div>
@@ -774,14 +774,14 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE PAIEMENTS -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">💳 Tous les paiements</div>
+            <div class="panel-title">ðŸ’³ Tous les paiements</div>
             <div style="display:flex;gap:10px;">
               <select id="pay-filter" class="field-input" style="width:160px;padding:7px 12px;font-size:13px;" onchange="filterPayments()">
                 <option value="tous">Tous</option>
-                <option value="confirme">Confirmés</option>
+                <option value="confirme">ConfirmÃ©s</option>
                 <option value="en_attente">En attente</option>
               </select>
-              <button class="refresh-btn" onclick="loadPayments()">🔃</button>
+              <button class="refresh-btn" onclick="loadPayments()">ðŸ”ƒ</button>
             </div>
           </div>
           <div class="panel-body" style="max-height:600px;">
@@ -789,11 +789,11 @@ setInterval(loadNocStatus, 60000);
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>ID Abonné</th>
+                  <th>ID AbonnÃ©</th>
                   <th>Montant</th>
                   <th>Moyen</th>
                   <th>Type</th>
-                  <th>Référence</th>
+                  <th>RÃ©fÃ©rence</th>
                   <th>Statut</th>
                   <th>Actions</th>
                 </tr>
@@ -811,25 +811,25 @@ setInterval(loadNocStatus, 60000);
         <div class="rev-grid">
           <div class="rev-card">
             <div class="rev-label">Revenus forfaits</div>
-            <div class="rev-val" id="rev-forfaits">—</div>
+            <div class="rev-val" id="rev-forfaits">â€”</div>
             <div class="rev-sub">FCFA via Wave</div>
           </div>
           <div class="rev-card">
             <div class="rev-label">Revenus SMS</div>
-            <div class="rev-val" id="rev-sms">—</div>
+            <div class="rev-val" id="rev-sms">â€”</div>
             <div class="rev-sub">FCFA points vendus</div>
           </div>
           <div class="rev-card">
-            <div class="rev-label">Total cumulé</div>
-            <div class="rev-val" id="rev-total">—</div>
+            <div class="rev-label">Total cumulÃ©</div>
+            <div class="rev-val" id="rev-total">â€”</div>
             <div class="rev-sub">FCFA depuis le lancement</div>
           </div>
         </div>
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">Détail par forfait</div></div>
+          <div class="panel-header"><div class="panel-title">DÃ©tail par forfait</div></div>
           <div class="panel-body">
             <table class="data-table">
-              <thead><tr><th>Forfait</th><th>Abonnés</th><th>Revenus</th></tr></thead>
+              <thead><tr><th>Forfait</th><th>AbonnÃ©s</th><th>Revenus</th></tr></thead>
               <tbody id="rev-detail"></tbody>
             </table>
           </div>
@@ -841,24 +841,24 @@ setInterval(loadNocStatus, 60000);
         <!-- KPIs -->
         <div class="kpi-grid" style="margin-bottom:20px;">
           <div class="kpi green">
-            <div class="kpi-label">Campagnes lancées</div>
-            <div class="kpi-val green" id="smsm-campagnes">—</div>
+            <div class="kpi-label">Campagnes lancÃ©es</div>
+            <div class="kpi-val green" id="smsm-campagnes">â€”</div>
             <div class="kpi-sub">total</div>
           </div>
           <div class="kpi blue">
-            <div class="kpi-label">SMS envoyés</div>
-            <div class="kpi-val blue" id="smsm-envoyes">—</div>
+            <div class="kpi-label">SMS envoyÃ©s</div>
+            <div class="kpi-val blue" id="smsm-envoyes">â€”</div>
             <div class="kpi-sub">tous canaux</div>
           </div>
           <div class="kpi orange">
-            <div class="kpi-label">Taux de succès</div>
-            <div class="kpi-val orange" id="smsm-taux">—</div>
+            <div class="kpi-label">Taux de succÃ¨s</div>
+            <div class="kpi-val orange" id="smsm-taux">â€”</div>
             <div class="kpi-sub">livraison</div>
           </div>
           <div class="kpi red">
-            <div class="kpi-label">Échecs</div>
-            <div class="kpi-val red" id="smsm-echecs">—</div>
-            <div class="kpi-sub">non livrés</div>
+            <div class="kpi-label">Ã‰checs</div>
+            <div class="kpi-val red" id="smsm-echecs">â€”</div>
+            <div class="kpi-sub">non livrÃ©s</div>
           </div>
         </div>
 
@@ -866,59 +866,59 @@ setInterval(loadNocStatus, 60000);
         <div class="panel" style="margin-bottom:20px;padding:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
             <div>
-              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">📱 Plateforme SMS Marketing</div>
-              <div style="font-size:13px;color:var(--muted);">Envoyez des SMS en masse — import Excel, personnalisation, planification</div>
+              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">ðŸ“± Plateforme SMS Marketing</div>
+              <div style="font-size:13px;color:var(--muted);">Envoyez des SMS en masse â€” import Excel, personnalisation, planification</div>
             </div>
             <a href="https://www.sensms.com" target="_blank"
                style="background:var(--green);color:#000;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;white-space:nowrap;">
-              🚀 Ouvrir la plateforme 📊
+              ðŸš€ Ouvrir la plateforme ðŸ“Š
             </a>
           </div>
         </div>
 
-        <!-- AUTORISER UNE RÉFÉRENCE WAVE -->
+        <!-- AUTORISER UNE RÃ‰FÃ‰RENCE WAVE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">✅ Autoriser une référence Wave/Visa</div>
+            <div class="panel-title">âœ… Autoriser une rÃ©fÃ©rence Wave/Visa</div>
           </div>
           <div style="padding:24px;">
             <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--muted);">
-              💡 <strong style="color:#fff;">Workflow :</strong> Client paie Wave 📊 tu reçois la notification 📊 tu entres sa référence ici 📊 il peut l'utiliser sur la plateforme
+              ðŸ’¡ <strong style="color:#fff;">Workflow :</strong> Client paie Wave ðŸ“Š tu reÃ§ois la notification ðŸ“Š tu entres sa rÃ©fÃ©rence ici ðŸ“Š il peut l'utiliser sur la plateforme
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
               <div>
-                <label class="field-label">Référence Wave/Visa *</label>
+                <label class="field-label">RÃ©fÃ©rence Wave/Visa *</label>
                 <input class="field-input" id="ref-wave" placeholder="T_PUDLIORG..." style="font-family:'JetBrains Mono',monospace;">
               </div>
               <div>
-                <label class="field-label">Téléphone client</label>
+                <label class="field-label">TÃ©lÃ©phone client</label>
                 <input class="field-input" id="ref-tel" placeholder="+221771234567">
               </div>
               <div>
-                <label class="field-label">Montant reçu (FCFA)</label>
+                <label class="field-label">Montant reÃ§u (FCFA)</label>
                 <input class="field-input" type="number" id="ref-montant" placeholder="8000">
               </div>
               <div>
                 <label class="field-label">Pack / Note</label>
-                <input class="field-input" id="ref-notes" placeholder="Pro — École XYZ">
+                <input class="field-input" id="ref-notes" placeholder="Pro â€” Ã‰cole XYZ">
               </div>
             </div>
-            <button class="save-btn" onclick="autoriserRef()">✅ Autoriser cette référence</button>
+            <button class="save-btn" onclick="autoriserRef()">âœ… Autoriser cette rÃ©fÃ©rence</button>
           </div>
         </div>
 
-        <!-- LISTE RÉFÉRENCES AUTORISÉES -->
+        <!-- LISTE RÃ‰FÃ‰RENCES AUTORISÃ‰ES -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">💡 Références autorisées</div>
-            <button class="refresh-btn" onclick="loadRefs()">🔃 Actualiser</button>
+            <div class="panel-title">ðŸ’¡ RÃ©fÃ©rences autorisÃ©es</div>
+            <button class="refresh-btn" onclick="loadRefs()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:300px;">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Référence</th>
-                  <th>Téléphone</th>
+                  <th>RÃ©fÃ©rence</th>
+                  <th>TÃ©lÃ©phone</th>
                   <th>Montant</th>
                   <th>Note</th>
                   <th>Statut</th>
@@ -933,39 +933,39 @@ setInterval(loadNocStatus, 60000);
           </div>
         </div>
 
-        <!-- GÉNÉRER UN CODE -->
+        <!-- GÃ‰NÃ‰RER UN CODE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">🛡️ Générer un code de validation</div>
+            <div class="panel-title">ðŸ›¡ï¸ GÃ©nÃ©rer un code de validation</div>
           </div>
           <div style="padding:24px;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;margin-bottom:16px;">
               <div>
-                <label class="field-label">Téléphone client</label>
+                <label class="field-label">TÃ©lÃ©phone client</label>
                 <input class="field-input" id="code-tel" placeholder="+221771234567">
               </div>
               <div>
                 <label class="field-label">Pack</label>
                 <select class="field-input" id="code-pack">
-                  <option value="starter">Starter — 100 SMS</option>
-                  <option value="pro" selected>Pro — 1 000 SMS</option>
-                  <option value="business">Business — 5 000 SMS</option>
-                  <option value="ecole">École — 10 000 SMS</option>
+                  <option value="starter">Starter â€” 100 SMS</option>
+                  <option value="pro" selected>Pro â€” 1 000 SMS</option>
+                  <option value="business">Business â€” 5 000 SMS</option>
+                  <option value="ecole">Ã‰cole â€” 10 000 SMS</option>
                 </select>
               </div>
               <div>
-                <label class="field-label">Montant payé (FCFA)</label>
+                <label class="field-label">Montant payÃ© (FCFA)</label>
                 <input class="field-input" type="number" id="code-montant" placeholder="8000">
               </div>
               <div>
                 <label class="field-label">Note (optionnel)</label>
-                <input class="field-input" id="code-notes" placeholder="École XYZ">
+                <input class="field-input" id="code-notes" placeholder="Ã‰cole XYZ">
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:center;">
-              <button class="save-btn" onclick="genererCode()">🛡️ Générer le code</button>
+              <button class="save-btn" onclick="genererCode()">ðŸ›¡ï¸ GÃ©nÃ©rer le code</button>
               <div id="code-result" style="display:none;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:12px 20px;">
-                <span style="font-size:12px;color:var(--muted);">Code généré : </span>
+                <span style="font-size:12px;color:var(--muted);">Code gÃ©nÃ©rÃ© : </span>
                 <strong id="code-value" style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--green);letter-spacing:2px;"></strong>
                 <button onclick="copierCode()" style="margin-left:12px;background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Copier</button>
               </div>
@@ -976,15 +976,15 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE DES CODES -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">💡 Codes générés</div>
-            <button class="refresh-btn" onclick="loadCodes()">🔃 Actualiser</button>
+            <div class="panel-title">ðŸ’¡ Codes gÃ©nÃ©rÃ©s</div>
+            <button class="refresh-btn" onclick="loadCodes()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:300px;">
             <table class="data-table">
               <thead>
                 <tr>
                   <th>Code</th>
-                  <th>Téléphone</th>
+                  <th>TÃ©lÃ©phone</th>
                   <th>Pack</th>
                   <th>Montant</th>
                   <th>Statut</th>
@@ -1002,8 +1002,8 @@ setInterval(loadNocStatus, 60000);
         <!-- HISTORIQUE CAMPAGNES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">📈 Historique des campagnes</div>
-            <button class="refresh-btn" onclick="loadSmsMktStats()">🔃 Actualiser</button>
+            <div class="panel-title">ðŸ“ˆ Historique des campagnes</div>
+            <button class="refresh-btn" onclick="loadSmsMktStats()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body" style="max-height:500px;">
             <table class="data-table">
@@ -1011,10 +1011,10 @@ setInterval(loadNocStatus, 60000);
                 <tr>
                   <th>Date</th>
                   <th>Campagne</th>
-                  <th>Expéditeur</th>
+                  <th>ExpÃ©diteur</th>
                   <th>Total</th>
-                  <th>Envoyés</th>
-                  <th>Échecs</th>
+                  <th>EnvoyÃ©s</th>
+                  <th>Ã‰checs</th>
                   <th>Statut</th>
                 </tr>
               </thead>
@@ -1032,22 +1032,22 @@ setInterval(loadNocStatus, 60000);
         <div class="kpi-grid" style="margin-bottom:20px;">
           <div class="kpi green">
             <div class="kpi-label">Total recharges</div>
-            <div class="kpi-val" id="rch-total">—</div>
+            <div class="kpi-val" id="rch-total">â€”</div>
             <div class="kpi-sub">toutes</div>
           </div>
           <div class="kpi blue">
-            <div class="kpi-label">Réussies</div>
-            <div class="kpi-val" id="rch-success">—</div>
-            <div class="kpi-sub">succès</div>
+            <div class="kpi-label">RÃ©ussies</div>
+            <div class="kpi-val" id="rch-success">â€”</div>
+            <div class="kpi-sub">succÃ¨s</div>
           </div>
           <div class="kpi orange">
             <div class="kpi-label">Volume total</div>
-            <div class="kpi-val" id="rch-montant">—</div>
-            <div class="kpi-sub">FCFA envoyés</div>
+            <div class="kpi-val" id="rch-montant">â€”</div>
+            <div class="kpi-sub">FCFA envoyÃ©s</div>
           </div>
           <div class="kpi red">
-            <div class="kpi-label">Échecs</div>
-            <div class="kpi-val" id="rch-failed">—</div>
+            <div class="kpi-label">Ã‰checs</div>
+            <div class="kpi-val" id="rch-failed">â€”</div>
             <div class="kpi-sub">erreurs</div>
           </div>
         </div>
@@ -1056,12 +1056,12 @@ setInterval(loadNocStatus, 60000);
         <div class="panel" style="margin-bottom:20px;padding:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
             <div>
-              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">⚡ Plateforme Recharge</div>
-              <div style="font-size:13px;color:var(--muted);">Orange, Free, Expresso — paiement Wave ou Visa — 0 frais</div>
+              <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">âš¡ Plateforme Recharge</div>
+              <div style="font-size:13px;color:var(--muted);">Orange, Free, Expresso â€” paiement Wave ou Visa â€” 0 frais</div>
             </div>
-            <a href="https://pst-telecom-production.up.railway.app/recharge" target="_blank"
+            <a href="https://pst-telecom.onrender.com/recharge" target="_blank"
                style="background:var(--green);color:#000;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;white-space:nowrap;">
-              ⚡ Ouvrir la plateforme 📊
+              âš¡ Ouvrir la plateforme ðŸ“Š
             </a>
           </div>
         </div>
@@ -1069,16 +1069,16 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE RECHARGES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">💡 Historique des recharges</div>
-            <button class="refresh-btn" onclick="loadRecharges()">🔃 Actualiser</button>
+            <div class="panel-title">ðŸ’¡ Historique des recharges</div>
+            <button class="refresh-btn" onclick="loadRecharges()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body">
             <table class="data-table">
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Numéro</th>
-                  <th>Opérateur</th>
+                  <th>NumÃ©ro</th>
+                  <th>OpÃ©rateur</th>
                   <th>Montant</th>
                   <th>Client</th>
                   <th>Statut</th>
@@ -1094,23 +1094,23 @@ setInterval(loadNocStatus, 60000);
       <!-- FACTURES -->
       <div class="section" id="section-factures">
 
-        <!-- GÉNÉRER UNE FACTURE -->
+        <!-- GÃ‰NÃ‰RER UNE FACTURE -->
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">🧾 Générer une facture</div>
+            <div class="panel-title">ðŸ§¾ GÃ©nÃ©rer une facture</div>
           </div>
           <div style="padding:24px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
               <div>
                 <label class="field-label">Nom du client *</label>
-                <input class="field-input" id="f-nom" placeholder="École Privée XYZ">
+                <input class="field-input" id="f-nom" placeholder="Ã‰cole PrivÃ©e XYZ">
               </div>
               <div>
                 <label class="field-label">Organisation</label>
                 <input class="field-input" id="f-org" placeholder="Institut XYZ">
               </div>
               <div>
-                <label class="field-label">Téléphone client</label>
+                <label class="field-label">TÃ©lÃ©phone client</label>
                 <input class="field-input" id="f-tel" placeholder="+221771234567">
               </div>
               <div>
@@ -1119,7 +1119,7 @@ setInterval(loadNocStatus, 60000);
               </div>
               <div>
                 <label class="field-label">Description du service *</label>
-                <input class="field-input" id="f-desc" placeholder="Campagne SMS — 1000 contacts">
+                <input class="field-input" id="f-desc" placeholder="Campagne SMS â€” 1000 contacts">
               </div>
               <div>
                 <label class="field-label">Montant (FCFA) *</label>
@@ -1127,12 +1127,12 @@ setInterval(loadNocStatus, 60000);
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <button class="save-btn" onclick="genererFacture(false)">🧾 Générer PDF</button>
-              <button class="save-btn" style="background:var(--blue);" onclick="genererFacture(true)">📧 Générer + Envoyer par email</button>
+              <button class="save-btn" onclick="genererFacture(false)">ðŸ§¾ GÃ©nÃ©rer PDF</button>
+              <button class="save-btn" style="background:var(--blue);" onclick="genererFacture(true)">ðŸ“§ GÃ©nÃ©rer + Envoyer par email</button>
             </div>
             <div id="facture-result" style="display:none;margin-top:16px;background:var(--green-dim);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:14px;">
-              <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">✅ Facture générée !</div>
-              <a id="facture-link" href="#" target="_blank" style="background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📊 Voir / Télécharger la facture</a>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">âœ… Facture gÃ©nÃ©rÃ©e !</div>
+              <a id="facture-link" href="#" target="_blank" style="background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">ðŸ“Š Voir / TÃ©lÃ©charger la facture</a>
             </div>
           </div>
         </div>
@@ -1140,13 +1140,13 @@ setInterval(loadNocStatus, 60000);
         <!-- LISTE FACTURES -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">💡 Historique des factures</div>
-            <button class="refresh-btn" onclick="loadFactures()">🔃 Actualiser</button>
+            <div class="panel-title">ðŸ’¡ Historique des factures</div>
+            <button class="refresh-btn" onclick="loadFactures()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body">
             <table class="data-table">
               <thead>
-                <tr><th>N┬░ Facture</th><th>Client</th><th>Montant</th><th>Date</th><th>Action</th></tr>
+                <tr><th>Nâ”¬â–‘ Facture</th><th>Client</th><th>Montant</th><th>Date</th><th>Action</th></tr>
               </thead>
               <tbody id="factures-table">
                 <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr>
@@ -1248,48 +1248,48 @@ setInterval(loadNocStatus, 60000);
         </div>
       </div>
       <!-- FIN NOC CLIENTS -->
-      <!-- SÉCURITÉ -->
+      <!-- SÃ‰CURITÃ‰ -->
       <div class="section" id="section-securite">
         <div class="kpi-grid" style="margin-bottom:20px;">
-          <div class="kpi green"><div class="kpi-label">Headers HTTP</div><div class="kpi-val">✅</div><div class="kpi-sub">Actifs</div></div>
-          <div class="kpi blue"><div class="kpi-label">Rate Limiting</div><div class="kpi-val">✅</div><div class="kpi-sub">Actif</div></div>
-          <div class="kpi orange"><div class="kpi-label">JWT Auth</div><div class="kpi-val">✅</div><div class="kpi-sub">Actif</div></div>
-          <div class="kpi red"><div class="kpi-label">Backup Auto</div><div class="kpi-val">✅</div><div class="kpi-sub">Toutes les 24h</div></div>
+          <div class="kpi green"><div class="kpi-label">Headers HTTP</div><div class="kpi-val">âœ…</div><div class="kpi-sub">Actifs</div></div>
+          <div class="kpi blue"><div class="kpi-label">Rate Limiting</div><div class="kpi-val">âœ…</div><div class="kpi-sub">Actif</div></div>
+          <div class="kpi orange"><div class="kpi-label">JWT Auth</div><div class="kpi-val">âœ…</div><div class="kpi-sub">Actif</div></div>
+          <div class="kpi red"><div class="kpi-label">Backup Auto</div><div class="kpi-val">âœ…</div><div class="kpi-sub">Toutes les 24h</div></div>
         </div>
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-header">
-            <div class="panel-title">💾 Backups automatiques</div>
-            <button class="refresh-btn" onclick="backupNow()">💾 Backup maintenant</button>
+            <div class="panel-title">ðŸ’¾ Backups automatiques</div>
+            <button class="refresh-btn" onclick="backupNow()">ðŸ’¾ Backup maintenant</button>
           </div>
           <div class="panel-body">
             <table class="data-table">
-              <thead><tr><th>Date</th><th>Abonnés</th><th>Recharges</th><th>Campagnes</th></tr></thead>
+              <thead><tr><th>Date</th><th>AbonnÃ©s</th><th>Recharges</th><th>Campagnes</th></tr></thead>
               <tbody id="backups-table"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">⚠️ Logs de sécurité</div>
-            <button class="refresh-btn" onclick="loadSecurityLogs()">🔃 Actualiser</button>
+            <div class="panel-title">âš ï¸ Logs de sÃ©curitÃ©</div>
+            <button class="refresh-btn" onclick="loadSecurityLogs()">ðŸ”ƒ Actualiser</button>
           </div>
           <div class="panel-body">
             <table class="data-table">
-              <thead><tr><th>Date</th><th>Type</th><th>IP</th><th>Détails</th></tr></thead>
-              <tbody id="security-logs-table"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucune activité suspecte ✅</td></tr></tbody>
+              <thead><tr><th>Date</th><th>Type</th><th>IP</th><th>DÃ©tails</th></tr></thead>
+              <tbody id="security-logs-table"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucune activitÃ© suspecte âœ…</td></tr></tbody>
             </table>
           </div>
         </div>
       </div>
       <div class="section" id="section-admins">
         <div class="panel" style="padding:28px;margin-bottom:20px;">
-          <div class="panel-header"><div class="panel-title">👑 Administrateurs autorisés</div></div>
+          <div class="panel-header"><div class="panel-title">ðŸ‘‘ Administrateurs autorisÃ©s</div></div>
           <div class="panel-body" style="padding:24px;">
             <div class="admins-list" id="admins-list">
               <!-- populated by JS -->
             </div>
             <div class="add-admin-form" id="add-admin-form">
-              <h4>➕ Ajouter un administrateur</h4>
+              <h4>âž• Ajouter un administrateur</h4>
               <div class="add-admin-row">
                 <input class="field-input" type="email" id="new-admin-email" placeholder="email@exemple.com">
                 <select class="field-input" id="new-admin-role" style="width:140px">
@@ -1307,27 +1307,27 @@ setInterval(loadNocStatus, 60000);
       <div class="section" id="section-content">
         <div class="editor-grid">
           <div class="editor-card">
-            <h3>🏠 Page d'accueil</h3>
+            <h3>ðŸ  Page d'accueil</h3>
             <div class="field-group">
               <label class="field-label">Titre principal</label>
-              <input class="field-input" id="c-hero-title" placeholder="L'opérateur intelligent du Sénégal">
+              <input class="field-input" id="c-hero-title" placeholder="L'opÃ©rateur intelligent du SÃ©nÃ©gal">
             </div>
             <div class="field-group">
               <label class="field-label">Sous-titre</label>
               <textarea class="field-input" id="c-hero-sub" rows="3" placeholder="Description..."></textarea>
             </div>
             <div class="field-group">
-              <label class="field-label">Stat 1 — valeur</label>
+              <label class="field-label">Stat 1 â€” valeur</label>
               <input class="field-input" id="c-stat1" placeholder="200+">
             </div>
             <div class="field-group">
-              <label class="field-label">Stat 1 — label</label>
+              <label class="field-label">Stat 1 â€” label</label>
               <input class="field-input" id="c-stat1-label" placeholder="Services SMS">
             </div>
-            <button class="save-btn" onclick="saveContent()">💾 Sauvegarder</button>
+            <button class="save-btn" onclick="saveContent()">ðŸ’¾ Sauvegarder</button>
           </div>
           <div class="editor-card">
-            <h3>💳 Forfaits</h3>
+            <h3>ðŸ’³ Forfaits</h3>
             <div class="field-group">
               <label class="field-label">Prix Starter (FCFA)</label>
               <input class="field-input" type="number" id="c-price-starter" placeholder="2990">
@@ -1348,84 +1348,84 @@ setInterval(loadNocStatus, 60000);
               <label class="field-label">Prix Business (FCFA)</label>
               <input class="field-input" type="number" id="c-price-business" placeholder="15990">
             </div>
-            <button class="save-btn" onclick="saveContent()">💾 Sauvegarder</button>
+            <button class="save-btn" onclick="saveContent()">ðŸ’¾ Sauvegarder</button>
           </div>
         </div>
 
         <!-- SMS MARKETING PACKS -->
         <div class="editor-grid" style="margin-top:20px;">
           <div class="editor-card">
-            <h3>📱 Packs SMS Marketing</h3>
+            <h3>ðŸ“± Packs SMS Marketing</h3>
             <div class="field-group">
-              <label class="field-label">Pack Starter — SMS</label>
+              <label class="field-label">Pack Starter â€” SMS</label>
               <input class="field-input" type="number" id="c-sms-starter-qty" placeholder="100">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack Starter — Prix (FCFA)</label>
+              <label class="field-label">Pack Starter â€” Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-starter-price" placeholder="1000">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack Pro — SMS</label>
+              <label class="field-label">Pack Pro â€” SMS</label>
               <input class="field-input" type="number" id="c-sms-pro-qty" placeholder="1000">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack Pro — Prix (FCFA)</label>
+              <label class="field-label">Pack Pro â€” Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-pro-price" placeholder="8000">
             </div>
-            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
+            <button class="save-btn" onclick="saveSmsContent()">ðŸ’¾ Sauvegarder</button>
           </div>
           <div class="editor-card">
-            <h3>📱 Packs SMS Marketing (suite)</h3>
+            <h3>ðŸ“± Packs SMS Marketing (suite)</h3>
             <div class="field-group">
-              <label class="field-label">Pack Business — SMS</label>
+              <label class="field-label">Pack Business â€” SMS</label>
               <input class="field-input" type="number" id="c-sms-business-qty" placeholder="5000">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack Business — Prix (FCFA)</label>
+              <label class="field-label">Pack Business â€” Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-business-price" placeholder="35000">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack École — SMS</label>
+              <label class="field-label">Pack Ã‰cole â€” SMS</label>
               <input class="field-input" type="number" id="c-sms-ecole-qty" placeholder="10000">
             </div>
             <div class="field-group">
-              <label class="field-label">Pack École — Prix (FCFA)</label>
+              <label class="field-label">Pack Ã‰cole â€” Prix (FCFA)</label>
               <input class="field-input" type="number" id="c-sms-ecole-price" placeholder="60000">
             </div>
-            <button class="save-btn" onclick="saveSmsContent()">💾 Sauvegarder</button>
+            <button class="save-btn" onclick="saveSmsContent()">ðŸ’¾ Sauvegarder</button>
           </div>
         </div>
 
         <!-- APERCU MARGES -->
         <div class="panel" style="margin-top:20px;padding:24px;">
-          <div class="panel-title" style="margin-bottom:16px;">📈 Aperçu marges (coût AT ~4 FCFA/SMS)</div>
+          <div class="panel-title" style="margin-bottom:16px;">ðŸ“ˆ AperÃ§u marges (coÃ»t AT ~4 FCFA/SMS)</div>
           <table class="data-table">
-            <thead><tr><th>Pack</th><th>SMS</th><th>Prix client</th><th>Coût AT</th><th>Marge</th><th>%</th></tr></thead>
+            <thead><tr><th>Pack</th><th>SMS</th><th>Prix client</th><th>CoÃ»t AT</th><th>Marge</th><th>%</th></tr></thead>
             <tbody id="marges-table"></tbody>
           </table>
         </div>
       </div>
 
 
-      <!-- ══ SECTION SENSMS ══ -->
+      <!-- â•â• SECTION SENSMS â•â• -->
       <div class="section" id="section-sensms">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-          <h2 style="font-family:'Syne',sans-serif;font-size:22px;color:#fff;">💬 SenSMS — Gestion</h2>
-          <a href="https://www.sensms.com" target="_blank" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);color:var(--green);padding:8px 16px;border-radius:8px;font-size:13px;text-decoration:none;">↗ Ouvrir sensms.com</a>
+          <h2 style="font-family:'Syne',sans-serif;font-size:22px;color:#fff;">ðŸ’¬ SenSMS â€” Gestion</h2>
+          <a href="https://www.sensms.com" target="_blank" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);color:var(--green);padding:8px 16px;border-radius:8px;font-size:13px;text-decoration:none;">â†— Ouvrir sensms.com</a>
         </div>
 
         <!-- Stats -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
           <div class="panel" style="padding:20px;text-align:center;">
-            <div style="font-size:28px;font-weight:800;color:var(--green);" id="ss-total-users">—</div>
+            <div style="font-size:28px;font-weight:800;color:var(--green);" id="ss-total-users">â€”</div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px;">Comptes inscrits</div>
           </div>
           <div class="panel" style="padding:20px;text-align:center;">
-            <div style="font-size:28px;font-weight:800;color:var(--blue);" id="ss-total-campaigns">—</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Campagnes envoyées</div>
+            <div style="font-size:28px;font-weight:800;color:var(--blue);" id="ss-total-campaigns">â€”</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Campagnes envoyÃ©es</div>
           </div>
           <div class="panel" style="padding:20px;text-align:center;">
-            <div style="font-size:28px;font-weight:800;color:var(--orange);" id="ss-total-sms">—</div>
+            <div style="font-size:28px;font-weight:800;color:var(--orange);" id="ss-total-sms">â€”</div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px;">SMS totaux</div>
           </div>
         </div>
@@ -1433,26 +1433,26 @@ setInterval(loadNocStatus, 60000);
         <!-- Utilisateurs -->
         <div class="panel" style="padding:24px;margin-bottom:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="panel-title">👥 Utilisateurs SenSMS</div>
-            <button onclick="loadSenSmsUsers()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">🔄 Actualiser</button>
+            <div class="panel-title">ðŸ‘¥ Utilisateurs SenSMS</div>
+            <button onclick="loadSenSmsUsers()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">ðŸ”„ Actualiser</button>
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table">
-              <thead><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Organisation</th><th>Crédits</th><th>Inscription</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Nom</th><th>Email</th><th>TÃ©lÃ©phone</th><th>Organisation</th><th>CrÃ©dits</th><th>Inscription</th><th>Actions</th></tr></thead>
               <tbody id="ss-users-table"><tr><td colspan="7" style="text-align:center;color:var(--muted);">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
 
-        <!-- Campagnes récentes -->
+        <!-- Campagnes rÃ©centes -->
         <div class="panel" style="padding:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="panel-title">📊 Campagnes récentes</div>
-            <button onclick="loadSenSmsCampaigns()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">🔄 Actualiser</button>
+            <div class="panel-title">ðŸ“Š Campagnes rÃ©centes</div>
+            <button onclick="loadSenSmsCampaigns()" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">ðŸ”„ Actualiser</button>
           </div>
           <div style="overflow-x:auto;">
             <table class="data-table">
-              <thead><tr><th>Campagne</th><th>Expéditeur</th><th>Total</th><th>Envoyés</th><th>Échecs</th><th>Statut</th><th>Date</th><th>PDF</th></tr></thead>
+              <thead><tr><th>Campagne</th><th>ExpÃ©diteur</th><th>Total</th><th>EnvoyÃ©s</th><th>Ã‰checs</th><th>Statut</th><th>Date</th><th>PDF</th></tr></thead>
               <tbody id="ss-campaigns-table"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Chargement...</td></tr></tbody>
             </table>
           </div>
@@ -1460,8 +1460,8 @@ setInterval(loadNocStatus, 60000);
       <!-- Avis -->
       <div class="panel" style="margin-top:20px;">
         <div class="panel-header">
-          <div class="panel-title">⭐ Avis utilisateurs</div>
-          <button onclick="loadAvisSenSms()" class="refresh-btn">🔄 Actualiser</button>
+          <div class="panel-title">â­ Avis utilisateurs</div>
+          <button onclick="loadAvisSenSms()" class="refresh-btn">ðŸ”„ Actualiser</button>
         </div>
         <div style="overflow-x:auto;">
           <table class="data-table">
@@ -1471,7 +1471,7 @@ setInterval(loadNocStatus, 60000);
         </div>
       </div>
       </div>
-      <!-- ══ FIN SECTION SENSMS ══ -->
+      <!-- â•â• FIN SECTION SENSMS â•â• -->
 
     </div><!-- /content -->
   </div><!-- /main -->
@@ -1480,7 +1480,7 @@ setInterval(loadNocStatus, 60000);
 <!-- MODAL -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
-    <h3 id="modal-title">Modifier l'abonné</h3>
+    <h3 id="modal-title">Modifier l'abonnÃ©</h3>
     <div id="modal-body"></div>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="closeModal()">Annuler</button>
@@ -1493,12 +1493,12 @@ setInterval(loadNocStatus, 60000);
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://pst-telecom-production.up.railway.app';
+const API = 'https://pst-telecom.onrender.com';
 const TOKEN = 'Pstdiama@1';
 const WAVE = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=';
 const FORFAIT_PRICES = { starter: 2990, smart: 5990, business: 15990 };
 
-// 🔄🔄🔄 AUTH 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ AUTH ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 const SUPER_ADMINS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
 let currentAdmin = null;
 let adminList = JSON.parse(localStorage.getItem('pst_admins') || '[]');
@@ -1513,7 +1513,7 @@ function doLogin() {
   const pw = document.getElementById('login-pw').value.trim();
   const admin = adminList.find(a => a.email.toLowerCase() === email);
   const errEl = document.getElementById('login-err');
-  if (!admin) { errEl.style.display='block'; errEl.textContent='Email non autorisé.'; return; }
+  if (!admin) { errEl.style.display='block'; errEl.textContent='Email non autorisÃ©.'; return; }
   // password check via API
   fetch(API + '/api/admin/login', {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -1530,11 +1530,11 @@ function startApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const isSuper = currentAdmin.role === 'super';
-  document.getElementById('role-badge').textContent = isSuper ? '🔐 SUPER ADMIN' : '🛡️ ADMIN';
+  document.getElementById('role-badge').textContent = isSuper ? 'ðŸ” SUPER ADMIN' : 'ðŸ›¡ï¸ ADMIN';
   document.getElementById('role-badge').className = 'role-badge' + (isSuper ? '' : ' admin');
   document.getElementById('sidebar-name').textContent = currentAdmin.name;
   document.getElementById('sidebar-email').textContent = currentAdmin.email;
-  document.getElementById('sidebar-avatar').textContent = isSuper ? '🔐' : '🛡️';
+  document.getElementById('sidebar-avatar').textContent = isSuper ? 'ðŸ”' : 'ðŸ›¡ï¸';
   if(isSuper) {
     document.getElementById('nav-admins').style.display = 'flex';
     document.getElementById('nav-content').style.display = 'flex';
@@ -1545,7 +1545,7 @@ function startApp() {
 
 function logout() { currentAdmin = null; location.reload(); }
 
-// 🔄🔄🔄 REALTIME 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ REALTIME ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 let realtimeInterval;
 let activityLog = [];
 let newActivityCount = 0;
@@ -1561,10 +1561,10 @@ function refreshAll() {
   loadUsers();
   loadSmsUsers();
   loadActivity();
-  document.getElementById('last-update').textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('last-update').textContent = 'Mis Ã  jour ' + new Date().toLocaleTimeString('fr-FR');
 }
 
-// 🔄🔄🔄 STATS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ STATS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function loadStats() {
   fetch(API + '/api/admin/stats', { headers:{ 'Authorization': document.getElementById('login-pw')?.value || '' } })
     .then(r=>r.json()).then(d=>{
@@ -1575,7 +1575,7 @@ function loadStats() {
       const smsCount = d.smsUsers ?? 0;
 
       document.getElementById('kpi-actifs').textContent = actifs;
-      document.getElementById('kpi-actifs-sub').textContent = `sur ${total} abonnés`;
+      document.getElementById('kpi-actifs-sub').textContent = `sur ${total} abonnÃ©s`;
       document.getElementById('kpi-pending').textContent = pending;
       document.getElementById('kpi-revenus').textContent = revenus.toLocaleString('fr-FR');
       document.getElementById('kpi-sms').textContent = smsCount;
@@ -1587,12 +1587,12 @@ function loadStats() {
 
       // Detect new activity
       if(lastUserCount > 0 && total > lastUserCount) {
-        addActivity('green','👤','Nouvel abonné inscrit', new Date().toLocaleTimeString('fr-FR'));
+        addActivity('green','ðŸ‘¤','Nouvel abonnÃ© inscrit', new Date().toLocaleTimeString('fr-FR'));
         newActivityCount++;
         updateActivityBadge();
       }
       if(lastRevenue > 0 && revenus > lastRevenue) {
-        addActivity('orange','💳','Nouveau paiement reçu via Wave', new Date().toLocaleTimeString('fr-FR'));
+        addActivity('orange','ðŸ’³','Nouveau paiement reÃ§u via Wave', new Date().toLocaleTimeString('fr-FR'));
         newActivityCount++;
         updateActivityBadge();
       }
@@ -1612,10 +1612,10 @@ function loadRevDetail(d) {
     const rev = count * FORFAIT_PRICES[f];
     html += `<tr><td><span class="badge ${f==='smart'?'active':'pending'}">${f.charAt(0).toUpperCase()+f.slice(1)}</span></td><td>${count}</td><td><strong style="color:var(--green)">${rev.toLocaleString('fr-FR')} FCFA</strong></td></tr>`;
   });
-  tbody.innerHTML = html || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Aucune donnée</td></tr>';
+  tbody.innerHTML = html || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Aucune donnÃ©e</td></tr>';
 }
 
-// 🔄🔄🔄 USERS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ USERS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 let allUsers = [];
 function loadUsers() {
   fetch(API + '/api/admin/users').then(r=>r.json()).then(data=>{
@@ -1638,25 +1638,25 @@ function filterUsers() {
 
 function renderUsers(users) {
   const tbody = document.getElementById('users-table');
-  if(!users.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Aucun abonné</td></tr>'; return; }
+  if(!users.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Aucun abonnÃ©</td></tr>'; return; }
   tbody.innerHTML = users.map(u => {
-    const statusBadge = u.statut==='actif' ? '<span class="badge active">✔ Actif</span>' :
-                        u.statut==='suspendu' ? '<span class="badge suspended">🚫 Suspendu</span>' :
-                        '<span class="badge pending">🔒 En attente</span>';
+    const statusBadge = u.statut==='actif' ? '<span class="badge active">âœ” Actif</span>' :
+                        u.statut==='suspendu' ? '<span class="badge suspended">ðŸš« Suspendu</span>' :
+                        '<span class="badge pending">ðŸ”’ En attente</span>';
     const mins = u.minutesUtilisees || 0;
-    const maxMins = u.forfait==='business' ? '✖' : (u.minutes || 0);
+    const maxMins = u.forfait==='business' ? 'âœ–' : (u.minutes || 0);
     return `<tr>
-      <td><span class="mono">${u.userId||'—'}</span></td>
+      <td><span class="mono">${u.userId||'â€”'}</span></td>
       <td><strong>${u.nom||''} ${u.prenom||''}</strong></td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${u.telephone||'—'}</td>
-      <td><span class="badge ${u.forfait==='smart'?'active':'pending'}">${u.forfait||'—'}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${u.telephone||'â€”'}</td>
+      <td><span class="badge ${u.forfait==='smart'?'active':'pending'}">${u.forfait||'â€”'}</span></td>
       <td>${mins}/${maxMins}</td>
       <td>${statusBadge}</td>
       <td><div class="action-group">
-        ${u.statut!=='actif' ? `<button class="act-btn activate" onclick="activateUser('${u.userId}')">✔ Activer</button>` : ''}
-        ${u.statut==='actif' ? `<button class="act-btn suspend" onclick="suspendUser('${u.userId}')">🚫 Suspendre</button>` : ''}
-        <button class="act-btn edit" onclick="editUser('${u.userId}')">✅</button>
-        <button class="act-btn delete" onclick="deleteUser('${u.userId}')">🗑️</button>
+        ${u.statut!=='actif' ? `<button class="act-btn activate" onclick="activateUser('${u.userId}')">âœ” Activer</button>` : ''}
+        ${u.statut==='actif' ? `<button class="act-btn suspend" onclick="suspendUser('${u.userId}')">ðŸš« Suspendre</button>` : ''}
+        <button class="act-btn edit" onclick="editUser('${u.userId}')">âœ…</button>
+        <button class="act-btn delete" onclick="deleteUser('${u.userId}')">ðŸ—‘ï¸</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -1664,45 +1664,45 @@ function renderUsers(users) {
 
 function renderRecentUsers(users) {
   const tbody = document.getElementById('recent-users');
-  if(!users.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Aucun abonné</td></tr>'; return; }
+  if(!users.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Aucun abonnÃ©</td></tr>'; return; }
   tbody.innerHTML = users.map(u => `<tr>
     <td><strong>${u.nom||''} ${u.prenom||''}</strong></td>
-    <td><span class="badge ${u.forfait==='smart'?'active':'pending'}">${u.forfait||'—'}</span></td>
+    <td><span class="badge ${u.forfait==='smart'?'active':'pending'}">${u.forfait||'â€”'}</span></td>
     <td>${u.statut==='actif'?'<span class="badge active">Actif</span>':'<span class="badge pending">Attente</span>'}</td>
   </tr>`).join('');
 }
 
 function activateUser(id) {
   fetch(API + '/api/admin/users/' + id + '/activate', {method:'POST'})
-    .then(r=>r.json()).then(d=>{ showToast('✅ Abonné activé','success'); loadUsers(); loadStats(); })
+    .then(r=>r.json()).then(d=>{ showToast('âœ… AbonnÃ© activÃ©','success'); loadUsers(); loadStats(); })
     .catch(()=>showToast('Erreur','error'));
 }
 
 function suspendUser(id) {
   fetch(API + '/api/admin/users/' + id + '/suspend', {method:'POST'})
-    .then(r=>r.json()).then(d=>{ showToast('🚫 Abonné suspendu','success'); loadUsers(); })
+    .then(r=>r.json()).then(d=>{ showToast('ðŸš« AbonnÃ© suspendu','success'); loadUsers(); })
     .catch(()=>showToast('Erreur','error'));
 }
 
 function deleteUser(id) {
-  if(!confirm('Supprimer cet abonné ?')) return;
+  if(!confirm('Supprimer cet abonnÃ© ?')) return;
   fetch(API + '/api/admin/users/' + id, {method:'DELETE'})
-    .then(r=>r.json()).then(d=>{ showToast('🗑️ Supprimé','success'); loadUsers(); loadStats(); })
+    .then(r=>r.json()).then(d=>{ showToast('ðŸ—‘ï¸ SupprimÃ©','success'); loadUsers(); loadStats(); })
     .catch(()=>showToast('Erreur','error'));
 }
 
 function editUser(id) {
   const u = allUsers.find(x=>x.userId===id);
   if(!u) return;
-  document.getElementById('modal-title').textContent = 'Modifier — ' + u.nom;
+  document.getElementById('modal-title').textContent = 'Modifier â€” ' + u.nom;
   document.getElementById('modal-body').innerHTML = `
     <div class="field-group"><label class="field-label">Forfait</label>
     <select class="field-input" id="edit-forfait">
-      <option value="starter" ${u.forfait==='starter'?'selected':''}>Starter — 200 min</option>
-      <option value="smart" ${u.forfait==='smart'?'selected':''}>Smart — 300 min</option>
-      <option value="business" ${u.forfait==='business'?'selected':''}>Business — Illimité</option>
+      <option value="starter" ${u.forfait==='starter'?'selected':''}>Starter â€” 200 min</option>
+      <option value="smart" ${u.forfait==='smart'?'selected':''}>Smart â€” 300 min</option>
+      <option value="business" ${u.forfait==='business'?'selected':''}>Business â€” IllimitÃ©</option>
     </select></div>
-    <div class="field-group"><label class="field-label">Minutes bonus à ajouter</label>
+    <div class="field-group"><label class="field-label">Minutes bonus Ã  ajouter</label>
     <input class="field-input" type="number" id="edit-bonus" placeholder="0"></div>
   `;
   document.getElementById('modal-confirm').onclick = () => {
@@ -1711,21 +1711,21 @@ function editUser(id) {
     fetch(API + '/api/admin/users/' + id, {
       method:'PATCH', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({forfait, minutesBonus: bonus})
-    }).then(r=>r.json()).then(()=>{ closeModal(); showToast('✅ Modifié','success'); loadUsers(); }).catch(()=>showToast('Erreur','error'));
+    }).then(r=>r.json()).then(()=>{ closeModal(); showToast('âœ… ModifiÃ©','success'); loadUsers(); }).catch(()=>showToast('Erreur','error'));
   };
   document.getElementById('modal').classList.add('open');
 }
 
-// 🔄🔄🔄 SMS USERS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ SMS USERS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function loadSmsUsers() {
   fetch(API + '/api/admin/sms-users').then(r=>r.json()).then(data=>{
     const users = Array.isArray(data) ? data : (data.users || []);
     const tbody = document.getElementById('sms-table');
     if(!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Aucun utilisateur SMS</td></tr>'; return; }
     tbody.innerHTML = users.map(u => `<tr>
-      <td><span class="mono">${u.userId||'—'}</span></td>
+      <td><span class="mono">${u.userId||'â€”'}</span></td>
       <td><strong>${u.nom||''} ${u.prenom||''}</strong></td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${u.telephone||'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${u.telephone||'â€”'}</td>
       <td><strong style="color:var(--green)">${u.points||0}</strong></td>
       <td>${u.pointsUtilises||0}</td>
       <td><span class="badge sms-only">SMS</span></td>
@@ -1733,7 +1733,7 @@ function loadSmsUsers() {
   }).catch(()=>{});
 }
 
-// 🔄🔄🔄 ACTIVITY 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ ACTIVITY ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function addActivity(color, icon, msg, time) {
   activityLog.unshift({color,icon,msg,time});
   if(activityLog.length > 50) activityLog.pop();
@@ -1745,7 +1745,7 @@ function renderActivity() {
   feeds.forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
-    if(!activityLog.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">⚡</div><p>Aucune activité</p></div>'; return; }
+    if(!activityLog.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">âš¡</div><p>Aucune activitÃ©</p></div>'; return; }
     el.innerHTML = activityLog.map(a => `
       <div class="activity-item">
         <div class="act-icon ${a.color}">${a.icon}</div>
@@ -1763,9 +1763,9 @@ function loadActivity() {
     if(logs.length) {
       activityLog = logs.map(l=>({
         color: l.type==='inscription'?'green':l.type==='paiement'?'orange':l.type==='sms'?'blue':'red',
-        icon: l.type==='inscription'?'👤':l.type==='paiement'?'💳':l.type==='sms'?'✅':'🚫',
+        icon: l.type==='inscription'?'ðŸ‘¤':l.type==='paiement'?'ðŸ’³':l.type==='sms'?'âœ…':'ðŸš«',
         msg: l.message || l.msg || l.description || JSON.stringify(l),
-        time: l.time || l.createdAt || '—'
+        time: l.time || l.createdAt || 'â€”'
       }));
       renderActivity();
     }
@@ -1778,7 +1778,7 @@ function updateActivityBadge() {
   else b.style.display='none';
 }
 
-// 🔄🔄🔄 AJOUT MANUEL 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ AJOUT MANUEL ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function toggleAddForm(type) {
   const id = type === 'sms' ? 'add-sms-form' : 'add-appel-form';
   const el = document.getElementById(id);
@@ -1791,7 +1791,7 @@ async function addUserManual() {
   const telephone = document.getElementById('add-tel').value.trim();
   const forfait = document.getElementById('add-forfait').value;
   const statut = document.getElementById('add-statut').value;
-  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
+  if (!nom || !telephone) { showToast('Nom et tÃ©lÃ©phone requis', 'error'); return; }
   try {
     const res = await fetch(API + '/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1806,8 +1806,8 @@ async function addUserManual() {
       const waveUrl = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=' + prices[forfait];
       document.getElementById('add-wave-link').style.display = 'block';
       document.getElementById('add-wave-url').href = waveUrl;
-      document.getElementById('add-wave-url').textContent = '✅ Lien Wave ' + forfait + ' 📊';
-      showToast('✅ Abonné créé : ' + data.userId, 'success');
+      document.getElementById('add-wave-url').textContent = 'âœ… Lien Wave ' + forfait + ' ðŸ“Š';
+      showToast('âœ… AbonnÃ© crÃ©Ã© : ' + data.userId, 'success');
       document.getElementById('add-nom').value = '';
       document.getElementById('add-prenom').value = '';
       document.getElementById('add-tel').value = '';
@@ -1822,7 +1822,7 @@ async function addSmsUserManual() {
   const telephone = document.getElementById('sms-tel').value.trim();
   const points = parseInt(document.getElementById('sms-points').value) || 5;
   const statut = document.getElementById('sms-statut').value;
-  if (!nom || !telephone) { showToast('Nom et téléphone requis', 'error'); return; }
+  if (!nom || !telephone) { showToast('Nom et tÃ©lÃ©phone requis', 'error'); return; }
   try {
     const res = await fetch(API + '/api/sms/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1830,7 +1830,7 @@ async function addSmsUserManual() {
     });
     const data = await res.json();
     if (data.success || data.userId) {
-      showToast('✅ Compte SMS créé : ' + (data.userId || ''), 'success');
+      showToast('âœ… Compte SMS crÃ©Ã© : ' + (data.userId || ''), 'success');
       document.getElementById('sms-nom').value = '';
       document.getElementById('sms-prenom').value = '';
       document.getElementById('sms-tel').value = '';
@@ -1839,7 +1839,7 @@ async function addSmsUserManual() {
   } catch (e) { showToast('Erreur de connexion', 'error'); }
 }
 
-// 🔄🔄🔄 ADMINS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ ADMINS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function renderAdmins() {
   const list = document.getElementById('admins-list');
   list.innerHTML = adminList.map(a => {
@@ -1847,7 +1847,7 @@ function renderAdmins() {
     const isMe = a.email === currentAdmin?.email;
     return `<div class="admin-row">
       <div class="admin-row-left">
-        <div class="admin-row-avatar ${isSuper?'super-av':''}">${isSuper?'🔐':'🛡️'}</div>
+        <div class="admin-row-avatar ${isSuper?'super-av':''}">${isSuper?'ðŸ”':'ðŸ›¡ï¸'}</div>
         <div>
           <div class="admin-row-name">${a.name || a.email.split('@')[0]} ${isMe?'<span style="color:var(--muted);font-size:11px">(moi)</span>':''}</div>
           <div class="admin-row-email">${a.email}</div>
@@ -1865,12 +1865,12 @@ function addAdmin() {
   const email = document.getElementById('new-admin-email').value.trim().toLowerCase();
   const role = document.getElementById('new-admin-role').value;
   if(!email || !email.includes('@')) { showToast('Email invalide','error'); return; }
-  if(adminList.find(a=>a.email===email)) { showToast('Admin déjà existant','error'); return; }
+  if(adminList.find(a=>a.email===email)) { showToast('Admin dÃ©jÃ  existant','error'); return; }
   adminList.push({email,role,name:email.split('@')[0]});
   saveAdminList();
   renderAdmins();
   document.getElementById('new-admin-email').value='';
-  showToast('✅ Admin ajouté','success');
+  showToast('âœ… Admin ajoutÃ©','success');
 }
 
 function removeAdmin(email) {
@@ -1878,10 +1878,10 @@ function removeAdmin(email) {
   adminList = adminList.filter(a=>a.email!==email);
   saveAdminList();
   renderAdmins();
-  showToast('Admin retiré','success');
+  showToast('Admin retirÃ©','success');
 }
 
-// 🔄🔄🔄 CONTENT 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ CONTENT ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function loadContent() {
   fetch(API + '/api/admin/content').then(r=>r.json()).then(d=>{
     document.getElementById('c-hero-title').value = d.heroTitle||'';
@@ -1919,7 +1919,7 @@ function saveSmsContent() {
   };
   fetch(API + '/api/admin/content', {
     method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-  }).then(()=>{ showToast('✅ Packs SMS sauvegardés', 'success'); calcMarges(); })
+  }).then(()=>{ showToast('âœ… Packs SMS sauvegardÃ©s', 'success'); calcMarges(); })
     .catch(()=>showToast('Erreur','error'));
 }
 
@@ -1928,7 +1928,7 @@ function calcMarges() {
     { nom:'Starter', qty: +document.getElementById('c-sms-starter-qty').value||100, prix: +document.getElementById('c-sms-starter-price').value||1000 },
     { nom:'Pro', qty: +document.getElementById('c-sms-pro-qty').value||1000, prix: +document.getElementById('c-sms-pro-price').value||8000 },
     { nom:'Business', qty: +document.getElementById('c-sms-business-qty').value||5000, prix: +document.getElementById('c-sms-business-price').value||35000 },
-    { nom:'École', qty: +document.getElementById('c-sms-ecole-qty').value||10000, prix: +document.getElementById('c-sms-ecole-price').value||60000 },
+    { nom:'Ã‰cole', qty: +document.getElementById('c-sms-ecole-qty').value||10000, prix: +document.getElementById('c-sms-ecole-price').value||60000 },
   ];
   const cout_par_sms = 4; // FCFA
   const tbody = document.getElementById('marges-table');
@@ -1964,10 +1964,10 @@ function saveContent() {
   fetch(API + '/api/admin/content', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)
-  }).then(()=>showToast('✅ Contenu sauvegardé','success')).catch(()=>showToast('Erreur','error'));
+  }).then(()=>showToast('âœ… Contenu sauvegardÃ©','success')).catch(()=>showToast('Erreur','error'));
 }
 
-// 🔄🔄🔄 PAIEMENTS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ PAIEMENTS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 let allPayments = [];
 
 function togglePayForm() {
@@ -1983,7 +1983,7 @@ async function loadPayments() {
     renderPayments(allPayments);
   } catch(e) {
     document.getElementById('payments-table').innerHTML =
-      '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement enregistré</td></tr>';
+      '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement enregistrÃ©</td></tr>';
   }
 }
 
@@ -1999,25 +1999,25 @@ function renderPayments(payments) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Aucun paiement</td></tr>';
     return;
   }
-  const moyenIcon = { wave:'✅', orange_money:'🟠', especes:'💵', carte:'💳', autre:'🔵' };
+  const moyenIcon = { wave:'âœ…', orange_money:'ðŸŸ ', especes:'ðŸ’µ', carte:'ðŸ’³', autre:'ðŸ”µ' };
   const typeLabel = { forfait:'Forfait', sms:'Points SMS', renouvellement:'Renouvellement' };
   tbody.innerHTML = payments.map(p => {
-    const date = p.createdAt ? new Date(p.createdAt).toLocaleString('fr-FR') : '—';
-    const icon = moyenIcon[p.moyen] || '💳';
+    const date = p.createdAt ? new Date(p.createdAt).toLocaleString('fr-FR') : 'â€”';
+    const icon = moyenIcon[p.moyen] || 'ðŸ’³';
     const statBadge = p.statut === 'confirme'
-      ? '<span class="badge active">✅ Confirmé</span>'
-      : '<span class="badge pending">🔒 En attente</span>';
+      ? '<span class="badge active">âœ… ConfirmÃ©</span>'
+      : '<span class="badge pending">ðŸ”’ En attente</span>';
     return `<tr>
       <td style="font-size:12px;color:var(--muted)">${date}</td>
-      <td><span class="mono">${p.userId || '—'}</span></td>
+      <td><span class="mono">${p.userId || 'â€”'}</span></td>
       <td><strong style="color:var(--green)">${(p.montant||0).toLocaleString('fr-FR')} FCFA</strong></td>
-      <td>${icon} ${p.moyen || '—'}</td>
-      <td><span class="badge pending">${typeLabel[p.type] || p.type || '—'}</span></td>
-      <td style="font-size:12px;color:var(--muted)">${p.reference || '—'}</td>
+      <td>${icon} ${p.moyen || 'â€”'}</td>
+      <td><span class="badge pending">${typeLabel[p.type] || p.type || 'â€”'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${p.reference || 'â€”'}</td>
       <td>${statBadge}</td>
       <td><div class="action-group">
-        ${p.statut !== 'confirme' ? `<button class="act-btn activate" onclick="validatePayment('${p._id}')">✅ Valider</button>` : ''}
-        <button class="act-btn delete" onclick="deletePayment('${p._id}')">🗑️</button>
+        ${p.statut !== 'confirme' ? `<button class="act-btn activate" onclick="validatePayment('${p._id}')">âœ… Valider</button>` : ''}
+        <button class="act-btn delete" onclick="deletePayment('${p._id}')">ðŸ—‘ï¸</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -2030,7 +2030,7 @@ async function addPayment() {
   const type = document.getElementById('pay-type').value;
   const reference = document.getElementById('pay-ref').value.trim();
   const statut = document.getElementById('pay-statut').value;
-  if (!userId || !montant) { showToast('ID abonné et montant requis', 'error'); return; }
+  if (!userId || !montant) { showToast('ID abonnÃ© et montant requis', 'error'); return; }
   try {
     const res = await fetch(API + '/api/admin/payments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2041,7 +2041,7 @@ async function addPayment() {
       if (statut === 'confirme') {
         await fetch(API + '/api/admin/users/' + userId + '/activate', { method: 'POST' });
       }
-      showToast('💳 Paiement enregistré', 'success');
+      showToast('ðŸ’³ Paiement enregistrÃ©', 'success');
       document.getElementById('pay-userid').value = '';
       document.getElementById('pay-montant').value = '';
       document.getElementById('pay-ref').value = '';
@@ -2055,7 +2055,7 @@ async function validatePayment(id) {
     const res = await fetch(API + '/api/admin/payments/' + id + '/validate', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-      showToast('✅ Paiement validé — abonné activé', 'success');
+      showToast('âœ… Paiement validÃ© â€” abonnÃ© activÃ©', 'success');
       loadPayments(); loadUsers(); loadStats();
     }
   } catch(e) { showToast('Erreur', 'error'); }
@@ -2066,16 +2066,16 @@ async function deletePayment(id) {
   try {
     const res = await fetch(API + '/api/admin/payments/' + id, { method: 'DELETE' });
     const data = await res.json();
-    if (data.success) { showToast('🗑️ Transaction supprimée', 'success'); loadPayments(); loadStats(); }
+    if (data.success) { showToast('ðŸ—‘ï¸ Transaction supprimÃ©e', 'success'); loadPayments(); loadStats(); }
   } catch(e) { showToast('Erreur', 'error'); }
 }
 
-// 🔄🔄🔄 NAV 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ NAV ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 const SECTION_TITLES = {
-  dashboard:'Vue générale', activity:'Activité temps réel', users:'Abonnés',
+  dashboard:'Vue gÃ©nÃ©rale', activity:'ActivitÃ© temps rÃ©el', users:'AbonnÃ©s',
   'sms-logs':'SMS Verif', calls:'Appels', payments:'Paiements', revenue:'Revenus',
-  'sms-marketing':'SMS Marketing', admins:'Gérer les admins', content:'Éditeur de contenu'
-, 'sensms': '💬 SenSMS'};
+  'sms-marketing':'SMS Marketing', admins:'GÃ©rer les admins', content:'Ã‰diteur de contenu'
+, 'sensms': 'ðŸ’¬ SenSMS'};
 
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -2100,7 +2100,7 @@ function showSection(id) {
   }
 }
 
-// 🔄🔄🔄 FACTURES 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ FACTURES ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function genererFacture(sendEmail) {
   const nom = document.getElementById('f-nom').value.trim();
   const org = document.getElementById('f-org').value.trim();
@@ -2118,7 +2118,7 @@ async function genererFacture(sendEmail) {
     if(data.success) {
       document.getElementById('facture-result').style.display = 'block';
       document.getElementById('facture-link').href = API + data.url;
-      showToast(sendEmail && email ? '✅ Facture générée et envoyée !' : '✅ Facture générée !', 'success');
+      showToast(sendEmail && email ? 'âœ… Facture gÃ©nÃ©rÃ©e et envoyÃ©e !' : 'âœ… Facture gÃ©nÃ©rÃ©e !', 'success');
       loadFactures();
       window.open(API + data.url, '_blank');
     } else { showToast(data.error || 'Erreur', 'error'); }
@@ -2134,18 +2134,18 @@ async function loadFactures() {
     tbody.innerHTML = factures.map(function(f) {
       const date = new Date(f.createdAt).toLocaleDateString('fr-FR');
       const total = (f.lignes||[]).reduce(function(s,l){ return s+(l.quantite*l.prix); }, 0);
-      return '<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--green)">' + (f.numeroFacture||'—') + '</span></td><td><strong>' + (f.clientNom||'—') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (f.clientEmail||f.clientTel||'') + '</span></td><td><strong style="color:var(--green)">' + total.toLocaleString('fr-FR') + ' FCFA</strong></td><td style="font-size:12px;color:var(--muted)">' + date + '</td><td><a href="' + API + '/api/facture/' + f._id + '" target="_blank" class="act-btn" style="text-decoration:none;">📊 Voir</a></td></tr>';
+      return '<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--green)">' + (f.numeroFacture||'â€”') + '</span></td><td><strong>' + (f.clientNom||'â€”') + '</strong><br><span style="font-size:11px;color:var(--muted)">' + (f.clientEmail||f.clientTel||'') + '</span></td><td><strong style="color:var(--green)">' + total.toLocaleString('fr-FR') + ' FCFA</strong></td><td style="font-size:12px;color:var(--muted)">' + date + '</td><td><a href="' + API + '/api/facture/' + f._id + '" target="_blank" class="act-btn" style="text-decoration:none;">ðŸ“Š Voir</a></td></tr>';
     }).join('');
   } catch(e) {}
 }
 
-// 🔄🔄🔄 SÉCURITÉ 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ SÃ‰CURITÃ‰ ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function loadSecurityLogs() {
   try {
     const res = await fetch(API + '/api/admin/security-logs');
     const logs = await res.json();
     const tbody = document.getElementById('security-logs-table');
-    if(!logs.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--green)">Aucune activité suspecte ✅</td></tr>'; return; }
+    if(!logs.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--green)">Aucune activitÃ© suspecte âœ…</td></tr>'; return; }
     tbody.innerHTML = logs.map(function(l) {
       const date = new Date(l.createdAt).toLocaleString('fr-FR');
       const typeColor = l.type === 'BRUTE_FORCE' ? 'var(--red)' : 'var(--orange)';
@@ -2164,7 +2164,7 @@ async function loadBackups() {
     const res = await fetch(API + '/api/admin/backups');
     const backups = await res.json();
     const tbody = document.getElementById('backups-table');
-    if(!backups.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucun backup — premier backup dans 30 secondes après redémarrage</td></tr>'; return; }
+    if(!backups.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Aucun backup â€” premier backup dans 30 secondes aprÃ¨s redÃ©marrage</td></tr>'; return; }
     tbody.innerHTML = backups.map(function(b) {
       return `<tr>
         <td><strong>${b.date}</strong></td>
@@ -2180,11 +2180,11 @@ async function backupNow() {
   try {
     const res = await fetch(API + '/api/admin/backup-now', {method:'POST'});
     const data = await res.json();
-    if(data.success) { showToast('✅ Backup effectué', 'success'); loadBackups(); }
+    if(data.success) { showToast('âœ… Backup effectuÃ©', 'success'); loadBackups(); }
   } catch(e) { showToast('Erreur backup', 'error'); }
 }
 
-// 🔄🔄🔄 RECHARGES 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ RECHARGES ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function loadRechargeStats() {
   try {
     const res = await fetch(API + '/api/admin/recharges/stats');
@@ -2201,7 +2201,7 @@ async function loadRecharges() {
     const res = await fetch(API + '/api/admin/recharges');
     const recharges = await res.json();
     const tbody = document.getElementById('recharges-table');
-    const opEmoji = {orange:'🟠',free:'🟡',expresso:'🟡'};
+    const opEmoji = {orange:'ðŸŸ ',free:'ðŸŸ¡',expresso:'ðŸŸ¡'};
     const opName = {orange:'Orange',free:'Free',expresso:'Expresso'};
     if(!recharges.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Aucune recharge</td></tr>';
@@ -2210,30 +2210,30 @@ async function loadRecharges() {
     tbody.innerHTML = recharges.map(r => {
       const date = new Date(r.createdAt).toLocaleString('fr-FR');
       const statut = r.statut === 'success'
-        ? '<span class="badge active">✔ OK</span>'
+        ? '<span class="badge active">âœ” OK</span>'
         : r.statut === 'pending'
-        ? '<span class="badge pending">🔒 En cours</span>'
-        : '<span class="badge suspended">❎ Échec</span>';
+        ? '<span class="badge pending">ðŸ”’ En cours</span>'
+        : '<span class="badge suspended">âŽ Ã‰chec</span>';
       const sandbox = r.sandbox ? ' <span style="font-size:10px;color:var(--muted);">[sandbox]</span>' : '';
       return `<tr>
         <td style="font-size:12px;color:var(--muted)">${date}</td>
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green)">${r.numero}</span></td>
-        <td>${opEmoji[r.operateur]||'📱'} ${opName[r.operateur]||r.operateur}</td>
+        <td>${opEmoji[r.operateur]||'ðŸ“±'} ${opName[r.operateur]||r.operateur}</td>
         <td><strong>${(r.montant||0).toLocaleString('fr-FR')} FCFA</strong></td>
-        <td style="font-size:12px">${r.nom||'—'}</td>
+        <td style="font-size:12px">${r.nom||'â€”'}</td>
         <td>${statut}${sandbox}</td>
       </tr>`;
     }).join('');
   } catch(e) {}
 }
 
-// 🔄🔄🔄 RÉFÉRENCES WAVE 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ RÃ‰FÃ‰RENCES WAVE ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function autoriserRef() {
   const ref = document.getElementById('ref-wave').value.trim();
   const tel = document.getElementById('ref-tel').value.trim();
   const montant = document.getElementById('ref-montant').value;
   const notes = document.getElementById('ref-notes').value.trim();
-  if(!ref) { showToast('Référence requise', 'error'); return; }
+  if(!ref) { showToast('RÃ©fÃ©rence requise', 'error'); return; }
   try {
     const res = await fetch(API + '/api/sms-marketing/autoriser-ref', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2241,7 +2241,7 @@ async function autoriserRef() {
     });
     const data = await res.json();
     if(data.success) {
-      showToast('✅ Référence autorisée — le client peut maintenant l\'utiliser', 'success');
+      showToast('âœ… RÃ©fÃ©rence autorisÃ©e â€” le client peut maintenant l\'utiliser', 'success');
       document.getElementById('ref-wave').value = '';
       document.getElementById('ref-tel').value = '';
       document.getElementById('ref-montant').value = '';
@@ -2256,31 +2256,31 @@ async function loadRefs() {
     const res = await fetch(API + '/api/sms-marketing/refs');
     const refs = await res.json();
     const tbody = document.getElementById('refs-table');
-    if(!refs.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucune référence</td></tr>'; return; }
+    if(!refs.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucune rÃ©fÃ©rence</td></tr>'; return; }
     tbody.innerHTML = refs.map(r => {
       const date = new Date(r.createdAt).toLocaleDateString('fr-FR');
-      const statut = r.utilise ? '<span class="badge pending">✔ Utilisée</span>' : '<span class="badge active">🟢 Disponible</span>';
+      const statut = r.utilise ? '<span class="badge pending">âœ” UtilisÃ©e</span>' : '<span class="badge active">ðŸŸ¢ Disponible</span>';
       return `<tr>
         <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;">${r.reference}</span></td>
-        <td style="font-size:12px">${r.telephone||'—'}</td>
+        <td style="font-size:12px">${r.telephone||'â€”'}</td>
         <td><strong style="color:var(--green)">${(r.montant||0).toLocaleString('fr-FR')} F</strong></td>
-        <td style="font-size:12px;color:var(--muted)">${r.notes||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${r.notes||'â€”'}</td>
         <td>${statut}</td>
         <td style="font-size:12px;color:var(--muted)">${date}</td>
-        <td>${!r.utilise ? `<button class="act-btn delete" onclick="supprimerRef('${r.reference}')">Supprimer</button>` : '—'}</td>
+        <td>${!r.utilise ? `<button class="act-btn delete" onclick="supprimerRef('${r.reference}')">Supprimer</button>` : 'â€”'}</td>
       </tr>`;
     }).join('');
   } catch(e) {}
 }
 
 async function supprimerRef(ref) {
-  if(!confirm('Supprimer cette référence ?')) return;
+  if(!confirm('Supprimer cette rÃ©fÃ©rence ?')) return;
   await fetch(API + '/api/sms-marketing/refs/' + ref, {method:'DELETE'});
-  showToast('Référence supprimée', 'success');
+  showToast('RÃ©fÃ©rence supprimÃ©e', 'success');
   loadRefs();
 }
 
-// 🔄🔄🔄 CODES SMS MARKETING 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ CODES SMS MARKETING ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function genererCode() {
   const tel = document.getElementById('code-tel').value.trim();
   const pack = document.getElementById('code-pack').value;
@@ -2288,7 +2288,7 @@ async function genererCode() {
   const notes = document.getElementById('code-notes').value.trim();
   const smsMap = { starter:100, pro:1000, business:5000, ecole:10000 };
 
-  if(!tel) { showToast('Téléphone requis', 'error'); return; }
+  if(!tel) { showToast('TÃ©lÃ©phone requis', 'error'); return; }
 
   try {
     const res = await fetch(API + '/api/sms-marketing/generate-code', {
@@ -2299,7 +2299,7 @@ async function genererCode() {
     if(data.success) {
       document.getElementById('code-value').textContent = data.code;
       document.getElementById('code-result').style.display = 'flex';
-      showToast('✅ Code généré — envoyez-le au client', 'success');
+      showToast('âœ… Code gÃ©nÃ©rÃ© â€” envoyez-le au client', 'success');
       loadCodes();
     }
   } catch(e) { showToast('Erreur','error'); }
@@ -2308,7 +2308,7 @@ async function genererCode() {
 function copierCode() {
   const code = document.getElementById('code-value').textContent;
   navigator.clipboard.writeText(code);
-  showToast('✅ Code copié : ' + code, 'success');
+  showToast('âœ… Code copiÃ© : ' + code, 'success');
 }
 
 async function loadCodes() {
@@ -2317,35 +2317,35 @@ async function loadCodes() {
     const codes = await res.json();
     const tbody = document.getElementById('codes-table');
     if(!codes.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucun code généré</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Aucun code gÃ©nÃ©rÃ©</td></tr>';
       return;
     }
     tbody.innerHTML = codes.map(c => {
       const expire = new Date(c.expireAt).toLocaleDateString('fr-FR');
-      const statut = c.utilise ? '<span class="badge pending">✔ Utilisé</span>' :
-                    c.statut==='revoque' ? '<span class="badge suspended">❎ Révoqué</span>' :
-                    '<span class="badge active">🟢 Actif</span>';
+      const statut = c.utilise ? '<span class="badge pending">âœ” UtilisÃ©</span>' :
+                    c.statut==='revoque' ? '<span class="badge suspended">âŽ RÃ©voquÃ©</span>' :
+                    '<span class="badge active">ðŸŸ¢ Actif</span>';
       return `<tr>
         <td><span class="mono" style="font-size:13px;letter-spacing:1px;">${c.code}</span></td>
-        <td style="font-size:12px">${c.telephone||'—'}</td>
-        <td><span class="badge sms-only">${c.pack||'—'}</span></td>
+        <td style="font-size:12px">${c.telephone||'â€”'}</td>
+        <td><span class="badge sms-only">${c.pack||'â€”'}</span></td>
         <td><strong style="color:var(--green)">${(c.montant||0).toLocaleString('fr-FR')} F</strong></td>
         <td>${statut}</td>
         <td style="font-size:12px;color:var(--muted)">${expire}</td>
-        <td>${!c.utilise && c.statut!=='revoque' ? `<button class="act-btn delete" onclick="revoquerCode('${c.code}')">Révoquer</button>` : '—'}</td>
+        <td>${!c.utilise && c.statut!=='revoque' ? `<button class="act-btn delete" onclick="revoquerCode('${c.code}')">RÃ©voquer</button>` : 'â€”'}</td>
       </tr>`;
     }).join('');
   } catch(e) {}
 }
 
 async function revoquerCode(code) {
-  if(!confirm('Révoquer ce code ?')) return;
+  if(!confirm('RÃ©voquer ce code ?')) return;
   await fetch(API + '/api/sms-marketing/codes/' + code, {method:'DELETE'});
-  showToast('Code révoqué', 'success');
+  showToast('Code rÃ©voquÃ©', 'success');
   loadCodes();
 }
 
-// 🔄🔄🔄 SMS MARKETING 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ SMS MARKETING ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 async function loadSmsMktStats() {
   try {
     // Stats
@@ -2362,19 +2362,19 @@ async function loadSmsMktStats() {
     const campagnes = await res2.json();
     const tbody = document.getElementById('smsm-table');
     if(!campagnes.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Aucune campagne lancée</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">Aucune campagne lancÃ©e</td></tr>';
       return;
     }
     tbody.innerHTML = campagnes.map(c => {
-      const date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '—';
+      const date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : 'â€”';
       const statBadge = c.statut === 'termine'
-        ? '<span class="badge active">✅ Terminée</span>'
+        ? '<span class="badge active">âœ… TerminÃ©e</span>'
         : c.statut === 'planifie'
-        ? '<span class="badge pending">🕐 Planifiée</span>'
-        : '<span class="badge sms-only">🔒 En cours</span>';
+        ? '<span class="badge pending">ðŸ• PlanifiÃ©e</span>'
+        : '<span class="badge sms-only">ðŸ”’ En cours</span>';
       return `<tr>
         <td style="font-size:12px;color:var(--muted)">${date}</td>
-        <td><strong>${c.campagne||'—'}</strong></td>
+        <td><strong>${c.campagne||'â€”'}</strong></td>
         <td><span class="mono">${c.sender||'PST-Telecom'}</span></td>
         <td>${c.total||0}</td>
         <td><strong style="color:var(--green)">${c.envoyes||0}</strong></td>
@@ -2388,7 +2388,7 @@ async function loadSmsMktStats() {
   }
 }
 
-// 🔄🔄🔄 MODAL & TOAST 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ðŸ”„ MODAL & TOAST ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 document.getElementById('modal').addEventListener('click',e=>{ if(e.target===document.getElementById('modal')) closeModal(); });
 
@@ -2399,7 +2399,7 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// 🔄🔄 NOC CLIENTS 🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄
+// ðŸ”„ðŸ”„ NOC CLIENTS ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„ðŸ”„
 var npMontant=15000,npPlan='noc-starter';
 function npSelect(el,m,p){
   npMontant=m;npPlan=p;
@@ -2482,11 +2482,11 @@ async function npCharger(){
       html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
       html+='<div style="width:8px;height:8px;border-radius:50%;background:'+bg+';flex-shrink:0"></div>';
       html+='<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:700">'+cl.nom+'</div>';
-      html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+(cl.email?' • '+cl.email:'')+'</div></div>';
+      html+='<div style="font-size:11px;color:var(--muted)">'+cl.telephone+(cl.email?' â€¢ '+cl.email:'')+'</div></div>';
       html+='<div style="text-align:right;min-width:120px">';
       html+='<div style="font-size:11px;font-weight:700;color:#00d4ff;font-family:monospace">'+cl.code+'</div>';
       html+='<div style="font-size:10px;color:var(--muted)">'+fl+'</div>';
-      html+='<div style="font-size:10px;color:var(--muted)">Max '+limite+' cameras • '+dateStr+'</div></div>';
+      html+='<div style="font-size:10px;color:var(--muted)">Max '+limite+' cameras â€¢ '+dateStr+'</div></div>';
       html+='<div style="display:flex;gap:5px;flex-wrap:wrap">';
       html+='<button data-url="'+lien+'" onclick="npCopyUrl(this)" style="padding:5px 8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--accent);font-size:11px;cursor:pointer">Copier lien</button>';
       html+='<button data-url="'+lien+'" onclick="npOpenUrl(this)" style="padding:5px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:5px;color:#7c3aed;font-size:11px;cursor:pointer">Voir NOC</button>';
@@ -2560,7 +2560,7 @@ async function npDoAssigner(btn, code, nom){
 }
 
 
-// ══ SENSMS ADMIN ══
+// â•â• SENSMS ADMIN â•â•
 function loadSenSmsUsers() {
   fetch(API + '/api/sensms/users', { headers: { 'Authorization': TOKEN } })
     .then(function(r) { return r.json(); })
@@ -2587,18 +2587,18 @@ function loadSenSmsUsers() {
       } else {
         users.forEach(function(u) {
           var createdAt = u.createdAt ? new Date(u.createdAt) : null;
-          var date = createdAt ? createdAt.toLocaleDateString('fr-FR') + ' ' + createdAt.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '—';
+          var date = createdAt ? createdAt.toLocaleDateString('fr-FR') + ' ' + createdAt.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : 'â€”';
           var isNew = createdAt && (now - createdAt.getTime()) < 86400000;
           html += '<tr' + (isNew ? ' style="background:rgba(0,200,83,0.06);"' : '') + '>' +
-            '<td>' + (isNew ? '<span style="background:#00C853;color:#000;font-size:9px;font-weight:800;padding:1px 6px;border-radius:100px;margin-right:6px;">NEW</span>' : '') + (u.nom || '—') + '</td>' +
-            '<td>' + (u.email || '—') + '</td>' +
-            '<td>' + (u.telephone || '—') + '</td>' +
-            '<td>' + (u.organisation || '—') + '</td>' +
+            '<td>' + (isNew ? '<span style="background:#00C853;color:#000;font-size:9px;font-weight:800;padding:1px 6px;border-radius:100px;margin-right:6px;">NEW</span>' : '') + (u.nom || 'â€”') + '</td>' +
+            '<td>' + (u.email || 'â€”') + '</td>' +
+            '<td>' + (u.telephone || 'â€”') + '</td>' +
+            '<td>' + (u.organisation || 'â€”') + '</td>' +
             '<td><span style="color:var(--green);font-weight:700;">' + (u.credits || 0) + '</span></td>' +
             '<td style="font-size:11px;">' + date + '</td>' +
             '<td>' +
-              '<button onclick="addSenSmsCredits(\'' + (u._id || u.id) + '\',\'' + (u.email||'') + '\')" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">+ Crédits</button>' +
-              '<button onclick="deleteSenSmsUser(\'' + (u._id || u.id) + '\')" style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.2);color:var(--red);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">🗑</button>' +
+              '<button onclick="addSenSmsCredits(\'' + (u._id || u.id) + '\',\'' + (u.email||'') + '\')" style="background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.2);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">+ CrÃ©dits</button>' +
+              '<button onclick="deleteSenSmsUser(\'' + (u._id || u.id) + '\')" style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.2);color:var(--red);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">ðŸ—‘</button>' +
             '</td>' +
           '</tr>';
         });
@@ -2626,20 +2626,20 @@ function loadSenSmsCampaigns() {
         html = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Aucune campagne pour linstant</td></tr>';
       } else {
         camps.forEach(function(c, i) {
-          var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '—';
-          var statut = c.statut === 'success' ? '<span class="badge active">✅ Succès</span>' :
-                       c.statut === 'failed' ? '<span class="badge suspended">❌ Échec</span>' :
-                       c.statut === 'partial' ? '<span class="badge pending">⚠️ Partiel</span>' :
-                       '<span class="badge">' + (c.statut || '—') + '</span>';
+          var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : 'â€”';
+          var statut = c.statut === 'success' ? '<span class="badge active">âœ… SuccÃ¨s</span>' :
+                       c.statut === 'failed' ? '<span class="badge suspended">âŒ Ã‰chec</span>' :
+                       c.statut === 'partial' ? '<span class="badge pending">âš ï¸ Partiel</span>' :
+                       '<span class="badge">' + (c.statut || 'â€”') + '</span>';
           html += '<tr>' +
-            '<td><strong>' + (c.campagne || '—') + '</strong></td>' +
-            '<td>' + (c.sender || '—') + '</td>' +
+            '<td><strong>' + (c.campagne || 'â€”') + '</strong></td>' +
+            '<td>' + (c.sender || 'â€”') + '</td>' +
             '<td>' + (c.total || 0) + '</td>' +
             '<td style="color:var(--green);">' + (c.envoyes || 0) + '</td>' +
             '<td style="color:var(--red);">' + (c.echecs || 0) + '</td>' +
             '<td>' + statut + '</td>' +
             '<td style="font-size:11px;">' + date + '</td>' +
-            '<td><button onclick="genererPDFCampagne(' + i + ')" style="background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);color:#2196F3;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">📄 PDF</button></td>' +
+            '<td><button onclick="genererPDFCampagne(' + i + ')" style="background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);color:#2196F3;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">ðŸ“„ PDF</button></td>' +
           '</tr>';
         });
       }
@@ -2653,8 +2653,8 @@ function loadSenSmsCampaigns() {
 function genererPDFCampagne(index) {
   var c = sensmsCurrentCamps[index];
   if (!c) return;
-  var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : '—';
-  var statut = c.statut === 'success' ? 'Succès' : c.statut === 'failed' ? 'Échec' : c.statut || '—';
+  var date = c.createdAt ? new Date(c.createdAt).toLocaleString('fr-FR') : 'â€”';
+  var statut = c.statut === 'success' ? 'SuccÃ¨s' : c.statut === 'failed' ? 'Ã‰chec' : c.statut || 'â€”';
   var taux = c.total ? Math.round((c.envoyes || 0) / c.total * 100) : 0;
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport - ' + (c.campagne||'SMS') + '</title><style>' +
     'body{font-family:Arial,sans-serif;padding:40px;color:#1C1917;margin:0;}' +
@@ -2670,21 +2670,21 @@ function genererPDFCampagne(index) {
     '.footer{text-align:center;color:#888;font-size:11px;margin-top:40px;padding-top:16px;border-top:1px solid #eee;}' +
     '@media print{body{padding:20px;}}' +
     '</style></head><body>' +
-    '<div class="header"><div class="logo">S</div><div><div style="font-size:20px;font-weight:700;">Rapport de Campagne SMS</div><div style="opacity:0.7;font-size:13px;margin-top:4px;">SenSMS — sensms.com</div></div></div>' +
+    '<div class="header"><div class="logo">S</div><div><div style="font-size:20px;font-weight:700;">Rapport de Campagne SMS</div><div style="opacity:0.7;font-size:13px;margin-top:4px;">SenSMS â€” sensms.com</div></div></div>' +
     '<div class="stats">' +
     '<div class="stat"><div class="stat-val">' + (c.total||0) + '</div><div class="stat-label">Total</div></div>' +
-    '<div class="stat"><div class="stat-val" style="color:#00C853;">' + (c.envoyes||0) + '</div><div class="stat-label">Envoyés</div></div>' +
-    '<div class="stat"><div class="stat-val" style="color:#f44336;">' + (c.echecs||0) + '</div><div class="stat-label">Échecs</div></div>' +
-    '<div class="stat"><div class="stat-val">' + taux + '%</div><div class="stat-label">Succès</div></div>' +
+    '<div class="stat"><div class="stat-val" style="color:#00C853;">' + (c.envoyes||0) + '</div><div class="stat-label">EnvoyÃ©s</div></div>' +
+    '<div class="stat"><div class="stat-val" style="color:#f44336;">' + (c.echecs||0) + '</div><div class="stat-label">Ã‰checs</div></div>' +
+    '<div class="stat"><div class="stat-val">' + taux + '%</div><div class="stat-label">SuccÃ¨s</div></div>' +
     '</div>' +
     '<div class="section"><h3>Informations de la campagne</h3>' +
-    '<div class="row"><span>Nom</span><strong>' + (c.campagne||'—') + '</strong></div>' +
-    '<div class="row"><span>Expéditeur</span><strong>' + (c.sender||'—') + '</strong></div>' +
+    '<div class="row"><span>Nom</span><strong>' + (c.campagne||'â€”') + '</strong></div>' +
+    '<div class="row"><span>ExpÃ©diteur</span><strong>' + (c.sender||'â€”') + '</strong></div>' +
     '<div class="row"><span>Statut</span><strong>' + statut + '</strong></div>' +
     '<div class="row"><span>Date envoi</span><strong>' + date + '</strong></div>' +
-    '<div class="row"><span>Compte</span><strong>' + (c.userId||'—') + '</strong></div>' +
+    '<div class="row"><span>Compte</span><strong>' + (c.userId||'â€”') + '</strong></div>' +
     '</div>' +
-    '<div class="footer">PST Telecom — SenSMS © 2026 — Rapport généré le ' + new Date().toLocaleString('fr-FR') + '</div>' +
+    '<div class="footer">PST Telecom â€” SenSMS Â© 2026 â€” Rapport gÃ©nÃ©rÃ© le ' + new Date().toLocaleString('fr-FR') + '</div>' +
     '</body></html>';
   var win = window.open('', '_blank');
   win.document.write(html);
@@ -2693,7 +2693,7 @@ function genererPDFCampagne(index) {
 }
 
 function addSenSmsCredits(userId, email) {
-  var n = prompt('Nombre de crédits SMS à ajouter pour ' + email + ' :');
+  var n = prompt('Nombre de crÃ©dits SMS Ã  ajouter pour ' + email + ' :');
   if (!n || isNaN(n) || parseInt(n) <= 0) return;
   fetch(API + '/api/sensms/add-credits', {
     method: 'POST',
@@ -2702,7 +2702,7 @@ function addSenSmsCredits(userId, email) {
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.success) { showToast(n + ' crédits ajoutés ✅'); loadSenSmsUsers(); }
+    if (data.success) { showToast(n + ' crÃ©dits ajoutÃ©s âœ…'); loadSenSmsUsers(); }
     else showToast('Erreur: ' + (data.error || '?'), 'error');
   });
 }
@@ -2716,25 +2716,25 @@ function deleteSenSmsUser(userId) {
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.success) { showToast('Utilisateur supprimé'); loadSenSmsUsers(); }
+    if (data.success) { showToast('Utilisateur supprimÃ©'); loadSenSmsUsers(); }
     else showToast('Erreur: ' + (data.error || '?'), 'error');
   });
 }
-// ══ FIN SENSMS ADMIN ══
+// â•â• FIN SENSMS ADMIN â•â•
 
 function togglePwVis() {
   var inp = document.getElementById('login-pw');
   var eye = document.getElementById('pw-eye');
   if (inp.type === 'password') {
     inp.type = 'text';
-    eye.textContent = '👁️';
+    eye.textContent = 'ðŸ‘ï¸';
   } else {
     inp.type = 'password';
-    eye.textContent = '👁️';
+    eye.textContent = 'ðŸ‘ï¸';
   }
 }
 
-// ══ AVIS ADMIN ══
+// â•â• AVIS ADMIN â•â•
 function loadAvisSenSms() {
   fetch(API + '/api/sensms/avis/admin', { headers: { 'Authorization': TOKEN } })
     .then(r => r.json())
@@ -2744,17 +2744,17 @@ function loadAvisSenSms() {
         html = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Aucun avis</td></tr>';
       } else {
         data.forEach(a => {
-          var etoiles = '★'.repeat(a.note) + '☆'.repeat(5-a.note);
-          var date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
-          var statut = a.approuve ? '<span class="badge active">✅ Publié</span>' : '<span class="badge pending">⏳ En attente</span>';
+          var etoiles = 'â˜…'.repeat(a.note) + 'â˜†'.repeat(5-a.note);
+          var date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : 'â€”';
+          var statut = a.approuve ? '<span class="badge active">âœ… PubliÃ©</span>' : '<span class="badge pending">â³ En attente</span>';
           html += '<tr>' +
-            '<td><strong>' + (a.nom||'—') + '</strong><br><small style="color:var(--muted);">' + (a.email||'') + '</small></td>' +
+            '<td><strong>' + (a.nom||'â€”') + '</strong><br><small style="color:var(--muted);">' + (a.email||'') + '</small></td>' +
             '<td style="color:#FFD700;font-size:16px;">' + etoiles + '</td>' +
-            '<td style="max-width:300px;font-size:12px;">' + (a.commentaire||'—') + '</td>' +
+            '<td style="max-width:300px;font-size:12px;">' + (a.commentaire||'â€”') + '</td>' +
             '<td style="font-size:11px;">' + date + '</td>' +
             '<td>' + statut + '</td>' +
             '<td>' +
-              '<button onclick="modererAvis(\'' + a._id + '\', ' + !a.approuve + ')" class="act-btn ' + (a.approuve ? 'suspend' : 'activate') + '">' + (a.approuve ? '🙈 Masquer' : '✅ Publier') + '</button>' +
+              '<button onclick="modererAvis(\'' + a._id + '\', ' + !a.approuve + ')" class="act-btn ' + (a.approuve ? 'suspend' : 'activate') + '">' + (a.approuve ? 'ðŸ™ˆ Masquer' : 'âœ… Publier') + '</button>' +
             '</td>' +
           '</tr>';
         });
@@ -2770,11 +2770,11 @@ function modererAvis(avisId, approuve) {
     headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
     body: JSON.stringify({ avisId, approuve })
   }).then(r => r.json()).then(d => {
-    if (d.success) { showToast(approuve ? 'Avis publié ✅' : 'Avis masqué'); loadAvisSenSms(); }
+    if (d.success) { showToast(approuve ? 'Avis publiÃ© âœ…' : 'Avis masquÃ©'); loadAvisSenSms(); }
     else showToast('Erreur: ' + (d.error||'?'), 'error');
   });
 }
-// ══ FIN AVIS ADMIN ══
+// â•â• FIN AVIS ADMIN â•â•
 </script>
 </body>
 </html>
