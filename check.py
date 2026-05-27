@@ -1,0 +1,5 @@
+f = open('zama.html', encoding='utf-8-sig')
+c = f.read()
+f.close()
+i = c.find('id="landing"')
+print(c[i:i+200])
