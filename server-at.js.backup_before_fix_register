@@ -3765,28 +3765,19 @@ initJSONBins().catch(console.error);
 // Inscription SenSMS
 app.post("/api/sen-sms/register", async (req, res) => {
   try {
-    // Accepter les deux formats (frontend envoie: nom, organisation, telephone, email, password)
-    const nom = req.body.nom || req.body.name || "";
-    const org = req.body.organisation || req.body.org || "";
-    const phone = req.body.telephone || req.body.phone || "";
-    const email = req.body.email || "";
-    const password = req.body.password || "";
-
-    if (!email || !password) return res.json({ success: false, error: "Email et mot de passe requis" });
-    if (password.length < 6) return res.json({ success: false, error: "Mot de passe trop court (6 caractères minimum)" });
+    const { name, phone, email, password } = req.body;
+    if (!name || !phone || !password) return res.json({ success: false, error: "Champs requis: nom, téléphone, mot de passe" });
 
     const db = await jbGet(BINS.users) || { users: [] };
-    const exists = db.users.find(u => u.email === email || (phone && u.phone === phone));
-    if (exists) return res.json({ success: false, error: "Compte déjà existant avec cet email ou téléphone" });
+    const exists = db.users.find(u => u.phone === phone || (email && u.email === email));
+    if (exists) return res.json({ success: false, error: "Compte déjà existant avec ce téléphone ou email" });
 
     const nodeCrypto = require("crypto");
     const hashedPw = nodeCrypto.createHash("sha256").update(password + "pst2026salt").digest("hex");
     const newUser = {
       id: Date.now().toString(),
-      nom: nom || email.split("@")[0],
-      organisation: org,
-      phone: phone,
-      email: email,
+      name, phone,
+      email: email || "",
       password: hashedPw,
       credits: 0,
       role: "user",
@@ -3806,19 +3797,17 @@ app.post("/api/sen-sms/register", async (req, res) => {
 // Connexion SenSMS
 app.post("/api/sen-sms/login", async (req, res) => {
   try {
-    // Frontend envoie: email + password (champ identifier ou email)
-    const identifier = req.body.identifier || req.body.email || "";
-    const password = req.body.password || "";
-    if (!identifier || !password) return res.json({ success: false, error: "Email et mot de passe requis" });
+    const { identifier, password } = req.body;
+    if (!identifier || !password) return res.json({ success: false, error: "Identifiant et mot de passe requis" });
 
     const db = await jbGet(BINS.users) || { users: [] };
     const nodeCrypto = require("crypto");
     const hashedPw = nodeCrypto.createHash("sha256").update(password + "pst2026salt").digest("hex");
 
     const user = db.users.find(u =>
-      (u.email === identifier || u.phone === identifier) && u.password === hashedPw
+      (u.phone === identifier || u.email === identifier) && u.password === hashedPw
     );
-    if (!user) return res.json({ success: false, error: "Email ou mot de passe incorrect" });
+    if (!user) return res.json({ success: false, error: "Identifiant ou mot de passe incorrect" });
 
     // Génération token JWT maison
     const jwtSecret = process.env.JWT_SECRET || "pst-jwt-2026-xK9mPq7nR3";
