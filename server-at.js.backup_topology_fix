@@ -3692,43 +3692,27 @@ let BINS = {
 async function jbGet(binId) {
   if (!binId) return null;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${JSONBIN_BASE}/b/${binId}/latest`, {
-      headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
-      signal: controller.signal
+      headers: { "X-Master-Key": JSONBIN_MASTER_KEY }
     });
-    clearTimeout(timeout);
-    if (!res.ok) { console.error("jbGet error:", res.status, binId); return null; }
+    if (!res.ok) return null;
     const data = await res.json();
     return data.record;
-  } catch(e) {
-    console.error("jbGet exception:", e.message, "binId:", binId);
-    return null;
-  }
+  } catch(e) { return null; }
 }
 
 async function jbSet(binId, record) {
-  if (!binId) return false;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${JSONBIN_BASE}/b/${binId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         "X-Master-Key": JSONBIN_MASTER_KEY
       },
-      body: JSON.stringify(record),
-      signal: controller.signal
+      body: JSON.stringify(record)
     });
-    clearTimeout(timeout);
-    if (!res.ok) console.error("jbSet error:", res.status, binId);
     return res.ok;
-  } catch(e) {
-    console.error("jbSet exception:", e.message, "binId:", binId);
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
 async function jbCreate(name, initialData) {
@@ -3811,8 +3795,8 @@ app.post("/api/sen-sms/register", async (req, res) => {
     const { password: _pw, ...userSafe } = newUser;
     res.json({ success: true, user: userSafe });
   } catch(e) {
-    console.error("SenSMS register error:", e.message, e.stack);
-    res.json({ success: false, error: "Erreur serveur: " + e.message });
+    console.error("SenSMS register error:", e);
+    res.json({ success: false, error: "Erreur serveur" });
   }
 });
 
@@ -3846,8 +3830,8 @@ app.post("/api/sen-sms/login", async (req, res) => {
     const { password: _pw, ...userSafe } = user;
     res.json({ success: true, user: userSafe, token });
   } catch(e) {
-    console.error("SenSMS login error:", e.message, e.stack);
-    res.json({ success: false, error: "Erreur serveur: " + e.message });
+    console.error("SenSMS login error:", e);
+    res.json({ success: false, error: "Erreur serveur" });
   }
 });
 
