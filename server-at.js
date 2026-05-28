@@ -3412,7 +3412,11 @@ const JSONBIN_BASE = "https://api.jsonbin.io/v3";
 let BINS = {
   users:     process.env.JSONBIN_USERS_BIN     || null,
   campaigns: process.env.JSONBIN_CAMPAIGNS_BIN || null,
-  contacts:  process.env.JSONBIN_CONTACTS_BIN  || null
+  contacts:  process.env.JSONBIN_CONTACTS_BIN  || null,
+  penc_users:  process.env.JSONBIN_PENC_USERS_BIN  || null,
+  penc_convs:  process.env.JSONBIN_PENC_CONVS_BIN  || null,
+  penc_msgs:   process.env.JSONBIN_PENC_MSGS_BIN   || null,
+  penc_status: process.env.JSONBIN_PENC_STATUS_BIN || null
 };
 
 async function jbGet(binId) {
@@ -3488,11 +3492,19 @@ async function initJSONBins() {
     BINS.contacts = await jbCreate("sensms_contacts", { contacts: [] });
     if (BINS.contacts) console.log("✅ Bin contacts créé:", BINS.contacts);
   }
+  if (!BINS.penc_users)  { BINS.penc_users  = await jbCreate("penc_users",  { users: [] });    if (BINS.penc_users)  console.log("✅ Bin penc_users créé:",  BINS.penc_users); }
+  if (!BINS.penc_convs)  { BINS.penc_convs  = await jbCreate("penc_convs",  { convs: [] });    if (BINS.penc_convs)  console.log("✅ Bin penc_convs créé:",  BINS.penc_convs); }
+  if (!BINS.penc_msgs)   { BINS.penc_msgs   = await jbCreate("penc_msgs",   { msgs: [] });     if (BINS.penc_msgs)   console.log("✅ Bin penc_msgs créé:",   BINS.penc_msgs); }
+  if (!BINS.penc_status) { BINS.penc_status = await jbCreate("penc_status", { statuses: [] }); if (BINS.penc_status) console.log("✅ Bin penc_status créé:", BINS.penc_status); }
   console.log("📦 JSONBin BINS IDs:", JSON.stringify(BINS));
   console.log("⚠️  IMPORTANT: Ajoute ces IDs comme variables Render pour ne pas les perdre !");
   console.log("   JSONBIN_USERS_BIN =", BINS.users);
   console.log("   JSONBIN_CAMPAIGNS_BIN =", BINS.campaigns);
   console.log("   JSONBIN_CONTACTS_BIN =", BINS.contacts);
+  console.log("   JSONBIN_PENC_USERS_BIN =", BINS.penc_users);
+  console.log("   JSONBIN_PENC_CONVS_BIN =", BINS.penc_convs);
+  console.log("   JSONBIN_PENC_MSGS_BIN =", BINS.penc_msgs);
+  console.log("   JSONBIN_PENC_STATUS_BIN =", BINS.penc_status);
 }
 
 initJSONBins().catch(console.error);
@@ -3765,7 +3777,7 @@ app.get('/messager', (req, res) => {
 
 
 // ════════════════════════════════════════════════════════════
-// ─── PENC MESSAGING APP — ROUTES BACKEND ────────────────────
+// ─── PENC MESSAGING APP — ROUTES BACKEND (JSONBin) ──────────
 // ════════════════════════════════════════════════════════════
 
 const jwt_penc = require('jsonwebtoken');
@@ -3782,11 +3794,16 @@ function pencAuth(req, res, next) {
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
 
-// ── Collections MongoDB ───────────────────────────────────────
-const pencUsersCol   = () => db ? db.collection('penc_users')   : null;
-const pencConvsCol   = () => db ? db.collection('penc_convs')   : null;
-const pencMsgsCol    = () => db ? db.collection('penc_msgs')    : null;
-const pencStatusCol  = () => db ? db.collection('penc_status')  : null;
+// ── Stockage JSONBin Penc (remplace MongoDB) ──────────────────
+async function pencUsers()        { const d = await jbGet(BINS.penc_users);  return (d && Array.isArray(d.users))    ? d.users    : []; }
+async function pencSaveUsers(a)   { return jbSet(BINS.penc_users,  { users: a }); }
+async function pencConvs()        { const d = await jbGet(BINS.penc_convs);  return (d && Array.isArray(d.convs))    ? d.convs    : []; }
+async function pencSaveConvs(a)   { return jbSet(BINS.penc_convs,  { convs: a }); }
+async function pencMsgs()         { const d = await jbGet(BINS.penc_msgs);   return (d && Array.isArray(d.msgs))     ? d.msgs     : []; }
+async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
+async function pencStatuses()     { const d = await jbGet(BINS.penc_status); return (d && Array.isArray(d.statuses)) ? d.statuses : []; }
+async function pencSaveStatuses(a){ return jbSet(BINS.penc_status, { statuses: a }); }
+const pencStrip = u => { if (!u) return null; const { password, ...s } = u; return s; };
 
 // ════════════════════════════════════════════════════════════
 // AUTH
@@ -3801,20 +3818,11 @@ app.post('/api/penc/auth/register', async (req, res) => {
     if (password.length < 6)
       return res.status(400).json({ error: 'Mot de passe min. 6 caractères' });
 
-    const col = pencUsersCol();
-    if (!col) {
-      // Mode mémoire simple
-      const user = { id: 'u_' + Date.now(), full_name, username, phone, email, avatar_url: null, bio: '', is_online: true, created_at: new Date() };
-      const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-      return res.json({ user, token: tok });
-    }
-
-    // Vérif numéro unique
-    const existing = await col.findOne({ phone });
-    if (existing) return res.status(400).json({ error: "Ce numero est deja associe a un compte. Connecte-toi." });
-
-    const usernameExist = await col.findOne({ username });
-    if (usernameExist) return res.status(400).json({ error: "Ce nom utilisateur est deja pris." });
+    const users = await pencUsers();
+    if (users.some(u => u.phone === phone))
+      return res.status(400).json({ error: "Ce numero est deja associe a un compte. Connecte-toi." });
+    if (users.some(u => (u.username || '').toLowerCase() === username.toLowerCase()))
+      return res.status(400).json({ error: "Ce nom utilisateur est deja pris." });
 
     const hashed = await bcrypt_penc.hash(password, 10);
     const user = {
@@ -3823,14 +3831,14 @@ app.post('/api/penc/auth/register', async (req, res) => {
       email: email || null,
       password: hashed,
       avatar_url: null, bio: '',
-      is_online: true, last_seen: new Date(),
-      fcm_token: null, created_at: new Date()
+      is_online: true, last_seen: new Date().toISOString(),
+      fcm_token: null, created_at: new Date().toISOString()
     };
-    await col.insertOne(user);
-    const { password: _, ...safeUser } = user;
+    users.push(user);
+    await pencSaveUsers(users);
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: safeUser, token: tok });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+    res.json({ user: pencStrip(user), token: tok });
+  } catch (e) { console.error('penc register:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // POST /api/penc/auth/login
@@ -3839,37 +3847,32 @@ app.post('/api/penc/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     if (!identifier || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
 
-    const col = pencUsersCol();
-    if (!col) {
-      const user = { id: 'u_demo', full_name: 'Utilisateur Penc', username: identifier, phone: identifier, avatar_url: null };
-      const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-      return res.json({ user, token: tok });
-    }
-
-    const user = await col.findOne({
-      $or: [{ phone: identifier }, { email: identifier }, { username: identifier }]
-    });
+    const users = await pencUsers();
+    const id = String(identifier).trim();
+    const user = users.find(u =>
+      u.phone === id || u.email === id ||
+      (u.username || '').toLowerCase() === id.toLowerCase()
+    );
     if (!user) return res.status(400).json({ error: "Compte introuvable" });
 
-    const ok = await bcrypt_penc.compare(password, user.password);
+    const ok = await bcrypt_penc.compare(password, user.password || '');
     if (!ok) return res.status(400).json({ error: "Mot de passe incorrect" });
 
-    await col.updateOne({ id: user.id }, { $set: { is_online: true, last_seen: new Date() } });
-    const { password: _, ...safeUser } = user;
+    user.is_online = true;
+    user.last_seen = new Date().toISOString();
+    await pencSaveUsers(users);
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: safeUser, token: tok });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+    res.json({ user: pencStrip(user), token: tok });
+  } catch (e) { console.error('penc login:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
-    const col = pencUsersCol();
-    if (!col) return res.json({ user: { id: req.pencUser.userId } });
-    const user = await col.findOne({ id: req.pencUser.userId });
+    const users = await pencUsers();
+    const user = users.find(u => u.id === req.pencUser.userId);
     if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
-    const { password: _, ...safeUser } = user;
-    res.json({ user: safeUser });
+    res.json({ user: pencStrip(user) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3877,10 +3880,15 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
     const { full_name, bio, avatar_url } = req.body;
-    const col = pencUsersCol();
-    if (!col) return res.json({ success: true });
-    await col.updateOne({ id: req.pencUser.userId }, { $set: { full_name, bio, avatar_url, updated_at: new Date() } });
-    res.json({ success: true });
+    const users = await pencUsers();
+    const user = users.find(u => u.id === req.pencUser.userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (full_name !== undefined) user.full_name = full_name;
+    if (bio !== undefined) user.bio = bio;
+    if (avatar_url !== undefined) user.avatar_url = avatar_url;
+    user.updated_at = new Date().toISOString();
+    await pencSaveUsers(users);
+    res.json({ success: true, user: pencStrip(user) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3891,69 +3899,66 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
 // GET /api/penc/conversations
 app.get('/api/penc/conversations', pencAuth, async (req, res) => {
   try {
-    const col = pencConvsCol(), usersCol = pencUsersCol(), msgsCol = pencMsgsCol();
-    if (!col) return res.json({ conversations: [] });
-
-    const convs = await col.find({ members: req.pencUser.userId }).toArray();
-    const enriched = await Promise.all(convs.map(async (conv) => {
-      const otherId = conv.members.find(m => m !== req.pencUser.userId);
-      let otherUser = null;
-      if (otherId && usersCol) {
-        otherUser = await usersCol.findOne({ id: otherId });
-      }
-      let lastMsg = null;
-      if (msgsCol) {
-        lastMsg = await msgsCol.findOne({ conversation_id: conv.id }, { sort: { created_at: -1 } });
-      }
+    const uid = req.pencUser.userId;
+    const convs = await pencConvs();
+    const users = await pencUsers();
+    const msgs = await pencMsgs();
+    const mine = convs.filter(c => Array.isArray(c.members) && c.members.includes(uid));
+    const enriched = mine.map(conv => {
+      const otherId = conv.members.find(m => m !== uid);
+      const otherUser = users.find(u => u.id === otherId) || null;
+      const convMsgs = msgs.filter(m => m.conversation_id === conv.id);
+      const lastMsg = convMsgs.length ? convMsgs[convMsgs.length - 1] : null;
       return {
         id: conv.id,
         name: otherUser?.full_name || conv.name || 'Conversation',
         avatar_url: otherUser?.avatar_url || null,
         other_user_id: otherId,
-        last_message: lastMsg ? (lastMsg.type === 'text' ? lastMsg.content?.slice(0,50) : '📎 Média') : null,
-        unread_count: conv.unread?.[req.pencUser.userId] || 0,
+        last_message: lastMsg ? (lastMsg.type === 'text' ? (lastMsg.content || '').slice(0, 50) : '📎 Média') : null,
+        unread_count: conv.unread?.[uid] || 0,
         updated_at: conv.updated_at || conv.created_at,
         type: conv.type || 'direct'
       };
-    }));
-    enriched.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+    });
+    enriched.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     res.json({ conversations: enriched });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch (e) { console.error('penc convs:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // POST /api/penc/conversations/direct
 app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
   try {
+    const uid = req.pencUser.userId;
     const { target_user_id } = req.body;
     if (!target_user_id) return res.status(400).json({ error: 'target_user_id requis' });
-    const col = pencConvsCol();
-    if (!col) {
-      const conv = { id: 'conv_' + Date.now(), members: [req.pencUser.userId, target_user_id], type: 'direct', created_at: new Date(), updated_at: new Date() };
-      return res.json({ conversation: conv });
-    }
-    // Chercher conv existante
-    let conv = await col.findOne({ type: 'direct', members: { $all: [req.pencUser.userId, target_user_id] } });
+    const convs = await pencConvs();
+    let conv = convs.find(c => c.type === 'direct' && Array.isArray(c.members)
+      && c.members.includes(uid) && c.members.includes(target_user_id));
     if (!conv) {
-      conv = { id: 'conv_' + Date.now() + Math.random().toString(36).slice(2), members: [req.pencUser.userId, target_user_id], type: 'direct', unread: {}, created_at: new Date(), updated_at: new Date() };
-      await col.insertOne(conv);
+      conv = {
+        id: 'conv_' + Date.now() + Math.random().toString(36).slice(2),
+        members: [uid, target_user_id], type: 'direct', unread: {},
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      };
+      convs.push(conv);
+      await pencSaveConvs(convs);
     }
     res.json({ conversation: conv });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch (e) { console.error('penc conv direct:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // GET /api/penc/conversations/:id/messages
 app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
   try {
-    const col = pencMsgsCol(), usersCol = pencUsersCol();
-    if (!col) return res.json({ messages: [] });
-    const msgs = await col.find({ conversation_id: req.params.id }).sort({ created_at: 1 }).limit(100).toArray();
-    const enriched = await Promise.all(msgs.map(async m => {
-      let sender = null;
-      if (usersCol) { const u = await usersCol.findOne({ id: m.sender_id }); if (u) { const { password: _, ...safe } = u; sender = safe; } }
-      return { ...m, sender };
-    }));
+    const msgs = await pencMsgs();
+    const users = await pencUsers();
+    const convMsgs = msgs
+      .filter(m => m.conversation_id === req.params.id)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .slice(-100);
+    const enriched = convMsgs.map(m => ({ ...m, sender: pencStrip(users.find(u => u.id === m.sender_id)) }));
     res.json({ messages: enriched });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch (e) { console.error('penc msgs:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ════════════════════════════════════════════════════════════
@@ -3963,28 +3968,26 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
 // GET /api/penc/contacts/search?q=
 app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
   try {
-    const q = req.query.q?.trim();
+    const q = String(req.query.q || '').trim().toLowerCase();
     if (!q) return res.json({ users: [] });
-    const col = pencUsersCol();
-    if (!col) return res.json({ users: [] });
-    const regex = new RegExp(q, 'i');
-    const users = await col.find({
-      id: { $ne: req.pencUser.userId },
-      $or: [{ full_name: regex }, { username: regex }, { phone: regex }, { email: regex }]
-    }).limit(20).toArray();
-    const safe = users.map(u => { const { password: _, ...s } = u; return s; });
-    res.json({ users: safe });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+    const uid = req.pencUser.userId;
+    const users = await pencUsers();
+    const found = users.filter(u => u.id !== uid && (
+      (u.full_name || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.phone || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
+    )).slice(0, 20).map(pencStrip);
+    res.json({ users: found });
+  } catch (e) { console.error('penc search:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // GET /api/penc/contacts
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
-    const col = pencUsersCol();
-    if (!col) return res.json({ contacts: [] });
-    const users = await col.find({ id: { $ne: req.pencUser.userId } }).limit(50).toArray();
-    const safe = users.map(u => { const { password: _, ...s } = u; return s; });
-    res.json({ contacts: safe });
+    const uid = req.pencUser.userId;
+    const users = await pencUsers();
+    res.json({ contacts: users.filter(u => u.id !== uid).slice(0, 50).map(pencStrip) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3995,14 +3998,17 @@ app.get('/api/penc/contacts', pencAuth, async (req, res) => {
 // GET /api/penc/statuses
 app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const col = pencStatusCol(), usersCol = pencUsersCol();
-    if (!col) return res.json({ statuses: [] });
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const statuses = await col.find({ created_at: { $gte: cutoff }, user_id: { $ne: req.pencUser.userId } }).sort({ created_at: -1 }).toArray();
-    const enriched = await Promise.all(statuses.map(async s => {
-      let user = null;
-      if (usersCol) { const u = await usersCol.findOne({ id: s.user_id }); if (u) { const { password: _, ...safe } = u; user = safe; } }
-      return { ...s, user, viewed: (s.views || []).includes(req.pencUser.userId) };
+    const uid = req.pencUser.userId;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const statuses = await pencStatuses();
+    const users = await pencUsers();
+    const recent = statuses
+      .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id !== uid)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const enriched = recent.map(s => ({
+      ...s,
+      user: pencStrip(users.find(u => u.id === s.user_id)),
+      viewed: (s.views || []).includes(uid)
     }));
     res.json({ statuses: enriched });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
@@ -4012,10 +4018,17 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const { type, media_url, text_content, bg_color } = req.body;
-    const col = pencStatusCol();
-    if (!col) return res.json({ success: true });
-    const status = { id: 'st_' + Date.now(), user_id: req.pencUser.userId, type, media_url: media_url || null, text_content: text_content || null, bg_color: bg_color || '#050D18', views: [], created_at: new Date(), expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) };
-    await col.insertOne(status);
+    const statuses = await pencStatuses();
+    const status = {
+      id: 'st_' + Date.now() + Math.random().toString(36).slice(2),
+      user_id: req.pencUser.userId, type,
+      media_url: media_url || null, text_content: text_content || null,
+      bg_color: bg_color || '#050D18', views: [],
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+    statuses.push(status);
+    await pencSaveStatuses(statuses);
     res.json({ status, success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4023,9 +4036,15 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses/:id/view
 app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
   try {
-    const col = pencStatusCol();
-    if (!col) return res.json({ success: true });
-    await col.updateOne({ id: req.params.id }, { $addToSet: { views: req.pencUser.userId } });
+    const statuses = await pencStatuses();
+    const s = statuses.find(x => x.id === req.params.id);
+    if (s) {
+      s.views = s.views || [];
+      if (!s.views.includes(req.pencUser.userId)) {
+        s.views.push(req.pencUser.userId);
+        await pencSaveStatuses(statuses);
+      }
+    }
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4037,7 +4056,6 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
 const pencOnline = new Map();
 
 io.on('connection', async (socket) => {
-  // Vérifier token Penc
   const tok = socket.handshake.auth?.token;
   if (!tok) return;
   let pencUserId;
@@ -4048,41 +4066,51 @@ io.on('connection', async (socket) => {
   socket.pencUserId = pencUserId;
 
   // Rejoindre ses conversations
-  const col = pencConvsCol();
-  if (col) {
-    const convs = await col.find({ members: pencUserId }).toArray();
-    convs.forEach(c => socket.join('penc:' + c.id));
-  }
+  try {
+    const convs = await pencConvs();
+    convs.filter(c => Array.isArray(c.members) && c.members.includes(pencUserId))
+      .forEach(c => socket.join('penc:' + c.id));
+  } catch {}
   io.emit('user:online', { userId: pencUserId, isOnline: true });
+
+  // Permet de rejoindre une conv créée pendant la session
+  socket.on('conversation:join', ({ conversation_id }) => {
+    if (conversation_id) socket.join('penc:' + conversation_id);
+  });
 
   // Envoyer message
   socket.on('message:send', async (data, cb) => {
     const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op } = data;
     try {
-      const msgsCol = pencMsgsCol();
-      const usersCol = pencUsersCol();
-      const convCol = pencConvsCol();
       const msg = {
         id: 'msg_' + Date.now() + Math.random().toString(36).slice(2),
         conversation_id, sender_id: pencUserId,
         type: type || 'text', content: content || null,
         media_url: media_url || null, media_duration: media_duration || null,
         poll_question: poll_question || null, poll_options: poll_options || null,
-        poll_duration: poll_duration || null, poll_votes: 0, poll_results: poll_options ? poll_options.map(() => 0) : null,
+        poll_duration: poll_duration || null, poll_votes: 0,
+        poll_results: poll_options ? poll_options.map(() => 0) : null,
         radio_name: radio_name || null, radio_url: radio_url || null,
         money_amount: money_amount || null, money_op: money_op || null,
-        created_at: new Date(), read_at: null
+        created_at: new Date().toISOString(), read_at: null
       };
-      if (msgsCol) await msgsCol.insertOne(msg);
-      if (convCol) await convCol.updateOne({ id: conversation_id }, { $set: { updated_at: new Date() } });
 
+      // 1) Livraison TEMPS RÉEL d'abord (ne dépend pas de JSONBin)
       let sender = { id: pencUserId };
-      if (usersCol) { const u = await usersCol.findOne({ id: pencUserId }); if (u) { const { password: _, ...s } = u; sender = s; } }
-
+      try { const users = await pencUsers(); const u = users.find(x => x.id === pencUserId); if (u) sender = pencStrip(u); } catch {}
       const fullMsg = { ...msg, sender };
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
       if (cb) cb({ success: true, message: fullMsg });
-    } catch (e) { console.error(e); if (cb) cb({ error: 'Erreur envoi' }); }
+
+      // 2) Persistance best-effort
+      try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); }
+      catch (e) { console.error('penc persist msg:', e.message); }
+      try {
+        const convs = await pencConvs();
+        const c = convs.find(x => x.id === conversation_id);
+        if (c) { c.updated_at = new Date().toISOString(); await pencSaveConvs(convs); }
+      } catch {}
+    } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }
   });
 
   socket.on('typing:start', ({ conversation_id }) => {
@@ -4092,15 +4120,21 @@ io.on('connection', async (socket) => {
     socket.to('penc:' + conversation_id).emit('typing:stop', { userId: pencUserId, conversation_id });
   });
   socket.on('message:read', async ({ conversation_id }) => {
-    const col = pencConvsCol();
-    if (col) await col.updateOne({ id: conversation_id }, { $set: { [`unread.${pencUserId}`]: 0 } });
+    try {
+      const convs = await pencConvs();
+      const c = convs.find(x => x.id === conversation_id);
+      if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
+    } catch {}
     socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
   });
 
   socket.on('disconnect', async () => {
     pencOnline.delete(pencUserId);
-    const usersCol = pencUsersCol();
-    if (usersCol) await usersCol.updateOne({ id: pencUserId }, { $set: { is_online: false, last_seen: new Date() } });
+    try {
+      const users = await pencUsers();
+      const u = users.find(x => x.id === pencUserId);
+      if (u) { u.is_online = false; u.last_seen = new Date().toISOString(); await pencSaveUsers(users); }
+    } catch {}
     io.emit('user:online', { userId: pencUserId, isOnline: false });
   });
 });
