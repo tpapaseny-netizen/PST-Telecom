@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="theme-color" content="#F5F0E8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Penc"/>
+<title>Penc — Messagerie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+/* ══ THEMES ══ */
+:root {
+  --bg:#F5F0E8; --bg2:#EDE8DF; --bg3:#E5DFD5;
+  --card:#FFFFFF; --card2:#EDE8DF;
+  --accent:#1C6B4A; --accent2:#1A5C9E; --accent3:#7B5CFA;
+  --text:#1C1917; --muted:#78716C; --border:rgba(0,0,0,0.09);
+  --danger:#DC2626;
+  --me-bg:linear-gradient(135deg,#1C6B4A,#1A5C9E); --me-text:#fff;
+  --them-bg:#fff; --them-text:#1C1917;
+  --nav-bg:#fff; --header-bg:#EDE8DF; --input-bg:#fff;
+  --shadow:0 4px 20px rgba(0,0,0,0.10);
+}
+[data-theme="sky"]{
+  --bg:#E8F4FF; --bg2:#D9ECFF; --bg3:#C8E4FF;
+  --card:#fff; --card2:#D9ECFF;
+  --accent:#0055AA; --accent2:#0077CC;
+  --text:#0A1A2E; --muted:#4A6FA5; --border:rgba(0,80,180,0.12);
+  --me-bg:linear-gradient(135deg,#0055AA,#0099FF); --me-text:#fff;
+  --them-bg:#fff; --them-text:#0A1A2E;
+  --nav-bg:#fff; --header-bg:#D9ECFF; --input-bg:#fff;
+  --shadow:0 4px 20px rgba(0,80,200,0.12);
+}
+[data-theme="green"]{
+  --bg:#E8FFF4; --bg2:#D4F7E9; --bg3:#BFEFDC;
+  --card:#fff; --card2:#D4F7E9;
+  --accent:#0A7C4E; --accent2:#059669;
+  --text:#052E1A; --muted:#3D8A67; --border:rgba(0,120,70,0.12);
+  --me-bg:linear-gradient(135deg,#0A7C4E,#10B981); --me-text:#fff;
+  --them-bg:#fff; --them-text:#052E1A;
+  --nav-bg:#fff; --header-bg:#D4F7E9; --input-bg:#fff;
+  --shadow:0 4px 20px rgba(0,120,70,0.12);
+}
+[data-theme="orange"]{
+  --bg:#FFF3E8; --bg2:#FFE8D0; --bg3:#FFDAB8;
+  --card:#fff; --card2:#FFE8D0;
+  --accent:#B84800; --accent2:#E05A00;
+  --text:#2D1200; --muted:#9A5A2A; --border:rgba(180,80,0,0.12);
+  --me-bg:linear-gradient(135deg,#B84800,#F97316); --me-text:#fff;
+  --them-bg:#fff; --them-text:#2D1200;
+  --nav-bg:#fff; --header-bg:#FFE8D0; --input-bg:#fff;
+  --shadow:0 4px 20px rgba(180,80,0,0.12);
+}
+[data-theme="dark"]{
+  --bg:#050D18; --bg2:#0A1625; --bg3:#0F1E30;
+  --card:#0D1B2A; --card2:#132233;
+  --accent:#00C896; --accent2:#0099FF; --accent3:#7B5CFA;
+  --text:#EEF2FF; --muted:#6B7FA3; --border:rgba(255,255,255,0.07);
+  --danger:#FF4D6A;
+  --me-bg:linear-gradient(135deg,#00C896,#0099FF); --me-text:#000;
+  --them-bg:#132233; --them-text:#EEF2FF;
+  --nav-bg:#0D1B2A; --header-bg:#050D18; --input-bg:#132233;
+  --shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+#app{height:100vh;width:100vw;position:relative;overflow:hidden;}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transition:transform .32s cubic-bezier(.4,0,.2,1),opacity .28s;}
+.screen.hidden{transform:translateX(100%);opacity:0;pointer-events:none;}
+
+/* ══ AUTH ══ */
+#screen-auth{
+  background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(28,107,74,0.15) 0%,transparent 70%),var(--bg);
+  justify-content:center;align-items:center;padding:24px;overflow-y:auto;
+}
+.auth-logo{text-align:center;margin-bottom:36px;}
+.auth-logo-p{font-family:'Syne',sans-serif;font-size:96px;font-weight:800;line-height:1;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 30px rgba(28,107,74,0.3));}
+.auth-logo-name{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:var(--text);letter-spacing:.18em;margin-top:-8px;}
+.auth-logo-sub{color:var(--muted);font-size:13px;margin-top:4px;}
+.auth-box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:var(--shadow);}
+.auth-tabs{display:flex;background:var(--bg3);border-radius:12px;padding:4px;margin-bottom:24px;}
+.auth-tab{flex:1;padding:9px;text-align:center;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);transition:all .2s;}
+.auth-tab.active{background:var(--accent);color:#fff;}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;display:block;letter-spacing:.06em;text-transform:uppercase;}
+.form-input{width:100%;padding:13px 15px;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.form-input:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--muted);}
+.btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:13px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;transition:opacity .2s,transform .1s;font-family:'DM Sans',sans-serif;margin-top:6px;}
+.btn-primary:active{transform:scale(0.98);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.auth-error{background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);color:var(--danger);border-radius:10px;padding:9px 13px;font-size:13px;margin-bottom:10px;display:none;}
+.auth-link{text-align:center;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;}
+.auth-link span{color:var(--accent);font-weight:600;}
+
+/* ══ FORGOT PASSWORD ══ */
+#screen-forgot{justify-content:center;align-items:center;padding:24px;}
+.otp-boxes{display:flex;gap:10px;justify-content:center;margin:16px 0;}
+.otp-box{width:46px;height:54px;background:var(--input-bg);border:2px solid var(--border);border-radius:12px;text-align:center;font-size:22px;font-weight:700;color:var(--text);outline:none;font-family:'Syne',sans-serif;}
+.otp-box:focus{border-color:var(--accent);}
+
+/* ══ MAIN ══ */
+.top-bar{padding:14px 18px 10px;background:var(--header-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.top-bar-title{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.top-bar-actions{display:flex;gap:10px;align-items:center;}
+.icon-btn{width:38px;height:38px;border-radius:11px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;transition:background .15s;}
+.search-bar{padding:9px 14px;flex-shrink:0;}
+.search-input{width:100%;padding:10px 15px 10px 40px;background:var(--input-bg);border:1px solid var(--border);border-radius:13px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2378716C' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:13px center;}
+
+/* Stories */
+.stories-row{display:flex;gap:12px;padding:10px 14px;overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
+.stories-row::-webkit-scrollbar{display:none;}
+.story-item{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;}
+.story-ring{width:56px;height:56px;border-radius:17px;padding:2.5px;background:linear-gradient(135deg,var(--accent),var(--accent2));position:relative;}
+.story-ring.seen{background:var(--border);}
+.story-ring.mine{background:var(--card2);border:2px dashed var(--border);}
+.story-inner{width:100%;height:100%;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;border:2px solid var(--bg);overflow:hidden;}
+.story-inner img{width:100%;height:100%;object-fit:cover;}
+.story-name{font-size:10px;color:var(--muted);font-weight:500;max-width:56px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.story-add{position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:5px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);}
+
+/* Conv list */
+.conv-list{flex:1;overflow-y:auto;padding:2px 0;}
+.conv-item{display:flex;align-items:center;gap:13px;padding:11px 15px;cursor:pointer;transition:background .12s;position:relative;}
+.conv-item:active{background:var(--card2);}
+.conv-avatar{width:50px;height:50px;border-radius:16px;background:var(--card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;position:relative;overflow:hidden;}
+.conv-avatar img{width:100%;height:100%;object-fit:cover;}
+.online-dot{position:absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:4px;background:var(--accent);border:2px solid var(--bg);}
+.conv-info{flex:1;min-width:0;}
+.conv-name{font-weight:600;font-size:15px;}
+.conv-last{font-size:13px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.conv-last.unread-last{color:var(--text);font-weight:500;}
+.conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+.conv-time{font-size:11px;color:var(--muted);}
+.conv-badge{min-width:19px;height:19px;border-radius:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;}
+
+/* Bottom nav */
+.bottom-nav{display:flex;background:var(--nav-bg);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;position:relative;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0;cursor:pointer;gap:2px;color:var(--muted);font-size:10px;font-weight:600;transition:color .18s;position:relative;}
+.nav-item.active{color:var(--accent);}
+.nav-icon{font-size:21px;}
+.nav-badge{position:absolute;top:6px;right:22%;min-width:16px;height:16px;border-radius:5px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
+.nav-badge.show{display:flex;}
+
+/* FAB */
+.fab{position:absolute;bottom:78px;right:18px;width:52px;height:52px;border-radius:17px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;box-shadow:0 4px 18px rgba(28,107,74,0.35);transition:transform .18s;z-index:10;color:#fff;}
+.fab:active{transform:scale(0.92);}
+
+/* ══ CHAT SCREEN ══ */
+.chat-header{padding:12px 14px;background:var(--header-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px;flex-shrink:0;}
+.chat-back{width:36px;height:36px;border-radius:11px;background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;flex-shrink:0;border:1px solid var(--border);}
+.chat-hdr-av{width:38px;height:38px;border-radius:12px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;overflow:hidden;}
+.chat-hdr-av img{width:100%;height:100%;object-fit:cover;}
+.chat-hdr-info{flex:1;min-width:0;}
+.chat-hdr-name{font-weight:700;font-size:15px;}
+.chat-hdr-status{font-size:11px;color:var(--muted);}
+.chat-hdr-actions{display:flex;gap:7px;}
+
+.messages-area{flex:1;overflow-y:auto;padding:14px 14px 6px;display:flex;flex-direction:column;gap:3px;}
+
+.msg-row{display:flex;flex-direction:column;animation:msgIn .22s ease;}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.msg-row.me{align-items:flex-end;}
+.msg-row.them{align-items:flex-start;}
+.msg-bubble{max-width:72%;padding:9px 13px;border-radius:17px;word-wrap:break-word;font-size:15px;line-height:1.45;}
+.msg-row.me .msg-bubble{background:var(--me-bg);color:var(--me-text);border-radius:17px 17px 4px 17px;}
+.msg-row.them .msg-bubble{background:var(--them-bg);color:var(--them-text);border-radius:17px 17px 17px 4px;border:1px solid var(--border);}
+.msg-meta{display:flex;align-items:center;gap:3px;font-size:11px;margin-top:3px;margin-bottom:7px;padding:0 3px;}
+.msg-row.me .msg-meta{color:var(--muted);}
+.msg-tick{font-size:11px;}
+.msg-tick.read{color:var(--accent);}
+
+/* Voice */
+.voice-bubble{display:flex;align-items:center;gap:9px;min-width:170px;}
+.voice-play{width:34px;height:34px;border-radius:11px;background:rgba(0,0,0,0.15);border:none;color:inherit;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.voice-wave{flex:1;height:28px;display:flex;align-items:center;gap:2px;}
+.voice-bar{width:2.5px;border-radius:2px;background:currentColor;opacity:.45;}
+.voice-dur{font-size:11px;font-weight:700;opacity:.8;flex-shrink:0;}
+
+/* Image / Video */
+.media-bubble{max-width:220px;cursor:pointer;}
+.media-bubble img,.media-bubble video{width:100%;border-radius:11px;display:block;max-height:200px;object-fit:cover;}
+
+/* Money card */
+.money-card{background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,150,0,0.1));border:1px solid rgba(255,215,0,0.4);border-radius:13px;padding:10px 14px;min-width:180px;}
+.money-card-top{font-size:13px;font-weight:700;color:#B45309;}
+.money-card-amount{font-size:20px;font-weight:800;color:#92400E;margin:3px 0;}
+.money-card-op{font-size:12px;color:var(--muted);}
+
+/* Radio card */
+.radio-card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:10px 13px;min-width:180px;cursor:pointer;}
+.radio-card-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.radio-card-live{background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
+.radio-card audio{width:100%;margin-top:6px;height:30px;}
+
+/* Sticker */
+.sticker-msg{font-size:52px;line-height:1;padding:4px;}
+
+/* Date divider */
+.date-div{text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:10px 0 3px;text-transform:uppercase;letter-spacing:.07em;}
+
+/* Typing */
+.typing-row{display:none;align-items:flex-start;gap:12px;padding:3px 0;}
+.typing-row.show{display:flex;}
+.typing-av{width:30px;height:30px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.typing-dots{background:var(--them-bg);border:1px solid var(--border);padding:9px 13px;border-radius:17px 17px 17px 4px;display:flex;gap:4px;align-items:center;}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typDot 1.4s infinite;}
+.typing-dot:nth-child(2){animation-delay:.2s;}
+.typing-dot:nth-child(3){animation-delay:.4s;}
+@keyframes typDot{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-5px);opacity:1;}}
+
+/* Input area */
+.chat-input-area{padding:7px 11px 10px;padding-bottom:calc(10px + env(safe-area-inset-bottom));background:var(--header-bg);border-top:1px solid var(--border);flex-shrink:0;position:relative;}
+.chat-input-row{display:flex;align-items:flex-end;gap:7px;}
+.attach-btn{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;flex-shrink:0;}
+.chat-input-wrap{flex:1;background:var(--input-bg);border:1px solid var(--border);border-radius:15px;display:flex;align-items:flex-end;padding:3px 3px 3px 12px;gap:3px;}
+.chat-textarea{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;resize:none;max-height:110px;line-height:1.45;padding:7px 0;min-height:38px;}
+.chat-textarea::placeholder{color:var(--muted);}
+.send-btn,.mic-btn{width:36px;height:36px;border-radius:11px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;transition:all .13s;}
+.send-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+.send-btn:active{transform:scale(0.9);}
+.mic-btn{background:var(--card2);color:var(--muted);}
+.mic-btn.recording{background:var(--danger);color:#fff;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
+.rec-bar{display:none;align-items:center;gap:9px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:11px;padding:8px 12px;margin-bottom:7px;}
+.rec-bar.show{display:flex;}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--danger);animation:pulse 1s infinite;}
+.rec-time{font-size:13px;font-weight:700;color:var(--danger);flex:1;}
+.rec-cancel{font-size:12px;color:var(--muted);cursor:pointer;}
+
+/* Attach menu */
+.attach-menu{display:none;position:absolute;bottom:100%;left:11px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:17px;padding:7px;box-shadow:var(--shadow);animation:slideUp .18s ease;z-index:100;}
+.attach-menu.show{display:flex;gap:7px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.attach-opt{display:flex;flex-direction:column;align-items:center;gap:3px;width:60px;padding:9px 6px;border-radius:13px;background:var(--card2);cursor:pointer;transition:background .12s;font-size:22px;}
+.attach-opt:active{background:var(--bg3);}
+.attach-opt span{font-size:10px;color:var(--muted);font-weight:600;}
+
+/* ══ NOTIFICATIONS ══ */
+.notif-container{position:fixed;top:14px;left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:400px;z-index:9999;pointer-events:none;display:flex;flex-direction:column;gap:7px;}
+.notif{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:11px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow);animation:notifIn .3s cubic-bezier(.34,1.56,.64,1);pointer-events:all;cursor:pointer;border-left-width:3px;}
+@keyframes notifIn{from{opacity:0;transform:translateY(-18px) scale(0.92);}to{opacity:1;transform:translateY(0) scale(1);}}
+.notif-icon{font-size:22px;flex-shrink:0;}
+.notif-body{flex:1;min-width:0;}
+.notif-title{font-weight:700;font-size:13px;}
+.notif-text{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ══ MODALS / SHEETS ══ */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1000;display:none;align-items:flex-end;backdrop-filter:blur(3px);}
+.overlay.show{display:flex;}
+.sheet{width:100%;background:var(--card);border-radius:22px 22px 0 0;padding:14px;padding-bottom:calc(14px + env(safe-area-inset-bottom));animation:sheetUp .28s cubic-bezier(.4,0,.2,1);max-height:90vh;overflow-y:auto;}
+@keyframes sheetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.sheet-handle{width:34px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 18px;}
+.sheet-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;text-align:center;margin-bottom:16px;}
+.sheet-opt{display:flex;align-items:center;gap:13px;padding:13px 14px;background:var(--card2);border-radius:13px;margin-bottom:8px;cursor:pointer;transition:background .12s;}
+.sheet-opt:active{background:var(--bg3);}
+.sheet-opt-icon{font-size:26px;width:42px;height:42px;border-radius:12px;background:var(--bg3);display:flex;align-items:center;justify-content:center;}
+.sheet-opt-info{flex:1;}
+.sheet-opt-title{font-weight:600;font-size:15px;}
+.sheet-opt-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+/* Search result item */
+.search-user{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:13px;cursor:pointer;transition:background .12s;}
+.search-user:active{background:var(--card2);}
+.search-av{width:44px;height:44px;border-radius:14px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;overflow:hidden;flex-shrink:0;}
+.search-av img{width:100%;height:100%;object-fit:cover;}
+
+/* ══ STATUS VIEWER ══ */
+.status-viewer{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;}
+.status-viewer.show{display:flex;}
+.sv-progress{display:flex;gap:3px;padding:10px 14px 6px;position:absolute;top:0;left:0;right:0;z-index:10;}
+.sv-seg{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.3);}
+.sv-seg.done{background:rgba(255,255,255,.75);}
+.sv-seg.active{background:#fff;}
+.sv-close{position:absolute;top:14px;right:14px;z-index:20;width:34px;height:34px;border-radius:11px;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;color:#fff;}
+.sv-content{flex:1;display:flex;align-items:center;justify-content:center;margin-top:40px;}
+.sv-content img,.sv-content video{max-width:100%;max-height:100%;object-fit:contain;}
+.sv-text{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:30px;font-size:22px;font-weight:700;text-align:center;color:#fff;}
+.sv-reply{position:absolute;bottom:20px;left:14px;right:14px;}
+.sv-reply input{width:100%;padding:12px 16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:15px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
+.sv-reply input::placeholder{color:rgba(255,255,255,.55);}
+
+/* ══ PROFILE ══ */
+.profile-hdr{display:flex;flex-direction:column;align-items:center;padding:28px 22px 20px;background:var(--header-bg);border-bottom:1px solid var(--border);}
+.profile-av{width:84px;height:84px;border-radius:26px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;margin-bottom:12px;border:2px solid var(--border);overflow:hidden;}
+.profile-av img{width:100%;height:100%;object-fit:cover;border-radius:26px;}
+.profile-name{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;}
+.profile-user{color:var(--muted);font-size:13px;margin-top:2px;}
+.profile-stats{display:flex;gap:28px;margin-top:16px;}
+.p-stat{text-align:center;}
+.p-stat-n{font-size:21px;font-weight:700;color:var(--accent);}
+.p-stat-l{font-size:11px;color:var(--muted);font-weight:600;}
+.settings-list{flex:1;overflow-y:auto;padding:14px;}
+.s-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card2);border-radius:13px;margin-bottom:7px;cursor:pointer;transition:background .12s;}
+.s-item:active{background:var(--bg3);}
+.s-icon{font-size:21px;flex-shrink:0;}
+.s-label{flex:1;font-weight:500;}
+.s-arrow{color:var(--muted);font-size:13px;}
+.logout-btn{margin:14px;padding:13px;background:rgba(220,38,38,0.09);border:1px solid rgba(220,38,38,0.25);border-radius:13px;color:var(--danger);font-weight:700;font-size:15px;cursor:pointer;text-align:center;transition:background .13s;}
+.logout-btn:active{background:rgba(220,38,38,0.18);}
+
+/* Theme btns */
+.theme-btns{display:flex;gap:9px;flex-wrap:wrap;padding:0 14px 12px;}
+.t-btn{display:flex;align-items:center;gap:5px;padding:7px 11px;border-radius:11px;cursor:pointer;transition:border .18s,transform .12s;border:2px solid transparent;font-size:11px;font-weight:700;}
+.t-btn:active{transform:scale(0.95);}
+.t-btn.active{border-color:var(--accent)!important;}
+
+/* ══ STICKERS PANEL ══ */
+.sticker-panel{display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:17px 17px 0 0;padding:14px;max-height:220px;overflow-y:auto;box-shadow:var(--shadow);z-index:50;}
+.sticker-panel.show{display:block;}
+.sticker-cat{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;}
+.sticker-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.sticker-item{font-size:34px;cursor:pointer;padding:6px;border-radius:10px;transition:background .12s;line-height:1;}
+.sticker-item:active{background:var(--card2);}
+
+/* ══ POLL ══ */
+.poll-card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;min-width:200px;}
+.poll-q{font-weight:700;margin-bottom:10px;font-size:14px;}
+.poll-opt{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:pointer;}
+.poll-opt-bar{flex:1;height:28px;background:var(--card2);border-radius:8px;position:relative;overflow:hidden;}
+.poll-opt-fill{position:absolute;inset:0;background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:.35;border-radius:8px;transition:width .4s;}
+.poll-opt-label{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:var(--text);}
+.poll-opt-pct{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap;}
+.poll-footer{font-size:11px;color:var(--muted);margin-top:6px;}
+
+/* ══ CHANNEL ══ */
+.channel-banner{background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:13px;padding:10px 14px;margin-bottom:6px;color:#fff;}
+.channel-name{font-weight:700;font-size:14px;}
+.channel-sub{font-size:12px;opacity:.8;margin-top:2px;}
+
+/* ══ IMAGE VIEWER ══ */
+.img-viewer{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:3000;display:none;align-items:center;justify-content:center;}
+.img-viewer.show{display:flex;}
+.img-viewer img{max-width:100%;max-height:100%;object-fit:contain;}
+.img-viewer-close{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;color:#fff;}
+
+/* ══ BOT ══ */
+.bot-bubble{background:linear-gradient(135deg,rgba(123,92,250,0.15),rgba(0,153,255,0.1));border:1px solid rgba(123,92,250,0.3);border-radius:17px 17px 17px 4px;padding:9px 13px;max-width:72%;color:var(--text);}
+
+/* ══ SPINNER ══ */
+.spinner{width:22px;height:22px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .65s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:36px;}
+.empty-icon{font-size:58px;opacity:.45;}
+.empty-text{font-size:15px;color:var(--muted);text-align:center;}
+
+@media(min-width:480px){#app{max-width:480px;margin:0 auto;box-shadow:0 0 50px rgba(0,0,0,.4);}}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="notif-container" id="notifCont"></div>
+<div class="img-viewer" id="imgViewer"><div class="img-viewer-close" onclick="closeImgViewer()">✕</div><img id="imgViewSrc" src="" alt=""/></div>
+
+<!-- STATUS VIEWER -->
+<div class="status-viewer" id="statusViewer">
+  <div class="sv-progress" id="svProgress"></div>
+  <div class="sv-close" onclick="closeSV()">✕</div>
+  <div class="sv-content" id="svContent"></div>
+  <div class="sv-reply"><input type="text" placeholder="Répondre..." id="svReplyInput" onkeydown="svReply(event)"/></div>
+</div>
+
+<!-- ══ AUTH ══ -->
+<div class="screen" id="screen-auth">
+  <div class="auth-logo">
+    <div class="auth-logo-p">P</div>
+    <div class="auth-logo-name">PENC</div>
+    <div class="auth-logo-sub">Messagerie mondiale 🌍 · Ouvert à tous</div>
+  </div>
+  <div class="auth-box">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Connexion</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Inscription</div>
+    </div>
+    <div id="auth-err" class="auth-error"></div>
+    <!-- Login -->
+    <div id="form-login">
+      <div class="form-group">
+        <label class="form-label">Email, téléphone ou @username</label>
+        <input class="form-input" id="l-id" type="text" placeholder="Identifiant..."/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <input class="form-input" id="l-pw" type="password" placeholder="••••••••"/>
+      </div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Se connecter</button>
+      <div class="auth-link" onclick="showForgot()">Mot de passe oublié ? <span>Récupérer</span></div>
+    </div>
+    <!-- Register -->
+    <div id="form-register" style="display:none">
+      <div class="form-group"><label class="form-label">Nom complet</label><input class="form-input" id="r-name" type="text" placeholder="Votre nom (tous caractères acceptés)"/></div>
+      <div class="form-group"><label class="form-label">Nom d'utilisateur</label><input class="form-input" id="r-user" type="text" placeholder="@username (emojis, accents, tout accepté)"/></div>
+      <div class="form-group"><label class="form-label">Téléphone <span style="color:var(--danger)">*</span></label><input class="form-input" id="r-phone" type="tel" placeholder="+221 77 XXX XX XX"/></div>
+      <div class="form-group"><label class="form-label">Email (optionnel)</label><input class="form-input" id="r-email" type="email" placeholder="email@exemple.com"/></div>
+      <div class="form-group"><label class="form-label">Mot de passe</label><input class="form-input" id="r-pw" type="password" placeholder="Min. 6 caractères"/></div>
+      <button class="btn-primary" id="btn-reg" onclick="doRegister()">Créer mon compte</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FORGOT PASSWORD ══ -->
+<div class="screen hidden" id="screen-forgot">
+  <div style="padding:20px;display:flex;align-items:center;gap:10px;background:var(--header-bg);border-bottom:1px solid var(--border);">
+    <div class="chat-back" onclick="showScreen('screen-auth')">←</div>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Mot de passe oublié</div>
+  </div>
+  <div style="padding:24px;flex:1;overflow-y:auto;">
+    <!-- Step 1 -->
+    <div id="forgot-step1">
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Entrez votre numéro de téléphone ou email — nous vous enverrons un code de vérification.</p>
+      <div class="form-group"><label class="form-label">Téléphone ou Email</label><input class="form-input" id="forgot-id" type="text" placeholder="+221 77... ou email@..."/></div>
+      <button class="btn-primary" onclick="sendForgotCode()">Envoyer le code</button>
+    </div>
+    <!-- Step 2 -->
+    <div id="forgot-step2" style="display:none">
+      <p style="color:var(--muted);font-size:14px;margin-bottom:8px;">Un code à 6 chiffres a été envoyé.</p>
+      <div id="code-demo" style="background:rgba(28,107,74,0.1);border:1px solid rgba(28,107,74,0.3);border-radius:11px;padding:10px 14px;font-size:14px;font-weight:700;color:var(--accent);margin-bottom:18px;text-align:center;"></div>
+      <div class="otp-boxes">
+        <input class="otp-box" id="otp0" type="number" maxlength="1" oninput="otpNext(this,0)"/>
+        <input class="otp-box" id="otp1" type="number" maxlength="1" oninput="otpNext(this,1)"/>
+        <input class="otp-box" id="otp2" type="number" maxlength="1" oninput="otpNext(this,2)"/>
+        <input class="otp-box" id="otp3" type="number" maxlength="1" oninput="otpNext(this,3)"/>
+        <input class="otp-box" id="otp4" type="number" maxlength="1" oninput="otpNext(this,4)"/>
+        <input class="otp-box" id="otp5" type="number" maxlength="1" oninput="otpNext(this,5)"/>
+      </div>
+      <button class="btn-primary" onclick="verifyOtp()">Vérifier</button>
+    </div>
+    <!-- Step 3 -->
+    <div id="forgot-step3" style="display:none">
+      <div class="form-group"><label class="form-label">Nouveau mot de passe</label><input class="form-input" id="new-pw" type="password" placeholder="Min. 6 caractères"/></div>
+      <div class="form-group"><label class="form-label">Confirmer</label><input class="form-input" id="new-pw2" type="password" placeholder="Répétez le mot de passe"/></div>
+      <button class="btn-primary" onclick="resetPassword()">Modifier le mot de passe</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="screen hidden" id="screen-main">
+  <div class="top-bar">
+    <span class="top-bar-title">Penc</span>
+    <div class="top-bar-actions">
+      <div class="icon-btn" onclick="openBotChat()">🤖</div>
+      <div class="icon-btn" onclick="openNewChat()">✏️</div>
+    </div>
+  </div>
+  <div class="search-bar"><input class="search-input" type="search" placeholder="Rechercher..." id="convSearch" oninput="filterConvs(this.value)"/></div>
+  <div class="stories-row" id="storiesRow">
+    <div class="story-item" onclick="openAddStatus()">
+      <div class="story-ring mine"><div class="story-inner">📷</div><div class="story-add">+</div></div>
+      <span class="story-name">Mon statut</span>
+    </div>
+  </div>
+  <div class="conv-list" id="convList">
+    <div class="empty-state" id="convEmpty" style="display:none">
+      <div class="empty-icon">💬</div>
+      <div class="empty-text">Aucune conversation.<br/>Appuyez sur ✏️ pour commencer.</div>
+    </div>
+  </div>
+  <div class="fab" onclick="openNewChat()">✏</div>
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-chats" onclick="showTab('chats')"><span class="nav-icon">💬</span><span>Chats</span><div class="nav-badge" id="chatsBadge"></div></div>
+    <div class="nav-item" id="nav-status" onclick="showTab('status')"><span class="nav-icon">📸</span><span>Statuts</span></div>
+    <div class="nav-item" id="nav-contacts" onclick="showTab('contacts')"><span class="nav-icon">👥</span><span>Contacts</span></div>
+    <div class="nav-item" id="nav-channels" onclick="showTab('channels')"><span class="nav-icon">📢</span><span>Canaux</span></div>
+    <div class="nav-item" id="nav-profile" onclick="showTab('profile')"><span class="nav-icon">👤</span><span>Profil</span></div>
+  </div>
+</div>
+
+<!-- ══ CHAT ══ -->
+<div class="screen hidden" id="screen-chat">
+  <div class="chat-header">
+    <div class="chat-back" onclick="backToMain()">←</div>
+    <div class="chat-hdr-av" id="chatHdrAv"></div>
+    <div class="chat-hdr-info"><div class="chat-hdr-name" id="chatHdrName">—</div><div class="chat-hdr-status" id="chatHdrSt"></div></div>
+    <div class="chat-hdr-actions">
+      <div class="icon-btn" style="width:34px;height:34px;" onclick="openMoneySheet()">💸</div>
+      <div class="icon-btn" style="width:34px;height:34px;">📞</div>
+    </div>
+  </div>
+  <div class="messages-area" id="msgsArea">
+    <div class="typing-row" id="typingRow">
+      <div class="typing-av" id="typingAv"></div>
+      <div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div class="attach-menu" id="attachMenu">
+      <div class="attach-opt" onclick="pickFile('image')">📷<span>Photo</span></div>
+      <div class="attach-opt" onclick="pickFile('video')">🎬<span>Vidéo</span></div>
+      <div class="attach-opt" onclick="pickFile('file')">📄<span>Fichier</span></div>
+      <div class="attach-opt" onclick="openRadioSheet()">📻<span>Radio</span></div>
+      <div class="attach-opt" onclick="openPollSheet()">📊<span>Sondage</span></div>
+    </div>
+    <div class="sticker-panel" id="stickerPanel"></div>
+    <div class="rec-bar" id="recBar"><div class="rec-dot"></div><span class="rec-time" id="recTime">0:00</span><span class="rec-cancel" onclick="cancelRec()">Annuler ✕</span></div>
+    <div class="chat-input-row">
+      <div class="attach-btn" onclick="toggleAttach()">📎</div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-textarea" id="chatInput" placeholder="Message..." rows="1" oninput="onChatInput()" onkeydown="onChatKey(event)"></textarea>
+        <button style="background:var(--card2);color:var(--muted);width:36px;height:36px;border-radius:11px;border:none;cursor:pointer;font-size:17px;" onclick="toggleStickers()">😊</button>
+        <button class="send-btn" id="sendBtn" style="display:none" onclick="sendText()">➤</button>
+        <button class="mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)">🎙️</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="fi-img" accept="image/*" style="display:none" onchange="handleFile(event,'image')"/>
+  <input type="file" id="fi-vid" accept="video/*" style="display:none" onchange="handleFile(event,'video')"/>
+  <input type="file" id="fi-doc" accept="*/*" style="display:none" onchange="handleFile(event,'file')"/>
+</div>
+
+<!-- ══ OVERLAY SHEETS ══ -->
+<!-- New chat -->
+<div class="overlay" id="ol-newchat">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Nouvelle conversation</div>
+    <input class="form-input" id="searchInp" type="text" placeholder="Nom, @username, téléphone..." oninput="searchUsers(this.value)" style="margin-bottom:12px;"/>
+    <div id="searchRes"><div class="empty-state"><div class="empty-icon" style="font-size:36px;">🔍</div><div class="empty-text">Tapez pour rechercher</div></div></div>
+    <button class="btn-primary" onclick="closeOl('ol-newchat')" style="margin-top:12px;background:var(--card2);color:var(--muted);">Fermer</button>
+  </div>
+</div>
+
+<!-- Add status -->
+<div class="overlay" id="ol-status">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Ajouter un statut</div>
+    <div class="sheet-opt" onclick="pickStatus('image')"><div class="sheet-opt-icon">📷</div><div class="sheet-opt-info"><div class="sheet-opt-title">Photo</div><div class="sheet-opt-sub">Partagez une image</div></div></div>
+    <div class="sheet-opt" onclick="pickStatus('video')"><div class="sheet-opt-icon">🎬</div><div class="sheet-opt-info"><div class="sheet-opt-title">Vidéo</div><div class="sheet-opt-sub">Max 30 secondes</div></div></div>
+    <div class="sheet-opt" onclick="showTextStatus()"><div class="sheet-opt-icon">✍️</div><div class="sheet-opt-info"><div class="sheet-opt-title">Texte</div><div class="sheet-opt-sub">Message coloré</div></div></div>
+    <div id="textStatusArea" style="display:none;margin-top:12px;">
+      <textarea class="form-input" id="stTxtInp" placeholder="Écrivez votre statut..." rows="3" style="resize:none;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:7px;margin-bottom:10px;">
+        <div style="width:32px;height:32px;border-radius:9px;background:#050D18;cursor:pointer;border:2px solid var(--border);" onclick="setStBg('#050D18')"></div>
+        <div style="width:32px;height:32px;border-radius:9px;background:#1C6B4A;cursor:pointer;" onclick="setStBg('#1C6B4A')"></div>
+        <div style="width:32px;height:32px;border-radius:9px;background:#1A5C9E;cursor:pointer;" onclick="setStBg('#1A5C9E')"></div>
+        <div style="width:32px;height:32px;border-radius:9px;background:#7B5CFA;cursor:pointer;" onclick="setStBg('#7B5CFA')"></div>
+        <div style="width:32px;height:32px;border-radius:9px;background:#DC2626;cursor:pointer;" onclick="setStBg('#DC2626')"></div>
+        <div style="width:32px;height:32px;border-radius:9px;background:#B84800;cursor:pointer;" onclick="setStBg('#B84800')"></div>
+      </div>
+      <button class="btn-primary" onclick="submitTextStatus()">Publier</button>
+    </div>
+    <button class="btn-primary" onclick="closeOl('ol-status')" style="margin-top:8px;background:var(--card2);color:var(--muted);">Annuler</button>
+    <input type="file" id="st-img" accept="image/*" style="display:none" onchange="uploadStatus(event,'image')"/>
+    <input type="file" id="st-vid" accept="video/*" style="display:none" onchange="uploadStatus(event,'video')"/>
+  </div>
+</div>
+
+<!-- Money transfer -->
+<div class="overlay" id="ol-money">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">💸 Envoyer de l'argent</div>
+    <div class="form-group"><label class="form-label">Montant (FCFA)</label><input class="form-input" id="moneyAmt" type="number" placeholder="5000"/></div>
+    <div class="form-group"><label class="form-label">Opérateur</label>
+      <div style="display:flex;gap:8px;">
+        <div class="money-op-btn" data-op="Wave" onclick="selectOp(this)" style="flex:1;padding:11px;background:var(--card2);border-radius:11px;text-align:center;cursor:pointer;border:2px solid transparent;font-weight:600;font-size:13px;">🌊 Wave</div>
+        <div class="money-op-btn" data-op="Orange Money" onclick="selectOp(this)" style="flex:1;padding:11px;background:var(--card2);border-radius:11px;text-align:center;cursor:pointer;border:2px solid transparent;font-weight:600;font-size:13px;">🟠 Orange</div>
+        <div class="money-op-btn" data-op="Free Money" onclick="selectOp(this)" style="flex:1;padding:11px;background:var(--card2);border-radius:11px;text-align:center;cursor:pointer;border:2px solid transparent;font-weight:600;font-size:13px;">🔵 Free</div>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Numéro destinataire</label><input class="form-input" id="moneyPhone" type="tel" placeholder="+221 77..."/></div>
+    <button class="btn-primary" onclick="sendMoney()">Envoyer</button>
+    <button class="btn-primary" onclick="closeOl('ol-money')" style="margin-top:7px;background:var(--card2);color:var(--muted);">Annuler</button>
+  </div>
+</div>
+
+<!-- Radio -->
+<div class="overlay" id="ol-radio">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📻 Radios sénégalaises</div>
+    <div id="radioList"></div>
+    <button class="btn-primary" onclick="closeOl('ol-radio')" style="margin-top:10px;background:var(--card2);color:var(--muted);">Fermer</button>
+  </div>
+</div>
+
+<!-- Poll -->
+<div class="overlay" id="ol-poll">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📊 Créer un sondage</div>
+    <div class="form-group"><label class="form-label">Question</label><input class="form-input" id="pollQ" type="text" placeholder="Votre question..."/></div>
+    <div id="pollOpts">
+      <div class="form-group"><label class="form-label">Option 1</label><input class="form-input poll-opt-inp" type="text" placeholder="Option 1"/></div>
+      <div class="form-group"><label class="form-label">Option 2</label><input class="form-input poll-opt-inp" type="text" placeholder="Option 2"/></div>
+    </div>
+    <button onclick="addPollOpt()" style="background:none;border:none;color:var(--accent);font-weight:600;cursor:pointer;font-size:14px;margin-bottom:12px;">+ Ajouter une option</button>
+    <button class="btn-primary" onclick="sendPoll()">Publier le sondage</button>
+    <button class="btn-primary" onclick="closeOl('ol-poll')" style="margin-top:7px;background:var(--card2);color:var(--muted);">Annuler</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+<script>
+// ══════════════ CONFIG ══════════════
+const API = 'https://pst-telecom.onrender.com/api/penc';
+const SOCKET_URL = 'https://pst-telecom.onrender.com';
+const CLD_CLOUD = 'dkuekfrh9';
+const CLD_PRESET = 'pst_uploads';
+const ADMIN_EMAILS = ['tpapaseny@ept.sn','papasenytoure@gmail.com'];
+
+// ══════════════ STATE ══════════════
+let ME = null, TOKEN = null, SOCKET = null;
+let CONVS = [], MSGS = {}, ONLINE = new Set();
+let CUR_CONV = null, CUR_CONV_DATA = null;
+let STATUSES = [], CHANNELS = [];
+let mediaRec = null, audioChunks = [], recTimer = null, recSecs = 0;
+let attachOpen = false, stickerOpen = false;
+let curTab = 'chats';
+let stBgColor = '#050D18';
+let selectedOp = 'Wave';
+let forgotCode = null;
+let totalUnread = 0;
+let svList = [], svIdx = 0, svTimer = null;
+let typingTimers = {};
+
+const RADIOS = [
+  {name:'RFM',emoji:'📻',url:'https://stream.zeno.fm/s7aalgum5c8uv'},
+  {name:'Sud FM',emoji:'🎙️',url:'https://stream.zeno.fm/ylz4qcw7vc8uv'},
+  {name:'Zik FM',emoji:'🎵',url:'https://stream.zeno.fm/4guwgpedwhhvv'},
+  {name:'RTS Radio',emoji:'📡',url:'https://stream.zeno.fm/s7aalgum5c8uv'},
+  {name:'Walf FM',emoji:'🔊',url:'https://stream.zeno.fm/ylz4qcw7vc8uv'},
+  {name:'7FM',emoji:'🎤',url:'https://stream.zeno.fm/4guwgpedwhhvv'},
+];
+
+const STICKERS = {
+  'Réactions':[
+    {text:'Wallahi 🙌',val:'wallahi'},
+    {text:'Inchallah 🤲',val:'inchallah'},
+    {text:'Alhamdulillah ✨',val:'alhamdulillah'},
+    {text:'Mashallah 😍',val:'mashallah'},
+    {text:'Yallah bu baax 🙏',val:'yallahbubaax'},
+    {text:'Dafa neex 😂',val:'dafaneex'},
+  ],
+  'Sénégal':[
+    {text:'🇸🇳 Sénégal',val:'senegal'},
+    {text:'Thiéboudienne 🍛',val:'thieb'},
+    {text:'Lutte sénégalaise 🤼',val:'lutte'},
+    {text:'Téranga 🤝',val:'teranga'},
+    {text:'Sunu rew 💚',val:'sunurew'},
+  ],
+  'Émotions wolof':[
+    {text:'Dafa naan 😤',val:'dafanaan'},
+    {text:'Maa ngi dem 👋',val:'maangdem'},
+    {text:'Ndankeen 😊',val:'ndankeen'},
+    {text:'Xarit bi 🤗',val:'xaritbi'},
+  ]
+};
+
+const BOT_CMDS = {
+  '/aide':'📋 Commandes : /aide /meteo /heure /blague /priere /bonsoir /wolof [mot]',
+  '/meteo':'🌤️ Dakar : 32°C, Ensoleillé, Vent 15 km/h · Humidité 65%',
+  '/heure':`🕐 Il est ${new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})} à Dakar`,
+  '/priere':'🕌 Prières à Dakar : Fajr 05:28 · Dhuhr 13:48 · Asr 17:05 · Maghrib 20:12 · Isha 21:35',
+  '/bonsoir':'🌙 Bonne nuit ! En wolof : "Fanaanal jàmm" 🙏',
+};
+const BLAGUES = [
+  "Pourquoi le pêcheur de Kayar mange-t-il toujours ? Parce qu'il a toujours du poisson dans ses filets ! 🐟",
+  "Comment s'appelle un Dakarois qui fait du vélo ? Un vélo-dakarois ! 😄",
+  "Qu'est-ce qui court dans les rues de Dakar sans jamais arriver ? Le taxi ! 🚕",
+];
+const WOLOF_DICT = {
+  'bonjour':'Salaam','merci':'Jërejëf','oui':'Waaw','non':'Déedéet','ami':'Xarit','eau':'Ndox',
+  'mangeons':'Lekkal','partir':'Dem','venir':'Ñëw','maison':'Kër','argent':'Xaalis','travail':'Liggéey',
+  'beau':'Rafet','bon':'Bu baax','grand':'Mag','petit':'Ndaw',
+};
+
+// ══════════════ INIT ══════════════
+window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  buildStickerPanel();
+  buildRadioList();
+  const tok = localStorage.getItem('penc_tok');
+  const usr = localStorage.getItem('penc_usr');
+  if (tok && usr) {
+    TOKEN = tok; ME = JSON.parse(usr);
+    showScreen('screen-main');
+    initSocket();
+    loadConvs();
+    loadStatuses();
+  }
+});
+
+// ══════════════ THEMES ══════════════
+function initTheme() {
+  const t = localStorage.getItem('penc_theme') || '';
+  if (t) document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+function applyTheme(val, key) {
+  if (val) document.documentElement.setAttribute('data-theme', val);
+  else document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem('penc_theme', val);
+  document.querySelectorAll('.t-btn').forEach(b => b.classList.toggle('active', b.dataset.t === key));
+}
+
+// ══════════════ AUTH ══════════════
+function switchTab(t) {
+  document.getElementById('tab-login').classList.toggle('active', t==='login');
+  document.getElementById('tab-register').classList.toggle('active', t==='register');
+  document.getElementById('form-login').style.display = t==='login'?'block':'none';
+  document.getElementById('form-register').style.display = t==='register'?'block':'none';
+  hideErr();
+}
+function showErr(m) { const e=document.getElementById('auth-err'); e.textContent=m; e.style.display='block'; }
+function hideErr() { document.getElementById('auth-err').style.display='none'; }
+
+async function doLogin() {
+  const id=document.getElementById('l-id').value.trim(), pw=document.getElementById('l-pw').value;
+  if(!id||!pw) return showErr('Remplissez tous les champs.');
+  const btn=document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Connexion...';
+  try {
+    const r = await api('/auth/login','POST',{identifier:id,password:pw});
+    if(r.error) throw new Error(r.error);
+    saveSession(r.user, r.token);
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses();
+  } catch(e) { showErr(e.message||'Identifiants incorrects'); }
+  btn.disabled=false; btn.textContent='Se connecter';
+}
+
+async function doRegister() {
+  const name=document.getElementById('r-name').value.trim();
+  const uname=document.getElementById('r-user').value.trim().replace(/^@/,'');
+  const phone=document.getElementById('r-phone').value.trim();
+  const email=document.getElementById('r-email').value.trim();
+  const pw=document.getElementById('r-pw').value;
+  if(!name||!uname||!phone||!pw) return showErr('Remplissez les champs obligatoires.');
+  if(pw.length<6) return showErr('Mot de passe min. 6 caractères.');
+  const btn=document.getElementById('btn-reg'); btn.disabled=true; btn.textContent='Création...';
+  try {
+    const r = await api('/auth/register','POST',{full_name:name,username:uname,phone,email,password:pw});
+    if(r.error) throw new Error(r.error);
+    saveSession(r.user, r.token);
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses();
+  } catch(e) { showErr(e.message||'Erreur inscription'); }
+  btn.disabled=false; btn.textContent='Créer mon compte';
+}
+
+function saveSession(user, tok) {
+  ME=user; TOKEN=tok;
+  localStorage.setItem('penc_tok', tok);
+  localStorage.setItem('penc_usr', JSON.stringify(user));
+}
+
+function doLogout() {
+  localStorage.removeItem('penc_tok'); localStorage.removeItem('penc_usr');
+  if(SOCKET) SOCKET.disconnect();
+  ME=null; TOKEN=null; CONVS=[]; MSGS={}; STATUSES=[];
+  showScreen('screen-auth');
+}
+
+// ══════════════ FORGOT PASSWORD ══════════════
+function showForgot() {
+  ['forgot-step1','forgot-step2','forgot-step3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'block':'none');
+  showScreen('screen-forgot');
+}
+
+function sendForgotCode() {
+  const id = document.getElementById('forgot-id').value.trim();
+  if(!id) return;
+  forgotCode = String(Math.floor(100000+Math.random()*900000));
+  document.getElementById('code-demo').textContent = `Votre code de vérification est : ${forgotCode}`;
+  document.getElementById('forgot-step1').style.display='none';
+  document.getElementById('forgot-step2').style.display='block';
+  showNotif('📱','Code envoyé',`Code affiché pour test : ${forgotCode}`,'blue',null);
+}
+
+function otpNext(el, idx) {
+  if(el.value.length>=1 && idx<5) document.getElementById('otp'+(idx+1)).focus();
+}
+
+function verifyOtp() {
+  const entered = [0,1,2,3,4,5].map(i=>document.getElementById('otp'+i).value).join('');
+  if(entered===forgotCode) {
+    document.getElementById('forgot-step2').style.display='none';
+    document.getElementById('forgot-step3').style.display='block';
+  } else {
+    [0,1,2,3,4,5].forEach(i=>{document.getElementById('otp'+i).style.borderColor='var(--danger)';});
+    setTimeout(()=>[0,1,2,3,4,5].forEach(i=>{document.getElementById('otp'+i).style.borderColor=''}),2000);
+  }
+}
+
+function resetPassword() {
+  const p1=document.getElementById('new-pw').value, p2=document.getElementById('new-pw2').value;
+  if(p1.length<6) return;
+  if(p1!==p2) { document.getElementById('new-pw2').style.borderColor='var(--danger)'; return; }
+  showNotif('✅','Succès','Mot de passe modifié ! Tu peux te connecter.','green',null);
+  setTimeout(()=>showScreen('screen-auth'),2000);
+}
+
+// ══════════════ SOCKET ══════════════
+function initSocket() {
+  if(SOCKET) SOCKET.disconnect();
+  SOCKET = io(SOCKET_URL, {auth:{token:TOKEN}, transports:['websocket'], path:'/socket.io'});
+  SOCKET.on('connect', ()=>console.log('🔌 Penc connected'));
+  SOCKET.on('message:new', onNewMsg);
+  SOCKET.on('typing:start', ({userId,conversation_id})=>{
+    if(conversation_id===CUR_CONV && userId!==ME.id) {
+      document.getElementById('typingRow').classList.add('show'); scrollBottom();
+    }
+  });
+  SOCKET.on('typing:stop', ({userId,conversation_id})=>{
+    if(conversation_id===CUR_CONV && userId!==ME.id)
+      document.getElementById('typingRow').classList.remove('show');
+  });
+  SOCKET.on('message:read', ({userId,conversation_id})=>{
+    if(conversation_id===CUR_CONV && userId!==ME.id)
+      document.querySelectorAll('.msg-tick').forEach(t=>{t.textContent='✓✓';t.classList.add('read');});
+  });
+  SOCKET.on('user:online', ({userId,isOnline})=>{
+    if(isOnline) ONLINE.add(userId); else ONLINE.delete(userId);
+    if(CUR_CONV_DATA?.other_user_id===userId) updateChatStatus(isOnline);
+    renderConvList();
+  });
+}
+
+function onNewMsg(msg) {
+  const cid = msg.conversation_id;
+  if(!MSGS[cid]) MSGS[cid]=[];
+  MSGS[cid].push(msg);
+  const conv = CONVS.find(c=>c.id===cid);
+  if(conv) {
+    conv.last_message = msgPreview(msg);
+    conv.updated_at = msg.created_at;
+    if(cid!==CUR_CONV) { conv.unread_count=(conv.unread_count||0)+1; totalUnread++; updateBadge(); }
+  }
+  if(cid===CUR_CONV) {
+    appendMsg(msg); scrollBottom();
+    SOCKET.emit('message:read',{conversation_id:cid});
+  } else {
+    const sender = msg.sender?.full_name?.split(' ')[0] || 'Quelqu\'un';
+    let icon='💬', color='green', body=msg.content?.slice(0,50)||'';
+    if(msg.type==='voice'){icon='🎙️';color='blue';body='T\'a envoyé un message vocal'+(msg.media_duration?` · ${fmtDur(msg.media_duration)}`:'');}
+    else if(msg.type==='image'){icon='📷';color='purple';body='T\'a envoyé une photo';}
+    else if(msg.type==='video'){icon='🎬';color='orange';body='T\'a envoyé une vidéo';}
+    else if(msg.type==='money'){icon='💸';color='gold';body=msg.content;}
+    showNotif(icon, sender, body, color, ()=>openConv(conv||{id:cid}));
+    playNotifSound(msg.type);
+  }
+  renderConvList();
+}
+
+function msgPreview(msg) {
+  if(msg.type==='voice') return '🎙️ Vocal';
+  if(msg.type==='image') return '📷 Photo';
+  if(msg.type==='video') return '🎬 Vidéo';
+  if(msg.type==='money') return '💸 Transfert';
+  if(msg.type==='radio') return '📻 Radio';
+  if(msg.type==='poll') return '📊 Sondage';
+  if(msg.type==='sticker') return '🎭 Sticker';
+  return msg.content?.slice(0,50)||'';
+}
+
+// ══════════════ API ══════════════
+async function api(path, method='GET', body=null) {
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(TOKEN) opts.headers['Authorization']=`Bearer ${TOKEN}`;
+  if(body) opts.body=JSON.stringify(body);
+  try { const r=await fetch(API+path,opts); return await r.json(); }
+  catch(e) { return {error:e.message}; }
+}
+
+// ══════════════ CONVERSATIONS ══════════════
+async function loadConvs() {
+  const d = await api('/conversations');
+  if(d.conversations) { CONVS=d.conversations; totalUnread=CONVS.reduce((a,c)=>a+(c.unread_count||0),0); updateBadge(); renderConvList(); renderStories(); }
+}
+
+function renderConvList(filter='') {
+  const list=document.getElementById('convList'), empty=document.getElementById('convEmpty');
+  list.querySelectorAll('.conv-item').forEach(e=>e.remove());
+  let filtered = CONVS.filter(c=>!filter||(c.name||'').toLowerCase().includes(filter.toLowerCase()));
+  filtered.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+  if(!filtered.length){empty.style.display='flex';return;}
+  empty.style.display='none';
+  filtered.forEach(conv=>{
+    const el=document.createElement('div'); el.className='conv-item'; el.dataset.id=conv.id;
+    const isOnline=ONLINE.has(conv.other_user_id);
+    const init=initials(conv.name||'?');
+    const unread=conv.unread_count||0;
+    el.innerHTML=`
+      <div class="conv-avatar">${conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`}${isOnline?'<div class="online-dot"></div>':''}</div>
+      <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${esc(conv.last_message||'Démarrer la conversation')}</div></div>
+      <div class="conv-meta"><div class="conv-time">${fmtTime(conv.updated_at)}</div>${unread?`<div class="conv-badge">${unread}</div>`:''}</div>`;
+    el.onclick=()=>openConv(conv);
+    list.appendChild(el);
+  });
+}
+
+function filterConvs(v){renderConvList(v);}
+function updateBadge(){const b=document.getElementById('chatsBadge');if(totalUnread>0){b.textContent=totalUnread>99?'99+':totalUnread;b.classList.add('show');}else{b.classList.remove('show');}}
+
+async function openConv(conv) {
+  CUR_CONV=conv.id; CUR_CONV_DATA=conv;
+  const init=initials(conv.name||'?');
+  const av=document.getElementById('chatHdrAv');
+  av.innerHTML=conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`;
+  document.getElementById('chatHdrName').textContent=conv.name||'Conversation';
+  document.getElementById('typingAv').textContent=init;
+  updateChatStatus(ONLINE.has(conv.other_user_id));
+  const area=document.getElementById('msgsArea');
+  area.innerHTML=`<div class="typing-row" id="typingRow"><div class="typing-av" id="typingAv">${init}</div><div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
+  showScreen('screen-chat');
+  if(!MSGS[conv.id]){const d=await api(`/conversations/${conv.id}/messages`);if(d.messages)MSGS[conv.id]=d.messages;}
+  (MSGS[conv.id]||[]).forEach(m=>appendMsg(m));
+  scrollBottom();
+  SOCKET&&SOCKET.emit('message:read',{conversation_id:conv.id});
+  const c=CONVS.find(c=>c.id===conv.id);
+  if(c){totalUnread-=(c.unread_count||0);c.unread_count=0;updateBadge();renderConvList();}
+}
+
+function updateChatStatus(on){
+  document.getElementById('chatHdrSt').textContent=on?'● En ligne':'hors ligne';
+  document.getElementById('chatHdrSt').style.color=on?'var(--accent)':'var(--muted)';
+}
+function backToMain(){showScreen('screen-main');CUR_CONV=null;CUR_CONV_DATA=null;renderConvList();}
+
+// ══════════════ MESSAGES ══════════════
+function appendMsg(msg) {
+  const area=document.getElementById('msgsArea');
+  const typing=document.getElementById('typingRow');
+  const isMe=msg.sender?.id===ME?.id||msg.sender_id===ME?.id;
+  const row=document.createElement('div'); row.className=`msg-row ${isMe?'me':'them'}`; row.dataset.mid=msg.id;
+  let bubble='';
+  if(msg.type==='voice') bubble=buildVoiceBubble(msg);
+  else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')"><img src="${msg.media_url}" loading="lazy"/></div>`;
+  else if(msg.type==='video') bubble=`<div class="media-bubble"><video src="${msg.media_url}" controls></video></div>`;
+  else if(msg.type==='money') bubble=buildMoneyCard(msg);
+  else if(msg.type==='radio') bubble=buildRadioCard(msg);
+  else if(msg.type==='poll') bubble=buildPollCard(msg);
+  else if(msg.type==='sticker') bubble=`<div class="sticker-msg">${esc(msg.content)}</div>`;
+  else if(msg.type==='bot') bubble=`<div class="bot-bubble">${esc(msg.content)}</div>`;
+  else bubble=`<div class="msg-bubble">${linkify(esc(msg.content||''))}</div>`;
+  const t=fmtTime(msg.created_at);
+  row.innerHTML=`${bubble}<div class="msg-meta"><span>${t}</span>${isMe?`<span class="msg-tick ${msg.read_at?'read':''}">✓✓</span>`:''}</div>`;
+  area.insertBefore(row,typing);
+}
+
+function buildVoiceBubble(msg){
+  const dur=msg.media_duration?fmtDur(msg.media_duration):'0:00';
+  const uid='v'+Date.now()+Math.random().toString(36).slice(2);
+  const bars=Array.from({length:18},(_,i)=>`<div class="voice-bar" style="height:${7+Math.random()*18}px;"></div>`).join('');
+  return `<div class="msg-bubble"><div class="voice-bubble"><button class="voice-play" id="${uid}" onclick="playVoice('${uid}','${msg.media_url}')">▶</button><div class="voice-wave">${bars}</div><span class="voice-dur">${dur}</span></div></div>`;
+}
+function playVoice(uid,url){
+  const btn=document.getElementById(uid);
+  if(btn._audio){if(btn._audio.paused){btn._audio.play();btn.textContent='⏸';}else{btn._audio.pause();btn.textContent='▶';}return;}
+  const a=new Audio(url); btn._audio=a; a.play(); btn.textContent='⏸';
+  a.onended=()=>{btn.textContent='▶';};
+}
+function buildMoneyCard(msg){
+  return `<div class="money-card"><div class="money-card-top">${esc(msg.sender?.full_name?.split(' ')[0]||'Quelqu\'un')} vous envoie</div><div class="money-card-amount">${esc(msg.money_amount||'')} FCFA</div><div class="money-card-op">via ${esc(msg.money_op||'')} · <span style="color:var(--accent)">En attente ⏳</span></div></div>`;
+}
+function buildRadioCard(msg){
+  const r=RADIOS.find(x=>x.name===msg.radio_name)||RADIOS[0];
+  return `<div class="radio-card"><div class="radio-card-top"><span>${r.emoji}</span><strong>${esc(r.name)}</strong><span class="radio-card-live">EN DIRECT 🔴</span></div><audio src="${r.url}" controls preload="none"></audio></div>`;
+}
+function buildPollCard(msg){
+  let opts=''; const total=msg.poll_votes||1;
+  (msg.poll_options||[]).forEach((opt,i)=>{
+    const votes=msg.poll_results?.[i]||0; const pct=Math.round(votes/total*100);
+    opts+=`<div class="poll-opt" onclick="votePoll('${msg.id}',${i})"><div class="poll-opt-bar"><div class="poll-opt-fill" style="width:${pct}%;"></div><span class="poll-opt-label">${esc(opt)}</span></div><span class="poll-opt-pct">${pct}%</span></div>`;
+  });
+  return `<div class="poll-card"><div class="poll-q">${esc(msg.poll_question||'Sondage')}</div>${opts}<div class="poll-footer">${total} vote(s) · ${msg.poll_duration||'24h'}</div></div>`;
+}
+function votePoll(id,idx){showNotif('✅','Vote enregistré',`Option ${idx+1} choisie`,'green',null);}
+
+// ══════════════ SEND ══════════════
+function onChatInput(){
+  const v=document.getElementById('chatInput').value;
+  document.getElementById('sendBtn').style.display=v.trim()?'flex':'none';
+  document.getElementById('micBtn').style.display=v.trim()?'none':'flex';
+  const ta=document.getElementById('chatInput'); ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,110)+'px';
+  if(!CUR_CONV||!SOCKET) return;
+  SOCKET.emit('typing:start',{conversation_id:CUR_CONV});
+  clearTimeout(typingTimers[CUR_CONV]);
+  typingTimers[CUR_CONV]=setTimeout(()=>SOCKET&&SOCKET.emit('typing:stop',{conversation_id:CUR_CONV}),1500);
+}
+function onChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText();}}
+
+function sendText(){
+  const inp=document.getElementById('chatInput'), text=inp.value.trim();
+  if(!text||!CUR_CONV||!SOCKET) return;
+  // Bot check
+  if(CUR_CONV==='bot'){handleBot(text);inp.value='';inp.style.height='auto';return;}
+  inp.value=''; inp.style.height='auto';
+  document.getElementById('sendBtn').style.display='none';
+  document.getElementById('micBtn').style.display='flex';
+  SOCKET.emit('typing:stop',{conversation_id:CUR_CONV});
+  const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'text',content:text,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  appendMsg(tmp); scrollBottom();
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text},(res)=>{if(res?.message){const el=document.querySelector(`[data-mid="${tmp.id}"]`);if(el)el.dataset.mid=res.message.id;}});
+}
+
+function sendMsgSocket(data){
+  if(!CUR_CONV||!SOCKET) return;
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){appendMsg(res.message);scrollBottom();}});
+}
+
+// ══════════════ VOICE REC ══════════════
+async function startRec(e){
+  if(e) e.preventDefault();
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks=[]; mediaRec=new MediaRecorder(stream,{mimeType:'audio/webm'});
+    mediaRec.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRec.start();
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('recBar').classList.add('show');
+    recSecs=0; recTimer=setInterval(()=>{recSecs++;document.getElementById('recTime').textContent=fmtDur(recSecs*1000);},1000);
+  }catch{showNotif('❌','Micro','Accès refusé','red',null);}
+}
+function stopRec(e){
+  if(e) e.preventDefault();
+  if(!mediaRec||mediaRec.state==='inactive') return;
+  mediaRec.stop(); clearInterval(recTimer);
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('recBar').classList.remove('show');
+  mediaRec.onstop=async()=>{
+    const blob=new Blob(audioChunks,{type:'audio/webm'});
+    mediaRec.stream.getTracks().forEach(t=>t.stop());
+    if(recSecs<1) return;
+    await uploadAndSend(blob,'voice','audio/webm');
+  };
+}
+function cancelRec(){
+  if(mediaRec&&mediaRec.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
+  clearInterval(recTimer);
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('recBar').classList.remove('show');
+}
+
+// ══════════════ FILE UPLOAD ══════════════
+function toggleAttach(){attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
+function toggleStickers(){stickerOpen=!stickerOpen;document.getElementById('stickerPanel').classList.toggle('show',stickerOpen);}
+function pickFile(t){attachOpen=false;document.getElementById('attachMenu').classList.remove('show');if(t==='image')document.getElementById('fi-img').click();else if(t==='video')document.getElementById('fi-vid').click();else document.getElementById('fi-doc').click();}
+function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value='';uploadAndSend(f,t,f.type);}
+
+async function uploadAndSend(blob,type,mimeType){
+  if(!CUR_CONV) return;
+  const tid='up_'+Date.now();
+  const row=document.createElement('div'); row.className='msg-row me'; row.dataset.mid=tid;
+  row.innerHTML=`<div class="msg-bubble" style="min-width:140px;"><div style="font-size:13px;margin-bottom:5px;">${type==='voice'?'🎙️':type==='image'?'📷':type==='video'?'🎬':'📄'} Envoi...</div><div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="pg_${tid}" style="height:100%;background:var(--accent);width:0%;transition:width .25s;"></div></div></div>`;
+  const area=document.getElementById('msgsArea'),typing=document.getElementById('typingRow');
+  area.insertBefore(row,typing); scrollBottom();
+  try{
+    const folder=type==='voice'?'penc/voice':type==='image'?'penc/images':type==='video'?'penc/videos':'penc/docs';
+    const rt=type==='image'?'image':type==='file'?'raw':'video';
+    const fd=new FormData(); fd.append('file',blob); fd.append('upload_preset',CLD_PRESET); fd.append('folder',folder);
+    const url=await new Promise((res,rej)=>{
+      const x=new XMLHttpRequest();
+      x.upload.onprogress=e=>{if(e.lengthComputable){const p=document.getElementById('pg_'+tid);if(p)p.style.width=Math.round(e.loaded/e.total*100)+'%';}};
+      x.open('POST',`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`);
+      x.onload=()=>{const d=JSON.parse(x.responseText);res(d.secure_url);};
+      x.onerror=rej; x.send(fd);
+    });
+    row.remove();
+    const dur=type==='voice'?recSecs*1000:undefined;
+    sendMsgSocket({type,media_url:url,media_duration:dur,content:type==='voice'?'🎙️ Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':'📎 Fichier'});
+  }catch{row.remove();showNotif('❌','Erreur','Envoi échoué','red',null);}
+}
+
+// ══════════════ STICKERS ══════════════
+function buildStickerPanel(){
+  const p=document.getElementById('stickerPanel'); let html='';
+  Object.entries(STICKERS).forEach(([cat,items])=>{
+    html+=`<div class="sticker-cat">${cat}</div><div class="sticker-grid">`;
+    items.forEach(s=>html+=`<div class="sticker-item" onclick="sendSticker('${s.text}')" title="${s.text}">${s.text}</div>`);
+    html+='</div>';
+  });
+  p.innerHTML=html;
+}
+function sendSticker(txt){
+  stickerOpen=false; document.getElementById('stickerPanel').classList.remove('show');
+  if(!CUR_CONV||!SOCKET) return;
+  const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'sticker',content:txt,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  appendMsg(tmp); scrollBottom();
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'sticker',content:txt},(r)=>{});
+}
+
+// ══════════════ MONEY ══════════════
+function openMoneySheet(){document.getElementById('ol-money').classList.add('show');}
+function selectOp(el){selectedOp=el.dataset.op;document.querySelectorAll('.money-op-btn').forEach(b=>b.style.border='2px solid transparent');el.style.border='2px solid var(--accent)';}
+function sendMoney(){
+  const amt=document.getElementById('moneyAmt').value, phone=document.getElementById('moneyPhone').value;
+  if(!amt||!phone||!selectedOp) return;
+  closeOl('ol-money');
+  const msgData={type:'money',content:`💸 Transfert de ${Number(amt).toLocaleString('fr')} FCFA via ${selectedOp}`,money_amount:Number(amt).toLocaleString('fr'),money_op:selectedOp};
+  const tmp={...msgData,id:'tmp_'+Date.now(),conversation_id:CUR_CONV,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  appendMsg(tmp); scrollBottom();
+  SOCKET&&SOCKET.emit('message:send',{conversation_id:CUR_CONV,...msgData},(r)=>{});
+  // Deep link
+  let link='';
+  if(selectedOp==='Wave') link=`https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=${amt}`;
+  if(link) setTimeout(()=>window.open(link,'_blank'),500);
+}
+
+// ══════════════ RADIO ══════════════
+function buildRadioList(){
+  const list=document.getElementById('radioList');
+  RADIOS.forEach(r=>{
+    const el=document.createElement('div'); el.className='sheet-opt';
+    el.innerHTML=`<div class="sheet-opt-icon">${r.emoji}</div><div class="sheet-opt-info"><div class="sheet-opt-title">${r.name}</div><div class="sheet-opt-sub">Radio sénégalaise · En direct</div></div><span style="font-size:11px;color:var(--danger);font-weight:700;">🔴 LIVE</span>`;
+    el.onclick=()=>sendRadio(r);
+    list.appendChild(el);
+  });
+}
+function openRadioSheet(){attachOpen=false;document.getElementById('attachMenu').classList.remove('show');document.getElementById('ol-radio').classList.add('show');}
+function sendRadio(r){
+  closeOl('ol-radio');
+  const msgData={type:'radio',content:`📻 ${r.name}`,radio_name:r.name,radio_url:r.url};
+  const tmp={...msgData,id:'tmp_'+Date.now(),conversation_id:CUR_CONV,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  appendMsg(tmp); scrollBottom();
+  SOCKET&&SOCKET.emit('message:send',{conversation_id:CUR_CONV,...msgData},(r)=>{});
+}
+
+// ══════════════ POLL ══════════════
+function openPollSheet(){attachOpen=false;document.getElementById('attachMenu').classList.remove('show');document.getElementById('ol-poll').classList.add('show');}
+function addPollOpt(){
+  const cnt=document.querySelectorAll('.poll-opt-inp').length+1;
+  const div=document.createElement('div'); div.className='form-group';
+  div.innerHTML=`<label class="form-label">Option ${cnt}</label><input class="form-input poll-opt-inp" type="text" placeholder="Option ${cnt}"/>`;
+  document.getElementById('pollOpts').appendChild(div);
+}
+function sendPoll(){
+  const q=document.getElementById('pollQ').value.trim();
+  const opts=[...document.querySelectorAll('.poll-opt-inp')].map(i=>i.value.trim()).filter(Boolean);
+  if(!q||opts.length<2) return;
+  closeOl('ol-poll');
+  const msgData={type:'poll',content:`📊 ${q}`,poll_question:q,poll_options:opts,poll_votes:0,poll_results:opts.map(()=>0),poll_duration:'24h'};
+  const tmp={...msgData,id:'tmp_'+Date.now(),conversation_id:CUR_CONV,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  appendMsg(tmp); scrollBottom();
+  SOCKET&&SOCKET.emit('message:send',{conversation_id:CUR_CONV,...msgData},(r)=>{});
+}
+
+// ══════════════ BOT ══════════════
+const BOT_CONV = {id:'bot',name:'🤖 Penc Bot',other_user_id:'bot',last_message:'Tapez /aide pour commencer',updated_at:new Date().toISOString()};
+function openBotChat(){MSGS['bot']=[{id:'b0',type:'bot',content:'👋 Salam ! Je suis le Penc Bot. Tapez /aide pour voir les commandes.',sender:{id:'bot'},created_at:new Date().toISOString()}];openConv(BOT_CONV);}
+function handleBot(text){
+  const t=text.trim().toLowerCase();
+  let reply='';
+  if(BOT_CMDS[t]) reply=BOT_CMDS[t];
+  else if(t==='/blague') reply='😄 '+BLAGUES[Math.floor(Math.random()*BLAGUES.length)];
+  else if(t.startsWith('/wolof ')) {
+    const word=t.replace('/wolof ','').trim();
+    reply=WOLOF_DICT[word]?`🇸🇳 "${word}" en wolof : "${WOLOF_DICT[word]}"`:`Désolé, je ne connais pas "${word}" encore.`;
+  } else reply='❓ Commande inconnue. Tapez /aide pour la liste.';
+  const botMsg={id:'b'+Date.now(),type:'bot',content:reply,sender:{id:'bot'},created_at:new Date().toISOString()};
+  if(!MSGS['bot']) MSGS['bot']=[];
+  MSGS['bot'].push(botMsg); appendMsg(botMsg); scrollBottom();
+}
+
+// ══════════════ STATUSES ══════════════
+async function loadStatuses(){
+  const d=await api('/statuses');
+  if(d.statuses){STATUSES=d.statuses;renderStories();}
+}
+function renderStories(){
+  const row=document.getElementById('storiesRow');
+  row.querySelectorAll('.story-item:not(:first-child)').forEach(e=>e.remove());
+  const byUser={};
+  STATUSES.forEach(s=>{if(!byUser[s.user_id])byUser[s.user_id]={user:s.user,items:[]};byUser[s.user_id].items.push(s);});
+  Object.values(byUser).forEach(({user,items})=>{
+    const el=document.createElement('div'); el.className='story-item';
+    const init=initials(user?.full_name||'?');
+    const seen=items.every(s=>s.viewed);
+    el.innerHTML=`<div class="story-ring${seen?' seen':''}"><div class="story-inner">${user?.avatar_url?`<img src="${user.avatar_url}" alt=""/>`:`<span>${init}</span>`}</div></div><span class="story-name">${esc(user?.full_name?.split(' ')[0]||'?')}</span>`;
+    el.onclick=()=>viewStatuses(items);
+    row.appendChild(el);
+  });
+}
+function viewStatuses(items){svList=items;svIdx=0;document.getElementById('statusViewer').classList.add('show');renderSV();startSVTimer();}
+function renderSV(){
+  const s=svList[svIdx]; if(!s){closeSV();return;}
+  const pb=document.getElementById('svProgress');
+  pb.innerHTML=svList.map((_,i)=>`<div class="sv-seg${i<svIdx?' done':i===svIdx?' active':''}"></div>`).join('');
+  const c=document.getElementById('svContent');
+  if(s.type==='image') c.innerHTML=`<img src="${s.media_url}" alt=""/>`;
+  else if(s.type==='video') c.innerHTML=`<video src="${s.media_url}" autoplay controls style="max-width:100%;max-height:100%;"></video>`;
+  else c.innerHTML=`<div class="sv-text" style="background:${s.bg_color||'#050D18'};">${esc(s.text_content||'')}</div>`;
+  api(`/statuses/${s.id}/view`,'POST');
+}
+function startSVTimer(){clearInterval(svTimer);svTimer=setInterval(()=>{svIdx++;if(svIdx>=svList.length){closeSV();return;}renderSV();},5000);}
+function closeSV(){clearInterval(svTimer);document.getElementById('statusViewer').classList.remove('show');}
+function svReply(e){if(e.key==='Enter'&&CUR_CONV_DATA){const t=document.getElementById('svReplyInput').value.trim();if(t){closeSV();sendMsgSocket({type:'text',content:t});}}}
+
+function openAddStatus(){document.getElementById('ol-status').classList.add('show');}
+function showTextStatus(){document.getElementById('textStatusArea').style.display='block';}
+function setStBg(c){stBgColor=c;}
+function pickStatus(t){if(t==='image')document.getElementById('st-img').click();else document.getElementById('st-vid').click();}
+async function uploadStatus(e,type){
+  const f=e.target.files[0];if(!f)return;e.target.value='';closeOl('ol-status');
+  const fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);fd.append('folder','penc/statuses');
+  const rt=type==='image'?'image':'video';
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`,{method:'POST',body:fd});
+  const d=await r.json();
+  await api('/statuses','POST',{type,media_url:d.secure_url});
+  loadStatuses(); showNotif('📸','Statut publié','Visible 24h pour vos contacts','green',null);
+}
+async function submitTextStatus(){
+  const text=document.getElementById('stTxtInp').value.trim();if(!text)return;
+  closeOl('ol-status');
+  await api('/statuses','POST',{type:'text',text_content:text,bg_color:stBgColor});
+  loadStatuses(); showNotif('✍️','Statut publié',text.slice(0,40),'green',null);
+}
+
+// ══════════════ CONTACTS SEARCH ══════════════
+function openNewChat(){document.getElementById('searchInp').value='';document.getElementById('searchRes').innerHTML='<div class="empty-state"><div class="empty-icon" style="font-size:36px;">🔍</div><div class="empty-text">Tapez pour rechercher</div></div>';document.getElementById('ol-newchat').classList.add('show');}
+let searchTO;
+async function searchUsers(q){
+  clearTimeout(searchTO);
+  if(!q.trim()) return;
+  searchTO=setTimeout(async()=>{
+    const res=document.getElementById('searchRes');
+    res.innerHTML='<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+    const d=await api(`/contacts/search?q=${encodeURIComponent(q)}`);
+    if(!d.users?.length){res.innerHTML='<div class="empty-state"><div class="empty-text">Aucun résultat</div></div>';return;}
+    res.innerHTML='';
+    d.users.forEach(u=>{
+      if(u.id===ME?.id) return;
+      const el=document.createElement('div'); el.className='search-user';
+      const init=initials(u.full_name||'?');
+      el.innerHTML=`<div class="search-av">${u.avatar_url?`<img src="${u.avatar_url}" alt=""/>`:`<span>${init}</span>`}</div><div style="flex:1;"><div style="font-weight:600;">${esc(u.full_name)}</div><div style="font-size:12px;color:var(--muted);">@${esc(u.username)} · ${esc(u.phone||'')}</div></div><span style="font-size:20px;">💬</span>`;
+      el.onclick=async()=>{
+        closeOl('ol-newchat');
+        const r=await api('/conversations/direct','POST',{target_user_id:u.id});
+        if(r.conversation){await loadConvs();openConv({...r.conversation,name:u.full_name,other_user_id:u.id,avatar_url:u.avatar_url});}
+      };
+      res.appendChild(el);
+    });
+  },400);
+}
+
+// ══════════════ TABS ══════════════
+function showTab(tab){
+  curTab=tab;
+  ['chats','status','contacts','channels','profile'].forEach(t=>document.getElementById('nav-'+t)?.classList.toggle('active',t===tab));
+  const screen=document.getElementById('screen-main');
+  screen.querySelectorAll('#profile-view,#channels-view').forEach(e=>e.remove());
+  const convList=screen.querySelector('.conv-list');
+  const fab=screen.querySelector('.fab');
+  convList.style.display=''; fab&&(fab.style.display='');
+  if(tab==='chats'){renderConvList();}
+  else if(tab==='status'){openAddStatus();}
+  else if(tab==='contacts'){openNewChat();}
+  else if(tab==='profile'){renderProfileView();}
+  else if(tab==='channels'){renderChannelsView();}
+}
+
+// ══════════════ PROFILE ══════════════
+function renderProfileView(){
+  const screen=document.getElementById('screen-main');
+  screen.querySelector('.conv-list').style.display='none';
+  screen.querySelector('.fab')&&(screen.querySelector('.fab').style.display='none');
+  const curTheme=localStorage.getItem('penc_theme')||'';
+  const div=document.createElement('div'); div.id='profile-view'; div.style.cssText='flex:1;overflow-y:auto;display:flex;flex-direction:column;';
+  const init=initials(ME?.full_name||'?');
+  div.innerHTML=`
+    <div class="profile-hdr">
+      <div class="profile-av">${ME?.avatar_url?`<img src="${ME.avatar_url}" alt=""/>`:init}</div>
+      <div class="profile-name">${esc(ME?.full_name||'')}</div>
+      <div class="profile-user">@${esc(ME?.username||'')} · ${esc(ME?.phone||'')}</div>
+      <div class="profile-stats">
+        <div class="p-stat"><div class="p-stat-n">${CONVS.length}</div><div class="p-stat-l">Chats</div></div>
+        <div class="p-stat"><div class="p-stat-n">${STATUSES.length}</div><div class="p-stat-l">Statuts</div></div>
+        <div class="p-stat"><div class="p-stat-n">🌍</div><div class="p-stat-l">Mondial</div></div>
+      </div>
+    </div>
+    <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">🎨 Thème</div>
+    <div class="theme-btns">
+      <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#F5F0E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#1C6B4A,#1A5C9E);"></div><span style="color:#1C1917;">Claude</span></div>
+      <div class="t-btn${curTheme==='sky'?' active':''}" data-t="sky" onclick="applyTheme('sky','sky')" style="background:#E8F4FF;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#0055AA,#0099FF);"></div><span style="color:#0A1A2E;">Bleu ciel</span></div>
+      <div class="t-btn${curTheme==='green'?' active':''}" data-t="green" onclick="applyTheme('green','green')" style="background:#E8FFF4;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#0A7C4E,#10B981);"></div><span style="color:#052E1A;">Vert</span></div>
+      <div class="t-btn${curTheme==='orange'?' active':''}" data-t="orange" onclick="applyTheme('orange','orange')" style="background:#FFF3E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#B84800,#F97316);"></div><span style="color:#2D1200;">Orange</span></div>
+      <div class="t-btn${curTheme==='dark'?' active':''}" data-t="dark" onclick="applyTheme('dark','dark')" style="background:#050D18;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#00C896,#0099FF);"></div><span style="color:#EEF2FF;">Nuit</span></div>
+    </div></div>
+    <div class="settings-list">
+      <div class="s-item"><span class="s-icon">✏️</span><span class="s-label">Modifier le profil</span><span class="s-arrow">›</span></div>
+      <div class="s-item"><span class="s-icon">🔔</span><span class="s-label">Notifications</span><span class="s-arrow">›</span></div>
+      <div class="s-item"><span class="s-icon">🔒</span><span class="s-label">Confidentialité</span><span class="s-arrow">›</span></div>
+      <div class="s-item"><span class="s-icon">🌐</span><span class="s-label">Langue (FR / Wolof / EN)</span><span class="s-arrow">›</span></div>
+      <div class="s-item"><span class="s-icon">📢</span><span class="s-label">Canaux suivis</span><span class="s-arrow">›</span></div>
+      ${ADMIN_EMAILS.includes(ME?.email)?`<div class="s-item" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span></div>`:''}
+      <div class="s-item"><span class="s-icon">ℹ️</span><span class="s-label">À propos de Penc</span><span class="s-arrow">›</span></div>
+    </div>
+    <div class="logout-btn" onclick="doLogout()">Se déconnecter</div>`;
+  screen.insertBefore(div, screen.querySelector('.bottom-nav'));
+}
+
+// ══════════════ CHANNELS ══════════════
+function renderChannelsView(){
+  const screen=document.getElementById('screen-main');
+  screen.querySelector('.conv-list').style.display='none';
+  screen.querySelector('.fab')&&(screen.querySelector('.fab').style.display='none');
+  const div=document.createElement('div'); div.id='channels-view'; div.style.cssText='flex:1;overflow-y:auto;';
+  div.innerHTML=`
+    <div style="padding:16px;">
+      <div class="channel-banner"><div class="channel-name">📢 Canaux de diffusion</div><div class="channel-sub">Suivez des canaux pour rester informé</div></div>
+      <div class="s-item" style="margin-top:12px;" onclick="showNotif('📢','Canaux','Fonctionnalité bientôt disponible !','blue',null)"><span class="s-icon">➕</span><span class="s-label">Créer un canal</span><span class="s-arrow">›</span></div>
+      <div class="s-item" onclick="showNotif('🔍','Recherche','Recherche de canaux bientôt disponible','blue',null)"><span class="s-icon">🔍</span><span class="s-label">Découvrir des canaux</span><span class="s-arrow">›</span></div>
+      <div style="padding:24px;text-align:center;color:var(--muted);font-size:14px;">Aucun canal suivi pour le moment</div>
+    </div>`;
+  screen.insertBefore(div, screen.querySelector('.bottom-nav'));
+}
+
+// ══════════════ ADMIN ══════════════
+function openAdmin(){showNotif('🛡️','Admin','Panel admin — bientôt disponible en pleine page','blue',null);}
+
+// ══════════════ NOTIFICATIONS ══════════════
+const NOTIF_COLORS={'green':'#00C896','blue':'#0099FF','purple':'#C98BE8','orange':'#E8A87C','gold':'#FFD700','red':'#FF4D6A'};
+function showNotif(icon,title,text,colorKey,onclick){
+  const cont=document.getElementById('notifCont');
+  const el=document.createElement('div'); el.className='notif';
+  el.style.borderLeftColor=NOTIF_COLORS[colorKey]||NOTIF_COLORS['green'];
+  el.innerHTML=`<div class="notif-icon">${icon}</div><div class="notif-body"><div class="notif-title">${esc(title)}</div><div class="notif-text">${esc(text)}</div></div>`;
+  if(onclick) el.onclick=onclick;
+  cont.prepend(el);
+  if(cont.children.length>3) cont.lastChild.remove();
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(-16px)';setTimeout(()=>el.remove(),280);},4000);
+}
+function playNotifSound(type){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(); const gain=ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if(type==='money'){
+      [523,659,784].forEach((f,i)=>{const o2=ctx.createOscillator();const g2=ctx.createGain();o2.connect(g2);g2.connect(ctx.destination);o2.frequency.value=f;g2.gain.setValueAtTime(0.1,ctx.currentTime+i*.1);g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*.1+.15);o2.start(ctx.currentTime+i*.1);o2.stop(ctx.currentTime+i*.1+.15);});
+    } else if(type==='voice'){
+      [440,880].forEach((f,i)=>{const o2=ctx.createOscillator();const g2=ctx.createGain();o2.connect(g2);g2.connect(ctx.destination);o2.frequency.value=f;g2.gain.setValueAtTime(0.08,ctx.currentTime+i*.1);g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*.1+.12);o2.start(ctx.currentTime+i*.1);o2.stop(ctx.currentTime+i*.1+.12);});
+    } else {
+      osc.frequency.value=880; gain.gain.setValueAtTime(0.12,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+.15); osc.start(); osc.stop(ctx.currentTime+.15);
+    }
+  }catch{}
+}
+
+// ══════════════ IMAGE VIEWER ══════════════
+function openImgViewer(url){document.getElementById('imgViewSrc').src=url;document.getElementById('imgViewer').classList.add('show');}
+function closeImgViewer(){document.getElementById('imgViewer').classList.remove('show');}
+
+// ══════════════ SCREEN / MODAL ══════════════
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>{if(s.id===id)s.classList.remove('hidden');else s.classList.add('hidden');});}
+function closeOl(id){document.getElementById(id).classList.remove('show');}
+document.querySelectorAll('.overlay').forEach(ol=>{ol.addEventListener('click',e=>{if(e.target===ol)ol.classList.remove('show');});});
+document.addEventListener('click',e=>{
+  if(attachOpen&&!e.target.closest('.attach-btn')&&!e.target.closest('.attach-menu')){attachOpen=false;document.getElementById('attachMenu').classList.remove('show');}
+  if(stickerOpen&&!e.target.closest('#stickerPanel')&&!e.target.closest('[onclick="toggleStickers()"]')){stickerOpen=false;document.getElementById('stickerPanel').classList.remove('show');}
+});
+
+// ══════════════ UTILS ══════════════
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function initials(s){return(s||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+function linkify(t){return t.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:underline;">$1</a>');}
+function fmtTime(d){
+  if(!d) return'';
+  const dt=new Date(d); if(isNaN(dt))return'';
+  const now=new Date(), diff=now-dt;
+  if(diff<86400000) return dt.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
+  if(diff<172800000) return'Hier';
+  return dt.toLocaleDateString('fr',{day:'2-digit',month:'2-digit'});
+}
+function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
+document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
+</script>
+</body>
+</html>
