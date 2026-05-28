@@ -3803,10 +3803,10 @@ app.post('/api/penc/auth/register', async (req, res) => {
 
     // Vérif numéro unique
     const existing = await col.findOne({ phone });
-    if (existing) return res.status(400).json({ error: 'Ce numéro est déjà associé à un compte. Connecte-toi.' });
+    if (existing) return res.status(400).json({ error: "Ce numero est deja associe a un compte. Connecte-toi." });
 
     const usernameExist = await col.findOne({ username });
-    if (usernameExist) return res.status(400).json({ error: 'Ce nom d'utilisateur est déjà pris.' });
+    if (usernameExist) return res.status(400).json({ error: "Ce nom utilisateur est deja pris." });
 
     const hashed = await bcrypt_penc.hash(password, 10);
     const user = {
@@ -3841,10 +3841,10 @@ app.post('/api/penc/auth/login', async (req, res) => {
     const user = await col.findOne({
       $or: [{ phone: identifier }, { email: identifier }, { username: identifier }]
     });
-    if (!user) return res.status(400).json({ error: 'Compte introuvable' });
+    if (!user) return res.status(400).json({ error: "Compte introuvable" });
 
     const ok = await bcrypt_penc.compare(password, user.password);
-    if (!ok) return res.status(400).json({ error: 'Mot de passe incorrect' });
+    if (!ok) return res.status(400).json({ error: "Mot de passe incorrect" });
 
     await col.updateOne({ id: user.id }, { $set: { is_online: true, last_seen: new Date() } });
     const { password: _, ...safeUser } = user;
@@ -3859,7 +3859,7 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
     const col = pencUsersCol();
     if (!col) return res.json({ user: { id: req.pencUser.userId } });
     const user = await col.findOne({ id: req.pencUser.userId });
-    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
     const { password: _, ...safeUser } = user;
     res.json({ user: safeUser });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
