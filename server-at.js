@@ -3750,6 +3750,11 @@ app.get('/api/sen-sms/me', senSmsAuth, async (req, res) => {
   }
 });
 
+
+app.get('/messager', (req, res) => {
+  res.sendFile(__dirname + '/messager.html');
+});
+
 app.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
     console.log("http://localhost:" + PORT);
