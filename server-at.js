@@ -6,6 +6,14 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 
+// ── Socket.io init (Penc temps réel) ──────────────────────
+const http = require('http');
+const { Server: IOServer } = require('socket.io');
+const httpServer = http.createServer(app);
+const io = new IOServer(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
 
 
 app.use(cors({ origin: ['https://www.sensms.com', 'https://sensms.com', 'https://zama-sn.com', 'https://www.zama-sn.com', 'https://pst-telecom.vercel.app'], credentials: true }));
@@ -15,7 +23,7 @@ const zamaOtpStore = {}; // OTP store ZAMA
 app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'node_modules/xlsx/dist/xlsx.full.min.js')); });
 
 // ─── CONFIG ────────────────────────────────────────────────
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://pst2026:Pst2026@cluster0.jozvjqr.mongodb.net/pst_telecom?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tpaseny_db_user:PstMongo2026@cluster0.jozvjqr.mongodb.net/pst_telecom?appName=Cluster0';
 const AT_API_KEY       = process.env.AT_API_KEY;
 const AT_USERNAME      = process.env.AT_USERNAME || 'sandbox';
 // ─── ZAMA get-address (pour écran Recevoir) ───────────────
@@ -4098,7 +4106,7 @@ io.on('connection', async (socket) => {
 });
 
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
     console.log("http://localhost:" + PORT);
     console.log("MongoDB: " + (db ? "connecte" : "mode memoire") + "\n");
