@@ -3522,12 +3522,11 @@ try {
   else { webpush = null; console.log('⚠️ VAPID manquant — push désactivé'); }
 } catch (e) { webpush = null; console.log('⚠️ web-push non installé — push désactivé:', e.message); }
 async function getGeoForIp(ip){
-  try{
-    const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),3000);
-    const r=await fetch('https://ipwho.is/'+ip,{signal:ctrl.signal});
-    clearTimeout(tid); const d=await r.json();
-    if(d && d.success && d.country) return {country:d.country, city:d.city||'', region:d.region||'', code:d.country_code||''};
-  }catch(e){}
+  const services=[
+    ()=>fetch('https://ipwho.is/'+ip,{signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(d=>d.success&&d.country?{country:d.country,city:d.city||'',region:d.region||'',code:d.country_code||''}:null),
+    ()=>fetch('https://ipapi.co/'+ip+'/json/',{signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(d=>d.country_name?{country:d.country_name,city:d.city||'',region:d.region||'',code:d.country_code||''}:null)
+  ];
+  for(const fn of services){ try{ const g=await fn(); if(g) return g; }catch(e){} }
   return null;
 }
 async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
@@ -4058,16 +4057,18 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
     const recent = statuses
       .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id !== uid)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const vLookup = uid2 => { const u = users.find(x => x.id === uid2); return u ? {id:u.id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url||null} : {id:uid2,full_name:'Utilisateur',username:''}; };
     const enriched = recent.map(s => ({
       ...s,
       user: pencStrip(users.find(u => u.id === s.user_id)),
-      viewed: (s.views || []).includes(uid)
+      viewed: (s.views || []).includes(uid),
+      reactions: s.reactions || []
     }));
     const meU = pencStrip(users.find(u => u.id === uid));
     const mine = statuses
       .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id === uid)
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      .map(s => ({ ...s, user: meU, viewed: true }));
+      .map(s => ({ ...s, user: meU, viewed: true, reactions: s.reactions||[], viewers: (s.views||[]).map(vLookup) }));
     res.json({ statuses: enriched, mine });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4075,13 +4076,13 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color } = req.body;
+    const { type, media_url, text_content, bg_color, caption } = req.body;
     const statuses = await pencStatuses();
     const status = {
       id: 'st_' + Date.now() + Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type,
       media_url: media_url || null, text_content: text_content || null,
-      bg_color: bg_color || '#050D18', views: [],
+      bg_color: bg_color || '#050D18', caption: caption || null, reactions: [], views: [],
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     };
@@ -4262,6 +4263,28 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
       await pencSaveUsers(users);
     }
     res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// POST /api/penc/statuses/:id/react
+app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { emoji } = req.body;
+    if (!emoji) return res.status(400).json({ error: 'emoji requis' });
+    const statuses = await pencStatuses();
+    const stat = statuses.find(x => x.id === req.params.id);
+    if (!stat) return res.status(404).json({ error: 'Statut introuvable' });
+    stat.reactions = stat.reactions || [];
+    const existing = stat.reactions.find(r => r.user_id === uid);
+    if (existing) {
+      if (existing.emoji === emoji) stat.reactions = stat.reactions.filter(r => r.user_id !== uid);
+      else existing.emoji = emoji;
+    } else {
+      stat.reactions.push({ user_id: uid, emoji, at: new Date().toISOString() });
+    }
+    await pencSaveStatuses(statuses);
+    res.json({ success: true, reactions: stat.reactions });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 

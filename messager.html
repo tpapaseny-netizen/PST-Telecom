@@ -13,7 +13,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js">
+document.getElementById('statusViewer').addEventListener('click',function(e){
+  var btn=e.target.closest('.sv-react-btn');
+  if(btn) sendReaction(btn.dataset.sid,btn.dataset.em);
+});
+</script>
 <style>
 /* ══ THEMES ══ */
 :root {
@@ -418,6 +423,39 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .sh-item:active{transform:scale(.92);background:var(--card2);}
 .sh-icon{font-size:26px;line-height:1;}
 .sh-label{font-size:9px;font-weight:700;color:var(--muted);white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;}
+.sv-caption{position:absolute;bottom:0;left:0;right:0;padding:12px 14px 68px;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);color:#fff;font-size:15px;font-weight:500;pointer-events:none;z-index:12;text-align:center;}
+#svReactions{position:absolute;bottom:70px;left:0;right:0;z-index:15;pointer-events:auto;padding:0 14px 4px;}
+.sv-react-row{display:flex;gap:8px;justify-content:center;margin-bottom:6px;}
+.sv-react-btn{width:44px;height:44px;border:none;border-radius:50%;background:rgba(0,0,0,.55);font-size:22px;cursor:pointer;transition:transform .12s;display:flex;align-items:center;justify-content:center;}
+.sv-react-btn:active,.sv-react-btn.active{transform:scale(1.28);box-shadow:0 0 0 3px rgba(255,255,255,.35);}
+.sv-react-counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;}
+.sv-react-count{background:rgba(0,0,0,.55);color:#fff;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:600;cursor:pointer;}
+.sv-viewers{padding:0 4px;max-height:90px;overflow-y:auto;}
+.sv-viewer-row{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.sv-viewer-av{width:28px;height:28px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;overflow:hidden;flex-shrink:0;}
+.sv-viewer-av img{width:100%;height:100%;object-fit:cover;}
+.sv-viewer-name{font-size:12px;color:rgba(255,255,255,.9);font-weight:500;}
+.st-cap-prev{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:5000;display:none;flex-direction:column;}
+.st-cap-img{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:16px;}
+.st-cap-img img,.st-cap-img video{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;}
+.st-cap-bar{padding:12px 14px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;background:rgba(0,0,0,.8);}
+.st-cap-input{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:10px 14px;color:#fff;font-size:14px;font-family:inherit;outline:none;}
+.st-cap-btn{border:none;background:var(--accent);color:#fff;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.st-cap-x{border:none;background:transparent;color:#fff;font-size:22px;cursor:pointer;padding:6px;flex-shrink:0;}
+.ol-content-page{position:fixed;inset:0;background:var(--bg);z-index:4000;display:none;flex-direction:column;}
+.ol-page-hd{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);padding-top:calc(14px + env(safe-area-inset-top));background:var(--bg);}
+.ol-page-hd h2{font-size:17px;font-weight:700;flex:1;}
+.ol-page-body{padding:20px 18px;font-size:14px;line-height:1.75;color:var(--text);overflow-y:auto;flex:1;}
+.ol-page-body h3{font-size:15px;font-weight:700;margin:18px 0 6px;color:var(--text);}
+.ol-page-body p{margin-bottom:10px;color:var(--muted);}
+.lang-picker{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:none;align-items:flex-end;}
+.lang-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));width:100%;}
+.lang-sheet h3{font-size:15px;font-weight:700;text-align:center;margin-bottom:16px;}
+.lang-opts{display:flex;flex-direction:column;gap:10px;}
+.lang-opt{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--card2);border-radius:13px;cursor:pointer;border:2px solid transparent;transition:.1s;}
+.lang-opt.sel{border-color:var(--accent);}
+.lang-opt .lo-flag{font-size:24px;}
+.lang-opt .lo-name{font-size:15px;font-weight:600;}
 </style>
 </head>
 <body>
@@ -430,6 +468,8 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   <div class="sv-progress" id="svProgress"></div>
   <div class="sv-close" onclick="closeSV()">✕</div>
   <div class="sv-content" id="svContent"></div>
+  <div class="sv-caption" id="svCaption"></div>
+  <div id="svReactions"></div>
   <div class="sv-views" id="svViews"></div>
   <div class="sv-reply"><input type="text" placeholder="Répondre..." id="svReplyInput" onkeydown="svReply(event)"/><button class="sv-send" onclick="svSend()">➤</button></div>
 </div>
@@ -1294,16 +1334,38 @@ function viewStatuses(items){
 }
 function svViewsLabel(s){ if(ME && s.user_id===ME.id){ var n=(s.views||[]).length; return '👁 '+n+' vue'+(n>1?'s':''); } return ''; }
 function renderSV(){
-  var s=svList[svIdx]; if(!s){closeSV();return;}
+  var sv=svList[svIdx]; if(!sv){closeSV();return;}
   document.getElementById('svProgress').innerHTML=svList.map(function(_,i){ return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>'; }).join('');
   var c=document.getElementById('svContent');
-  if(s.type==='image') c.innerHTML='<img src="'+s.media_url+'" alt="" style="max-width:100%;max-height:100%;object-fit:contain;"/>';
-  else if(s.type==='video') c.innerHTML='<video src="'+s.media_url+'" autoplay playsinline controls style="max-width:100%;max-height:100%;"></video>';
-  else c.innerHTML='<div class="sv-text" style="background:'+(s.bg_color||'#050D18')+';">'+esc(s.text_content||'')+'</div>';
-  var vEl=document.getElementById('svViews'); if(vEl) vEl.textContent=svViewsLabel(s);
-  var rep=document.querySelector('.sv-reply'); if(rep) rep.style.display=(ME && s.user_id===ME.id)?'none':'flex';
+  if(sv.type==='image') c.innerHTML='<img src="'+sv.media_url+'" alt="" style="max-width:100%;max-height:100%;object-fit:contain;"/>';
+  else if(sv.type==='video') c.innerHTML='<video src="'+sv.media_url+'" autoplay playsinline controls style="max-width:100%;max-height:100%;"></video>';
+  else c.innerHTML='<div class="sv-text" style="background:'+(sv.bg_color||'#050D18')+';">'+esc(sv.text_content||'')+'</div>';
+  var cap=document.getElementById('svCaption'); if(cap) cap.textContent=(sv.caption&&sv.caption!=='null')?sv.caption:'';
+  var vEl=document.getElementById('svViews'); if(vEl) vEl.textContent=svViewsLabel(sv);
+  var isOwn=ME&&sv.user_id===ME.id;
+  var rep=document.querySelector('.sv-reply'); if(rep) rep.style.display=isOwn?'none':'flex';
+  var ra=document.getElementById('svReactions');
+  if(ra){
+    if(isOwn){
+      var vws=sv.viewers||[];
+      if(!vws.length){ ra.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.5);font-size:12px;padding:6px 0;">Pas encore de vues</div>'; }
+      else{ var h='<div class="sv-viewers">'; vws.forEach(function(v){ h+='<div class="sv-viewer-row"><div class="sv-viewer-av">'+(v.avatar_url?'<img src="'+v.avatar_url+'" alt=""/>':esc((v.full_name||'?')[0]))+'</div><span class="sv-viewer-name">'+esc(v.full_name||v.username||'?')+'</span></div>'; }); ra.innerHTML=h+'</div>'; }
+    } else {
+      var emojis=['❤️','😍','😮','😂','🙏','🔥'];
+      var myR=(sv.reactions||[]).find(function(r){return r.user_id===(ME&&ME.id);});
+      var rc={};(sv.reactions||[]).forEach(function(r){rc[r.emoji]=(rc[r.emoji]||0)+1;});
+      var ch='<div class="sv-react-counts">'; Object.keys(rc).forEach(function(em){ch+='<span class="sv-react-count">'+em+' '+rc[em]+'</span>';}); ch+='</div>';
+      var ph='<div class="sv-react-row">';
+      emojis.forEach(function(em){
+        var act=(myR&&myR.emoji===em)?' active':'';
+        ph+='<button class="sv-react-btn'+act+'" data-sid="'+sv.id+'" data-em="'+em+'">'+em+'</button>';
+      });
+      ph+='</div>';
+      ra.innerHTML=ch+ph;
+    }
+  }
   clearTimeout(window.svViewTimer);
-  window.svViewTimer=setTimeout(function(){ api('/statuses/'+s.id+'/view','POST'); }, 3000);
+  window.svViewTimer=setTimeout(function(){ api('/statuses/'+sv.id+'/view','POST'); }, 3000);
 }
 function svNext(){ svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); startSVTimer(); }
 function svPrev(){ if(svIdx>0){ svIdx--; renderSV(); startSVTimer(); } }
@@ -1326,13 +1388,13 @@ function showTextStatus(){document.getElementById('textStatusArea').style.displa
 function setStBg(c){stBgColor=c;}
 function pickStatus(t){if(t==='image')document.getElementById('st-img').click();else document.getElementById('st-vid').click();}
 async function uploadStatus(e,type){
-  const f=e.target.files[0];if(!f)return;e.target.value='';closeOl('ol-status');
-  const fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);
-  const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/auto/upload`,{method:'POST',body:fd});
-  const d=await r.json();
-  if(!d.secure_url){ showNotif('❌','Statut', (d&&d.error&&d.error.message)||'Échec upload Cloudinary', 'red',null); return; }
-  await api('/statuses','POST',{type,media_url:d.secure_url});
-  loadStatuses(); showNotif('📸','Statut publié','Visible 24h pour vos contacts','green',null);
+  var f=e.target.files[0];if(!f)return;e.target.value='';closeOl('ol-status');
+  var prevUrl=URL.createObjectURL(f);
+  var prev=document.getElementById('stCaptionPrev');
+  if(!prev){ prev=document.createElement('div'); prev.id='stCaptionPrev'; prev.className='st-cap-prev'; document.body.appendChild(prev); }
+  prev.innerHTML='<div class="st-cap-img">'+(type==='image'?'<img src="'+prevUrl+'" alt=""/>':'<video src="'+prevUrl+'" muted autoplay playsinline style="max-width:100%;max-height:100%;"></video>')+'</div><div class="st-cap-bar"><button class="st-cap-x" onclick="cancelStatusCap()">&#xD7;</button><input class="st-cap-input" id="stCapInput" placeholder="Sous-titre (optionnel)..." maxlength="100"/><button class="st-cap-btn" onclick="publishStatus()">Publier</button></div>';
+  prev.style.display='flex';
+  window._stCapFile=f; window._stCapType=type; window._stCapUrl=prevUrl;
 }
 async function submitTextStatus(){
   const text=document.getElementById('stTxtInp').value.trim();if(!text)return;
@@ -1400,7 +1462,50 @@ function renderStatusView(){
 function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return s.user_id===uid;}); if(items.length) viewStatuses(items); }
 var _adminTaps=0,_adminTapTimer=null;
 function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=5){ _adminTaps=0; openAdmin(); return; } _adminTapTimer=setTimeout(function(){ _adminTaps=0; },2000); }
-function pingSession(){ if(window.TOKEN) api('/session/ping','POST').catch(function(){}); }
+function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}); }
+
+async function sendReaction(statId,emoji){
+  var d=await api('/statuses/'+statId+'/react','POST',{emoji:emoji});
+  if(d&&d.reactions){var sv=svList[svIdx];if(sv&&sv.id===statId)sv.reactions=d.reactions;renderSV();startSVTimer();}
+}
+function cancelStatusCap(){var p=document.getElementById('stCaptionPrev');if(p)p.style.display='none';try{URL.revokeObjectURL(window._stCapUrl||'');}catch(e){}}
+async function publishStatus(){
+  var f=window._stCapFile,type=window._stCapType;
+  var cap=document.getElementById('stCapInput');var caption=cap?cap.value.trim():'';
+  cancelStatusCap();
+  var fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);
+  var _r,_d;
+  try{_r=await fetch('https://api.cloudinary.com/v1_1/'+CLD_CLOUD+'/auto/upload',{method:'POST',body:fd});_d=await _r.json();}
+  catch(e){showNotif('❌','Statut','Erreur réseau','red',null);return;}
+  if(!_d||!_d.secure_url){showNotif('❌','Statut',(_d&&_d.error&&_d.error.message)||'Échec','red',null);return;}
+  await api('/statuses','POST',{type,media_url:_d.secure_url,caption:caption||null});
+  loadStatuses();showNotif('📸','Statut publié','Visible 24h','green',null);
+}
+function openAbout(){document.getElementById('ol-about').style.display='flex';}
+function openPrivacy(){document.getElementById('ol-privacy').style.display='flex';}
+function openLangPicker(){
+  var lp=document.getElementById('langPicker');lp.style.display='flex';
+  ['fr','en','wo'].forEach(function(c){var el=document.getElementById('lo-'+c);if(el)el.classList.toggle('sel',c===curLang);});
+}
+function closeLangPicker(){document.getElementById('langPicker').style.display='none';}
+var LANG={
+  fr:{nav_chats:'Chats',nav_statuts:'Statuts',nav_contacts:'Contacts',nav_canaux:'Canaux',nav_profil:'Profil',search:'Rechercher...',msg:'Message...',signout:'Se déconnecter',subtitle:'Messagerie mondiale 🌍 · Ouvert à tous'},
+  en:{nav_chats:'Chats',nav_statuts:'Status',nav_contacts:'Contacts',nav_canaux:'Channels',nav_profil:'Profile',search:'Search...',msg:'Message...',signout:'Sign out',subtitle:'World Messaging 🌍 · Open to all'},
+  wo:{nav_chats:'Waxtaan',nav_statuts:'Jaaxal',nav_contacts:'Xarit yi',nav_canaux:'Canaux',nav_profil:'Profil',search:'Séy...',msg:'Bind...',signout:'Génn',subtitle:'Waxtaan ci aduna 🌍 · Mu jiitu yépp'}
+};
+var curLang=localStorage.getItem('penc_lang')||'fr';
+function t(k){return (LANG[curLang]||LANG.fr)[k]||k;}
+function setLang(code){curLang=code;localStorage.setItem('penc_lang',code);closeLangPicker();applyLang();}
+function applyLang(){
+  ['chats','statuts','contacts','canaux','profil'].forEach(function(k){
+    var el=document.getElementById('nav-'+k);if(!el)return;
+    var sp=el.querySelectorAll('span');if(sp.length>=2)sp[sp.length-1].textContent=t('nav_'+k);
+  });
+  var si=document.getElementById('convSearch');if(si)si.placeholder=t('search');
+  var ci=document.getElementById('chatInput');if(ci)ci.placeholder=t('msg');
+  var sub=document.querySelector('.auth-logo-sub');if(sub)sub.textContent=t('subtitle');
+}
+setTimeout(applyLang,100);
 function changePP(){ const i=document.getElementById('ppInput'); if(i) i.click(); }
 async function uploadPP(e){
   const f=e.target.files[0]; if(!f) return; e.target.value='';
@@ -1507,10 +1612,10 @@ function renderProfileView(){
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
       <div class="sh-item" onclick="changePP()"><div class="sh-icon">📷</div><div class="sh-label">Photo</div></div>
       <div class="sh-item" onclick="enablePush()"><div class="sh-icon">🔔</div><div class="sh-label">Notifs</div></div>
-      <div class="sh-item" onclick="showNotif('🔒','Confidentialité','Bientôt disponible','blue',null)"><div class="sh-icon">🔒</div><div class="sh-label">Privé</div></div>
-      <div class="sh-item" onclick="showNotif('🌐','Langue','Bientôt disponible','blue',null)"><div class="sh-icon">🌐</div><div class="sh-label">Langue</div></div>
+      <div class="sh-item" onclick="openPrivacy()"><div class="sh-icon">🔒</div><div class="sh-label">Privé</div></div>
+      <div class="sh-item" onclick="openLangPicker()"><div class="sh-icon">🌐</div><div class="sh-label">Langue</div></div>
       <div class="sh-item" onclick="showNotif('📢','Canaux','Bientôt disponible','blue',null)"><div class="sh-icon">📢</div><div class="sh-label">Canaux</div></div>
-      <div class="sh-item" onclick="showNotif('ℹ️','À propos','Penc — Messagerie mondiale','blue',null)"><div class="sh-icon">ℹ️</div><div class="sh-label">À propos</div></div>
+      <div class="sh-item" onclick="openAbout()"><div class="sh-icon">ℹ️</div><div class="sh-label">À propos</div></div>
       ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?'<div class="sh-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><div class="sh-icon">🛡️</div><div class="sh-label">Admin</div></div>':''}
     </div>
       <div class="s-item" onclick="enablePush()"><span class="s-icon">🔔</span><span class="s-label">Notifications</span><span class="s-arrow">›</span></div>
@@ -1674,6 +1779,44 @@ async function enablePush(){
   }catch(e){ showNotif('❌','Notifications','Échec activation','red',null); }
 }
 setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.permission==='granted') enablePush(); }, 3500);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden' && TOKEN) pingSession(); });
 </script>
+<div class="ol-content-page" id="ol-about">
+  <div class="ol-page-hd"><button class="chat-back" onclick="document.getElementById('ol-about').style.display='none'">←</button><h2>ℹ️ À propos de Penc</h2></div>
+  <div class="ol-page-body">
+    <h3>Penc — Messagerie mondiale</h3>
+    <p>Penc est une application de messagerie développée par <strong>PST Telecom</strong> — Pure Smart Telecom, entreprise technologique sénégalaise innovante fondée par <strong>Papa Seny Touré</strong>.</p>
+    <p>Envoyez des messages, des photos, des audios, des statuts et des réactions à vos proches partout dans le monde, en toute sécurité.</p>
+    <h3>Fonctionnalités</h3>
+    <p>Messages texte &amp; vocaux · Photos &amp; vidéos · Statuts 24h avec vues et réactions · Notifications push · Système de récompenses · Panneau administrateur.</p>
+    <h3>Version &amp; Contact</h3>
+    <p>Penc v1.0.0 · © 2026 PST Telecom, Sénégal<br/>papasenytoure@gmail.com</p>
+  </div>
+</div>
+<div class="ol-content-page" id="ol-privacy">
+  <div class="ol-page-hd"><button class="chat-back" onclick="document.getElementById('ol-privacy').style.display='none'">←</button><h2>🔒 Confidentialité</h2></div>
+  <div class="ol-page-body">
+    <h3>Données collectées</h3>
+    <p>Numéro de téléphone, nom d'utilisateur, email (optionnel) et adresse IP à des fins de sécurité et de gestion de compte.</p>
+    <h3>Vos messages</h3>
+    <p>Vos messages et statuts sont stockés de manière sécurisée. Ils ne sont jamais vendus à des tiers ni exploités à des fins publicitaires.</p>
+    <h3>Géolocalisation</h3>
+    <p>La position géographique est déterminée par adresse IP (précision ville/pays) uniquement à des fins statistiques internes.</p>
+    <h3>Vos droits</h3>
+    <p>Vous pouvez demander la suppression de votre compte et de vos données : papasenytoure@gmail.com</p>
+    <h3>Acceptation</h3>
+    <p>En utilisant Penc, vous acceptez cette politique de confidentialité.</p>
+  </div>
+</div>
+<div class="lang-picker" id="langPicker" onclick="if(event.target===this)closeLangPicker()">
+  <div class="lang-sheet">
+    <h3>Choisir la langue / Choose / Tann xam-xam</h3>
+    <div class="lang-opts">
+      <div class="lang-opt" id="lo-fr" onclick="setLang('fr')"><span class="lo-flag">🇫🇷</span><span class="lo-name">Français</span></div>
+      <div class="lang-opt" id="lo-en" onclick="setLang('en')"><span class="lo-flag">🇬🇧</span><span class="lo-name">English</span></div>
+      <div class="lang-opt" id="lo-wo" onclick="setLang('wo')"><span class="lo-flag">🇸🇳</span><span class="lo-name">Wolof</span></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
