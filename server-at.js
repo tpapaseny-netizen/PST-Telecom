@@ -4164,6 +4164,68 @@ app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ─── PENC ADMIN ─────────────────────────────────────────────
+const PENC_ADMIN_EMAILS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
+async function pencAdmin(req, res, next) {
+  try {
+    const users = await pencUsers();
+    const u = users.find(x => x.id === req.pencUser.userId);
+    if (!u || !PENC_ADMIN_EMAILS.includes(String(u.email || '').toLowerCase())) return res.status(403).json({ error: 'Acces refuse' });
+    req.pencAdminUser = u;
+    next();
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+}
+function pencContactsCount(convs, uid) {
+  const set = new Set();
+  convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
+  return set.size;
+}
+app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    const users = await pencUsers();
+    const convs = await pencConvs();
+    const statuses = await pencStatuses();
+    let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
+    const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 100; const withdrawn = u.withdrawn || 0; return {
+      id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
+      valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
+      contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at };
+    };
+    const all = users.map(enrich);
+    const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
+    const rewardAlerts = all.filter(u => u.reward_pending);
+    const totalValidViews = all.reduce((a, u) => a + u.valid_views, 0);
+    res.json({
+      stats: { users: users.length, conversations: convs.length, statuses: statuses.length, messages: msgsCount, total_valid_views: totalValidViews },
+      withdrawals, rewardAlerts,
+      users: all.sort((a, b) => b.valid_views - a.valid_views)
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/withdraw/approve', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const users = await pencUsers();
+    const u = users.find(x => x.id === user_id);
+    if (!u || !u.withdraw_request) return res.status(404).json({ error: 'Aucune demande' });
+    u.withdrawn = (u.withdrawn || 0) + (u.withdraw_request.amount || 0);
+    u.withdraw_request.status = 'paid';
+    u.withdraw_request.paid_at = new Date().toISOString();
+    u.reward_pending = false;
+    await pencSaveUsers(users);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const users = await pencUsers();
+    const u = users.find(x => x.id === user_id);
+    if (u) { u.reward_pending = false; await pencSaveUsers(users); }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // SOCKET.IO — PENC TEMPS RÉEL
 // ════════════════════════════════════════════════════════════
 

@@ -380,6 +380,22 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .rw-info{font-size:11px;color:var(--muted);margin-bottom:10px;}
 .rw-withdraw{width:100%;padding:11px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;}
 .rw-withdraw:disabled{background:var(--card2);color:var(--muted);cursor:not-allowed;}
+.admin-overlay{position:fixed;inset:0;background:var(--bg);z-index:4000;display:none;flex-direction:column;}
+.admin-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:800;font-size:16px;padding-top:calc(14px + env(safe-area-inset-top));}
+.admin-hd button{border:none;background:var(--card);width:34px;height:34px;border-radius:10px;font-size:17px;cursor:pointer;color:var(--text);}
+.admin-body{flex:1;overflow-y:auto;padding:14px;}
+.adm-stats{display:flex;gap:8px;margin-bottom:6px;}
+.adm-st{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 4px;text-align:center;}
+.adm-st b{display:block;font-size:17px;}
+.adm-st span{font-size:9px;color:var(--muted);}
+.adm-sec{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:16px 2px 8px;}
+.adm-empty{color:var(--muted);font-size:13px;padding:6px 2px;}
+.adm-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:10px 12px;margin-bottom:7px;}
+.adm-row-i{flex:1;min-width:0;}
+.adm-row-i b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.adm-row-i span{font-size:11px;color:var(--muted);}
+.adm-btn{border:none;background:var(--card2);color:var(--text);border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;flex-shrink:0;}
+.adm-btn.ok{background:var(--accent);color:#fff;}
 </style>
 </head>
 <body>
@@ -1463,7 +1479,39 @@ function renderChannelsView(){
 }
 
 // ══════════════ ADMIN ══════════════
-function openAdmin(){showNotif('🛡️','Admin','Panel admin — bientôt disponible en pleine page','blue',null);}
+function openAdmin(){
+  var ov=document.getElementById('adminOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='adminOverlay'; ov.className='admin-overlay'; document.body.appendChild(ov); }
+  ov.style.display='flex';
+  ov.innerHTML='<div class="admin-hd"><span>🛡️ Admin Penc</span><button onclick="closeAdmin()">✕</button></div><div class="admin-body" id="adminBody"><div class="spinner" style="margin-top:30px;"></div></div>';
+  api('/admin/overview').then(function(d){
+    var b=document.getElementById('adminBody');
+    if(!d || d.error){ b.innerHTML='<p style="padding:20px;color:var(--muted);">'+((d&&d.error)||'Erreur de chargement')+'</p>'; return; }
+    renderAdmin(d);
+  }).catch(function(){ var b=document.getElementById('adminBody'); if(b) b.innerHTML='<p style="padding:20px;">Erreur de chargement</p>'; });
+}
+function closeAdmin(){ var o=document.getElementById('adminOverlay'); if(o) o.style.display='none'; }
+function renderAdmin(d){
+  var b=document.getElementById('adminBody'); var s=d.stats||{}; var html='';
+  html+=`<div class="adm-stats"><div class="adm-st"><b>${s.users||0}</b><span>USERS</span></div><div class="adm-st"><b>${s.total_valid_views||0}</b><span>VUES</span></div><div class="adm-st"><b>${s.statuses||0}</b><span>STATUTS</span></div><div class="adm-st"><b>${s.messages||0}</b><span>MSGS</span></div></div>`;
+  html+=`<div class="adm-sec">💸 Demandes de retrait (${(d.withdrawals||[]).length})</div>`;
+  if(!(d.withdrawals||[]).length) html+=`<div class="adm-empty">Aucune demande</div>`;
+  (d.withdrawals||[]).forEach(function(u){
+    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>${esc(u.withdraw_request.phone||u.phone||'')} · ${u.withdraw_request.amount||0} F · ${u.contacts} contacts</span></div><button class="adm-btn ok" onclick="adminApprove('${u.id}')">Payé</button></div>`;
+  });
+  html+=`<div class="adm-sec">🎯 Paliers 1000 atteints (${(d.rewardAlerts||[]).length})</div>`;
+  if(!(d.rewardAlerts||[]).length) html+=`<div class="adm-empty">Aucune alerte</div>`;
+  (d.rewardAlerts||[]).forEach(function(u){
+    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>${u.valid_views} vues · solde ${u.balance} F · ${u.contacts} contacts</span></div><button class="adm-btn" onclick="adminClear('${u.id}')">Vu</button></div>`;
+  });
+  html+=`<div class="adm-sec">👥 Utilisateurs — top vues</div>`;
+  (d.users||[]).slice(0,60).forEach(function(u){
+    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span></div></div>`;
+  });
+  b.innerHTML=html;
+}
+function adminApprove(uid){ api('/admin/withdraw/approve','POST',{user_id:uid}).then(function(r){ if(r&&r.success){ showNotif('✅','Retrait','Marqué payé','green',null); openAdmin(); } else showNotif('❌','Erreur',(r&&r.error)||'','red',null); }); }
+function adminClear(uid){ api('/admin/reward/clear','POST',{user_id:uid}).then(function(){ openAdmin(); }); }
 
 // ══════════════ NOTIFICATIONS ══════════════
 const NOTIF_COLORS={'green':'#00C896','blue':'#0099FF','purple':'#C98BE8','orange':'#E8A87C','gold':'#FFD700','red':'#FF4D6A'};
