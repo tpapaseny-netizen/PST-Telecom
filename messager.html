@@ -1499,21 +1499,27 @@ function openLangPicker(){
 }
 function closeLangPicker(){document.getElementById('langPicker').style.display='none';}
 var LANG={
-  fr:{nav_chats:'Chats',nav_statuts:'Statuts',nav_contacts:'Contacts',nav_canaux:'Canaux',nav_profil:'Profil',search:'Rechercher...',msg:'Message...',signout:'Se déconnecter',subtitle:'Messagerie mondiale 🌍 · Ouvert à tous'},
-  en:{nav_chats:'Chats',nav_statuts:'Status',nav_contacts:'Contacts',nav_canaux:'Channels',nav_profil:'Profile',search:'Search...',msg:'Message...',signout:'Sign out',subtitle:'World Messaging 🌍 · Open to all'},
-  wo:{nav_chats:'Waxtaan',nav_statuts:'Jaaxal',nav_contacts:'Xarit yi',nav_canaux:'Canaux',nav_profil:'Profil',search:'Séy...',msg:'Bind...',signout:'Génn',subtitle:'Waxtaan ci aduna 🌍 · Mu jiitu yépp'}
+  fr:{nav_chats:'Chats',nav_statuts:'Statuts',nav_contacts:'Contacts',nav_canaux:'Canaux',nav_profil:'Profil',search:'Rechercher...',msg:'Message...',signout:'Se déconnecter',subtitle:'Messagerie mondiale 🌍 · Ouvert à tous',mystat:'Mon statut',addstat:'Appuyer pour ajouter',reply:'Répondre...'},
+  en:{nav_chats:'Chats',nav_statuts:'Status',nav_contacts:'Contacts',nav_canaux:'Channels',nav_profil:'Profile',search:'Search...',msg:'Message...',signout:'Sign out',subtitle:'World Messaging 🌍 · Open to all',mystat:'My status',addstat:'Tap to add',reply:'Reply...'},
+  wo:{nav_chats:'Waxtaan',nav_statuts:'Jaaxal',nav_contacts:'Xarit yi',nav_canaux:'Canaux',nav_profil:'Profil',search:'Séy...',msg:'Bind ci...',signout:'Génn fi',subtitle:'Waxtaan bu aduna 🌍 · Baax na ci yépp',mystat:'Sa jaaxal',addstat:'Suntuël ngir yokk',reply:'Tekki...'}
 };
 var curLang=localStorage.getItem('penc_lang')||'fr';
 function t(k){return (LANG[curLang]||LANG.fr)[k]||k;}
 function setLang(code){curLang=code;localStorage.setItem('penc_lang',code);closeLangPicker();applyLang();}
 function applyLang(){
-  ['chats','status','contacts','channels','profile'].forEach(function(k){
-    var el=document.getElementById('nav-'+k);if(!el)return;
-    var sp=el.querySelectorAll('span');if(sp.length>=2)sp[sp.length-1].textContent=t('nav_'+k.replace('status','statuts').replace('channels','canaux').replace('profile','profil'));
+  var navMap={chats:'nav_chats',status:'nav_statuts',contacts:'nav_contacts',channels:'nav_canaux',profile:'nav_profil'};
+  Object.keys(navMap).forEach(function(id){
+    var el=document.getElementById('nav-'+id);if(!el)return;
+    // chercher le dernier <span> direct (pas dans le SVG)
+    var spans=Array.from(el.children).filter(function(c){return c.tagName==='SPAN'&&!c.classList.contains('nav-icon')&&!c.classList.contains('nav-badge');});
+    if(spans.length) spans[spans.length-1].textContent=t(navMap[id]);
   });
   var si=document.getElementById('convSearch');if(si)si.placeholder=t('search');
   var ci=document.getElementById('chatInput');if(ci)ci.placeholder=t('msg');
   var sub=document.querySelector('.auth-logo-sub');if(sub)sub.textContent=t('subtitle');
+  // Mettre à jour le label du picker
+  var langLbl=document.getElementById('sh-lang-lbl');
+  if(langLbl) langLbl.textContent=curLang.toUpperCase();
 }
 setTimeout(applyLang,100);
 function changePP(){ const i=document.getElementById('ppInput'); if(i) i.click(); }
@@ -1623,17 +1629,10 @@ function renderProfileView(){
       <div class="sh-item" onclick="changePP()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="sh-label">Photo</div></div>
       <div class="sh-item" onclick="enablePush()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="sh-label">Notifs</div></div>
       <div class="sh-item" onclick="openPrivacy()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="sh-label">Privé</div></div>
-      <div class="sh-item" onclick="openLangPicker()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="sh-label">Langue</div></div>
+      <div class="sh-item" onclick="openLangPicker()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="sh-label">Langue (<span id="sh-lang-lbl">FR</span>)</div></div>
       <div class="sh-item" onclick="showNotif('📢','Canaux','Bientôt disponible','blue',null)"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 4.9a10 10 0 0 1 14.14 0"/><path d="M7.76 7.76a6 6 0 0 1 8.49 0"/><path d="M10.59 10.59a2 2 0 0 1 2.83 0"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></div><div class="sh-label">Canaux</div></div>
       <div class="sh-item" onclick="openAbout()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div><div class="sh-label">À propos</div></div>
       ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?'<div class="sh-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sh-label">Admin</div></div>':''}
-    </div>
-      <div class="s-item" onclick="enablePush()"><span class="s-icon">🔔</span><span class="s-label">Notifications</span><span class="s-arrow">›</span></div>
-      <div class="s-item"><span class="s-icon">🔒</span><span class="s-label">Confidentialité</span><span class="s-arrow">›</span></div>
-      <div class="s-item"><span class="s-icon">🌐</span><span class="s-label">Langue (FR / Wolof / EN)</span><span class="s-arrow">›</span></div>
-      <div class="s-item"><span class="s-icon">📢</span><span class="s-label">Canaux suivis</span><span class="s-arrow">›</span></div>
-      ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?`<div class="s-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span></div>`:''}
-      <div class="s-item"><span class="s-icon">ℹ️</span><span class="s-label">À propos de Penc</span><span class="s-arrow">›</span></div>
     </div>
     <div class="logout-btn" onclick="doLogout()">Se déconnecter</div>`;
   screen.insertBefore(div, screen.querySelector('.bottom-nav'));
