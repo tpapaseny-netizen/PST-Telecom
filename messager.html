@@ -396,6 +396,22 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .adm-row-i span{font-size:11px;color:var(--muted);}
 .adm-btn{border:none;background:var(--card2);color:var(--text);border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;flex-shrink:0;}
 .adm-btn.ok{background:var(--accent);color:#fff;}
+.conv-avatar.has-status{border:2.5px solid var(--accent);box-shadow:0 0 0 3px rgba(28,107,74,0.15);cursor:pointer;}
+.sv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sv-head-title{font-size:16px;font-weight:700;}
+.sv-head-add{border:none;background:var(--accent);color:#fff;border-radius:9px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:inherit;}
+.sv-entry{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.sv-entry:active{background:var(--card);}
+.sv-av{width:54px;height:54px;border-radius:18px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;background:var(--card2);border:2px solid var(--border);position:relative;}
+.sv-av img{width:100%;height:100%;object-fit:cover;}
+.sv-av.unseen{border:2.5px solid var(--accent);box-shadow:0 0 0 3px rgba(28,107,74,0.18);}
+.sv-av.my{border:2px dashed var(--border);}
+.sv-add-dot{position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;border:1px solid var(--bg);}
+.sv-info{flex:1;min-width:0;}
+.sv-uname{font-size:15px;font-weight:600;margin-bottom:3px;}
+.sv-sub{font-size:12px;color:var(--muted);}
+.sv-thumb{width:50px;height:50px;border-radius:11px;overflow:hidden;flex-shrink:0;}
+.sv-thumb img{width:100%;height:100%;object-fit:cover;}
 </style>
 </head>
 <body>
@@ -489,7 +505,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 <!-- ══ MAIN ══ -->
 <div class="screen hidden" id="screen-main">
   <div class="top-bar">
-    <span class="top-bar-title">Penc</span>
+    <span class="top-bar-title" onclick="adminTap()">Penc</span>
     <div class="top-bar-actions">
       <div class="icon-btn" onclick="openBotChat()">🤖</div>
       <div class="icon-btn" onclick="openNewChat()">✏️</div>
@@ -927,17 +943,19 @@ function renderConvList(filter='') {
   filtered.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
   if(!filtered.length){empty.style.display='flex';return;}
   empty.style.display='none';
+  var unseenStatusUsers=new Set(); (STATUSES||[]).forEach(function(s){ if(!(s.views||[]).includes(ME&&ME.id)) unseenStatusUsers.add(s.user_id); });
   filtered.forEach(conv=>{
     const el=document.createElement('div'); el.className='conv-item'; el.dataset.id=conv.id;
     const isOnline=ONLINE.has(conv.other_user_id);
     const init=initials(conv.name||'?');
     const unread=conv.unread_count||0;
     el.innerHTML=`
-      <div class="conv-avatar">${conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`}${isOnline?'<div class="online-dot"></div>':''}</div>
+      <div class="conv-avatar${unseenStatusUsers.has(conv.other_user_id)?' has-status':''}">${conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`}${isOnline?'<div class="online-dot"></div>':''}</div>
       <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${esc(conv.last_message||'Démarrer la conversation')}</div></div>
       <div class="conv-meta"><div class="conv-time">${fmtTime(conv.updated_at)}</div>${unread?`<div class="conv-badge">${unread}</div>`:''}</div>`;
     el.onclick=()=>openConv(conv);
     list.appendChild(el);
+    if(unseenStatusUsers.has(conv.other_user_id)){ el.querySelector('.conv-avatar').addEventListener('click',function(e){ e.stopPropagation(); viewStatusesOfUser(conv.other_user_id); }); }
   });
 }
 
@@ -1218,7 +1236,7 @@ function handleBot(text){
 // ══════════════ STATUSES ══════════════
 async function loadStatuses(){
   const d=await api('/statuses');
-  if(d){ STATUSES=d.statuses||[]; window.MY_STATUSES=d.mine||[]; renderStories(); }
+  if(d){ STATUSES=d.statuses||[]; window.MY_STATUSES=d.mine||[]; renderStories(); if(curTab==='status') renderStatusView(); }
 }
 function renderStories(){
   const row=document.getElementById('storiesRow');
@@ -1351,6 +1369,30 @@ function withdrawRewards(){
     else showNotif('❌','Retrait', (r&&r.error)||'Refusé','red',null);
   }).catch(function(){ showNotif('❌','Retrait','Erreur','red',null); });
 }
+function renderStatusView(){
+  var sc=document.getElementById('screen-main');
+  sc.querySelectorAll('#status-view').forEach(function(e){e.remove();});
+  var div=document.createElement('div'); div.id='status-view'; div.style.cssText='flex:1;overflow-y:auto;display:flex;flex-direction:column;';
+  var grouped={}; (STATUSES||[]).forEach(function(sv){ if(!grouped[sv.user_id]) grouped[sv.user_id]=[]; grouped[sv.user_id].push(sv); });
+  var mine=window.MY_STATUSES||[]; var html='';
+  html+='<div class="sv-header"><div class="sv-head-title">Statuts récents</div><button class="sv-head-add" onclick="openAddStatus()">+ Ajouter</button></div>';
+  var myAv=(ME&&ME.avatar_url)?('<img src="'+ME.avatar_url+'" alt=""/>'):'<span>'+initials((ME&&ME.full_name)||'?')+'</span>';
+  html+='<div class="sv-entry" data-type="mine"><div class="sv-av my">'+myAv+'<div class="sv-add-dot">+</div></div><div class="sv-info"><div class="sv-uname">Mon statut</div><div class="sv-sub">'+(mine.length?mine.length+' statut'+(mine.length>1?'s':''):'Appuyer pour ajouter')+'</div></div>'+(mine.length&&mine[mine.length-1].type==='image'?('<div class="sv-thumb"><img src="'+mine[mine.length-1].media_url+'" alt=""/></div>'):'')+'</div>';
+  Object.keys(grouped).forEach(function(uid){
+    var sArr=grouped[uid]; var u=sArr[0].user||{}; var last=sArr[sArr.length-1];
+    var unseen=sArr.some(function(ss){return !(ss.views||[]).includes(ME&&ME.id);});
+    var av=u.avatar_url?('<img src="'+u.avatar_url+'" alt=""/>'):'<span>'+initials(u.full_name||u.username||'?')+'</span>';
+    html+='<div class="sv-entry" data-uid="'+esc(uid)+'"><div class="sv-av'+(unseen?' unseen':'')+'">'+av+'</div><div class="sv-info"><div class="sv-uname">'+esc(u.full_name||u.username||'?')+'</div><div class="sv-sub">'+fmtTime(last.created_at)+' · '+sArr.length+' statut'+(sArr.length>1?'s':'')+'</div></div>'+(last.type==='image'&&last.media_url?('<div class="sv-thumb"><img src="'+last.media_url+'" alt=""/></div>'):'')+'</div>';
+  });
+  if(!Object.keys(grouped).length&&!mine.length) html+='<div class="empty-state" style="flex:1;"><div class="empty-icon">📸</div><div class="empty-text">Aucun statut récent.<br>Sois le premier !</div></div>';
+  div.innerHTML=html;
+  div.querySelectorAll('.sv-entry[data-uid]').forEach(function(el){ var uid=el.dataset.uid; el.addEventListener('click',function(){ viewStatusesOfUser(uid); }); });
+  var mineEl=div.querySelector('.sv-entry[data-type="mine"]'); if(mineEl) mineEl.addEventListener('click',function(){ if(mine.length) viewStatuses(mine); else openAddStatus(); });
+  sc.insertBefore(div, sc.querySelector('.bottom-nav'));
+}
+function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return s.user_id===uid;}); if(items.length) viewStatuses(items); }
+var _adminTaps=0,_adminTapTimer=null;
+function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=5){ _adminTaps=0; openAdmin(); return; } _adminTapTimer=setTimeout(function(){ _adminTaps=0; },2000); }
 function changePP(){ const i=document.getElementById('ppInput'); if(i) i.click(); }
 async function uploadPP(e){
   const f=e.target.files[0]; if(!f) return; e.target.value='';
@@ -1399,12 +1441,16 @@ function showTab(tab){
   curTab=tab;
   ['chats','status','contacts','channels','profile'].forEach(t=>document.getElementById('nav-'+t)?.classList.toggle('active',t===tab));
   const screen=document.getElementById('screen-main');
-  screen.querySelectorAll('#profile-view,#channels-view').forEach(e=>e.remove());
+  screen.querySelectorAll('#profile-view,#channels-view,#status-view').forEach(e=>e.remove());
   const convList=screen.querySelector('.conv-list');
   const fab=screen.querySelector('.fab');
-  convList.style.display=''; fab&&(fab.style.display='');
+  var sr=document.getElementById('storiesRow'); var sl=document.querySelector('.stories-label');
+  var onChats=tab==='chats';
+  convList.style.display=onChats?'':'none'; fab&&(fab.style.display=onChats?'':'none');
+  if(sr) sr.style.display=onChats?'flex':'none';
+  if(sl) sl.style.display=onChats?'flex':'none';
   if(tab==='chats'){renderConvList();}
-  else if(tab==='status'){openAddStatus();}
+  else if(tab==='status'){ loadStatuses(); renderStatusView(); }
   else if(tab==='contacts'){openNewChat();}
   else if(tab==='profile'){renderProfileView();}
   else if(tab==='channels'){renderChannelsView();}
