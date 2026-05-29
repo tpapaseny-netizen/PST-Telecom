@@ -306,7 +306,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .p-stat{text-align:center;}
 .p-stat-n{font-size:21px;font-weight:700;color:var(--accent);}
 .p-stat-l{font-size:11px;color:var(--muted);font-weight:600;}
-.settings-list{flex:1;overflow-y:auto;padding:14px;}
+.settings-list{flex:1;overflow-y:auto;padding:14px 14px 90px;}
 .s-item{display:flex;align-items:center;gap:12px;padding:14px 15px;background:var(--card);border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.05);border-radius:13px;margin-bottom:8px;cursor:pointer;transition:background .12s,transform .08s;}
 .s-item:active{transform:scale(.99);}
 .s-item:active{background:var(--bg3);}
@@ -1452,6 +1452,7 @@ function showTab(tab){
   convList.style.display=onChats?'':'none'; fab&&(fab.style.display=onChats?'':'none');
   if(sr) sr.style.display=onChats?'flex':'none';
   if(sl) sl.style.display=onChats?'flex':'none';
+  var sb=screen.querySelector('.search-bar'); if(sb) sb.style.display=onChats?'':'none';
   if(tab==='chats'){renderConvList();}
   else if(tab==='status'){ loadStatuses(); renderStatusView(); }
   else if(tab==='contacts'){openNewChat();}
