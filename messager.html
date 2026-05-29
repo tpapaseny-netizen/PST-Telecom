@@ -412,6 +412,12 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .sv-sub{font-size:12px;color:var(--muted);}
 .sv-thumb{width:50px;height:50px;border-radius:11px;overflow:hidden;flex-shrink:0;}
 .sv-thumb img{width:100%;height:100%;object-fit:cover;}
+.settings-horiz{display:flex;gap:10px;overflow-x:auto;padding:12px 14px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.settings-horiz::-webkit-scrollbar{display:none;}
+.sh-item{flex:0 0 68px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;background:var(--card);border:1px solid var(--border);border-radius:16px;cursor:pointer;transition:background .12s,transform .1s;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.sh-item:active{transform:scale(.92);background:var(--card2);}
+.sh-icon{font-size:26px;line-height:1;}
+.sh-label{font-size:9px;font-weight:700;color:var(--muted);white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -1129,7 +1135,7 @@ async function uploadAndSend(blob,type,mimeType){
     const url=await new Promise((res,rej)=>{
       const x=new XMLHttpRequest();
       x.upload.onprogress=e=>{if(e.lengthComputable){const p=document.getElementById('pg_'+tid);if(p)p.style.width=Math.round(e.loaded/e.total*100)+'%';}};
-      x.open('POST',`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`);
+      x.open('POST',`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/auto/upload`);
       x.onload=()=>{
         let d; try{ d=JSON.parse(x.responseText); }catch(_){ return rej(new Error('Réponse Cloudinary invalide ('+x.status+')')); }
         if(d && d.secure_url) return res(d.secure_url);
@@ -1321,9 +1327,8 @@ function setStBg(c){stBgColor=c;}
 function pickStatus(t){if(t==='image')document.getElementById('st-img').click();else document.getElementById('st-vid').click();}
 async function uploadStatus(e,type){
   const f=e.target.files[0];if(!f)return;e.target.value='';closeOl('ol-status');
-  const fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);fd.append('folder','penc/statuses');
-  const rt=type==='image'?'image':'video';
-  const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`,{method:'POST',body:fd});
+  const fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/auto/upload`,{method:'POST',body:fd});
   const d=await r.json();
   if(!d.secure_url){ showNotif('❌','Statut', (d&&d.error&&d.error.message)||'Échec upload Cloudinary', 'red',null); return; }
   await api('/statuses','POST',{type,media_url:d.secure_url});
@@ -1342,7 +1347,7 @@ function loadRewards(){
     if(!d||!d.user) return;
     var u=d.user;
     if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; }
-    if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-list'); if(sl){ var ae=document.createElement('div'); ae.className='s-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span>'; sl.insertBefore(ae, sl.firstChild); } }
+    if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-horiz'); if(sl){ var ae=document.createElement('div'); ae.className='sh-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<div class="sh-icon">🛡️</div><div class="sh-label">Admin</div>'; sl.appendChild(ae); } }
     function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
     set('rwValid', u.valid_views||0);
     set('rwOwn', u.own_views||0);
@@ -1498,9 +1503,16 @@ function renderProfileView(){
       <div class="t-btn${curTheme==='orange'?' active':''}" data-t="orange" onclick="applyTheme('orange','orange')" style="background:#FFF3E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#B84800,#F97316);"></div><span style="color:#2D1200;">Orange</span></div>
       <div class="t-btn${curTheme==='dark'?' active':''}" data-t="dark" onclick="applyTheme('dark','dark')" style="background:#050D18;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#00C896,#0099FF);"></div><span style="color:#EEF2FF;">Nuit</span></div>
     </div></div>
-    <div class="settings-list">
+    <div class="settings-horiz">
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
-      <div class="s-item" onclick="changePP()"><span class="s-icon">✏️</span><span class="s-label">Modifier le profil (photo)</span><span class="s-arrow">›</span></div>
+      <div class="sh-item" onclick="changePP()"><div class="sh-icon">📷</div><div class="sh-label">Photo</div></div>
+      <div class="sh-item" onclick="enablePush()"><div class="sh-icon">🔔</div><div class="sh-label">Notifs</div></div>
+      <div class="sh-item" onclick="showNotif('🔒','Confidentialité','Bientôt disponible','blue',null)"><div class="sh-icon">🔒</div><div class="sh-label">Privé</div></div>
+      <div class="sh-item" onclick="showNotif('🌐','Langue','Bientôt disponible','blue',null)"><div class="sh-icon">🌐</div><div class="sh-label">Langue</div></div>
+      <div class="sh-item" onclick="showNotif('📢','Canaux','Bientôt disponible','blue',null)"><div class="sh-icon">📢</div><div class="sh-label">Canaux</div></div>
+      <div class="sh-item" onclick="showNotif('ℹ️','À propos','Penc — Messagerie mondiale','blue',null)"><div class="sh-icon">ℹ️</div><div class="sh-label">À propos</div></div>
+      ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?'<div class="sh-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><div class="sh-icon">🛡️</div><div class="sh-label">Admin</div></div>':''}
+    </div>
       <div class="s-item" onclick="enablePush()"><span class="s-icon">🔔</span><span class="s-label">Notifications</span><span class="s-arrow">›</span></div>
       <div class="s-item"><span class="s-icon">🔒</span><span class="s-label">Confidentialité</span><span class="s-arrow">›</span></div>
       <div class="s-item"><span class="s-icon">🌐</span><span class="s-label">Langue (FR / Wolof / EN)</span><span class="s-arrow">›</span></div>

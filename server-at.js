@@ -3523,10 +3523,10 @@ try {
 } catch (e) { webpush = null; console.log('⚠️ web-push non installé — push désactivé:', e.message); }
 async function getGeoForIp(ip){
   try{
-    const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),2500);
-    const r=await fetch('http://ip-api.com/json/'+ip+'?fields=country,city,regionName,countryCode',{signal:ctrl.signal});
+    const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),3000);
+    const r=await fetch('https://ipwho.is/'+ip,{signal:ctrl.signal});
     clearTimeout(tid); const d=await r.json();
-    if(d && d.country) return {country:d.country, city:d.city||'', region:d.regionName||'', code:d.countryCode||''};
+    if(d && d.success && d.country) return {country:d.country, city:d.city||'', region:d.region||'', code:d.country_code||''};
   }catch(e){}
   return null;
 }
