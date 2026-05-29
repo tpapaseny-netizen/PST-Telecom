@@ -156,7 +156,9 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0;cursor:pointer;gap:2px;color:var(--muted);font-size:10px;font-weight:600;transition:color .18s;position:relative;}
 .nav-item.active{color:var(--accent);}
 .nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:0 0 3px 3px;background:var(--accent);}
-.nav-icon{font-size:21px;}
+.nav-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.nav-icon svg{width:22px;height:22px;}
+.sh-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;}
 .nav-badge{position:absolute;top:6px;right:22%;min-width:16px;height:16px;border-radius:5px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
 .nav-badge.show{display:flex;}
 
@@ -581,11 +583,11 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   </div>
   <div class="fab" onclick="openNewChat()">✏</div>
   <div class="bottom-nav">
-    <div class="nav-item active" id="nav-chats" onclick="showTab('chats')"><span class="nav-icon">💬</span><span>Chats</span><div class="nav-badge" id="chatsBadge"></div></div>
-    <div class="nav-item" id="nav-status" onclick="showTab('status')"><span class="nav-icon">📸</span><span>Statuts</span></div>
-    <div class="nav-item" id="nav-contacts" onclick="showTab('contacts')"><span class="nav-icon">👥</span><span>Contacts</span></div>
-    <div class="nav-item" id="nav-channels" onclick="showTab('channels')"><span class="nav-icon">📢</span><span>Canaux</span></div>
-    <div class="nav-item" id="nav-profile" onclick="showTab('profile')"><span class="nav-icon">👤</span><span>Profil</span></div>
+    <div class="nav-item active" id="nav-chats" onclick="showTab('chats')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span>Chats</span><div class="nav-badge" id="chatsBadge"></div></div>
+    <div class="nav-item" id="nav-status" onclick="showTab('status')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3.5"/></svg></span><span>Statuts</span></div>
+    <div class="nav-item" id="nav-contacts" onclick="showTab('contacts')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Contacts</span></div>
+    <div class="nav-item" id="nav-channels" onclick="showTab('channels')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 4.9a10 10 0 0 1 14.14 0"/><path d="M7.76 7.76a6 6 0 0 1 8.49 0"/><path d="M10.59 10.59a2 2 0 0 1 2.83 0"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></span><span>Canaux</span></div>
+    <div class="nav-item" id="nav-profile" onclick="showTab('profile')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Profil</span></div>
   </div>
 </div>
 
@@ -1417,7 +1419,7 @@ function loadRewards(){
     if(!d||!d.user) return;
     var u=d.user;
     if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; }
-    if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-horiz'); if(sl){ var ae=document.createElement('div'); ae.className='sh-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<div class="sh-icon">🛡️</div><div class="sh-label">Admin</div>'; sl.appendChild(ae); } }
+    if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-horiz'); if(sl){ var ae=document.createElement('div'); ae.className='sh-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sh-label">Admin</div>'; sl.appendChild(ae); } }
     function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
     set('rwValid', u.valid_views||0);
     set('rwOwn', u.own_views||0);
@@ -1505,9 +1507,9 @@ var curLang=localStorage.getItem('penc_lang')||'fr';
 function t(k){return (LANG[curLang]||LANG.fr)[k]||k;}
 function setLang(code){curLang=code;localStorage.setItem('penc_lang',code);closeLangPicker();applyLang();}
 function applyLang(){
-  ['chats','statuts','contacts','canaux','profil'].forEach(function(k){
+  ['chats','status','contacts','channels','profile'].forEach(function(k){
     var el=document.getElementById('nav-'+k);if(!el)return;
-    var sp=el.querySelectorAll('span');if(sp.length>=2)sp[sp.length-1].textContent=t('nav_'+k);
+    var sp=el.querySelectorAll('span');if(sp.length>=2)sp[sp.length-1].textContent=t('nav_'+k.replace('status','statuts').replace('channels','canaux').replace('profile','profil'));
   });
   var si=document.getElementById('convSearch');if(si)si.placeholder=t('search');
   var ci=document.getElementById('chatInput');if(ci)ci.placeholder=t('msg');
@@ -1618,13 +1620,13 @@ function renderProfileView(){
     </div></div>
     <div class="settings-horiz">
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
-      <div class="sh-item" onclick="changePP()"><div class="sh-icon">📷</div><div class="sh-label">Photo</div></div>
-      <div class="sh-item" onclick="enablePush()"><div class="sh-icon">🔔</div><div class="sh-label">Notifs</div></div>
-      <div class="sh-item" onclick="openPrivacy()"><div class="sh-icon">🔒</div><div class="sh-label">Privé</div></div>
-      <div class="sh-item" onclick="openLangPicker()"><div class="sh-icon">🌐</div><div class="sh-label">Langue</div></div>
-      <div class="sh-item" onclick="showNotif('📢','Canaux','Bientôt disponible','blue',null)"><div class="sh-icon">📢</div><div class="sh-label">Canaux</div></div>
-      <div class="sh-item" onclick="openAbout()"><div class="sh-icon">ℹ️</div><div class="sh-label">À propos</div></div>
-      ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?'<div class="sh-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><div class="sh-icon">🛡️</div><div class="sh-label">Admin</div></div>':''}
+      <div class="sh-item" onclick="changePP()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="sh-label">Photo</div></div>
+      <div class="sh-item" onclick="enablePush()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="sh-label">Notifs</div></div>
+      <div class="sh-item" onclick="openPrivacy()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="sh-label">Privé</div></div>
+      <div class="sh-item" onclick="openLangPicker()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="sh-label">Langue</div></div>
+      <div class="sh-item" onclick="showNotif('📢','Canaux','Bientôt disponible','blue',null)"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 4.9a10 10 0 0 1 14.14 0"/><path d="M7.76 7.76a6 6 0 0 1 8.49 0"/><path d="M10.59 10.59a2 2 0 0 1 2.83 0"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></div><div class="sh-label">Canaux</div></div>
+      <div class="sh-item" onclick="openAbout()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div><div class="sh-label">À propos</div></div>
+      ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?'<div class="sh-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sh-label">Admin</div></div>':''}
     </div>
       <div class="s-item" onclick="enablePush()"><span class="s-icon">🔔</span><span class="s-label">Notifications</span><span class="s-arrow">›</span></div>
       <div class="s-item"><span class="s-icon">🔒</span><span class="s-label">Confidentialité</span><span class="s-arrow">›</span></div>
