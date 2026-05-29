@@ -1013,7 +1013,7 @@ function sendText(){
 
 function sendMsgSocket(data){
   if(!CUR_CONV||!SOCKET) return;
-  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{}); // affichage via diffusion (anti-doublon)
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){appendMsg(res.message);scrollBottom();}}); // affichage immédiat (le garde-fou par ID empêche le doublon)
 }
 
 // ══════════════ VOICE REC ══════════════
@@ -1178,7 +1178,7 @@ function handleBot(text){
 // ══════════════ STATUSES ══════════════
 async function loadStatuses(){
   const d=await api('/statuses');
-  if(d.statuses){STATUSES=d.statuses;renderStories();}
+  if(d){ STATUSES=d.statuses||[]; window.MY_STATUSES=d.mine||[]; renderStories(); }
 }
 function renderStories(){
   const row=document.getElementById('storiesRow');
@@ -1193,6 +1193,24 @@ function renderStories(){
     el.onclick=()=>viewStatuses(items);
     row.appendChild(el);
   });
+  // tuile "Mon statut" : visible/cliquable si j'ai des statuts actifs
+  var mine = window.MY_STATUSES || [];
+  var myTile = row.querySelector('.story-item');
+  if(myTile){
+    var ring = myTile.querySelector('.story-ring');
+    var inner = myTile.querySelector('.story-inner');
+    var add = myTile.querySelector('.story-add');
+    if(add){ add.onclick = function(e){ e.stopPropagation(); openAddStatus(); }; }
+    if(mine.length){
+      var last = mine[mine.length-1];
+      if(ring) ring.classList.remove('mine');
+      if(inner) inner.innerHTML = (last.type==='image' && last.media_url) ? `<img src="${last.media_url}" alt=""/>` : `<span>${initials(ME?.full_name||'?')}</span>`;
+      myTile.onclick = function(){ viewStatuses(mine); };
+    } else {
+      if(ring) ring.classList.add('mine');
+      myTile.onclick = function(){ openAddStatus(); };
+    }
+  }
 }
 function viewStatuses(items){svList=items;svIdx=0;document.getElementById('statusViewer').classList.add('show');renderSV();startSVTimer();}
 function renderSV(){

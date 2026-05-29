@@ -4041,7 +4041,12 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
       user: pencStrip(users.find(u => u.id === s.user_id)),
       viewed: (s.views || []).includes(uid)
     }));
-    res.json({ statuses: enriched });
+    const meU = pencStrip(users.find(u => u.id === uid));
+    const mine = statuses
+      .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id === uid)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .map(s => ({ ...s, user: meU, viewed: true }));
+    res.json({ statuses: enriched, mine });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
