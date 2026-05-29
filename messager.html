@@ -925,6 +925,7 @@ function backToMain(){showScreen('screen-main');CUR_CONV=null;CUR_CONV_DATA=null
 // ══════════════ MESSAGES ══════════════
 function appendMsg(msg) {
   const area=document.getElementById('msgsArea');
+  if(msg.id && area.querySelector('[data-mid="'+msg.id+'"]')) return; // anti-doublon
   const typing=document.getElementById('typingRow');
   const isMe=msg.sender?.id===ME?.id||msg.sender_id===ME?.id;
   const row=document.createElement('div'); row.className=`msg-row ${isMe?'me':'them'}`; row.dataset.mid=msg.id;
@@ -1001,7 +1002,7 @@ function sendText(){
 
 function sendMsgSocket(data){
   if(!CUR_CONV||!SOCKET) return;
-  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){appendMsg(res.message);scrollBottom();}});
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{}); // affichage via diffusion (anti-doublon)
 }
 
 // ══════════════ VOICE REC ══════════════
@@ -1009,7 +1010,11 @@ async function startRec(e){
   if(e) e.preventDefault();
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    audioChunks=[]; mediaRec=new MediaRecorder(stream,{mimeType:'audio/webm'});
+    audioChunks=[];
+    let _rm='audio/webm';
+    if(typeof MediaRecorder!=='undefined' && MediaRecorder.isTypeSupported && !MediaRecorder.isTypeSupported('audio/webm')) _rm = MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
+    window._recMime=_rm;
+    mediaRec = _rm ? new MediaRecorder(stream,{mimeType:_rm}) : new MediaRecorder(stream);
     mediaRec.ondataavailable=e=>audioChunks.push(e.data);
     mediaRec.start();
     document.getElementById('micBtn').classList.add('recording');
@@ -1024,7 +1029,7 @@ function stopRec(e){
   document.getElementById('micBtn').classList.remove('recording');
   document.getElementById('recBar').classList.remove('show');
   mediaRec.onstop=async()=>{
-    const blob=new Blob(audioChunks,{type:'audio/webm'});
+    const blob=new Blob(audioChunks,{type:(window._recMime||(mediaRec&&mediaRec.mimeType)||'audio/webm')});
     mediaRec.stream.getTracks().forEach(t=>t.stop());
     if(recSecs<1) return;
     await uploadAndSend(blob,'voice','audio/webm');
@@ -1063,7 +1068,9 @@ async function uploadAndSend(blob,type,mimeType){
     });
     row.remove();
     const dur=type==='voice'?recSecs*1000:undefined;
-    sendMsgSocket({type,media_url:url,media_duration:dur,content:type==='voice'?'🎙️ Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':'📎 Fichier'});
+    let _mu=url;
+    if(type==='voice' && url.indexOf('/upload/')>-1){ var _b=url.replace('/upload/','/upload/f_mp3/'); var _d=_b.lastIndexOf('.'); var _s=_b.lastIndexOf('/'); _mu=(_d>_s?_b.slice(0,_d):_b)+'.mp3'; }
+    sendMsgSocket({type,media_url:_mu,media_duration:dur,content:type==='voice'?'🎙️ Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':'📎 Fichier'});
   }catch{row.remove();showNotif('❌','Erreur','Envoi échoué','red',null);}
 }
 
