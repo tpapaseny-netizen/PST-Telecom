@@ -456,6 +456,14 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .lang-opt.sel{border-color:var(--accent);}
 .lang-opt .lo-flag{font-size:24px;}
 .lang-opt .lo-name{font-size:15px;font-weight:600;}
+.pwa-banner{position:fixed;top:0;left:0;right:0;z-index:9000;background:linear-gradient(135deg,#0d2137,#0a4a6b);color:#fff;padding:14px 16px calc(14px + env(safe-area-inset-top));display:none;align-items:flex-start;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.pwa-banner-icon{width:48px;height:48px;border-radius:12px;flex-shrink:0;object-fit:contain;background:#fff;padding:4px;}
+.pwa-banner-body{flex:1;}
+.pwa-banner-title{font-weight:800;font-size:15px;margin-bottom:2px;}
+.pwa-banner-sub{font-size:12px;opacity:.8;line-height:1.4;}
+.pwa-banner-btns{display:flex;gap:8px;margin-top:10px;}
+.pwa-banner-install{border:none;background:#14B8A6;color:#fff;font-weight:700;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:13px;}
+.pwa-banner-dismiss{border:none;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px;}
 </style>
 </head>
 <body>
@@ -831,7 +839,7 @@ async function doLogin() {
     const r = await api('/auth/login','POST',{identifier:id,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession();
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession(); maybeShowBanner();
   } catch(e) { showErr(e.message||'Identifiants incorrects'); }
   btn.disabled=false; btn.textContent='Se connecter';
 }
@@ -849,7 +857,7 @@ async function doRegister() {
     const r = await api('/auth/register','POST',{full_name:name,username:uname,phone,email,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession();
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession(); maybeShowBanner();
   } catch(e) { showErr(e.message||'Erreur inscription'); }
   btn.disabled=false; btn.textContent='Créer mon compte';
 }
@@ -1739,44 +1747,91 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 
-// ══════════════ PWA : installation ══════════════
-let deferredPrompt=null;
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }
-function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
-window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferredPrompt=e; showInstallBanner(); });
-window.addEventListener('appinstalled', function(){ hideInstallBanner(); localStorage.setItem('penc_installed','1'); });
-function showInstallBanner(){
-  if(localStorage.getItem('penc_installed')==='1' || isStandalone()) return;
-  let b=document.getElementById('pencInstallBar');
-  if(!b){
-    b=document.createElement('div'); b.id='pencInstallBar'; b.className='penc-install-bar';
-    b.innerHTML='<span>📲 Installe Penc sur ton écran d’accueil</span><button onclick="doInstall()">Installer</button><button class="x" onclick="hideInstallBanner()">✕</button>';
-    document.body.appendChild(b);
+// ══════════════ PWA : installation + notifications ══════════════
+var deferredPrompt=null;
+var pwaDismissed=localStorage.getItem('pwa_dismissed')==='1';
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
+function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;}
+function isAndroid(){return /android/i.test(navigator.userAgent);}
+
+function showPWABanner(){
+  if(isStandalone()||pwaDismissed||localStorage.getItem('penc_installed')==='1') return;
+  var banner=document.getElementById('pwaBanner'); if(!banner) return;
+  var title=document.getElementById('pwaBannerTitle');
+  var sub=document.getElementById('pwaBannerSub');
+  var btns=document.getElementById('pwaBannerBtns');
+  if(isIOS()){
+    if(title) title.textContent='Installer Penc sur iPhone';
+    if(sub) sub.innerHTML='Appuie sur \U0001F4E4 (partage) en bas de Safari<br/>puis «\u2009Sur l\'\u00e9cran d\'accueil\u2009»';
+    if(btns) btns.innerHTML='<button class="pwa-banner-dismiss" onclick="dismissPWA()">Compris</button>';
+  } else if(!deferredPrompt){
+    if(title) title.textContent='Installer Penc';
+    if(sub) sub.innerHTML='Menu du navigateur (⋮) → « Installer l\'application »';
+    if(btns) btns.innerHTML='<button class="pwa-banner-dismiss" onclick="dismissPWA()">Compris</button>';
   }
-  b.style.display='flex';
+  banner.style.display='flex';
 }
-function hideInstallBanner(){ var b=document.getElementById('pencInstallBar'); if(b) b.style.display='none'; }
-async function doInstall(){
-  if(!deferredPrompt){ showNotif('📲','Installation',"Ouvre le menu du navigateur puis « Ajouter à l’écran d’accueil »",'blue',null); return; }
-  deferredPrompt.prompt(); var c=await deferredPrompt.userChoice; deferredPrompt=null;
-  if(c && c.outcome==='accepted') hideInstallBanner();
+
+function dismissPWA(){
+  var b=document.getElementById('pwaBanner'); if(b) b.style.display='none';
+  localStorage.setItem('pwa_dismissed','1'); pwaDismissed=true;
 }
-setInterval(function(){ if(TOKEN && !isStandalone() && localStorage.getItem('penc_installed')!=='1' && deferredPrompt) showInstallBanner(); }, 90000);
+
+async function triggerInstall(){
+  var b=document.getElementById('pwaBanner');
+  if(!deferredPrompt){
+    showNotif('\U0001F4F2','Installation','Ouvre le menu du navigateur (⋮) puis « Installer »','blue',null);
+    if(b) b.style.display='none'; return;
+  }
+  deferredPrompt.prompt();
+  var c=await deferredPrompt.userChoice; deferredPrompt=null;
+  if(c.outcome==='accepted'){ localStorage.setItem('penc_installed','1'); if(b) b.style.display='none'; }
+}
+
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault(); deferredPrompt=e;
+  if(document.getElementById('pwaBannerBtns')){
+    var btns=document.getElementById('pwaBannerBtns');
+    btns.innerHTML='<button class="pwa-banner-install" onclick="triggerInstall()">Installer</button><button class="pwa-banner-dismiss" onclick="dismissPWA()">Plus tard</button>';
+  }
+  showPWABanner();
+});
+
+window.addEventListener('appinstalled',function(){
+  var b=document.getElementById('pwaBanner'); if(b) b.style.display='none';
+  localStorage.setItem('penc_installed','1');
+});
+
+// Affiche la bannière après login ou au boot (5s)
+function maybeShowBanner(){ setTimeout(showPWABanner,5000); }
 
 // ══════════════ NOTIFICATIONS PUSH ══════════════
 var VAPID_PUBLIC='BK_KP4_K4myU-_uqf14k_UBTOKT0Q4EOPCaw2AzJsHNouyrSe2QyjakfjZCi32ALPYDYQOoiVwSfao7ArIH-OkQ';
 function urlB64ToUint8(b){ var p='='.repeat((4-b.length%4)%4); var x=(b+p).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(x); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
 async function enablePush(){
   try{
-    if(!('serviceWorker' in navigator) || !('PushManager' in window)){ showNotif('ℹ️','Notifications','Non supporté sur cet appareil','blue',null); return; }
+    if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+      showNotif('🔔','Notifications iOS','Sur Safari : appuie sur 📤 puis \u00ab Ajouter à l\u2019écran d\u2019accueil \u00bb pour recevoir les notifs.','blue',null);
+      return;
+    }
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+      showNotif('ℹ️','Notifications','Non supporté sur cet appareil','blue',null); return;
+    }
     var perm=await Notification.requestPermission();
-    if(perm!=='granted'){ showNotif('🔕','Notifications','Permission refusée','red',null); return; }
-    var reg=await navigator.serviceWorker.ready;
+    if(perm!=='granted'){ showNotif('🔕','Notifs bloquées','Autorise les notifications dans les paramètres de ton navigateur','blue',null); return; }
+    // SW ready avec timeout 6s
+    var reg=await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise(function(_,rej){setTimeout(function(){rej(new Error('SW timeout'));},6000);})
+    ]);
     var sub=await reg.pushManager.getSubscription();
-    if(!sub){ sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)}); }
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});
     await api('/push/subscribe','POST',{subscription:sub});
-    showNotif('🔔','Notifications','Activées ✓','green',null);
-  }catch(e){ showNotif('❌','Notifications','Échec activation','red',null); }
+    showNotif('🔔','Notifications activées','Tu recevras les messages même quand l\u2019app est fermée','green',null);
+  }catch(e){
+    console.error('[Push]',e);
+    showNotif('❌','Notifs','Erreur: '+e.message,'red',null);
+  }
 }
 setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.permission==='granted') enablePush(); }, 3500);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden' && TOKEN) pingSession(); });
@@ -1815,6 +1870,17 @@ document.addEventListener('visibilitychange',function(){ if(document.visibilityS
       <div class="lang-opt" id="lo-fr" onclick="setLang('fr')"><span class="lo-flag">🇫🇷</span><span class="lo-name">Français</span></div>
       <div class="lang-opt" id="lo-en" onclick="setLang('en')"><span class="lo-flag">🇬🇧</span><span class="lo-name">English</span></div>
       <div class="lang-opt" id="lo-wo" onclick="setLang('wo')"><span class="lo-flag">🇸🇳</span><span class="lo-name">Wolof</span></div>
+    </div>
+  </div>
+</div>
+<div class="pwa-banner" id="pwaBanner">
+  <img class="pwa-banner-icon" src="/penc-icon-192.png" alt="Penc" onerror="this.style.display='none'"/>
+  <div class="pwa-banner-body">
+    <div class="pwa-banner-title" id="pwaBannerTitle">Installer Penc</div>
+    <div class="pwa-banner-sub" id="pwaBannerSub">Application gratuite · Fonctionne hors-ligne</div>
+    <div class="pwa-banner-btns" id="pwaBannerBtns">
+      <button class="pwa-banner-install" onclick="triggerInstall()">Installer</button>
+      <button class="pwa-banner-dismiss" onclick="dismissPWA()">Plus tard</button>
     </div>
   </div>
 </div>

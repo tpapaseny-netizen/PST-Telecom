@@ -18,6 +18,10 @@ const io = new IOServer(httpServer, {
 
 app.use(cors({ origin: ['https://www.sensms.com', 'https://sensms.com', 'https://zama-sn.com', 'https://www.zama-sn.com', 'https://pst-telecom.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+// ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
+app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
+app.get('/penc-manifest.json',(req,res)=>{ res.set({'Cache-Control':'no-cache','Content-Type':'application/manifest+json'}); res.sendFile(require('path').join(__dirname,'penc-manifest.json')); });
+
 app.use(express.static(path.join(__dirname)));
 const zamaOtpStore = {}; // OTP store ZAMA
 app.get('/xlsx.js', (req, res) => { res.sendFile(require('path').join(__dirname, 'node_modules/xlsx/dist/xlsx.full.min.js')); });
