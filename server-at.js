@@ -3868,7 +3868,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
     users.push(user);
     await pencSaveUsers(users);
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: pencStrip(user), token: tok });
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }), token: tok });
   } catch (e) { console.error('penc register:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3893,7 +3893,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
     user.last_seen = new Date().toISOString();
     await pencSaveUsers(users);
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: pencStrip(user), token: tok });
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }), token: tok });
   } catch (e) { console.error('penc login:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3916,7 +3916,7 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
     const earned = Math.floor(valid_views / 1000) * 100;
     const withdrawn = user.withdrawn || 0;
     const balance = Math.max(0, earned - withdrawn);
-    res.json({ user: Object.assign({}, pencStrip(user), { valid_views, own_views, earned, withdrawn, balance, contacts_count, withdraw_request: user.withdraw_request || null }) });
+    res.json({ user: Object.assign({}, pencStrip(user), { valid_views, own_views, earned, withdrawn, balance, contacts_count, withdraw_request: user.withdraw_request || null, is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 

@@ -1321,7 +1321,8 @@ function loadRewards(){
   api('/auth/me').then(function(d){
     if(!d||!d.user) return;
     var u=d.user;
-    if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; }
+    if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; }
+    if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-list'); if(sl){ var ae=document.createElement('div'); ae.className='s-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span>'; sl.insertBefore(ae, sl.firstChild); } }
     function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
     set('rwValid', u.valid_views||0);
     set('rwOwn', u.own_views||0);
@@ -1454,7 +1455,7 @@ function renderProfileView(){
       <div class="s-item"><span class="s-icon">🔒</span><span class="s-label">Confidentialité</span><span class="s-arrow">›</span></div>
       <div class="s-item"><span class="s-icon">🌐</span><span class="s-label">Langue (FR / Wolof / EN)</span><span class="s-arrow">›</span></div>
       <div class="s-item"><span class="s-icon">📢</span><span class="s-label">Canaux suivis</span><span class="s-arrow">›</span></div>
-      ${ADMIN_EMAILS.includes(ME?.email)?`<div class="s-item" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span></div>`:''}
+      ${(ME && (ME.is_admin || ADMIN_EMAILS.includes((ME.email||'').toLowerCase())))?`<div class="s-item" id="adminEntry" style="border:1px solid rgba(220,38,38,0.3);" onclick="openAdmin()"><span class="s-icon">🛡️</span><span class="s-label">Panel Admin</span><span class="s-arrow">›</span></div>`:''}
       <div class="s-item"><span class="s-icon">ℹ️</span><span class="s-label">À propos de Penc</span><span class="s-arrow">›</span></div>
     </div>
     <div class="logout-btn" onclick="doLogout()">Se déconnecter</div>`;
