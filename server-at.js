@@ -3416,7 +3416,8 @@ let BINS = {
   penc_users:  process.env.JSONBIN_PENC_USERS_BIN  || null,
   penc_convs:  process.env.JSONBIN_PENC_CONVS_BIN  || null,
   penc_msgs:   process.env.JSONBIN_PENC_MSGS_BIN   || null,
-  penc_status: process.env.JSONBIN_PENC_STATUS_BIN || null
+  penc_status: process.env.JSONBIN_PENC_STATUS_BIN || null,
+  penc_push:   process.env.JSONBIN_PENC_PUSH_BIN   || null
 };
 
 async function jbGet(binId) {
@@ -3496,6 +3497,7 @@ async function initJSONBins() {
   if (!BINS.penc_convs)  { BINS.penc_convs  = await jbCreate("penc_convs",  { convs: [] });    if (BINS.penc_convs)  console.log("✅ Bin penc_convs créé:",  BINS.penc_convs); }
   if (!BINS.penc_msgs)   { BINS.penc_msgs   = await jbCreate("penc_msgs",   { msgs: [] });     if (BINS.penc_msgs)   console.log("✅ Bin penc_msgs créé:",   BINS.penc_msgs); }
   if (!BINS.penc_status) { BINS.penc_status = await jbCreate("penc_status", { statuses: [] }); if (BINS.penc_status) console.log("✅ Bin penc_status créé:", BINS.penc_status); }
+  if (!BINS.penc_push)   { BINS.penc_push   = await jbCreate("penc_push",   { subs: [] });     if (BINS.penc_push)   console.log("✅ Bin penc_push créé:",   BINS.penc_push); }
   console.log("📦 JSONBin BINS IDs:", JSON.stringify(BINS));
   console.log("⚠️  IMPORTANT: Ajoute ces IDs comme variables Render pour ne pas les perdre !");
   console.log("   JSONBIN_USERS_BIN =", BINS.users);
@@ -3505,9 +3507,38 @@ async function initJSONBins() {
   console.log("   JSONBIN_PENC_CONVS_BIN =", BINS.penc_convs);
   console.log("   JSONBIN_PENC_MSGS_BIN =", BINS.penc_msgs);
   console.log("   JSONBIN_PENC_STATUS_BIN =", BINS.penc_status);
+  console.log("   JSONBIN_PENC_PUSH_BIN =", BINS.penc_push);
 }
 
 initJSONBins().catch(console.error);
+
+// ─── PENC PUSH (web-push) ───────────────────────────────────
+let webpush = null;
+try {
+  webpush = require('web-push');
+  const VPUB = process.env.VAPID_PUBLIC_KEY || '';
+  const VPRIV = process.env.VAPID_PRIVATE_KEY || '';
+  if (VPUB && VPRIV) { webpush.setVapidDetails('mailto:papasenytoure@gmail.com', VPUB, VPRIV); console.log('✅ web-push configuré'); }
+  else { webpush = null; console.log('⚠️ VAPID manquant — push désactivé'); }
+} catch (e) { webpush = null; console.log('⚠️ web-push non installé — push désactivé:', e.message); }
+async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
+async function pencSavePushSubs(a) { return jbSet(BINS.penc_push, { subs: a }); }
+async function sendPencPush(userId, payload) {
+  if (!webpush) return;
+  try {
+    const subs = await pencPushSubs();
+    const mine = subs.filter(x => x.user_id === userId);
+    for (const sb of mine) {
+      try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload)); }
+      catch (err) {
+        if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+          const all = await pencPushSubs();
+          await pencSavePushSubs(all.filter(z => !(z.subscription && sb.subscription && z.subscription.endpoint === sb.subscription.endpoint)));
+        }
+      }
+    }
+  } catch (e) { console.error('sendPencPush:', e.message); }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // ─── ROUTES SENSMS (JSONBin — persistant sans MongoDB)
@@ -4050,6 +4081,20 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// POST /api/penc/push/subscribe
+app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
+    const uid = req.pencUser.userId;
+    const subs = await pencPushSubs();
+    const others = subs.filter(s => !(s.subscription && s.subscription.endpoint === subscription.endpoint));
+    others.push({ user_id: uid, subscription, created_at: new Date().toISOString() });
+    await pencSavePushSubs(others);
+    res.json({ success: true });
+  } catch (e) { console.error('penc push sub:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // SOCKET.IO — PENC TEMPS RÉEL
 // ════════════════════════════════════════════════════════════
 
@@ -4110,6 +4155,23 @@ io.on('connection', async (socket) => {
         const c = convs.find(x => x.id === conversation_id);
         if (c) { c.updated_at = new Date().toISOString(); await pencSaveConvs(convs); }
       } catch {}
+
+      // 3) Notifications push aux destinataires
+      try {
+        if (webpush) {
+          const c3 = (await pencConvs()).find(x => x.id === conversation_id);
+          const recipients = (c3 && Array.isArray(c3.members)) ? c3.members.filter(m => m !== pencUserId) : [];
+          let pbody = '';
+          if (type === 'voice') pbody = '🎙️ Message vocal';
+          else if (type === 'image') pbody = '📷 Photo';
+          else if (type === 'video') pbody = '🎬 Vidéo';
+          else if (type === 'money') pbody = '💸 ' + (content || 'Transfert');
+          else if (type === 'sticker') pbody = content || 'Sticker';
+          else pbody = (content || '').slice(0, 120);
+          const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
+          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-' + conversation_id, url: '/messager' }); }
+        }
+      } catch (e) { console.error('penc push notify:', e.message); }
     } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }
   });
 
