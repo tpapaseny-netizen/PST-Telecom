@@ -3900,10 +3900,23 @@ app.post('/api/penc/auth/login', async (req, res) => {
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
+    const uid = req.pencUser.userId;
     const users = await pencUsers();
-    const user = users.find(u => u.id === req.pencUser.userId);
+    const user = users.find(u => u.id === uid);
     if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
-    res.json({ user: pencStrip(user) });
+    let contacts_count = 0;
+    try {
+      const convs = await pencConvs();
+      const set = new Set();
+      convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
+      contacts_count = set.size;
+    } catch (e) {}
+    const valid_views = user.valid_views || 0;
+    const own_views = user.own_views || 0;
+    const earned = Math.floor(valid_views / 1000) * 100;
+    const withdrawn = user.withdrawn || 0;
+    const balance = Math.max(0, earned - withdrawn);
+    res.json({ user: Object.assign({}, pencStrip(user), { valid_views, own_views, earned, withdrawn, balance, contacts_count, withdraw_request: user.withdraw_request || null }) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -4072,13 +4085,40 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses/:id/view
 app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
   try {
+    const uid = req.pencUser.userId;
     const statuses = await pencStatuses();
     const s = statuses.find(x => x.id === req.params.id);
-    if (s) {
-      s.views = s.views || [];
-      if (!s.views.includes(req.pencUser.userId)) {
-        s.views.push(req.pencUser.userId);
-        await pencSaveStatuses(statuses);
+    if (!s) return res.json({ success: true });
+    const xf = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    const ip = xf || (req.socket && req.socket.remoteAddress) || 'unknown';
+    s.views = s.views || [];
+    if (!s.views.includes(uid)) s.views.push(uid);
+    if (s.user_id === uid) {
+      // Vue de SON PROPRE statut : ne compte PAS comme vue valide
+      s.own_views = (s.own_views || 0) + 1;
+      const users = await pencUsers();
+      const author = users.find(u => u.id === uid);
+      if (author) { author.own_views = (author.own_views || 0) + 1; await pencSaveUsers(users); }
+      await pencSaveStatuses(statuses);
+      return res.json({ success: true, own: true });
+    }
+    // Vue valide : 1 seule par adresse IP
+    s.view_ips = s.view_ips || [];
+    if (!s.view_ips.includes(ip)) {
+      s.view_ips.push(ip);
+      await pencSaveStatuses(statuses);
+      const users = await pencUsers();
+      const author = users.find(u => u.id === s.user_id);
+      if (author) {
+        const before = author.valid_views || 0;
+        author.valid_views = before + 1;
+        if (Math.floor(author.valid_views / 1000) > Math.floor(before / 1000)) {
+          author.reward_pending = true;
+          author.reward_threshold = Math.floor(author.valid_views / 1000) * 1000;
+          author.reward_alerted_at = new Date().toISOString();
+          console.log('🎯 ALERTE RÉCOMPENSE: ' + (author.username || author.id) + ' a atteint ' + author.reward_threshold + ' vues valides');
+        }
+        await pencSaveUsers(users);
       }
     }
     res.json({ success: true });
@@ -4098,6 +4138,30 @@ app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
     await pencSavePushSubs(others);
     res.json({ success: true });
   } catch (e) { console.error('penc push sub:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// POST /api/penc/rewards/withdraw
+app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const users = await pencUsers();
+    const user = users.find(u => u.id === uid);
+    if (!user) return res.status(404).json({ error: 'Introuvable' });
+    const valid_views = user.valid_views || 0;
+    const earned = Math.floor(valid_views / 1000) * 100;
+    const balance = Math.max(0, earned - (user.withdrawn || 0));
+    const convs = await pencConvs();
+    const set = new Set();
+    convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
+    const contacts_count = set.size;
+    if (contacts_count < 100) return res.status(400).json({ error: 'Il faut au moins 100 contacts (' + contacts_count + '/100)' });
+    if (balance < 500) return res.status(400).json({ error: 'Retrait minimum 500 F (solde ' + balance + ' F)' });
+    user.withdraw_request = { amount: balance, requested_at: new Date().toISOString(), status: 'pending', phone: (req.body && req.body.phone) || user.phone || '' };
+    user.reward_pending = true;
+    await pencSaveUsers(users);
+    console.log('💸 DEMANDE DE RETRAIT: ' + (user.username || uid) + ' -> ' + balance + ' F');
+    res.json({ success: true, amount: balance });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // SOCKET.IO — PENC TEMPS RÉEL

@@ -368,6 +368,18 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .penc-install-bar span{flex:1;}
 .penc-install-bar button{border:none;background:var(--accent);color:#fff;font-weight:700;border-radius:9px;padding:8px 14px;cursor:pointer;font-family:inherit;}
 .penc-install-bar button.x{background:transparent;color:var(--muted);padding:8px;}
+.reward-card{margin:12px 14px;padding:14px;border-radius:16px;background:linear-gradient(135deg,rgba(28,107,74,.12),rgba(26,92,158,.12));border:1px solid var(--border);}
+.reward-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;margin-bottom:12px;}
+.reward-head span:last-child{color:var(--accent);font-size:16px;font-weight:800;}
+.reward-grid{display:flex;gap:10px;text-align:center;margin-bottom:12px;}
+.reward-grid>div{flex:1;background:var(--card);border-radius:11px;padding:8px 4px;}
+.rw-n{font-size:18px;font-weight:800;}
+.rw-l{font-size:10px;color:var(--muted);margin-top:2px;}
+.rw-progress{height:6px;background:var(--card2);border-radius:6px;overflow:hidden;margin-bottom:6px;}
+.rw-bar{height:100%;width:0;background:var(--accent);transition:width .4s;}
+.rw-info{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.rw-withdraw{width:100%;padding:11px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;}
+.rw-withdraw:disabled{background:var(--card2);color:var(--muted);cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -1247,13 +1259,15 @@ function renderSV(){
   else if(s.type==='video') c.innerHTML='<video src="'+s.media_url+'" autoplay playsinline controls style="max-width:100%;max-height:100%;"></video>';
   else c.innerHTML='<div class="sv-text" style="background:'+(s.bg_color||'#050D18')+';">'+esc(s.text_content||'')+'</div>';
   var vEl=document.getElementById('svViews'); if(vEl) vEl.textContent=svViewsLabel(s);
-  api('/statuses/'+s.id+'/view','POST');
+  var rep=document.querySelector('.sv-reply'); if(rep) rep.style.display=(ME && s.user_id===ME.id)?'none':'flex';
+  clearTimeout(window.svViewTimer);
+  window.svViewTimer=setTimeout(function(){ api('/statuses/'+s.id+'/view','POST'); }, 3000);
 }
 function svNext(){ svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); startSVTimer(); }
 function svPrev(){ if(svIdx>0){ svIdx--; renderSV(); startSVTimer(); } }
 function svTap(e){ var x=(e.clientX!==undefined)?e.clientX:0; if(x < window.innerWidth*0.33) svPrev(); else svNext(); }
 function startSVTimer(){ clearInterval(svTimer); svPaused=false; svTimer=setInterval(function(){ if(svPaused) return; svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); }, 5000); }
-function closeSV(){ clearInterval(svTimer); document.getElementById('statusViewer').classList.remove('show'); }
+function closeSV(){ clearInterval(svTimer); clearTimeout(window.svViewTimer); document.getElementById('statusViewer').classList.remove('show'); }
 function svReply(e){ if(e.key==='Enter') svSend(); }
 async function svSend(){
   var inp=document.getElementById('svReplyInput'); var t=(inp.value||'').trim(); if(!t) return;
@@ -1287,6 +1301,39 @@ async function submitTextStatus(){
 }
 
 // ══════════════ PHOTO DE PROFIL ══════════════
+function loadRewards(){
+  api('/auth/me').then(function(d){
+    if(!d||!d.user) return;
+    var u=d.user;
+    if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; }
+    function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+    set('rwValid', u.valid_views||0);
+    set('rwOwn', u.own_views||0);
+    set('rwContacts', u.contacts_count||0);
+    set('rwBalance', (u.balance||0)+' F');
+    var vv=u.valid_views||0;
+    var bar=document.getElementById('rwBar'); if(bar) bar.style.width=((vv%1000)/1000*100).toFixed(0)+'%';
+    var info=document.getElementById('rwInfo');
+    if(info){
+      if(u.withdraw_request && u.withdraw_request.status==='pending') info.textContent='Demande de retrait en cours ('+u.withdraw_request.amount+' F)';
+      else info.textContent=(1000-(vv%1000))+' vues avant le prochain palier · 100 F / 1000 vues';
+    }
+    var btn=document.getElementById('rwWithdraw');
+    if(btn){
+      var ok=(u.balance||0)>=500 && (u.contacts_count||0)>=100;
+      btn.disabled=!ok;
+      btn.textContent= ok ? ('Retirer '+u.balance+' F') : ('Retrait dès 500 F + 100 contacts ('+(u.contacts_count||0)+'/100)');
+    }
+  }).catch(function(){});
+}
+function withdrawRewards(){
+  var phone=prompt('Numéro pour le retrait (Wave / Orange Money) :', (ME&&ME.phone)||'');
+  if(phone===null) return;
+  api('/rewards/withdraw','POST',{phone:phone}).then(function(r){
+    if(r&&r.success){ showNotif('💸','Retrait demandé', r.amount+' F — tu seras contacté','green',null); loadRewards(); }
+    else showNotif('❌','Retrait', (r&&r.error)||'Refusé','red',null);
+  }).catch(function(){ showNotif('❌','Retrait','Erreur','red',null); });
+}
 function changePP(){ const i=document.getElementById('ppInput'); if(i) i.click(); }
 async function uploadPP(e){
   const f=e.target.files[0]; if(!f) return; e.target.value='';
@@ -1365,6 +1412,17 @@ function renderProfileView(){
         <div class="p-stat"><div class="p-stat-n">🌍</div><div class="p-stat-l">Mondial</div></div>
       </div>
     </div>
+    <div class="reward-card" id="rewardCard">
+      <div class="reward-head"><span>🏆 Statuts & Gains</span><span id="rwBalance">— F</span></div>
+      <div class="reward-grid">
+        <div><div class="rw-n" id="rwValid">0</div><div class="rw-l">Vues reçues</div></div>
+        <div><div class="rw-n" id="rwOwn">0</div><div class="rw-l">Tes vues</div></div>
+        <div><div class="rw-n" id="rwContacts">0</div><div class="rw-l">Contacts</div></div>
+      </div>
+      <div class="rw-progress"><div class="rw-bar" id="rwBar"></div></div>
+      <div class="rw-info" id="rwInfo">100 F / 1000 vues valides</div>
+      <button class="rw-withdraw" id="rwWithdraw" onclick="withdrawRewards()" disabled>Retrait dès 500 F + 100 contacts</button>
+    </div>
     <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">🎨 Thème</div>
     <div class="theme-btns">
       <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#F5F0E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#1C6B4A,#1A5C9E);"></div><span style="color:#1C1917;">Claude</span></div>
@@ -1385,6 +1443,7 @@ function renderProfileView(){
     </div>
     <div class="logout-btn" onclick="doLogout()">Se déconnecter</div>`;
   screen.insertBefore(div, screen.querySelector('.bottom-nav'));
+  loadRewards();
 }
 
 // ══════════════ CHANNELS ══════════════
