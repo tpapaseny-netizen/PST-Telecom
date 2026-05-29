@@ -117,7 +117,10 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .search-input{width:100%;padding:10px 15px 10px 40px;background:var(--input-bg);border:1px solid var(--border);border-radius:13px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2378716C' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:13px center;}
 
 /* Stories */
-.stories-row{display:flex;gap:12px;padding:10px 14px;overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
+.stories-row{display:flex;gap:12px;padding:8px 14px 12px;overflow-x:auto;flex-shrink:0;scrollbar-width:none;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.stories-label{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 0;}
+.stories-label span:first-child{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+.stories-hint{font-size:10px;color:var(--muted);background:var(--card2);padding:2px 8px;border-radius:8px;font-weight:600;}
 .stories-row::-webkit-scrollbar{display:none;}
 .story-item{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;}
 .story-ring{width:56px;height:56px;border-radius:17px;padding:2.5px;background:linear-gradient(135deg,var(--accent),var(--accent2));position:relative;}
@@ -461,6 +464,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
     </div>
   </div>
   <div class="search-bar"><input class="search-input" type="search" placeholder="Rechercher..." id="convSearch" oninput="filterConvs(this.value)"/></div>
+  <div class="stories-label"><span>📸 Statuts</span><span class="stories-hint">24h</span></div>
   <div class="stories-row" id="storiesRow">
     <div class="story-item" onclick="openAddStatus()">
       <div class="story-ring mine"><div class="story-inner">📷</div><div class="story-add">+</div></div>
@@ -1074,15 +1078,19 @@ async function uploadAndSend(blob,type,mimeType){
       const x=new XMLHttpRequest();
       x.upload.onprogress=e=>{if(e.lengthComputable){const p=document.getElementById('pg_'+tid);if(p)p.style.width=Math.round(e.loaded/e.total*100)+'%';}};
       x.open('POST',`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`);
-      x.onload=()=>{const d=JSON.parse(x.responseText);res(d.secure_url);};
-      x.onerror=rej; x.send(fd);
+      x.onload=()=>{
+        let d; try{ d=JSON.parse(x.responseText); }catch(_){ return rej(new Error('Réponse Cloudinary invalide ('+x.status+')')); }
+        if(d && d.secure_url) return res(d.secure_url);
+        return rej(new Error((d && d.error && d.error.message) ? d.error.message : ('Cloudinary HTTP '+x.status)));
+      };
+      x.onerror=()=>rej(new Error('Réseau Cloudinary')); x.send(fd);
     });
     row.remove();
     const dur=type==='voice'?recSecs*1000:undefined;
     let _mu=url;
     if(type==='voice' && url.indexOf('/upload/')>-1){ var _b=url.replace('/upload/','/upload/f_mp3/'); var _d=_b.lastIndexOf('.'); var _s=_b.lastIndexOf('/'); _mu=(_d>_s?_b.slice(0,_d):_b)+'.mp3'; }
     sendMsgSocket({type,media_url:_mu,media_duration:dur,content:type==='voice'?'🎙️ Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':'📎 Fichier'});
-  }catch{row.remove();showNotif('❌','Erreur','Envoi échoué','red',null);}
+  }catch(err){row.remove();showNotif('❌','Upload '+type, (err&&err.message)?String(err.message).slice(0,90):'Échec','red',null);}
 }
 
 // ══════════════ STICKERS ══════════════
