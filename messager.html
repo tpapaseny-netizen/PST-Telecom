@@ -393,7 +393,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .adm-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:10px 12px;margin-bottom:7px;}
 .adm-row-i{flex:1;min-width:0;}
 .adm-row-i b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.adm-row-i span{font-size:11px;color:var(--muted);}
+.adm-row-i span{font-size:11px;color:var(--muted);display:block;line-height:1.5;}
 .adm-btn{border:none;background:var(--card2);color:var(--text);border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;flex-shrink:0;}
 .adm-btn.ok{background:var(--accent);color:#fff;}
 .conv-avatar.has-status{border:2.5px solid var(--accent);box-shadow:0 0 0 3px rgba(28,107,74,0.15);cursor:pointer;}
@@ -748,6 +748,8 @@ window.addEventListener('DOMContentLoaded', () => {
     initSocket();
     loadConvs();
     loadStatuses();
+    pingSession();
+    setInterval(pingSession,300000);
   }
 });
 
@@ -783,7 +785,7 @@ async function doLogin() {
     const r = await api('/auth/login','POST',{identifier:id,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses();
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession();
   } catch(e) { showErr(e.message||'Identifiants incorrects'); }
   btn.disabled=false; btn.textContent='Se connecter';
 }
@@ -801,7 +803,7 @@ async function doRegister() {
     const r = await api('/auth/register','POST',{full_name:name,username:uname,phone,email,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses();
+    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession();
   } catch(e) { showErr(e.message||'Erreur inscription'); }
   btn.disabled=false; btn.textContent='Créer mon compte';
 }
@@ -1323,7 +1325,7 @@ async function uploadStatus(e,type){
   const rt=type==='image'?'image':'video';
   const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/${rt}/upload`,{method:'POST',body:fd});
   const d=await r.json();
-  if(!d.secure_url){ showNotif('❌','Statut','Échec upload Cloudinary','red',null); return; }
+  if(!d.secure_url){ showNotif('❌','Statut', (d&&d.error&&d.error.message)||'Échec upload Cloudinary', 'red',null); return; }
   await api('/statuses','POST',{type,media_url:d.secure_url});
   loadStatuses(); showNotif('📸','Statut publié','Visible 24h pour vos contacts','green',null);
 }
@@ -1393,6 +1395,7 @@ function renderStatusView(){
 function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return s.user_id===uid;}); if(items.length) viewStatuses(items); }
 var _adminTaps=0,_adminTapTimer=null;
 function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=5){ _adminTaps=0; openAdmin(); return; } _adminTapTimer=setTimeout(function(){ _adminTaps=0; },2000); }
+function pingSession(){ if(window.TOKEN) api('/session/ping','POST').catch(function(){}); }
 function changePP(){ const i=document.getElementById('ppInput'); if(i) i.click(); }
 async function uploadPP(e){
   const f=e.target.files[0]; if(!f) return; e.target.value='';
@@ -1553,7 +1556,9 @@ function renderAdmin(d){
   });
   html+=`<div class="adm-sec">👥 Utilisateurs — top vues</div>`;
   (d.users||[]).slice(0,60).forEach(function(u){
-    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span></div></div>`;
+    var th=Math.floor((u.total_time_seconds||0)/3600); var tm=Math.floor(((u.total_time_seconds||0)%3600)/60);
+    var geo=(u.geo&&u.geo.city)?(esc(u.geo.city)+', '+esc(u.geo.country)):'Position inconnue';
+    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span><span style="color:var(--text);">${esc(u.phone||'-')} · ${esc(u.email||'-')} · ${geo}</span><span>${th}h ${tm}min dans l'app</span></div></div>`;
   });
   b.innerHTML=html;
 }

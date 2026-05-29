@@ -3521,6 +3521,15 @@ try {
   if (VPUB && VPRIV) { webpush.setVapidDetails('mailto:papasenytoure@gmail.com', VPUB, VPRIV); console.log('✅ web-push configuré'); }
   else { webpush = null; console.log('⚠️ VAPID manquant — push désactivé'); }
 } catch (e) { webpush = null; console.log('⚠️ web-push non installé — push désactivé:', e.message); }
+async function getGeoForIp(ip){
+  try{
+    const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),2500);
+    const r=await fetch('http://ip-api.com/json/'+ip+'?fields=country,city,regionName,countryCode',{signal:ctrl.signal});
+    clearTimeout(tid); const d=await r.json();
+    if(d && d.country) return {country:d.country, city:d.city||'', region:d.regionName||'', code:d.countryCode||''};
+  }catch(e){}
+  return null;
+}
 async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
 async function pencSavePushSubs(a) { return jbSet(BINS.penc_push, { subs: a }); }
 async function sendPencPush(userId, payload) {
@@ -4189,7 +4198,8 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 100; const withdrawn = u.withdrawn || 0; return {
       id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
-      contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at };
+      contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
+      geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null };
     };
     const all = users.map(enrich);
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
@@ -4222,6 +4232,35 @@ app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) =
     const users = await pencUsers();
     const u = users.find(x => x.id === user_id);
     if (u) { u.reward_pending = false; await pencSaveUsers(users); }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// POST /api/penc/session/ping
+app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const users = await pencUsers();
+    const u = users.find(x => x.id === uid);
+    if (u) {
+      u.total_time_seconds = (u.total_time_seconds || 0) + 300;
+      u.last_seen = new Date().toISOString();
+      const lastGeo = u.last_geo_at ? new Date(u.last_geo_at) : null;
+      if (!lastGeo || (Date.now() - lastGeo.getTime()) > 24 * 60 * 60 * 1000) {
+        const xf = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+        const ip = xf || (req.socket && req.socket.remoteAddress) || 'unknown';
+        if (ip && ip !== 'unknown' && !ip.startsWith('127.') && ip !== '::1') {
+          getGeoForIp(ip).then(async function(geo) {
+            if (geo) {
+              const us = await pencUsers();
+              const u2 = us.find(x => x.id === uid);
+              if (u2) { u2.geo = geo; u2.last_ip = ip; u2.last_geo_at = new Date().toISOString(); await pencSaveUsers(us); }
+            }
+          }).catch(function() {});
+        }
+      }
+      await pencSaveUsers(users);
+    }
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
