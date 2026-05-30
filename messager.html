@@ -13,24 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js">
-document.getElementById('statusViewer').addEventListener('click',function(e){
-  var btn=e.target.closest('.sv-react-btn');
-  if(btn) sendReaction(btn.dataset.sid,btn.dataset.em);
-});
-
-// ── Fix clavier / status viewer reply ──
-if(window.visualViewport){
-  window.visualViewport.addEventListener('resize',function(){
-    var sv=document.getElementById('statusViewer');
-    if(!sv||!sv.classList.contains('show'))return;
-    var rep=document.querySelector('.sv-reply');
-    if(!rep)return;
-    var kbd=Math.max(0,window.innerHeight-window.visualViewport.height-window.visualViewport.offsetTop);
-    rep.style.bottom=(kbd>0?kbd+8:20)+'px';
-  });
-}
-</script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <style>
 /* ══ THEMES ══ */
 :root {
@@ -540,6 +523,34 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .ios-step+.ios-step{border-top:1px solid rgba(255,255,255,.07);}
 .ios-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
 .ios-txt{font-size:13px;color:rgba(255,255,255,.8);line-height:1.5;}
+/* === Avatars universels === */
+.conv-avatar img,.profile-av img,.contact-av img,.sv-viewer-av img,.sh-av img,.penc-av img{
+  width:100%;height:100%;object-fit:cover;border-radius:inherit;
+}
+/* === Réactions statuts redesign === */
+#svReactions{position:absolute;bottom:64px;left:0;right:0;z-index:15;padding:0 10px 6px;}
+.sv-react-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:4px;}
+.sv-react-btn{width:40px;height:40px;border:2px solid transparent;border-radius:50%;background:rgba(0,0,0,.5);
+  font-size:19px;cursor:pointer;transition:transform .15s,border-color .15s,background .15s;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.sv-react-btn.active{border-color:var(--accent);background:rgba(20,184,166,.25);transform:scale(1.2);}
+.sv-react-btn:active{transform:scale(.88);}
+.sv-react-counts{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;}
+.sv-react-count{background:rgba(0,0,0,.55);color:#fff;border-radius:20px;padding:3px 10px;
+  font-size:12px;font-weight:700;backdrop-filter:blur(4px);}
+/* === Bouton delete/edit statut === */
+.sv-actions{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:50px;z-index:30;display:flex;gap:8px;}
+.sv-action-btn{width:34px;height:34px;border:none;border-radius:50%;background:rgba(0,0,0,.5);
+  color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);transition:background .12s;}
+.sv-action-btn:active{background:rgba(255,60,60,.6);}
+/* === Recherche contacts === */
+#contacts-view .conv-search{
+  background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:10px 14px;color:var(--text);font-size:14px;font-family:inherit;
+  outline:none;width:100%;box-sizing:border-box;
+}
+#contacts-view .conv-search:focus{border-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -1419,29 +1430,71 @@ function viewStatuses(items){
 function svViewsLabel(s){ if(ME && s.user_id===ME.id){ var n=(s.views||[]).length; return '👁 '+n+' vue'+(n>1?'s':''); } return ''; }
 function renderSV(){
   var sv=svList[svIdx]; if(!sv){closeSV();return;}
-  document.getElementById('svProgress').innerHTML=svList.map(function(_,i){ return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>'; }).join('');
+  // Barre de progression
+  document.getElementById('svProgress').innerHTML=svList.map(function(_,i){
+    return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>';
+  }).join('');
+  // Média
   var c=document.getElementById('svContent');
   if(sv.type==='image'){
-    c.innerHTML='<div class="sv-img-wrap"><div class="sv-spin"></div><img src="'+sv.media_url+'" alt="" onload="this.parentElement.classList.add(\u0027loaded\u0027)" onerror="this.parentElement.innerHTML=\u0027<span style=\u0022color:rgba(255,255,255,.5);font-size:13px;\u0022>\u26a0\ufe0f Image indisponible</span>\u0027"/></div>';
+    c.innerHTML='<div class="sv-img-wrap" id="svMediaWrap"><div class="sv-spin"></div><img id="svImg" src="'+sv.media_url+'" alt=""/></div>';
+    var im=document.getElementById('svImg');
+    if(im){
+      im.onload=function(){var w=document.getElementById('svMediaWrap');if(w)w.classList.add('loaded');};
+      im.onerror=function(){var w=document.getElementById('svMediaWrap');if(w)w.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:13px;text-align:center;padding:24px;">⚠️ Image non disponible</div>';};
+    }
   } else if(sv.type==='video'){
-    c.innerHTML='<div class="sv-img-wrap"><div class="sv-spin"></div><video src="'+sv.media_url+'" autoplay playsinline controls oncanplay="this.parentElement.classList.add(\u0027loaded\u0027)"></video></div>';
+    c.innerHTML='<div class="sv-img-wrap" id="svMediaWrap"><div class="sv-spin"></div><video id="svVid" src="'+sv.media_url+'" muted autoplay playsinline controls style="max-width:100%;max-height:100%;"></video></div>';
+    var vid=document.getElementById('svVid');
+    if(vid){
+      vid.oncanplay=function(){var w=document.getElementById('svMediaWrap');if(w)w.classList.add('loaded');};
+      vid.onended=function(){svNext();};
+      vid.muted=false;
+    }
+  } else {
+    c.innerHTML='<div class="sv-text" style="background:'+(sv.bg_color||'#050D18')+';">'+esc(sv.text_content||'')+'</div>';
   }
-  else c.innerHTML='<div class="sv-text" style="background:'+(sv.bg_color||'#050D18')+';">'+esc(sv.text_content||'')+'</div>';
-  var cap=document.getElementById('svCaption'); if(cap) cap.textContent=(sv.caption&&sv.caption!=='null')?sv.caption:'';
-  var vEl=document.getElementById('svViews'); if(vEl) vEl.textContent=svViewsLabel(sv);
-  var isOwn=ME&&sv.user_id===ME.id;
-  var rep=document.querySelector('.sv-reply'); if(rep) rep.style.display=isOwn?'none':'flex';
+  // Caption
+  var cap=document.getElementById('svCaption');
+  if(cap) cap.textContent=(sv.caption&&sv.caption!=='null')?sv.caption:'';
+  // Compteur vues
+  var vEl=document.getElementById('svViews');
+  if(vEl) vEl.textContent=svViewsLabel(sv);
+  // Propriétaire du statut ?
+  var isOwn=ME&&(String(sv.user_id)===String(ME.id));
+  // Boutons supprimer/modifier (auteur uniquement)
+  var oldAct=document.getElementById('svActBtns'); if(oldAct) oldAct.remove();
+  if(isOwn){
+    var actDiv=document.createElement('div'); actDiv.id='svActBtns'; actDiv.className='sv-actions';
+    actDiv.innerHTML='<button class="sv-action-btn" onclick="deleteSV()" title="Supprimer">🗑️</button>';
+    if(sv.type==='text') actDiv.innerHTML+='<button class="sv-action-btn" onclick="editSV()" title="Modifier" style="background:rgba(20,184,166,.4)">✏️</button>';
+    document.getElementById('statusViewer').appendChild(actDiv);
+  }
+  // Répondre : masqué pour l'auteur
+  var rep=document.querySelector('.sv-reply');
+  if(rep) rep.style.display=isOwn?'none':'flex';
+  // Zone réactions / viewers
   var ra=document.getElementById('svReactions');
   if(ra){
     if(isOwn){
       var vws=sv.viewers||[];
-      if(!vws.length){ ra.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.5);font-size:12px;padding:6px 0;">Pas encore de vues</div>'; }
-      else{ var h='<div class="sv-viewers">'; vws.forEach(function(v){ h+='<div class="sv-viewer-row"><div class="sv-viewer-av">'+(v.avatar_url?'<img src="'+v.avatar_url+'" alt=""/>':esc((v.full_name||'?')[0]))+'</div><span class="sv-viewer-name">'+esc(v.full_name||v.username||'?')+'</span></div>'; }); ra.innerHTML=h+'</div>'; }
+      if(!vws.length){
+        ra.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.5);font-size:12px;padding:6px 0;">Pas encore de vues</div>';
+      } else {
+        var h='<div class="sv-viewers">';
+        vws.forEach(function(v){
+          h+='<div class="sv-viewer-row"><div class="sv-viewer-av">'+(v.avatar_url?'<img src="'+v.avatar_url+'" alt=""/>':esc((v.full_name||'?')[0]))+'</div><span class="sv-viewer-name">'+esc(v.full_name||v.username||'?')+'</span></div>';
+        });
+        ra.innerHTML=h+'</div>';
+      }
     } else {
       var emojis=['❤️','😍','😮','😂','🙏','🔥'];
-      var myR=(sv.reactions||[]).find(function(r){return r.user_id===(ME&&ME.id);});
-      var rc={};(sv.reactions||[]).forEach(function(r){rc[r.emoji]=(rc[r.emoji]||0)+1;});
-      var ch='<div class="sv-react-counts">'; Object.keys(rc).forEach(function(em){ch+='<span class="sv-react-count">'+em+' '+rc[em]+'</span>';}); ch+='</div>';
+      var myR=(sv.reactions||[]).find(function(r){return String(r.user_id)===String(ME&&ME.id);});
+      var rc={};
+      (sv.reactions||[]).forEach(function(r){rc[r.emoji]=(rc[r.emoji]||0)+1;});
+      var ch='<div class="sv-react-counts">';
+      Object.keys(rc).forEach(function(em){ch+='<span class="sv-react-count">'+em+' '+rc[em]+'</span>';});
+      ch+='</div>';
       var ph='<div class="sv-react-row">';
       emojis.forEach(function(em){
         var act=(myR&&myR.emoji===em)?' active':'';
@@ -1457,7 +1510,15 @@ function renderSV(){
 function svNext(){ svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); startSVTimer(); }
 function svPrev(){ if(svIdx>0){ svIdx--; renderSV(); startSVTimer(); } }
 function svTap(e){ var x=(e.clientX!==undefined)?e.clientX:0; if(x < window.innerWidth*0.33) svPrev(); else svNext(); }
-function startSVTimer(){ clearInterval(svTimer); svPaused=false; svTimer=setInterval(function(){ if(svPaused) return; svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); }, 5000); }
+function startSVTimer(){
+  clearInterval(svTimer); svPaused=false;
+  var sv=svList[svIdx]; if(!sv) return;
+  if(sv.type==='video'){
+    var vid=document.getElementById('svVid');
+    if(vid&&vid.duration>0){vid.onended=function(){svIdx++;if(svIdx>=svList.length){closeSV();return;}renderSV();startSVTimer();};return;}
+  }
+  svTimer=setInterval(function(){if(svPaused)return;svIdx++;if(svIdx>=svList.length){closeSV();return;}renderSV();startSVTimer();},5000);
+}
 function closeSV(){ clearInterval(svTimer); clearTimeout(window.svViewTimer); document.getElementById('statusViewer').classList.remove('show'); }
 function svReply(e){ if(e.key==='Enter') svSend(); }
 async function svSend(){
@@ -1716,6 +1777,25 @@ function filterContacts(q){
     h+='</div>';
   });
   list.innerHTML=h;
+}
+
+async function deleteSV(){
+  var sv=svList[svIdx]; if(!sv) return;
+  if(!confirm('Supprimer ce statut ?')) return;
+  try{ await api('/statuses/'+sv.id,'DELETE');
+    svList.splice(svIdx,1);
+    if(!svList.length){closeSV();loadStatuses();return;}
+    if(svIdx>=svList.length) svIdx=svList.length-1;
+    renderSV();startSVTimer();loadStatuses();
+    showNotif('🗑️','Statut supprimé','','green',null);
+  }catch(e){showNotif('❌','Erreur','Suppression échouée','red',null);}
+}
+async function editSV(){
+  var sv=svList[svIdx]; if(!sv||sv.type!=='text') return;
+  var newTxt=prompt('Modifier :',sv.text_content||''); if(newTxt===null||newTxt===sv.text_content) return;
+  try{ await api('/statuses/'+sv.id,'PATCH',{text_content:newTxt}); sv.text_content=newTxt; renderSV();
+    showNotif('✏️','Modifié','','green',null);
+  }catch(e){showNotif('❌','Erreur','Modification échouée','red',null);}
 }
 function openConvById(cid){
   var conv=(CONVS||[]).find(function(c){return c.id===cid;});
@@ -1985,6 +2065,24 @@ async function enablePush(){
 }
 setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.permission==='granted') enablePush(); }, 3500);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden' && TOKEN) pingSession(); });
+
+document.getElementById('statusViewer').addEventListener('click',function(e){
+  var btn=e.target.closest('.sv-react-btn');
+  if(btn) sendReaction(btn.dataset.sid,btn.dataset.em);
+});
+
+// ── Fix clavier / status viewer reply ──
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',function(){
+    var sv=document.getElementById('statusViewer');
+    if(!sv||!sv.classList.contains('show'))return;
+    var rep=document.querySelector('.sv-reply');
+    if(!rep)return;
+    var kbd=Math.max(0,window.innerHeight-window.visualViewport.height-window.visualViewport.offsetTop);
+    rep.style.bottom=(kbd>0?kbd+8:20)+'px';
+  });
+}
+
 </script>
 <div class="ol-content-page" id="ol-about">
   <div class="ol-page-hd"><button class="chat-back" onclick="document.getElementById('ol-about').style.display='none'">←</button><h2>ℹ️ À propos de Penc</h2></div>

@@ -4283,7 +4283,38 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// DELETE /api/penc/statuses/:id — auteur uniquement
+app.delete('/api/penc/statuses/:id', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const statuses = await pencStatuses();
+    const idx = statuses.findIndex(x => x.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ error: 'Statut introuvable' });
+    if (String(statuses[idx].user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
+    statuses.splice(idx, 1);
+    await pencSaveStatuses(statuses);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// PATCH /api/penc/statuses/:id — modification texte
+app.patch('/api/penc/statuses/:id', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { text_content, caption } = req.body;
+    const statuses = await pencStatuses();
+    const stat = statuses.find(x => x.id === req.params.id);
+    if (!stat) return res.status(404).json({ error: 'Statut introuvable' });
+    if (String(stat.user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
+    if (text_content !== undefined) stat.text_content = text_content;
+    if (caption !== undefined) stat.caption = caption;
+    await pencSaveStatuses(statuses);
+    res.json({ success: true, status: stat });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // POST /api/penc/statuses/:id/react
+
 app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
