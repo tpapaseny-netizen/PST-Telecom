@@ -551,6 +551,89 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   outline:none;width:100%;box-sizing:border-box;
 }
 #contacts-view .conv-search:focus{border-color:var(--accent);}
+/* === AUDIO PREMIUM === */
+.voice-bubble{display:flex;align-items:center;gap:11px;min-width:210px;padding:2px 0;}
+.voice-play{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+  transition:transform .1s,opacity .1s;}
+.voice-play:active{transform:scale(.9);}
+.msg-row.me .voice-play{background:rgba(255,255,255,.25);color:#fff;}
+.msg-row:not(.me) .voice-play{background:var(--accent);color:#fff;}
+.voice-wave{flex:1;height:32px;display:flex;align-items:center;gap:2px;position:relative;cursor:pointer;}
+.voice-bar{width:3px;border-radius:3px;transition:opacity .05s;flex-shrink:0;}
+.msg-row.me .voice-bar{background:rgba(255,255,255,.9);}
+.msg-row:not(.me) .voice-bar{background:var(--accent);}
+.voice-bar.played{opacity:1!important;}
+.voice-bar.unplayed{opacity:.3;}
+.voice-info{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.voice-dur{font-size:11px;font-weight:700;opacity:.75;min-width:32px;text-align:right;}
+.voice-seen{font-size:9px;opacity:.5;}
+.msg-bubble.voice-wrap{padding:10px 14px;}
+/* === REACTIONS FLOATING === */
+.sv-react-trigger{position:absolute;bottom:72px;right:12px;z-index:20;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:auto;}
+.sv-react-open-btn{width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.55);
+  border:1.5px solid rgba(255,255,255,.2);font-size:22px;cursor:pointer;
+  backdrop-filter:blur(8px);transition:transform .12s;display:flex;align-items:center;justify-content:center;}
+.sv-react-open-btn:active{transform:scale(.88);}
+.sv-react-picker-row{background:rgba(15,15,15,.88);border-radius:30px;padding:7px 10px;
+  display:flex;gap:6px;backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);
+  transform-origin:bottom right;transition:opacity .15s,transform .15s;}
+.sv-react-picker-row.hidden{opacity:0;pointer-events:none;transform:scale(.7);}
+.sv-react-picker-row button{background:none;border:none;font-size:24px;cursor:pointer;
+  transition:transform .1s;padding:2px;border-radius:50%;}
+.sv-react-picker-row button:active{transform:scale(1.3);}
+.sv-react-picker-row button.active{background:rgba(20,184,166,.3);border-radius:50%;}
+.sv-react-counts-row{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
+.sv-react-count{background:rgba(0,0,0,.6);color:#fff;border-radius:20px;
+  padding:3px 8px;font-size:12px;font-weight:700;backdrop-filter:blur(4px);cursor:default;}
+/* === CHANNELS === */
+.ch-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.ch-banner{margin:14px 14px 8px;background:linear-gradient(135deg,rgba(20,184,166,.15),rgba(20,184,166,.05));
+  border:1px solid rgba(20,184,166,.25);border-radius:16px;padding:14px;display:flex;gap:12px;align-items:center;cursor:pointer;}
+.ch-banner-icon{font-size:30px;}
+.ch-banner-ttl{font-weight:800;font-size:15px;}
+.ch-banner-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.ch-section{padding:14px 16px 6px;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.ch-row{display:flex;align-items:center;gap:13px;padding:10px 16px;cursor:pointer;transition:background .1s;}
+.ch-row:active{background:var(--card2);}
+.ch-av{width:50px;height:50px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0;}
+.ch-av img{width:100%;height:100%;object-fit:cover;border-radius:inherit;}
+.ch-name{font-weight:700;font-size:14px;}
+.ch-sub{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+.ch-followers{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;flex-shrink:0;}
+.ch-follow-btn{border:1.5px solid var(--accent);background:transparent;color:var(--accent);
+  font-weight:700;font-size:12px;border-radius:20px;padding:5px 14px;cursor:pointer;flex-shrink:0;transition:background .1s;}
+.ch-follow-btn.following{background:var(--accent);color:#fff;}
+.ch-empty{text-align:center;padding:40px 24px;color:var(--muted);font-size:14px;line-height:1.7;}
+/* Channel detail */
+.ch-detail{position:absolute;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;}
+.ch-detail-hd{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);
+  padding-top:calc(14px + env(safe-area-inset-top,0px));background:var(--header-bg);}
+.ch-detail-hd h2{flex:1;font-size:16px;font-weight:800;}
+.ch-posts{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.ch-post{background:var(--card);border-radius:14px;padding:14px;}
+.ch-post-text{font-size:14px;line-height:1.6;color:var(--text);}
+.ch-post-img{width:100%;border-radius:10px;margin-top:8px;max-height:300px;object-fit:cover;}
+.ch-post-footer{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.ch-post-time{font-size:11px;color:var(--muted);margin-left:auto;}
+.ch-post-react{display:flex;gap:4px;flex-wrap:wrap;}
+.ch-post-react-pill{background:var(--card2);border-radius:20px;padding:3px 8px;font-size:12px;cursor:pointer;}
+.ch-input-bar{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
+.ch-input{flex:1;background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:10px 14px;font-size:14px;color:var(--text);font-family:inherit;outline:none;}
+/* Create channel modal */
+.create-ch-modal{position:fixed;inset:0;z-index:10000;background:var(--bg);display:none;flex-direction:column;overflow-y:auto;}
+.create-ch-hd{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);
+  padding-top:calc(14px + env(safe-area-inset-top,0px));}
+.create-ch-hd h2{flex:1;font-size:16px;font-weight:800;}
+.create-ch-body{padding:20px 16px;display:flex;flex-direction:column;gap:14px;}
+.create-ch-inp{background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px;font-size:14px;color:var(--text);font-family:inherit;outline:none;width:100%;box-sizing:border-box;}
+.create-ch-inp:focus{border-color:var(--accent);}
+.create-ch-submit{border:none;background:var(--accent);color:#fff;font-weight:800;font-size:15px;
+  border-radius:13px;padding:15px;cursor:pointer;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -1155,15 +1238,47 @@ function appendMsg(msg) {
 function buildVoiceBubble(msg){
   const dur=msg.media_duration?fmtDur(msg.media_duration):'0:00';
   const uid='v'+Date.now()+Math.random().toString(36).slice(2);
-  const bars=Array.from({length:18},(_,i)=>`<div class="voice-bar" style="height:${7+Math.random()*18}px;"></div>`).join('');
-  return `<div class="msg-bubble"><div class="voice-bubble"><button class="voice-play" id="${uid}" onclick="playVoice('${uid}','${msg.media_url}')">▶</button><div class="voice-wave">${bars}</div><span class="voice-dur">${dur}</span></div></div>`;
+  // Bars déterministes basés sur l'URL
+  var seed=0; for(var _i=0;_i<(msg.media_url||'').length;_i++) seed=(seed*31+(msg.media_url||'').charCodeAt(_i))&0xffffff;
+  var barsH=Array.from({length:26},function(_,i){ seed=(seed*1664525+1013904223)&0x7fffffff; return 5+(seed%20); });
+  var barsHtml=barsH.map(function(h,i){ return '<div class="voice-bar unplayed" style="height:'+h+'px;"></div>'; }).join('');
+  return '<div class="msg-bubble voice-wrap"><div class="voice-bubble">'
+    +'<button class="voice-play" id="'+uid+'" onclick="playVoice(\''+uid+'\',\''+encodeURIComponent(msg.media_url)+'\')">▶</button>'
+    +'<div class="voice-wave" id="wave_'+uid+'">'+barsHtml+'</div>'
+    +'<div class="voice-info"><span class="voice-dur" id="dur_'+uid+'">'+dur+'</span></div>'
+    +'</div></div>';
 }
-function playVoice(uid,url){
-  const btn=document.getElementById(uid);
-  if(btn._audio){if(btn._audio.paused){btn._audio.play();btn.textContent='⏸';}else{btn._audio.pause();btn.textContent='▶';}return;}
-  const a=new Audio(url); btn._audio=a; a.play(); btn.textContent='⏸';
-  a.onended=()=>{btn.textContent='▶';};
+function playVoice(uid,urlEnc){
+  var url=decodeURIComponent(urlEnc);
+  var btn=document.getElementById(uid);
+  var wave=document.getElementById('wave_'+uid);
+  var durEl=document.getElementById('dur_'+uid);
+  if(!window._voices) window._voices={};
+  if(!window._voices[uid]){
+    var a=new Audio(url); window._voices[uid]=a;
+    a.addEventListener('timeupdate',function(){
+      if(!a.duration) return;
+      var pct=a.currentTime/a.duration;
+      var bars=wave?wave.querySelectorAll('.voice-bar'):[];
+      var played=Math.floor(pct*bars.length);
+      Array.from(bars).forEach(function(b,i){
+        b.classList.toggle('played',i<played);
+        b.classList.toggle('unplayed',i>=played);
+      });
+      if(durEl) durEl.textContent=fmtTime(a.currentTime);
+    });
+    a.addEventListener('ended',function(){
+      if(btn) btn.textContent='▶';
+      if(wave) wave.querySelectorAll('.voice-bar').forEach(function(b){ b.classList.remove('played'); b.classList.add('unplayed'); });
+      if(durEl) durEl.textContent=fmtDur(a.duration*1000||0);
+    });
+  }
+  var a=window._voices[uid];
+  if(a.paused){ a.play().catch(function(){}); if(btn) btn.textContent='⏸'; }
+  else{ a.pause(); if(btn) btn.textContent='▶'; }
 }
+function fmtTime(s){ s=Math.floor(s||0); return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60; }
+
 function buildMoneyCard(msg){
   return `<div class="money-card"><div class="money-card-top">${esc(msg.sender?.full_name?.split(' ')[0]||'Quelqu\'un')} vous envoie</div><div class="money-card-amount">${esc(msg.money_amount||'')} FCFA</div><div class="money-card-op">via ${esc(msg.money_op||'')} · <span style="color:var(--accent)">En attente ⏳</span></div></div>`;
 }
@@ -1492,16 +1607,20 @@ function renderSV(){
       var myR=(sv.reactions||[]).find(function(r){return String(r.user_id)===String(ME&&ME.id);});
       var rc={};
       (sv.reactions||[]).forEach(function(r){rc[r.emoji]=(rc[r.emoji]||0)+1;});
-      var ch='<div class="sv-react-counts">';
-      Object.keys(rc).forEach(function(em){ch+='<span class="sv-react-count">'+em+' '+rc[em]+'</span>';});
-      ch+='</div>';
-      var ph='<div class="sv-react-row">';
-      emojis.forEach(function(em){
+      // Compteurs existants
+      var countsHtml=Object.keys(rc).map(function(em){ return '<span class="sv-react-count">'+em+' '+rc[em]+'</span>'; }).join('');
+      // Picker (caché par défaut)
+      var pickHtml=emojis.map(function(em){
         var act=(myR&&myR.emoji===em)?' active':'';
-        ph+='<button class="sv-react-btn'+act+'" data-sid="'+sv.id+'" data-em="'+em+'">'+em+'</button>';
-      });
-      ph+='</div>';
-      ra.innerHTML=ch+ph;
+        return '<button class="'+act+'" data-sid="'+sv.id+'" data-em="'+em+'">'+em+'</button>';
+      }).join('');
+      ra.innerHTML='<div class="sv-react-trigger">'
+        +'<div class="sv-react-counts-row">'+countsHtml+'</div>'
+        +'<div class="sv-react-picker-row hidden" id="svReactPicker">'+pickHtml+'</div>'
+        +'<button class="sv-react-open-btn" onclick="toggleReactPicker()">'
+          +(myR?myR.emoji:'👍')
+        +'</button>'
+        +'</div>';
     }
   }
   clearTimeout(window.svViewTimer);
@@ -1797,6 +1916,7 @@ async function editSV(){
     showNotif('✏️','Modifié','','green',null);
   }catch(e){showNotif('❌','Erreur','Modification échouée','red',null);}
 }
+function toggleReactPicker(){var p=document.getElementById('svReactPicker');if(p)p.classList.toggle('hidden');}
 function openConvById(cid){
   var conv=(CONVS||[]).find(function(c){return c.id===cid;});
   if(conv) openConv(conv);
@@ -1857,18 +1977,150 @@ function renderProfileView(){
 
 // ══════════════ CHANNELS ══════════════
 function renderChannelsView(){
-  const screen=document.getElementById('screen-main');
-  screen.querySelector('.conv-list').style.display='none';
-  screen.querySelector('.fab')&&(screen.querySelector('.fab').style.display='none');
-  const div=document.createElement('div'); div.id='channels-view'; div.style.cssText='flex:1;overflow-y:auto;';
-  div.innerHTML=`
-    <div style="padding:16px;">
-      <div class="channel-banner"><div class="channel-name">📢 Canaux de diffusion</div><div class="channel-sub">Suivez des canaux pour rester informé</div></div>
-      <div class="s-item" style="margin-top:12px;" onclick="showNotif('📢','Canaux','Fonctionnalité bientôt disponible !','blue',null)"><span class="s-icon">➕</span><span class="s-label">Créer un canal</span><span class="s-arrow">›</span></div>
-      <div class="s-item" onclick="showNotif('🔍','Recherche','Recherche de canaux bientôt disponible','blue',null)"><span class="s-icon">🔍</span><span class="s-label">Découvrir des canaux</span><span class="s-arrow">›</span></div>
-      <div style="padding:24px;text-align:center;color:var(--muted);font-size:14px;">Aucun canal suivi pour le moment</div>
-    </div>`;
-  screen.insertBefore(div, screen.querySelector('.bottom-nav'));
+  var sc=document.getElementById('screen-main');
+  sc.querySelectorAll('#profile-view,#channels-view,#status-view,#contacts-view').forEach(function(e){e.remove();});
+  var cl=sc.querySelector('.conv-list');if(cl)cl.style.display='none';
+  var fab=sc.querySelector('.fab');if(fab)fab.style.display='none';
+  var sb=sc.querySelector('.search-bar');if(sb)sb.style.display='none';
+  var div=document.createElement('div'); div.id='channels-view'; div.className='ch-list';
+  div.innerHTML='<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  sc.insertBefore(div,sc.querySelector('.bottom-nav'));
+  api('/channels').then(function(d){
+    if(!d||d.error){div.innerHTML='<div class="ch-empty">Erreur de chargement</div>';return;}
+    var all=d.channels||[];
+    var mine=all.filter(function(c){return c.is_following;});
+    var discover=all.filter(function(c){return !c.is_following;});
+    var h='';
+    // Banner créer canal
+    h+='<div class="ch-banner" onclick="openCreateChannel()">'
+      +'<div class="ch-banner-icon">📣</div>'
+      +'<div><div class="ch-banner-ttl">Canaux de diffusion</div>'
+      +'<div class="ch-banner-sub">Créer un canal ou suivre ceux qui t’intéressent</div></div></div>';
+    // Mes canaux
+    if(mine.length){
+      h+='<div class="ch-section">Mes canaux</div>';
+      mine.forEach(function(c){ h+=buildChRow(c); });
+    }
+    // Découvrir
+    h+='<div class="ch-section">Découvrir</div>';
+    if(!discover.length && !mine.length){
+      h+='<div class="ch-empty">📡<br/>Aucun canal pour le moment.<br/>Sois le premier à en créer un !</div>';
+    } else if(!discover.length){
+      h+='<div class="ch-empty">Tu suis tous les canaux disponibles !</div>';
+    } else {
+      discover.forEach(function(c){ h+=buildChRow(c); });
+    }
+    div.innerHTML=h;
+  }).catch(function(){ div.innerHTML='<div class="ch-empty">Erreur de connexion</div>'; });
+}
+function buildChRow(c){
+  var av=c.icon_url?'<img src="'+c.icon_url+'" alt=""/>':esc((c.name||'?')[0].toUpperCase());
+  var last=c.last_post?(c.last_post.content||'').slice(0,40)+'...':'Aucune publication';
+  return '<div class="ch-row" onclick="openChannelDetail(\''+c.id+'\')">'
+    +'<div class="ch-av">'+av+'</div>'
+    +'<div style="flex:1;min-width:0;"><div class="ch-name">'+esc(c.name)+'</div>'
+    +'<div class="ch-sub">'+esc(last)+'</div></div>'
+    +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
+    +'<span class="ch-followers">'+c.follower_count+' abonné'+(c.follower_count>1?'s':'')+'</span>'
+    +(c.is_creator?'<span style="font-size:10px;color:var(--accent);">Mon canal</span>':'')
+    +'</div></div>';
+}
+function openChannelDetail(chId){
+  api('/channels/'+chId).then(function(ch){
+    if(!ch||ch.error){showNotif('❌','Erreur','Canal introuvable','red',null);return;}
+    var ov=document.createElement('div'); ov.className='ch-detail'; ov.id='chDetail_'+chId;
+    var followLbl=ch.is_following?(ch.is_creator?'Mon canal':'Suivi ✓'):'Suivre';
+    var followCls=ch.is_following?'ch-follow-btn following':'ch-follow-btn';
+    var av=ch.icon_url?'<img src="'+ch.icon_url+'" alt=""/>':esc((ch.name||'?')[0]);
+    var hd='<div class="ch-detail-hd">'
+      +'<button class="chat-back" onclick="document.getElementById(\'chDetail_'+chId+'\').remove()">←</button>'
+      +'<div class="ch-av" style="width:38px;height:38px;flex-shrink:0;">'+av+'</div>'
+      +'<h2>'+esc(ch.name)+'</h2>'
+      +(ch.is_creator?('<button class="ch-follow-btn following" style="background:var(--accent);" onclick="deleteChannel(\''+chId+'\')">🗑️</button>'):
+        ('<button class="'+followCls+'" id="followBtn_'+chId+'" onclick="toggleFollow(\''+chId+'\', this)">'+followLbl+'</button>'))
+      +'</div>';
+    var postsHtml='<div class="ch-posts" id="chPosts_'+chId+'">';
+    var posts=(ch.posts||[]).slice().reverse();
+    if(!posts.length) postsHtml+='<div class="ch-empty">📬<br/>Aucune publication</div>';
+    posts.forEach(function(p){
+      postsHtml+=buildChPost(p,chId,ch.is_creator);
+    });
+    postsHtml+='</div>';
+    var inputBar=ch.is_creator?'<div class="ch-input-bar">'
+      +'<input class="ch-input" id="chInput_'+chId+'" placeholder="Publier un message..."/>'
+      +'<button class="fab" style="width:40px;height:40px;flex-shrink:0;font-size:16px;" onclick="postToChannel(\''+chId+'\')">&#9654;</button>'
+      +'</div>':'';
+    ov.innerHTML=hd+postsHtml+inputBar;
+    document.getElementById('screen-main').appendChild(ov);
+  });
+}
+function buildChPost(p,chId,isCreator){
+  var rHtml=Object.keys(p.reactions||{}).map(function(em){
+    return '<span class="ch-post-react-pill" onclick="reactChPost(\''+chId+'\',\''+p.id+'\',\''+em+'\')">'+em+' '+(p.reactions[em]||[]).length+'</span>';
+  }).join('');
+  rHtml+='<span class="ch-post-react-pill" onclick="reactChPost(\''+chId+'\',\''+p.id+'\',\'\u2764\ufe0f\')">+👍</span>';
+  var del=isCreator?'<button onclick="delChPost(\''+chId+'\',\''+p.id+'\')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;">🗑️</button>':'';
+  return '<div class="ch-post">'
+    +(p.media_url&&p.type==='image'?'<img class="ch-post-img" src="'+p.media_url+'" alt="" loading="lazy"/>':'')
+    +(p.content?'<div class="ch-post-text">'+esc(p.content)+'</div>':'')
+    +'<div class="ch-post-footer">'
+    +'<div class="ch-post-react">'+rHtml+'</div>'
+    +del
+    +'<span class="ch-post-time">'+new Date(p.created_at).toLocaleDateString('fr',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</span>'
+    +'</div></div>';
+}
+async function postToChannel(chId){
+  var inp=document.getElementById('chInput_'+chId); if(!inp) return;
+  var txt=inp.value.trim(); if(!txt) return;
+  var r=await api('/channels/'+chId+'/post','POST',{content:txt,type:'text'});
+  if(r&&r.success){inp.value=''; openChannelDetail(chId);}
+  else showNotif('❌','Erreur',(r&&r.error)||'','red',null);
+}
+async function toggleFollow(chId,btn){
+  var r=await api('/channels/'+chId+'/follow','POST');
+  if(!r||!r.success) return;
+  if(btn){btn.textContent=r.following?'Suivi ✓':'Suivre'; btn.classList.toggle('following',r.following);}
+  renderChannelsView();
+}
+async function reactChPost(chId,postId,emoji){
+  await api('/channels/'+chId+'/react/'+postId,'POST',{emoji:emoji});
+  openChannelDetail(chId);
+}
+async function delChPost(chId,postId){
+  if(!confirm('Supprimer ce post ?')) return;
+  var r=await api('/channels/'+chId+'/post/'+postId,'DELETE');
+  if(r&&r.success) openChannelDetail(chId);
+}
+async function deleteChannel(chId){
+  if(!confirm('Supprimer ce canal ?')) return;
+  var r=await api('/channels/'+chId,'DELETE');
+  if(r&&r.success){var d=document.getElementById('chDetail_'+chId);if(d)d.remove();renderChannelsView();}
+}
+function openCreateChannel(){
+  var mod=document.getElementById('createChModal');
+  if(!mod){mod=document.createElement('div');mod.id='createChModal';mod.className='create-ch-modal';document.body.appendChild(mod);}
+  mod.innerHTML='<div class="create-ch-hd">'
+    +'<button class="chat-back" onclick="document.getElementById(\'createChModal\').style.display=\'none\'"←</button>'
+    +'<h2>Créer un canal</h2></div>'
+    +'<div class="create-ch-body">'
+    +'<input class="create-ch-inp" id="chNewName" placeholder="Nom du canal *" maxlength="60"/>'
+    +'<input class="create-ch-inp" id="chNewDesc" placeholder="Description (optionnel)" maxlength="200"/>'
+    +'<input class="create-ch-inp" id="chNewIcon" placeholder="URL icône (optionnel)"/>'
+    +'<button class="create-ch-submit" onclick="submitCreateChannel()">Créer le canal</button>'
+    +'</div>';
+  mod.style.display='flex';
+}
+async function submitCreateChannel(){
+  var name=document.getElementById('chNewName').value.trim();
+  var desc=document.getElementById('chNewDesc').value.trim();
+  var icon=document.getElementById('chNewIcon').value.trim();
+  if(!name){showNotif('❌','Erreur','Nom du canal requis','red',null);return;}
+  var r=await api('/channels','POST',{name,description:desc,icon_url:icon||null});
+  if(r&&r.success){
+    var m=document.getElementById('createChModal');if(m)m.style.display='none';
+    showNotif('📣','Canal créé','Ton canal est en ligne !','green',null);
+    renderChannelsView();
+  } else showNotif('❌','Erreur',(r&&r.error)||'Création échouée','red',null);
 }
 
 // ══════════════ ADMIN ══════════════
