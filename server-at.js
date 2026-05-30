@@ -3405,75 +3405,6 @@ app.get('/api/sen-sms/campagnes', async (req, res) => {
 var SensmsUser = null;
 
 
-// ══  PENC CHANNELS  ══
-const JSONBIN_PENC_CHANNELS_BIN = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
-async function pencChannels(){
-  if(!JSONBIN_PENC_CHANNELS_BIN) return [];
-  try{ const r=await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN+'/latest',{headers:{'X-Master-Key':JSONBIN_MASTER_KEY}}); const d=await r.json(); return Array.isArray(d.record)?d.record:[]; }catch(e){ return []; }
-}
-async function pencSaveChannels(arr){
-  if(!JSONBIN_PENC_CHANNELS_BIN) return;
-  await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_MASTER_KEY},body:JSON.stringify(arr)});
-}
-app.get('/api/penc/channels', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels();
-    const enriched=channels.map(ch=>({...ch,posts:undefined,post_count:(ch.posts||[]).length,follower_count:(ch.followers||[]).length,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),last_post:(ch.posts||[]).slice(-1)[0]||null}));
-    res.json({channels:enriched}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.post('/api/penc/channels', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const {name,description,icon_url}=req.body;
-    if(!name||name.trim().length<2) return res.status(400).json({error:'Nom requis (2 car. min)'});
-    const channels=await pencChannels();
-    const ch={id:'ch_'+Date.now(),name:name.trim(),description:(description||'').trim(),icon_url:icon_url||null,creator_id:uid,followers:[uid],posts:[],created_at:new Date().toISOString()};
-    channels.push(ch); await pencSaveChannels(channels);
-    res.json({success:true,channel:{...ch,posts:undefined,follower_count:1,is_following:true,is_creator:true}}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.get('/api/penc/channels/:id', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    res.json({...ch,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid)}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.post('/api/penc/channels/:id/follow', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    ch.followers=ch.followers||[]; const idx=ch.followers.indexOf(uid); const following=idx<0;
-    if(following) ch.followers.push(uid); else if(String(ch.creator_id)!==String(uid)) ch.followers.splice(idx,1);
-    await pencSaveChannels(channels); res.json({success:true,following,follower_count:ch.followers.length}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.post('/api/penc/channels/:id/post', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const {content,type,media_url}=req.body;
-    const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    if(String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Seul le créateur peut poster'});
-    const post={id:'p_'+Date.now(),content:content||'',type:type||'text',media_url:media_url||null,created_at:new Date().toISOString(),reactions:{}};
-    ch.posts=(ch.posts||[]); ch.posts.push(post); await pencSaveChannels(channels);
-    res.json({success:true,post}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.post('/api/penc/channels/:id/react/:postId', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const {emoji}=req.body;
-    const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    const post=(ch.posts||[]).find(x=>x.id===req.params.postId);
-    if(!post) return res.status(404).json({error:'Post introuvable'});
-    post.reactions=post.reactions||{}; post.reactions[emoji]=post.reactions[emoji]||[];
-    const i=post.reactions[emoji].indexOf(uid);
-    if(i<0) post.reactions[emoji].push(uid); else post.reactions[emoji].splice(i,1);
-    await pencSaveChannels(channels); res.json({success:true,reactions:post.reactions}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.delete('/api/penc/channels/:id/post/:postId', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch||String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
-    ch.posts=(ch.posts||[]).filter(p=>p.id!==req.params.postId); await pencSaveChannels(channels);
-    res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-app.delete('/api/penc/channels/:id', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels();
-    const idx=channels.findIndex(x=>x.id===req.params.id);
-    if(idx<0) return res.status(404).json({error:'Canal introuvable'});
-    if(String(channels[idx].creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
-    channels.splice(idx,1); await pencSaveChannels(channels); res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
-});
-
 // ── DÉMARRAGE ─────────────────────────────
 
 // ═══════════════════════════════════════════════════════════════
@@ -4351,6 +4282,75 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ══  PENC CHANNELS  ══
+const JSONBIN_PENC_CHANNELS_BIN = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
+async function pencChannels(){
+  if(!JSONBIN_PENC_CHANNELS_BIN) return [];
+  try{ const r=await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN+'/latest',{headers:{'X-Master-Key':JSONBIN_MASTER_KEY}}); const d=await r.json(); return Array.isArray(d.record)?d.record:[]; }catch(e){ return []; }
+}
+async function pencSaveChannels(arr){
+  if(!JSONBIN_PENC_CHANNELS_BIN) return;
+  await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_MASTER_KEY},body:JSON.stringify(arr)});
+}
+app.get('/api/penc/channels', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const channels=await pencChannels();
+    const enriched=channels.map(ch=>({...ch,posts:undefined,post_count:(ch.posts||[]).length,follower_count:(ch.followers||[]).length,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),last_post:(ch.posts||[]).slice(-1)[0]||null}));
+    res.json({channels:enriched}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.post('/api/penc/channels', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const {name,description,icon_url}=req.body;
+    if(!name||name.trim().length<2) return res.status(400).json({error:'Nom requis (2 car. min)'});
+    const channels=await pencChannels();
+    const ch={id:'ch_'+Date.now(),name:name.trim(),description:(description||'').trim(),icon_url:icon_url||null,creator_id:uid,followers:[uid],posts:[],created_at:new Date().toISOString()};
+    channels.push(ch); await pencSaveChannels(channels);
+    res.json({success:true,channel:{...ch,posts:undefined,follower_count:1,is_following:true,is_creator:true}}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.get('/api/penc/channels/:id', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    res.json({...ch,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid)}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.post('/api/penc/channels/:id/follow', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    ch.followers=ch.followers||[]; const idx=ch.followers.indexOf(uid); const following=idx<0;
+    if(following) ch.followers.push(uid); else if(String(ch.creator_id)!==String(uid)) ch.followers.splice(idx,1);
+    await pencSaveChannels(channels); res.json({success:true,following,follower_count:ch.followers.length}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.post('/api/penc/channels/:id/post', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const {content,type,media_url}=req.body;
+    const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    if(String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Seul le créateur peut poster'});
+    const post={id:'p_'+Date.now(),content:content||'',type:type||'text',media_url:media_url||null,created_at:new Date().toISOString(),reactions:{}};
+    ch.posts=(ch.posts||[]); ch.posts.push(post); await pencSaveChannels(channels);
+    res.json({success:true,post}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.post('/api/penc/channels/:id/react/:postId', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const {emoji}=req.body;
+    const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    const post=(ch.posts||[]).find(x=>x.id===req.params.postId);
+    if(!post) return res.status(404).json({error:'Post introuvable'});
+    post.reactions=post.reactions||{}; post.reactions[emoji]=post.reactions[emoji]||[];
+    const i=post.reactions[emoji].indexOf(uid);
+    if(i<0) post.reactions[emoji].push(uid); else post.reactions[emoji].splice(i,1);
+    await pencSaveChannels(channels); res.json({success:true,reactions:post.reactions}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.delete('/api/penc/channels/:id/post/:postId', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch||String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
+    ch.posts=(ch.posts||[]).filter(p=>p.id!==req.params.postId); await pencSaveChannels(channels);
+    res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+});
+app.delete('/api/penc/channels/:id', pencAuth, async (req,res) => {
+  try{ const uid=req.pencUser.userId; const channels=await pencChannels();
+    const idx=channels.findIndex(x=>x.id===req.params.id);
+    if(idx<0) return res.status(404).json({error:'Canal introuvable'});
+    if(String(channels[idx].creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
+    channels.splice(idx,1); await pencSaveChannels(channels); res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 
 // DELETE /api/penc/statuses/:id — auteur uniquement
