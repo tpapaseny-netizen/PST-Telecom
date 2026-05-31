@@ -668,6 +668,22 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   animation:spOut .32s ease forwards;
 }
 @keyframes spOut{to{opacity:0;transform:scale(1.05);}}
+/* === PP VIEWER === */
+#ppViewer{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.95);
+  display:none;flex-direction:column;align-items:center;justify-content:center;}
+#ppViewer.open{display:flex;animation:ppIn .2s ease;}
+@keyframes ppIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
+.ppv-hd{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;
+  padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top,0px));
+  background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);z-index:1;}
+.ppv-name{color:#fff;font-weight:700;font-size:15px;flex:1;}
+.ppv-actions{display:flex;gap:8px;}
+.ppv-btn{width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,.18);
+  color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  text-decoration:none;transition:background .1s;}
+.ppv-btn:active{background:rgba(255,255,255,.35);}
+#ppvImg{max-width:92%;max-height:82vh;border-radius:14px;object-fit:contain;
+  transition:filter .3s;box-shadow:0 10px 60px rgba(0,0,0,.5);}
 </style>
 </head>
 <body>
@@ -2145,7 +2161,7 @@ function openCreateChannel(){
   var mod=document.getElementById('createChModal');
   if(!mod){mod=document.createElement('div');mod.id='createChModal';mod.className='create-ch-modal';document.body.appendChild(mod);}
   mod.innerHTML='<div class="create-ch-hd">'
-    +'<button class="chat-back" onclick="document.getElementById(\'createChModal\').style.display=\'none\'"←</button>'
+    +'<button class="chat-back" onclick="document.getElementById(\'createChModal\').style.display=\'none\'">←</button>'
     +'<h2>Créer un canal</h2></div>'
     +'<div class="create-ch-body">'
     +'<input class="create-ch-inp" id="chNewName" placeholder="Nom du canal *" maxlength="60"/>'
@@ -2163,8 +2179,8 @@ async function submitCreateChannel(){
   var r=await api('/channels','POST',{name,description:desc,icon_url:icon||null});
   if(r&&r.success){
     var m=document.getElementById('createChModal');if(m)m.style.display='none';
-    showNotif('📣','Canal créé','Ton canal est en ligne !','green',null);
-    renderChannelsView();
+    showNotif('📣','Canal créé !','Ton canal est en ligne.','green',null);
+    setTimeout(function(){ renderChannelsView(); },300);
   } else showNotif('❌','Erreur',(r&&r.error)||'Création échouée','red',null);
 }
 
@@ -2380,6 +2396,42 @@ if(window.visualViewport){
   });
 }
 
+function openPPViewer(src,name){
+  var v=document.getElementById('ppViewer'); if(!v) return;
+  var img=document.getElementById('ppvImg');
+  var nm=document.getElementById('ppvName');
+  var dl=document.getElementById('ppvDownload');
+  var bb=document.getElementById('ppvBlurBtn');
+  if(img){ img.src=src; img.style.filter=''; }
+  if(nm) nm.textContent=name||'';
+  if(dl){ dl.href=src; dl.download=name?name.replace(/\s+/g,'_')+'_pp.jpg':'photo.jpg'; }
+  if(bb) bb.textContent='🙈';
+  v.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closePPViewer(){
+  var v=document.getElementById('ppViewer'); if(v) v.classList.remove('open');
+  document.body.style.overflow='';
+}
+function togglePPBlur(){
+  var img=document.getElementById('ppvImg'); if(!img) return;
+  var btn=document.getElementById('ppvBlurBtn');
+  var blurred=!!img.style.filter;
+  img.style.filter=blurred?'':'blur(18px)';
+  if(btn) btn.textContent=blurred?'🙈':'👀';
+}
+// Clic sur n'importe quel avatar → ouvrir PP viewer
+document.addEventListener('click',function(e){
+  var img=e.target;
+  if(img.tagName!=='IMG') return;
+  var av=img.closest('.conv-avatar,.contact-av,.ch-av,.profile-av,.sv-viewer-av,.penc-av');
+  if(!av) return;
+  var src=img.src;
+  if(!src||src===window.location.href) return;
+  e.stopPropagation();
+  var nm=av.dataset.name||img.alt||(av.closest('[data-name]')&&av.closest('[data-name]').dataset.name)||'';
+  openPPViewer(src,nm);
+},true);
 // ── Splash screen ──
 (function(){
   var sp=document.getElementById('penc-splash');
@@ -2440,5 +2492,16 @@ if(window.visualViewport){
 </div>
 <div id="pwaModal"></div>
 <div id="pwaModal"></div>
+<div id="ppViewer" onclick="if(event.target===this)closePPViewer()">
+  <div class="ppv-hd">
+    <span class="ppv-name" id="ppvName"></span>
+    <div class="ppv-actions">
+      <a id="ppvDownload" class="ppv-btn" download title="Télécharger">&#x2B07;</a>
+      <button class="ppv-btn" id="ppvBlurBtn" onclick="togglePPBlur()" title="Masquer/Afficher">&#x1F648;</button>
+      <button class="ppv-btn" onclick="closePPViewer()">&#x2715;</button>
+    </div>
+  </div>
+  <img id="ppvImg" src="" alt=""/>
+</div>
 </body>
 </html>
