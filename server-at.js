@@ -4285,12 +4285,15 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
 });
 
 // ══  PENC CHANNELS  ══
-let JSONBIN_PENC_CHANNELS_BIN = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
+const _rawChBin = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
+// Valider que c'est un vrai ID JSONBin (24 chars hex) sinon ignorer
+let JSONBIN_PENC_CHANNELS_BIN = /^[a-f0-9]{24}$/i.test(_rawChBin) ? _rawChBin : '';
 let _chCache = [];
 
 // Auto-création du bin channels si non configuré
 (async function initChannelsBin(){
   if(JSONBIN_PENC_CHANNELS_BIN) { console.log('✅ Channels bin configuré:', JSONBIN_PENC_CHANNELS_BIN); return; }
+  if(_rawChBin && !JSONBIN_PENC_CHANNELS_BIN) console.log('⚠️ JSONBIN_PENC_CHANNELS_BIN invalide (\''+_rawChBin+'\') — auto-création...');
   if(!JSONBIN_MASTER_KEY) return;
   try{
     const r=await fetch('https://api.jsonbin.io/v3/b',{
