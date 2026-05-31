@@ -4285,12 +4285,44 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
 });
 
 // ══  PENC CHANNELS  ══
-const JSONBIN_PENC_CHANNELS_BIN = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
+let JSONBIN_PENC_CHANNELS_BIN = process.env.JSONBIN_PENC_CHANNELS_BIN || '';
+let _chCache = [];
+
+// Auto-création du bin channels si non configuré
+(async function initChannelsBin(){
+  if(JSONBIN_PENC_CHANNELS_BIN) { console.log('✅ Channels bin configuré:', JSONBIN_PENC_CHANNELS_BIN); return; }
+  if(!JSONBIN_MASTER_KEY) return;
+  try{
+    const r=await fetch('https://api.jsonbin.io/v3/b',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_MASTER_KEY,'X-Bin-Name':'penc-channels','X-Bin-Private':'false'},
+      body:JSON.stringify([])
+    });
+    const d=await r.json();
+    if(d.metadata && d.metadata.id){
+      JSONBIN_PENC_CHANNELS_BIN=d.metadata.id;
+      console.log('');
+      console.log('╔════════════════════════════╗');
+      console.log('║ ✅ BIN CHANNELS CRÉÉ AUTOMATIQUEMENT  ║');
+      console.log('╚════════════════════════════╝');
+      console.log('➡️  Ajoute dans Render > Environment:');
+      console.log('   JSONBIN_PENC_CHANNELS_BIN =', JSONBIN_PENC_CHANNELS_BIN);
+      console.log('');
+    }
+  }catch(e){ console.log('⚠️ Impossible de créer le bin channels:', e.message); }
+})();
+
 async function pencChannels(){
-  if(!JSONBIN_PENC_CHANNELS_BIN) return [];
-  try{ const r=await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN+'/latest',{headers:{'X-Master-Key':JSONBIN_MASTER_KEY}}); const d=await r.json(); return Array.isArray(d.record)?d.record:[]; }catch(e){ return []; }
+  if(!JSONBIN_PENC_CHANNELS_BIN) return [..._chCache];
+  try{
+    const r=await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN+'/latest',{headers:{'X-Master-Key':JSONBIN_MASTER_KEY}});
+    const d=await r.json();
+    _chCache=Array.isArray(d.record)?d.record:[];
+    return _chCache;
+  }catch(e){ return [..._chCache]; }
 }
 async function pencSaveChannels(arr){
+  _chCache=[...arr];
   if(!JSONBIN_PENC_CHANNELS_BIN) return;
   await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_MASTER_KEY},body:JSON.stringify(arr)});
 }

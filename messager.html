@@ -634,9 +634,54 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .create-ch-inp:focus{border-color:var(--accent);}
 .create-ch-submit{border:none;background:var(--accent);color:#fff;font-weight:800;font-size:15px;
   border-radius:13px;padding:15px;cursor:pointer;font-family:inherit;}
+/* ═══ SPLASH SCREEN PENC ═══ */
+#penc-splash{position:fixed;inset:0;z-index:999999;background:#070D1A;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'DM Sans',sans-serif;overflow:hidden;}
+.sp-logo{display:flex;align-items:baseline;}
+.sp-letter{font-size:86px;font-weight:900;line-height:1;display:inline-block;
+  opacity:0;animation:spLetIn .42s cubic-bezier(.16,1,.3,1) forwards;}
+.sp-P{color:#14B8A6;text-shadow:0 0 60px rgba(20,184,166,.55);animation-delay:.07s;}
+.sp-e{color:#fff;animation-delay:.19s;}
+.sp-n{color:#fff;animation-delay:.31s;}
+.sp-c{color:#fff;animation-delay:.43s;}
+.sp-line{height:2px;width:0;background:linear-gradient(90deg,#14B8A6,transparent);
+  border-radius:2px;margin-top:6px;
+  animation:spLine .45s ease forwards;animation-delay:.62s;}
+.sp-tag{font-size:12px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin-top:16px;
+  opacity:0;animation:spFadeUp .4s ease forwards;animation-delay:.72s;}
+.sp-brand{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom,0px));
+  font-size:10px;letter-spacing:.18em;color:rgba(255,255,255,.2);
+  text-transform:uppercase;font-weight:700;
+  opacity:0;animation:spFadeUp .4s ease forwards;animation-delay:.88s;}
+@keyframes spLetIn{
+  0%{opacity:0;transform:translateY(24px);filter:blur(8px);}
+  100%{opacity:1;transform:translateY(0);filter:blur(0);}
+}
+@keyframes spLine{to{width:88px;}}
+@keyframes spFadeUp{
+  0%{opacity:0;transform:translateY(6px);}
+  100%{opacity:1;transform:translateY(0);}
+}
+#penc-splash.sp-out{
+  animation:spOut .32s ease forwards;
+}
+@keyframes spOut{to{opacity:0;transform:scale(1.05);}}
 </style>
 </head>
 <body>
+<div id="penc-splash">
+  <div class="sp-logo">
+    <span class="sp-letter sp-P">P</span>
+    <span class="sp-letter sp-e">e</span>
+    <span class="sp-letter sp-n">n</span>
+    <span class="sp-letter sp-c">c</span>
+  </div>
+  <div class="sp-line"></div>
+  <div class="sp-tag">Messagerie mondiale</div>
+  <div class="sp-brand">PST Telecom</div>
+</div>
 <div id="app">
 <div class="notif-container" id="notifCont"></div>
 <div class="img-viewer" id="imgViewer"><div class="img-viewer-close" onclick="closeImgViewer()">✕</div><img id="imgViewSrc" src="" alt=""/></div>
@@ -2335,6 +2380,15 @@ if(window.visualViewport){
   });
 }
 
+// ── Splash screen ──
+(function(){
+  var sp=document.getElementById('penc-splash');
+  if(!sp) return;
+  setTimeout(function(){
+    sp.classList.add('sp-out');
+    setTimeout(function(){ if(sp.parentNode) sp.parentNode.removeChild(sp); },340);
+  },1380);
+})();
 </script>
 <div class="ol-content-page" id="ol-about">
   <div class="ol-page-hd"><button class="chat-back" onclick="document.getElementById('ol-about').style.display='none'">←</button><h2>ℹ️ À propos de Penc</h2></div>
