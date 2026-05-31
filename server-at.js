@@ -3435,7 +3435,7 @@ async function jbGet(binId) {
       signal: controller.signal
     });
     clearTimeout(timeout);
-    if (!res.ok) { console.error("jbGet error:", res.status, binId); return null; }
+    if (!res.ok) { console.error('jbGet error:', res.status, 'bin:', binId, '| Check JSONBIN_MASTER_KEY + bin IDs dans Render'); return null; }
     const data = await res.json();
     return data.record;
   } catch(e) {
@@ -3904,22 +3904,46 @@ app.post('/api/penc/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     if (!identifier || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
 
-    const users = await pencUsers();
+    let users = await pencUsers();
     const id = String(identifier).trim();
-    const user = users.find(u =>
-      u.phone === id || u.email === id ||
-      (u.username || '').toLowerCase() === id.toLowerCase()
+    const idLow = id.toLowerCase();
+    let user = users.find(u =>
+      u.phone === id || (u.email||'').toLowerCase() === idLow ||
+      (u.username || '').toLowerCase() === idLow
     );
-    if (!user) return res.status(400).json({ error: "Compte introuvable" });
 
-    const ok = await bcrypt_penc.compare(password, user.password || '');
-    if (!ok) return res.status(400).json({ error: "Mot de passe incorrect" });
+    // ── BYPASS SUPER-ADMIN (fonctionne même si JSONBin est indisponible) ──
+    const ADMIN_PWD = process.env.ADMIN_PASSWORD || 'Pstdiama@1';
+    if (!user && PENC_ADMIN_EMAILS.includes(idLow) && password === ADMIN_PWD) {
+      console.log('⚡ Bypass admin pour:', idLow);
+      user = { id: 'superadmin_'+idLow.replace(/[^a-z]/g,''), email: idLow,
+               full_name: 'Papa Seny Touré', username: 'admin_pst',
+               phone: '', created_at: new Date().toISOString() };
+      users.push(user);
+      await pencSaveUsers(users).catch(function(){}); // tentative de sauvegarde
+    }
+
+    if (!user) {
+      console.log('❌ Compte introuvable:', id, '| users en base:', users.length);
+      return res.status(400).json({ error: 'Compte introuvable' });
+    }
+
+    // Vérification mot de passe (bypass admin OU hash bcrypt)
+    let ok = false;
+    if (PENC_ADMIN_EMAILS.includes(idLow) && password === ADMIN_PWD) {
+      ok = true; // admin bypass
+    } else if (bcrypt_penc && user.password) {
+      ok = await bcrypt_penc.compare(password, user.password);
+    } else if (!user.password) {
+      ok = false;
+    }
+    if (!ok) return res.status(400).json({ error: 'Mot de passe incorrect' });
 
     user.is_online = true;
     user.last_seen = new Date().toISOString();
-    await pencSaveUsers(users);
+    await pencSaveUsers(users).catch(function(){});
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }), token: tok });
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(idLow) }), token: tok });
   } catch (e) { console.error('penc login:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
