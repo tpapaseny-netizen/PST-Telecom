@@ -3852,13 +3852,25 @@ function pencAuth(req, res, next) {
 }
 
 // ── Stockage JSONBin Penc (remplace MongoDB) ──────────────────
-async function pencUsers()        { const d = await jbGet(BINS.penc_users);  return (d && Array.isArray(d.users))    ? d.users    : []; }
-async function pencSaveUsers(a)   { return jbSet(BINS.penc_users,  { users: a }); }
-async function pencConvs()        { const d = await jbGet(BINS.penc_convs);  return (d && Array.isArray(d.convs))    ? d.convs    : []; }
+async function pencUsers(){
+  const d=await jbGet(BINS.penc_users);
+  if(!d) return [];
+  if(Array.isArray(d)) return d;
+  if(Array.isArray(d.users)) return d.users;
+  return [];
+}
+async function pencSaveUsers(a){
+  if(!Array.isArray(a)||a.length===0){
+    console.error('🚫 pencSaveUsers BLOQUÉ: tentative de vider la base');
+    return;
+  }
+  return jbSet(BINS.penc_users,{users:a});
+}
+async function pencConvs(){const d=await jbGet(BINS.penc_convs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.convs)?d.convs:[];}
 async function pencSaveConvs(a)   { return jbSet(BINS.penc_convs,  { convs: a }); }
-async function pencMsgs()         { const d = await jbGet(BINS.penc_msgs);   return (d && Array.isArray(d.msgs))     ? d.msgs     : []; }
+async function pencMsgs(){const d=await jbGet(BINS.penc_msgs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.msgs)?d.msgs:[];}
 async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
-async function pencStatuses()     { const d = await jbGet(BINS.penc_status); return (d && Array.isArray(d.statuses)) ? d.statuses : []; }
+async function pencStatuses(){const d=await jbGet(BINS.penc_status);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.statuses)?d.statuses:[];}
 async function pencSaveStatuses(a){ return jbSet(BINS.penc_status, { statuses: a }); }
 const pencStrip = u => { if (!u) return null; const { password, ...s } = u; return s; };
 
@@ -3866,6 +3878,13 @@ const pencStrip = u => { if (!u) return null; const { password, ...s } = u; retu
 // AUTH
 // ════════════════════════════════════════════════════════════
 
+// GET /api/penc/admin/diagnostic
+app.get('/api/penc/admin/diagnostic',async(req,res)=>{
+  if((req.headers['x-admin-token']||''!==process.env.ADMIN_PASSWORD)) return res.status(403).json({error:'Non autorisé'});
+  const u=await pencUsers(); const c=await pencConvs(); const m=await pencMsgs();
+  res.json({bins:BINS,counts:{users:u.length,convs:c.length,msgs:m.length},
+    users:u.slice(0,10).map(x=>({id:x.id,phone:x.phone,email:x.email,username:x.username}))});
+});
 // POST /api/penc/auth/register
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
