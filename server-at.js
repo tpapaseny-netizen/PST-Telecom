@@ -3896,9 +3896,11 @@ app.post('/api/penc/auth/register', async (req, res) => {
 
     const users = await pencUsers();
     if (users.some(u => u.phone === phone))
-      return res.status(400).json({ error: "Ce numero est deja associe a un compte. Connecte-toi." });
+      return res.status(400).json({ error: 'Ce numéro est déjà associé à un compte. Connecte-toi.' });
+    if (email && users.some(u => (u.email||'').toLowerCase() === email.toLowerCase()))
+      return res.status(400).json({ error: 'Cet email est déjà associé à un compte. Connecte-toi.' });
     if (users.some(u => (u.username || '').toLowerCase() === username.toLowerCase()))
-      return res.status(400).json({ error: "Ce nom utilisateur est deja pris." });
+      return res.status(400).json({ error: 'Ce nom utilisateur est déjà pris.' });
 
     const hashed = await bcrypt_penc.hash(password, 10);
     const user = {
@@ -4558,7 +4560,7 @@ io.on('connection', async (socket) => {
           else if (type === 'sticker') pbody = content || 'Sticker';
           else pbody = (content || '').slice(0, 120);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
-          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-' + conversation_id, url: '/messager' }); }
+          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager', conv_id: conversation_id }); }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
     } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }

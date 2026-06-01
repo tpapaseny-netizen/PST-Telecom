@@ -1070,7 +1070,14 @@ async function doLogin() {
     const r = await api('/auth/login','POST',{identifier:id,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession(); maybeShowBanner();
+    showScreen('screen-main'); initSocket();
+    loadConvs().then(function(){
+      if(window._pendingConvId){
+        var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
+        if(cv){showTab('chats');openConv(cv);} window._pendingConvId=null;
+      }
+    });
+    loadStatuses(); pingSession(); maybeShowBanner();
   } catch(e) { showErr(e.message||'Identifiants incorrects'); }
   btn.disabled=false; btn.textContent='Se connecter';
 }
@@ -1088,7 +1095,14 @@ async function doRegister() {
     const r = await api('/auth/register','POST',{full_name:name,username:uname,phone,email,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); loadConvs(); loadStatuses(); pingSession(); maybeShowBanner();
+    showScreen('screen-main'); initSocket();
+    loadConvs().then(function(){
+      if(window._pendingConvId){
+        var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
+        if(cv){showTab('chats');openConv(cv);} window._pendingConvId=null;
+      }
+    });
+    loadStatuses(); pingSession(); maybeShowBanner();
   } catch(e) { showErr(e.message||'Erreur inscription'); }
   btn.disabled=false; btn.textContent='Créer mon compte';
 }
@@ -1703,11 +1717,17 @@ function closeSV(){ clearInterval(svTimer); clearTimeout(window.svViewTimer); do
 function svReply(e){ if(e.key==='Enter') svSend(); }
 async function svSend(){
   var inp=document.getElementById('svReplyInput'); var t=(inp.value||'').trim(); if(!t) return;
-  var s=svList[svIdx]; if(!s||!s.user_id) return;
+  var sv2=svList[svIdx]; if(!sv2||!sv2.user_id) return;
   inp.value='';
+  // Contexte: quel statut est commenté
+  var ctx=sv2.type==='image'?'📸 Photo':sv2.type==='video'?'🎥 Vidéo':'"'+(sv2.text_content||'').slice(0,28)+'"';
+  var fullMsg='↪️ Statut ('+ctx+'): '+t;
   try{
-    var r=await api('/conversations/direct','POST',{target_user_id:s.user_id});
-    if(r && r.conversation && SOCKET){ SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:'↪️ '+t}); showNotif('✓','Réponse envoyée',t.slice(0,40),'green',null); }
+    var r=await api('/conversations/direct','POST',{target_user_id:sv2.user_id});
+    if(r&&r.conversation&&SOCKET){
+      SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:fullMsg});
+      showNotif('✓','Réponse envoyée',t.slice(0,40),'green',null);
+    }
   }catch(err){ showNotif('❌','Erreur','Envoi échoué','red',null); }
 }
 
@@ -2047,9 +2067,16 @@ function renderChannelsView(){
   div.innerHTML='<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   sc.insertBefore(div,sc.querySelector('.bottom-nav'));
   api('/channels').then(function(d){
-    if(!div.parentNode) return; // détaché du DOM
-    if(!d||d.error){div.innerHTML='<div class="ch-empty">⚠️ Erreur: '+(d&&d.error||'connexion')+'. Réessaie.</div>';return;}
-    var all=d.channels||[];
+    if(!div.parentNode) return;
+    var serverCh=(d&&d.channels)||[];
+    // Fusionner cache local (canaux créés localement non encore en JSONBin)
+    if(_localChannels&&_localChannels.length){
+      _localChannels.forEach(function(lc){
+        if(!serverCh.find(function(sc){return sc.id===lc.id;})) serverCh.unshift(lc);
+      });
+    }
+    if(serverCh.length===0&&(!d||d.error)){div.innerHTML='<div class="ch-empty">⚠️ Erreur de connexion. Réessaie.</div>';return;}
+    var all=serverCh||[];
     var mine=all.filter(function(c){return c.is_following;});
     var discover=all.filter(function(c){return !c.is_following;});
     var h='';
@@ -2199,11 +2226,15 @@ async function submitCreateChannel(){
   var r=await api('/channels','POST',{name,description:desc,icon_url:icon||null});
   if(r&&r.success){
     var m=document.getElementById('createChModal');if(m)m.style.display='none';
-    // Vider les inputs
     ['chNewName','chNewDesc','chNewIcon'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
     var prev=document.getElementById('chIconPrev');if(prev)prev.innerHTML='📷';
-    showNotif('📣','Canal créé !','Visible dans l’onglet Canaux.','green',null);
-    setTimeout(function(){ renderChannelsView(); },400);
+    // Injecter directement dans le cache local + afficher
+    var newCh=r.channel||(r.success?{id:'ch_new',name:document.getElementById('chNewName')?document.getElementById('chNewName').value:'Canal',followers:[],is_following:true,is_creator:true,post_count:0,follower_count:1}:null);
+    if(newCh){newCh.is_following=true;newCh.is_creator=true;newCh.follower_count=1;newCh.post_count=0;
+      if(!_localChannels) _localChannels=[];
+      _localChannels.unshift(newCh);}
+    showNotif('📣','Canal créé !','Ton canal est maintenant visible ci-dessous.','green',null);
+    renderChannelsView();
   } else showNotif('❌','Erreur',(r&&r.error)||'Création échouée','red',null);
 }
 
@@ -2319,6 +2350,7 @@ function scrollBottom(){const a=document.getElementById('msgsArea');if(a)request
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 
 // ══════════════ PWA : installation force ══════════════
+var _localChannels=null; // cache local canaux
 var deferredPrompt=null;
 function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}
 function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;}
@@ -2485,6 +2517,30 @@ document.addEventListener('click',function(e){
   var uid=av.dataset.uid||img.dataset.uid||'';
   openPPViewer(src,nm,uid);
 },true);
+// ── Navigation depuis notification push ──
+if(navigator.serviceWorker){
+  navigator.serviceWorker.addEventListener('message',function(e){
+    if(e.data&&e.data.type==='OPEN_CONV'){
+      var conv=(CONVS||[]).find(function(c){return c.id===e.data.conv_id;});
+      if(conv){ showTab('chats'); openConv(conv); }
+      else { loadConvs().then(function(){ var cv=(CONVS||[]).find(function(c){return c.id===e.data.conv_id;}); if(cv){showTab('chats');openConv(cv);} }); }
+    }
+  });
+}
+// URL param ?conv=ID (depuis notif quand app fermée)
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  var convId=params.get('conv');
+  if(!convId) return;
+  window._pendingConvId=convId;
+})();
+function applyMaskedCSS(){
+  var srcs=JSON.parse(localStorage.getItem('penc_masked_srcs')||'[]');
+  var el=document.getElementById('_masked_css');
+  if(!el){el=document.createElement('style');el.id='_masked_css';document.head.appendChild(el);}
+  el.textContent=srcs.map(function(src){return 'img[src="'+src+'"]{filter:blur(10px) grayscale(1)!important;opacity:.5!important;}'}).join('\n');
+}
+applyMaskedCSS();
 // ── Splash screen ──
 (function(){
   var sp=document.getElementById('penc-splash');
