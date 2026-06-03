@@ -4097,6 +4097,16 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
   } catch (e) { console.error('penc search:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// GET /api/penc/health — diagnostic public
+app.get('/api/penc/health', async (req,res)=>{
+  try{
+    const u=await pencUsers(); const c=await pencConvs();
+    const ch=await pencChannels();
+    res.json({status:'ok',users:u.length,convs:c.length,channels:ch.length,
+      bins:{penc_users:!!BINS.penc_users,penc_convs:!!BINS.penc_convs,penc_channels:!!JSONBIN_PENC_CHANNELS_BIN}});
+  }catch(e){res.json({status:'error',msg:e.message});}
+});
+
 // GET /api/penc/contacts
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
@@ -4400,13 +4410,27 @@ app.post('/api/penc/channels/:id/follow', pencAuth, async (req,res) => {
     await pencSaveChannels(channels); res.json({success:true,following,follower_count:ch.followers.length}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 app.post('/api/penc/channels/:id/post', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const {content,type,media_url}=req.body;
-    const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+  try{
+    const uid=req.pencUser.userId;
+    const {content,type,media_url}=req.body;
+    if(!content&&!media_url) return res.status(400).json({error:'Contenu vide'});
+    const channels=await pencChannels();
+    const ch=channels.find(x=>x.id===req.params.id);
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
     if(String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Seul le créateur peut poster'});
-    const post={id:'p_'+Date.now(),content:content||'',type:type||'text',media_url:media_url||null,created_at:new Date().toISOString(),reactions:{}};
-    ch.posts=(ch.posts||[]); ch.posts.push(post); await pencSaveChannels(channels);
-    res.json({success:true,post}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+    const post={id:'p_'+Date.now(),content:content||'',type:type||'text',
+      media_url:media_url||null,created_at:new Date().toISOString(),reactions:{}};
+    if(!ch.posts) ch.posts=[];
+    ch.posts.push(post);
+    await pencSaveChannels(channels);
+    // Émettre via Socket.io à tous les abonnés connectés
+    if(global._pencIo){
+      (ch.followers||[]).forEach(function(fid){
+        global._pencIo.to('user_'+fid).emit('channel:post',{channel_id:ch.id,post:post});
+      });
+    }
+    res.json({success:true,post});
+  }catch(e){console.error('ch post:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 app.post('/api/penc/channels/:id/react/:postId', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const {emoji}=req.body;

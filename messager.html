@@ -1877,30 +1877,67 @@ async function uploadPP(e){
 }
 
 // ══════════════ CONTACTS SEARCH ══════════════
-function openNewChat(){document.getElementById('searchInp').value='';document.getElementById('searchRes').innerHTML='<div class="empty-state"><div class="empty-icon" style="font-size:36px;">🔍</div><div class="empty-text">Tapez pour rechercher</div></div>';document.getElementById('ol-newchat').classList.add('show');}
+function openNewChat(){
+  var inp=document.getElementById('searchInp');
+  var res=document.getElementById('searchRes');
+  inp.value='';
+  res.innerHTML='<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  document.getElementById('ol-newchat').classList.add('show');
+  // Charger TOUS les utilisateurs dès l'ouverture
+  api('/contacts').then(function(d){
+    _allUsersCache=(d&&d.contacts)||[];
+    _renderUserList(_allUsersCache, res, '');
+  }).catch(function(){ res.innerHTML='<div class="empty-state"><div class="empty-text">Erreur de chargement</div></div>'; });
+}
 let searchTO;
+function _renderUserList(users, resEl, q){
+  var filtered=users.filter(function(u){
+    if(ME&&u.id===ME.id) return false;
+    if(!q) return true;
+    var hay=(u.full_name+' '+u.username+' '+(u.phone||'')).toLowerCase();
+    return hay.includes(q.toLowerCase());
+  });
+  if(!filtered.length){
+    resEl.innerHTML='<div class="empty-state"><div class="empty-icon" style="font-size:36px;">👥</div><div class="empty-text">'+(q?'Aucun résultat pour \''+esc(q)+'\'':'Aucun utilisateur inscrit')+'</div></div>';
+    return;
+  }
+  resEl.innerHTML='';
+  filtered.forEach(function(u){
+    var el=document.createElement('div'); el.className='search-user';
+    var av=u.avatar_url?('<img src="'+u.avatar_url+'" alt=""/>'):'<span>'+initials(u.full_name||'?')+'</span>';
+    el.innerHTML='<div class="search-av">'+av+'</div>'
+      +'<div style="flex:1;"><div style="font-weight:600;">'+esc(u.full_name||u.username||'?')+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);">@'+esc(u.username)+(u.phone?' · '+esc(u.phone):'')+'</div></div>'
+      +'<span style="font-size:20px;">💬</span>';
+    el.onclick=async function(){
+      closeOl('ol-newchat');
+      var r=await api('/conversations/direct','POST',{target_user_id:u.id});
+      if(r&&r.conversation){await loadConvs();openConv(Object.assign({},r.conversation,{name:u.full_name,other_user_id:u.id,avatar_url:u.avatar_url}));}
+    };
+    resEl.appendChild(el);
+  });
+}
+var _allUsersCache=[];
 async function searchUsers(q){
   clearTimeout(searchTO);
-  if(!q.trim()) return;
-  searchTO=setTimeout(async()=>{
-    const res=document.getElementById('searchRes');
-    res.innerHTML='<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
-    const d=await api(`/contacts/search?q=${encodeURIComponent(q)}`);
-    if(!d.users?.length){res.innerHTML='<div class="empty-state"><div class="empty-text">Aucun résultat</div></div>';return;}
-    res.innerHTML='';
-    d.users.forEach(u=>{
-      if(u.id===ME?.id) return;
-      const el=document.createElement('div'); el.className='search-user';
-      const init=initials(u.full_name||'?');
-      el.innerHTML=`<div class="search-av">${u.avatar_url?`<img src="${u.avatar_url}" alt=""/>`:`<span>${init}</span>`}</div><div style="flex:1;"><div style="font-weight:600;">${esc(u.full_name)}</div><div style="font-size:12px;color:var(--muted);">@${esc(u.username)} · ${esc(u.phone||'')}</div></div><span style="font-size:20px;">💬</span>`;
-      el.onclick=async()=>{
-        closeOl('ol-newchat');
-        const r=await api('/conversations/direct','POST',{target_user_id:u.id});
-        if(r.conversation){await loadConvs();openConv({...r.conversation,name:u.full_name,other_user_id:u.id,avatar_url:u.avatar_url});}
-      };
-      res.appendChild(el);
-    });
-  },400);
+  var resEl=document.getElementById('searchRes');
+  if(!q.trim()){
+    _renderUserList(_allUsersCache,resEl,''); return;
+  }
+  // Filtre local d'abord (instantané)
+  _renderUserList(_allUsersCache,resEl,q);
+  // Puis requête serveur en arrière-plan
+  searchTO=setTimeout(async function(){
+    var d=await api('/contacts/search?q='+encodeURIComponent(q));
+    if(d&&(d.users||d.contacts)){
+      var fresh=(d.users||d.contacts||[]);
+      // Fusionner avec le cache
+      fresh.forEach(function(u){
+        if(!_allUsersCache.find(function(x){return x.id===u.id;})) _allUsersCache.push(u);
+      });
+      _renderUserList(fresh.length?fresh:_allUsersCache,resEl,q);
+    }
+  },350);
 }
 
 // ══════════════ TABS ══════════════
@@ -2117,32 +2154,39 @@ function buildChRow(c){
 function openChannelDetail(chId){
   api('/channels/'+chId).then(function(ch){
     if(!ch||ch.error){showNotif('❌','Erreur','Canal introuvable','red',null);return;}
+    var existOv=document.getElementById('chDetail_'+chId); if(existOv) existOv.remove();
     var ov=document.createElement('div'); ov.className='ch-detail'; ov.id='chDetail_'+chId;
-    var followLbl=ch.is_following?(ch.is_creator?'Mon canal':'Suivi ✓'):'Suivre';
-    var followCls=ch.is_following?'ch-follow-btn following':'ch-follow-btn';
+    var isCreator=(ch.is_creator===true||String(ch.creator_id)===String(ME&&ME.id));
+    var isFollowing=(ch.is_following===true);
+    var followLbl=isFollowing?(isCreator?'Mon canal':'Suivi ✓'):'Suivre';
+    var followCls=isFollowing?'ch-follow-btn following':'ch-follow-btn';
     var av=ch.icon_url?'<img src="'+ch.icon_url+'" alt=""/>':esc((ch.name||'?')[0]);
+    var hdBtns=isCreator
+      ?('<button class="ch-follow-btn following" style="background:rgba(220,38,38,.7);" onclick="deleteChannel(\''+chId+'\')">🗑️</button>')
+      :('<button class="'+followCls+'" id="followBtn_'+chId+'" onclick="toggleFollow(\''+chId+'\',this)">'+followLbl+'</button>');
     var hd='<div class="ch-detail-hd">'
       +'<button class="chat-back" onclick="document.getElementById(\'chDetail_'+chId+'\').remove()">←</button>'
       +'<div class="ch-av" style="width:38px;height:38px;flex-shrink:0;">'+av+'</div>'
-      +'<h2>'+esc(ch.name)+'</h2>'
-      +(ch.is_creator?('<button class="ch-follow-btn following" style="background:var(--accent);" onclick="deleteChannel(\''+chId+'\')">🗑️</button>'):
-        ('<button class="'+followCls+'" id="followBtn_'+chId+'" onclick="toggleFollow(\''+chId+'\', this)">'+followLbl+'</button>'))
-      +'</div>';
-    var postsHtml='<div class="ch-posts" id="chPosts_'+chId+'">';
+      +'<h2 style="flex:1;font-size:15px;font-weight:800;">'+esc(ch.name)+'</h2>'
+      +hdBtns+'</div>';
     var posts=(ch.posts||[]).slice().reverse();
-    if(!posts.length) postsHtml+='<div class="ch-empty">📬<br/>Aucune publication</div>';
-    posts.forEach(function(p){
-      postsHtml+=buildChPost(p,chId,ch.is_creator);
-    });
+    var postsHtml='<div class="ch-posts" id="chPosts_'+chId+'">';
+    if(!posts.length) postsHtml+='<div class="ch-empty">📬 Aucune publication encore.</div>';
+    posts.forEach(function(p){ postsHtml+=buildChPost(p,chId,isCreator); });
     postsHtml+='</div>';
-    var inputBar=ch.is_creator?'<div class="ch-input-bar">'
-      +'<input class="ch-input" id="chInput_'+chId+'" placeholder="Publier un message..."/>'
-      +'<button class="fab" style="width:40px;height:40px;flex-shrink:0;font-size:16px;" onclick="postToChannel(\''+chId+'\')">&#9654;</button>'
-      +'</div>':'';
+    var inputBar=isCreator
+      ?('<div class="ch-input-bar">'
+        +'<input class="ch-input" id="chInput_'+chId+'" placeholder="Publier dans ce canal..." onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();postToChannel(\''+chId+'\')}"/>'
+        +'<button class="fab" style="width:42px;height:42px;flex-shrink:0;font-size:18px;" onclick="postToChannel(\''+chId+'\')">►</button>'
+        +'</div>')
+      :'';
     ov.innerHTML=hd+postsHtml+inputBar;
     document.getElementById('screen-main').appendChild(ov);
-  });
+    // Focus input si créateur
+    if(isCreator) setTimeout(function(){var inp=document.getElementById('chInput_'+chId);if(inp)inp.focus();},200);
+  }).catch(function(e){ showNotif('❌','Erreur','Impossible d\'ouvrir le canal','red',null); });
 }
+
 function buildChPost(p,chId,isCreator){
   var rHtml=Object.keys(p.reactions||{}).map(function(em){
     return '<span class="ch-post-react-pill" onclick="reactChPost(\''+chId+'\',\''+p.id+'\',\''+em+'\')">'+em+' '+(p.reactions[em]||[]).length+'</span>';
@@ -2160,10 +2204,32 @@ function buildChPost(p,chId,isCreator){
 }
 async function postToChannel(chId){
   var inp=document.getElementById('chInput_'+chId); if(!inp) return;
-  var txt=inp.value.trim(); if(!txt) return;
-  var r=await api('/channels/'+chId+'/post','POST',{content:txt,type:'text'});
-  if(r&&r.success){inp.value=''; openChannelDetail(chId);}
-  else showNotif('❌','Erreur',(r&&r.error)||'','red',null);
+  var txt=inp.value.trim(); if(!txt){inp.focus();return;}
+  var btn=inp.nextElementSibling; if(btn) btn.disabled=true;
+  inp.value='';
+  try{
+    var r=await api('/channels/'+chId+'/post','POST',{content:txt,type:'text'});
+    if(r&&r.success){
+      // Ajouter le post directement au DOM sans refetch
+      var postsDiv=document.getElementById('chPosts_'+chId);
+      if(postsDiv){
+        var emptyDiv=postsDiv.querySelector('.ch-empty');
+        if(emptyDiv) emptyDiv.remove();
+        var isCreator=true;
+        var newEl=document.createElement('div');
+        newEl.innerHTML=buildChPost(r.post,chId,isCreator);
+        postsDiv.insertBefore(newEl.firstChild||newEl,postsDiv.firstChild);
+      } else { openChannelDetail(chId); }
+    } else {
+      showNotif('❌','Erreur',(r&&r.error)||'Envoi échoué','red',null);
+      inp.value=txt; // Restore text
+    }
+  }catch(e){
+    showNotif('❌','Erreur','Envoi échoué','red',null);
+    inp.value=txt;
+  }
+  if(btn) btn.disabled=false;
+  inp.focus();
 }
 async function toggleFollow(chId,btn){
   var r=await api('/channels/'+chId+'/follow','POST');
@@ -2550,6 +2616,24 @@ applyMaskedCSS();
     setTimeout(function(){ if(sp.parentNode) sp.parentNode.removeChild(sp); },340);
   },1380);
 })();
+
+// ── Canal: socket temps réel ──
+document.addEventListener('DOMContentLoaded',function(){
+  var _chSocketBound=false;
+  function bindChSocket(){
+    if(_chSocketBound||!window.SOCKET) return;
+    _chSocketBound=true;
+    SOCKET.on('channel:post',function(d){
+      var div=document.getElementById('chPosts_'+d.channel_id);
+      if(!div) return;
+      var em=div.querySelector('.ch-empty'); if(em) em.remove();
+      var el=document.createElement('div');
+      el.innerHTML=buildChPost(d.post,d.channel_id,false);
+      div.insertBefore(el.firstChild||el,div.firstChild);
+    });
+  }
+  setInterval(bindChSocket,2000);
+});
 </script>
 <div class="ol-content-page" id="ol-about">
   <div class="ol-page-hd"><button class="chat-back" onclick="document.getElementById('ol-about').style.display='none'">←</button><h2>ℹ️ À propos de Penc</h2></div>
