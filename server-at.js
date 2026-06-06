@@ -4423,6 +4423,13 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
   } catch(e) { console.error('search:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
+// GET /api/penc/debug/online — qui est connecté
+app.get('/api/penc/debug/online', async (req,res)=>{
+  const list=[];
+  pencOnline.forEach((sid,uid)=>list.push({uid:uid.slice(0,16),sid:sid.slice(0,8)}));
+  res.json({online:list,count:pencOnline.size});
+});
+
 // GET /api/penc/health — diagnostic public
 app.get('/api/penc/health', async (req,res)=>{
   try{
@@ -4851,33 +4858,41 @@ io.on('connection', async (socket) => {
 
   // Permet de rejoindre une conv créée pendant la session
 
-  // ── APPELS WEBRTC ──────────────────────────────────────
+  // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
+  function emitToUser(uid, event, data){
+    const sid=pencOnline.get(uid);
+    if(sid){ io.to(sid).emit(event,data); return true; }
+    // Fallback rooms
+    io.to('user:'+uid).emit(event,data);
+    return false;
+  }
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar}) => {
-    io.to('user:'+target_user_id).emit('call:incoming', {
-      from: pencUserId, type: type||'audio',
-      caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null
+    const ok=emitToUser(target_user_id,'call:incoming',{
+      from:pencUserId, type:type||'audio',
+      caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
+    console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
   });
   socket.on('call:accept', ({caller_id}) => {
-    io.to('user:'+caller_id).emit('call:accepted', {by: pencUserId});
+    emitToUser(caller_id,'call:accepted',{by:pencUserId});
   });
   socket.on('call:decline', ({caller_id}) => {
-    io.to('user:'+caller_id).emit('call:declined', {by: pencUserId});
+    emitToUser(caller_id,'call:declined',{by:pencUserId});
   });
   socket.on('call:offer', ({target_id, offer}) => {
-    io.to('user:'+target_id).emit('call:offer', {from: pencUserId, offer});
+    emitToUser(target_id,'call:offer',{from:pencUserId, offer});
   });
   socket.on('call:answer', ({target_id, answer}) => {
-    io.to('user:'+target_id).emit('call:answer', {from: pencUserId, answer});
+    emitToUser(target_id,'call:answer',{from:pencUserId, answer});
   });
   socket.on('call:ice', ({target_id, candidate}) => {
-    io.to('user:'+target_id).emit('call:ice', {from: pencUserId, candidate});
+    emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
-    io.to('user:'+target_id).emit('call:ended', {by: pencUserId});
+    emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
-    io.to('user:'+target_id).emit('call:busy', {by: pencUserId});
+    emitToUser(target_id,'call:busy',{by:pencUserId});
   });
   socket.on('conversation:join', ({ conversation_id }) => {
     if (conversation_id) socket.join('penc:' + conversation_id);

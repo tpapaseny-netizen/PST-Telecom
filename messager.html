@@ -1243,9 +1243,11 @@ function initSocket() {
   if(SOCKET) SOCKET.disconnect();
   SOCKET = io(SOCKET_URL, {auth:{token:TOKEN}, transports:['websocket'], path:'/socket.io'});
   SOCKET.on('connect', function(){
-    console.log('🔌 Penc connected');
-    // Rejoindre la room personnelle dès la connexion
-    if(ME&&ME.id) SOCKET.emit('user:join', {userId:ME.id});
+    console.log('🔌 Penc connected, ME:', ME&&ME.id&&ME.id.slice(0,12));
+    if(ME&&ME.id){
+      SOCKET.emit('user:join', {userId:ME.id});
+      SOCKET.emit('auth', {token:TOKEN}); // re-auth si reconnexion
+    }
   });
   SOCKET.on('message:new', onNewMsg);
   SOCKET.on('typing:start', ({userId,conversation_id})=>{
@@ -2778,8 +2780,11 @@ var _rtc={
 async function startCall(type){
   if(!CUR_CONV_DATA) return;
   var targetId=CUR_CONV_DATA.other_user_id;
-  if(!targetId){showNotif('⚠️','Erreur','Contact introuvable','red',null);return;}
+  if(!targetId){showNotif('⚠️','Erreur','Contact introuvable (other_user_id manquant)','red',null);return;}
+  if(!SOCKET||!SOCKET.connected){showNotif('⚠️','Non connecté','Reconnexion en cours...','orange',null);
+    SOCKET&&SOCKET.connect(); return;}
   if(_rtc.pc){showNotif('📞','Appel en cours','Tu es déjà en communication','orange',null);return;}
+  console.log('📞 startCall',type,'→ targetId:',targetId,'ME:',ME&&ME.id);
   try{
     _rtc.type=type; _rtc.targetId=targetId; _rtc.isCaller=true;
     _rtc.localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:type==='video'});
