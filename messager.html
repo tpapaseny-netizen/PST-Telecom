@@ -1149,7 +1149,7 @@ async function doLogin() {
     const r = await api('/auth/login','POST',{identifier:id,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); setTimeout(initCallSocket, 1000);
+    showScreen('screen-main'); initSocket(); initCallSocket();
     loadConvs().then(function(){
       if(window._pendingConvId){
         var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
@@ -1174,7 +1174,7 @@ async function doRegister() {
     const r = await api('/auth/register','POST',{full_name:name,username:uname,phone,email,password:pw});
     if(r.error) throw new Error(r.error);
     saveSession(r.user, r.token);
-    showScreen('screen-main'); initSocket(); setTimeout(initCallSocket, 1000);
+    showScreen('screen-main'); initSocket(); initCallSocket();
     loadConvs().then(function(){
       if(window._pendingConvId){
         var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
@@ -1242,7 +1242,11 @@ function resetPassword() {
 function initSocket() {
   if(SOCKET) SOCKET.disconnect();
   SOCKET = io(SOCKET_URL, {auth:{token:TOKEN}, transports:['websocket'], path:'/socket.io'});
-  SOCKET.on('connect', ()=>console.log('🔌 Penc connected'));
+  SOCKET.on('connect', function(){
+    console.log('🔌 Penc connected');
+    // Rejoindre la room personnelle dès la connexion
+    if(ME&&ME.id) SOCKET.emit('user:join', {userId:ME.id});
+  });
   SOCKET.on('message:new', onNewMsg);
   SOCKET.on('typing:start', ({userId,conversation_id})=>{
     if(conversation_id===CUR_CONV && userId!==ME.id) {
@@ -2780,6 +2784,7 @@ async function startCall(type){
     _rtc.type=type; _rtc.targetId=targetId; _rtc.isCaller=true;
     _rtc.localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:type==='video'});
     showCallOverlay(CUR_CONV_DATA.name,CUR_CONV_DATA.avatar_url,type,'Appel en cours...',false);
+    startRingtone(); // sonnerie pour l'appelant
     SOCKET.emit('call:initiate',{
       target_user_id:targetId, type:type,
       caller_name:ME.full_name||ME.username, caller_avatar:ME.avatar_url||null
@@ -2792,6 +2797,7 @@ async function startCall(type){
 
 // ── Accepter un appel ──
 async function acceptCall(){
+  stopRingtone();
   document.getElementById('incomingCallOverlay').classList.remove('active');
   try{
     _rtc.isCaller=false; _rtc.targetId=_rtc.callerId;
@@ -2875,7 +2881,33 @@ function startCallTimer(){
 }
 
 // ── Nettoyage ──
+var _rtcRingCtx=null, _rtcRingInt=null;
+function startRingtone(){
+  stopRingtone();
+  try{
+    _rtcRingCtx=new (window.AudioContext||window.webkitAudioContext)();
+    function _beep(){
+      if(!_rtcRingCtx) return;
+      var o=_rtcRingCtx.createOscillator();
+      var g=_rtcRingCtx.createGain();
+      o.connect(g); g.connect(_rtcRingCtx.destination);
+      o.type='sine'; o.frequency.setValueAtTime(440,_rtcRingCtx.currentTime);
+      o.frequency.setValueAtTime(480,_rtcRingCtx.currentTime+0.25);
+      g.gain.setValueAtTime(0.35,_rtcRingCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,_rtcRingCtx.currentTime+0.5);
+      o.start(_rtcRingCtx.currentTime);
+      o.stop(_rtcRingCtx.currentTime+0.5);
+    }
+    _beep();
+    _rtcRingInt=setInterval(_beep,1600);
+  }catch(e){}
+}
+function stopRingtone(){
+  clearInterval(_rtcRingInt); _rtcRingInt=null;
+  if(_rtcRingCtx){try{_rtcRingCtx.close();}catch(e){}  _rtcRingCtx=null;}
+}
 function cleanupCall(){
+  stopRingtone();
   clearInterval(_rtc.timerInterval);
   if(_rtc.pc){_rtc.pc.close();_rtc.pc=null;}
   if(_rtc.localStream){_rtc.localStream.getTracks().forEach(function(t){t.stop()});_rtc.localStream=null;}
@@ -2905,6 +2937,8 @@ function showCallOverlay(name,avatar,type,status,isActive){
 // ── Événements Socket.io appels ──
 function initCallSocket(){
   if(!SOCKET) return;
+  // Si déjà connecté, rejoindre immédiatement
+  if(SOCKET.connected && ME && ME.id) SOCKET.emit('user:join', {userId:ME.id});
   SOCKET.on('call:incoming',function(data){
     _rtc.callerId=data.from; _rtc.type=data.type||'audio';
     _rtc.callerName=data.caller_name; _rtc.callerAvatar=data.caller_avatar;
@@ -2916,14 +2950,10 @@ function initCallSocket(){
     if(nm) nm.textContent=data.caller_name||'Inconnu';
     if(tp) tp.textContent=data.type==='video'?'📹 Appel vidéo entrant...':'📞 Appel audio entrant...';
     o.classList.add('active');
-    // Sonnerie
-    try{var ctx=new AudioContext();var osc=ctx.createOscillator();var g=ctx.createGain();
-      osc.connect(g);g.connect(ctx.destination);osc.frequency.value=440;
-      g.gain.setValueAtTime(.3,ctx.currentTime);osc.start();
-      setTimeout(function(){osc.stop();},1000);}catch(e){}
+    startRingtone();
   });
   SOCKET.on('call:accepted',function(data){
-    document.getElementById('callTimer').textContent='Connexion...';
+    stopRingtone(); document.getElementById('callTimer').textContent='Connexion...';
     createPC();
     _rtc.pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:_rtc.type==='video'})
       .then(function(offer){return _rtc.pc.setLocalDescription(offer);}).then(function(){
@@ -2931,7 +2961,7 @@ function initCallSocket(){
       });
   });
   SOCKET.on('call:declined',function(){
-    showNotif('📵','Appel refusé','','orange',null); cleanupCall();
+    stopRingtone(); showNotif('📵','Appel refusé','','orange',null); cleanupCall();
   });
   SOCKET.on('call:busy',function(){
     showNotif('📵','Occupé','La personne est en communication','orange',null); cleanupCall();

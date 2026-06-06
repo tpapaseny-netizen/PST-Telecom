@@ -4845,6 +4845,7 @@ io.on('connection', async (socket) => {
     }
     // Rejoindre aussi la room personnelle
     socket.join('user:'+pencUserId);
+    console.log('✅ Socket connecté:', pencUserId.slice(0,12)+'... → room user:'+pencUserId.slice(0,8));
   } catch(e){console.error('autojoin:',e.message);}
   io.emit('user:online', { userId: pencUserId, isOnline: true });
 
