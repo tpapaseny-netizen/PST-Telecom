@@ -3916,8 +3916,27 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_pu_phone    ON penc_users(phone);
       CREATE INDEX IF NOT EXISTS idx_pu_email    ON penc_users(LOWER(email));
       CREATE INDEX IF NOT EXISTS idx_pu_username ON penc_users(LOWER(username));
+      CREATE TABLE IF NOT EXISTS penc_conversations (
+        id           TEXT PRIMARY KEY,
+        participants JSONB NOT NULL DEFAULT '[]',
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        updated_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_messages (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        sender_id       TEXT NOT NULL,
+        type            TEXT DEFAULT 'text',
+        content         TEXT DEFAULT '',
+        media_url       TEXT,
+        duration        INTEGER,
+        created_at      TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
+      CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
     `);
-    console.log('✅ PostgreSQL Penc connecté — table penc_users prête');
+    console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -3970,6 +3989,50 @@ async function pgAllUsers(){
   if(!_pgPool) return null;
   const r=await _pgPool.query('SELECT * FROM penc_users ORDER BY created_at DESC');
   return r.rows.map(pgRow);
+}
+
+// ── Helpers PG conversations & messages ─────────────────
+async function pgGetConvs(userId){
+  if(!_pgPool) return [];
+  const r=await _pgPool.query(
+    'SELECT * FROM penc_conversations WHERE participants @> $1 ORDER BY updated_at DESC',
+    [JSON.stringify([userId])]
+  );
+  return r.rows;
+}
+async function pgGetOrCreateConv(uid1,uid2){
+  if(!_pgPool) return null;
+  // Chercher conv existante
+  const r=await _pgPool.query(
+    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2',
+    [JSON.stringify([uid1]),JSON.stringify([uid2])]
+  );
+  if(r.rows.length) return r.rows[0];
+  // Créer nouvelle conv
+  const id='conv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const ins=await _pgPool.query(
+    'INSERT INTO penc_conversations(id,participants) VALUES($1,$2) RETURNING *',
+    [id,JSON.stringify([uid1,uid2])]
+  );
+  return ins.rows[0];
+}
+async function pgGetMessages(convId, limit=100){
+  if(!_pgPool) return [];
+  const r=await _pgPool.query(
+    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT $2',
+    [convId, limit]
+  );
+  return r.rows;
+}
+async function pgSaveMessage(msg){
+  if(!_pgPool) return null;
+  const r=await _pgPool.query(
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.created_at||new Date().toISOString()]
+  );
+  // Mettre à jour updated_at de la conv
+  await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
+  return r.rows[0];
 }
 // POST /api/penc/auth/register
 app.post('/api/penc/auth/register', async (req, res) => {
@@ -4137,33 +4200,90 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
 // CONVERSATIONS
 // ════════════════════════════════════════════════════════════
 
+
+// GET /api/penc/messages/:convId
+app.get('/api/penc/messages/:convId', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { convId } = req.params;
+    let messages = [];
+    if (_pgPool) {
+      messages = await pgGetMessages(convId, 200);
+      // Formater comme le frontend l'attend
+      messages = messages.map(m => ({
+        id: m.id, conversation_id: m.conversation_id,
+        sender_id: m.sender_id, type: m.type,
+        content: m.content, media_url: m.media_url,
+        media_duration: m.duration, created_at: m.created_at
+      }));
+    } else {
+      const all = await pencMsgs();
+      messages = all.filter(m => m.conversation_id === convId);
+    }
+    res.json({ messages });
+  } catch(e) { res.status(500).json({ error: 'Erreur' }); }
+});
+
+// GET /api/penc/conversations/:convId/messages
+app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) => {
+  try {
+    const { convId } = req.params;
+    let messages = [];
+    if (_pgPool) {
+      const rows = await pgGetMessages(convId, 200);
+      messages = rows.map(m => ({
+        id: m.id, conversation_id: m.conversation_id,
+        sender_id: m.sender_id, type: m.type,
+        content: m.content, media_url: m.media_url,
+        media_duration: m.duration, created_at: m.created_at
+      }));
+    } else {
+      const all = await pencMsgs();
+      messages = all.filter(m => m.conversation_id === convId);
+    }
+    res.json({ messages });
+  } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
 // GET /api/penc/conversations
 app.get('/api/penc/conversations', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    const convs = await pencConvs();
-    const users = await pencUsers();
-    const msgs = await pencMsgs();
-    const mine = convs.filter(c => Array.isArray(c.members) && c.members.includes(uid));
-    const enriched = mine.map(conv => {
-      const otherId = conv.members.find(m => m !== uid);
-      const otherUser = users.find(u => u.id === otherId) || null;
-      const convMsgs = msgs.filter(m => m.conversation_id === conv.id);
-      const lastMsg = convMsgs.length ? convMsgs[convMsgs.length - 1] : null;
-      return {
-        id: conv.id,
-        name: otherUser?.full_name || conv.name || 'Conversation',
-        avatar_url: otherUser?.avatar_url || null,
-        other_user_id: otherId,
-        last_message: lastMsg ? (lastMsg.type === 'text' ? (lastMsg.content || '').slice(0, 50) : '📎 Média') : null,
-        unread_count: conv.unread?.[uid] || 0,
-        updated_at: conv.updated_at || conv.created_at,
-        type: conv.type || 'direct'
-      };
-    });
-    enriched.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    res.json({ conversations: enriched });
-  } catch (e) { console.error('penc convs:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+    let result = [];
+    if (_pgPool) {
+      const convs = await pgGetConvs(uid);
+      const allUsers = await pgAllUsers() || [];
+      result = await Promise.all(convs.map(async (c) => {
+        const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
+        const otherId = parts.find(p => p !== uid);
+        const other = allUsers.find(u => u.id === otherId) || {};
+        // Dernier message
+        const msgs = await pgGetMessages(c.id, 1);
+        const last = msgs[0] || null;
+        return {
+          id: c.id, participants: parts,
+          other_user_id: otherId,
+          name: other.full_name || other.username || 'Utilisateur',
+          avatar_url: other.avatar_url || null,
+          last_message: last ? { content: last.content, type: last.type, created_at: last.created_at } : null,
+          updated_at: c.updated_at
+        };
+      }));
+    } else {
+      // Fallback JSONBin
+      const convs = await pencConvs();
+      const users = await pencUsers();
+      const msgs = await pencMsgs();
+      result = convs.filter(c => Array.isArray(c.participants) && c.participants.includes(uid)).map(c => {
+        const otherId = c.participants.find(p => p !== uid);
+        const other = users.find(u => u.id === otherId) || {};
+        const convMsgs = msgs.filter(m => m.conversation_id === c.id);
+        const last = convMsgs[convMsgs.length - 1] || null;
+        return { ...c, other_user_id: otherId, name: other.full_name || 'Utilisateur',
+          avatar_url: other.avatar_url || null, last_message: last };
+      });
+    }
+    res.json({ conversations: result });
+  } catch(e) { console.error('GET convs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
 // POST /api/penc/conversations/direct
@@ -4172,20 +4292,29 @@ app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     const { target_user_id } = req.body;
     if (!target_user_id) return res.status(400).json({ error: 'target_user_id requis' });
-    const convs = await pencConvs();
-    let conv = convs.find(c => c.type === 'direct' && Array.isArray(c.members)
-      && c.members.includes(uid) && c.members.includes(target_user_id));
-    if (!conv) {
-      conv = {
-        id: 'conv_' + Date.now() + Math.random().toString(36).slice(2),
-        members: [uid, target_user_id], type: 'direct', unread: {},
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      };
-      convs.push(conv);
-      await pencSaveConvs(convs);
+    if (_pgPool) {
+      const conv = await pgGetOrCreateConv(uid, target_user_id);
+      const allUsers = await pgAllUsers() || [];
+      const other = allUsers.find(u => u.id === target_user_id) || {};
+      return res.json({ conversation: {
+        id: conv.id,
+        participants: Array.isArray(conv.participants) ? conv.participants : JSON.parse(conv.participants||'[]'),
+        other_user_id: target_user_id,
+        name: other.full_name || other.username || 'Utilisateur',
+        avatar_url: other.avatar_url || null
+      }});
     }
-    res.json({ conversation: conv });
-  } catch (e) { console.error('penc conv direct:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+    // Fallback JSONBin
+    const convs = await pencConvs();
+    let conv = convs.find(c => Array.isArray(c.participants) && c.participants.includes(uid) && c.participants.includes(target_user_id));
+    if (!conv) {
+      conv = { id:'conv_'+Date.now(), participants:[uid,target_user_id], created_at:new Date().toISOString() };
+      convs.push(conv); await pencSaveConvs(convs);
+    }
+    const users = await pencUsers();
+    const other = users.find(u => u.id === target_user_id) || {};
+    res.json({ conversation: { ...conv, other_user_id: target_user_id, name: other.full_name || 'Utilisateur', avatar_url: other.avatar_url || null }});
+  } catch(e) { console.error('POST direct:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
 // GET /api/penc/conversations/:id/messages
@@ -4705,8 +4834,19 @@ io.on('connection', async (socket) => {
       if (cb) cb({ success: true, message: fullMsg });
 
       // 2) Persistance best-effort
-      try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); }
-      catch (e) { console.error('penc persist msg:', e.message); }
+      // ── Sauvegarder le message (PostgreSQL prioritaire) ──
+      try {
+        if (_pgPool) {
+          await pgSaveMessage({
+            id: msg.id, conversation_id: msg.conversation_id,
+            sender_id: msg.sender_id, type: msg.type,
+            content: msg.content || '', media_url: msg.media_url || null,
+            duration: msg.media_duration || null, created_at: msg.created_at
+          });
+        } else {
+          const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
+        }
+      } catch (e) { console.error('penc persist msg:', e.message); }
       try {
         const convs = await pencConvs();
         const c = convs.find(x => x.id === conversation_id);
