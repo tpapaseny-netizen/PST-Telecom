@@ -3885,87 +3885,213 @@ app.get('/api/penc/admin/diagnostic',async(req,res)=>{
   res.json({bins:BINS,counts:{users:u.length,convs:c.length,msgs:m.length},
     users:u.slice(0,10).map(x=>({id:x.id,phone:x.phone,email:x.email,username:x.username}))});
 });
+
+// ════════════════════════════════════════════════════════════
+// ══  PENC — AUTH POSTGRESQL (persistance garantie)  ════════
+// ════════════════════════════════════════════════════════════
+let _pgPool = null;
+(async function initPgPenc(){
+  if(!process.env.DATABASE_URL){ console.log('⚠️ DATABASE_URL non défini — auth Penc sur JSONBin seulement'); return; }
+  try{
+    const { Pool } = require('pg');
+    _pgPool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    await _pgPool.query(`
+      CREATE TABLE IF NOT EXISTS penc_users (
+        id          TEXT PRIMARY KEY,
+        full_name   TEXT NOT NULL,
+        username    TEXT UNIQUE NOT NULL,
+        phone       TEXT UNIQUE NOT NULL,
+        email       TEXT UNIQUE,
+        password_hash TEXT NOT NULL,
+        avatar_url  TEXT,
+        bio         TEXT DEFAULT '',
+        is_online   BOOLEAN DEFAULT FALSE,
+        last_seen   TIMESTAMPTZ DEFAULT NOW(),
+        last_ip     TEXT,
+        geo         JSONB DEFAULT '{}',
+        total_time_seconds INTEGER DEFAULT 0,
+        is_admin    BOOLEAN DEFAULT FALSE,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pu_phone    ON penc_users(phone);
+      CREATE INDEX IF NOT EXISTS idx_pu_email    ON penc_users(LOWER(email));
+      CREATE INDEX IF NOT EXISTS idx_pu_username ON penc_users(LOWER(username));
+    `);
+    console.log('✅ PostgreSQL Penc connecté — table penc_users prête');
+    // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
+    const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
+    if(parseInt(r.rows[0].count)===0){
+      const jbUsers=await pencUsers();
+      if(jbUsers.length>0){
+        console.log('🔄 Migration '+jbUsers.length+' users JSONBin → PostgreSQL...');
+        for(const u of jbUsers){
+          try{
+            await _pgPool.query(
+              'INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,is_admin,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING',
+              [u.id||'u_'+Date.now(),u.full_name||'',u.username||'',u.phone||'',u.email||null,u.password||'',u.avatar_url||null,u.bio||'',PENC_ADMIN_EMAILS.includes((u.email||'').toLowerCase()),u.created_at||new Date().toISOString()]
+            );
+          }catch(e){ /* doublon ignoré */ }
+        }
+        console.log('✅ Migration terminée');
+      }
+    }
+  }catch(e){ console.error('❌ PostgreSQL Penc erreur:', e.message); _pgPool=null; }
+})();
+
+// ── Helpers PostgreSQL ──────────────────────────────────────
+function pgRow(row){ if(!row) return null;
+  return { id:row.id, full_name:row.full_name, username:row.username, phone:row.phone,
+           email:row.email, password:row.password_hash, avatar_url:row.avatar_url,
+           bio:row.bio||'', is_admin:row.is_admin||false,
+           is_online:row.is_online, last_seen:row.last_seen, geo:row.geo||{},
+           total_time_seconds:row.total_time_seconds||0, created_at:row.created_at };
+}
+async function pgFindUser(field, value){
+  if(!_pgPool) return null;
+  const q=field==='email'?'SELECT * FROM penc_users WHERE LOWER(email)=LOWER($1)'
+          :field==='username'?'SELECT * FROM penc_users WHERE LOWER(username)=LOWER($1)'
+          :'SELECT * FROM penc_users WHERE '+field+'=$1';
+  const r=await _pgPool.query(q,[value]); return pgRow(r.rows[0]||null);
+}
+async function pgCreateUser(u){
+  const r=await _pgPool.query(
+    'INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,is_admin,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *',
+    [u.id,u.full_name,u.username,u.phone,u.email||null,u.password_hash,u.avatar_url||null,u.is_admin||false]
+  ); return pgRow(r.rows[0]);
+}
+async function pgUpdateUser(id,fields){
+  if(!_pgPool) return;
+  const sets=[]; const vals=[]; let n=1;
+  Object.entries(fields).forEach(([k,v])=>{ sets.push(k+'=$'+n); vals.push(v); n++; });
+  vals.push(id);
+  await _pgPool.query('UPDATE penc_users SET '+sets.join(',')+'  WHERE id=$'+n,vals);
+}
+async function pgAllUsers(){
+  if(!_pgPool) return null;
+  const r=await _pgPool.query('SELECT * FROM penc_users ORDER BY created_at DESC');
+  return r.rows.map(pgRow);
+}
 // POST /api/penc/auth/register
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
     const { full_name, username, phone, email, password } = req.body;
-    if (!full_name || !username || !phone || !password)
+    if (!full_name||!username||!phone||!password)
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     if (password.length < 6)
       return res.status(400).json({ error: 'Mot de passe min. 6 caractères' });
 
-    const users = await pencUsers();
-    if (users.some(u => u.phone === phone))
-      return res.status(400).json({ error: 'Ce numéro est déjà associé à un compte. Connecte-toi.' });
-    if (email && users.some(u => (u.email||'').toLowerCase() === email.toLowerCase()))
-      return res.status(400).json({ error: 'Cet email est déjà associé à un compte. Connecte-toi.' });
-    if (users.some(u => (u.username || '').toLowerCase() === username.toLowerCase()))
-      return res.status(400).json({ error: 'Ce nom utilisateur est déjà pris.' });
+    // ── Vérification unicité PostgreSQL (source de vérité) ──
+    if (_pgPool) {
+      const byPhone = await pgFindUser('phone', phone);
+      if (byPhone) return res.status(400).json({ error: '⚠️ Ce numéro existe déjà. Connecte-toi.' });
+      if (email) {
+        const byEmail = await pgFindUser('email', email);
+        if (byEmail) return res.status(400).json({ error: '⚠️ Cet email existe déjà. Connecte-toi.' });
+      }
+      const byUser = await pgFindUser('username', username);
+      if (byUser) return res.status(400).json({ error: '⚠️ Ce username est pris.' });
+    } else {
+      // Fallback JSONBin
+      const users = await pencUsers();
+      if (users.some(u => u.phone === phone))
+        return res.status(400).json({ error: '⚠️ Ce numéro existe déjà. Connecte-toi.' });
+      if (email && users.some(u => (u.email||'').toLowerCase() === email.toLowerCase()))
+        return res.status(400).json({ error: '⚠️ Cet email existe déjà. Connecte-toi.' });
+      if (users.some(u => (u.username||'').toLowerCase() === username.toLowerCase()))
+        return res.status(400).json({ error: '⚠️ Ce username est pris.' });
+    }
 
-    const hashed = await bcrypt_penc.hash(password, 10);
-    const user = {
-      id: 'u_' + Date.now() + Math.random().toString(36).slice(2),
-      full_name, username, phone,
-      email: email || null,
-      password: hashed,
-      avatar_url: null, bio: '',
-      is_online: true, last_seen: new Date().toISOString(),
-      fcm_token: null, created_at: new Date().toISOString()
-    };
-    users.push(user);
-    await pencSaveUsers(users);
-    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }), token: tok });
-  } catch (e) { console.error('penc register:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 10) : password;
+    const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
+    const newUser = { id:uid, full_name, username, phone, email:email||null,
+      password_hash:hash, avatar_url:null, bio:'', is_admin:isAdmin };
+
+    // ── Sauvegarder PostgreSQL (prioritaire) ──
+    if (_pgPool) {
+      await pgCreateUser(newUser);
+    } else {
+      // Fallback JSONBin
+      const users = await pencUsers();
+      users.push({...newUser, password:hash});
+      await pencSaveUsers(users);
+    }
+
+    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '90d' });
+    const safe = pencStrip({...newUser,password:hash});
+    res.json({ user: Object.assign({}, safe, { is_admin: isAdmin }), token: tok });
+  } catch(e) {
+    console.error('register:', e.message);
+    if(e.code==='23505') { // PostgreSQL unique violation
+      const field=e.constraint||'';
+      const msg=field.includes('phone')?'Ce num\u00e9ro est pris.':field.includes('email')?'Cet email est pris.':'Ce compte existe d\u00e9j\u00e0.';
+      return res.status(400).json({error: '⚠️ '+msg+' Connecte-toi.'});
+    }
+    res.status(500).json({ error: 'Erreur serveur: '+e.message });
+  }
 });
 
 // POST /api/penc/auth/login
 app.post('/api/penc/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
-    if (!identifier || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
-
-    let users = await pencUsers();
+    if (!identifier||!password) return res.status(400).json({error:'Identifiant et mot de passe requis'});
     const id = String(identifier).trim();
     const idLow = id.toLowerCase();
-    let user = users.find(u =>
-      u.phone === id || (u.email||'').toLowerCase() === idLow ||
-      (u.username || '').toLowerCase() === idLow
-    );
 
-    // ── BYPASS SUPER-ADMIN (fonctionne même si JSONBin est indisponible) ──
+    // ── SUPER-ADMIN BYPASS (toujours fonctionnel) ──
     const ADMIN_PWD = process.env.ADMIN_PASSWORD || 'Pstdiama@1';
-    if (!user && PENC_ADMIN_EMAILS.includes(idLow) && password === ADMIN_PWD) {
-      console.log('⚡ Bypass admin pour:', idLow);
-      user = { id: 'superadmin_'+idLow.replace(/[^a-z]/g,''), email: idLow,
-               full_name: 'Papa Seny Touré', username: 'admin_pst',
-               phone: '', created_at: new Date().toISOString() };
-      users.push(user);
-      await pencSaveUsers(users).catch(function(){}); // tentative de sauvegarde
-    }
+    const isAdminEmail = PENC_ADMIN_EMAILS.includes(idLow);
+    const isAdminBypass = isAdminEmail && password === ADMIN_PWD;
 
+    let user = null;
+
+    // ── Recherche PostgreSQL ──
+    if (_pgPool) {
+      user = await pgFindUser('phone', id)
+          || await pgFindUser('email', idLow)
+          || await pgFindUser('username', idLow);
+    }
+    // ── Fallback JSONBin ──
     if (!user) {
-      console.log('❌ Compte introuvable:', id, '| users en base:', users.length);
-      return res.status(400).json({ error: 'Compte introuvable' });
+      const jbUsers = await pencUsers();
+      const jbu = jbUsers.find(u => u.phone===id || (u.email||'').toLowerCase()===idLow || (u.username||'').toLowerCase()===idLow);
+      if (jbu) user = jbu;
     }
 
-    // Vérification mot de passe (bypass admin OU hash bcrypt)
-    let ok = false;
-    if (PENC_ADMIN_EMAILS.includes(idLow) && password === ADMIN_PWD) {
-      ok = true; // admin bypass
-    } else if (bcrypt_penc && user.password) {
-      ok = await bcrypt_penc.compare(password, user.password);
-    } else if (!user.password) {
-      ok = false;
+    // ── Bypass admin si user introuvable ──
+    if (!user && isAdminBypass) {
+      console.log('⚡ Admin bypass:', idLow);
+      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 10) : ADMIN_PWD;
+      const adminUser = { id:'superadmin_'+Date.now(), full_name:'Papa Seny Touré',
+        username:'admin_pst', phone:'', email:idLow,
+        password_hash:hash, avatar_url:null, bio:'', is_admin:true };
+      if (_pgPool) { try { await pgCreateUser(adminUser); } catch(e){} }
+      user = adminUser;
     }
-    if (!ok) return res.status(400).json({ error: 'Mot de passe incorrect' });
 
-    user.is_online = true;
-    user.last_seen = new Date().toISOString();
-    await pencSaveUsers(users).catch(function(){});
+    if (!user) return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'});
+
+    // ── Vérification mot de passe ──
+    let pwdOk = isAdminBypass;
+    if (!pwdOk) {
+      const hash = user.password_hash || user.password || '';
+      pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+    }
+    if (!pwdOk) return res.status(400).json({error:'Mot de passe incorrect.'});
+
+    // ── Mise à jour last_seen ──
+    if (_pgPool) {
+      await pgUpdateUser(user.id, { is_online:true, last_seen:'NOW()' }).catch(()=>{});
+    }
+
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
-    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: PENC_ADMIN_EMAILS.includes(idLow) }), token: tok });
-  } catch (e) { console.error('penc login:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+    const isAdmin = isAdminEmail || user.is_admin || false;
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
+  } catch(e) {
+    console.error('login:', e.message);
+    res.status(500).json({ error: 'Erreur serveur: '+e.message });
+  }
 });
 
 // GET /api/penc/auth/me
