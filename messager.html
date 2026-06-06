@@ -1183,6 +1183,10 @@ function initSocket() {
     if(CUR_CONV_DATA?.other_user_id===userId) updateChatStatus(isOnline);
     renderConvList();
   });
+  // Rejoindre la room personnelle pour recevoir les messages en temps réel
+  SOCKET.on('connect', ()=>{
+    if(ME&&ME.id) SOCKET.emit('user:join', {userId:ME.id});
+  });
 }
 
 function onNewMsg(msg) {
@@ -1277,6 +1281,8 @@ async function openConv(conv) {
   if(!MSGS[conv.id]){const d=await api(`/conversations/${conv.id}/messages`);if(d.messages)MSGS[conv.id]=d.messages;}
   (MSGS[conv.id]||[]).forEach(m=>appendMsg(m));
   scrollBottom();
+  // Rejoindre la room Socket.io pour recevoir les messages en temps réel
+  SOCKET&&SOCKET.emit('conversation:join',{conversation_id:conv.id});
   SOCKET&&SOCKET.emit('message:read',{conversation_id:conv.id});
   const c=CONVS.find(c=>c.id===conv.id);
   if(c){totalUnread-=(c.unread_count||0);c.unread_count=0;updateBadge();renderConvList();}

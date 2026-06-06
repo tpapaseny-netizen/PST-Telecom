@@ -4833,17 +4833,27 @@ io.on('connection', async (socket) => {
   pencOnline.set(pencUserId, socket.id);
   socket.pencUserId = pencUserId;
 
-  // Rejoindre ses conversations
+  // Rejoindre ses conversations (PostgreSQL prioritaire)
   try {
-    const convs = await pencConvs();
-    convs.filter(c => Array.isArray(c.members) && c.members.includes(pencUserId))
-      .forEach(c => socket.join('penc:' + c.id));
-  } catch {}
+    if(_pgPool){
+      const convRows=await pgGetConvs(pencUserId);
+      convRows.forEach(c=>socket.join('penc:'+c.id));
+    } else {
+      const convs=await pencConvs();
+      convs.filter(c=>Array.isArray(c.participants||c.members)&&(c.participants||c.members).includes(pencUserId))
+        .forEach(c=>socket.join('penc:'+c.id));
+    }
+    // Rejoindre aussi la room personnelle
+    socket.join('user:'+pencUserId);
+  } catch(e){console.error('autojoin:',e.message);}
   io.emit('user:online', { userId: pencUserId, isOnline: true });
 
   // Permet de rejoindre une conv créée pendant la session
   socket.on('conversation:join', ({ conversation_id }) => {
     if (conversation_id) socket.join('penc:' + conversation_id);
+  });
+  socket.on('user:join', ({ userId }) => {
+    if (userId) socket.join('user:' + userId);
   });
 
   // Envoyer message
@@ -4870,7 +4880,21 @@ io.on('connection', async (socket) => {
         if (u) sender = pencStrip(u);
       } catch {}
       const fullMsg = { ...msg, sender };
+      // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
+      // Fallback: émettre directement aux participants via leur room user:
+      try{
+        let parts=[];
+        if(_pgPool){
+          const cr=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
+          if(cr.rows[0]){
+            parts=Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]');
+          }
+        }
+        parts.forEach(pid=>{
+          if(pid!==pencUserId) io.to('user:'+pid).emit('message:new',fullMsg);
+        });
+      }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
       // 2) Persistance best-effort
