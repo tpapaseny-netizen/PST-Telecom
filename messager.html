@@ -1252,7 +1252,7 @@ function renderConvList(filter='') {
     const unread=conv.unread_count||0;
     el.innerHTML=`
       <div class="conv-avatar${unseenStatusUsers.has(conv.other_user_id)?' has-status':''}">${conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`}${isOnline?'<div class="online-dot"></div>':''}</div>
-      <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${esc(conv.last_message||'Démarrer la conversation')}</div></div>
+      <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${ (function(lm){ if(!lm) return 'Démarrer la conversation'; if(typeof lm==='string') return esc(lm); if(lm.content) return esc(lm.type==='audio'?'🎤 Vocal':lm.type==='image'?'📷 Photo':lm.content); return 'Message'; })(conv.last_message) }</div></div>
       <div class="conv-meta"><div class="conv-time">${fmtTime(conv.updated_at)}</div>${unread?`<div class="conv-badge">${unread}</div>`:''}</div>`;
     el.onclick=()=>openConv(conv);
     list.appendChild(el);
@@ -1293,7 +1293,9 @@ function appendMsg(msg) {
   const area=document.getElementById('msgsArea');
   if(msg.id && area.querySelector('[data-mid="'+msg.id+'"]')) return; // anti-doublon
   const typing=document.getElementById('typingRow');
-  const isMe=msg.sender?.id===ME?.id||msg.sender_id===ME?.id;
+  const _mid=msg.sender_id||msg.sender?.id||'';
+  const _uid=ME?.id||'';
+  const isMe=!!_uid&&(String(_mid)===String(_uid)||(ME?.phone&&msg.sender?.phone===ME.phone)||(ME?.email&&msg.sender?.email===ME.email));
   const row=document.createElement('div'); row.className=`msg-row ${isMe?'me':'them'}`; row.dataset.mid=msg.id;
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
