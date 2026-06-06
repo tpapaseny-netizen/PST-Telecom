@@ -4209,18 +4209,33 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
 // GET /api/penc/contacts/search?q=
 app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
   try {
-    const q = String(req.query.q || '').trim().toLowerCase();
-    if (!q) return res.json({ users: [] });
     const uid = req.pencUser.userId;
-    const users = await pencUsers();
-    const found = users.filter(u => u.id !== uid && (
-      (u.full_name || '').toLowerCase().includes(q) ||
-      (u.username || '').toLowerCase().includes(q) ||
-      (u.phone || '').toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q)
-    )).slice(0, 20).map(pencStrip);
-    res.json({ users: found });
-  } catch (e) { console.error('penc search:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+    const q = String(req.query.q || '').trim();
+    let results = [];
+    if (_pgPool) {
+      if (q) {
+        const ql = '%' + q.toLowerCase() + '%';
+        const r = await _pgPool.query(
+          'SELECT * FROM penc_users WHERE id!=$1 AND (LOWER(full_name) LIKE $2 OR LOWER(username) LIKE $2 OR phone LIKE $3) LIMIT 50',
+          [uid, ql, '%'+q+'%']
+        );
+        results = r.rows.map(pgRow).map(pencStrip);
+      } else {
+        // Sans query: retourner tous les utilisateurs
+        const all = await pgAllUsers() || [];
+        results = all.filter(u => u.id !== uid).map(pencStrip);
+      }
+    } else {
+      const users = await pencUsers();
+      const ql = q.toLowerCase();
+      results = users.filter(u => u.id !== uid && (!ql ||
+        (u.full_name||'').toLowerCase().includes(ql) ||
+        (u.username||'').toLowerCase().includes(ql) ||
+        (u.phone||'').includes(q)
+      )).map(pencStrip);
+    }
+    res.json({ users: results, contacts: results });
+  } catch(e) { console.error('search:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
 // GET /api/penc/health — diagnostic public
@@ -4237,8 +4252,9 @@ app.get('/api/penc/health', async (req,res)=>{
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    const users = await pencUsers();
-    res.json({ contacts: users.filter(u => u.id !== uid).slice(0, 50).map(pencStrip) });
+    // PostgreSQL prioritaire — fallback JSONBin
+    const users = _pgPool ? (await pgAllUsers() || []) : await pencUsers();
+    res.json({ contacts: users.filter(u => u.id !== uid).map(pencStrip) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
