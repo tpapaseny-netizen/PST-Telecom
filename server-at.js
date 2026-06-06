@@ -3935,6 +3935,22 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
+      CREATE TABLE IF NOT EXISTS penc_statuses (
+        id          TEXT PRIMARY KEY,
+        user_id     TEXT NOT NULL,
+        type        TEXT DEFAULT 'text',
+        media_url   TEXT,
+        text_content TEXT,
+        bg_color    TEXT DEFAULT '#050D18',
+        caption     TEXT,
+        reactions   JSONB DEFAULT '[]',
+        views       JSONB DEFAULT '[]',
+        view_ips    JSONB DEFAULT '[]',
+        created_at  TIMESTAMPTZ DEFAULT NOW(),
+        expires_at  TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+      );
+      CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
+      CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4201,6 +4217,42 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
 // ════════════════════════════════════════════════════════════
 
 
+// ── Helpers PG statuts ──────────────────────────
+async function pgGetStatuses(activeOnly=true){
+  if(!_pgPool) return null;
+  const q=activeOnly
+    ?'SELECT * FROM penc_statuses WHERE expires_at > NOW() ORDER BY created_at DESC'
+    :'SELECT * FROM penc_statuses ORDER BY created_at DESC';
+  const r=await _pgPool.query(q); return r.rows;
+}
+async function pgSaveStatus(st){
+  if(!_pgPool) return null;
+  const r=await _pgPool.query(
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *',
+    [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
+     st.bg_color||'#050D18',st.caption||null,
+     JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
+     st.created_at||new Date().toISOString(),
+     st.expires_at||new Date(Date.now()+86400000).toISOString()]
+  );
+  return r.rows[0];
+}
+async function pgUpdateStatus(id,fields){
+  if(!_pgPool) return;
+  const sets=[]; const vals=[]; let n=1;
+  Object.entries(fields).forEach(([k,v])=>{ sets.push(k+'=$'+n); vals.push(typeof v==='object'?JSON.stringify(v):v); n++; });
+  vals.push(id);
+  await _pgPool.query('UPDATE penc_statuses SET '+sets.join(',')+'  WHERE id=$'+n,vals);
+}
+function pgStatusToObj(row){
+  if(!row) return null;
+  return {...row,
+    reactions: typeof row.reactions==='string'?JSON.parse(row.reactions):row.reactions||[],
+    views: typeof row.views==='string'?JSON.parse(row.views):row.views||[],
+    view_ips: typeof row.view_ips==='string'?JSON.parse(row.view_ips):row.view_ips||[]
+  };
+}
 // GET /api/penc/messages/:convId
 app.get('/api/penc/messages/:convId', pencAuth, async (req, res) => {
   try {
@@ -4399,88 +4451,66 @@ app.get('/api/penc/contacts', pencAuth, async (req, res) => {
 app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    const statuses = await pencStatuses();
-    const users = await pencUsers();
-    const recent = statuses
-      .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id !== uid)
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    const vLookup = uid2 => { const u = users.find(x => x.id === uid2); return u ? {id:u.id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url||null} : {id:uid2,full_name:'Utilisateur',username:''}; };
-    const enriched = recent.map(s => ({
-      ...s,
-      user: pencStrip(users.find(u => u.id === s.user_id)),
-      viewed: (s.views || []).includes(uid),
-      reactions: s.reactions || []
-    }));
-    const meU = pencStrip(users.find(u => u.id === uid));
-    const mine = statuses
-      .filter(s => new Date(s.created_at).getTime() >= cutoff && s.user_id === uid)
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      .map(s => ({ ...s, user: meU, viewed: true, reactions: s.reactions||[], viewers: (s.views||[]).map(vLookup) }));
-    res.json({ statuses: enriched, mine });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    const allUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
+    const vLookup = id2 => { const u=allUsers.find(x=>x.id===id2); return u?{id:u.id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url||null}:{id:id2,full_name:'Utilisateur',username:''}; };
+    let statuses=[], mine=[];
+    if(_pgPool){
+      const rows=await pgGetStatuses(true);
+      statuses=rows.map(pgStatusToObj).filter(s=>s.user_id!==uid).map(s=>({...s,user:vLookup(s.user_id),viewed:(s.views||[]).includes(uid)}));
+      mine=rows.map(pgStatusToObj).filter(s=>s.user_id===uid).map(s=>({...s,user:vLookup(uid),viewed:false}));
+    } else {
+      const cutoff=Date.now()-86400000;
+      const all=await pencStatuses();
+      statuses=all.filter(s=>new Date(s.created_at).getTime()>=cutoff&&s.user_id!==uid).map(s=>({...s,user:vLookup(s.user_id),viewed:(s.views||[]).includes(uid)}));
+      mine=all.filter(s=>s.user_id===uid&&new Date(s.created_at).getTime()>=cutoff).map(s=>({...s,user:vLookup(uid)}));
+    }
+    const meUser=vLookup(uid);
+    res.json({statuses,mine,me:meUser});
+  }catch(e){console.error('GET statuses:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 
 // POST /api/penc/statuses
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const { type, media_url, text_content, bg_color, caption } = req.body;
-    const statuses = await pencStatuses();
     const status = {
-      id: 'st_' + Date.now() + Math.random().toString(36).slice(2),
-      user_id: req.pencUser.userId, type,
-      media_url: media_url || null, text_content: text_content || null,
-      bg_color: bg_color || '#050D18', caption: caption || null, reactions: [], views: [],
+      id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
+      user_id: req.pencUser.userId, type: type||'text',
+      media_url: media_url||null, text_content: text_content||null,
+      bg_color: bg_color||'#050D18', caption: caption||null,
+      reactions: [], views: [], view_ips: [],
       created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      expires_at: new Date(Date.now()+86400000).toISOString()
     };
-    statuses.push(status);
-    await pencSaveStatuses(statuses);
-    res.json({ status, success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    if(_pgPool){
+      await pgSaveStatus(status);
+    } else {
+      const statuses=await pencStatuses(); statuses.push(status); await pencSaveStatuses(statuses);
+    }
+    res.json({status,success:true});
+  }catch(e){console.error('POST status:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 
 // POST /api/penc/statuses/:id/view
 app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
   try {
-    const uid = req.pencUser.userId;
-    const statuses = await pencStatuses();
-    const s = statuses.find(x => x.id === req.params.id);
-    if (!s) return res.json({ success: true });
-    const xf = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    const ip = xf || (req.socket && req.socket.remoteAddress) || 'unknown';
-    s.views = s.views || [];
-    if (!s.views.includes(uid)) s.views.push(uid);
-    if (s.user_id === uid) {
-      // Vue de SON PROPRE statut : ne compte PAS comme vue valide
-      s.own_views = (s.own_views || 0) + 1;
-      const users = await pencUsers();
-      const author = users.find(u => u.id === uid);
-      if (author) { author.own_views = (author.own_views || 0) + 1; await pencSaveUsers(users); }
-      await pencSaveStatuses(statuses);
-      return res.json({ success: true, own: true });
+    const uid=req.pencUser.userId;
+    const xf=(req.headers['x-forwarded-for']||'').split(',')[0].trim();
+    const ip=xf||(req.socket&&req.socket.remoteAddress)||'unknown';
+    if(_pgPool){
+      const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE id=$1',[req.params.id]);
+      if(!r.rows[0]) return res.json({success:true});
+      const st=pgStatusToObj(r.rows[0]);
+      if(!st.views.includes(uid)) st.views.push(uid);
+      if(!st.view_ips.includes(ip)) st.view_ips.push(ip);
+      await pgUpdateStatus(req.params.id,{views:st.views,view_ips:st.view_ips});
+    } else {
+      const statuses=await pencStatuses();
+      const st=statuses.find(x=>x.id===req.params.id);
+      if(st){st.views=st.views||[];if(!st.views.includes(uid))st.views.push(uid);await pencSaveStatuses(statuses);}
     }
-    // Vue valide : 1 seule par adresse IP
-    s.view_ips = s.view_ips || [];
-    if (!s.view_ips.includes(ip)) {
-      s.view_ips.push(ip);
-      await pencSaveStatuses(statuses);
-      const users = await pencUsers();
-      const author = users.find(u => u.id === s.user_id);
-      if (author) {
-        const before = author.valid_views || 0;
-        author.valid_views = before + 1;
-        if (Math.floor(author.valid_views / 1000) > Math.floor(before / 1000)) {
-          author.reward_pending = true;
-          author.reward_threshold = Math.floor(author.valid_views / 1000) * 1000;
-          author.reward_alerted_at = new Date().toISOString();
-          console.log('🎯 ALERTE RÉCOMPENSE: ' + (author.username || author.id) + ' a atteint ' + author.reward_threshold + ' vues valides');
-        }
-        await pencSaveUsers(users);
-      }
-    }
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    res.json({success:true});
+  }catch(e){res.json({success:true});}
 });
 
 // ════════════════════════════════════════════════════════════
@@ -4732,57 +4762,60 @@ app.delete('/api/penc/channels/:id', pencAuth, async (req,res) => {
     channels.splice(idx,1); await pencSaveChannels(channels); res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 
-// DELETE /api/penc/statuses/:id — auteur uniquement
+// DELETE /api/penc/statuses/:id
 app.delete('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
-    const uid = req.pencUser.userId;
-    const statuses = await pencStatuses();
-    const idx = statuses.findIndex(x => x.id === req.params.id);
-    if (idx < 0) return res.status(404).json({ error: 'Statut introuvable' });
-    if (String(statuses[idx].user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
-    statuses.splice(idx, 1);
-    await pencSaveStatuses(statuses);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    const uid=req.pencUser.userId;
+    if(_pgPool){
+      await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1 AND user_id=$2',[req.params.id,uid]);
+      return res.json({success:true});
+    }
+    const statuses=await pencStatuses();
+    const idx=statuses.findIndex(x=>x.id===req.params.id&&x.user_id===uid);
+    if(idx>=0){statuses.splice(idx,1);await pencSaveStatuses(statuses);}
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 
-// PATCH /api/penc/statuses/:id — modification texte
+// PATCH /api/penc/statuses/:id
 app.patch('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
-    const uid = req.pencUser.userId;
-    const { text_content, caption } = req.body;
-    const statuses = await pencStatuses();
-    const stat = statuses.find(x => x.id === req.params.id);
-    if (!stat) return res.status(404).json({ error: 'Statut introuvable' });
-    if (String(stat.user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
-    if (text_content !== undefined) stat.text_content = text_content;
-    if (caption !== undefined) stat.caption = caption;
-    await pencSaveStatuses(statuses);
-    res.json({ success: true, status: stat });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    const uid=req.pencUser.userId; const {text_content,caption}=req.body;
+    if(_pgPool){
+      await _pgPool.query('UPDATE penc_statuses SET text_content=$1,caption=$2 WHERE id=$3 AND user_id=$4',
+        [text_content||null,caption||null,req.params.id,uid]);
+      return res.json({success:true});
+    }
+    const statuses=await pencStatuses();
+    const st=statuses.find(x=>x.id===req.params.id&&x.user_id===uid);
+    if(st){if(text_content!==undefined)st.text_content=text_content;if(caption!==undefined)st.caption=caption;await pencSaveStatuses(statuses);}
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 
 // POST /api/penc/statuses/:id/react
-
 app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
   try {
-    const uid = req.pencUser.userId;
-    const { emoji } = req.body;
-    if (!emoji) return res.status(400).json({ error: 'emoji requis' });
-    const statuses = await pencStatuses();
-    const stat = statuses.find(x => x.id === req.params.id);
-    if (!stat) return res.status(404).json({ error: 'Statut introuvable' });
-    stat.reactions = stat.reactions || [];
-    const existing = stat.reactions.find(r => r.user_id === uid);
-    if (existing) {
-      if (existing.emoji === emoji) stat.reactions = stat.reactions.filter(r => r.user_id !== uid);
-      else existing.emoji = emoji;
-    } else {
-      stat.reactions.push({ user_id: uid, emoji, at: new Date().toISOString() });
+    const uid=req.pencUser.userId; const {emoji}=req.body;
+    if(_pgPool){
+      const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE id=$1',[req.params.id]);
+      if(!r.rows[0]) return res.status(404).json({error:'Statut introuvable'});
+      const st=pgStatusToObj(r.rows[0]);
+      st.reactions=st.reactions||[];
+      const existing=st.reactions.find(r=>r.user_id===uid);
+      if(existing) existing.emoji=emoji; else st.reactions.push({user_id:uid,emoji,created_at:new Date().toISOString()});
+      await pgUpdateStatus(req.params.id,{reactions:st.reactions});
+      return res.json({success:true,reactions:st.reactions});
     }
+    const statuses=await pencStatuses();
+    const st=statuses.find(x=>x.id===req.params.id);
+    if(!st) return res.status(404).json({error:'Statut introuvable'});
+    st.reactions=st.reactions||[];
+    const ex=st.reactions.find(r=>r.user_id===uid);
+    if(ex) ex.emoji=emoji; else st.reactions.push({user_id:uid,emoji,created_at:new Date().toISOString()});
     await pencSaveStatuses(statuses);
-    res.json({ success: true, reactions: stat.reactions });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+    res.json({success:true,reactions:st.reactions});
+  }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 
 // SOCKET.IO — PENC TEMPS RÉEL
