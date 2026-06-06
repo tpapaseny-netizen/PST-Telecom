@@ -1293,9 +1293,12 @@ function appendMsg(msg) {
   const area=document.getElementById('msgsArea');
   if(msg.id && area.querySelector('[data-mid="'+msg.id+'"]')) return; // anti-doublon
   const typing=document.getElementById('typingRow');
-  const _mid=msg.sender_id||msg.sender?.id||'';
-  const _uid=ME?.id||'';
-  const isMe=!!_uid&&(String(_mid)===String(_uid)||(ME?.phone&&msg.sender?.phone===ME.phone)||(ME?.email&&msg.sender?.email===ME.email));
+  // is_mine vient du serveur (fiable) ou on calcule localement
+  const isMe = msg.is_mine === true
+    || (msg.is_mine !== false && ME && (
+      String(msg.sender_id||'') === String(ME.id||'')
+      || String(msg.sender?.id||'') === String(ME.id||'')
+    ));
   const row=document.createElement('div'); row.className=`msg-row ${isMe?'me':'them'}`; row.dataset.mid=msg.id;
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
@@ -1397,12 +1400,12 @@ function sendText(){
   SOCKET.emit('typing:stop',{conversation_id:CUR_CONV});
   const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'text',content:text,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
   appendMsg(tmp); scrollBottom();
-  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text},(res)=>{if(res?.message){const el=document.querySelector(`[data-mid="${tmp.id}"]`);if(el)el.dataset.mid=res.message.id;}});
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text},(res)=>{if(res?.message){res.message.is_mine=true;const el=document.querySelector(`[data-mid="${tmp.id}"]`);if(el)el.dataset.mid=res.message.id;}});
 }
 
 function sendMsgSocket(data){
   if(!CUR_CONV||!SOCKET) return;
-  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){appendMsg(res.message);scrollBottom();}}); // affichage immédiat (le garde-fou par ID empêche le doublon)
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){res.message.is_mine=true;appendMsg(res.message);scrollBottom();}}); // affichage immédiat (le garde-fou par ID empêche le doublon)
 }
 
 // ══════════════ VOICE REC ══════════════

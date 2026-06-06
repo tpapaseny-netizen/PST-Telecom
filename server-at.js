@@ -4229,17 +4229,21 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
   try {
     const { convId } = req.params;
     let messages = [];
+    const uid = req.pencUser.userId;
     if (_pgPool) {
       const rows = await pgGetMessages(convId, 200);
       messages = rows.map(m => ({
         id: m.id, conversation_id: m.conversation_id,
-        sender_id: m.sender_id, type: m.type,
-        content: m.content, media_url: m.media_url,
-        media_duration: m.duration, created_at: m.created_at
+        sender_id: m.sender_id,
+        is_mine: String(m.sender_id) === String(uid), // ← flag côté serveur
+        type: m.type, content: m.content,
+        media_url: m.media_url, media_duration: m.duration,
+        created_at: m.created_at
       }));
     } else {
       const all = await pencMsgs();
-      messages = all.filter(m => m.conversation_id === convId);
+      messages = all.filter(m => m.conversation_id === convId)
+        .map(m => ({...m, is_mine: String(m.sender_id) === String(uid)}));
     }
     res.json({ messages });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
@@ -4828,7 +4832,10 @@ io.on('connection', async (socket) => {
 
       // 1) Livraison TEMPS RÉEL d'abord (ne dépend pas de JSONBin)
       let sender = { id: pencUserId };
-      try { const users = await pencUsers(); const u = users.find(x => x.id === pencUserId); if (u) sender = pencStrip(u); } catch {}
+      try {
+        const u = _pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(x => x.id === pencUserId);
+        if (u) sender = pencStrip(u);
+      } catch {}
       const fullMsg = { ...msg, sender };
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
       if (cb) cb({ success: true, message: fullMsg });
@@ -4856,8 +4863,17 @@ io.on('connection', async (socket) => {
       // 3) Notifications push aux destinataires
       try {
         if (webpush) {
-          const c3 = (await pencConvs()).find(x => x.id === conversation_id);
-          const recipients = (c3 && Array.isArray(c3.members)) ? c3.members.filter(m => m !== pencUserId) : [];
+          let recipients = [];
+          if (_pgPool) {
+            const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [conversation_id]);
+            if (cr.rows[0]) {
+              const parts = Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]');
+              recipients = parts.filter(p => p !== pencUserId);
+            }
+          } else {
+            const c3 = (await pencConvs()).find(x => x.id === conversation_id);
+            recipients = (c3 && Array.isArray(c3.participants||c3.members)) ? (c3.participants||c3.members).filter(m => m !== pencUserId) : [];
+          }
           let pbody = '';
           if (type === 'voice') pbody = '🎙️ Message vocal';
           else if (type === 'image') pbody = '📷 Photo';
