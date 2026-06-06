@@ -4849,6 +4849,35 @@ io.on('connection', async (socket) => {
   io.emit('user:online', { userId: pencUserId, isOnline: true });
 
   // Permet de rejoindre une conv créée pendant la session
+
+  // ── APPELS WEBRTC ──────────────────────────────────────
+  socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar}) => {
+    io.to('user:'+target_user_id).emit('call:incoming', {
+      from: pencUserId, type: type||'audio',
+      caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null
+    });
+  });
+  socket.on('call:accept', ({caller_id}) => {
+    io.to('user:'+caller_id).emit('call:accepted', {by: pencUserId});
+  });
+  socket.on('call:decline', ({caller_id}) => {
+    io.to('user:'+caller_id).emit('call:declined', {by: pencUserId});
+  });
+  socket.on('call:offer', ({target_id, offer}) => {
+    io.to('user:'+target_id).emit('call:offer', {from: pencUserId, offer});
+  });
+  socket.on('call:answer', ({target_id, answer}) => {
+    io.to('user:'+target_id).emit('call:answer', {from: pencUserId, answer});
+  });
+  socket.on('call:ice', ({target_id, candidate}) => {
+    io.to('user:'+target_id).emit('call:ice', {from: pencUserId, candidate});
+  });
+  socket.on('call:end', ({target_id}) => {
+    io.to('user:'+target_id).emit('call:ended', {by: pencUserId});
+  });
+  socket.on('call:busy', ({target_id}) => {
+    io.to('user:'+target_id).emit('call:busy', {by: pencUserId});
+  });
   socket.on('conversation:join', ({ conversation_id }) => {
     if (conversation_id) socket.join('penc:' + conversation_id);
   });
