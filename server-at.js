@@ -3931,9 +3931,11 @@ let _pgPool = null;
         media_url       TEXT,
         duration        INTEGER,
         reply_to        JSONB,
+        deleted_for_all BOOLEAN DEFAULT FALSE,
         created_at      TIMESTAMPTZ DEFAULT NOW()
       );
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS reply_to JSONB;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
@@ -4302,6 +4304,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         type: m.type, content: m.content,
         media_url: m.media_url, media_duration: m.duration,
         reply_to: m.reply_to || null,
+        deleted_for_all: m.deleted_for_all || false,
         created_at: m.created_at
       }));
     } else {
@@ -4311,6 +4314,54 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     }
     res.json({ messages });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+
+// DELETE /api/penc/messages/:id — supprimer un message
+app.delete('/api/penc/messages/:id', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { for_all } = req.body;
+    if(!for_all) return res.json({success:true}); // 'Pour moi' = côté client uniquement
+    if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
+    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1',[req.params.id]);
+    const msg=r.rows[0];
+    if(!msg) return res.status(404).json({error:'Message introuvable'});
+    if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Action non autorisée'});
+    // Marquer supprimé
+    await _pgPool.query('UPDATE penc_messages SET deleted_for_all=TRUE,content=$1,type=$2 WHERE id=$3',
+      ['','deleted',req.params.id]);
+    // Notifier tous les participants via Socket.io
+    const sockets=await io.fetchSockets();
+    const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
+    const parts=convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[];
+    parts.forEach(function(pid){
+      const sid=pencOnline.get(pid);
+      if(sid) io.to(sid).emit('message:deleted',{id:msg.id,conv_id:msg.conversation_id});
+    });
+    res.json({success:true});
+  }catch(e){console.error('delete msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
+});
+
+// POST /api/penc/messages/:id/restore — restaurer un message (undo)
+app.post('/api/penc/messages/:id/restore', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
+    const { original_content, original_type } = req.body;
+    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1',[req.params.id]);
+    const msg=r.rows[0];
+    if(!msg||String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
+    await _pgPool.query('UPDATE penc_messages SET deleted_for_all=FALSE,content=$1,type=$2 WHERE id=$3',
+      [original_content||'',original_type||'text',req.params.id]);
+    // Notifier
+    const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
+    const parts=convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[];
+    parts.forEach(function(pid){
+      const sid=pencOnline.get(pid);
+      if(sid) io.to(sid).emit('message:restored',{id:msg.id,conv_id:msg.conversation_id,content:original_content,type:original_type||'text'});
+    });
+    res.json({success:true});
+  }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 // GET /api/penc/conversations
 app.get('/api/penc/conversations', pencAuth, async (req, res) => {

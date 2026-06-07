@@ -801,6 +801,25 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-quote-name{font-size:11px;font-weight:700;color:var(--accent);}
 .msg-quote-text{font-size:12px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+/* === SUPPRESSION MESSAGES === */
+.msg-ctx-menu{position:fixed;background:var(--card);border-radius:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9500;overflow:hidden;min-width:200px;
+  animation:ctxIn .15s ease;}
+@keyframes ctxIn{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
+.msg-ctx-item{padding:14px 18px;display:flex;align-items:center;gap:12px;
+  cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);}
+.msg-ctx-item:last-child{border-bottom:none;}
+.msg-ctx-item:active{background:var(--card2);}
+.msg-ctx-item.danger{color:#ef4444;}
+.msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:8px 12px;
+  background:var(--card2);border-radius:10px;}
+#deleteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+  background:var(--card);padding:12px 18px;border-radius:12px;
+  display:none;align-items:center;gap:14px;z-index:9600;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:13px;white-space:nowrap;
+  border:1px solid var(--border);}
+.toast-undo{color:var(--accent);font-weight:800;cursor:pointer;font-size:13px;}
+.toast-timer{color:var(--muted);font-size:12px;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
 </head>
@@ -1478,7 +1497,13 @@ function updateChatStatus(on){
   document.getElementById('chatHdrSt').textContent=on?'● En ligne':'hors ligne';
   document.getElementById('chatHdrSt').style.color=on?'var(--accent)':'var(--muted)';
 }
-function backToMain(){showScreen('screen-main');CUR_CONV=null;CUR_CONV_DATA=null;renderConvList();}
+function backToMain(){
+  // Vider le cache de la discussion pour forcer rechargement depuis API au retour
+  if(CUR_CONV) delete MSGS[CUR_CONV];
+  showScreen('screen-main');
+  CUR_CONV=null; CUR_CONV_DATA=null;
+  renderConvList();
+}
 
 // ══════════════ MESSAGES ══════════════
 function appendMsg(msg) {
@@ -1515,7 +1540,7 @@ function appendMsg(msg) {
     _isSwiping=false;
     row.style.transition='none';
     _lpT2=setTimeout(function(){
-      if(!_isSwiping){ setReplyingTo(msg); row.style.opacity='.65'; setTimeout(function(){row.style.opacity='';},200); }
+      if(!_isSwiping){ row.style.opacity='.75'; setTimeout(function(){row.style.opacity='';},150); showMsgMenu(msg,row); }
     },500);
   },{passive:true});
   row.addEventListener('touchmove',function(e){
@@ -1544,6 +1569,7 @@ function appendMsg(msg) {
   else if(msg.type==='poll') bubble=buildPollCard(msg);
   else if(msg.type==='sticker') bubble=`<div class="sticker-msg">${esc(msg.content)}</div>`;
   else if(msg.type==='bot') bubble=`<div class="bot-bubble">${esc(msg.content)}</div>`;
+  else if(msg.deleted_for_all) bubble='<div class="msg-deleted">🚫 Message supprimé</div>';
   else bubble=`<div class="msg-bubble">${linkify(esc(msg.content||''))}</div>`;
   const t=fmtTime(msg.created_at);
   const bodyHtml=`<div class="msg-body">${quoteHtml}${bubble}<div class="msg-meta"><span>${t}</span>${isMe?`<span class="msg-tick ${msg.read_at?'read':''}">✓✓</span>`:''}</div></div>`;
@@ -3158,6 +3184,136 @@ function initCallSocket(){
   SOCKET.on('penc:welcome',function(data){
     showNotif('🎉','Nouveau membre',data.message||'','green',null);
   });
+  initDeleteSocket();
+}
+
+// ══ SUPPRESSION MESSAGES ══
+var _ctxMenu=null, _undoTimer=null, _undoData=null;
+
+function showMsgMenu(msg, rowEl, event){
+  if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;}
+  var isOwn=(msg.is_mine===true)||(ME&&String(msg.sender_id||'')===String(ME.id||''));
+  var age=Date.now()-new Date(msg.created_at).getTime();
+  var canAll=isOwn&&age<600000; // 10 minutes
+  var items=[
+    {icon:'↩️',label:'Répondre',fn:function(){setReplyingTo(msg);}},
+    {icon:'🗑️',label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false},
+  ];
+  if(canAll) items.push({icon:'🗑️🌐',label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
+  var menu=document.createElement('div'); menu.className='msg-ctx-menu';
+  items.forEach(function(it){
+    var el=document.createElement('div'); el.className='msg-ctx-item'+(it.danger?' danger':'');
+    el.innerHTML='<span style="font-size:16px;">'+it.icon+'</span><span>'+it.label+'</span>';
+    el.onclick=function(){it.fn();menu.remove();_ctxMenu=null;};
+    menu.appendChild(el);
+  });
+  // Positionner
+  var rect=rowEl.getBoundingClientRect();
+  var menuTop=Math.min(rect.bottom+4,window.innerHeight-180);
+  menu.style.position='fixed';
+  menu.style.top=menuTop+'px';
+  if(isOwn) menu.style.right='10px'; else menu.style.left='10px';
+  document.body.appendChild(menu); _ctxMenu=menu;
+  setTimeout(function(){
+    document.addEventListener('touchstart',function cl(){
+      if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;}
+      document.removeEventListener('touchstart',cl);
+    },{once:true});
+  },100);
+}
+
+function deleteMsgLocal(msg,rowEl){
+  rowEl.dataset.hidden='1';
+  rowEl.style.display='none';
+  _undoData={msg,rowEl,forAll:false};
+  startUndoToast('Message supprimé pour vous.');
+}
+
+function deleteMsgAll(msg,rowEl){
+  var orig={content:msg.content,type:msg.type};
+  _undoData={msg,rowEl,forAll:true,orig};
+  // Afficher supprimé localement
+  var body=rowEl.querySelector('.msg-body');
+  if(body) body.innerHTML='<div class="msg-deleted">🚫 Message supprimé</div>';
+  api('/messages/'+msg.id,'DELETE',{for_all:true}).then(function(r){
+    if(!r||!r.success){
+      // Restaurer si erreur
+      if(body) {
+        var bubble=msg.type==='voice'?buildVoiceBubble(msg):
+          '<div class="msg-bubble">'+esc(msg.content||'')+'</div>';
+        body.innerHTML=bubble+'<div class="msg-meta"><span>'+fmtTime(msg.created_at)+'</span></div>';
+      }
+      showNotif('❌','Erreur','Suppression échouée','red',null);
+      _undoData=null;
+    } else {
+      startUndoToast('Message supprimé pour tous.');
+    }
+  });
+}
+
+function startUndoToast(txt){
+  clearTimeout(_undoTimer);
+  var toast=document.getElementById('deleteToast');
+  var msg=document.getElementById('toastMsg');
+  var timer=document.getElementById('toastTimer');
+  if(msg) msg.textContent=txt;
+  toast.style.display='flex';
+  var secs=600; // 10 minutes
+  function tick(){
+    if(!_undoData){toast.style.display='none';return;}
+    var m=Math.floor(secs/60),sc=secs%60;
+    if(timer) timer.textContent='('+m+':'+(sc<10?'0':'')+sc+')';
+    if(secs<=0){toast.style.display='none';_undoData=null;return;}
+    secs--; _undoTimer=setTimeout(tick,1000);
+  }
+  tick();
+}
+
+function undoDelete(){
+  clearTimeout(_undoTimer);
+  document.getElementById('deleteToast').style.display='none';
+  if(!_undoData) return;
+  var d=_undoData; _undoData=null;
+  if(!d.forAll){
+    d.rowEl.style.display=''; d.rowEl.dataset.hidden='';
+  } else {
+    // Restaurer via API
+    api('/messages/'+d.msg.id+'/restore','POST',{original_content:d.orig.content,original_type:d.orig.type})
+      .then(function(r){
+        if(r&&r.success){
+          var body=d.rowEl.querySelector('.msg-body');
+          if(body){
+            var bubble=d.orig.type==='voice'?buildVoiceBubble(d.msg):
+              '<div class="msg-bubble">'+esc(d.orig.content||'')+'</div>';
+            body.innerHTML=bubble+'<div class="msg-meta"><span>'+fmtTime(d.msg.created_at)+'</span></div>';
+          }
+        }
+      });
+  }
+}
+
+// Écouter les suppressions des autres
+function initDeleteSocket(){
+  if(!SOCKET) return;
+  SOCKET.on('message:deleted',function(data){
+    var el=document.querySelector('[data-mid="'+data.id+'"]');
+    if(el){
+      var body=el.querySelector('.msg-body');
+      if(body) body.innerHTML='<div class="msg-deleted">🚫 Message supprimé</div>';
+    }
+  });
+  SOCKET.on('message:restored',function(data){
+    var el=document.querySelector('[data-mid="'+data.id+'"]');
+    if(el){
+      var body=el.querySelector('.msg-body');
+      if(body){
+        var bubble=data.type==='voice'?'🎤 Vocal restauré':
+          '<div class="msg-bubble">'+esc(data.content||'')+'</div>';
+        if(typeof bubble==='string' && !bubble.startsWith('<')) bubble='<div class="msg-bubble">'+bubble+'</div>';
+        body.innerHTML=bubble+'<div class="msg-meta"><span>restauré</span></div>';
+      }
+    }
+  });
 }
 // ── Splash screen ──
 (function(){
@@ -3283,6 +3439,11 @@ document.addEventListener('DOMContentLoaded',function(){
     <button class="call-btn gray" id="btnCam" onclick="toggleCamera()" title="Caméra">📷</button>
     <button class="call-btn gray" id="btnSpk" onclick="toggleSpeaker()" title="Haut-parleur">🔊</button>
   </div>
+</div>
+<div id="deleteToast">
+  <span id="toastMsg">Message supprimé</span>
+  <span class="toast-timer" id="toastTimer"></span>
+  <span class="toast-undo" id="toastUndo" onclick="undoDelete()">Annuler</span>
 </div>
 </body>
 </html>
