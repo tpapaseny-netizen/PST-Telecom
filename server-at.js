@@ -3946,6 +3946,7 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
@@ -4383,6 +4384,30 @@ app.delete('/api/penc/messages/:id', pencAuth, async (req, res) => {
     });
     res.json({success:true});
   }catch(e){console.error('delete msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
+});
+
+// PATCH /api/penc/messages/:id — modifier
+app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const {content}=req.body||{};
+    if(!content||!content.trim()) return res.status(400).json({error:'Contenu requis'});
+    if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
+    const r=await _pgPool.query('SELECT sender_id,created_at,conversation_id FROM penc_messages WHERE id=$1',[req.params.id]);
+    const msg=r.rows[0];
+    if(!msg) return res.status(404).json({error:'Introuvable'});
+    if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Non autorise'});
+    if(Date.now()-new Date(msg.created_at).getTime()>1800000) return res.status(403).json({error:'Delai depasse'});
+    await _pgPool.query('UPDATE penc_messages SET content=$1,edited_at=NOW() WHERE id=$2',[content.trim(),req.params.id]);
+    const cp=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
+    const parts=cp.rows[0]&&cp.rows[0].participants||[];
+    const arr=Array.isArray(parts)?parts:(typeof parts==='object'?Object.values(parts):[]);
+    arr.forEach(function(pid){
+      const sid=pencOnline.get(String(pid));
+      if(sid) io.to(sid).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
+    });
+    res.json({success:true});
+  }catch(e){console.error('edit:',e.message);res.status(500).json({error:e.message});}
 });
 
 // POST /api/penc/messages/:id/restore — restaurer un message (undo)
