@@ -762,6 +762,45 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   background:rgba(255,255,255,.08);cursor:pointer;font-size:16px;
   display:flex;align-items:center;justify-content:center;transition:background .1s;}
 .chat-call-btn:active{background:rgba(255,255,255,.2);}
+/* === STABILITÉ CLAVIER === */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
+.screen{position:fixed!important;inset:0!important;}
+#screen-chat{display:flex;flex-direction:column;}
+.messages-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.chat-input-bar{flex-shrink:0;position:relative;z-index:10;
+  padding-bottom:env(safe-area-inset-bottom,0px);}
+
+/* === IDENTIFICATION EXPÉDITEUR === */
+.msg-row{display:flex;flex-direction:row;align-items:flex-end;gap:6px;animation:msgIn .22s ease;}
+.msg-row.me{flex-direction:row-reverse;}
+.msg-row.them{flex-direction:row;}
+.msg-sender-av{width:28px;height:28px;border-radius:50%;background:var(--card2);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;overflow:hidden;align-self:flex-end;margin-bottom:2px;}
+.msg-sender-av img{width:100%;height:100%;object-fit:cover;}
+.msg-body{display:flex;flex-direction:column;max-width:75%;}
+.msg-row.me .msg-body{align-items:flex-end;}
+.msg-row.them .msg-body{align-items:flex-start;}
+.msg-sender-name{font-size:11px;font-weight:700;color:var(--accent);
+  padding:0 4px 2px;}
+
+/* === REPLY / QUOTE === */
+#replyPreviewBar{display:none;align-items:center;gap:8px;
+  padding:8px 14px;background:var(--card2);border-top:1px solid var(--border);
+  border-left:3px solid var(--accent);}
+#replyPreviewBar.show{display:flex;}
+.reply-preview-content{flex:1;min-width:0;}
+.reply-preview-name{font-size:11px;font-weight:700;color:var(--accent);}
+.reply-preview-text{font-size:12px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.reply-preview-close{background:none;border:none;color:var(--muted);
+  font-size:18px;cursor:pointer;padding:4px;flex-shrink:0;}
+.msg-quote{background:rgba(255,255,255,.06);border-left:3px solid var(--accent);
+  border-radius:8px 8px 0 0;padding:6px 10px;margin-bottom:2px;cursor:pointer;
+  max-width:100%;}
+.msg-quote-name{font-size:11px;font-weight:700;color:var(--accent);}
+.msg-quote-text{font-size:12px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:220px;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
 </head>
@@ -927,6 +966,13 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
     </div>
     <div class="sticker-panel" id="stickerPanel"></div>
     <div class="rec-bar" id="recBar"><div class="rec-dot"></div><span class="rec-time" id="recTime">0:00</span><span class="rec-cancel" onclick="cancelRec()">Annuler ✕</span></div>
+    <div id="replyPreviewBar">
+      <div class="reply-preview-content">
+        <div class="reply-preview-name" id="replyPreviewName"></div>
+        <div class="reply-preview-text" id="replyPreviewText"></div>
+      </div>
+      <button class="reply-preview-close" onclick="cancelReply()">✕</button>
+    </div>
     <div class="chat-input-row">
       <div class="attach-btn" onclick="toggleAttach()">📎</div>
       <div class="chat-input-wrap">
@@ -1421,13 +1467,32 @@ function appendMsg(msg) {
   const area=document.getElementById('msgsArea');
   if(msg.id && area.querySelector('[data-mid="'+msg.id+'"]')) return; // anti-doublon
   const typing=document.getElementById('typingRow');
-  // is_mine vient du serveur (fiable) ou on calcule localement
   const isMe = msg.is_mine === true
     || (msg.is_mine !== false && ME && (
       String(msg.sender_id||'') === String(ME.id||'')
       || String(msg.sender?.id||'') === String(ME.id||'')
     ));
   const row=document.createElement('div'); row.className=`msg-row ${isMe?'me':'them'}`; row.dataset.mid=msg.id;
+  // ── Avatar expéditeur (côté gauche pour les messages reçus) ──
+  const avSrc = isMe ? (ME&&ME.avatar_url) : (CUR_CONV_DATA&&CUR_CONV_DATA.avatar_url);
+  const avName = isMe ? (ME&&(ME.full_name||ME.username)) : (CUR_CONV_DATA&&CUR_CONV_DATA.name);
+  const avHtml = isMe ? '' : `<div class="msg-sender-av" data-uid="${msg.sender_id||''}">${avSrc?`<img src="${avSrc}" alt=""/>`:`<span>${initials(avName||'?')}</span>`}</div>`;
+  // ── Reply quote ──
+  let quoteHtml = '';
+  if(msg.reply_to && msg.reply_to.id){
+    const qt=msg.reply_to;
+    const qText=qt.type==='voice'?'🎤 Vocal':qt.type==='image'?'📷 Photo':esc((qt.content||'').slice(0,60));
+    quoteHtml=`<div class="msg-quote" onclick="scrollToMsg('${qt.id}')">
+      <div class="msg-quote-name">${esc(qt.sender_name||'')}</div>
+      <div class="msg-quote-text">${qText}</div>
+    </div>`;
+  }
+  // ── Swipe pour répondre ──
+  row.addEventListener('touchstart',function(e){row._tx=e.touches[0].clientX;},{ passive:true });
+  row.addEventListener('touchend',function(e){
+    const dx=e.changedTouches[0].clientX-row._tx;
+    if((isMe&&dx<-60)||(!isMe&&dx>60)) setReplyingTo(msg);
+  },{ passive:true });
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')"><img src="${msg.media_url}" loading="lazy"/></div>`;
@@ -1439,7 +1504,8 @@ function appendMsg(msg) {
   else if(msg.type==='bot') bubble=`<div class="bot-bubble">${esc(msg.content)}</div>`;
   else bubble=`<div class="msg-bubble">${linkify(esc(msg.content||''))}</div>`;
   const t=fmtTime(msg.created_at);
-  row.innerHTML=`${bubble}<div class="msg-meta"><span>${t}</span>${isMe?`<span class="msg-tick ${msg.read_at?'read':''}">✓✓</span>`:''}</div>`;
+  const bodyHtml=`<div class="msg-body">${quoteHtml}${bubble}<div class="msg-meta"><span>${t}</span>${isMe?`<span class="msg-tick ${msg.read_at?'read':''}">✓✓</span>`:''}</div></div>`;
+  row.innerHTML=(isMe?'':avHtml)+bodyHtml+(isMe?avHtml:'');
   area.insertBefore(row,typing);
 }
 
@@ -1520,15 +1586,27 @@ function onChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendTe
 function sendText(){
   const inp=document.getElementById('chatInput'), text=inp.value.trim();
   if(!text||!CUR_CONV||!SOCKET) return;
-  // Bot check
   if(CUR_CONV==='bot'){handleBot(text);inp.value='';inp.style.height='auto';return;}
   inp.value=''; inp.style.height='auto';
   document.getElementById('sendBtn').style.display='none';
   document.getElementById('micBtn').style.display='flex';
   SOCKET.emit('typing:stop',{conversation_id:CUR_CONV});
-  const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'text',content:text,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  // Inclure reply_to si actif
+  const replyData=_replyingTo?{
+    id:_replyingTo.id, content:_replyingTo.content, type:_replyingTo.type,
+    sender_name:_replyingTo.is_mine?(ME&&(ME.full_name||ME.username)):(CUR_CONV_DATA&&CUR_CONV_DATA.name)||''
+  }:null;
+  cancelReply();
+  const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'text',content:text,
+    sender:ME,sender_id:ME&&ME.id,is_mine:true,reply_to:replyData,created_at:new Date().toISOString()};
+  // Mettre à jour la preview immédiatement
+  const _cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;});
+  if(_cv){_cv.last_message=text;_cv.updated_at=tmp.created_at;}
   appendMsg(tmp); scrollBottom();
-  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text},(res)=>{if(res?.message){res.message.is_mine=true;const el=document.querySelector(`[data-mid="${tmp.id}"]`);if(el)el.dataset.mid=res.message.id;}});
+  SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text,reply_to:replyData},
+    function(res){if(res&&res.message){res.message.is_mine=true;
+      var el=document.querySelector('[data-mid="'+tmp.id+'"]');
+      if(el)el.dataset.mid=res.message.id;}});
 }
 
 function sendMsgSocket(data){
@@ -3004,6 +3082,10 @@ function initCallSocket(){
   });
   SOCKET.on('call:ended',function(){
     showNotif('📵','Appel terminé','','gray',null); cleanupCall();
+  });
+  // Nouveau membre
+  SOCKET.on('penc:welcome',function(data){
+    showNotif('🎉','Nouveau membre',data.message||'','green',null);
   });
 }
 // ── Splash screen ──
