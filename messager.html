@@ -844,6 +844,30 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .toast-undo{color:#4dd0e1;font-weight:700;cursor:pointer;font-size:12px;
   text-decoration:underline;text-underline-offset:2px;}
 .toast-timer{color:rgba(255,255,255,.4);font-size:11px;min-width:34px;}
+/* ═══ FULLSCREEN VIDEO PLAYER ═══ */
+#vidViewer{position:fixed;inset:0;background:#000;z-index:99000;
+  display:none;flex-direction:column;align-items:stretch;}
+#vidViewer.active{display:flex;}
+#fullVidEl{flex:1;width:100%;height:100%;object-fit:contain;cursor:pointer;}
+.vid-ctrl-bar{position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 100%);
+  padding:14px 16px calc(14px + env(safe-area-inset-bottom)) 16px;z-index:10;
+  transition:opacity .3s;}
+.vid-ctrl-bar.hidden{opacity:0;pointer-events:none;}
+.vid-seek{width:100%;-webkit-appearance:none;appearance:none;
+  height:4px;border-radius:4px;background:rgba(255,255,255,.3);
+  outline:none;cursor:pointer;margin-bottom:12px;}
+.vid-seek::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.vid-ctrl-row{display:flex;align-items:center;gap:18px;}
+.vid-ctrl-btn{background:none;border:none;color:#fff;font-size:24px;
+  cursor:pointer;padding:6px;flex-shrink:0;line-height:1;}
+.vid-time{color:rgba(255,255,255,.75);font-size:13px;font-family:monospace;
+  letter-spacing:.5px;}
+.vid-close-btn{position:absolute;top:calc(16px + env(safe-area-inset-top));
+  left:14px;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.55);
+  border:none;color:#fff;font-size:20px;cursor:pointer;z-index:11;
+  display:flex;align-items:center;justify-content:center;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
 </head>
@@ -1743,10 +1767,26 @@ function sendText(){
   const _cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;});
   if(_cv){_cv.last_message=text;_cv.updated_at=tmp.created_at;}
   appendMsg(tmp); scrollBottom();
+  if(replyData){
+    try{
+      var cache=JSON.parse(sessionStorage.getItem('penc_rt_cache')||'{}');
+      cache['pending_'+CUR_CONV]=replyData;
+      sessionStorage.setItem('penc_rt_cache',JSON.stringify(cache));
+    }catch(e){}
+  }
   SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text,reply_to:replyData},
-    function(res){if(res&&res.message){res.message.is_mine=true;
+    function(res){if(res&&res.message){
+      res.message.is_mine=true;
+      res.message.reply_to=replyData; // garder reply_to dans cache local
       var el=document.querySelector('[data-mid="'+tmp.id+'"]');
-      if(el)el.dataset.mid=res.message.id;}});
+      if(el) el.dataset.mid=res.message.id;
+      // Sauvegarder dans MSGS avec reply_to
+      var cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;});
+      if(MSGS[CUR_CONV]){
+        var mi=MSGS[CUR_CONV].findIndex(function(m){return m.id===tmp.id;});
+        if(mi>=0) MSGS[CUR_CONV][mi]=Object.assign({},MSGS[CUR_CONV][mi],{id:res.message.id,reply_to:replyData});
+      }
+    }});
 }
 
 function sendMsgSocket(data){
@@ -3432,11 +3472,15 @@ var _fvCtrlTimer=null;
 function openVidViewer(url){
   var v=document.getElementById('fullVidEl');
   var o=document.getElementById('vidViewer');
-  if(!v||!o) return;
-  v.src=url; v.currentTime=0;
+  if(!v||!o){console.error('vidViewer non trouvé');return;}
   o.classList.add('active');
-  v.play().catch(function(){});
-  document.getElementById('vidPlayBtn').textContent='⏸';
+  v.src=url;
+  v.load();
+  var btn=document.getElementById('vidPlayBtn');
+  v.addEventListener('canplay',function onCan(){
+    v.removeEventListener('canplay',onCan);
+    v.play().then(function(){if(btn)btn.textContent='⏸';}).catch(function(e){console.log('play err:',e);});
+  });
   showVidCtrl();
 }
 function closeVidViewer(){
@@ -3674,6 +3718,27 @@ document.addEventListener('DOMContentLoaded',function(){
   <span id="toastMsg">Message supprimé</span>
   <span class="toast-timer" id="toastTimer"></span>
   <span class="toast-undo" id="toastUndo" onclick="undoDelete()">Annuler</span>
+</div>
+
+<!-- ══ FULLSCREEN VIDEO PLAYER ══ -->
+<div id="vidViewer">
+  <button class="vid-close-btn" onclick="closeVidViewer()">✕</button>
+  <video id="fullVidEl" playsinline webkit-playsinline
+    onclick="toggleVidCtrl()"
+    ontimeupdate="onVidTime()"
+    onended="onVidEnded()"
+    onloadedmetadata="onVidMeta()"></video>
+  <div class="vid-ctrl-bar" id="vidCtrlBar">
+    <input type="range" class="vid-seek" id="vidSeek" value="0" min="0" step="0.1"
+      oninput="seekVid(this.value)">
+    <div class="vid-ctrl-row">
+      <button class="vid-ctrl-btn" onclick="skipVid(-10)">⏪</button>
+      <button class="vid-ctrl-btn" id="vidPlayBtn" onclick="toggleFullPlay()">⏸</button>
+      <button class="vid-ctrl-btn" onclick="skipVid(10)">⏩</button>
+      <span class="vid-time" id="vidTime">0:00 / 0:00</span>
+      <button class="vid-ctrl-btn" id="vidMuteBtn" onclick="toggleVidMute()" style="margin-left:auto">🔊</button>
+    </div>
+  </div>
 </div>
 </body>
 </html>
