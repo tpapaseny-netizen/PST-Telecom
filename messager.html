@@ -238,7 +238,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 @keyframes typDot{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-5px);opacity:1;}}
 
 /* Input area */
-.chat-input-area{padding:6px 8px 6px;padding-bottom:calc(6px + env(safe-area-inset-bottom));background:var(--header-bg);border-top:1px solid var(--border);flex-shrink:0;position:relative;overflow:visible;}
+.chat-input-area{padding:6px 6px 6px;padding-bottom:calc(6px + env(safe-area-inset-bottom));background:var(--header-bg);border-top:1px solid var(--border);flex-shrink:0;position:relative;}
 .chat-input-row{display:flex;align-items:flex-end;gap:7px;}
 /* === BARRE SAISIE WHATSAPP STYLE === */
 .attach-btn{display:none;} /* remplacé par les nouvelles icônes */
@@ -253,7 +253,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
   cursor:pointer;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.25);}
 .wa-mic-btn.recording{background:var(--danger);animation:pulse 1s infinite;}
-.wa-send-btn{width:42px;height:42px;border-radius:50%;border:none;
+.wa-send-btn{width:40px;height:40px;border-radius:50%;border:none;
   background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
   cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);}
 .wa-send-btn:active{transform:scale(.9);}
@@ -1042,11 +1042,11 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   </div>
   <div class="chat-input-area">
     <div class="attach-menu" id="attachMenu">
-      <div class="attach-opt" onclick="pickFile('image')">📷<span>Photo</span></div>
-      <div class="attach-opt" onclick="pickFile('video')">🎬<span>Vidéo</span></div>
-      <div class="attach-opt" onclick="pickFile('file')">📄<span>Fichier</span></div>
-      <div class="attach-opt" onclick="openRadioSheet()">📻<span>Radio</span></div>
-      <div class="attach-opt" onclick="openPollSheet()">📊<span>Sondage</span></div>
+      <div class="attach-opt" ontouchend="pickFile('image')" onclick="pickFile('image')">📷<span>Photo</span></div>
+      <div class="attach-opt" ontouchend="pickFile('video')" onclick="pickFile('video')">🎬<span>Vidéo</span></div>
+      <div class="attach-opt" ontouchend="pickFile('file')" onclick="pickFile('file')">📄<span>Fichier</span></div>
+      <div class="attach-opt" ontouchend="openRadioSheet()" onclick="openRadioSheet()">📻<span>Radio</span></div>
+      <div class="attach-opt" ontouchend="openPollSheet()" onclick="openPollSheet()">📊<span>Sondage</span></div>
     </div>
     <div class="sticker-panel" id="stickerPanel"></div>
     <div class="rec-bar" id="recBar"><div class="rec-dot"></div><span class="rec-time" id="recTime">0:00</span><span class="rec-cancel" onclick="cancelRec()">Annuler ✕</span></div>
@@ -1869,7 +1869,15 @@ function cancelRec(){
 // ══════════════ FILE UPLOAD ══════════════
 function toggleAttach(){attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
 function toggleStickers(){stickerOpen=!stickerOpen;document.getElementById('stickerPanel').classList.toggle('show',stickerOpen);}
-function pickFile(t){attachOpen=false;document.getElementById('attachMenu').classList.remove('show');if(t==='image')document.getElementById('fi-img').click();else if(t==='video')document.getElementById('fi-vid').click();else document.getElementById('fi-doc').click();}
+function pickFile(t){
+  attachOpen=false;
+  document.getElementById('attachMenu').classList.remove('show');
+  setTimeout(function(){
+    if(t==='image') document.getElementById('fi-img').click();
+    else if(t==='video') document.getElementById('fi-vid').click();
+    else document.getElementById('fi-doc').click();
+  },50);
+}
 function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value='';uploadAndSend(f,t,f.type);}
 
 async function uploadAndSend(blob,type,mimeType){
