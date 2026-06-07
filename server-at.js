@@ -4331,6 +4331,34 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
+
+// PATCH /api/penc/messages/:id — modifier un message
+app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const {content}=req.body;
+    if(!content||typeof content!=='string') return res.status(400).json({error:'Contenu requis'});
+    if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
+    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1',[req.params.id]);
+    const msg=r.rows[0];
+    if(!msg) return res.status(404).json({error:'Message introuvable'});
+    if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
+    const age=Date.now()-new Date(msg.created_at).getTime();
+    if(age>1800000) return res.status(403).json({error:'30 minutes dépassées'});
+    // Ajouter colonne edited_at si besoin
+    await _pgPool.query('ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ');
+    await _pgPool.query('UPDATE penc_messages SET content=$1,edited_at=NOW() WHERE id=$2',[content.trim(),req.params.id]);
+    // Notifier via socket
+    const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
+    const parts=convParts.rows[0]?convParts.rows[0].participants:[];
+    const arr=Array.isArray(parts)?parts:JSON.parse(JSON.stringify(parts));
+    arr.forEach(function(pid){
+      const sid=pencOnline.get(pid);
+      if(sid) io.to(sid).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
+    });
+    res.json({success:true});
+  }catch(e){console.error('edit msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
+});
 // DELETE /api/penc/messages/:id — supprimer un message
 app.delete('/api/penc/messages/:id', pencAuth, async (req, res) => {
   try {
