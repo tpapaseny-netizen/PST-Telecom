@@ -195,8 +195,19 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .voice-dur{font-size:11px;font-weight:700;opacity:.8;flex-shrink:0;}
 
 /* Image / Video */
-.media-bubble{max-width:220px;cursor:pointer;}
-.media-bubble img,.media-bubble video{width:100%;border-radius:11px;display:block;max-height:200px;object-fit:cover;}
+.media-bubble{width:260px;max-width:min(260px,75vw);cursor:pointer;
+  border-radius:14px;overflow:hidden;position:relative;background:#000;}
+.media-bubble img{width:100%;display:block;max-height:320px;
+  object-fit:cover;border-radius:14px;}
+.media-bubble .vid-wrap{position:relative;width:100%;}
+.media-bubble .vid-wrap video{width:100%;max-height:320px;display:block;
+  object-fit:cover;border-radius:14px;}
+.vid-play-btn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.35);border-radius:14px;cursor:pointer;}
+.vid-play-btn svg{filter:drop-shadow(0 2px 8px rgba(0,0,0,.6));}
+.vid-play-btn.hidden{display:none;}
+.vid-duration{position:absolute;bottom:8px;right:10px;font-size:11px;
+  color:#fff;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:8px;}
 
 /* Money card */
 .money-card{background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,150,0,0.1));border:1px solid rgba(255,215,0,0.4);border-radius:13px;padding:10px 14px;min-width:180px;}
@@ -825,14 +836,15 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-ctx-item.danger .ctx-icon svg{stroke:#ff6b6b;}
 .msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:8px 12px;
   background:var(--card2);border-radius:10px;}
-#deleteToast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
-  background:#1e2533;padding:14px 20px;border-radius:14px;
-  display:none;align-items:center;gap:16px;z-index:99999;
-  box-shadow:0 8px 30px rgba(0,0,0,.6);font-size:13px;white-space:nowrap;
-  border:1px solid rgba(255,255,255,.1);pointer-events:all;}
-.toast-undo{color:#4dd0e1;font-weight:800;cursor:pointer;font-size:13px;padding:4px 8px;
-  border:1px solid rgba(77,208,225,.4);border-radius:8px;}
-.toast-timer{color:rgba(255,255,255,.5);font-size:12px;min-width:42px;text-align:center;}
+#deleteToast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(30,37,51,.97);padding:9px 14px 9px 12px;border-radius:22px;
+  display:none;align-items:center;gap:10px;z-index:99999;
+  box-shadow:0 4px 18px rgba(0,0,0,.5);font-size:12.5px;white-space:nowrap;
+  border:1px solid rgba(255,255,255,.09);pointer-events:all;max-width:92vw;}
+.toast-undo{color:#4dd0e1;font-weight:800;cursor:pointer;font-size:12.5px;
+  padding:3px 10px;border:1px solid rgba(77,208,225,.35);border-radius:20px;
+  background:rgba(77,208,225,.08);}
+.toast-timer{color:rgba(255,255,255,.4);font-size:11px;min-width:34px;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
 </head>
@@ -1581,8 +1593,18 @@ function appendMsg(msg) {
   },{passive:true});
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
-  else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')"><img src="${msg.media_url}" loading="lazy"/></div>`;
-  else if(msg.type==='video') bubble=`<div class="media-bubble"><video src="${msg.media_url}" controls></video></div>`;
+  else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')" style="background:transparent;">
+    <img src="${msg.media_url}" loading="lazy" style="min-height:120px;background:#1a1f2e;"/>
+  </div>`;
+  else if(msg.type==='video') bubble=`<div class="media-bubble" id="vw_${msg.id}">
+  <div class="vid-wrap">
+    <video src="${msg.media_url}" preload="metadata" playsinline id="vid_${msg.id}" onended="resetVid('${msg.id}')"></video>
+    <div class="vid-play-btn" id="vbtn_${msg.id}" onclick="toggleVid('${msg.id}')">
+      <svg width='44' height='44' viewBox='0 0 44 44'><circle cx='22' cy='22' r='22' fill='rgba(255,255,255,0.92)'/><polygon points='17,13 35,22 17,31' fill='#111'/></svg>
+    </div>
+    <div class="vid-duration" id="vdur_${msg.id}">▶</div>
+  </div>
+</div>`;
   else if(msg.type==='money') bubble=buildMoneyCard(msg);
   else if(msg.type==='radio') bubble=buildRadioCard(msg);
   else if(msg.type==='poll') bubble=buildPollCard(msg);
@@ -3266,7 +3288,9 @@ function closeCtxMenu(){
 function deleteMsgLocal(msg,rowEl){
   rowEl.dataset.hidden='1';
   rowEl.style.display='none';
-  _undoData={msg,rowEl,forAll:false};
+  _undoData={msg:msg,rowEl:rowEl,forAll:false};
+  // Sauvegarder dans sessionStorage pour résister à la navigation
+  try{sessionStorage.setItem('penc_undo',JSON.stringify({id:msg.id,conv_id:msg.conversation_id,forAll:false,ts:Date.now()}));}catch(e){}
   startUndoToast('Message supprimé pour vous.');
 }
 
@@ -3278,8 +3302,7 @@ function deleteMsgAll(msg,rowEl){
   if(body) body.innerHTML='<div class="msg-deleted">🚫 Message supprimé</div>';
   api('/messages/'+msg.id,'DELETE',{for_all:true}).then(function(r){
     if(!r||!r.success){
-      // Restaurer si erreur
-      if(body) {
+      if(body){
         var bubble=msg.type==='voice'?buildVoiceBubble(msg):
           '<div class="msg-bubble">'+esc(msg.content||'')+'</div>';
         body.innerHTML=bubble+'<div class="msg-meta"><span>'+fmtTime(msg.created_at)+'</span></div>';
@@ -3287,6 +3310,8 @@ function deleteMsgAll(msg,rowEl){
       showNotif('❌','Erreur','Suppression échouée','red',null);
       _undoData=null;
     } else {
+      try{sessionStorage.setItem('penc_undo',JSON.stringify({id:msg.id,conv_id:msg.conversation_id,
+        forAll:true,orig:orig,ts:Date.now()}));}catch(e){}
       startUndoToast('Message supprimé pour tous.');
     }
   });
@@ -3317,6 +3342,7 @@ function startUndoToast(txt){
 
 function undoDelete(){
   clearTimeout(_undoTimer);
+  try{sessionStorage.removeItem('penc_undo');}catch(e){}
   document.getElementById('deleteToast').style.display='none';
   if(!_undoData) return;
   var d=_undoData; _undoData=null;
@@ -3370,6 +3396,33 @@ function updateMsgTick(msgId, state){
   if(state==='read'){tick.textContent='✓✓';tick.className='msg-tick read';}
   else if(state==='delivered'){tick.textContent='✓✓';tick.className='msg-tick delivered';}
   else{tick.textContent='✓';tick.className='msg-tick sent';}
+}
+
+// ── Lecteur vidéo custom ──
+function toggleVid(id){
+  var v=document.getElementById('vid_'+id);
+  var btn=document.getElementById('vbtn_'+id);
+  var dur=document.getElementById('vdur_'+id);
+  if(!v) return;
+  if(v.paused){
+    // Pause toutes les autres vidéos
+    document.querySelectorAll('.media-bubble video').forEach(function(ov){
+      if(ov!==v&&!ov.paused){ov.pause();var ob=document.getElementById('vbtn_'+ov.id.replace('vid_',''));if(ob)ob.classList.remove('hidden');}
+    });
+    v.play();
+    if(btn) btn.classList.add('hidden');
+    if(dur) dur.textContent='⏸';
+  } else {
+    v.pause();
+    if(btn) btn.classList.remove('hidden');
+    if(dur) dur.textContent='▶';
+  }
+}
+function resetVid(id){
+  var btn=document.getElementById('vbtn_'+id);
+  var dur=document.getElementById('vdur_'+id);
+  if(btn) btn.classList.remove('hidden');
+  if(dur) dur.textContent='▶';
 }
 // ── Splash screen ──
 (function(){
