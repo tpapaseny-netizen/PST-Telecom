@@ -249,11 +249,11 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .wa-icon-btn{width:42px;height:42px;border-radius:50%;border:none;background:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;}
 .wa-icon-btn:active{background:var(--card2);}
-.wa-mic-btn{width:46px;height:46px;border-radius:50%;border:none;
+.wa-mic-btn{width:42px;height:42px;border-radius:50%;border:none;
   background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+  cursor:pointer;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.25);}
 .wa-mic-btn.recording{background:var(--danger);animation:pulse 1s infinite;}
-.wa-send-btn{width:46px;height:46px;border-radius:50%;border:none;
+.wa-send-btn{width:42px;height:42px;border-radius:50%;border:none;
   background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
   cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);}
 .wa-send-btn:active{transform:scale(.9);}
@@ -805,8 +805,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:700;overflow:hidden;align-self:flex-end;margin-bottom:2px;}
 .msg-sender-av img{width:100%;height:100%;object-fit:cover;}
-.msg-body{display:flex;flex-direction:column;max-width:75%;}
-.msg-row.me .msg-body{align-items:flex-end;}
+.msg-body{display:flex;flex-direction:column;max-width:calc(100% - 40px);min-width:0;width:fit-content;}
+.msg-row.me .msg-body{align-items:flex-end;margin-left:auto;}
 .msg-row.them .msg-body{align-items:flex-start;}
 .msg-sender-name{font-size:11px;font-weight:700;color:var(--accent);
   padding:0 4px 2px;}
@@ -849,8 +849,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-ctx-item.danger{color:#ff6b6b;}
 .msg-ctx-item.danger .ctx-icon{background:rgba(255,107,107,.12);}
 .msg-ctx-item.danger .ctx-icon svg{stroke:#ff6b6b;}
-.msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:6px 10px;
-  background:var(--card2);border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.msg-deleted{font-size:12px;color:var(--muted);font-style:italic;padding:6px 10px;background:var(--card2);border-radius:12px;display:inline-flex;align-items:center;gap:8px;max-width:100%;}
 .msg-undo-btn{font-size:11px;color:var(--accent);font-style:normal;font-weight:700;
   cursor:pointer;border:1px solid rgba(77,208,225,.3);border-radius:8px;padding:2px 7px;}
 .msg-undo-timer{font-size:10px;color:var(--muted);font-style:normal;}
@@ -1563,6 +1562,8 @@ async function openConv(conv) {
   if(!MSGS[conv.id]){const d=await api(`/conversations/${conv.id}/messages`);if(d.messages)MSGS[conv.id]=d.messages;}
   (MSGS[conv.id]||[]).forEach(m=>appendMsg(m));
   scrollBottom();
+  // Restaurer suppressions en attente
+  restorePendingUndos();
   // Rejoindre la room Socket.io pour recevoir les messages en temps réel
   SOCKET&&SOCKET.emit('conversation:join',{conversation_id:conv.id});
   // Marquer tous les messages non lus comme lus
@@ -3431,7 +3432,7 @@ function startUndoToast(txt){
   toast.style.display='flex';
   // S'assurer que le toast est bien visible (au-dessus de tout)
   document.body.appendChild(toast);
-  var secs=86400;
+  var secs=600;
   function tick(){
     var t=document.getElementById('deleteToast');
     if(!t||!_undoData){if(t)t.style.display='none';return;}
@@ -3665,6 +3666,67 @@ function startInlineUndoTimer(msgId){
     _undoTimer=setTimeout(tick,1000);
   }
   tick();
+}
+
+function restorePendingUndos(){
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    if(!k||!k.startsWith('penc_undo_')) continue;
+    try{
+      var d=JSON.parse(localStorage.getItem(k));
+      if(!d||!d.id||!d.ts) continue;
+      var elapsed=Math.floor((Date.now()-d.ts)/1000);
+      if(elapsed>=600){localStorage.removeItem(k);continue;}
+      var el=document.querySelector('[data-mid="'+d.id+'"]');
+      if(!el) continue;
+      var body=el.querySelector('.msg-body');
+      if(!body||body.querySelector('.msg-undo-btn')) continue;
+      var label=d.forAll?'Supprime pour tous':'Supprime pour vous';
+      var remaining=600-elapsed;
+      body.innerHTML='<div class="msg-deleted" id="ud_'+d.id+'">'
+        +'<span>\u26D4 '+label+'</span>'
+        +'<span class="msg-undo-btn" onclick="restoreFromStore(\''+d.id+'\')">Annuler</span>'
+        +'<span class="msg-undo-timer" id="udt_'+d.id+'"></span>'
+        +'</div>';
+      runUndoTimer(d.id,d.ts);
+    }catch(e){}
+  }
+}
+function runUndoTimer(id,ts){
+  var iv=setInterval(function(){
+    var remaining=600-Math.floor((Date.now()-ts)/1000);
+    var te=document.getElementById('udt_'+id);
+    if(remaining<=0){
+      clearInterval(iv);
+      var ud=document.getElementById('ud_'+id);
+      if(ud){var b=ud.querySelector('.msg-undo-btn');if(b)b.remove();
+        var t=ud.querySelector('.msg-undo-timer');if(t)t.remove();}
+      try{localStorage.removeItem('penc_undo_'+id);}catch(e){}
+      return;
+    }
+    var m=Math.floor(remaining/60),sc=remaining%60;
+    if(te) te.textContent='('+(m>0?m+':'+(sc<10?'0':'')+sc:sc+'s')+')';
+  },1000);
+}
+function restoreFromStore(id){
+  clearTimeout(_undoTimer);
+  try{
+    var raw=localStorage.getItem('penc_undo_'+id);
+    if(!raw) return;
+    var d=JSON.parse(raw);
+    localStorage.removeItem('penc_undo_'+id);
+    _undoData=null;
+    var el=document.querySelector('[data-mid="'+id+'"]');
+    var body=el&&el.querySelector('.msg-body');
+    if(!body) return;
+    if(!d.forAll){
+      var bubble='<div class="msg-bubble">'+esc(d.content||'')+'</div>';
+      body.innerHTML=bubble;
+    } else {
+      api('/messages/'+id+'/restore','POST',{original_content:d.content,original_type:d.type||'text'})
+        .then(function(r){if(r&&r.success){body.innerHTML='<div class="msg-bubble">'+esc(d.content||'')+'</div>';}});
+    }
+  }catch(e){}
 }
 // ── Splash screen ──
 (function(){
