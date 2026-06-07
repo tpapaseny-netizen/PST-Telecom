@@ -1051,11 +1051,17 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   </div>
   <div class="chat-input-area">
     <div class="attach-menu" id="attachMenu">
-      <label class="attach-opt" for="fi-img" onclick="attachOpen=false;document.getElementById('attachMenu').classList.remove('show')">📷<span>Photo</span></label>
-      <label class="attach-opt" for="fi-vid" onclick="attachOpen=false;document.getElementById('attachMenu').classList.remove('show')">🎬<span>Vidéo</span></label>
-      <label class="attach-opt" for="fi-doc" onclick="attachOpen=false;document.getElementById('attachMenu').classList.remove('show')">📄<span>Fichier</span></label>
-      <div class="attach-opt" onclick="openRadioSheet()">📻<span>Radio</span></div>
-      <div class="attach-opt" onclick="openPollSheet()">📊<span>Sondage</span></div>
+      <div class="attach-opt" style="position:relative;overflow:hidden;">
+        <input type="file" accept="image/*,video/*" onchange="handleFile(event,this.files[0]&&this.files[0].type.startsWith('video')?'video':'image')" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;" onclick="attachOpen=false;">
+        📷<span>Photo/Vidéo</span>
+      </div>
+      <div class="attach-opt" style="position:relative;overflow:hidden;">
+        <input type="file" accept="application/*,text/*" onchange="handleFile(event,'file')" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;" onclick="attachOpen=false;">
+        📄<span>Fichier</span>
+      </div>
+      <div class="attach-opt" onclick="toggleAttach();openRadioSheet()">📻<span>Radio</span></div>
+      <div class="attach-opt" onclick="toggleAttach();openPollSheet()">📊<span>Sondage</span></div>
+    </div>
     </div>
     <div class="sticker-panel" id="stickerPanel"></div>
     <div class="rec-bar" id="recBar"><div class="rec-dot"></div><span class="rec-time" id="recTime">0:00</span><span class="rec-cancel" onclick="cancelRec()">Annuler ✕</span></div>
@@ -3418,7 +3424,7 @@ function deleteMsgLocal(msg,rowEl){
   var delHtml='<div class="msg-deleted" id="ud_'+msg.id+'">'+'<span>🚫 Supprim\u00e9 pour vous</span>'+'<span class="msg-undo-btn" onclick="restoreFromStore(\''+msg.id+'\')" style="cursor:pointer;">Annuler</span>'+'<span class="msg-undo-timer" id="udt_'+msg.id+'"></span></div>';
   if(body) body.innerHTML=delHtml;
   try{localStorage.setItem('penc_undo_'+msg.id,JSON.stringify(
-    {id:msg.id,conv_id:msg.conversation_id,content:msg.content,type:msg.type||'text',forAll:false,ts:Date.now()}
+    {id:msg.id,conv_id:msg.conversation_id,content:msg.content,type:msg.type||'text',media_url:msg.media_url||null,media_duration:msg.media_duration||null,forAll:false,ts:Date.now()}
   ));}catch(e){}
   startInlineUndoTimer(msg.id);
 }
