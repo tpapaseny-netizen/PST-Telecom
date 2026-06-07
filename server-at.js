@@ -3932,10 +3932,14 @@ let _pgPool = null;
         duration        INTEGER,
         reply_to        JSONB,
         deleted_for_all BOOLEAN DEFAULT FALSE,
+        delivered_at    TIMESTAMPTZ,
+        read_at         TIMESTAMPTZ,
         created_at      TIMESTAMPTZ DEFAULT NOW()
       );
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS reply_to JSONB;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
@@ -4047,7 +4051,7 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE) RETURNING *',
     [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to||null,msg.created_at||new Date().toISOString()]
   );
   // Mettre à jour updated_at de la conv
@@ -4305,6 +4309,8 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         media_url: m.media_url, media_duration: m.duration,
         reply_to: m.reply_to || null,
         deleted_for_all: m.deleted_for_all || false,
+        delivered_at: m.delivered_at || null,
+        read_at: m.read_at || null,
         created_at: m.created_at
       }));
     } else {
@@ -5049,6 +5055,34 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('conversation:join', ({ conversation_id }) => {
     if (conversation_id) socket.join('penc:' + conversation_id);
+  });
+  // Livraison confirmée
+  socket.on('message:deliver', async ({id, conv_id}) => {
+    if(!_pgPool||!id) return;
+    try{
+      const r=await _pgPool.query('UPDATE penc_messages SET delivered_at=NOW() WHERE id=$1 AND delivered_at IS NULL RETURNING sender_id',[id]);
+      if(r.rows[0]){
+        const senderSid=pencOnline.get(r.rows[0].sender_id);
+        if(senderSid) io.to(senderSid).emit('message:delivered',{id});
+      }
+    }catch(e){}
+  });
+  // Marquer tous messages d'une conv comme lus
+  socket.on('messages:read_all', async ({conv_id}) => {
+    if(!_pgPool||!conv_id) return;
+    try{
+      const r=await _pgPool.query(
+        'UPDATE penc_messages SET read_at=NOW() WHERE conversation_id=$1 AND sender_id!=$2 AND read_at IS NULL RETURNING id,sender_id',
+        [conv_id, pencUserId]
+      );
+      // Grouper par expéditeur pour notifier
+      const bySender={};
+      r.rows.forEach(row=>{ if(!bySender[row.sender_id]) bySender[row.sender_id]=[]; bySender[row.sender_id].push(row.id); });
+      Object.entries(bySender).forEach(([sid,ids])=>{
+        const senderSock=pencOnline.get(sid);
+        if(senderSock) io.to(senderSock).emit('message:read_receipt',{ids,conv_id});
+      });
+    }catch(e){}
   });
   socket.on('user:join', ({ userId }) => {
     if (userId) socket.join('user:' + userId);

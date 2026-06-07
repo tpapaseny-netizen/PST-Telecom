@@ -183,8 +183,9 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .msg-row.them .msg-bubble{background:var(--them-bg);color:var(--them-text);border-radius:17px 17px 17px 4px;border:1px solid var(--border);}
 .msg-meta{display:flex;align-items:center;gap:3px;font-size:11px;margin-top:3px;margin-bottom:7px;padding:0 3px;}
 .msg-row.me .msg-meta{color:var(--muted);}
-.msg-tick{font-size:11px;}
-.msg-tick.read{color:var(--accent);}
+.msg-tick{font-size:11px;color:rgba(255,255,255,.45);transition:color .3s;}
+.msg-tick.delivered{color:rgba(255,255,255,.45);} /* ✓✓ gris */
+.msg-tick.read{color:#4dd0e1;} /* ✓✓ bleu/teal */
 
 /* Voice */
 .voice-bubble{display:flex;align-items:center;gap:9px;min-width:170px;}
@@ -1398,6 +1399,10 @@ function onNewMsg(msg) {
     }
   }
   MSGS[cid].push(msg);
+  // Signaler la livraison à l'expéditeur
+  if(SOCKET && msg.sender_id && !(msg.is_mine||(ME&&String(msg.sender_id)===String(ME.id)))){
+    SOCKET.emit('message:deliver',{id:msg.id,conv_id:cid});
+  }
   const conv = CONVS.find(c=>c.id===cid);
   if(conv) {
     conv.last_message = msgPreview(msg);
@@ -1488,6 +1493,8 @@ async function openConv(conv) {
   scrollBottom();
   // Rejoindre la room Socket.io pour recevoir les messages en temps réel
   SOCKET&&SOCKET.emit('conversation:join',{conversation_id:conv.id});
+  // Marquer tous les messages non lus comme lus
+  SOCKET&&SOCKET.emit('messages:read_all',{conv_id:conv.id});
   SOCKET&&SOCKET.emit('message:read',{conversation_id:conv.id});
   const c=CONVS.find(c=>c.id===conv.id);
   if(c){totalUnread-=(c.unread_count||0);c.unread_count=0;updateBadge();renderConvList();}
@@ -1572,7 +1579,7 @@ function appendMsg(msg) {
   else if(msg.deleted_for_all) bubble='<div class="msg-deleted">🚫 Message supprimé</div>';
   else bubble=`<div class="msg-bubble">${linkify(esc(msg.content||''))}</div>`;
   const t=fmtTime(msg.created_at);
-  const bodyHtml=`<div class="msg-body">${quoteHtml}${bubble}<div class="msg-meta"><span>${t}</span>${isMe?`<span class="msg-tick ${msg.read_at?'read':''}">✓✓</span>`:''}</div></div>`;
+  const bodyHtml=`<div class="msg-body">${quoteHtml}${bubble}<div class="msg-meta"><span>${t}</span>${isMe?(msg.read_at?`<span class="msg-tick read">✓✓</span>`:(msg.delivered_at?`<span class="msg-tick delivered">✓✓</span>`:`<span class="msg-tick sent">✓</span>`)):''}</div></div>`;
   row.innerHTML=(isMe?'':avHtml)+bodyHtml+(isMe?avHtml:'');
   area.insertBefore(row,typing);
 }
@@ -3185,6 +3192,13 @@ function initCallSocket(){
     showNotif('🎉','Nouveau membre',data.message||'','green',null);
   });
   initDeleteSocket();
+  // ── Ticks de statut ──
+  SOCKET.on('message:delivered',function(d){
+    if(d && d.id) updateMsgTick(d.id,'delivered');
+  });
+  SOCKET.on('message:read_receipt',function(d){
+    if(d && d.ids) d.ids.forEach(function(id){ updateMsgTick(id,'read'); });
+  });
 }
 
 // ══ SUPPRESSION MESSAGES ══
@@ -3314,6 +3328,16 @@ function initDeleteSocket(){
       }
     }
   });
+}
+
+function updateMsgTick(msgId, state){
+  var el=document.querySelector('[data-mid="'+msgId+'"]');
+  if(!el) return;
+  var tick=el.querySelector('.msg-tick');
+  if(!tick) return;
+  if(state==='read'){tick.textContent='✓✓';tick.className='msg-tick read';}
+  else if(state==='delivered'){tick.textContent='✓✓';tick.className='msg-tick delivered';}
+  else{tick.textContent='✓';tick.className='msg-tick sent';}
 }
 // ── Splash screen ──
 (function(){
