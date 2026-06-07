@@ -803,8 +803,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-quote-text{font-size:12px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:220px;}
 /* === MENU CONTEXTUEL PREMIUM === */
-.ctx-overlay{position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.45);
-  backdrop-filter:blur(4px);animation:ctxBgIn .2s ease;}
+.ctx-overlay{position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.5);
+  animation:ctxBgIn .18s ease;}
 @keyframes ctxBgIn{from{opacity:0;}to{opacity:1;}}
 .msg-ctx-menu{position:fixed;background:rgba(22,28,40,.97);
   border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08);
@@ -815,19 +815,24 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   cursor:pointer;font-size:14px;font-weight:500;border-bottom:1px solid rgba(255,255,255,.06);}
 .msg-ctx-item:last-child{border-bottom:none;}
 .msg-ctx-item:active{background:rgba(255,255,255,.07);}
-.msg-ctx-item .ctx-icon{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.1);
-  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.msg-ctx-item .ctx-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;gap:2px;}
+.msg-ctx-item .ctx-icon svg{display:block;}
+.msg-ctx-item:first-child .ctx-icon{background:rgba(77,208,225,.15);color:#4dd0e1;}
+.msg-ctx-item:first-child .ctx-icon svg{stroke:#4dd0e1;}
 .msg-ctx-item.danger{color:#ff6b6b;}
-.msg-ctx-item.danger .ctx-icon{background:rgba(255,107,107,.15);}
+.msg-ctx-item.danger .ctx-icon{background:rgba(255,107,107,.12);}
+.msg-ctx-item.danger .ctx-icon svg{stroke:#ff6b6b;}
 .msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:8px 12px;
   background:var(--card2);border-radius:10px;}
-#deleteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
-  background:var(--card);padding:12px 18px;border-radius:12px;
-  display:none;align-items:center;gap:14px;z-index:9600;
-  box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:13px;white-space:nowrap;
-  border:1px solid var(--border);}
-.toast-undo{color:var(--accent);font-weight:800;cursor:pointer;font-size:13px;}
-.toast-timer{color:var(--muted);font-size:12px;}
+#deleteToast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
+  background:#1e2533;padding:14px 20px;border-radius:14px;
+  display:none;align-items:center;gap:16px;z-index:99999;
+  box-shadow:0 8px 30px rgba(0,0,0,.6);font-size:13px;white-space:nowrap;
+  border:1px solid rgba(255,255,255,.1);pointer-events:all;}
+.toast-undo{color:#4dd0e1;font-weight:800;cursor:pointer;font-size:13px;padding:4px 8px;
+  border:1px solid rgba(77,208,225,.4);border-radius:8px;}
+.toast-timer{color:rgba(255,255,255,.5);font-size:12px;min-width:42px;text-align:center;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
 </head>
@@ -3214,20 +3219,24 @@ var _ctxMenu=null, _undoTimer=null, _undoData=null;
 function showMsgMenu(msg, rowEl){
   // Fermer menu existant
   closeCtxMenu();
-  var isOwn=(msg.is_mine===true)||(ME&&String(msg.sender_id||'')===String(ME.id||''));
+  var isOwn=msg.is_mine===true
+    ||(ME&&ME.id&&msg.sender_id&&String(msg.sender_id)===String(ME.id));
   var age=Date.now()-new Date(msg.created_at).getTime();
   var canAll=isOwn&&age<600000;
   // Overlay de fond
   var overlay=document.createElement('div'); overlay.className='ctx-overlay';
   var menu=document.createElement('div'); menu.className='msg-ctx-menu';
+  var SVG_REPLY='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
+  var SVG_TRASH='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+  var SVG_GLOBE='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
   var items=[
-    {icon:'↩️',label:'Répondre',fn:function(){setReplyingTo(msg);}},
-    {icon:'🗑',label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false},
+    {svg:SVG_REPLY,label:'Répondre',fn:function(){setReplyingTo(msg);}},
+    {svg:SVG_TRASH,label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false},
   ];
-  if(canAll) items.push({icon:'🗑️',label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
+  if(canAll) items.push({svg:SVG_TRASH+SVG_GLOBE,label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
   items.forEach(function(it){
     var el=document.createElement('div'); el.className='msg-ctx-item'+(it.danger?' danger':'');
-    el.innerHTML='<div class="ctx-icon">'+it.icon+'</div><span>'+it.label+'</span>';
+    el.innerHTML='<div class="ctx-icon">'+(it.svg||it.icon||'')+'</div><span>'+it.label+'</span>';
     // touchend pour éviter le conflit avec touchstart global
     el.addEventListener('touchend',function(e){
       e.preventDefault(); e.stopPropagation();
@@ -3286,16 +3295,21 @@ function deleteMsgAll(msg,rowEl){
 function startUndoToast(txt){
   clearTimeout(_undoTimer);
   var toast=document.getElementById('deleteToast');
-  var msg=document.getElementById('toastMsg');
-  var timer=document.getElementById('toastTimer');
-  if(msg) msg.textContent=txt;
+  if(!toast) return;
+  var msgEl=document.getElementById('toastMsg');
+  var timerEl=document.getElementById('toastTimer');
+  if(msgEl) msgEl.textContent=txt;
   toast.style.display='flex';
-  var secs=600; // 10 minutes
+  // S'assurer que le toast est bien visible (au-dessus de tout)
+  document.body.appendChild(toast);
+  var secs=600;
   function tick(){
-    if(!_undoData){toast.style.display='none';return;}
+    var t=document.getElementById('deleteToast');
+    if(!t||!_undoData){if(t)t.style.display='none';return;}
     var m=Math.floor(secs/60),sc=secs%60;
-    if(timer) timer.textContent='('+m+':'+(sc<10?'0':'')+sc+')';
-    if(secs<=0){toast.style.display='none';_undoData=null;return;}
+    var te=document.getElementById('toastTimer');
+    if(te) te.textContent=m+':'+(sc<10?'0':'')+sc;
+    if(secs<=0){t.style.display='none';_undoData=null;return;}
     secs--; _undoTimer=setTimeout(tick,1000);
   }
   tick();
