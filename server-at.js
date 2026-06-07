@@ -4864,6 +4864,61 @@ io.on('connection', async (socket) => {
 
   // Permet de rejoindre une conv créée pendant la session
 
+
+// ═══════════════════════════════════════════════════
+// ══  APPELS LIVEKIT  ══════════════════════════════
+// ═══════════════════════════════════════════════════
+const LIVEKIT_API_KEY    = process.env.LIVEKIT_API_KEY    || '';
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || '';
+const LIVEKIT_URL        = process.env.LIVEKIT_URL        || '';
+
+let _lkAccessToken = null;
+(function loadLK(){
+  if(!LIVEKIT_API_KEY){ console.log('⚠️  LiveKit non configuré (LIVEKIT_API_KEY manquant)'); return; }
+  try{
+    const lk = require('livekit-server-sdk');
+    _lkAccessToken = lk.AccessToken;
+    console.log('✅ LiveKit SDK chargé');
+  }catch(e){
+    console.error('❌ LiveKit SDK manquant — fais: npm install livekit-server-sdk');
+  }
+})();
+
+// POST /api/penc/call/token — génère un token LiveKit
+app.post('/api/penc/call/token', pencAuth, async (req, res) => {
+  if(!_lkAccessToken || !LIVEKIT_API_KEY)
+    return res.status(503).json({error:'LiveKit non configuré. Ajoute LIVEKIT_API_KEY dans Render.'});
+  try{
+    const uid = req.pencUser.userId;
+    const { room_name, participant_name, type } = req.body;
+    if(!room_name) return res.status(400).json({error:'room_name requis'});
+    const at = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+      identity: uid,
+      name: participant_name || uid
+    });
+    at.addGrant({
+      roomJoin: true,
+      room: room_name,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true
+    });
+    at.ttl = '1h';
+    const token = await at.toJwt();
+    res.json({ token, url: LIVEKIT_URL, room: room_name });
+  }catch(e){
+    console.error('LiveKit token err:', e.message);
+    res.status(500).json({error: e.message});
+  }
+});
+
+// GET /api/penc/call/config — config publique
+app.get('/api/penc/call/config', pencAuth, (req, res) => {
+  res.json({
+    livekit_enabled: !!LIVEKIT_API_KEY,
+    livekit_url: LIVEKIT_URL
+  });
+});
   // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
   async function emitToUser(uid, event, data){
     // 1) pencOnline map (rapide)
@@ -4883,9 +4938,10 @@ io.on('connection', async (socket) => {
     console.log('⚠️',event,'→',uid.slice(0,10),'HORS LIGNE');
     return false;
   }
-  socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar}) => {
+  socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
+      room_name:room_name||('call_'+pencUserId),
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
