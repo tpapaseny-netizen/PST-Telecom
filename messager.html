@@ -1243,11 +1243,13 @@ function initSocket() {
   if(SOCKET) SOCKET.disconnect();
   SOCKET = io(SOCKET_URL, {auth:{token:TOKEN}, transports:['websocket'], path:'/socket.io'});
   SOCKET.on('connect', function(){
-    console.log('🔌 Penc connected, ME:', ME&&ME.id&&ME.id.slice(0,12));
+    console.log('🔌 Penc socket connecté, id:', SOCKET.id);
     if(ME&&ME.id){
       SOCKET.emit('user:join', {userId:ME.id});
-      SOCKET.emit('auth', {token:TOKEN}); // re-auth si reconnexion
     }
+  });
+  SOCKET.on('connect_error', function(e){
+    console.error('Socket connect_error:', e.message);
   });
   SOCKET.on('message:new', onNewMsg);
   SOCKET.on('typing:start', ({userId,conversation_id})=>{

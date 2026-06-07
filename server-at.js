@@ -4425,9 +4425,15 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
 
 // GET /api/penc/debug/online — qui est connecté
 app.get('/api/penc/debug/online', async (req,res)=>{
-  const list=[];
-  pencOnline.forEach((sid,uid)=>list.push({uid:uid.slice(0,16),sid:sid.slice(0,8)}));
-  res.json({online:list,count:pencOnline.size});
+  try{
+    const sockets=await io.fetchSockets();
+    const list=sockets.map(s=>({
+      uid:(s.data.pencUserId||'?').slice(0,20),
+      sid:s.id.slice(0,8),
+      inMap:pencOnline.has(s.data.pencUserId)
+    }));
+    res.json({sockets:list,count:list.length,mapSize:pencOnline.size});
+  }catch(e){res.json({error:e.message});}
 });
 
 // GET /api/penc/health — diagnostic public
@@ -4838,7 +4844,7 @@ io.on('connection', async (socket) => {
   catch { return; }
 
   pencOnline.set(pencUserId, socket.id);
-  socket.pencUserId = pencUserId;
+  socket.data.pencUserId = pencUserId;
 
   // Rejoindre ses conversations (PostgreSQL prioritaire)
   try {
@@ -4859,15 +4865,26 @@ io.on('connection', async (socket) => {
   // Permet de rejoindre une conv créée pendant la session
 
   // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
-  function emitToUser(uid, event, data){
+  async function emitToUser(uid, event, data){
+    // 1) pencOnline map (rapide)
     const sid=pencOnline.get(uid);
-    if(sid){ io.to(sid).emit(event,data); return true; }
-    // Fallback rooms
-    io.to('user:'+uid).emit(event,data);
+    if(sid){ io.to(sid).emit(event,data); console.log('📡',event,'→',uid.slice(0,10),'via map'); return true; }
+    // 2) fetchSockets (fiable même si map périmée)
+    try{
+      const sockets=await io.fetchSockets();
+      const target=sockets.find(s=>s.data.pencUserId===uid);
+      if(target){
+        target.emit(event,data);
+        pencOnline.set(uid,target.id); // mise à jour map
+        console.log('📡',event,'→',uid.slice(0,10),'via fetchSockets');
+        return true;
+      }
+    }catch(e){ console.error('fetchSockets err:',e.message); }
+    console.log('⚠️',event,'→',uid.slice(0,10),'HORS LIGNE');
     return false;
   }
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar}) => {
-    const ok=emitToUser(target_user_id,'call:incoming',{
+    const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
