@@ -802,16 +802,23 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-quote-name{font-size:11px;font-weight:700;color:var(--accent);}
 .msg-quote-text{font-size:12px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:220px;}
-/* === SUPPRESSION MESSAGES === */
-.msg-ctx-menu{position:fixed;background:var(--card);border-radius:16px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9500;overflow:hidden;min-width:200px;
-  animation:ctxIn .15s ease;}
-@keyframes ctxIn{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
-.msg-ctx-item{padding:14px 18px;display:flex;align-items:center;gap:12px;
-  cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);}
+/* === MENU CONTEXTUEL PREMIUM === */
+.ctx-overlay{position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.45);
+  backdrop-filter:blur(4px);animation:ctxBgIn .2s ease;}
+@keyframes ctxBgIn{from{opacity:0;}to{opacity:1;}}
+.msg-ctx-menu{position:fixed;background:rgba(22,28,40,.97);
+  border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08);
+  z-index:9500;overflow:hidden;min-width:220px;
+  animation:ctxIn .2s cubic-bezier(.34,1.56,.64,1);transform-origin:bottom center;}
+@keyframes ctxIn{from{opacity:0;transform:scale(.85) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.msg-ctx-item{padding:15px 20px;display:flex;align-items:center;gap:14px;
+  cursor:pointer;font-size:14px;font-weight:500;border-bottom:1px solid rgba(255,255,255,.06);}
 .msg-ctx-item:last-child{border-bottom:none;}
-.msg-ctx-item:active{background:var(--card2);}
-.msg-ctx-item.danger{color:#ef4444;}
+.msg-ctx-item:active{background:rgba(255,255,255,.07);}
+.msg-ctx-item .ctx-icon{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.msg-ctx-item.danger{color:#ff6b6b;}
+.msg-ctx-item.danger .ctx-icon{background:rgba(255,107,107,.15);}
 .msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:8px 12px;
   background:var(--card2);border-radius:10px;}
 #deleteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
@@ -3204,36 +3211,47 @@ function initCallSocket(){
 // ══ SUPPRESSION MESSAGES ══
 var _ctxMenu=null, _undoTimer=null, _undoData=null;
 
-function showMsgMenu(msg, rowEl, event){
-  if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;}
+function showMsgMenu(msg, rowEl){
+  // Fermer menu existant
+  closeCtxMenu();
   var isOwn=(msg.is_mine===true)||(ME&&String(msg.sender_id||'')===String(ME.id||''));
   var age=Date.now()-new Date(msg.created_at).getTime();
-  var canAll=isOwn&&age<600000; // 10 minutes
+  var canAll=isOwn&&age<600000;
+  // Overlay de fond
+  var overlay=document.createElement('div'); overlay.className='ctx-overlay';
+  var menu=document.createElement('div'); menu.className='msg-ctx-menu';
   var items=[
     {icon:'↩️',label:'Répondre',fn:function(){setReplyingTo(msg);}},
-    {icon:'🗑️',label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false},
+    {icon:'🗑',label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false},
   ];
-  if(canAll) items.push({icon:'🗑️🌐',label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
-  var menu=document.createElement('div'); menu.className='msg-ctx-menu';
+  if(canAll) items.push({icon:'🗑️',label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
   items.forEach(function(it){
     var el=document.createElement('div'); el.className='msg-ctx-item'+(it.danger?' danger':'');
-    el.innerHTML='<span style="font-size:16px;">'+it.icon+'</span><span>'+it.label+'</span>';
-    el.onclick=function(){it.fn();menu.remove();_ctxMenu=null;};
+    el.innerHTML='<div class="ctx-icon">'+it.icon+'</div><span>'+it.label+'</span>';
+    // touchend pour éviter le conflit avec touchstart global
+    el.addEventListener('touchend',function(e){
+      e.preventDefault(); e.stopPropagation();
+      closeCtxMenu();
+      setTimeout(it.fn,50);
+    });
+    el.onclick=function(e){ e.stopPropagation(); closeCtxMenu(); it.fn(); };
     menu.appendChild(el);
   });
-  // Positionner
+  // Position
   var rect=rowEl.getBoundingClientRect();
-  var menuTop=Math.min(rect.bottom+4,window.innerHeight-180);
-  menu.style.position='fixed';
-  menu.style.top=menuTop+'px';
-  if(isOwn) menu.style.right='10px'; else menu.style.left='10px';
-  document.body.appendChild(menu); _ctxMenu=menu;
-  setTimeout(function(){
-    document.addEventListener('touchstart',function cl(){
-      if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;}
-      document.removeEventListener('touchstart',cl);
-    },{once:true});
-  },100);
+  var menuH=items.length*64;
+  var top=Math.min(rect.bottom+8, window.innerHeight-menuH-20);
+  menu.style.position='fixed'; menu.style.top=top+'px';
+  if(isOwn){ menu.style.right='12px'; } else { menu.style.left='12px'; }
+  // Fermer sur overlay
+  overlay.addEventListener('touchend',function(e){ e.preventDefault(); closeCtxMenu(); });
+  overlay.onclick=closeCtxMenu;
+  document.body.appendChild(overlay);
+  document.body.appendChild(menu);
+  _ctxMenu={menu,overlay};
+}
+function closeCtxMenu(){
+  if(_ctxMenu){ _ctxMenu.menu&&_ctxMenu.menu.remove(); _ctxMenu.overlay&&_ctxMenu.overlay.remove(); _ctxMenu=null; }
 }
 
 function deleteMsgLocal(msg,rowEl){
