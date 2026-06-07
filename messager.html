@@ -1487,12 +1487,16 @@ function appendMsg(msg) {
       <div class="msg-quote-text">${qText}</div>
     </div>`;
   }
-  // ── Swipe pour répondre ──
-  row.addEventListener('touchstart',function(e){row._tx=e.touches[0].clientX;},{ passive:true });
-  row.addEventListener('touchend',function(e){
-    const dx=e.changedTouches[0].clientX-row._tx;
-    if((isMe&&dx<-60)||(!isMe&&dx>60)) setReplyingTo(msg);
+  // ── Appui long (500ms) = Répondre ──
+  var _lpT;
+  row.addEventListener('touchstart',function(e){
+    row._tx=e.touches[0].clientX; row._ty=e.touches[0].clientY;
+    _lpT=setTimeout(function(){ setReplyingTo(msg); row.style.opacity='.6'; setTimeout(function(){row.style.opacity='';},200); },500);
   },{ passive:true });
+  row.addEventListener('touchmove',function(e){
+    if(Math.abs(e.touches[0].clientX-row._tx)>10||Math.abs(e.touches[0].clientY-row._ty)>10) clearTimeout(_lpT);
+  },{ passive:true });
+  row.addEventListener('touchend',function(){ clearTimeout(_lpT); },{ passive:true });
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')"><img src="${msg.media_url}" loading="lazy"/></div>`;
