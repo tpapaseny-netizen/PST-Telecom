@@ -178,7 +178,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 @keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .msg-row.me{align-items:flex-end;}
 .msg-row.them{align-items:flex-start;}
-.msg-bubble{max-width:72%;padding:9px 13px;border-radius:17px;word-wrap:break-word;font-size:15px;line-height:1.45;}
+.msg-bubble{max-width:100%;padding:9px 13px;border-radius:17px;word-break:break-word;overflow-wrap:anywhere;font-size:15px;line-height:1.45;}
 .msg-row.me .msg-bubble{background:var(--me-bg);color:var(--me-text);border-radius:17px 17px 4px 17px;}
 .msg-row.them .msg-bubble{background:var(--them-bg);color:var(--them-text);border-radius:17px 17px 17px 4px;border:1px solid var(--border);}
 .msg-meta{display:flex;align-items:center;gap:3px;font-size:11px;margin-top:3px;margin-bottom:7px;padding:0 3px;}
@@ -1587,6 +1587,34 @@ function onChatInput(){
 }
 function onChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText();}}
 
+// ── Reply / Quote ──
+var _replyingTo = null;
+function setReplyingTo(msg){
+  _replyingTo = msg;
+  var bar = document.getElementById('replyPreviewBar');
+  var nm  = document.getElementById('replyPreviewName');
+  var tx  = document.getElementById('replyPreviewText');
+  if(!bar) return;
+  var senderName = msg.is_mine ? (ME&&(ME.full_name||ME.username)||'Moi') : (CUR_CONV_DATA&&CUR_CONV_DATA.name)||'Inconnu';
+  if(nm) nm.textContent = senderName;
+  if(tx) tx.textContent = msg.type==='voice'?'🎤 Vocal': msg.type==='image'?'📷 Photo': (msg.content||'').slice(0,60);
+  bar.classList.add('show');
+  var inp = document.getElementById('chatInput');
+  if(inp) inp.focus();
+}
+function cancelReply(){
+  _replyingTo = null;
+  var bar = document.getElementById('replyPreviewBar');
+  if(bar) bar.classList.remove('show');
+}
+function scrollToMsg(mid){
+  var el = document.querySelector('[data-mid="'+mid+'"]');
+  if(el){
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.style.background = 'rgba(20,184,166,.25)';
+    setTimeout(function(){ el.style.background = ''; }, 1200);
+  }
+}
 function sendText(){
   const inp=document.getElementById('chatInput'), text=inp.value.trim();
   if(!text||!CUR_CONV||!SOCKET) return;
