@@ -1445,6 +1445,8 @@ function onNewMsg(msg) {
       if(tmpEl){ tmpEl.dataset.mid=msg.id; MSGS[cid].push(msg); return; }
     }
   }
+  // Sauvegarder reply_to dans le cache localStorage
+  if(msg.reply_to && msg.id) _saveRT(msg.id, msg.reply_to);
   MSGS[cid].push(msg);
   // Signaler la livraison à l'expéditeur
   if(SOCKET && msg.sender_id && !(msg.is_mine||(ME&&String(msg.sender_id)===String(ME.id)))){
@@ -1578,9 +1580,13 @@ function appendMsg(msg) {
   const avName = isMe ? (ME&&(ME.full_name||ME.username)) : (CUR_CONV_DATA&&CUR_CONV_DATA.name);
   const avHtml = isMe ? '' : `<div class="msg-sender-av" data-uid="${msg.sender_id||''}">${avSrc?`<img src="${avSrc}" alt=""/>`:`<span>${initials(avName||'?')}</span>`}</div>`;
   // ── Reply quote ──
-  // Normaliser reply_to (peut être string si double-encodé depuis PostgreSQL)
+  // Normaliser reply_to + cache localStorage
   var _rt = msg.reply_to;
   if(typeof _rt === 'string'){ try{ _rt=JSON.parse(_rt); }catch(e){ _rt=null; } }
+  // Fallback: chercher dans le cache local
+  if(!_rt && msg.id) _rt=_getRT(msg.id);
+  // Sauvegarder dans le cache
+  if(_rt && msg.id) _saveRT(msg.id,_rt);
   let quoteHtml = '';
   if(_rt && _rt.id){
     const qt=_rt;
@@ -3477,10 +3483,15 @@ function openVidViewer(url){
   v.src=url;
   v.load();
   var btn=document.getElementById('vidPlayBtn');
-  v.addEventListener('canplay',function onCan(){
-    v.removeEventListener('canplay',onCan);
-    v.play().then(function(){if(btn)btn.textContent='⏸';}).catch(function(e){console.log('play err:',e);});
-  });
+  if(btn) btn.textContent='⏸';
+  // Play direct — la vidéo est en streaming, pas besoin d'attendre canplay
+  var _playAttempt=v.play();
+  if(_playAttempt!==undefined){
+    _playAttempt.catch(function(e){
+      // Autoplay bloqué → afficher play button
+      if(btn) btn.textContent='▶';
+    });
+  }
   showVidCtrl();
 }
 function closeVidViewer(){
@@ -3509,8 +3520,14 @@ function toggleFullPlay(){
   var v=document.getElementById('fullVidEl');
   var btn=document.getElementById('vidPlayBtn');
   if(!v) return;
-  if(v.paused){v.play();if(btn)btn.textContent='⏸';}
-  else{v.pause();if(btn)btn.textContent='▶';}
+  if(v.paused){
+    var p=v.play();
+    if(btn) btn.textContent='⏸';
+    if(p&&p.catch) p.catch(function(){if(btn)btn.textContent='▶';});
+  } else {
+    v.pause();
+    if(btn) btn.textContent='▶';
+  }
   showVidCtrl();
 }
 function skipVid(sec){
@@ -3589,6 +3606,13 @@ document.addEventListener('visibilitychange',function(){
     });
   }
 });
+
+// ── Cache localStorage pour citations (reply_to) ──
+var _rtCache={};
+try{_rtCache=JSON.parse(localStorage.getItem('penc_rt')||'{}');}catch(e){}
+function _saveRT(mid,rt){if(!mid||!rt)return;_rtCache[mid]=rt;
+  try{localStorage.setItem('penc_rt',JSON.stringify(_rtCache));}catch(e){}}
+function _getRT(mid){return mid&&_rtCache[mid]?_rtCache[mid]:null;}
 // ── Splash screen ──
 (function(){
   var sp=document.getElementById('penc-splash');
