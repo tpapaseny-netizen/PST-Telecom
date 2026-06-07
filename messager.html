@@ -1156,6 +1156,23 @@ async function doLogin() {
         var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
         if(cv){showTab('chats');openConv(cv);} window._pendingConvId=null;
       }
+      // Appel entrant depuis notif push
+      if(window._pendingCall){
+        var pc=window._pendingCall; window._pendingCall=null;
+        _lk.callerId=pc.from; _lk.type=pc.type||'audio';
+        _lk.callerName=pc.caller_name; _lk.callerAvatar=pc.caller_avatar;
+        _lk.roomName=pc.room_name;
+        setTimeout(function(){
+          var o=document.getElementById('incomingCallOverlay');
+          var av=document.getElementById('incomingAv');
+          var nm=document.getElementById('incomingName');
+          var tp=document.getElementById('incomingType');
+          if(av) av.innerHTML=pc.caller_avatar?'<img src="'+pc.caller_avatar+'" alt=""/>':esc((pc.caller_name||'?')[0]);
+          if(nm) nm.textContent=pc.caller_name||'Inconnu';
+          if(tp) tp.textContent=pc.type==='video'?'📹 Appel vidéo':'📞 Appel audio';
+          o&&o.classList.add('active'); startRingtone();
+        },1500);
+      }
     });
     loadStatuses(); pingSession(); maybeShowBanner();
   } catch(e) { showErr(e.message||'Identifiants incorrects'); }
@@ -1180,6 +1197,23 @@ async function doRegister() {
       if(window._pendingConvId){
         var cv=(CONVS||[]).find(function(c){return c.id===window._pendingConvId;});
         if(cv){showTab('chats');openConv(cv);} window._pendingConvId=null;
+      }
+      // Appel entrant depuis notif push
+      if(window._pendingCall){
+        var pc=window._pendingCall; window._pendingCall=null;
+        _lk.callerId=pc.from; _lk.type=pc.type||'audio';
+        _lk.callerName=pc.caller_name; _lk.callerAvatar=pc.caller_avatar;
+        _lk.roomName=pc.room_name;
+        setTimeout(function(){
+          var o=document.getElementById('incomingCallOverlay');
+          var av=document.getElementById('incomingAv');
+          var nm=document.getElementById('incomingName');
+          var tp=document.getElementById('incomingType');
+          if(av) av.innerHTML=pc.caller_avatar?'<img src="'+pc.caller_avatar+'" alt=""/>':esc((pc.caller_name||'?')[0]);
+          if(nm) nm.textContent=pc.caller_name||'Inconnu';
+          if(tp) tp.textContent=pc.type==='video'?'📹 Appel vidéo':'📞 Appel audio';
+          o&&o.classList.add('active'); startRingtone();
+        },1500);
       }
     });
     loadStatuses(); pingSession(); maybeShowBanner();

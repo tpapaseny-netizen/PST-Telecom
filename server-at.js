@@ -4945,6 +4945,23 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
+    // Si hors ligne → push notification d'appel entrant
+    if(!ok){
+      try{
+        const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
+        const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
+        const callerName = callerUser.full_name||callerUser.username||'Inconnu';
+        await sendPencPush(target_user_id, {
+          title: callerName+' appelle...',
+          body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
+          tag: 'penc-call',
+          url: '/messager',
+          conv_id: null,
+          call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
+        });
+        console.log('📲 Push call envoyé à',target_user_id.slice(0,10));
+      }catch(ep){console.error('push call err:',ep.message);}
+    }
   });
   socket.on('call:accept', ({caller_id}) => {
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
