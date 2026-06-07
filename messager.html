@@ -1360,6 +1360,21 @@ function initSocket() {
 function onNewMsg(msg) {
   const cid = msg.conversation_id;
   if(!MSGS[cid]) MSGS[cid]=[];
+  // Anti-doublon: si message propre et tmp similaire existe → juste mettre à jour l'ID
+  if(msg.is_mine && msg.id){
+    const area=document.getElementById('msgsArea');
+    if(area){
+      // Chercher un tmp avec le même contenu
+      var tmpEl=null;
+      area.querySelectorAll('[data-mid^="tmp_"]').forEach(function(el){
+        var b=el.querySelector('.msg-bubble'); 
+        if(b&&b.textContent.trim()===(msg.content||'').trim()) tmpEl=el;
+      });
+      if(tmpEl){ tmpEl.dataset.mid=msg.id; MSGS[cid].push(msg); return; }
+      // Vérification ID directe
+      if(area.querySelector('[data-mid="'+msg.id+'"]')) return;
+    }
+  }
   MSGS[cid].push(msg);
   const conv = CONVS.find(c=>c.id===cid);
   if(conv) {
@@ -1487,16 +1502,33 @@ function appendMsg(msg) {
       <div class="msg-quote-text">${qText}</div>
     </div>`;
   }
-  // ── Appui long (500ms) = Répondre ──
-  var _lpT;
+  // ── Swipe pour répondre (comme WhatsApp) + appui long ──
+  var _lpT2, _isSwiping=false;
   row.addEventListener('touchstart',function(e){
     row._tx=e.touches[0].clientX; row._ty=e.touches[0].clientY;
-    _lpT=setTimeout(function(){ setReplyingTo(msg); row.style.opacity='.6'; setTimeout(function(){row.style.opacity='';},200); },500);
-  },{ passive:true });
+    _isSwiping=false;
+    row.style.transition='none';
+    _lpT2=setTimeout(function(){
+      if(!_isSwiping){ setReplyingTo(msg); row.style.opacity='.65'; setTimeout(function(){row.style.opacity='';},200); }
+    },500);
+  },{passive:true});
   row.addEventListener('touchmove',function(e){
-    if(Math.abs(e.touches[0].clientX-row._tx)>10||Math.abs(e.touches[0].clientY-row._ty)>10) clearTimeout(_lpT);
-  },{ passive:true });
-  row.addEventListener('touchend',function(){ clearTimeout(_lpT); },{ passive:true });
+    var dx=e.touches[0].clientX-row._tx;
+    var dy=Math.abs(e.touches[0].clientY-row._ty);
+    if(dy>15){clearTimeout(_lpT2);return;}
+    if(Math.abs(dx)>10){ _isSwiping=true; clearTimeout(_lpT2); }
+    if(!_isSwiping) return;
+    if(!isMe&&dx>0) row.style.transform='translateX('+Math.min(dx,75)+'px)';
+    else if(isMe&&dx<0) row.style.transform='translateX('+Math.max(dx,-75)+'px)';
+  },{passive:true});
+  row.addEventListener('touchend',function(e){
+    clearTimeout(_lpT2);
+    row.style.transition='transform .2s ease';
+    row.style.transform='translateX(0)';
+    if(!_isSwiping) return;
+    var dx=e.changedTouches[0].clientX-row._tx;
+    if((!isMe&&dx>60)||(isMe&&dx<-60)) setReplyingTo(msg);
+  },{passive:true});
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')"><img src="${msg.media_url}" loading="lazy"/></div>`;
