@@ -1633,7 +1633,8 @@ function setReplyingTo(msg){
   var nm  = document.getElementById('replyPreviewName');
   var tx  = document.getElementById('replyPreviewText');
   if(!bar) return;
-  var senderName = msg.is_mine ? (ME&&(ME.full_name||ME.username)||'Moi') : (CUR_CONV_DATA&&CUR_CONV_DATA.name)||'Inconnu';
+  var _mine = msg.is_mine===true||(ME&&String(msg.sender_id||'')===String(ME&&ME.id||''));
+  var senderName = _mine ? 'Vous' : (CUR_CONV_DATA&&CUR_CONV_DATA.name)||'Inconnu';
   if(nm) nm.textContent = senderName;
   if(tx) tx.textContent = msg.type==='voice'?'🎤 Vocal': msg.type==='image'?'📷 Photo': (msg.content||'').slice(0,60);
   bar.classList.add('show');
@@ -1664,7 +1665,7 @@ function sendText(){
   // Inclure reply_to si actif
   const replyData=_replyingTo?{
     id:_replyingTo.id, content:_replyingTo.content, type:_replyingTo.type,
-    sender_name:_replyingTo.is_mine?(ME&&(ME.full_name||ME.username)):(CUR_CONV_DATA&&CUR_CONV_DATA.name)||''
+    sender_name:((_replyingTo.is_mine===true)||(ME&&String(_replyingTo.sender_id||'')===String(ME&&ME.id||'')))?'Vous':(CUR_CONV_DATA&&CUR_CONV_DATA.name)||''
   }:null;
   cancelReply();
   const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'text',content:text,
