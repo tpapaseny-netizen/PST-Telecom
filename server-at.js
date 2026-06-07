@@ -4046,7 +4046,7 @@ async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
     'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString()]
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to||null,msg.created_at||new Date().toISOString()]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);

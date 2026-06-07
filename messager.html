@@ -1360,19 +1360,22 @@ function initSocket() {
 function onNewMsg(msg) {
   const cid = msg.conversation_id;
   if(!MSGS[cid]) MSGS[cid]=[];
-  // Anti-doublon: si message propre et tmp similaire existe → juste mettre à jour l'ID
-  if(msg.is_mine && msg.id){
+  // Anti-doublon: message propre = is_mine OU sender_id===ME.id
+  var _isOwnMsg = msg.is_mine === true || (ME && String(msg.sender_id||'')===String(ME.id||''));
+  if(_isOwnMsg && msg.id){
     const area=document.getElementById('msgsArea');
     if(area){
-      // Chercher un tmp avec le même contenu
+      // Vérification ID directe d'abord
+      if(area.querySelector('[data-mid="'+msg.id+'"]')) return;
+      // Chercher un tmp avec le même contenu (< 15 secondes)
       var tmpEl=null;
+      var now=Date.now();
       area.querySelectorAll('[data-mid^="tmp_"]').forEach(function(el){
-        var b=el.querySelector('.msg-bubble'); 
-        if(b&&b.textContent.trim()===(msg.content||'').trim()) tmpEl=el;
+        var age=now-parseInt((el.dataset.mid||'0').replace('tmp_',''),10);
+        var b=el.querySelector('.msg-bubble');
+        if(b && age<15000 && b.textContent.trim()===(msg.content||'').trim()) tmpEl=el;
       });
       if(tmpEl){ tmpEl.dataset.mid=msg.id; MSGS[cid].push(msg); return; }
-      // Vérification ID directe
-      if(area.querySelector('[data-mid="'+msg.id+'"]')) return;
     }
   }
   MSGS[cid].push(msg);
@@ -1493,9 +1496,12 @@ function appendMsg(msg) {
   const avName = isMe ? (ME&&(ME.full_name||ME.username)) : (CUR_CONV_DATA&&CUR_CONV_DATA.name);
   const avHtml = isMe ? '' : `<div class="msg-sender-av" data-uid="${msg.sender_id||''}">${avSrc?`<img src="${avSrc}" alt=""/>`:`<span>${initials(avName||'?')}</span>`}</div>`;
   // ── Reply quote ──
+  // Normaliser reply_to (peut être string si double-encodé depuis PostgreSQL)
+  var _rt = msg.reply_to;
+  if(typeof _rt === 'string'){ try{ _rt=JSON.parse(_rt); }catch(e){ _rt=null; } }
   let quoteHtml = '';
-  if(msg.reply_to && msg.reply_to.id){
-    const qt=msg.reply_to;
+  if(_rt && _rt.id){
+    const qt=_rt;
     const qText=qt.type==='voice'?'🎤 Vocal':qt.type==='image'?'📷 Photo':esc((qt.content||'').slice(0,60));
     quoteHtml=`<div class="msg-quote" onclick="scrollToMsg('${qt.id}')">
       <div class="msg-quote-name">${esc(qt.sender_name||'')}</div>
