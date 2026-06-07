@@ -1445,8 +1445,12 @@ function onNewMsg(msg) {
       if(tmpEl){ tmpEl.dataset.mid=msg.id; MSGS[cid].push(msg); return; }
     }
   }
-  // Sauvegarder reply_to dans le cache localStorage
-  if(msg.reply_to && msg.id) _saveRT(msg.id, msg.reply_to);
+  // Sauvegarder reply_to dans le cache localStorage (ID réel du serveur)
+  if(msg.reply_to && msg.id){
+    var _rtVal=msg.reply_to;
+    if(typeof _rtVal==='string'){try{_rtVal=JSON.parse(_rtVal);}catch(e){_rtVal=null;}}
+    if(_rtVal) _saveRT(msg.id, _rtVal);
+  }
   MSGS[cid].push(msg);
   // Signaler la livraison à l'expéditeur
   if(SOCKET && msg.sender_id && !(msg.is_mine||(ME&&String(msg.sender_id)===String(ME.id)))){
@@ -1783,14 +1787,18 @@ function sendText(){
   SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'text',content:text,reply_to:replyData},
     function(res){if(res&&res.message){
       res.message.is_mine=true;
-      res.message.reply_to=replyData; // garder reply_to dans cache local
+      res.message.reply_to=replyData;
       var el=document.querySelector('[data-mid="'+tmp.id+'"]');
       if(el) el.dataset.mid=res.message.id;
-      // Sauvegarder dans MSGS avec reply_to
-      var cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;});
+      // ★ Sauvegarder le cache avec l'ID RÉEL (pas tmp_)
+      if(replyData && res.message.id){
+        _saveRT(res.message.id, replyData);
+      }
+      // Mettre à jour MSGS
       if(MSGS[CUR_CONV]){
-        var mi=MSGS[CUR_CONV].findIndex(function(m){return m.id===tmp.id;});
+        var mi=MSGS[CUR_CONV].findIndex(function(m){return m.id===tmp.id||m.id===res.message.id;});
         if(mi>=0) MSGS[CUR_CONV][mi]=Object.assign({},MSGS[CUR_CONV][mi],{id:res.message.id,reply_to:replyData});
+        else MSGS[CUR_CONV].push(Object.assign({},res.message,{reply_to:replyData}));
       }
     }});
 }
