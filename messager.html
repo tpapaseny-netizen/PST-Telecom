@@ -240,8 +240,23 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 /* Input area */
 .chat-input-area{padding:7px 11px 10px;padding-bottom:calc(10px + env(safe-area-inset-bottom));background:var(--header-bg);border-top:1px solid var(--border);flex-shrink:0;position:relative;}
 .chat-input-row{display:flex;align-items:flex-end;gap:7px;}
-.attach-btn{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;flex-shrink:0;}
-.chat-input-wrap{flex:1;background:var(--input-bg);border:1px solid var(--border);border-radius:15px;display:flex;align-items:flex-end;padding:3px 3px 3px 12px;gap:3px;}
+/* === BARRE SAISIE WHATSAPP STYLE === */
+.attach-btn{display:none;} /* remplacé par les nouvelles icônes */
+.chat-input-wrap{flex:1;background:var(--input-bg);border:1px solid var(--border);
+  border-radius:24px;display:flex;align-items:center;padding:8px 8px 8px 14px;gap:4px;}
+.chat-wa-left{display:flex;align-items:center;gap:2px;flex-shrink:0;}
+.chat-wa-right{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px;}
+.wa-icon-btn{width:42px;height:42px;border-radius:50%;border:none;background:none;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;}
+.wa-icon-btn:active{background:var(--card2);}
+.wa-mic-btn{width:46px;height:46px;border-radius:50%;border:none;
+  background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.wa-mic-btn.recording{background:var(--danger);animation:pulse 1s infinite;}
+.wa-send-btn{width:46px;height:46px;border-radius:50%;border:none;
+  background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.wa-send-btn:active{transform:scale(.9);}
 .chat-textarea{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;resize:none;max-height:110px;line-height:1.45;padding:7px 0;min-height:38px;}
 .chat-textarea::placeholder{color:var(--muted);}
 .send-btn,.mic-btn{width:36px;height:36px;border-radius:11px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;transition:all .13s;}
@@ -834,8 +849,11 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .msg-ctx-item.danger{color:#ff6b6b;}
 .msg-ctx-item.danger .ctx-icon{background:rgba(255,107,107,.12);}
 .msg-ctx-item.danger .ctx-icon svg{stroke:#ff6b6b;}
-.msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:8px 12px;
-  background:var(--card2);border-radius:10px;}
+.msg-deleted{font-size:13px;color:var(--muted);font-style:italic;padding:6px 10px;
+  background:var(--card2);border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.msg-undo-btn{font-size:11px;color:var(--accent);font-style:normal;font-weight:700;
+  cursor:pointer;border:1px solid rgba(77,208,225,.3);border-radius:8px;padding:2px 7px;}
+.msg-undo-timer{font-size:10px;color:var(--muted);font-style:normal;}
 #deleteToast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);
   background:rgba(22,28,38,.95);padding:8px 14px;border-radius:24px;
   display:none;align-items:center;gap:8px;z-index:99999;
@@ -1040,14 +1058,15 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
       </div>
       <button class="reply-preview-close" onclick="cancelReply()">✕</button>
     </div>
-    <div class="chat-input-row">
-      <div class="attach-btn" onclick="toggleAttach()">📎</div>
+    <div class="chat-input-row" style="align-items:center;gap:6px;">
       <div class="chat-input-wrap">
-        <textarea class="chat-textarea" id="chatInput" placeholder="Message..." rows="1" oninput="onChatInput()" onkeydown="onChatKey(event)"></textarea>
-        <button style="background:var(--card2);color:var(--muted);width:36px;height:36px;border-radius:11px;border:none;cursor:pointer;font-size:17px;" onclick="toggleStickers()">😊</button>
-        <button class="send-btn" id="sendBtn" style="display:none" onclick="sendText()">➤</button>
-        <button class="mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)">🎙️</button>
+        <button class="wa-icon-btn" style="color:var(--muted);flex-shrink:0;" onclick="toggleStickers()" title="Emoji"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-3.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-3.5 5c2.33 0 4.31-1.46 5.11-3.5H5.89A5.5 5.5 0 0 0 12 18z"/></svg></button>
+        <textarea class="chat-textarea" id="chatInput" placeholder="Message..." rows="1" oninput="onChatInput()" onkeydown="onChatKey(event)" style="flex:1;"></textarea>
+        <button class="wa-icon-btn" onclick="toggleAttach()" title="Joindre" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+        <button class="wa-icon-btn" onclick="pickFile('image')" title="Caméra" id="camBtn" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
       </div>
+      <button class="wa-send-btn" id="sendBtn" style="display:none;" onclick="sendText()" title="Envoyer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      <button class="wa-mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)" title="Vocal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
     </div>
   </div>
   <input type="file" id="fi-img" accept="image/*" style="display:none" onchange="handleFile(event,'image')"/>
@@ -1764,6 +1783,7 @@ function sendText(){
   inp.value=''; inp.style.height='auto';
   document.getElementById('sendBtn').style.display='none';
   document.getElementById('micBtn').style.display='flex';
+  document.getElementById('camBtn')&&(document.getElementById('camBtn').style.display='flex');
   SOCKET.emit('typing:stop',{conversation_id:CUR_CONV});
   // Inclure reply_to si actif
   const replyData=_replyingTo?{
@@ -3326,7 +3346,7 @@ function showMsgMenu(msg, rowEl){
   var isOwn=msg.is_mine===true
     ||(ME&&ME.id&&msg.sender_id&&String(msg.sender_id)===String(ME.id));
   var age=Date.now()-new Date(msg.created_at).getTime();
-  var canAll=isOwn&&age<600000;
+  var canAll=isOwn&&age<86400000;
   // Overlay de fond
   var overlay=document.createElement('div'); overlay.className='ctx-overlay';
   var menu=document.createElement('div'); menu.className='msg-ctx-menu';
@@ -3368,12 +3388,14 @@ function closeCtxMenu(){
 }
 
 function deleteMsgLocal(msg,rowEl){
-  rowEl.dataset.hidden='1';
-  rowEl.style.display='none';
   _undoData={msg:msg,rowEl:rowEl,forAll:false};
-  // Sauvegarder dans sessionStorage pour résister à la navigation
-  try{sessionStorage.setItem('penc_undo',JSON.stringify({id:msg.id,conv_id:msg.conversation_id,forAll:false,ts:Date.now()}));}catch(e){}
-  startUndoToast('Message supprimé pour vous.');
+  var body=rowEl.querySelector('.msg-body');
+  var delHtml='<div class="msg-deleted" id="ud_'+msg.id+'">'+'<span>🚫 Supprim\u00e9 pour vous</span>'+'<span class="msg-undo-btn" onclick="undoDelete()">Annuler</span>'+'<span class="msg-undo-timer" id="udt_'+msg.id+'"></span></div>';
+  if(body) body.innerHTML=delHtml;
+  try{localStorage.setItem('penc_undo_'+msg.id,JSON.stringify(
+    {id:msg.id,conv_id:msg.conversation_id,content:msg.content,type:msg.type||'text',forAll:false,ts:Date.now()}
+  ));}catch(e){}
+  startInlineUndoTimer(msg.id);
 }
 
 function deleteMsgAll(msg,rowEl){
@@ -3409,7 +3431,7 @@ function startUndoToast(txt){
   toast.style.display='flex';
   // S'assurer que le toast est bien visible (au-dessus de tout)
   document.body.appendChild(toast);
-  var secs=600;
+  var secs=86400;
   function tick(){
     var t=document.getElementById('deleteToast');
     if(!t||!_undoData){if(t)t.style.display='none';return;}
@@ -3424,8 +3446,8 @@ function startUndoToast(txt){
 
 function undoDelete(){
   clearTimeout(_undoTimer);
-  try{sessionStorage.removeItem('penc_undo');}catch(e){}
-  document.getElementById('deleteToast').style.display='none';
+  if(_undoData&&_undoData.msg&&_undoData.msg.id)
+    try{localStorage.removeItem('penc_undo_'+_undoData.msg.id);}catch(e){}
   if(!_undoData) return;
   var d=_undoData; _undoData=null;
   if(!d.forAll){
@@ -3621,6 +3643,29 @@ try{_rtCache=JSON.parse(localStorage.getItem('penc_rt')||'{}');}catch(e){}
 function _saveRT(mid,rt){if(!mid||!rt)return;_rtCache[mid]=rt;
   try{localStorage.setItem('penc_rt',JSON.stringify(_rtCache));}catch(e){}}
 function _getRT(mid){return mid&&_rtCache[mid]?_rtCache[mid]:null;}
+
+function startInlineUndoTimer(msgId){
+  clearTimeout(_undoTimer);
+  var ts=Date.now();
+  function tick(){
+    var el=document.getElementById('udt_'+msgId);
+    var undoEl=document.getElementById('ud_'+msgId);
+    var elapsed=Date.now()-ts;
+    var remaining=86400-Math.floor(elapsed/1000);
+    if(remaining<=0){
+      // Temps écoulé — supprimer le bouton Annuler
+      if(undoEl){var btn=undoEl.querySelector('.msg-undo-btn');if(btn)btn.remove();}
+      if(el) el.remove();
+      try{localStorage.removeItem('penc_undo_'+msgId);}catch(e){}
+      return;
+    }
+    var h=Math.floor(remaining/3600),m=Math.floor((remaining%3600)/60),sc=remaining%60;
+    var fmt=h>0?(h+'h'+(m<10?'0':'')+m+'m'):(m>0?(m+':'+(sc<10?'0':'')+sc):(sc+'s'));
+    if(el) el.textContent='('+fmt+')';
+    _undoTimer=setTimeout(tick,1000);
+  }
+  tick();
+}
 // ── Splash screen ──
 (function(){
   var sp=document.getElementById('penc-splash');
