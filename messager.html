@@ -1598,13 +1598,13 @@ function appendMsg(msg) {
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')" style="background:transparent;">
     <img src="${msg.media_url}" loading="lazy" style="min-height:120px;background:#1a1f2e;"/>
   </div>`;
-  else if(msg.type==='video') bubble=`<div class="media-bubble" id="vw_${msg.id}">
+  else if(msg.type==='video') bubble=`<div class="media-bubble" id="vw_${msg.id}" onclick="openVidViewer('${msg.media_url}')" style="cursor:pointer;">
   <div class="vid-wrap">
-    <video src="${msg.media_url}" preload="metadata" playsinline id="vid_${msg.id}" onended="resetVid('${msg.id}')"></video>
-    <div class="vid-play-btn" id="vbtn_${msg.id}" onclick="toggleVid('${msg.id}')">
-      <svg width='44' height='44' viewBox='0 0 44 44'><circle cx='22' cy='22' r='22' fill='rgba(255,255,255,0.92)'/><polygon points='17,13 35,22 17,31' fill='#111'/></svg>
+    <video src="${msg.media_url}" preload="metadata" playsinline
+      id="vid_${msg.id}" style="pointer-events:none;width:100%;max-height:300px;object-fit:cover;border-radius:14px;display:block;"></video>
+    <div class="vid-play-btn" id="vbtn_${msg.id}" style="pointer-events:none;">
+      <svg width='48' height='48' viewBox='0 0 48 48'><circle cx='24' cy='24' r='24' fill='rgba(0,0,0,.45)'/><polygon points='19,14 37,24 19,34' fill='#fff'/></svg>
     </div>
-    <div class="vid-duration" id="vdur_${msg.id}">▶</div>
   </div>
 </div>`;
   else if(msg.type==='money') bubble=buildMoneyCard(msg);
@@ -3426,6 +3426,90 @@ function updateMsgTick(msgId, state){
   else{tick.textContent='✓';tick.className='msg-tick sent';}
 }
 
+
+// ═══ FULLSCREEN VIDEO PLAYER ═══
+var _fvCtrlTimer=null;
+function openVidViewer(url){
+  var v=document.getElementById('fullVidEl');
+  var o=document.getElementById('vidViewer');
+  if(!v||!o) return;
+  v.src=url; v.currentTime=0;
+  o.classList.add('active');
+  v.play().catch(function(){});
+  document.getElementById('vidPlayBtn').textContent='⏸';
+  showVidCtrl();
+}
+function closeVidViewer(){
+  var v=document.getElementById('fullVidEl');
+  var o=document.getElementById('vidViewer');
+  if(v){v.pause();v.src='';}
+  if(o) o.classList.remove('active');
+  clearTimeout(_fvCtrlTimer);
+}
+function showVidCtrl(){
+  var bar=document.getElementById('vidCtrlBar');
+  if(bar) bar.classList.remove('hidden');
+  clearTimeout(_fvCtrlTimer);
+  _fvCtrlTimer=setTimeout(function(){
+    var bar2=document.getElementById('vidCtrlBar');
+    if(bar2) bar2.classList.add('hidden');
+  },3000);
+}
+function toggleVidCtrl(){
+  var bar=document.getElementById('vidCtrlBar');
+  if(!bar) return;
+  if(bar.classList.contains('hidden')) showVidCtrl();
+  else bar.classList.add('hidden');
+}
+function toggleFullPlay(){
+  var v=document.getElementById('fullVidEl');
+  var btn=document.getElementById('vidPlayBtn');
+  if(!v) return;
+  if(v.paused){v.play();if(btn)btn.textContent='⏸';}
+  else{v.pause();if(btn)btn.textContent='▶';}
+  showVidCtrl();
+}
+function skipVid(sec){
+  var v=document.getElementById('fullVidEl');
+  if(v) v.currentTime=Math.max(0,Math.min(v.duration||0,v.currentTime+sec));
+  showVidCtrl();
+}
+function seekVid(val){
+  var v=document.getElementById('fullVidEl');
+  if(v&&v.duration) v.currentTime=val;
+  showVidCtrl();
+}
+function toggleVidMute(){
+  var v=document.getElementById('fullVidEl');
+  var btn=document.getElementById('vidMuteBtn');
+  if(!v) return;
+  v.muted=!v.muted;
+  if(btn) btn.textContent=v.muted?'🔇':'🔊';
+  showVidCtrl();
+}
+function onVidTime(){
+  var v=document.getElementById('fullVidEl');
+  var seek=document.getElementById('vidSeek');
+  var timeEl=document.getElementById('vidTime');
+  if(!v) return;
+  if(seek){seek.max=v.duration||0;seek.value=v.currentTime;}
+  if(timeEl) timeEl.textContent=fmtVidTime(v.currentTime)+' / '+fmtVidTime(v.duration||0);
+}
+function onVidMeta(){
+  var v=document.getElementById('fullVidEl');
+  var seek=document.getElementById('vidSeek');
+  if(v&&seek) seek.max=v.duration||0;
+}
+function onVidEnded(){
+  var btn=document.getElementById('vidPlayBtn');
+  if(btn) btn.textContent='▶';
+  showVidCtrl();
+}
+function fmtVidTime(sec){
+  if(!sec||isNaN(sec)) return '0:00';
+  var m=Math.floor(sec/60),s=Math.floor(sec%60);
+  return m+':'+(s<10?'0':'')+s;
+}
 // ── Lecteur vidéo custom ──
 function toggleVid(id){
   var v=document.getElementById('vid_'+id);

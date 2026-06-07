@@ -3930,13 +3930,19 @@ let _pgPool = null;
         content         TEXT DEFAULT '',
         media_url       TEXT,
         duration        INTEGER,
-        reply_to        JSONB,
+        reply_to        TEXT,
         deleted_for_all BOOLEAN DEFAULT FALSE,
         delivered_at    TIMESTAMPTZ,
         read_at         TIMESTAMPTZ,
         created_at      TIMESTAMPTZ DEFAULT NOW()
       );
-      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS reply_to JSONB;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS reply_to TEXT;
+      -- Convertir JSONB→TEXT si la colonne était déjà JSONB
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='penc_messages' AND column_name='reply_to' AND data_type='jsonb') THEN
+          ALTER TABLE penc_messages ALTER COLUMN reply_to TYPE TEXT USING reply_to::TEXT;
+        END IF;
+      END $$;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
@@ -4052,7 +4058,7 @@ async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
     'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to||null,msg.created_at||new Date().toISOString()]
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString()]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -4307,7 +4313,10 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         is_mine: String(m.sender_id) === String(uid),
         type: m.type, content: m.content,
         media_url: m.media_url, media_duration: m.duration,
-        reply_to: m.reply_to || null,
+        reply_to: m.reply_to?(function(){
+          if(typeof m.reply_to==='object') return m.reply_to;
+          try{return JSON.parse(m.reply_to);}catch(e){return null;}
+        })():null,
         deleted_for_all: m.deleted_for_all || false,
         delivered_at: m.delivered_at || null,
         read_at: m.read_at || null,
