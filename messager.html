@@ -249,11 +249,11 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .wa-icon-btn{width:38px;height:38px;border-radius:50%;border:none;background:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;}
 .wa-icon-btn:active{background:var(--card2);}
-.wa-mic-btn,.wa-send-btn{position:absolute;right:6px;
+.wa-mic-btn,.wa-send-btn{position:absolute;right:10px;box-sizing:border-box;
   bottom:calc(5px + env(safe-area-inset-bottom));width:40px;height:40px;
   border-radius:50%;border:none;background:var(--accent);color:#fff;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:5;}
+  cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.3);z-index:5;}
 .wa-mic-btn.recording{background:var(--danger);animation:pulse 1s infinite;}
 .wa-send-btn:active,.wa-mic-btn:active{transform:scale(.9);}
 
@@ -1051,14 +1051,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   </div>
   <div class="chat-input-area">
     <div class="attach-menu" id="attachMenu">
-      <div class="attach-opt" style="position:relative;overflow:hidden;">
-        <input type="file" accept="image/*,video/*" onchange="handleFile(event,this.files[0]&&this.files[0].type.startsWith('video')?'video':'image')" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;" onclick="attachOpen=false;">
-        📷<span>Photo/Vidéo</span>
-      </div>
-      <div class="attach-opt" style="position:relative;overflow:hidden;">
-        <input type="file" accept="application/*,text/*" onchange="handleFile(event,'file')" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;" onclick="attachOpen=false;">
-        📄<span>Fichier</span>
-      </div>
+      <div class="attach-opt" onclick="pickFile('media')">📷<span>Photo/Vidéo</span></div>
+      <div class="attach-opt" onclick="pickFile('file')">📄<span>Fichier</span></div>
       <div class="attach-opt" onclick="toggleAttach();openRadioSheet()">📻<span>Radio</span></div>
       <div class="attach-opt" onclick="toggleAttach();openPollSheet()">📊<span>Sondage</span></div>
     </div>
@@ -1080,7 +1074,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
       <div class="chat-input-wrap">
         <button class="wa-icon-btn" style="color:var(--muted);flex-shrink:0;" onclick="toggleStickers()" title="Emoji"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-3.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-3.5 5c2.33 0 4.31-1.46 5.11-3.5H5.89A5.5 5.5 0 0 0 12 18z"/></svg></button>
         <textarea class="chat-textarea" id="chatInput" placeholder="Message..." rows="1" oninput="onChatInput()" onkeydown="onChatKey(event)" style="flex:1;"></textarea>
-        <button class="wa-icon-btn" onclick="toggleAttach()" title="Joindre" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+        <button class="wa-icon-btn" onclick="toggleAttach(event)" title="Joindre" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
         <button class="wa-icon-btn" onclick="pickFile('image')" title="Caméra" id="camBtn" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
       </div>
     </div>
@@ -1088,6 +1082,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   <input type="file" id="fi-img" accept="image/*" style="display:none" onchange="handleFile(event,'image')"/>
   <input type="file" id="fi-vid" accept="video/*" style="display:none" onchange="handleFile(event,'video')"/>
   <input type="file" id="fi-doc" accept="*/*" style="display:none" onchange="handleFile(event,'file')"/>
+  <input type="file" id="fi-media" accept="image/*,video/*" style="display:none" onchange="handleFileAuto(event)"/>
 </div>
 
 <!-- ══ OVERLAY SHEETS ══ -->
@@ -1887,17 +1882,16 @@ function cancelRec(){
 }
 
 // ══════════════ FILE UPLOAD ══════════════
-function toggleAttach(){attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
+function toggleAttach(e){if(e&&e.stopPropagation)e.stopPropagation();attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
 function toggleStickers(){stickerOpen=!stickerOpen;document.getElementById('stickerPanel').classList.toggle('show',stickerOpen);}
 function pickFile(t){
   attachOpen=false;
   document.getElementById('attachMenu').classList.remove('show');
-  setTimeout(function(){
-    if(t==='image') document.getElementById('fi-img').click();
-    else if(t==='video') document.getElementById('fi-vid').click();
-    else document.getElementById('fi-doc').click();
-  },50);
+  var id = t==='image'?'fi-img' : t==='video'?'fi-vid' : t==='media'?'fi-media' : 'fi-doc';
+  var inp=document.getElementById(id);
+  if(inp) inp.click();            // .click() SYNCHRONE = OK sur mobile
 }
+function handleFileAuto(e){var f=e.target.files[0];if(!f)return;e.target.value='';var t=(f.type&&f.type.startsWith('video'))?'video':((f.type&&f.type.startsWith('image'))?'image':'file');uploadAndSend(f,t,f.type);}
 function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value='';uploadAndSend(f,t,f.type);}
 
 async function uploadAndSend(blob,type,mimeType){
@@ -3449,7 +3443,7 @@ function deleteMsgAll(msg,rowEl){
       if(body) body.innerHTML='<div class="msg-deleted" id="ud_'+msg.id+'">'+'<span>⛔ Supprimé pour tous</span>'+'<span class="msg-undo-btn" onclick="restoreFromStore(\''+msg.id+'\')"  style="cursor:pointer;">Annuler</span>'+'<span class="msg-undo-timer" id="udt_'+msg.id+'"></span></div>';
       var _ts=Date.now();
       try{localStorage.setItem('penc_undo_'+msg.id,JSON.stringify(
-        {id:msg.id,conv_id:msg.conversation_id,content:orig.content,type:orig.type||'text',forAll:true,ts:_ts}
+        {id:msg.id,conv_id:msg.conversation_id,content:orig.content,type:orig.type||'text',media_url:msg.media_url||null,media_duration:msg.media_duration||null,forAll:true,ts:_ts}
       ));}catch(e){}
       startInlineUndoTimer(msg.id);
     }
@@ -3515,23 +3509,24 @@ function initDeleteSocket(){
       if(mi>=0) MSGS[d.conv_id][mi].content=d.content; }
   });
   SOCKET.on('message:deleted',function(data){
+    if(!data||!data.id) return;
     var el=document.querySelector('[data-mid="'+data.id+'"]');
     if(el){
       var body=el.querySelector('.msg-body');
       if(body) body.innerHTML='<div class="msg-deleted">🚫 Message supprimé</div>';
     }
+    if(MSGS[data.conv_id]){ var mdi=MSGS[data.conv_id].findIndex(function(m){return m.id===data.id;});
+      if(mdi>=0){ MSGS[data.conv_id][mdi].deleted_for_all=true; MSGS[data.conv_id][mdi].type='deleted'; MSGS[data.conv_id][mdi].content=''; } }
   });
   SOCKET.on('message:restored',function(data){
+    if(!data||!data.id) return;
     var el=document.querySelector('[data-mid="'+data.id+'"]');
     if(el){
       var body=el.querySelector('.msg-body');
-      if(body){
-        var bubble=data.type==='voice'?'🎤 Vocal restauré':
-          '<div class="msg-bubble">'+esc(data.content||'')+'</div>';
-        if(typeof bubble==='string' && !bubble.startsWith('<')) bubble='<div class="msg-bubble">'+bubble+'</div>';
-        body.innerHTML=bubble+'<div class="msg-meta"><span>restauré</span></div>';
-      }
+      if(body) body.innerHTML=restoredBubbleHtml({id:data.id,type:data.type||'text',content:data.content||'',media_url:data.media_url,media_duration:data.media_duration})+'<div class="msg-meta"><span>restauré</span></div>';
     }
+    if(MSGS[data.conv_id]){ var mri=MSGS[data.conv_id].findIndex(function(m){return m.id===data.id;});
+      if(mri>=0){ var mm=MSGS[data.conv_id][mri]; mm.deleted_for_all=false; mm.type=data.type||'text'; mm.content=data.content||''; if(data.media_url) mm.media_url=data.media_url; if(data.media_duration) mm.media_duration=data.media_duration; } }
   });
 }
 
@@ -3750,6 +3745,12 @@ function runUndoTimer(id,ts){
     if(te) te.textContent='('+(m>0?m+':'+(sc<10?'0':'')+sc:sc+'s')+')';
   },1000);
 }
+function restoredBubbleHtml(m){
+  if(m.type==='voice') return buildVoiceBubble(m);
+  if(m.type==='image') return '<div class="media-bubble" onclick="openImgViewer(\''+(m.media_url||'')+'\')" style="background:transparent;"><img src="'+(m.media_url||'')+'" loading="lazy" style="min-height:120px;background:#1a1f2e;"/></div>';
+  if(m.type==='video') return '<div class="media-bubble" id="vw_'+m.id+'" onclick="openVidViewer(\''+(m.media_url||'')+'\')" style="cursor:pointer;"><div class="vid-wrap"><video src="'+(m.media_url||'')+'" preload="metadata" playsinline id="vid_'+m.id+'" style="pointer-events:none;width:100%;max-height:300px;object-fit:cover;border-radius:14px;display:block;"></video><div class="vid-play-btn" id="vbtn_'+m.id+'" style="pointer-events:none;"><svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="rgba(0,0,0,.45)"/><polygon points="19,14 37,24 19,34" fill="#fff"/></svg></div></div></div>';
+  return '<div class="msg-bubble">'+linkify(esc(m.content||''))+'</div>';
+}
 function restoreFromStore(id){
   clearTimeout(_undoTimer);
   try{
@@ -3761,12 +3762,13 @@ function restoreFromStore(id){
     var el=document.querySelector('[data-mid="'+id+'"]');
     var body=el&&el.querySelector('.msg-body');
     if(!body) return;
+    var m={id:id,type:d.type||'text',content:d.content||'',media_url:d.media_url,media_duration:d.media_duration};
+    var html=restoredBubbleHtml(m);
     if(!d.forAll){
-      var bubble='<div class="msg-bubble">'+esc(d.content||'')+'</div>';
-      body.innerHTML=bubble;
+      body.innerHTML=html;
     } else {
       api('/messages/'+id+'/restore','POST',{original_content:d.content,original_type:d.type||'text'})
-        .then(function(r){if(r&&r.success){body.innerHTML='<div class="msg-bubble">'+esc(d.content||'')+'</div>';}});
+        .then(function(r){if(r&&r.success){ body.innerHTML=html; }});
     }
   }catch(e){}
 }

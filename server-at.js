@@ -4338,13 +4338,9 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
 async function emitToUsers(uids, event, data){
   const arr=Array.isArray(uids)?uids:[uids];
   for(const uid of arr){
-    const sid=pencOnline.get(String(uid));
-    if(sid){ io.to(sid).emit(event,data); continue; }
-    try{
-      const sockets=await io.fetchSockets();
-      const t=sockets.find(s=>s.data&&s.data.pencUserId===String(uid));
-      if(t){ t.emit(event,data); pencOnline.set(String(uid),t.id); }
-    }catch(e){}
+    // Room user:<uid> : rejointe a chaque (re)connexion => jamais perimee
+    // (meme mecanisme fiable que message:new).
+    io.to('user:'+String(uid)).emit(event,data);
   }
 }
 // PATCH /api/penc/messages/:id — modifier un message
@@ -4366,7 +4362,7 @@ app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
     // Notifier via socket
     const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
     const parts=convParts.rows[0]?convParts.rows[0].participants:[];
-    const arr=Array.isArray(parts)?parts:JSON.parse(JSON.stringify(parts));
+    const arr=(Array.isArray(parts)?parts:JSON.parse(JSON.stringify(parts))).filter(function(p){return String(p)!==String(uid);});
     await emitToUsers(arr,'message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
     res.json({success:true});
   }catch(e){console.error('edit msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
@@ -4387,7 +4383,7 @@ app.delete('/api/penc/messages/:id', pencAuth, async (req, res) => {
       ['','deleted',req.params.id]);
     // Notifier tous les participants via Socket.io
     const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
-    const parts=convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[];
+    const parts=(convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[]).filter(function(p){return String(p)!==String(uid);});
     await emitToUsers(parts,'message:deleted',{id:msg.id,conv_id:msg.conversation_id});
     res.json({success:true});
   }catch(e){console.error('delete msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
@@ -4430,8 +4426,8 @@ app.post('/api/penc/messages/:id/restore', pencAuth, async (req, res) => {
       [original_content||'',original_type||'text',req.params.id]);
     // Notifier
     const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
-    const parts=convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[];
-    await emitToUsers(parts,'message:restored',{id:msg.id,conv_id:msg.conversation_id,content:original_content,type:original_type||'text'});
+    const parts=(convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[]).filter(function(p){return String(p)!==String(uid);});
+    await emitToUsers(parts,'message:restored',{id:msg.id,conv_id:msg.conversation_id,content:original_content,type:original_type||'text',media_url:msg.media_url||null,media_duration:msg.media_duration||null});
     res.json({success:true});
   }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
