@@ -4956,8 +4956,10 @@ app.patch('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
     const uid=req.pencUser.userId; const {text_content,caption}=req.body;
     if(_pgPool){
-      await _pgPool.query('UPDATE penc_statuses SET text_content=$1,caption=$2 WHERE id=$3 AND user_id=$4',
-        [text_content||null,caption||null,req.params.id,uid]);
+      const sets=[]; const vals=[]; let n=1;
+      if(text_content!==undefined){ sets.push('text_content=$'+n); vals.push(text_content); n++; }
+      if(caption!==undefined){ sets.push('caption=$'+n); vals.push(caption); n++; }
+      if(sets.length){ vals.push(req.params.id); vals.push(uid); await _pgPool.query('UPDATE penc_statuses SET '+sets.join(',')+' WHERE id=$'+n+' AND user_id=$'+(n+1), vals); }
       return res.json({success:true});
     }
     const statuses=await pencStatuses();
