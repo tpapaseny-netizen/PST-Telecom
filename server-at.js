@@ -3962,8 +3962,10 @@ let _pgPool = null;
         views       JSONB DEFAULT '[]',
         view_ips    JSONB DEFAULT '[]',
         created_at  TIMESTAMPTZ DEFAULT NOW(),
-        expires_at  TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+        expires_at  TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours'),
+        view_log    JSONB DEFAULT '[]'
       );
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
     `);
@@ -4274,7 +4276,8 @@ function pgStatusToObj(row){
   return {...row,
     reactions: typeof row.reactions==='string'?JSON.parse(row.reactions):row.reactions||[],
     views: typeof row.views==='string'?JSON.parse(row.views):row.views||[],
-    view_ips: typeof row.view_ips==='string'?JSON.parse(row.view_ips):row.view_ips||[]
+    view_ips: typeof row.view_ips==='string'?JSON.parse(row.view_ips):row.view_ips||[],
+    view_log: typeof row.view_log==='string'?JSON.parse(row.view_log):row.view_log||[]
   };
 }
 // GET /api/penc/messages/:convId
@@ -4601,7 +4604,14 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
     if(_pgPool){
       const rows=await pgGetStatuses(true);
       statuses=rows.map(pgStatusToObj).filter(s=>s.user_id!==uid).map(s=>({...s,user:vLookup(s.user_id),viewed:(s.views||[]).includes(uid)}));
-      mine=rows.map(pgStatusToObj).filter(s=>s.user_id===uid).map(s=>({...s,user:vLookup(uid),viewed:false}));
+      mine=rows.map(pgStatusToObj).filter(s=>s.user_id===uid).map(s=>{
+        const reactBy={}; (s.reactions||[]).forEach(r=>{ if(r&&r.user_id) reactBy[r.user_id]=r.emoji; });
+        const log=Array.isArray(s.view_log)?s.view_log:[]; const seen={}; const viewers=[];
+        log.forEach(v=>{ if(v&&v.user_id&&!seen[v.user_id]){ seen[v.user_id]=1; const u=vLookup(v.user_id); viewers.push({user_id:v.user_id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url,viewed_at:v.at||null,reaction:reactBy[v.user_id]||null}); } });
+        (s.views||[]).forEach(id=>{ if(id&&!seen[id]){ seen[id]=1; const u=vLookup(id); viewers.push({user_id:id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url,viewed_at:null,reaction:reactBy[id]||null}); } });
+        viewers.sort((a,b)=>new Date(b.viewed_at||0)-new Date(a.viewed_at||0));
+        return {...s,user:vLookup(uid),viewed:false,viewers};
+      });
     } else {
       const cutoff=Date.now()-86400000;
       const all=await pencStatuses();
@@ -4650,7 +4660,9 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
       if(st.user_id!==uid){
         if(!st.views.includes(uid)) st.views.push(uid);
         if(!st.view_ips.includes(ip)){ st.view_ips.push(ip); newValidView=true; }   // anti-fraude : 1 IP = 1 vue valide
-        await pgUpdateStatus(req.params.id,{views:st.views,view_ips:st.view_ips});
+        st.view_log=Array.isArray(st.view_log)?st.view_log:[];
+        if(!st.view_log.find(function(v){return v&&v.user_id===uid;})) st.view_log.push({user_id:uid, at:new Date().toISOString()});
+        await pgUpdateStatus(req.params.id,{views:st.views,view_ips:st.view_ips,view_log:st.view_log});
       }
     } else {
       const statuses=await pencStatuses();
