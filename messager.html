@@ -1041,7 +1041,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
     </div>
     <!-- Boutons mic/send en position absolue -->
     <button class="wa-send-btn" id="sendBtn" style="display:none;" onclick="sendText()" title="Envoyer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-    <button class="wa-mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)" title="Vocal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+    <button class="wa-mic-btn" id="micBtn" onclick="toggleRec(event)" title="Vocal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
   </div>
   <div class="messages-area" id="msgsArea">
     <div class="typing-row" id="typingRow">
@@ -1051,7 +1051,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   </div>
   <div class="chat-input-area">
     <div class="attach-menu" id="attachMenu">
-      <div class="attach-opt" onclick="pickFile('media')">📷<span>Photo/Vidéo</span></div>
+      <div class="attach-opt" onclick="pickFile('image')">📷<span>Photo</span></div>
+      <div class="attach-opt" onclick="pickFile('video')">🎬<span>Vidéo</span></div>
       <div class="attach-opt" onclick="pickFile('file')">📄<span>Fichier</span></div>
       <div class="attach-opt" onclick="toggleAttach();openRadioSheet()">📻<span>Radio</span></div>
       <div class="attach-opt" onclick="toggleAttach();openPollSheet()">📊<span>Sondage</span></div>
@@ -1845,10 +1846,22 @@ function sendMsgSocket(data){
 }
 
 // ══════════════ VOICE REC ══════════════
+var _recording=false;
+function toggleRec(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  if(_recording) stopRec(); else startRec();
+}
+function _releaseMic(){
+  try{ if(window._micStream){ window._micStream.getTracks().forEach(function(t){t.stop();}); window._micStream=null; } }catch(e){}
+}
 async function startRec(e){
   if(e) e.preventDefault();
+  if(_recording) return;
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    // Anti-bruit : on ne garde que la voix (suppression de bruit + écho + gain auto)
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
+    window._micStream=stream;
+    _recording=true;
     audioChunks=[];
     let _rm='audio/webm';
     if(typeof MediaRecorder!=='undefined' && MediaRecorder.isTypeSupported && !MediaRecorder.isTypeSupported('audio/webm')) _rm = MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
@@ -1859,27 +1872,34 @@ async function startRec(e){
     document.getElementById('micBtn').classList.add('recording');
     document.getElementById('recBar').classList.add('show');
     recSecs=0; recTimer=setInterval(()=>{recSecs++;document.getElementById('recTime').textContent=fmtDur(recSecs*1000);},1000);
-  }catch{showNotif('❌','Micro','Accès refusé','red',null);}
+  }catch(err){ _recording=false; _releaseMic(); showNotif('❌','Micro','Accès refusé','red',null); }
 }
 function stopRec(e){
   if(e) e.preventDefault();
-  if(!mediaRec||mediaRec.state==='inactive') return;
+  if(!mediaRec||mediaRec.state==='inactive'){ _recording=false; _releaseMic(); return; }
+  _recording=false;
   mediaRec.stop(); clearInterval(recTimer);
   document.getElementById('micBtn').classList.remove('recording');
   document.getElementById('recBar').classList.remove('show');
   mediaRec.onstop=async()=>{
     const blob=new Blob(audioChunks,{type:(window._recMime||(mediaRec&&mediaRec.mimeType)||'audio/webm')});
-    mediaRec.stream.getTracks().forEach(t=>t.stop());
+    try{ mediaRec.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    _releaseMic();
     if(recSecs<1) return;
     await uploadAndSend(blob,'voice','audio/webm');
   };
 }
 function cancelRec(){
-  if(mediaRec&&mediaRec.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
+  _recording=false;
+  if(mediaRec&&mediaRec.state!=='inactive'){ try{mediaRec.stop();}catch(e){} try{mediaRec.stream.getTracks().forEach(t=>t.stop());}catch(e){} }
+  _releaseMic();
   clearInterval(recTimer);
   document.getElementById('micBtn').classList.remove('recording');
   document.getElementById('recBar').classList.remove('show');
 }
+// Libérer le micro si l'app passe en arrière-plan (sinon "appel en cours" ailleurs)
+document.addEventListener('visibilitychange',function(){ if(document.hidden && _recording) cancelRec(); });
+window.addEventListener('pagehide',function(){ if(_recording) cancelRec(); else _releaseMic(); });
 
 // ══════════════ FILE UPLOAD ══════════════
 function toggleAttach(e){if(e&&e.stopPropagation)e.stopPropagation();attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
@@ -3816,6 +3836,38 @@ async function saveEdit(text){
   }catch(e){}
   return true;
 }
+// ── Bouton retour Android : ferme la vue courante ; 3 appuis pour quitter ──
+(function pencBackGuard(){
+  var exitCount=0, exitTimer=null, ready=false;
+  function pushGuard(){ try{ history.pushState({penc:1},''); }catch(e){} }
+  function vis(el){ return el && !el.classList.contains('hidden'); }
+  function atAuth(){ return vis(document.getElementById('screen-auth')) || vis(document.getElementById('screen-forgot')); }
+  function closeTopmost(){
+    if(typeof attachOpen!=='undefined' && attachOpen){ attachOpen=false; var am=document.getElementById('attachMenu'); if(am)am.classList.remove('show'); return true; }
+    if(typeof stickerOpen!=='undefined' && stickerOpen){ stickerOpen=false; var sp=document.getElementById('stickerPanel'); if(sp)sp.classList.remove('show'); return true; }
+    var vv=document.getElementById('vidViewer'); if(vv&&vv.classList.contains('active')){ try{closeVidViewer();}catch(e){vv.classList.remove('active');} return true; }
+    var iv=document.getElementById('imgViewer'); if(iv&&iv.classList.contains('show')){ try{closeImgViewer();}catch(e){iv.classList.remove('show');} return true; }
+    var sv=document.getElementById('statusViewer'); if(sv&&sv.classList.contains('show')){ try{closeSV();}catch(e){sv.classList.remove('show');} return true; }
+    var ov=document.querySelector('.overlay.show'); if(ov){ ov.classList.remove('show'); return true; }
+    var eb=document.getElementById('editBar'); if(eb&&eb.classList.contains('show')){ try{cancelEdit();}catch(e){eb.classList.remove('show');} return true; }
+    var rb=document.getElementById('replyPreviewBar'); if(rb&&rb.classList.contains('show')){ try{cancelReply();}catch(e){rb.classList.remove('show');} return true; }
+    var sc=document.getElementById('screen-chat'); if(sc&&!sc.classList.contains('hidden')){ try{backToMain();}catch(e){} return true; }
+    return false;
+  }
+  function onReady(){ if(ready) return; ready=true; pushGuard(); }
+  if(document.readyState==='complete'||document.readyState==='interactive') setTimeout(onReady,0);
+  else document.addEventListener('DOMContentLoaded',onReady);
+  window.addEventListener('popstate',function(){
+    if(atAuth()) return;               // ne pas piéger l'écran de connexion
+    if(closeTopmost()){ exitCount=0; pushGuard(); return; }
+    exitCount++;
+    if(exitCount>=3){ history.back(); return; }   // 3e appui = quitter Penc
+    try{ showNotif('↩️','Quitter Penc','Appuyez encore '+(3-exitCount)+'×','blue',null); }catch(e){}
+    clearTimeout(exitTimer); exitTimer=setTimeout(function(){ exitCount=0; },2000);
+    pushGuard();
+  });
+})();
+
 // ── Splash screen ──
 (function(){
   var sp=document.getElementById('penc-splash');
