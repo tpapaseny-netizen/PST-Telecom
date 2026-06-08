@@ -3209,7 +3209,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v12 (fenetre premium + retrait MUU + zoom stable + push statut)');
+console.log('PENC build v13 (service worker enregistre + VAPID assortie -> notifs app fermee)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3282,7 +3282,7 @@ window.addEventListener('appinstalled',function(){localStorage.setItem('penc_ins
 function maybeShowBanner(){setTimeout(buildPWAModal,4000);}
 
 // ══════════════ NOTIFICATIONS PUSH ══════════════
-var VAPID_PUBLIC='BK_KP4_K4myU-_uqf14k_UBTOKT0Q4EOPCaw2AzJsHNouyrSe2QyjakfjZCi32ALPYDYQOoiVwSfao7ArIH-OkQ';
+var VAPID_PUBLIC='BE0QDhQMS3SxCSgrMXDvycggcxqfYwJ_xwM-A6cJ_IvWwdcoYjk0-u-Z3DeNhN3-GNk39Ej_EVCnllm6gq2CLIA';
 function urlB64ToUint8(b){ var p='='.repeat((4-b.length%4)%4); var x=(b+p).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(x); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
 async function enablePush(){
   try{
@@ -3395,6 +3395,8 @@ document.addEventListener('click',function(e){
   var uid=av.dataset.uid||img.dataset.uid||'';
   openPPViewer(src,nm,uid);
 },true);
+// ── Enregistrement du service worker (indispensable pour le push / notifs app fermée) ──
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').then(function(r){ console.log('[SW] enregistré', r.scope); }).catch(function(e){ console.warn('[SW] échec', e); }); }
 // ── Navigation depuis notification push ──
 if(navigator.serviceWorker){
   navigator.serviceWorker.addEventListener('message',function(e){
