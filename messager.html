@@ -927,7 +927,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 /* ===== HEADER ===== */
 .chat-header{background:#111111;border-bottom:1px solid rgba(255,255,255,0.08);}
 .chat-hdr-name{color:#FFFFFF;font-weight:700;}
-.chat-back{background:transparent;border:none;box-shadow:none;color:#FF6B00;}
+.chat-back{width:42px;height:42px;border-radius:50%;background:rgba(255,107,0,0.16);border:1.5px solid rgba(255,107,0,0.55);box-shadow:0 2px 10px rgba(0,0,0,0.45);color:#FF6B00;font-size:23px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .12s,background .12s;}
+.chat-back:active{transform:scale(.9);background:rgba(255,107,0,0.32);}
 /* ===== BARRE DE SAISIE ===== */
 .chat-input-area{background:#111111;border-top:1px solid rgba(255,255,255,0.08);}
 .chat-input-wrap{background:#1A1A1A;border:1px solid rgba(255,255,255,0.08);}
@@ -3079,7 +3080,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v6 — emoji robuste + noise-gate + scroll-fab');
+console.log('PENC build v7 — back-button + emoji + noise-gate + scroll-fab');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
