@@ -893,6 +893,56 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .edit-bar-cancel{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.5/dist/livekit-client.umd.min.js"></script>
+<style id="penc-premium-theme">
+/* ===== FOND DU CHAT ===== */
+#screen-chat{background:#0A0A0A;}
+#screen-chat .messages-area{background:#0A0A0A;}
+/* ===== BULLES TEXTE ===== */
+.msg-bubble{font-size:15px;line-height:1.5;font-weight:400;padding:10px 14px;}
+.msg-row.me .msg-bubble{background:linear-gradient(135deg,#FF6B00,#FF8C00);color:#FFFFFF;border:none;border-radius:18px 18px 4px 18px;box-shadow:0 4px 12px rgba(255,107,0,0.35);}
+.msg-row.them .msg-bubble{background:#1A1A1A;color:#FFFFFF;border:1px solid rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;box-shadow:none;}
+.msg-row.me .msg-bubble a,.msg-row.me .ml-url,.msg-row.me .msg-link{color:#FFFFFF;text-decoration:underline;}
+.msg-row.me .ml-host{color:rgba(255,255,255,.8);}
+.msg-row.them .msg-bubble a,.msg-row.them .ml-url,.msg-row.them .msg-link{color:#FFD9B3;}
+/* ===== META / HEURE / TICKS ===== */
+.msg-row.me .msg-meta{color:rgba(255,255,255,0.8);}
+.msg-row.them .msg-meta{color:#AAAAAA;}
+.msg-tick{color:rgba(255,255,255,0.5);}
+.msg-tick.sent{color:rgba(255,255,255,0.5);}
+.msg-tick.delivered{color:rgba(255,255,255,0.5);}
+.msg-tick.read{color:#FF6B00;}
+/* ===== VOCAUX ===== */
+.msg-row.me .msg-bubble.voice-wrap{background:#FF6B00;box-shadow:0 4px 12px rgba(255,107,0,0.35);}
+.msg-row.them .msg-bubble.voice-wrap{background:#1A1A1A;border:1px solid rgba(255,255,255,0.08);}
+.msg-row.me .voice-bar{background:#FFFFFF;}
+.msg-row.them .voice-bar{background:#FF6B00;}
+.msg-row.me .voice-play{background:#FFFFFF;color:#FF6B00;}
+.msg-row.them .voice-play{background:#FF6B00;color:#FFFFFF;}
+.msg-row.me .voice-dur,.msg-row.them .voice-dur{color:#FFFFFF;opacity:1;}
+/* ===== PHOTO / VIDÉO ===== */
+.msg-row.me .media-bubble{border:2px solid #FF6B00;border-radius:14px;overflow:hidden;}
+.msg-row.them .media-bubble{border:2px solid #333333;border-radius:14px;overflow:hidden;}
+/* ===== SUPPRIMÉ ===== */
+.msg-row.me .msg-deleted,.msg-row.them .msg-deleted{background:#1A1A1A;color:#AAAAAA;border:1px solid rgba(255,255,255,0.08);}
+/* ===== HEADER ===== */
+.chat-header{background:#111111;border-bottom:1px solid rgba(255,255,255,0.08);}
+.chat-hdr-name{color:#FFFFFF;font-weight:700;}
+.chat-back{background:transparent;border:none;box-shadow:none;color:#FF6B00;}
+/* ===== BARRE DE SAISIE ===== */
+.chat-input-area{background:#111111;border-top:1px solid rgba(255,255,255,0.08);}
+.chat-input-wrap{background:#1A1A1A;border:1px solid rgba(255,255,255,0.08);}
+.chat-textarea{color:#FFFFFF;font-size:15px;line-height:1.5;}
+.chat-textarea::placeholder{color:#666666;}
+.chat-input-wrap .wa-icon-btn{color:#FFFFFF !important;}
+.wa-send-btn{background:#FF6B00;color:#FFFFFF;}
+.wa-mic-btn{background:#1A1A1A;color:#FFFFFF;}
+.wa-mic-btn.recording{background:#FF0000;color:#FFFFFF;}
+/* ===== PALETTE EMOJI ===== */
+#stickerPanel{background:#111111;border:1px solid rgba(255,255,255,0.08);}
+#stickerPanel .sticker-cat{color:#888888;}
+#stickerPanel .sticker-item{font-size:26px;padding:5px;}
+#stickerPanel .sticker-item:active{background:#1A1A1A;}
+</style>
 </head>
 <body>
 <div id="penc-splash">
@@ -1202,6 +1252,18 @@ const RADIOS = [
   {name:'7FM',emoji:'🎤',url:'https://stream.zeno.fm/4guwgpedwhhvv'},
 ];
 
+const EMOJIS = {
+  "Smileys": ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😔","😟","😕","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤐","😐","😑","😶","🙄","😯","😦","😮","😪","😴","🤤","😬","😵","🤐","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤡","👻","💀","👽","👾","🤖","🎃"],
+  "Gestes": ["👋","🤚","✋","🖖","👌","🤌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🙏","✍️","💅","💪","👀","👅","👄","🧠","🦷"],
+  "Coeurs": ["❤️","🧡","💛","💚","💙","💜","🤎","🖤","🤍","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","❣️","💯","✨","⭐","🌟","💫","⚡","🔥","💥","💦","💨","💬","💭"],
+  "Animaux": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐢","🐍","🐙","🦐","🦀","🐠","🐬","🦈","🐳"],
+  "Nourriture": ["🍎","🍊","🍋","🍌","🍉","🍇","🍓","🍒","🍑","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥒","🌽","🥕","🥔","🥐","🍞","🧀","🥚","🍳","🥓","🍔","🍟","🍕","🌭","🌮","🌯","🥗","🍜","🍛","🍣","🍱","🍙","🍥","🍡","🍦","🍨","🍧","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪","☕","🍵","🥤","🍺","🍷","🍸","🍹"],
+  "Activites": ["⚽","🏀","🏈","⚾","🎾","🏐","🏉","🎱","🏓","🏸","🏒","🏏","⛳","🏹","🎣","🥊","🥋","⛸️","🎿","🏂","🏋️","🤸","🤾","🏌️","🏇","🧘","🏄","🏊","🚣","🚴","🚵","🎯","🎲","🎮","🎸","🎹","🎺","🎷","🎵","🎤","🎧","🎬","🎨"],
+  "Voyage": ["🚗","🚕","🚙","🚌","🏎️","🚓","🚑","🚒","🚐","🚚","🚛","🚜","🛵","🏍️","✈️","🚀","🛸","🚁","⛵","🚤","🛳️","⚓","🌍","🗺️","🗿","🗽","🏰","🎡","🎢","🎠","🏖️","🏝️","⛰️","🌅","🌇","🌉","🌃"],
+  "Objets": ["⌚","📱","💻","⌨️","🖥️","🖨️","💾","💿","📷","📸","📹","🎥","📞","☎️","📺","📻","🎙️","⏰","🔋","💡","🔦","🕯️","💸","💵","💰","💳","💎","⚖️","🔧","🔨","🛠️","⚙️","🧲","🔌","💣","🔪","🔑","🚪","🛋️","🛏️","🧳","💊","💉","🌡️","🧹","🚿","🧼","🔮","📿","🔭","🔬","🎈","🎁","🎀"],
+  "Symboles": ["✅","❌","❓","❗","‼️","⁉️","💤","🔔","🔕","🎵","🎶","➕","➖","➗","✖️","♾️","💲","©️","®️","™️","⚠️","🚸","♻️","✳️","❇️","🔟","🔣","🆘","🆗","🆙","🆒","🆕","🆓","🔘","🔴","🟠","🟡","🟢","🔵","🟣","⚫","⚪","🟥","🟧","🟨","🟩","🟦","🟪"],
+  "Drapeaux": ["🇸🇳","🏳️","🏴","🏁","🚩","🏳️‍🌈","🇫🇷","🇺🇸","🇬🇧","🇲🇦","🇨🇮","🇲🇱","🇳🇪","🇧🇫","🇬🇳","🇨🇲","🇹🇳","🇲🇦","🇩🇿"]
+};
 const STICKERS = {
   'Réactions':[
     {text:'Wallahi 🙌',val:'wallahi'},
@@ -1588,7 +1650,7 @@ async function openConv(conv) {
 
 function updateChatStatus(on){
   document.getElementById('chatHdrSt').textContent=on?'● En ligne':'hors ligne';
-  document.getElementById('chatHdrSt').style.color=on?'var(--accent)':'var(--muted)';
+  document.getElementById('chatHdrSt').style.color=on?'#00C896':'#666666';
 }
 function backToMain(){
   // Pauser toutes les vidéos en cours
@@ -1972,13 +2034,22 @@ async function uploadAndSend(blob,type,mimeType){
 
 // ══════════════ STICKERS ══════════════
 function buildStickerPanel(){
-  const p=document.getElementById('stickerPanel'); let html='';
-  Object.entries(STICKERS).forEach(([cat,items])=>{
-    html+=`<div class="sticker-cat">${cat}</div><div class="sticker-grid">`;
-    items.forEach(s=>html+=`<div class="sticker-item" onclick="sendSticker('${s.text}')" title="${s.text}">${s.text}</div>`);
+  const p=document.getElementById('stickerPanel'); if(!p) return; let html='';
+  Object.keys(EMOJIS).forEach(function(cat){
+    html+='<div class="sticker-cat">'+cat+'</div><div class="sticker-grid">';
+    EMOJIS[cat].forEach(function(em){ html+='<div class="sticker-item" onclick="insertEmoji(\''+em+'\')">'+em+'</div>'; });
     html+='</div>';
   });
   p.innerHTML=html;
+}
+function insertEmoji(em){
+  var ta=document.getElementById('chatInput'); if(!ta) return;
+  var s=(typeof ta.selectionStart==='number')?ta.selectionStart:ta.value.length;
+  var e=(typeof ta.selectionEnd==='number')?ta.selectionEnd:ta.value.length;
+  ta.value=ta.value.slice(0,s)+em+ta.value.slice(e);
+  var pos=s+em.length;
+  try{ ta.selectionStart=ta.selectionEnd=pos; }catch(_){}
+  if(typeof onChatInput==='function') onChatInput();
 }
 function sendSticker(txt){
   stickerOpen=false; document.getElementById('stickerPanel').classList.remove('show');
