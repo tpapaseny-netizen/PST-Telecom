@@ -942,6 +942,10 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 #stickerPanel .sticker-cat{color:#888888;}
 #stickerPanel .sticker-item{font-size:26px;padding:5px;}
 #stickerPanel .sticker-item:active{background:#1A1A1A;}
+/* ===== FLÈCHE ALLER EN BAS ===== */
+#scrollDownFab{position:absolute;right:14px;bottom:84px;width:42px;height:42px;border-radius:50%;background:#1A1A1A;color:#FF6B00;border:1px solid rgba(255,255,255,0.12);box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(8px) scale(.9);pointer-events:none;transition:opacity .18s,transform .18s;z-index:40;}
+#scrollDownFab.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
+#scrollDownFab:active{transform:scale(.9);}
 </style>
 </head>
 <body>
@@ -1914,6 +1918,7 @@ function toggleRec(e){
   if(_recording) stopRec(); else startRec();
 }
 function _releaseMic(){
+  window._recGateRAF=false;
   try{ if(window._micStream){ window._micStream.getTracks().forEach(function(t){t.stop();}); window._micStream=null; } }catch(e){}
   try{ if(window._recCtx){ window._recCtx.close(); window._recCtx=null; } }catch(e){}
 }
@@ -1932,12 +1937,25 @@ async function startRec(e){
         const ctx=new AC();
         if(ctx.state==='suspended'){ try{ctx.resume();}catch(_){} }
         const src=ctx.createMediaStreamSource(raw);
-        const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=100;
-        const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7500;
+        const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=110;
+        const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7000;
         const comp=ctx.createDynamicsCompressor();
-        comp.threshold.value=-40; comp.knee.value=25; comp.ratio.value=14; comp.attack.value=0.003; comp.release.value=0.2;
+        comp.threshold.value=-35; comp.knee.value=20; comp.ratio.value=12; comp.attack.value=0.003; comp.release.value=0.2;
+        const gate=ctx.createGain(); gate.gain.value=1;
+        const ana=ctx.createAnalyser(); ana.fftSize=512;
         const dst=ctx.createMediaStreamDestination();
-        src.connect(hp); hp.connect(lp); lp.connect(comp); comp.connect(dst);
+        src.connect(hp); hp.connect(lp); lp.connect(comp); comp.connect(ana); comp.connect(gate); gate.connect(dst);
+        // Noise gate : coupe l'ambiance quand personne ne parle (seuil conservateur pour ne pas couper la voix)
+        var _gbuf=new Float32Array(ana.fftSize); window._recGateRAF=true;
+        (function gateLoop(){
+          if(!window._recGateRAF) return;
+          ana.getFloatTimeDomainData(_gbuf);
+          var sg=0; for(var gi=0;gi<_gbuf.length;gi++){ sg+=_gbuf[gi]*_gbuf[gi]; }
+          var rms=Math.sqrt(sg/_gbuf.length);
+          var openg = rms>0.02;
+          try{ gate.gain.setTargetAtTime(openg?1:0.05, ctx.currentTime, openg?0.02:0.08); }catch(_g){}
+          requestAnimationFrame(gateLoop);
+        })();
         stream=dst.stream; window._recCtx=ctx;
       }
     }catch(_){ stream=raw; }
@@ -3060,6 +3078,24 @@ function fmtTime(d){
 function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
+/* === Repère de build (pour vérifier que la bonne version est chargée) === */
+console.log('PENC build v6 — emoji robuste + noise-gate + scroll-fab');
+/* === Flèche "aller en bas" === */
+(function scrollDownFab(){
+  function init(){
+    var sc=document.getElementById('screen-chat'), area=document.getElementById('msgsArea');
+    if(!sc||!area||document.getElementById('scrollDownFab')) return;
+    var b=document.createElement('button');
+    b.id='scrollDownFab'; b.type='button'; b.setAttribute('aria-label','Aller en bas');
+    b.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    b.addEventListener('click',function(){ if(typeof scrollBottom==='function') scrollBottom(); else area.scrollTop=area.scrollHeight; });
+    sc.appendChild(b);
+    function upd(){ var near=(area.scrollHeight-area.scrollTop-area.clientHeight)<140; b.classList.toggle('show',!near); }
+    area.addEventListener('scroll',upd,{passive:true});
+    setInterval(upd,700); upd();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
 
 // ══════════════ PWA : installation force ══════════════
 var _localChannels=null; // cache local canaux
