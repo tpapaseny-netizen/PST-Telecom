@@ -1128,7 +1128,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
     </div>
     <div class="chat-input-row" style="align-items:center;gap:4px;width:100%;min-width:0;">
       <div class="chat-input-wrap">
-        <button class="wa-icon-btn" style="color:var(--muted);flex-shrink:0;" onclick="toggleStickers()" title="Emoji"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-3.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-3.5 5c2.33 0 4.31-1.46 5.11-3.5H5.89A5.5 5.5 0 0 0 12 18z"/></svg></button>
+        <button class="wa-icon-btn" style="color:var(--muted);flex-shrink:0;" onclick="toggleStickers(event)" title="Emoji"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-3.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-3.5 5c2.33 0 4.31-1.46 5.11-3.5H5.89A5.5 5.5 0 0 0 12 18z"/></svg></button>
         <textarea class="chat-textarea" id="chatInput" placeholder="Message..." rows="1" oninput="onChatInput()" onkeydown="onChatKey(event)" style="flex:1;"></textarea>
         <button class="wa-icon-btn" onclick="toggleAttach(event)" title="Joindre" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
         <button class="wa-icon-btn" onclick="pickFile('image')" title="Caméra" id="camBtn" style="color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
@@ -2002,7 +2002,8 @@ window.addEventListener('pagehide',function(){ if(_recording) cancelRec(); else 
 
 // ══════════════ FILE UPLOAD ══════════════
 function toggleAttach(e){if(e&&e.stopPropagation)e.stopPropagation();attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
-function toggleStickers(){
+function toggleStickers(e){
+  if(e&&e.stopPropagation)e.stopPropagation();
   var p=document.getElementById('stickerPanel');
   if(p && !p.children.length) buildStickerPanel();
   if(typeof attachOpen!=='undefined' && attachOpen){ attachOpen=false; var am=document.getElementById('attachMenu'); if(am)am.classList.remove('show'); }

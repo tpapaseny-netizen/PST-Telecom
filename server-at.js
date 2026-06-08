@@ -4213,7 +4213,7 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
     } catch (e) {}
     const valid_views = user.valid_views || 0;
     const own_views = user.own_views || 0;
-    const earned = Math.floor(valid_views / 1000) * 100;
+    const earned = Math.floor(valid_views / 1000) * 75;
     const withdrawn = user.withdrawn || 0;
     const balance = Math.max(0, earned - withdrawn);
     res.json({ user: Object.assign({}, pencStrip(user), { valid_views, own_views, earned, withdrawn, balance, contacts_count, withdraw_request: user.withdraw_request || null, is_admin: PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) }) });
@@ -4641,17 +4641,35 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
     const uid=req.pencUser.userId;
     const xf=(req.headers['x-forwarded-for']||'').split(',')[0].trim();
     const ip=xf||(req.socket&&req.socket.remoteAddress)||'unknown';
+    let ownerId=null, newValidView=false;
     if(_pgPool){
       const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE id=$1',[req.params.id]);
       if(!r.rows[0]) return res.json({success:true});
       const st=pgStatusToObj(r.rows[0]);
-      if(!st.views.includes(uid)) st.views.push(uid);
-      if(!st.view_ips.includes(ip)) st.view_ips.push(ip);
-      await pgUpdateStatus(req.params.id,{views:st.views,view_ips:st.view_ips});
+      ownerId=st.user_id;
+      if(st.user_id!==uid){
+        if(!st.views.includes(uid)) st.views.push(uid);
+        if(!st.view_ips.includes(ip)){ st.view_ips.push(ip); newValidView=true; }   // anti-fraude : 1 IP = 1 vue valide
+        await pgUpdateStatus(req.params.id,{views:st.views,view_ips:st.view_ips});
+      }
     } else {
       const statuses=await pencStatuses();
       const st=statuses.find(x=>x.id===req.params.id);
-      if(st){st.views=st.views||[];if(!st.views.includes(uid))st.views.push(uid);await pencSaveStatuses(statuses);}
+      if(st && st.user_id!==uid){
+        st.views=st.views||[]; st.view_ips=st.view_ips||[];
+        if(!st.views.includes(uid)) st.views.push(uid);
+        if(!st.view_ips.includes(ip)){ st.view_ips.push(ip); newValidView=true; }
+        ownerId=st.user_id;
+        await pencSaveStatuses(statuses);
+      }
+    }
+    // Monetisation : 1 vue valide par IP unique creditee a l'auteur (jamais soi-meme)
+    if(newValidView && ownerId && ownerId!==uid){
+      try{
+        const users=await pencUsers();
+        const owner=users.find(u=>u.id===ownerId);
+        if(owner){ owner.valid_views=(owner.valid_views||0)+1; await pencSaveUsers(users); }
+      }catch(_){}
     }
     res.json({success:true});
   }catch(e){res.json({success:true});}
@@ -4680,7 +4698,7 @@ app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
     const user = users.find(u => u.id === uid);
     if (!user) return res.status(404).json({ error: 'Introuvable' });
     const valid_views = user.valid_views || 0;
-    const earned = Math.floor(valid_views / 1000) * 100;
+    const earned = Math.floor(valid_views / 1000) * 75;
     const balance = Math.max(0, earned - (user.withdrawn || 0));
     const convs = await pencConvs();
     const set = new Set();
@@ -4718,7 +4736,7 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     const convs = await pencConvs();
     const statuses = await pencStatuses();
     let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
-    const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 100; const withdrawn = u.withdrawn || 0; return {
+    const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 75; const withdrawn = u.withdrawn || 0; return {
       id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
