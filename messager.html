@@ -1915,14 +1915,32 @@ function toggleRec(e){
 }
 function _releaseMic(){
   try{ if(window._micStream){ window._micStream.getTracks().forEach(function(t){t.stop();}); window._micStream=null; } }catch(e){}
+  try{ if(window._recCtx){ window._recCtx.close(); window._recCtx=null; } }catch(e){}
 }
 async function startRec(e){
   if(e) e.preventDefault();
   if(_recording) return;
   try{
     // Anti-bruit : on ne garde que la voix (suppression de bruit + écho + gain auto)
-    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
-    window._micStream=stream;
+    const raw=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
+    window._micStream=raw;
+    // Chaîne anti-bruit : passe-haut (coupe graves/ronflements ambiants) + passe-bas (coupe aigus parasites) + compresseur → ne garde que la voix
+    let stream=raw;
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){
+        const ctx=new AC();
+        if(ctx.state==='suspended'){ try{ctx.resume();}catch(_){} }
+        const src=ctx.createMediaStreamSource(raw);
+        const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=100;
+        const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7500;
+        const comp=ctx.createDynamicsCompressor();
+        comp.threshold.value=-40; comp.knee.value=25; comp.ratio.value=14; comp.attack.value=0.003; comp.release.value=0.2;
+        const dst=ctx.createMediaStreamDestination();
+        src.connect(hp); hp.connect(lp); lp.connect(comp); comp.connect(dst);
+        stream=dst.stream; window._recCtx=ctx;
+      }
+    }catch(_){ stream=raw; }
     _recording=true;
     audioChunks=[];
     let _rm='audio/webm';
@@ -1965,7 +1983,13 @@ window.addEventListener('pagehide',function(){ if(_recording) cancelRec(); else 
 
 // ══════════════ FILE UPLOAD ══════════════
 function toggleAttach(e){if(e&&e.stopPropagation)e.stopPropagation();attachOpen=!attachOpen;document.getElementById('attachMenu').classList.toggle('show',attachOpen);}
-function toggleStickers(){stickerOpen=!stickerOpen;document.getElementById('stickerPanel').classList.toggle('show',stickerOpen);}
+function toggleStickers(){
+  var p=document.getElementById('stickerPanel');
+  if(p && !p.children.length) buildStickerPanel();
+  if(typeof attachOpen!=='undefined' && attachOpen){ attachOpen=false; var am=document.getElementById('attachMenu'); if(am)am.classList.remove('show'); }
+  stickerOpen=!stickerOpen;
+  if(p) p.classList.toggle('show',stickerOpen);
+}
 function pickFile(t){
   attachOpen=false;
   document.getElementById('attachMenu').classList.remove('show');
@@ -2034,13 +2058,16 @@ async function uploadAndSend(blob,type,mimeType){
 
 // ══════════════ STICKERS ══════════════
 function buildStickerPanel(){
-  const p=document.getElementById('stickerPanel'); if(!p) return; let html='';
+  var p=document.getElementById('stickerPanel'); if(!p||typeof EMOJIS==='undefined') return; var html='';
   Object.keys(EMOJIS).forEach(function(cat){
     html+='<div class="sticker-cat">'+cat+'</div><div class="sticker-grid">';
-    EMOJIS[cat].forEach(function(em){ html+='<div class="sticker-item" onclick="insertEmoji(\''+em+'\')">'+em+'</div>'; });
+    EMOJIS[cat].forEach(function(em){ html+='<div class="sticker-item" data-emoji="'+em+'">'+em+'</div>'; });
     html+='</div>';
   });
   p.innerHTML=html;
+  if(!p._emojiBound){ p._emojiBound=true;
+    p.addEventListener('click',function(e){ var it=e.target.closest('.sticker-item'); if(it){ insertEmoji(it.getAttribute('data-emoji')); } });
+  }
 }
 function insertEmoji(em){
   var ta=document.getElementById('chatInput'); if(!ta) return;
