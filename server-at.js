@@ -4641,6 +4641,25 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     } else {
       const statuses=await pencStatuses(); statuses.push(status); await pencSaveStatuses(statuses);
     }
+    // Push « a publié un statut » aux contacts (personnes avec qui l'auteur a une conversation)
+    try {
+      if (webpush) {
+        let author=null;
+        if(_pgPool){ const ar=await _pgPool.query('SELECT full_name,username FROM penc_users WHERE id=$1',[req.pencUser.userId]); author=ar.rows[0]; }
+        else { author=(await pencUsers()).find(u=>u.id===req.pencUser.userId); }
+        const aname=author?(author.full_name||author.username||'Quelqu\'un'):'Quelqu\'un';
+        const partners=new Set();
+        if(_pgPool){
+          const cr=await _pgPool.query('SELECT participants FROM penc_conversations');
+          for(const row of cr.rows){ const parts=Array.isArray(row.participants)?row.participants:JSON.parse(row.participants||'[]'); if(parts.includes(req.pencUser.userId)) parts.forEach(p=>{ if(p!==req.pencUser.userId) partners.add(p); }); }
+        } else {
+          const convs=await pencConvs();
+          for(const c of convs){ const parts=c.participants||c.members||[]; if(parts.includes(req.pencUser.userId)) parts.forEach(p=>{ if(p!==req.pencUser.userId) partners.add(p); }); }
+        }
+        const ppayload={ title:aname, body:'a publié un nouveau statut', icon:'/icon-192.png', badge:'/icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
+        partners.forEach(uid=>{ sendPencPush(uid, ppayload); });
+      }
+    } catch(e){ console.error('push statut:', e.message); }
     res.json({status,success:true});
   }catch(e){console.error('POST status:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
