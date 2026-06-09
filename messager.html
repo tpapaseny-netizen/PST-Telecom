@@ -496,6 +496,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .status-viewer{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;overflow:hidden;}
 .sv-content{position:absolute!important;inset:0!important;z-index:1;}
 .sv-img-wrap{position:absolute;top:0;left:0;right:0;bottom:156px;background:#000;overflow:hidden;}
+.sv-vid-full{bottom:0 !important;}
 .sv-img-wrap img{width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .3s;transform-origin:center;transition:opacity .3s,transform .2s;}
 .sv-img-wrap video{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;opacity:1;background:#000;display:block;}
 .sv-img-wrap.loaded img,.sv-img-wrap.loaded video{opacity:1;}
@@ -977,7 +978,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 .sv-vrow-contact{background:rgba(255,107,0,.16);border:1px solid rgba(255,107,0,.45);color:#FF6B00;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;flex-shrink:0;}
 .sv-vsheet-empty{text-align:center;color:#888;padding:26px;font-size:14px;}
 .sv-views-btn{cursor:pointer;display:inline-block;}
-.sv-vidctrl{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:16px;z-index:14;}
+.sv-vidctrl{position:absolute;bottom:128px;left:0;right:0;display:flex;justify-content:center;gap:16px;z-index:14;}
 .sv-vidctrl button{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.3);color:#fff;width:48px;height:48px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .sv-vidctrl button:active{background:rgba(255,107,0,.5);}
 .penc-prompt-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:100000;opacity:0;transition:opacity .18s;padding:24px;}
@@ -2364,7 +2365,7 @@ function renderSV(){
     }
   } else if(sv.type==='video'){
     var authorHtml2=buildSVAuthorBar(sv);
-    c.innerHTML=authorHtml2+'<div class="sv-img-wrap" id="svMediaWrap"><div class="sv-spin"></div><video id="svVid" src="'+sv.media_url+'" autoplay playsinline webkit-playsinline></video><div class="sv-vidctrl"><button onclick="svSeek(event,-5)" title="-5s">⏪</button><button id="svPlayPause" onclick="svTogglePlay(event)" title="Pause / Lecture">⏸</button><button onclick="svSeek(event,5)" title="+5s">⏩</button></div></div>';
+    c.innerHTML=authorHtml2+'<div class="sv-img-wrap sv-vid-full" id="svMediaWrap"><div class="sv-spin"></div><video id="svVid" src="'+sv.media_url+'" autoplay playsinline webkit-playsinline></video><div class="sv-vidctrl"><button onclick="svSeek(event,-5)" title="-5s">⏪</button><button id="svPlayPause" onclick="svTogglePlay(event)" title="Pause / Lecture">⏸</button><button onclick="svSeek(event,5)" title="+5s">⏩</button></div></div>';
     var vid=document.getElementById('svVid');
     if(vid){
       var _vloaded=function(){var w=document.getElementById('svMediaWrap');if(w)w.classList.add('loaded');};
@@ -2584,9 +2585,10 @@ function svStatusQuote(sv2){
   var lbl=sv2.type==='image'?((sv2.caption&&sv2.caption!=='null')?sv2.caption:'Photo'):sv2.type==='video'?'Vidéo':((sv2.text_content||'').slice(0,60));
   return { kind:'status', type:sv2.type, content:lbl, author_id:sv2.user_id, author_name:(sv2.user&&(sv2.user.full_name||sv2.user.username))||'', thumb:sv2.media_url||'' };
 }
-function openStatusFromQuote(uid){
+async function openStatusFromQuote(uid){
   if(!uid){ return; }
   var items=(STATUSES||[]).filter(function(s){return String(s.user_id)===String(uid);});
+  if(!items.length){ try{ await loadStatuses(); items=(STATUSES||[]).filter(function(s){return String(s.user_id)===String(uid);}); }catch(e){} }
   if(items&&items.length){ viewStatuses(items); }
   else { showNotif('⏳','Statut','Statut expiré ou indisponible','blue',null); }
 }
@@ -3266,7 +3268,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v17 (reactions cliquables + barre WhatsApp + chargement publication + tap navigation)');
+console.log('PENC build v18 (video statut plein ecran + redirection citation robuste)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
