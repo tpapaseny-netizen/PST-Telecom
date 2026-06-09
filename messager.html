@@ -1612,7 +1612,7 @@ function onNewMsg(msg) {
   }
   if(conv){ if(typeof renderConvList==='function') renderConvList(); } else if(typeof loadConvs==='function'){ loadConvs(); }
   if(cid===CUR_CONV) {
-    appendMsg(msg); scrollBottom();
+    appendMsg(msg); if(typeof _stickBottom==='function'){ _stickBottom(); } else { scrollBottom(); }
     SOCKET.emit('message:read',{conversation_id:cid});
   } else {
     const sender = msg.sender?.full_name?.split(' ')[0] || 'Quelqu\'un';
@@ -1668,7 +1668,7 @@ function renderConvList(filter='') {
     const unread=conv.unread_count||0;
     el.innerHTML=`
       <div class="conv-avatar${unseenStatusUsers.has(conv.other_user_id)?' has-status':''}">${conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`}${isOnline?'<div class="online-dot"></div>':''}</div>
-      <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${ (function(lm){ if(!lm) return 'Démarrer la conversation'; if(typeof lm==='string') return esc(lm); if(lm.content) return esc(lm.type==='audio'?'🎤 Vocal':lm.type==='image'?'📷 Photo':lm.content); return 'Message'; })(conv.last_message) }</div></div>
+      <div class="conv-info"><div class="conv-name">${esc(conv.name||'Inconnu')}</div><div class="conv-last ${unread?'unread-last':''}">${ (function(lm){ if(!lm) return 'Démarrer la conversation'; if(typeof lm==='string') return esc(lm); return esc(msgPreview(lm)); })(conv.last_message) }</div></div>
       <div class="conv-meta"><div class="conv-time">${fmtTime(conv.updated_at)}</div>${unread?`<div class="conv-badge">${unread}</div>`:''}</div>`;
     el.onclick=()=>openConv(conv);
     list.appendChild(el);
@@ -1852,6 +1852,7 @@ function playVoice(uid,urlEnc){
       if(btn) btn.textContent='▶';
       if(wave) wave.querySelectorAll('.voice-bar').forEach(function(b){ b.classList.remove('played'); b.classList.add('unplayed'); });
       if(durEl) durEl.textContent=fmtDur(a.duration*1000||0);
+      try{ var _vb=Array.from(document.querySelectorAll('#msgsArea .voice-play')); var _vi=_vb.indexOf(btn); if(_vi>-1&&_vi<_vb.length-1){ var _nb=_vb[_vi+1]; if(_nb) setTimeout(function(){ _nb.click(); },350); } }catch(e){}
     });
   }
   var a=window._voices[uid];
@@ -3285,7 +3286,7 @@ async function saveMedia(url, kind){
     showNotif('⬇️','Enregistrement','Téléchargement en cours…','blue',null);
     var resp=await fetch(url,{mode:'cors'});
     var blob=await resp.blob();
-    var ext=(kind==='video')?'mp4':((blob.type&&blob.type.indexOf('png')>-1)?'png':'jpg');
+    var ext=(kind==='video')?'mp4':(kind==='audio')?((blob.type&&blob.type.indexOf('mpeg')>-1)?'mp3':(blob.type&&blob.type.indexOf('wav')>-1)?'wav':'m4a'):((blob.type&&blob.type.indexOf('png')>-1)?'png':'jpg');
     var obj=URL.createObjectURL(blob);
     var a=document.createElement('a'); a.href=obj; a.download='Penc_'+Date.now()+'.'+ext;
     document.body.appendChild(a); a.click();
@@ -3343,7 +3344,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v26 (canaux PostgreSQL + enregistrement medias galerie)');
+console.log('PENC build v27 (transfert messages + enchainement audio + stabilite + apercu unifie)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3789,6 +3790,35 @@ function initCallSocket(){
 // ══ SUPPRESSION MESSAGES ══
 var _ctxMenu=null, _undoTimer=null, _undoData=null;
 
+var _fwdMsg=null;
+function openForward(msg){
+  _fwdMsg=msg;
+  var ov=document.getElementById('fwdOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='fwdOverlay'; ov.className='overlay'; document.body.appendChild(ov); }
+  var list=(CONVS||[]).slice().filter(function(c){return c.id!=='bot';}).sort(function(a,b){return new Date(b.updated_at)-new Date(a.updated_at);});
+  var rows=list.map(function(c){
+    var init=initials(c.name||'?');
+    var av=c.avatar_url?('<img src="'+c.avatar_url+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>'):'<span>'+esc(init)+'</span>';
+    return '<div class="fwd-row" data-cid="'+esc(c.id)+'" style="display:flex;align-items:center;gap:12px;padding:11px 6px;cursor:pointer;border-radius:12px;"><div class="conv-avatar" style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;">'+av+'</div><div style="font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(c.name||'Inconnu')+'</div></div>';
+  }).join('');
+  ov.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title">Transférer à…</div><div style="max-height:60vh;overflow-y:auto;">'+(rows||'<div class="empty-state"><div class="empty-text">Aucune conversation.</div></div>')+'</div><button class="btn-primary" onclick="closeForward()" style="margin-top:12px;background:var(--card2);color:var(--muted);">Annuler</button></div>';
+  ov.querySelectorAll('.fwd-row').forEach(function(el){ el.addEventListener('click',function(){ doForward(el.dataset.cid); }); });
+  ov.classList.add('show');
+}
+function closeForward(){ var ov=document.getElementById('fwdOverlay'); if(ov) ov.classList.remove('show'); }
+function doForward(cid){
+  var m=_fwdMsg; if(!m||!cid||!SOCKET){ closeForward(); return; }
+  var payload={conversation_id:cid, type:m.type||'text', content:m.content||''};
+  if(m.media_url) payload.media_url=m.media_url;
+  if(m.media_duration) payload.media_duration=m.media_duration;
+  SOCKET.emit('message:send', payload, function(res){
+    if(res&&res.message){ res.message.is_mine=true; if(cid===CUR_CONV){ appendMsg(res.message); if(typeof _stickBottom==='function')_stickBottom(); } }
+  });
+  var cv=(CONVS||[]).find(function(c){return c.id===cid;});
+  if(cv){ cv.last_message=msgPreview(m); cv.updated_at=new Date().toISOString(); if(typeof renderConvList==='function') renderConvList(); }
+  closeForward();
+  showNotif('↪️','Transféré','Message transféré','green',null);
+}
 function showMsgMenu(msg, rowEl){
   // Fermer menu existant
   closeCtxMenu();
@@ -3803,9 +3833,13 @@ function showMsgMenu(msg, rowEl){
   var SVG_TRASH='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
   var SVG_GLOBE='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
   var canEdit=isOwn&&age<1800000&&msg.type==='text'; // 30min
+  var SVG_FWD='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>';
+  var SVG_DL='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
   var items=[
     {svg:SVG_REPLY,label:'Répondre',fn:function(){setReplyingTo(msg);}},
+    {svg:SVG_FWD,label:'Transférer',fn:function(){openForward(msg);}},
   ];
+  if((msg.type==='image'||msg.type==='video'||msg.type==='voice')&&msg.media_url) items.push({svg:SVG_DL,label:'Enregistrer',fn:function(){saveMedia(msg.media_url, msg.type==='video'?'video':msg.type==='voice'?'audio':'image');}});
   if(canEdit) items.push({svg:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',label:'Modifier',fn:function(){startEditMsg(msg,rowEl);}});
   items.push({svg:SVG_TRASH,label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false});
   if(canAll) items.push({svg:SVG_TRASH+SVG_GLOBE,label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
