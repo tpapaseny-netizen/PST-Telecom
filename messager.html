@@ -1610,6 +1610,7 @@ function onNewMsg(msg) {
     conv.updated_at = msg.created_at;
     if(cid!==CUR_CONV && !(msg.is_mine||(ME&&String(msg.sender_id)===String(ME.id)))) { conv.unread_count=(conv.unread_count||0)+1; totalUnread++; updateBadge(); }
   }
+  if(typeof renderConvList==='function') renderConvList();
   if(cid===CUR_CONV) {
     appendMsg(msg); scrollBottom();
     SOCKET.emit('message:read',{conversation_id:cid});
@@ -2472,6 +2473,7 @@ function renderViewersList(q){
   var list=document.getElementById('svViewerList'); if(!list) return;
   var viewers=window._svViewers||[]; q=(q||'').toLowerCase().trim();
   var rows=viewers.filter(function(v){ return !q || (v.full_name||'').toLowerCase().indexOf(q)>-1 || (v.username||'').toLowerCase().indexOf(q)>-1; });
+  rows.sort(function(a,b){ return (b.reaction?1:0)-(a.reaction?1:0); });
   if(!rows.length){ list.innerHTML='<div class="sv-vsheet-empty">Aucune vue</div>'; return; }
   list.innerHTML=rows.map(function(v){
     var idx=viewers.indexOf(v);
@@ -2606,7 +2608,7 @@ function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}
 
 function svReactPop(emoji){
   var host=document.getElementById('statusViewer')||document.body;
-  for(var i=0;i<5;i++){(function(k){
+  for(var i=0;i<9;i++){(function(k){
     var p=document.createElement('div'); p.className='sv-react-pop'; p.textContent=emoji;
     var dx=Math.round(Math.random()*120-60), dur=Math.round(900+Math.random()*700), sz=Math.round(32+Math.random()*30);
     p.style.fontSize=sz+'px';
@@ -3292,7 +3294,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v21 (reactions privees auteur + jaillissement + picker bouton + fix badge)');
+console.log('PENC build v22 (notifs agressives + redirection notif + liste discussions a jour + reacteurs en haut)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3392,7 +3394,7 @@ async function enablePush(){
     showNotif('❌','Notifs','Erreur: '+e.message,'red',null);
   }
 }
-setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.permission==='granted') enablePush(); }, 3500);
+setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.permission!=='denied') enablePush(); }, 3500);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden' && TOKEN) pingSession(); });
 
 document.getElementById('statusViewer').addEventListener('click',function(e){

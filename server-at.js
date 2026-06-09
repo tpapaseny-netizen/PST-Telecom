@@ -5286,7 +5286,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           else if (type === 'sticker') pbody = content || 'Sticker';
           else pbody = (content || '').slice(0, 120);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
-          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager', conv_id: conversation_id }); }
+          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id }); }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
     } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }
