@@ -1627,7 +1627,7 @@ function onNewMsg(msg) {
 }
 
 function msgPreview(msg) {
-  if(msg.type==='voice') return '🎙️ Vocal';
+  if(msg.type==='voice') return '🎙️ Message vocal';
   if(msg.type==='image') return '📷 Photo';
   if(msg.type==='video') return '🎬 Vidéo';
   if(msg.type==='money') return '💸 Transfert';
@@ -1720,6 +1720,7 @@ function backToMain(){
 }
 
 // ══════════════ MESSAGES ══════════════
+function _stickBottom(){ var a=document.getElementById('msgsArea'); if(!a) return; if(a.scrollHeight - a.scrollTop - a.clientHeight < 280){ a.scrollTop = a.scrollHeight; } }
 function appendMsg(msg) {
   const area=document.getElementById('msgsArea');
   if(msg.id && area.querySelector('[data-mid="'+msg.id+'"]')) return; // anti-doublon
@@ -1790,11 +1791,11 @@ function appendMsg(msg) {
   let bubble='';
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')" style="background:transparent;">
-    <img src="${msg.media_url}" loading="lazy" style="min-height:120px;background:#1a1f2e;"/>
+    <img src="${msg.media_url}" loading="lazy" onload="window._stickBottom&&window._stickBottom()" style="min-height:120px;background:#1a1f2e;"/>
   </div>`;
   else if(msg.type==='video') bubble=`<div class="media-bubble" id="vw_${msg.id}" onclick="openVidViewer('${msg.media_url}')" style="cursor:pointer;">
   <div class="vid-wrap">
-    <video src="${msg.media_url}" preload="metadata" playsinline
+    <video src="${msg.media_url}" preload="metadata" playsinline onloadedmetadata="window._stickBottom&&window._stickBottom()"
       id="vid_${msg.id}" style="pointer-events:none;width:100%;max-height:300px;object-fit:cover;border-radius:14px;display:block;"></video>
     <div class="vid-play-btn" id="vbtn_${msg.id}" style="pointer-events:none;">
       <svg width='48' height='48' viewBox='0 0 48 48'><circle cx='24' cy='24' r='24' fill='rgba(0,0,0,.45)'/><polygon points='19,14 37,24 19,34' fill='#fff'/></svg>
@@ -1886,7 +1887,7 @@ function onChatInput(){
   clearTimeout(typingTimers[CUR_CONV]);
   typingTimers[CUR_CONV]=setTimeout(()=>SOCKET&&SOCKET.emit('typing:stop',{conversation_id:CUR_CONV}),1500);
 }
-function onChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText();}}
+function onChatKey(e){ /* Entree = nouvelle ligne ; l'envoi se fait uniquement via le bouton Envoyer */ }
 
 // ── Reply / Quote ──
 var _replyingTo = null;
@@ -1939,7 +1940,7 @@ function sendText(){
     sender:ME,sender_id:ME&&ME.id,is_mine:true,reply_to:replyData,created_at:new Date().toISOString()};
   // Mettre à jour la preview immédiatement
   const _cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;});
-  if(_cv){_cv.last_message=text;_cv.updated_at=tmp.created_at;}
+  if(_cv){_cv.last_message=msgPreview(tmp);_cv.updated_at=tmp.created_at; if(typeof renderConvList==='function') renderConvList();}
   appendMsg(tmp); scrollBottom();
   if(replyData){
     try{
@@ -1969,6 +1970,7 @@ function sendText(){
 
 function sendMsgSocket(data){
   if(!CUR_CONV||!SOCKET) return;
+  try{ var _cv=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;}); if(_cv){ _cv.last_message=msgPreview(data); _cv.updated_at=new Date().toISOString(); if(typeof renderConvList==='function') renderConvList(); } }catch(e){}
   SOCKET.emit('message:send',{conversation_id:CUR_CONV,...data},(res)=>{if(res?.message){res.message.is_mine=true;appendMsg(res.message);scrollBottom();}}); // affichage immédiat (le garde-fou par ID empêche le doublon)
 }
 
@@ -2162,6 +2164,7 @@ function sendSticker(txt){
   stickerOpen=false; document.getElementById('stickerPanel').classList.remove('show');
   if(!CUR_CONV||!SOCKET) return;
   const tmp={id:'tmp_'+Date.now(),conversation_id:CUR_CONV,type:'sticker',content:txt,sender:ME,sender_id:ME.id,created_at:new Date().toISOString()};
+  var _cvk=CONVS&&CONVS.find(function(c){return c.id===CUR_CONV;}); if(_cvk){_cvk.last_message=msgPreview(tmp);_cvk.updated_at=tmp.created_at; if(typeof renderConvList==='function') renderConvList();}
   appendMsg(tmp); scrollBottom();
   SOCKET.emit('message:send',{conversation_id:CUR_CONV,type:'sticker',content:txt},(r)=>{});
 }
@@ -2542,6 +2545,20 @@ async function submitTextStatus(){
 }
 
 // ══════════════ PHOTO DE PROFIL ══════════════
+function renderStatHistory(items, total){
+  var box=document.getElementById('rwHistory'); var tot=document.getElementById('rwHistTotal');
+  if(tot) tot.textContent=(total||0)+' vue'+((total||0)>1?'s':'');
+  if(!box) return;
+  if(!items||!items.length){ box.innerHTML='<div style=\"color:var(--muted);font-size:13px;padding:6px 2px;\">Aucun statut actif pour le moment.</div>'; return; }
+  box.innerHTML=items.slice().reverse().map(function(s){
+    var n=(s.views||[]).length;
+    var thumb=(s.type==='image'&&s.media_url)?('<div style=\"width:42px;height:42px;border-radius:9px;overflow:hidden;flex:none;\"><img src=\"'+s.media_url+'\" style=\"width:100%;height:100%;object-fit:cover;\"/></div>')
+      :(s.type==='video'&&s.media_url)?('<div style=\"width:42px;height:42px;border-radius:9px;overflow:hidden;flex:none;background:#000;\"><video src=\"'+s.media_url+'\" muted style=\"width:100%;height:100%;object-fit:cover;\"></video></div>')
+      :('<div style=\"width:42px;height:42px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--card2);font-size:18px;\">'+(s.type==='video'?'🎬':s.type==='image'?'📷':'📝')+'</div>');
+    var label=s.type==='image'?'Photo':s.type==='video'?'Vidéo':((s.content||'').slice(0,40)||'Texte');
+    return '<div style=\"display:flex;align-items:center;gap:10px;background:var(--card);border-radius:11px;padding:8px;\">'+thumb+'<div style=\"flex:1;min-width:0;\"><div style=\"font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">'+esc(label)+'</div><div style=\"font-size:11px;color:var(--muted);\">'+fmtTime(s.created_at)+'</div></div><div style=\"font-size:13px;font-weight:700;color:var(--accent);flex:none;\">👁 '+n+'</div></div>';
+  }).join('');
+}
 function loadRewards(){
   api('/auth/me').then(function(d){
     if(!d||!d.user) return;
@@ -2549,17 +2566,19 @@ function loadRewards(){
     if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; }
     if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-horiz'); if(sl){ var ae=document.createElement('div'); ae.className='sh-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sh-label">Admin</div>'; sl.appendChild(ae); } }
     function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
-    set('rwValid', u.valid_views||0);
+    var _hist=window.MY_STATUSES||[]; var _curViews=_hist.reduce(function(a,s){return a+((s.views||[]).length);},0);
+    set('rwValid', (u.valid_views||0)||_curViews);
     set('rwOwn', u.own_views||0);
     set('rwContacts', u.contacts_count||0);
     set('rwBalance', (u.balance||0)+' F');
-    var vv=u.valid_views||0;
+    var vv=(u.valid_views||0)||_curViews;
     var bar=document.getElementById('rwBar'); if(bar) bar.style.width=((vv%1000)/1000*100).toFixed(0)+'%';
     var info=document.getElementById('rwInfo');
     if(info){
       if(u.withdraw_request && u.withdraw_request.status==='pending') info.textContent='Demande de retrait en cours ('+u.withdraw_request.amount+' F)';
-      else info.textContent=(1000-(vv%1000))+' vues avant le prochain palier · 100 F / 1000 vues';
+      else info.textContent=(1000-(vv%1000))+' vues avant le prochain palier · 75 F / 1000 vues';
     }
+    renderStatHistory(_hist, _curViews);
     var btn=document.getElementById('rwWithdraw');
     if(btn){
       var ok=(u.balance||0)>=500 && (u.contacts_count||0)>=100;
@@ -2958,6 +2977,7 @@ function renderProfileView(){
       <div class="rw-info" id="rwInfo">100 F / 1000 vues valides</div>
       <button class="rw-withdraw" id="rwWithdraw" onclick="withdrawRewards()" disabled>Retrait dès 500 F + 100 contacts</button>
     </div>
+    <div class="reward-card" id="statHistCard"><div class="reward-head"><span>📜 Mes statuts publiés</span><span id="rwHistTotal">0 vue</span></div><div id="rwHistory" style="display:flex;flex-direction:column;gap:8px;"></div></div>
     <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">🎨 Thème</div>
     <div class="theme-btns">
       <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#F5F0E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#1C6B4A,#1A5C9E);"></div><span style="color:#1C1917;">Claude</span></div>
@@ -3303,7 +3323,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v23 (contacts retire + statuts profil-en-profil + nouvelles conversations affichees)');
+console.log('PENC build v24 (entree=nouvelle ligne + apercu liste correct + tableau statuts + admin PostgreSQL)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){

@@ -4203,8 +4203,9 @@ app.post('/api/penc/auth/login', async (req, res) => {
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    const users = await pencUsers();
-    const user = users.find(u => u.id === uid);
+    let user = null;
+    if (_pgPool) { try { user = await pgFindUser('id', uid); } catch(e){} }
+    if (!user) { const users = await pencUsers(); user = users.find(u => u.id === uid); }
     if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
     let contacts_count = 0;
     try {
@@ -4599,7 +4600,7 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
     const allUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-    const vLookup = id2 => { const u=allUsers.find(x=>x.id===id2); return u?{id:u.id,full_name:u.full_name,username:u.username,avatar_url:u.avatar_url||null}:{id:id2,full_name:'Utilisateur',username:''}; };
+    const vLookup = id2 => { const u=allUsers.find(x=>x.id===id2); return u?{id:u.id,full_name:(u.full_name||u.username||'Utilisateur'),username:u.username||'',avatar_url:u.avatar_url||null}:{id:id2,full_name:'Utilisateur',username:''}; };
     let statuses=[], mine=[];
     if(_pgPool){
       const rows=await pgGetStatuses(true);
@@ -4749,8 +4750,9 @@ app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
 const PENC_ADMIN_EMAILS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
 async function pencAdmin(req, res, next) {
   try {
-    const users = await pencUsers();
-    const u = users.find(x => x.id === req.pencUser.userId);
+    let u = null;
+    if (_pgPool) { try { u = await pgFindUser('id', req.pencUser.userId); } catch(e){} }
+    if (!u) { const users = await pencUsers(); u = users.find(x => x.id === req.pencUser.userId); }
     if (!u || !PENC_ADMIN_EMAILS.includes(String(u.email || '').toLowerCase())) return res.status(403).json({ error: 'Acces refuse' });
     req.pencAdminUser = u;
     next();
@@ -4763,7 +4765,7 @@ function pencContactsCount(convs, uid) {
 }
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
-    const users = await pencUsers();
+    const users = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
     const convs = await pencConvs();
     const statuses = await pencStatuses();
     let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
