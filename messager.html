@@ -2618,8 +2618,8 @@ async function sendReaction(statId,emoji){
 function cancelStatusCap(){var p=document.getElementById('stCaptionPrev');if(p)p.style.display='none';try{URL.revokeObjectURL(window._stCapUrl||'');}catch(e){}}
 function _stUploadOverlay(){
   var o=document.createElement('div'); o.id='stUploadOv';
-  o.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;';
-  o.innerHTML='<div style="background:linear-gradient(160deg,#17181c,#0c0d10);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:26px 30px;text-align:center;min-width:200px;"><svg width="56" height="56" viewBox="0 0 56 56" style="display:block;margin:0 auto;"><circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/><circle id="stUpArc" cx="28" cy="28" r="24" fill="none" stroke="#FF6B00" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8" transform="rotate(-90 28 28)"/></svg><div id="stUpPct" style="color:#fff;font-weight:700;font-size:18px;margin-top:10px;">0%</div><div style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px;">Publication du statut…</div></div>';
+  o.style.cssText='position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:100001;background:rgba(20,20,22,.96);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:9px 15px;display:flex;align-items:center;gap:11px;box-shadow:0 8px 26px rgba(0,0,0,.5);pointer-events:none;max-width:90%;';
+  o.innerHTML='<svg width="30" height="30" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/><circle id="stUpArc" cx="28" cy="28" r="24" fill="none" stroke="#FF6B00" stroke-width="6" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8" transform="rotate(-90 28 28)"/></svg><div><div id="stUpPct" style="color:#fff;font-weight:700;font-size:14px;">0%</div><div style="color:rgba(255,255,255,.5);font-size:11px;">Publication en cours…</div></div>';
   document.body.appendChild(o); return o;
 }
 function _stSetPct(p){ var a=document.getElementById('stUpArc'),t=document.getElementById('stUpPct'); var C=150.8; if(a)a.style.strokeDashoffset=String(C*(1-p/100)); if(t)t.textContent=Math.round(p)+'%'; }
@@ -3268,7 +3268,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v18 (video statut plein ecran + redirection citation robuste)');
+console.log('PENC build v19 (MAJ auto de l-app + publication statut non bloquante)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3456,8 +3456,12 @@ document.addEventListener('click',function(e){
   var uid=av.dataset.uid||img.dataset.uid||'';
   openPPViewer(src,nm,uid);
 },true);
-// ── Enregistrement du service worker (indispensable pour le push / notifs app fermée) ──
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').then(function(r){ console.log('[SW] enregistré', r.scope); }).catch(function(e){ console.warn('[SW] échec', e); }); }
+// ── Service worker : push + mise à jour automatique de l'app ──
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(function(r){ console.log('[SW] enregistré', r.scope); try{ r.update(); }catch(e){} }).catch(function(e){ console.warn('[SW] échec', e); });
+  var _swReloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){ if(_swReloaded)return; _swReloaded=true; location.reload(); });
+}
 // ── Navigation depuis notification push ──
 if(navigator.serviceWorker){
   navigator.serviceWorker.addEventListener('message',function(e){
