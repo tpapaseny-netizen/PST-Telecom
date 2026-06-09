@@ -3947,6 +3947,7 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pending BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
@@ -3958,6 +3959,7 @@ let _pgPool = null;
         text_content TEXT,
         bg_color    TEXT DEFAULT '#050D18',
         caption     TEXT,
+        duration    INTEGER DEFAULT 10,
         reactions   JSONB DEFAULT '[]',
         views       JSONB DEFAULT '[]',
         view_ips    JSONB DEFAULT '[]',
@@ -3966,6 +3968,7 @@ let _pgPool = null;
         view_log    JSONB DEFAULT '[]'
       );
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
       CREATE TABLE IF NOT EXISTS penc_channels (
@@ -3973,6 +3976,15 @@ let _pgPool = null;
         data JSONB NOT NULL,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS penc_friendships (
+        id TEXT PRIMARY KEY,
+        requester TEXT NOT NULL,
+        recipient TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pf_recipient ON penc_friendships(recipient);
+      CREATE INDEX IF NOT EXISTS idx_pf_pair ON penc_friendships(requester,recipient);
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4065,8 +4077,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString()]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -4270,13 +4282,14 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
      st.created_at||new Date().toISOString(),
-     st.expires_at||new Date(Date.now()+86400000).toISOString()]
+     st.expires_at||new Date(Date.now()+86400000).toISOString(),
+     st.duration||10]
   );
   return r.rows[0];
 }
@@ -4340,6 +4353,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         deleted_for_all: m.deleted_for_all || false,
         delivered_at: m.delivered_at || null,
         read_at: m.read_at || null,
+        pending: m.pending || false,
         created_at: m.created_at
       }));
     } else {
@@ -4349,6 +4363,41 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     }
     res.json({ messages });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ════════════════ AMIS / DEMANDES (#4) ════════════════
+async function pgFriendAccepted(a,b){
+  if(!_pgPool) return true;
+  try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return true; }
+}
+async function pgEnsureFriendRequest(requester,recipient){
+  if(!_pgPool) return;
+  try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[requester,recipient]); if(r.rows.length) return;
+    await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at) VALUES($1,$2,$3,'pending',NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),requester,recipient]); }catch(e){}
+}
+app.get('/api/penc/friends/requests', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({requests:[]});
+    const r=await _pgPool.query("SELECT * FROM penc_friendships WHERE recipient=$1 AND status='pending' ORDER BY created_at DESC",[uid]);
+    const users=await pgAllUsers()||[];
+    const out=r.rows.map(function(row){ const u=users.find(x=>x.id===row.requester)||{}; return {requester_id:row.requester, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, created_at:row.created_at}; });
+    res.json({requests:out}); }catch(e){ res.json({requests:[]}); }
+});
+app.post('/api/penc/friends/accept', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const requester_id=req.body&&req.body.requester_id; if(!requester_id) return res.status(400).json({error:'requester_id requis'});
+    if(_pgPool){
+      await _pgPool.query("UPDATE penc_friendships SET status='accepted' WHERE requester=$1 AND recipient=$2",[requester_id,uid]);
+      const chk=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE requester=$1 AND recipient=$2 LIMIT 1",[uid,requester_id]);
+      if(!chk.rows.length) await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at) VALUES($1,$2,$3,'accepted',NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,requester_id]);
+      else await _pgPool.query("UPDATE penc_friendships SET status='accepted' WHERE requester=$1 AND recipient=$2",[uid,requester_id]);
+      try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester_id, JSON.stringify([uid])]); }catch(e2){}
+    }
+    try{ if(global._pencIo){ global._pencIo.to('user:'+requester_id).emit('friend:accepted',{by:uid}); } }catch(e3){}
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/friends/reject', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const requester_id=req.body&&req.body.requester_id; if(!requester_id) return res.status(400).json({error:'requester_id requis'});
+    if(_pgPool){ await _pgPool.query("UPDATE penc_friendships SET status='rejected' WHERE requester=$1 AND recipient=$2",[requester_id,uid]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 
 
@@ -4642,12 +4691,13 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration } = req.body;
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type: type||'text',
       media_url: media_url||null, text_content: text_content||null,
       bg_color: bg_color||'#050D18', caption: caption||null,
+      duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now()+86400000).toISOString()
@@ -5259,6 +5309,21 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         const u = _pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(x => x.id === pencUserId);
         if (u) sender = pencStrip(u);
       } catch {}
+      // ── Demande d'ami : 1er message vers un non-ami => en attente (fail-open) ──
+      try {
+        if (_pgPool) {
+          const _cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
+          let _parts = _cr.rows[0] ? (Array.isArray(_cr.rows[0].participants)?_cr.rows[0].participants:JSON.parse(_cr.rows[0].participants||'[]')) : [];
+          const _other = _parts.find(p=>p!==pencUserId);
+          if (_other) {
+            const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
+            if (parseInt(_cnt.rows[0].n) === 0) {
+              const _acc = await pgFriendAccepted(pencUserId, _other);
+              if (!_acc) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
+            }
+          }
+        }
+      } catch(_e){ msg.pending = false; }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
