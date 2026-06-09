@@ -319,11 +319,13 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .sv-content{flex:1;display:flex;align-items:center;justify-content:center;margin-top:40px;}
 .sv-content img,.sv-content video{max-width:100%;max-height:100%;object-fit:contain;}
 .sv-text{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:30px;font-size:22px;font-weight:700;text-align:center;color:#fff;}
-.sv-reply{position:fixed;left:14px;right:14px;bottom:20px;display:flex;gap:8px;align-items:center;transition:bottom .15s ease;z-index:25;}
-.sv-send{flex-shrink:0;width:44px;height:44px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.sv-reply{position:fixed;left:12px;right:12px;bottom:20px;display:flex;gap:9px;align-items:center;z-index:25;}
+.sv-send{flex-shrink:0;width:46px;height:46px;border-radius:50%;border:none;background:linear-gradient(135deg,#FF8C00,#FF6B00);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,107,0,.4);}
 .sv-views{position:absolute;bottom:78px;left:16px;background:rgba(0,0,0,.55);color:#fff;padding:6px 12px;border-radius:12px;font-size:13px;font-weight:600;z-index:15;}
-.sv-reply input{flex:1;padding:12px 16px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:15px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
+.sv-reply input{flex:1;padding:13px 18px;background:rgba(18,18,20,0.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.18);border-radius:26px;color:#fff;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;}
 .sv-reply input::placeholder{color:rgba(255,255,255,.55);}
+.sv-reply input:focus{border-color:#FF6B00;}
+.sv-send:active{transform:scale(.92);}
 
 /* ══ PROFILE ══ */
 .profile-hdr{display:flex;flex-direction:column;align-items:center;padding:28px 22px 20px;background:var(--header-bg);border-bottom:1px solid var(--border);}
@@ -521,6 +523,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
   font-size:14px!important;text-align:center!important;
   background:rgba(0,0,0,.55)!important;padding:9px 18px!important;
   font-weight:500!important;max-height:56px!important;overflow:hidden!important;}
+.sv-caption:empty{display:none!important;padding:0!important;background:transparent!important;}
 #svReactions{position:absolute!important;bottom:52px!important;right:0!important;
   left:0!important;z-index:10!important;}
 #svViews{position:absolute!important;bottom:14px!important;width:100%!important;
@@ -2271,8 +2274,10 @@ function svViewsLabel(s){ if(ME && s.user_id===ME.id){ var n=(s.views||[]).lengt
 
 function buildSVAuthorBar(sv){
   var user=sv.user||{};
-  var name=user.full_name||user.username||'Utilisateur';
-  var av=user.avatar_url?'<img src="'+user.avatar_url+'" alt=""/>':esc((name||'?')[0].toUpperCase());
+  var isMine=ME&&(String(sv.user_id)===String(ME.id));
+  var name=isMine?'Vous':(user.full_name||user.username||'Utilisateur');
+  var avurl=isMine?(ME&&ME.avatar_url):user.avatar_url;
+  var av=avurl?'<img src="'+avurl+'" alt=""/>':esc((name||'?')[0].toUpperCase());
   var ago=sv.created_at?timeSince(sv.created_at):'';
   return '<div class="sv-author-bar">'
     +'<div class="sv-author-av-sm">'+av+'</div>'
@@ -2575,6 +2580,15 @@ function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}
 async function sendReaction(statId,emoji){
   var d=await api('/statuses/'+statId+'/react','POST',{emoji:emoji});
   if(d&&d.reactions){var sv=svList[svIdx];if(sv&&sv.id===statId)sv.reactions=d.reactions;renderSV();startSVTimer();}
+  // Comme WhatsApp : la reaction part dans la conversation avec l'auteur (sauf sur son propre statut)
+  var sv2=svList[svIdx];
+  if(sv2&&sv2.user_id&&!(ME&&String(sv2.user_id)===String(ME.id))){
+    var ctx=sv2.type==='image'?'📸 Photo':sv2.type==='video'?'🎥 Vidéo':'"'+(sv2.text_content||'').slice(0,28)+'"';
+    try{ var r=await api('/conversations/direct','POST',{target_user_id:sv2.user_id});
+      if(r&&r.conversation&&SOCKET){ SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:'↪️ Statut ('+ctx+'): '+emoji}); }
+      showNotif('💬','Réaction envoyée',emoji,'green',null);
+    }catch(e){}
+  }
 }
 function cancelStatusCap(){var p=document.getElementById('stCaptionPrev');if(p)p.style.display='none';try{URL.revokeObjectURL(window._stCapUrl||'');}catch(e){}}
 async function publishStatus(){
@@ -3209,7 +3223,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v13 (service worker enregistre + VAPID assortie -> notifs app fermee)');
+console.log('PENC build v14 (Vous sur propre statut + trait noir retire + reaction->chat + barre reponse premium)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
