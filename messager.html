@@ -2346,6 +2346,7 @@ function attachSVZoom(img){
 function renderSV(){
   var sv=svList[svIdx]; if(!sv){closeSV();return;}
   var _ov=document.getElementById('svVid'); if(_ov){ try{ _ov.pause(); }catch(e){} }
+  window._svZoom=false; window._svScale=1;
   // Barre de progression
   document.getElementById('svProgress').innerHTML=svList.map(function(_,i){
     return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>';
@@ -2411,22 +2412,11 @@ function renderSV(){
     } else {
       var emojis=['❤️','😍','😮','😂','🙏','🔥'];
       var myR=(sv.reactions||[]).find(function(r){return String(r.user_id)===String(ME&&ME.id);});
-      var rc={};
-      (sv.reactions||[]).forEach(function(r){rc[r.emoji]=(rc[r.emoji]||0)+1;});
-      // Compteurs existants
-      var countsHtml=Object.keys(rc).map(function(em){ return '<span class="sv-react-count">'+em+' '+rc[em]+'</span>'; }).join('');
-      // Picker (caché par défaut)
       var pickHtml=emojis.map(function(em){
         var act=(myR&&myR.emoji===em)?' active':'';
-        return '<button class="'+act+'" data-sid="'+sv.id+'" data-em="'+em+'">'+em+'</button>';
+        return '<button class="sv-react-btn'+act+'" data-sid="'+sv.id+'" data-em="'+em+'">'+em+'</button>';
       }).join('');
-      ra.innerHTML='<div class="sv-react-trigger">'
-        +'<div class="sv-react-counts-row">'+countsHtml+'</div>'
-        +'<div class="sv-react-picker-row hidden" id="svReactPicker">'+pickHtml+'</div>'
-        +'<button class="sv-react-open-btn" onclick="toggleReactPicker()">'
-          +(myR?myR.emoji:'👍')
-        +'</button>'
-        +'</div>';
+      ra.innerHTML='<div class="sv-react-row" style="justify-content:center;">'+pickHtml+'</div>';
     }
   }
   clearTimeout(window.svViewTimer);
@@ -2624,16 +2614,36 @@ async function sendReaction(statId,emoji){
   }
 }
 function cancelStatusCap(){var p=document.getElementById('stCaptionPrev');if(p)p.style.display='none';try{URL.revokeObjectURL(window._stCapUrl||'');}catch(e){}}
+function _stUploadOverlay(){
+  var o=document.createElement('div'); o.id='stUploadOv';
+  o.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;';
+  o.innerHTML='<div style="background:linear-gradient(160deg,#17181c,#0c0d10);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:26px 30px;text-align:center;min-width:200px;"><svg width="56" height="56" viewBox="0 0 56 56" style="display:block;margin:0 auto;"><circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/><circle id="stUpArc" cx="28" cy="28" r="24" fill="none" stroke="#FF6B00" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8" transform="rotate(-90 28 28)"/></svg><div id="stUpPct" style="color:#fff;font-weight:700;font-size:18px;margin-top:10px;">0%</div><div style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px;">Publication du statut…</div></div>';
+  document.body.appendChild(o); return o;
+}
+function _stSetPct(p){ var a=document.getElementById('stUpArc'),t=document.getElementById('stUpPct'); var C=150.8; if(a)a.style.strokeDashoffset=String(C*(1-p/100)); if(t)t.textContent=Math.round(p)+'%'; }
+function _stHideOv(o){ if(o&&o.parentNode)o.parentNode.removeChild(o); }
 async function publishStatus(){
   var f=window._stCapFile,type=window._stCapType;
   var cap=document.getElementById('stCapInput');var caption=cap?cap.value.trim():'';
   cancelStatusCap();
+  if(!f){ return; }
+  var ov=_stUploadOverlay();
   var fd=new FormData();fd.append('file',f);fd.append('upload_preset',CLD_PRESET);
-  var _r,_d;
-  try{_r=await fetch('https://api.cloudinary.com/v1_1/'+CLD_CLOUD+'/auto/upload',{method:'POST',body:fd});_d=await _r.json();}
-  catch(e){showNotif('❌','Statut','Erreur réseau','red',null);return;}
-  if(!_d||!_d.secure_url){showNotif('❌','Statut',(_d&&_d.error&&_d.error.message)||'Échec','red',null);return;}
-  await api('/statuses','POST',{type,media_url:_d.secure_url,caption:caption||null});
+  var _d=null;
+  try{
+    _d=await new Promise(function(resolve,reject){
+      var xhr=new XMLHttpRequest();
+      xhr.open('POST','https://api.cloudinary.com/v1_1/'+CLD_CLOUD+'/auto/upload');
+      xhr.upload.onprogress=function(e){ if(e.lengthComputable) _stSetPct(e.loaded/e.total*95); };
+      xhr.onload=function(){ try{ resolve(JSON.parse(xhr.responseText)); }catch(_){ reject(new Error('parse')); } };
+      xhr.onerror=function(){ reject(new Error('réseau')); };
+      xhr.send(fd);
+    });
+  }catch(e){ _stHideOv(ov); showNotif('❌','Statut','Erreur réseau','red',null); return; }
+  if(!_d||!_d.secure_url){ _stHideOv(ov); showNotif('❌','Statut',(_d&&_d.error&&_d.error.message)||'Échec','red',null); return; }
+  _stSetPct(100);
+  try{ await api('/statuses','POST',{type,media_url:_d.secure_url,caption:caption||null}); }catch(e){}
+  _stHideOv(ov);
   loadStatuses();showNotif('📸','Statut publié','Visible 24h','green',null);
 }
 function openAbout(){document.getElementById('ol-about').style.display='flex';}
@@ -3256,7 +3266,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v16 (video statut: stop a la fermeture + sans debordement + reactions visibles)');
+console.log('PENC build v17 (reactions cliquables + barre WhatsApp + chargement publication + tap navigation)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3360,8 +3370,8 @@ setTimeout(function(){ if(TOKEN && 'Notification' in window && Notification.perm
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden' && TOKEN) pingSession(); });
 
 document.getElementById('statusViewer').addEventListener('click',function(e){
-  var btn=e.target.closest('.sv-react-btn');
-  if(btn) sendReaction(btn.dataset.sid,btn.dataset.em);
+  var btn=e.target.closest('button[data-em]');
+  if(btn&&btn.dataset.sid) sendReaction(btn.dataset.sid,btn.dataset.em);
 });
 
 // ── Fix clavier / status viewer reply ──
