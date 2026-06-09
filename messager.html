@@ -830,6 +830,10 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   border-radius:8px 8px 0 0;padding:6px 10px;margin-bottom:2px;cursor:pointer;
   max-width:100%;}
 .msg-quote-name{font-size:11px;font-weight:700;color:var(--accent);}
+.msg-quote-status{display:flex;gap:8px;align-items:center;}
+.msg-quote-body{flex:1;min-width:0;}
+.msg-quote-thumb{flex-shrink:0;width:42px;height:42px;border-radius:8px;overflow:hidden;background:#1a1f2e;}
+.msg-quote-thumb img,.msg-quote-thumb video{width:100%;height:100%;object-fit:cover;}
 .msg-quote-text{font-size:12px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:220px;}
 /* === MENU CONTEXTUEL PREMIUM === */
@@ -1673,6 +1677,7 @@ async function openConv(conv) {
   CUR_CONV=conv.id; CUR_CONV_DATA=conv;
   const init=initials(conv.name||'?');
   const av=document.getElementById('chatHdrAv');
+  av.dataset.uid=conv.other_user_id||''; av.dataset.name=conv.name||'';
   av.innerHTML=conv.avatar_url?`<img src="${conv.avatar_url}" alt=""/>`:`<span>${init}</span>`;
   document.getElementById('chatHdrName').textContent=conv.name||'Conversation';
   document.getElementById('typingAv').textContent=init;
@@ -1733,13 +1738,22 @@ function appendMsg(msg) {
   // Sauvegarder dans le cache
   if(_rt && msg.id) _saveRT(msg.id,_rt);
   let quoteHtml = '';
-  if(_rt && _rt.id){
+  if(_rt && (_rt.id || _rt.kind==='status')){
     const qt=_rt;
-    const qText=qt.type==='voice'?'🎤 Vocal':qt.type==='image'?'📷 Photo':esc((qt.content||'').slice(0,60));
-    quoteHtml=`<div class="msg-quote" onclick="scrollToMsg('${qt.id}')">
+    if(qt.kind==='status'){
+      var _who=(ME&&String(qt.author_id)===String(ME.id))?'Vous':(qt.author_name||'Statut');
+      var _lbl=qt.type==='image'?('📷 '+esc(qt.content||'Photo')):qt.type==='video'?('🎥 '+esc(qt.content||'Vidéo')):esc((qt.content||'').slice(0,60));
+      var _thb='';
+      if(qt.type==='image'&&qt.thumb) _thb='<div class="msg-quote-thumb"><img src="'+qt.thumb+'" alt=""/></div>';
+      else if(qt.type==='video'&&qt.thumb) _thb='<div class="msg-quote-thumb"><video src="'+qt.thumb+'" muted playsinline preload="metadata"></video></div>';
+      quoteHtml='<div class="msg-quote msg-quote-status" onclick="openStatusFromQuote(\''+(qt.author_id||'')+'\')"><div class="msg-quote-body"><div class="msg-quote-name">'+esc(_who)+' • Statut</div><div class="msg-quote-text">'+_lbl+'</div></div>'+_thb+'</div>';
+    } else {
+      const qText=qt.type==='voice'?'🎤 Vocal':qt.type==='image'?'📷 Photo':esc((qt.content||'').slice(0,60));
+      quoteHtml=`<div class="msg-quote" onclick="scrollToMsg('${qt.id}')">
       <div class="msg-quote-name">${esc(qt.sender_name||'')}</div>
       <div class="msg-quote-text">${qText}</div>
     </div>`;
+    }
   }
   // ── Swipe pour répondre (comme WhatsApp) + appui long ──
   var _lpT2, _isSwiping=false;
@@ -2484,13 +2498,12 @@ async function svSend(){
   var inp=document.getElementById('svReplyInput'); var t=(inp.value||'').trim(); if(!t) return;
   var sv2=svList[svIdx]; if(!sv2||!sv2.user_id) return;
   inp.value='';
-  // Contexte: quel statut est commenté
-  var ctx=sv2.type==='image'?'📸 Photo':sv2.type==='video'?'🎥 Vidéo':'"'+(sv2.text_content||'').slice(0,28)+'"';
-  var fullMsg='↪️ Statut ('+ctx+'): '+t;
+  // Citation du statut (modèle WhatsApp)
+  var _rtq=svStatusQuote(sv2);
   try{
     var r=await api('/conversations/direct','POST',{target_user_id:sv2.user_id});
     if(r&&r.conversation&&SOCKET){
-      SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:fullMsg});
+      SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:t,reply_to:_rtq});
       showNotif('✓','Réponse envoyée',t.slice(0,40),'green',null);
     }
   }catch(err){ showNotif('❌','Erreur','Envoi échoué','red',null); }
@@ -2573,6 +2586,17 @@ function renderStatusView(){
   sc.insertBefore(div, sc.querySelector('.bottom-nav'));
 }
 function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return s.user_id===uid;}); if(items.length) viewStatuses(items); }
+function svStatusQuote(sv2){
+  if(!sv2) return null;
+  var lbl=sv2.type==='image'?((sv2.caption&&sv2.caption!=='null')?sv2.caption:'Photo'):sv2.type==='video'?'Vidéo':((sv2.text_content||'').slice(0,60));
+  return { kind:'status', type:sv2.type, content:lbl, author_id:sv2.user_id, author_name:(sv2.user&&(sv2.user.full_name||sv2.user.username))||'', thumb:sv2.media_url||'' };
+}
+function openStatusFromQuote(uid){
+  if(!uid){ return; }
+  var items=(STATUSES||[]).filter(function(s){return String(s.user_id)===String(uid);});
+  if(items&&items.length){ viewStatuses(items); }
+  else { showNotif('⏳','Statut','Statut expiré ou indisponible','blue',null); }
+}
 var _adminTaps=0,_adminTapTimer=null;
 function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=5){ _adminTaps=0; openAdmin(); return; } _adminTapTimer=setTimeout(function(){ _adminTaps=0; },2000); }
 function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}); }
@@ -2583,9 +2607,9 @@ async function sendReaction(statId,emoji){
   // Comme WhatsApp : la reaction part dans la conversation avec l'auteur (sauf sur son propre statut)
   var sv2=svList[svIdx];
   if(sv2&&sv2.user_id&&!(ME&&String(sv2.user_id)===String(ME.id))){
-    var ctx=sv2.type==='image'?'📸 Photo':sv2.type==='video'?'🎥 Vidéo':'"'+(sv2.text_content||'').slice(0,28)+'"';
+    var _rtq=svStatusQuote(sv2);
     try{ var r=await api('/conversations/direct','POST',{target_user_id:sv2.user_id});
-      if(r&&r.conversation&&SOCKET){ SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:'↪️ Statut ('+ctx+'): '+emoji}); }
+      if(r&&r.conversation&&SOCKET){ SOCKET.emit('message:send',{conversation_id:r.conversation.id,type:'text',content:emoji,reply_to:_rtq}); }
       showNotif('💬','Réaction envoyée',emoji,'green',null);
     }catch(e){}
   }
@@ -3223,7 +3247,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v14 (Vous sur propre statut + trait noir retire + reaction->chat + barre reponse premium)');
+console.log('PENC build v15 (reponse statut facon WhatsApp + PP zoom/anti-fermeture/entete cliquable)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -3366,6 +3390,8 @@ function openPPViewer(src,name,uid){
   if(dl){ dl.href=src; dl.download=name?name.replace(/\s+/g,'_')+'_pp.jpg':'photo.jpg'; }
   if(bb) bb.innerHTML=isMasked?_EYE_ON:_EYE_OFF;
   if(v) v.dataset.uid=uid||'';
+  if(img){ img.style.transform=''; if(!img._zoomAttached){ attachSVZoom(img); img._zoomAttached=true; } }
+  v.dataset.opened=Date.now();
   v.classList.add('open');
   document.body.style.overflow='hidden';
 }
@@ -3400,7 +3426,7 @@ function togglePPBlur(){
 document.addEventListener('click',function(e){
   var img=e.target;
   if(img.tagName!=='IMG') return;
-  var av=img.closest('.conv-avatar,.contact-av,.ch-av,.profile-av,.sv-viewer-av,.penc-av');
+  var av=img.closest('.conv-avatar,.contact-av,.ch-av,.chat-hdr-av,.msg-sender-av,.profile-av,.sv-viewer-av,.penc-av');
   if(!av) return;
   var src=img.src;
   if(!src||src===window.location.href) return;
@@ -4226,7 +4252,7 @@ document.addEventListener('DOMContentLoaded',function(){
 </div>
 <div id="pwaModal"></div>
 <div id="pwaModal"></div>
-<div id="ppViewer" onclick="if(event.target===this)closePPViewer()">
+<div id="ppViewer" onclick="if(event.target===this && Date.now()-(this.dataset.opened||0)>350)closePPViewer()">
   <div class="ppv-hd">
     <span class="ppv-name" id="ppvName"></span>
     <div class="ppv-actions">
