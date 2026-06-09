@@ -454,8 +454,8 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .sv-react-row{display:flex;gap:8px;justify-content:center;margin-bottom:6px;}
 .sv-react-btn{width:44px;height:44px;border:none;border-radius:50%;background:rgba(0,0,0,.55);font-size:22px;cursor:pointer;transition:transform .12s;display:flex;align-items:center;justify-content:center;}
 .sv-react-btn:active,.sv-react-btn.active{transform:scale(1.28);box-shadow:0 0 0 3px rgba(255,255,255,.35);}
-.sv-react-pop{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);font-size:64px;z-index:30;pointer-events:none;animation:svReactPop 1.1s ease-out forwards;}
-@keyframes svReactPop{0%{opacity:0;transform:translateX(-50%) scale(.3);}20%{opacity:1;transform:translateX(-50%) scale(1.25);}100%{opacity:0;transform:translateX(-50%) translateY(-150px) scale(1);}}
+.sv-react-pop{position:fixed;left:50%;bottom:150px;z-index:30;pointer-events:none;animation:svReactPop 1.2s ease-out forwards;will-change:transform,opacity;}
+@keyframes svReactPop{0%{opacity:0;transform:translateX(-50%) translateY(0) scale(.3);}15%{opacity:1;transform:translateX(-50%) translateY(-12px) scale(1.15);}100%{opacity:0;transform:translateX(calc(-50% + var(--dx,0px))) translateY(-240px) scale(.85);}}
 .sv-react-counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;}
 .sv-react-count{background:rgba(0,0,0,.55);color:#fff;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:600;cursor:pointer;}
 .sv-viewers{padding:0 4px;max-height:90px;overflow-y:auto;}
@@ -1021,7 +1021,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   <div class="sv-caption" id="svCaption"></div>
   <div id="svReactions"></div>
   <div class="sv-views" id="svViews"></div>
-  <div class="sv-reply"><input type="text" placeholder="Répondre..." id="svReplyInput" onkeydown="svReply(event)"/><button class="sv-send" onclick="svSend()">➤</button></div>
+  <div class="sv-reply"><input type="text" placeholder="Répondre..." id="svReplyInput" onkeydown="svReply(event)" onfocus="svReplyFocus()" onblur="svReplyBlur()"/><button class="sv-send" onclick="svSend()">➤</button></div>
 </div>
 
 <!-- ══ AUTH ══ -->
@@ -1688,7 +1688,7 @@ async function openConv(conv) {
   const area=document.getElementById('msgsArea');
   area.innerHTML=`<div class="typing-row" id="typingRow"><div class="typing-av" id="typingAv">${init}</div><div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
   showScreen('screen-chat');
-  if(!MSGS[conv.id]){const d=await api(`/conversations/${conv.id}/messages`);if(d.messages)MSGS[conv.id]=d.messages;}
+  {const d=await api(`/conversations/${conv.id}/messages`);if(d&&d.messages)MSGS[conv.id]=d.messages;}
   (MSGS[conv.id]||[]).forEach(m=>appendMsg(m));
   scrollBottom();
   // Restaurer suppressions en attente
@@ -2282,7 +2282,7 @@ function viewStatuses(items){
   if(!c._bound){
     var downT=0;
     c.addEventListener('pointerdown', function(){ downT=Date.now(); svPaused=true; });
-    c.addEventListener('pointerup', function(e){ svPaused=false; if(Date.now()-downT < 250){ var _tt=e.target; var _skip=(_tt&&(_tt.tagName==='VIDEO'||_tt.tagName==='BUTTON'||(_tt.closest&&_tt.closest('.sv-vidctrl'))))||window._svZoom||(window._svScale>1.05); if(!_skip){ svTap(e); if(!document.getElementById('statusViewer').classList.contains('show')){ var _sw=function(ev){ ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click',_sw,true); }; document.addEventListener('click',_sw,true); setTimeout(function(){ document.removeEventListener('click',_sw,true); },600); } } } });
+    c.addEventListener('pointerup', function(e){ svPaused=false; if(Date.now()-downT < 250){ var _tt=e.target; var _skip=(_tt&&(_tt.tagName==='BUTTON'||(_tt.closest&&_tt.closest('.sv-vidctrl'))))||window._svZoom||(window._svScale>1.05); if(!_skip){ svTap(e); if(!document.getElementById('statusViewer').classList.contains('show')){ var _sw=function(ev){ ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click',_sw,true); }; document.addEventListener('click',_sw,true); setTimeout(function(){ document.removeEventListener('click',_sw,true); },600); } } } });
     c._bound=true;
   }
   renderSV(); startSVTimer();
@@ -2488,6 +2488,8 @@ async function contactViewer(v){
 }
 function closeViewersSheet(){ var s=document.getElementById('svViewersSheet'); if(s) s.classList.remove('show'); svPaused=false; startSVTimer(); }
 function svReply(e){ if(e.key==='Enter') svSend(); }
+function svReplyFocus(){ svPaused=true; var v=document.getElementById('svVid'); if(v){ try{v.pause();}catch(e){} } }
+function svReplyBlur(){ svPaused=false; var v=document.getElementById('svVid'); if(v&&v.paused){ try{ var pp=v.play(); if(pp&&pp.catch)pp.catch(function(){}); }catch(e){} } }
 async function svSend(){
   var inp=document.getElementById('svReplyInput'); var t=(inp.value||'').trim(); if(!t) return;
   var sv2=svList[svIdx]; if(!sv2||!sv2.user_id) return;
@@ -2597,9 +2599,18 @@ function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=
 function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}); }
 
 function svReactPop(emoji){
-  var p=document.createElement('div'); p.className='sv-react-pop'; p.textContent=emoji;
-  var host=document.getElementById('statusViewer')||document.body; host.appendChild(p);
-  setTimeout(function(){ if(p.parentNode)p.parentNode.removeChild(p); },1100);
+  var host=document.getElementById('statusViewer')||document.body;
+  for(var i=0;i<5;i++){(function(k){
+    var p=document.createElement('div'); p.className='sv-react-pop'; p.textContent=emoji;
+    var dx=Math.round(Math.random()*120-60), dur=Math.round(900+Math.random()*700), sz=Math.round(32+Math.random()*30);
+    p.style.fontSize=sz+'px';
+    p.style.marginLeft=Math.round(Math.random()*40-20)+'px';
+    p.style.setProperty('--dx',dx+'px');
+    p.style.animationDuration=dur+'ms';
+    p.style.animationDelay=(k*70)+'ms';
+    host.appendChild(p);
+    setTimeout(function(){ if(p.parentNode)p.parentNode.removeChild(p); },dur+k*70+200);
+  })(i);}
 }
 async function sendReaction(statId,emoji){
   svReactPop(emoji);
@@ -3268,7 +3279,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v19 (MAJ auto de l-app + publication statut non bloquante)');
+console.log('PENC build v20 (nav video + conv complete + reactions jaillissantes + pause pendant commentaire)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
