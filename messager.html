@@ -2780,7 +2780,7 @@ function _renderUserList(users, resEl, q){
     var av=u.avatar_url?('<img src="'+u.avatar_url+'" alt=""/>'):'<span>'+initials(u.full_name||'?')+'</span>';
     el.innerHTML='<div class="search-av">'+av+'</div>'
       +'<div style="flex:1;"><div style="font-weight:600;">'+esc(u.full_name||u.username||'?')+'</div>'
-      +'<div style="font-size:12px;color:var(--muted);">@'+esc(u.username)+(u.phone?' · '+esc(u.phone):'')+'</div></div>'
+      +'<div style="font-size:12px;color:var(--muted);">@'+esc(u.username)+'</div></div>'
       +'<span style="font-size:20px;">💬</span>';
     el.onclick=async function(){
       closeOl('ol-newchat');
@@ -3323,7 +3323,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v24 (entree=nouvelle ligne + apercu liste correct + tableau statuts + admin PostgreSQL)');
+console.log('PENC build v25 (photo de profil PostgreSQL + confidentialite recherche)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){

@@ -4227,8 +4227,18 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
     const { full_name, bio, avatar_url } = req.body;
+    const uid = req.pencUser.userId;
+    if (_pgPool) {
+      const fields = {};
+      if (full_name !== undefined) fields.full_name = full_name;
+      if (bio !== undefined) fields.bio = bio;
+      if (avatar_url !== undefined) fields.avatar_url = avatar_url;
+      if (Object.keys(fields).length) await pgUpdateUser(uid, fields);
+      const pu = await pgFindUser('id', uid);
+      if (pu) return res.json({ success: true, user: pencStrip(pu) });
+    }
     const users = await pencUsers();
-    const user = users.find(u => u.id === req.pencUser.userId);
+    const user = users.find(u => u.id === uid);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     if (full_name !== undefined) user.full_name = full_name;
     if (bio !== undefined) user.bio = bio;
