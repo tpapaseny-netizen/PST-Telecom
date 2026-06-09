@@ -1013,12 +1013,13 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 </div>
 <div id="app">
 <div class="notif-container" id="notifCont"></div>
-<div class="img-viewer" id="imgViewer"><div class="img-viewer-close" onclick="closeImgViewer()">✕</div><img id="imgViewSrc" src="" alt=""/></div>
+<div class="img-viewer" id="imgViewer"><div class="img-viewer-close" onclick="closeImgViewer()">✕</div><div class="img-viewer-close" onclick="saveMedia(document.getElementById('imgViewSrc').src,'image')" title="Enregistrer" style="right:auto;left:14px;">⬇️</div><img id="imgViewSrc" src="" alt=""/></div>
 
 <!-- STATUS VIEWER -->
 <div class="status-viewer" id="statusViewer">
   <div class="sv-progress" id="svProgress"></div>
   <div class="sv-close" onclick="closeSV()">✕</div>
+  <div class="sv-close" id="svSaveBtn" onclick="saveSVMedia()" title="Enregistrer" style="right:auto;left:14px;display:none;">⬇️</div>
   <div class="sv-content" id="svContent"></div>
   <div class="sv-caption" id="svCaption"></div>
   <div id="svReactions"></div>
@@ -2353,6 +2354,7 @@ function renderSV(){
   var sv=svList[svIdx]; if(!sv){closeSV();return;}
   var _ov=document.getElementById('svVid'); if(_ov){ try{ _ov.pause(); }catch(e){} }
   window._svZoom=false; window._svScale=1;
+  var _ssb=document.getElementById('svSaveBtn'); if(_ssb) _ssb.style.display=((sv.type==='image'||sv.type==='video')&&sv.media_url)?'flex':'none';
   // Barre de progression
   document.getElementById('svProgress').innerHTML=svList.map(function(_,i){
     return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>';
@@ -3277,6 +3279,24 @@ function playNotifSound(type){
 }
 
 // ══════════════ IMAGE VIEWER ══════════════
+async function saveMedia(url, kind){
+  if(!url) return;
+  try{
+    showNotif('⬇️','Enregistrement','Téléchargement en cours…','blue',null);
+    var resp=await fetch(url,{mode:'cors'});
+    var blob=await resp.blob();
+    var ext=(kind==='video')?'mp4':((blob.type&&blob.type.indexOf('png')>-1)?'png':'jpg');
+    var obj=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=obj; a.download='Penc_'+Date.now()+'.'+ext;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{URL.revokeObjectURL(obj);a.remove();}catch(_){} },1800);
+    showNotif('✅','Enregistré','Média téléchargé dans ta galerie','green',null);
+  }catch(e){
+    try{ window.open(url,'_blank'); }catch(_){}
+    showNotif('📥','Téléchargement','Maintiens le média puis « Enregistrer l’image »','blue',null);
+  }
+}
+function saveSVMedia(){ var sv=(typeof svList!=='undefined')&&svList[svIdx]; if(sv&&sv.media_url) saveMedia(sv.media_url, sv.type==='video'?'video':'image'); }
 function openImgViewer(url){document.getElementById('imgViewSrc').src=url;document.getElementById('imgViewer').classList.add('show');}
 function closeImgViewer(){document.getElementById('imgViewer').classList.remove('show');}
 
@@ -3323,7 +3343,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v25 (photo de profil PostgreSQL + confidentialite recherche)');
+console.log('PENC build v26 (canaux PostgreSQL + enregistrement medias galerie)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -4388,6 +4408,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <!-- ══ FULLSCREEN VIDEO PLAYER ══ -->
 <div id="vidViewer">
   <button class="vid-close-btn" onclick="closeVidViewer()">✕</button>
+  <button class="vid-close-btn" onclick="saveMedia(document.getElementById('fullVidEl').src,'video')" title="Enregistrer" style="right:auto;left:14px;">⬇️</button>
   <video id="fullVidEl" playsinline webkit-playsinline
     onclick="toggleVidCtrl()"
     ontimeupdate="onVidTime()"

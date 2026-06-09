@@ -3968,6 +3968,11 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
+      CREATE TABLE IF NOT EXISTS penc_channels (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4880,7 +4885,22 @@ let _chCache = [];
   }catch(e){ console.log('⚠️ Impossible de créer le bin channels:', e.message); }
 })();
 
+async function pgGetChannels(){
+  if(!_pgPool) return null;
+  const r=await _pgPool.query("SELECT data FROM penc_channels ORDER BY (data->>'created_at') ASC NULLS LAST");
+  return r.rows.map(function(row){ return row.data; });
+}
+async function pgSaveChannels(arr){
+  if(!_pgPool) return;
+  for(const ch of arr){
+    await _pgPool.query("INSERT INTO penc_channels(id,data,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(id) DO UPDATE SET data=$2, updated_at=NOW()",[ch.id, JSON.stringify(ch)]);
+  }
+  const ids=arr.map(function(c){return c.id;});
+  if(ids.length) await _pgPool.query("DELETE FROM penc_channels WHERE NOT (id = ANY($1))",[ids]);
+  else await _pgPool.query("DELETE FROM penc_channels");
+}
 async function pencChannels(){
+  if(_pgPool){ try{ const c=await pgGetChannels(); if(c){ _chCache=[...c]; return c; } }catch(e){ console.error('pgGetChannels:', e.message); } }
   if(!JSONBIN_PENC_CHANNELS_BIN) return [..._chCache];
   try{
     const r=await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN+'/latest',{headers:{'X-Master-Key':JSONBIN_MASTER_KEY}});
@@ -4891,6 +4911,7 @@ async function pencChannels(){
 }
 async function pencSaveChannels(arr){
   _chCache=[...arr];
+  if(_pgPool){ try{ await pgSaveChannels(arr); return; }catch(e){ console.error('pgSaveChannels:', e.message); } }
   if(!JSONBIN_PENC_CHANNELS_BIN) return;
   await fetch('https://api.jsonbin.io/v3/b/'+JSONBIN_PENC_CHANNELS_BIN,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_MASTER_KEY},body:JSON.stringify(arr)});
 }
