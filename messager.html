@@ -1127,7 +1127,6 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-chats" onclick="showTab('chats')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span>Chats</span><div class="nav-badge" id="chatsBadge"></div></div>
     <div class="nav-item" id="nav-status" onclick="showTab('status')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3.5"/></svg></span><span>Statuts</span></div>
-    <div class="nav-item" id="nav-contacts" onclick="showTab('contacts')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Contacts</span></div>
     <div class="nav-item" id="nav-channels" onclick="showTab('channels')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 4.9a10 10 0 0 1 14.14 0"/><path d="M7.76 7.76a6 6 0 0 1 8.49 0"/><path d="M10.59 10.59a2 2 0 0 1 2.83 0"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></span><span>Canaux</span></div>
     <div class="nav-item" id="nav-profile" onclick="showTab('profile')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Profil</span></div>
   </div>
@@ -1610,7 +1609,7 @@ function onNewMsg(msg) {
     conv.updated_at = msg.created_at;
     if(cid!==CUR_CONV && !(msg.is_mine||(ME&&String(msg.sender_id)===String(ME.id)))) { conv.unread_count=(conv.unread_count||0)+1; totalUnread++; updateBadge(); }
   }
-  if(typeof renderConvList==='function') renderConvList();
+  if(conv){ if(typeof renderConvList==='function') renderConvList(); } else if(typeof loadConvs==='function'){ loadConvs(); }
   if(cid===CUR_CONV) {
     appendMsg(msg); scrollBottom();
     SOCKET.emit('message:read',{conversation_id:cid});
@@ -2278,7 +2277,7 @@ function renderStories(){
 }
 let svPaused=false;
 function viewStatuses(items){
-  svList=items; svIdx=0; svPaused=false;
+  window._svGroupIdx=null; svList=items; svIdx=0; svPaused=false;
   items.forEach(function(s){ if(s && s.type==='image' && s.media_url){ var im=new Image(); im.src=s.media_url; } });
   document.getElementById('statusViewer').classList.add('show');
   var c=document.getElementById('svContent');
@@ -2430,7 +2429,16 @@ function renderSV(){
   clearTimeout(window.svViewTimer);
   window.svViewTimer=setTimeout(function(){ api('/statuses/'+sv.id+'/view','POST'); }, 1000);
 }
-function svNext(){ svIdx++; if(svIdx>=svList.length){closeSV();return;} renderSV(); startSVTimer(); }
+function svAdvanceGroup(){
+  var order=window._svGroupOrder||[]; var gi=window._svGroupIdx;
+  if(gi==null||gi<0) return false;
+  for(var ni=gi+1; ni<order.length; ni++){
+    var uid=order[ni]; var items=(STATUSES||[]).filter(function(s){return String(s.user_id)===String(uid);});
+    if(items.length){ window._svGroupIdx=ni; svList=items; svIdx=0; window._svLastFloat=null; renderSV(); startSVTimer(); return true; }
+  }
+  return false;
+}
+function svNext(){ svIdx++; if(svIdx>=svList.length){ if(svAdvanceGroup())return; closeSV(); return; } renderSV(); startSVTimer(); }
 function svPrev(){ if(svIdx>0){ svIdx--; renderSV(); startSVTimer(); } }
 function svTap(e){ var x=(e.clientX!==undefined)?e.clientX:0; if(x < window.innerWidth*0.33) svPrev(); else svNext(); }
 function startSVTimer(){
@@ -2573,6 +2581,7 @@ function renderStatusView(){
   sc.querySelectorAll('#status-view').forEach(function(e){e.remove();});
   var div=document.createElement('div'); div.id='status-view'; div.style.cssText='flex:1;overflow-y:auto;display:flex;flex-direction:column;';
   var grouped={}; (STATUSES||[]).forEach(function(sv){ if(!grouped[sv.user_id]) grouped[sv.user_id]=[]; grouped[sv.user_id].push(sv); });
+  window._svGroupOrder=Object.keys(grouped);
   var mine=window.MY_STATUSES||[]; var html='';
   html+='<div class="sv-header"><div class="sv-head-title">Statuts récents</div><button class="sv-head-add" onclick="openAddStatus()">+ Ajouter</button></div>';
   var myAv=(ME&&ME.avatar_url)?('<img src="'+ME.avatar_url+'" alt=""/>'):'<span>'+initials((ME&&ME.full_name)||'?')+'</span>';
@@ -2589,7 +2598,7 @@ function renderStatusView(){
   var mineEl=div.querySelector('.sv-entry[data-type="mine"]'); if(mineEl) mineEl.addEventListener('click',function(){ if(mine.length) viewStatuses(mine); else openAddStatus(); });
   sc.insertBefore(div, sc.querySelector('.bottom-nav'));
 }
-function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return s.user_id===uid;}); if(items.length) viewStatuses(items); }
+function viewStatusesOfUser(uid){ var items=(STATUSES||[]).filter(function(s){return String(s.user_id)===String(uid);}); if(items.length){ viewStatuses(items); window._svGroupIdx=(window._svGroupOrder||[]).indexOf(String(uid)); } }
 function svStatusQuote(sv2){
   if(!sv2) return null;
   var lbl=sv2.type==='image'?((sv2.caption&&sv2.caption!=='null')?sv2.caption:'Photo'):sv2.type==='video'?'Vidéo':((sv2.text_content||'').slice(0,60));
@@ -3294,7 +3303,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v22 (notifs agressives + redirection notif + liste discussions a jour + reacteurs en haut)');
+console.log('PENC build v23 (contacts retire + statuts profil-en-profil + nouvelles conversations affichees)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
