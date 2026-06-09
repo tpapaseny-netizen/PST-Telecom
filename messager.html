@@ -454,6 +454,8 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .sv-react-row{display:flex;gap:8px;justify-content:center;margin-bottom:6px;}
 .sv-react-btn{width:44px;height:44px;border:none;border-radius:50%;background:rgba(0,0,0,.55);font-size:22px;cursor:pointer;transition:transform .12s;display:flex;align-items:center;justify-content:center;}
 .sv-react-btn:active,.sv-react-btn.active{transform:scale(1.28);box-shadow:0 0 0 3px rgba(255,255,255,.35);}
+.sv-react-pop{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);font-size:64px;z-index:30;pointer-events:none;animation:svReactPop 1.1s ease-out forwards;}
+@keyframes svReactPop{0%{opacity:0;transform:translateX(-50%) scale(.3);}20%{opacity:1;transform:translateX(-50%) scale(1.25);}100%{opacity:0;transform:translateX(-50%) translateY(-150px) scale(1);}}
 .sv-react-counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;}
 .sv-react-count{background:rgba(0,0,0,.55);color:#fff;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:600;cursor:pointer;}
 .sv-viewers{padding:0 4px;max-height:90px;overflow-y:auto;}
@@ -493,9 +495,9 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 /* STATUS VIEWER — image plein écran */
 .status-viewer{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;overflow:hidden;}
 .sv-content{position:absolute!important;inset:0!important;z-index:1;}
-.sv-img-wrap{position:absolute;top:0;left:0;right:0;bottom:156px;background:#000;}
+.sv-img-wrap{position:absolute;top:0;left:0;right:0;bottom:156px;background:#000;overflow:hidden;}
 .sv-img-wrap img{width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .3s;transform-origin:center;transition:opacity .3s,transform .2s;}
-.sv-img-wrap video{width:100%;height:100%;object-fit:contain;opacity:1;background:#000;}
+.sv-img-wrap video{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;opacity:1;background:#000;display:block;}
 .sv-img-wrap.loaded img,.sv-img-wrap.loaded video{opacity:1;}
 /* Author bar overlay */
 .sv-author-bar{position:absolute;top:0;left:0;right:0;z-index:10;
@@ -2343,6 +2345,7 @@ function attachSVZoom(img){
 }
 function renderSV(){
   var sv=svList[svIdx]; if(!sv){closeSV();return;}
+  var _ov=document.getElementById('svVid'); if(_ov){ try{ _ov.pause(); }catch(e){} }
   // Barre de progression
   document.getElementById('svProgress').innerHTML=svList.map(function(_,i){
     return '<div class="sv-seg'+(i<svIdx?' done':i===svIdx?' active':'')+'"></div>';
@@ -2441,7 +2444,7 @@ function startSVTimer(){
   }
   svTimer=setInterval(function(){if(svPaused)return;svIdx++;if(svIdx>=svList.length){closeSV();return;}renderSV();startSVTimer();},10000);
 }
-function closeSV(){ clearInterval(svTimer); clearTimeout(window.svViewTimer); var _vs=document.getElementById('svViewersSheet'); if(_vs)_vs.classList.remove('show'); document.getElementById('statusViewer').classList.remove('show'); }
+function closeSV(){ clearInterval(svTimer); clearTimeout(window.svViewTimer); var _v=document.getElementById('svVid'); if(_v){ try{ _v.pause(); _v.removeAttribute('src'); _v.load(); }catch(e){} } var _vs=document.getElementById('svViewersSheet'); if(_vs)_vs.classList.remove('show'); document.getElementById('statusViewer').classList.remove('show'); }
 function svViewTime(at){
   if(!at) return '';
   var d=new Date(at), now=new Date();
@@ -2601,7 +2604,13 @@ var _adminTaps=0,_adminTapTimer=null;
 function adminTap(){ clearTimeout(_adminTapTimer); _adminTaps++; if(_adminTaps>=5){ _adminTaps=0; openAdmin(); return; } _adminTapTimer=setTimeout(function(){ _adminTaps=0; },2000); }
 function pingSession(){ if(TOKEN) api('/session/ping','POST').catch(function(){}); }
 
+function svReactPop(emoji){
+  var p=document.createElement('div'); p.className='sv-react-pop'; p.textContent=emoji;
+  var host=document.getElementById('statusViewer')||document.body; host.appendChild(p);
+  setTimeout(function(){ if(p.parentNode)p.parentNode.removeChild(p); },1100);
+}
 async function sendReaction(statId,emoji){
+  svReactPop(emoji);
   var d=await api('/statuses/'+statId+'/react','POST',{emoji:emoji});
   if(d&&d.reactions){var sv=svList[svIdx];if(sv&&sv.id===statId)sv.reactions=d.reactions;renderSV();startSVTimer();}
   // Comme WhatsApp : la reaction part dans la conversation avec l'auteur (sauf sur son propre statut)
@@ -3247,7 +3256,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v15 (reponse statut facon WhatsApp + PP zoom/anti-fermeture/entete cliquable)');
+console.log('PENC build v16 (video statut: stop a la fermeture + sans debordement + reactions visibles)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
