@@ -3986,6 +3986,14 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_pf_recipient ON penc_friendships(recipient);
       CREATE INDEX IF NOT EXISTS idx_pf_pair ON penc_friendships(requester,recipient);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS valid_views INTEGER DEFAULT 0;
+      CREATE TABLE IF NOT EXISTS penc_status_comments (
+        id TEXT PRIMARY KEY,
+        status_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4366,6 +4374,52 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
+// ════════════════ ARCHIVE PUBLICATIONS (Fonct.1) ════════════════
+app.get('/api/penc/statuses/mine/archive', pencAuth, async (req,res)=>{
+  try{
+    const uid=req.pencUser.userId;
+    if(!_pgPool) return res.json({publications:[]});
+    const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC',[uid]);
+    const pubs=r.rows.map(function(row){
+      const stt=pgStatusToObj(row);
+      const views=Array.isArray(stt.views)?stt.views.length:0;
+      const likes=Array.isArray(stt.reactions)?stt.reactions.length:0;
+      return { id:stt.id, type:stt.type, media_url:stt.media_url||null, text_content:stt.text_content||null, bg_color:stt.bg_color||null, caption:stt.caption||null, created_at:stt.created_at, duration:stt.duration||null, views:views, likes:likes, comments:0 };
+    });
+    try{
+      const ids=pubs.map(function(p){return p.id;});
+      if(ids.length){
+        const cc=await _pgPool.query('SELECT status_id, COUNT(*)::int AS n FROM penc_status_comments WHERE status_id = ANY($1) GROUP BY status_id',[ids]);
+        const cmap={}; cc.rows.forEach(function(r){ cmap[r.status_id]=r.n; });
+        pubs.forEach(function(p){ p.comments=cmap[p.id]||0; });
+      }
+    }catch(e2){}
+    res.json({publications:pubs});
+  }catch(e){ res.json({publications:[]}); }
+});
+
+// ── Commentaires de statuts (#FONCTIONNALITE 1) ──
+app.post('/api/penc/statuses/:id/comment', pencAuth, async (req,res)=>{
+  try{
+    const uid=req.pencUser.userId; const content=((req.body&&req.body.content)||'').trim();
+    if(!content) return res.status(400).json({error:'Contenu requis'});
+    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    const id='cmt_'+Date.now()+Math.random().toString(36).slice(2);
+    await _pgPool.query('INSERT INTO penc_status_comments(id,status_id,user_id,content,created_at) VALUES($1,$2,$3,$4,NOW())',[id,req.params.id,uid,content.slice(0,500)]);
+    const u=await pgFindUser('id',uid)||{};
+    res.json({success:true, comment:{id, status_id:req.params.id, user_id:uid, content:content.slice(0,500), full_name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, created_at:new Date().toISOString()}});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.get('/api/penc/statuses/:id/comments', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({comments:[]});
+    const r=await _pgPool.query('SELECT * FROM penc_status_comments WHERE status_id=$1 ORDER BY created_at ASC',[req.params.id]);
+    const users=await pgAllUsers()||[];
+    const out=r.rows.map(function(c){ const u=users.find(function(x){return x.id===c.user_id;})||{}; return {id:c.id, user_id:c.user_id, content:c.content, full_name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, created_at:c.created_at}; });
+    res.json({comments:out});
+  }catch(e){ res.json({comments:[]}); }
+});
+
 // ════════════════ AMIS / DEMANDES (#4) ════════════════
 async function pgFriendAccepted(a,b){
   if(!_pgPool) return true;
@@ -4514,8 +4568,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
         let other = allUsers.find(u => u.id === otherId) || {};
         if(!other.full_name && !other.username && otherId){ try{ const _pu=await pgFindUser('id',otherId); if(_pu) other=_pu; }catch(_e){} }
         // Dernier message
-        const msgs = await pgGetMessages(c.id, 1);
-        const last = msgs[0] || null;
+        const _lr = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT 1',[c.id]);
+        const last = _lr.rows[0] || null;
         return {
           id: c.id, participants: parts,
           other_user_id: otherId,
