@@ -1383,6 +1383,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initSocket();
     loadConvs();
     loadStatuses();
+    if(typeof refreshMe==='function') refreshMe();
     pingSession();
     setInterval(pingSession,300000);
   }
@@ -1658,6 +1659,19 @@ async function api(path, method='GET', body=null) {
 }
 
 // ══════════════ CONVERSATIONS ══════════════
+function refreshMe(){
+  api('/auth/me').then(function(d){
+    if(d&&d.user&&window.ME){
+      ME.avatar_url=(d.user.avatar_url!==undefined?d.user.avatar_url:ME.avatar_url)||null;
+      if(d.user.full_name) ME.full_name=d.user.full_name;
+      if(d.user.username) ME.username=d.user.username;
+      ME.is_admin=d.user.is_admin;
+      try{ localStorage.setItem('penc_usr', JSON.stringify(ME)); }catch(_){}
+      if(typeof renderStories==='function') renderStories();
+      if(typeof renderProfileView==='function'){ try{ renderProfileView(); }catch(e){} }
+    }
+  }).catch(function(){});
+}
 function loadFriendRequests(){
   api('/friends/requests').then(function(d){
     var bar=document.getElementById('friendReqBar'); if(!bar) return;
@@ -2652,15 +2666,15 @@ function loadRewards(){
   api('/auth/me').then(function(d){
     if(!d||!d.user) return;
     var u=d.user;
-    if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; }
+    if(window.ME){ ME.valid_views=u.valid_views; ME.own_views=u.own_views; ME.balance=u.balance; ME.contacts_count=u.contacts_count; ME.is_admin=u.is_admin; if(u.avatar_url!==undefined) ME.avatar_url=u.avatar_url; if(u.full_name) ME.full_name=u.full_name; try{localStorage.setItem('penc_usr',JSON.stringify(ME));}catch(_){} }
     if(u.is_admin && !document.getElementById('adminEntry')){ var sl=document.querySelector('.settings-horiz'); if(sl){ var ae=document.createElement('div'); ae.className='sh-item'; ae.id='adminEntry'; ae.style.border='1px solid rgba(220,38,38,0.3)'; ae.onclick=openAdmin; ae.innerHTML='<div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sh-label">Admin</div>'; sl.appendChild(ae); } }
     function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
     var _hist=window.MY_STATUSES||[]; var _curViews=_hist.reduce(function(a,s){return a+((s.views||[]).length);},0);
-    set('rwValid', (u.valid_views||0)||_curViews);
+    set('rwValid', u.valid_views||0);
     set('rwOwn', u.own_views||0);
     set('rwContacts', u.contacts_count||0);
     set('rwBalance', (u.balance||0)+' F');
-    var vv=(u.valid_views||0)||_curViews;
+    var vv=u.valid_views||0;
     var bar=document.getElementById('rwBar'); if(bar) bar.style.width=((vv%1000)/1000*100).toFixed(0)+'%';
     var info=document.getElementById('rwInfo');
     if(info){
@@ -2836,6 +2850,7 @@ async function uploadPP(e){
     if(!d.secure_url) throw new Error('upload');
     await api('/auth/profile','PUT',{avatar_url:d.secure_url});
     ME.avatar_url=d.secure_url;
+    try{ localStorage.setItem('penc_usr', JSON.stringify(ME)); }catch(_){}
     renderProfileView(); renderStories();
     showNotif('✅','Photo de profil','Mise à jour','green',null);
   }catch(err){ showNotif('❌','Erreur','Upload échoué, réessaie','red',null); }
@@ -3331,7 +3346,7 @@ function renderAdmin(d){
     html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>${u.valid_views} vues · solde ${u.balance} F · ${u.contacts} contacts</span></div><button class="adm-btn" onclick="adminClear('${u.id}')">Vu</button></div>`;
   });
   html+=`<div class="adm-sec">👥 Utilisateurs — top vues</div>`;
-  (d.users||[]).slice(0,60).forEach(function(u){
+  (d.users||[]).slice(0,500).forEach(function(u){
     var th=Math.floor((u.total_time_seconds||0)/3600); var tm=Math.floor(((u.total_time_seconds||0)%3600)/60);
     var geo=(u.geo&&u.geo.city)?(esc(u.geo.city)+', '+esc(u.geo.country)):'Position inconnue';
     html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span><span style="color:var(--text);">${esc(u.phone||'-')} · ${esc(u.email||'-')} · ${geo}</span><span>${th}h ${tm}min dans l'app</span></div></div>`;
@@ -3433,7 +3448,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v29 (systeme amis + messages en attente)');
+console.log('PENC build v30 (PP persistante + vues cumulatives + admin complet + noms)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){

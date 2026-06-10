@@ -3985,6 +3985,7 @@ let _pgPool = null;
       );
       CREATE INDEX IF NOT EXISTS idx_pf_recipient ON penc_friendships(recipient);
       CREATE INDEX IF NOT EXISTS idx_pf_pair ON penc_friendships(requester,recipient);
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS valid_views INTEGER DEFAULT 0;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4013,7 +4014,7 @@ function pgRow(row){ if(!row) return null;
            email:row.email, password:row.password_hash, avatar_url:row.avatar_url,
            bio:row.bio||'', is_admin:row.is_admin||false,
            is_online:row.is_online, last_seen:row.last_seen, geo:row.geo||{},
-           total_time_seconds:row.total_time_seconds||0, created_at:row.created_at };
+           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, created_at:row.created_at };
 }
 async function pgFindUser(field, value){
   if(!_pgPool) return null;
@@ -4510,7 +4511,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
         const otherId = parts.find(p => p !== uid);
-        const other = allUsers.find(u => u.id === otherId) || {};
+        let other = allUsers.find(u => u.id === otherId) || {};
+        if(!other.full_name && !other.username && otherId){ try{ const _pu=await pgFindUser('id',otherId); if(_pu) other=_pu; }catch(_e){} }
         // Dernier message
         const msgs = await pgGetMessages(c.id, 1);
         const last = msgs[0] || null;
@@ -4763,9 +4765,8 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
     // Monetisation : 1 vue valide par IP unique creditee a l'auteur (jamais soi-meme)
     if(newValidView && ownerId && ownerId!==uid){
       try{
-        const users=await pencUsers();
-        const owner=users.find(u=>u.id===ownerId);
-        if(owner){ owner.valid_views=(owner.valid_views||0)+1; await pencSaveUsers(users); }
+        if(_pgPool){ await _pgPool.query('UPDATE penc_users SET valid_views=COALESCE(valid_views,0)+1 WHERE id=$1',[ownerId]); }
+        else { const users=await pencUsers(); const owner=users.find(u=>u.id===ownerId); if(owner){ owner.valid_views=(owner.valid_views||0)+1; await pencSaveUsers(users); } }
       }catch(_){}
     }
     res.json({success:true});
