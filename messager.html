@@ -2134,10 +2134,10 @@ function pickFile(t){
   var inp=document.getElementById(id);
   if(inp) inp.click();            // .click() SYNCHRONE = OK sur mobile
 }
-function handleFileAuto(e){var f=e.target.files[0];if(!f)return;e.target.value='';var t=(f.type&&f.type.startsWith('video'))?'video':((f.type&&f.type.startsWith('image'))?'image':'file');uploadAndSend(f,t,f.type);}
-function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value='';uploadAndSend(f,t,f.type);}
+function handleFileAuto(e){var f=e.target.files[0];if(!f)return;e.target.value='';var t=(f.type&&f.type.startsWith('video'))?'video':((f.type&&f.type.startsWith('image'))?'image':'file'); if(t==='video'){ _msgVideoPreview(f); return; } uploadAndSend(f,t,f.type);}
+function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value=''; if(t==='video'){ _msgVideoPreview(f); return; } uploadAndSend(f,t,f.type);}
 
-async function uploadAndSend(blob,type,mimeType){
+async function uploadAndSend(blob,type,mimeType,trim){
   if(!CUR_CONV) return;
   const tid='up_'+Date.now();
   const row=document.createElement('div'); row.className='msg-row me'; row.dataset.mid=tid;
@@ -2189,10 +2189,49 @@ async function uploadAndSend(blob,type,mimeType){
     const dur=type==='voice'?recSecs*1000:undefined;
     let _mu=url;
     if(type==='voice' && url.indexOf('/upload/')>-1){ var _b=url.replace('/upload/','/upload/f_mp3/'); var _d=_b.lastIndexOf('.'); var _s=_b.lastIndexOf('/'); _mu=(_d>_s?_b.slice(0,_d):_b)+'.mp3'; }
+    if(type==='video' && trim && url.indexOf('/upload/')>-1){ _mu=_cldTrim(url,trim.start,trim.end); }
     sendMsgSocket({type,media_url:_mu,media_duration:dur,content:type==='voice'?'🎙️ Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':'📎 Fichier'});
   }catch(err){row.remove();showNotif('❌','Upload '+type, (err&&err.message)?String(err.message).slice(0,90):'Échec','red',null);}
 }
 
+function _msgVideoPreview(f){
+  var url=URL.createObjectURL(f);
+  var ov=document.getElementById('msgVidPrevOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='msgVidPrevOv'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="sheet" style="max-height:92vh;display:flex;flex-direction:column;">'
+    +'<div class="sheet-handle"></div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><div class="sheet-title" style="margin:0;">Envoyer la vid\u00E9o</div><div onclick="_closeMsgVidPrev()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div>'
+    +'<video id="mvpVid" src="'+url+'" controls playsinline style="width:100%;max-height:48vh;border-radius:12px;background:#000;"></video>'
+    +'<div id="mvpInfo" style="text-align:center;font-size:13px;color:var(--muted);margin:10px 0;">Lecture des informations\u2026</div>'
+    +'<div id="mvpTrim" style="display:none;"><div class="st-trim-row"><span class="st-trim-lbl" style="color:var(--text);">D\u00E9but</span><input type="range" id="mvpStart" class="st-trim-range" min="0" max="100" step="0.5" value="0"/></div><div class="st-trim-row"><span class="st-trim-lbl" style="color:var(--text);">Fin</span><input type="range" id="mvpEnd" class="st-trim-range" min="0" max="100" step="0.5" value="100"/></div><div class="st-trim-hint" style="color:var(--muted);">Vid\u00E9o longue : tu peux envoyer seulement un segment</div></div>'
+    +'<button onclick="_sendMsgVid()" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;margin-top:10px;">Envoyer</button></div>';
+  ov.classList.add('show');
+  window._mvpFile=f; window._mvpUrl=url; window._mvpTrim=null; window._mvpDur=0;
+  var v=document.getElementById('mvpVid'), info=document.getElementById('mvpInfo');
+  function fmt(s){ s=Math.round(s); var m=Math.floor(s/60), ss=s%60; return m+':'+(ss<10?'0':'')+ss; }
+  v.addEventListener('loadedmetadata',function(){
+    var dur=v.duration; window._mvpDur=dur;
+    if(info) info.textContent='Dur\u00E9e totale : '+fmt(dur);
+    if(dur>300){
+      var tr=document.getElementById('mvpTrim'); if(tr) tr.style.display='block';
+      var s=document.getElementById('mvpStart'), e=document.getElementById('mvpEnd');
+      s.max=dur; e.max=dur; s.value=0; e.value=Math.min(dur,300);
+      window._mvpTrim={start:0,end:Math.min(dur,300)};
+      var up=function(){ var st=parseFloat(s.value)||0, en=parseFloat(e.value)||0; if(en<=st){ en=Math.min(dur,st+1); e.value=en; } window._mvpTrim={start:st,end:en}; info.textContent='Dur\u00E9e totale : '+fmt(dur)+' \u00B7 segment '+fmt(st)+' \u2192 '+fmt(en)+' ('+fmt(en-st)+')'; try{ if(v.currentTime<st||v.currentTime>en) v.currentTime=st; }catch(_){ } };
+      s.addEventListener('input',function(){ up(); try{v.currentTime=window._mvpTrim.start;}catch(_){ } });
+      e.addEventListener('input',up);
+      up();
+    }
+  });
+}
+function _closeMsgVidPrev(){ var ov=document.getElementById('msgVidPrevOv'); if(ov) ov.classList.remove('show'); if(window._mvpUrl){ try{URL.revokeObjectURL(window._mvpUrl);}catch(_){ } } }
+function _sendMsgVid(){
+  var f=window._mvpFile; if(!f){ _closeMsgVidPrev(); return; }
+  var trim=null;
+  if(window._mvpDur>300 && window._mvpTrim){ var tr=window._mvpTrim; if(tr.start>0.5 || tr.end < window._mvpDur-0.5){ trim={start:tr.start,end:tr.end}; } }
+  _closeMsgVidPrev();
+  uploadAndSend(f,'video',f.type,trim);
+}
 // ══════════════ STICKERS ══════════════
 function buildStickerPanel(){
   var p=document.getElementById('stickerPanel'); if(!p||typeof EMOJIS==='undefined') return; var html='';
@@ -3975,7 +4014,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v48 (statut video: editeur duree debut/fin max 60s)');
+console.log('PENC build v49 (video message: apercu duree + decoupe si > 5 min)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
