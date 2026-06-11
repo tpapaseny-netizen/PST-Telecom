@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<meta name="theme-color" content="#F5F0E8"/>
+<meta name="theme-color" content="#FFFFFF"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="Penc"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -17,56 +17,26 @@
 <style>
 /* ══ THEMES ══ */
 :root {
-  --bg:#F5F0E8; --bg2:#EDE8DF; --bg3:#E5DFD5;
-  --card:#FFFFFF; --card2:#EDE8DF;
-  --accent:#1C6B4A; --accent2:#1A5C9E; --accent3:#7B5CFA;
-  --text:#1C1917; --muted:#78716C; --border:rgba(0,0,0,0.09);
+  --bg:#FFFFFF; --bg2:#F4F6F8; --bg3:#ECEFF2;
+  --card:#FFFFFF; --card2:#F2F4F6;
+  --accent:#00C896; --accent2:#00A87E; --accent3:#00C896;
+  --text:#1A1A1A; --muted:#6B7280; --border:rgba(0,0,0,0.10);
   --danger:#DC2626;
-  --me-bg:linear-gradient(135deg,#1C6B4A,#1A5C9E); --me-text:#fff;
-  --them-bg:#fff; --them-text:#1C1917;
-  --nav-bg:#fff; --header-bg:#EDE8DF; --input-bg:#fff;
-  --shadow:0 4px 20px rgba(0,0,0,0.10);
-}
-[data-theme="sky"]{
-  --bg:#E8F4FF; --bg2:#D9ECFF; --bg3:#C8E4FF;
-  --card:#fff; --card2:#D9ECFF;
-  --accent:#0055AA; --accent2:#0077CC;
-  --text:#0A1A2E; --muted:#4A6FA5; --border:rgba(0,80,180,0.12);
-  --me-bg:linear-gradient(135deg,#0055AA,#0099FF); --me-text:#fff;
-  --them-bg:#fff; --them-text:#0A1A2E;
-  --nav-bg:#fff; --header-bg:#D9ECFF; --input-bg:#fff;
-  --shadow:0 4px 20px rgba(0,80,200,0.12);
-}
-[data-theme="green"]{
-  --bg:#E8FFF4; --bg2:#D4F7E9; --bg3:#BFEFDC;
-  --card:#fff; --card2:#D4F7E9;
-  --accent:#0A7C4E; --accent2:#059669;
-  --text:#052E1A; --muted:#3D8A67; --border:rgba(0,120,70,0.12);
-  --me-bg:linear-gradient(135deg,#0A7C4E,#10B981); --me-text:#fff;
-  --them-bg:#fff; --them-text:#052E1A;
-  --nav-bg:#fff; --header-bg:#D4F7E9; --input-bg:#fff;
-  --shadow:0 4px 20px rgba(0,120,70,0.12);
-}
-[data-theme="orange"]{
-  --bg:#FFF3E8; --bg2:#FFE8D0; --bg3:#FFDAB8;
-  --card:#fff; --card2:#FFE8D0;
-  --accent:#B84800; --accent2:#E05A00;
-  --text:#2D1200; --muted:#9A5A2A; --border:rgba(180,80,0,0.12);
-  --me-bg:linear-gradient(135deg,#B84800,#F97316); --me-text:#fff;
-  --them-bg:#fff; --them-text:#2D1200;
-  --nav-bg:#fff; --header-bg:#FFE8D0; --input-bg:#fff;
-  --shadow:0 4px 20px rgba(180,80,0,0.12);
+  --me-bg:linear-gradient(135deg,#00C896,#00A87E); --me-text:#fff;
+  --them-bg:#F2F4F6; --them-text:#1A1A1A;
+  --nav-bg:#FFFFFF; --header-bg:#FFFFFF; --input-bg:#F2F4F6;
+  --shadow:0 4px 20px rgba(0,0,0,0.08);
 }
 [data-theme="dark"]{
-  --bg:#050D18; --bg2:#0A1625; --bg3:#0F1E30;
-  --card:#0D1B2A; --card2:#132233;
-  --accent:#00C896; --accent2:#0099FF; --accent3:#7B5CFA;
-  --text:#EEF2FF; --muted:#6B7FA3; --border:rgba(255,255,255,0.07);
+  --bg:#0A0A0A; --bg2:#141414; --bg3:#1C1C1C;
+  --card:#161616; --card2:#1F1F1F;
+  --accent:#00C896; --accent2:#00A87E; --accent3:#00C896;
+  --text:#FFFFFF; --muted:#9AA0A6; --border:rgba(255,255,255,0.10);
   --danger:#FF4D6A;
-  --me-bg:linear-gradient(135deg,#00C896,#0099FF); --me-text:#000;
-  --them-bg:#132233; --them-text:#EEF2FF;
-  --nav-bg:#0D1B2A; --header-bg:#050D18; --input-bg:#132233;
-  --shadow:0 8px 32px rgba(0,0,0,0.4);
+  --me-bg:linear-gradient(135deg,#00C896,#00A87E); --me-text:#000;
+  --them-bg:#1F1F1F; --them-text:#FFFFFF;
+  --nav-bg:#0F0F0F; --header-bg:#0A0A0A; --input-bg:#1F1F1F;
+  --shadow:0 8px 32px rgba(0,0,0,0.5);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;-webkit-font-smoothing:antialiased;}
@@ -1391,7 +1361,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ══════════════ THEMES ══════════════
 function initTheme() {
-  const t = localStorage.getItem('penc_theme') || '';
+  let t = localStorage.getItem('penc_theme') || '';
+  if (t !== 'dark') { t=''; localStorage.setItem('penc_theme',''); }
   if (t) document.documentElement.setAttribute('data-theme', t);
   else document.documentElement.removeAttribute('data-theme');
 }
@@ -3347,11 +3318,8 @@ function renderProfileView(){
     </div>
     <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">🎨 Thème</div>
     <div class="theme-btns">
-      <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#F5F0E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#1C6B4A,#1A5C9E);"></div><span style="color:#1C1917;">Claude</span></div>
-      <div class="t-btn${curTheme==='sky'?' active':''}" data-t="sky" onclick="applyTheme('sky','sky')" style="background:#E8F4FF;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#0055AA,#0099FF);"></div><span style="color:#0A1A2E;">Bleu ciel</span></div>
-      <div class="t-btn${curTheme==='green'?' active':''}" data-t="green" onclick="applyTheme('green','green')" style="background:#E8FFF4;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#0A7C4E,#10B981);"></div><span style="color:#052E1A;">Vert</span></div>
-      <div class="t-btn${curTheme==='orange'?' active':''}" data-t="orange" onclick="applyTheme('orange','orange')" style="background:#FFF3E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#B84800,#F97316);"></div><span style="color:#2D1200;">Orange</span></div>
-      <div class="t-btn${curTheme==='dark'?' active':''}" data-t="dark" onclick="applyTheme('dark','dark')" style="background:#050D18;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#00C896,#0099FF);"></div><span style="color:#EEF2FF;">Nuit</span></div>
+      <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.12);"><div style="width:13px;height:13px;border-radius:4px;background:#00C896;"></div><span style="color:#1A1A1A;">Mode Claude</span></div>
+      <div class="t-btn${curTheme==='dark'?' active':''}" data-t="dark" onclick="applyTheme('dark','dark')" style="background:#0A0A0A;"><div style="width:13px;height:13px;border-radius:4px;background:#00C896;"></div><span style="color:#FFFFFF;">Mode Sombre</span></div>
     </div></div>
     <div class="settings-horiz">
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
@@ -3953,7 +3921,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v44 (header SVG + son 2 notes + notif statut ami)');
+console.log('PENC build v45 (2 themes: Mode Claude + Mode Sombre)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
