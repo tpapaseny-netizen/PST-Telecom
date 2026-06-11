@@ -3972,6 +3972,8 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS owner_id TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
       CREATE TABLE IF NOT EXISTS penc_channels (
@@ -4474,12 +4476,24 @@ app.post('/api/penc/ads/view', pencAuth, async (req,res)=>{
     res.json({success:true}); }catch(e){ res.json({success:true}); }
 });
 app.get('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
-  try{ const r=await _pgPool.query("SELECT * FROM penc_ads ORDER BY created_at DESC"); res.json({ads:r.rows}); }catch(e){ res.json({ads:[]}); }
+  try{ const r=await _pgPool.query("SELECT * FROM penc_ads ORDER BY created_at DESC");
+    const users=await pgAllUsers()||[];
+    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } return a; });
+    res.json({ads:ads}); }catch(e){ res.json({ads:[]}); }
 });
 app.post('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
   try{ const b=req.body||{}; const id='ad_'+Date.now(); const dur=Math.max(5,Math.min(15,parseInt(b.duration||8)));
     await _pgPool.query("INSERT INTO penc_ads(id,title,type,media_url,bg_color,link_url,duration,cpv_fcfa,active,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,TRUE,NOW())",[id,b.title||'Publicité',b.type||'text',b.media_url||null,b.bg_color||'#0E8C7C',b.link_url||null,dur,parseInt(b.cpv_fcfa||5)]);
     res.json({success:true,id:id}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+// POST /api/penc/ads/submit — soumission par un utilisateur (en attente de validation)
+app.post('/api/penc/ads/submit', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    const b=req.body||{}; const uid=req.pencUser.userId; const id='ad_'+Date.now()+Math.random().toString(36).slice(2);
+    const dur=Math.max(5,Math.min(15,parseInt(b.duration||8)));
+    await _pgPool.query("INSERT INTO penc_ads(id,title,type,media_url,bg_color,link_url,duration,cpv_fcfa,active,owner_id,paid,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,FALSE,$9,FALSE,NOW())",[id,b.title||'Publicité',b.type||'text',b.media_url||null,b.bg_color||'#0E8C7C',b.link_url||null,dur,parseInt(b.cpv_fcfa||5),uid]);
+    try{ const ar=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newad',{id:id, title:b.title||'Publicité'}); }); }catch(e3){}
+    res.json({success:true, ad_id:id}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/ads/:id/toggle', pencAuth, pencAdmin, async (req,res)=>{
   try{ await _pgPool.query("UPDATE penc_ads SET active=NOT active WHERE id=$1",[req.params.id]); res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
