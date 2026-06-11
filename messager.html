@@ -3340,19 +3340,87 @@ function buildChRow(c){
     +(c.is_creator?'<span style="font-size:10px;color:var(--accent);">Mon canal</span>':'')
     +'</div></div>';
 }
+function openChannelMembers(chId){
+  var ov=document.getElementById('chMembersOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='chMembersOv'; ov.className='overlay'; document.body.appendChild(ov); }
+  window._chMgrId=chId;
+  var link=location.origin+location.pathname+'?canal='+chId;
+  ov.innerHTML='<div class="sheet" style="max-height:90vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" style="margin:0;">⚙️ Membres du canal</div><div onclick="closeChMembers()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div>'
+    +'<div style="background:var(--card2);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:12px;color:var(--muted);margin-bottom:5px;">Lien d invitation</div><div style="display:flex;gap:6px;"><input id="chInviteLink" readonly value="'+esc(link)+'" style="flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;padding:8px;color:inherit;font-size:12px;"/><button onclick="copyChInvite()" style="border:none;border-radius:8px;background:var(--accent);color:#fff;padding:0 12px;cursor:pointer;font-weight:700;">Copier</button></div></div>'
+    +'<input id="chMemberSearch" placeholder="Ajouter un membre (nom ou @username)…" oninput="_chMemberSearch(this.value)" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:inherit;margin-bottom:8px;font-size:14px;box-sizing:border-box;"/>'
+    +'<div id="chSearchRes" style="max-height:34vh;overflow-y:auto;"></div>'
+    +'<div id="chMembersList" style="overflow-y:auto;flex:1;min-height:120px;margin-top:6px;"><div style="text-align:center;padding:20px;"><div class="spinner"></div></div></div></div>';
+  ov.classList.add('show');
+  loadChMembers(chId);
+}
+function closeChMembers(){ var ov=document.getElementById('chMembersOv'); if(ov) ov.classList.remove('show'); }
+function copyChInvite(){ var i=document.getElementById('chInviteLink'); if(!i) return; try{ i.select(); }catch(e){} if(navigator.clipboard){ navigator.clipboard.writeText(i.value).then(function(){ showNotif('✅','Lien copié','','green',null); }).catch(function(){ try{document.execCommand('copy');}catch(e){} showNotif('✅','Lien copié','','green',null); }); } else { try{document.execCommand('copy');}catch(e){} showNotif('✅','Lien copié','','green',null); } }
+function loadChMembers(chId){
+  api('/channels/'+chId+'/members').then(function(d){
+    var box=document.getElementById('chMembersList'); if(!box) return;
+    var ms=(d&&d.members)||[];
+    window._chIsOwner=ms.some(function(m){ return m.role==='creator' && String(m.id)===String(ME&&ME.id); });
+    box.innerHTML='<div style="font-weight:700;font-size:13px;color:var(--muted);margin:6px 0;">'+ms.length+' membre(s)</div>'+ms.map(function(m){ return _chMemberRow(chId,m); }).join('');
+  }).catch(function(){});
+}
+function _chMemberRow(chId,m){
+  var roleBadge=m.role==='creator'?'<span style="font-size:11px;color:#22c55e;font-weight:700;">Propriétaire</span>':(m.role==='admin'?'<span style="font-size:11px;color:var(--accent);font-weight:700;">Admin</span>':'<span style="font-size:11px;color:var(--muted);">Membre</span>');
+  var av=m.avatar_url?('<img src="'+m.avatar_url+'" style="width:38px;height:38px;border-radius:50%;object-fit:cover;"/>'):('<div style="width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">'+esc(initials(m.full_name||'?'))+'</div>');
+  var actions='';
+  if(m.role!=='creator'){
+    if(window._chIsOwner){ actions+= (m.role==='admin') ? '<button onclick="chDemote(\''+chId+'\',\''+m.id+'\')" style="'+_frBtn('ghost')+'">Retirer admin</button>' : '<button onclick="chPromote(\''+chId+'\',\''+m.id+'\')" style="'+_frBtn('accent')+'">Promouvoir</button>'; }
+    actions+='<button onclick="chKick(\''+chId+'\',\''+m.id+'\',this)" style="'+_frBtn('danger')+'">Retirer</button>';
+  }
+  return '<div class="fr-item" style="padding:8px 2px;border-bottom:1px solid rgba(128,128,128,.12);"><div style="display:flex;align-items:center;gap:10px;">'+av+'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">'+esc(m.full_name||'Utilisateur')+'</div><div style="font-size:12px;">@'+esc(m.username||'')+' · '+roleBadge+'</div></div></div>'+(actions?'<div style="display:flex;gap:6px;margin-top:6px;">'+actions+'</div>':'')+'</div>';
+}
+var _chMSearchTO=null;
+function _chMemberSearch(v){ clearTimeout(_chMSearchTO); _chMSearchTO=setTimeout(function(){ _chMemberSearchNow((v||'').trim()); },300); }
+function _chMemberSearchNow(q){
+  var res=document.getElementById('chSearchRes'); if(!res) return;
+  if(!q){ res.innerHTML=''; return; }
+  api('/contacts/search?q='+encodeURIComponent(q)).then(function(d){
+    var r=document.getElementById('chSearchRes'); if(!r) return;
+    var us=(d&&(d.results||d.contacts||d.users))||[];
+    if(!us.length){ r.innerHTML='<div style="color:var(--muted);font-size:13px;padding:6px;">Aucun résultat.</div>'; return; }
+    r.innerHTML=us.slice(0,20).map(function(u){ var av=u.avatar_url?('<img src="'+u.avatar_url+'" style="width:34px;height:34px;border-radius:50%;object-fit:cover;"/>'):('<div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;">'+esc(initials(u.full_name||'?'))+'</div>');
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid rgba(128,128,128,.08);">'+av+'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;">'+esc(u.full_name||u.username||'?')+'</div><div style="font-size:12px;color:var(--muted);">@'+esc(u.username||'')+'</div></div><button onclick="chAddMember(\''+window._chMgrId+'\',\''+u.id+'\',this)" style="border:none;border-radius:9px;background:var(--accent);color:#fff;padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer;">➕</button></div>'; }).join('');
+  }).catch(function(){});
+}
+function chAddMember(chId,uid,btn){
+  if(btn){ btn.disabled=true; btn.textContent='✓'; }
+  api('/channels/'+chId+'/members/'+uid,'POST').then(function(r){ if(r&&r.success){ var s=document.getElementById('chMemberSearch'); if(s) s.value=''; var sr=document.getElementById('chSearchRes'); if(sr) sr.innerHTML=''; loadChMembers(chId); showNotif('✅','Membre ajouté','','green',null); } else if(btn){ btn.disabled=false; btn.textContent='➕'; } }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='➕'; } });
+}
+function chPromote(chId,uid){ api('/channels/'+chId+'/admins/'+uid,'POST').then(function(r){ if(r&&r.success){ showNotif('✅','Promu admin','','green',null); loadChMembers(chId); } else showNotif('❌','Erreur',(r&&r.error)||'','red',null); }).catch(function(){}); }
+function chDemote(chId,uid){ api('/channels/'+chId+'/admins/'+uid,'DELETE').then(function(r){ if(r&&r.success) loadChMembers(chId); }).catch(function(){}); }
+function chKick(chId,uid,btn){ if(!confirm('Retirer ce membre du canal ?')) return; api('/channels/'+chId+'/members/'+uid,'DELETE').then(function(r){ if(r&&r.success) _frDropRow(btn); else showNotif('❌','Erreur',(r&&r.error)||'','red',null); }).catch(function(){}); }
+var _canalJoinTries=0;
+var _canalJoinTimer=setInterval(function(){
+  _canalJoinTries++;
+  if(_canalJoinTries>40){ clearInterval(_canalJoinTimer); return; }
+  var cid=window._pendingCanal;
+  if(cid && typeof TOKEN!=='undefined' && TOKEN){
+    window._pendingCanal=null; clearInterval(_canalJoinTimer);
+    api('/channels/'+cid+'/join','POST').then(function(){ if(typeof renderChannelsView==='function') renderChannelsView(); if(typeof openChannelDetail==='function') openChannelDetail(cid); }).catch(function(){});
+  }
+}, 1000);
+(function(){ try{ var p=new URLSearchParams(location.search); var cid=p.get('canal'); if(cid) window._pendingCanal=cid; }catch(e){} })();
 function openChannelDetail(chId){
   api('/channels/'+chId).then(function(ch){
     if(!ch||ch.error){showNotif('❌','Erreur','Canal introuvable','red',null);return;}
     var existOv=document.getElementById('chDetail_'+chId); if(existOv) existOv.remove();
     var ov=document.createElement('div'); ov.className='ch-detail'; ov.id='chDetail_'+chId;
     var isCreator=(ch.is_creator===true||String(ch.creator_id)===String(ME&&ME.id));
+    var isAdmin=(ch.is_admin===true);
+    var canManage=isCreator||isAdmin;
     var isFollowing=(ch.is_following===true);
     var followLbl=isFollowing?(isCreator?'Mon canal':'Suivi ✓'):'Suivre';
     var followCls=isFollowing?'ch-follow-btn following':'ch-follow-btn';
     var av=ch.icon_url?'<img src="'+ch.icon_url+'" alt=""/>':esc((ch.name||'?')[0]);
+    var gearBtn=canManage?('<button class="ch-follow-btn" style="background:rgba(255,255,255,.14);" onclick="openChannelMembers(\''+chId+'\')">⚙️</button>'):'';
     var hdBtns=isCreator
-      ?('<button class="ch-follow-btn following" style="background:rgba(220,38,38,.7);" onclick="deleteChannel(\''+chId+'\')">🗑️</button>')
-      :('<button class="'+followCls+'" id="followBtn_'+chId+'" onclick="toggleFollow(\''+chId+'\',this)">'+followLbl+'</button>');
+      ?(gearBtn+'<button class="ch-follow-btn following" style="background:rgba(220,38,38,.7);" onclick="deleteChannel(\''+chId+'\')">🗑️</button>')
+      :(isAdmin?gearBtn:('<button class="'+followCls+'" id="followBtn_'+chId+'" onclick="toggleFollow(\''+chId+'\',this)">'+followLbl+'</button>'));
     var hd='<div class="ch-detail-hd">'
       +'<button class="chat-back" onclick="document.getElementById(\'chDetail_'+chId+'\').remove()">←</button>'
       +'<div class="ch-av" style="width:38px;height:38px;flex-shrink:0;">'+av+'</div>'
@@ -3363,7 +3431,7 @@ function openChannelDetail(chId){
     if(!posts.length) postsHtml+='<div class="ch-empty">📬 Aucune publication encore.</div>';
     posts.forEach(function(p){ postsHtml+=buildChPost(p,chId,isCreator); });
     postsHtml+='</div>';
-    var inputBar=isCreator
+    var inputBar=canManage
       ?('<div class="ch-input-bar">'
         +'<input type="file" id="chFile_'+chId+'" accept="image/*,video/*" style="display:none;" onchange="chMediaChange(\''+chId+'\',this)"/>'
         +'<button onclick="chPickMedia(\''+chId+'\')" style="width:40px;height:40px;flex-shrink:0;border:none;border-radius:11px;background:var(--card2);font-size:18px;cursor:pointer;">📎</button>'
@@ -3375,7 +3443,7 @@ function openChannelDetail(chId){
     ov.innerHTML=hd+postsHtml+inputBar;
     document.getElementById('screen-main').appendChild(ov);
     // Focus input si créateur
-    if(isCreator) setTimeout(function(){var inp=document.getElementById('chInput_'+chId);if(inp)inp.focus();},200);
+    if(canManage) setTimeout(function(){var inp=document.getElementById('chInput_'+chId);if(inp)inp.focus();},200);
   }).catch(function(e){ showNotif('❌','Erreur','Impossible d\'ouvrir le canal','red',null); });
 }
 
@@ -3677,7 +3745,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v34 (canaux: vocal + medias)');
+console.log('PENC build v35 (canaux: membres + admins + invitation)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
