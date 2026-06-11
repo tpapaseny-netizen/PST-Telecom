@@ -5137,7 +5137,7 @@ app.post('/api/penc/channels/:id/post', pencAuth, async (req,res) => {
     // Émettre via Socket.io à tous les abonnés connectés
     if(global._pencIo){
       (ch.followers||[]).forEach(function(fid){
-        global._pencIo.to('user_'+fid).emit('channel:post',{channel_id:ch.id,post:post});
+        global._pencIo.to('user:'+fid).emit('channel:post',{channel_id:ch.id,post:post});
       });
     }
     res.json({success:true,post});
