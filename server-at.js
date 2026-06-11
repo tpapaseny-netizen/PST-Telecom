@@ -5236,6 +5236,16 @@ app.delete('/api/penc/channels/:id', pencAuth, async (req,res) => {
 });
 
 // DELETE /api/penc/statuses/:id
+// GET /api/penc/statuses/:id — un statut precis (lien de partage)
+app.get('/api/penc/statuses/:id', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(404).json({error:'Introuvable'});
+    const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE id=$1',[req.params.id]);
+    if(!r.rows.length) return res.status(404).json({error:'Statut introuvable'});
+    const stt=pgStatusToObj(r.rows[0]);
+    const u=await pgFindUser('id',stt.user_id)||{};
+    stt.user={ full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null };
+    res.json({status:stt}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 app.delete('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
     const uid=req.pencUser.userId;
