@@ -4920,6 +4920,15 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     } else {
       const statuses=await pencStatuses(); statuses.push(status); await pencSaveStatuses(statuses);
     }
+    // Notifier les amis en temps reel (cliquable) — Fonct. 6
+    try {
+      if(_pgPool){
+        const _fr=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[req.pencUser.userId]);
+        const _fids=_fr.rows.map(function(x){ return String(x.requester)===String(req.pencUser.userId)?x.recipient:x.requester; });
+        let _an='Un ami'; try{ const _au=await _pgPool.query('SELECT full_name,username FROM penc_users WHERE id=$1',[req.pencUser.userId]); if(_au.rows[0]) _an=_au.rows[0].full_name||_au.rows[0].username||'Un ami'; }catch(_e9){}
+        _fids.forEach(function(fid){ try{ emitToUsers(String(fid),'status:new',{status_id:status.id, author_id:req.pencUser.userId, author_name:_an}); }catch(_e10){} });
+      }
+    } catch(_eF){}
     // Push « a publié un statut » aux contacts (personnes avec qui l'auteur a une conversation)
     try {
       if (webpush) {
@@ -5388,6 +5397,7 @@ app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
       const existing=st.reactions.find(r=>r.user_id===uid);
       if(existing) existing.emoji=emoji; else st.reactions.push({user_id:uid,emoji,created_at:new Date().toISOString()});
       await pgUpdateStatus(req.params.id,{reactions:st.reactions});
+      try{ if(String(st.user_id)!==String(uid)){ let _rn='Une personne'; try{ const _ru=await pgFindUser('id',uid); if(_ru) _rn=_ru.full_name||_ru.username||'Une personne'; }catch(_e11){} emitToUsers(String(st.user_id),'status:reaction',{status_id:req.params.id, emoji:emoji, from_name:_rn}); } }catch(_e12){}
       return res.json({success:true,reactions:st.reactions});
     }
     const statuses=await pencStatuses();

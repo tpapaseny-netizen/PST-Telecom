@@ -1114,8 +1114,8 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   <div class="top-bar">
     <span class="top-bar-title" onclick="adminTap()">Penc</span>
     <div class="top-bar-actions">
-      <div class="icon-btn" onclick="openBotChat()">🤖</div>
-      <div class="icon-btn" onclick="openNewChat()">✏️</div>
+      <div class="icon-btn" onclick="focusConvSearch()" aria-label="Rechercher"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></div>
+      <div class="icon-btn" onclick="openNewChat()" aria-label="Nouveau message"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
     </div>
   </div>
   <div class="search-bar"><input class="search-input" type="search" placeholder="Rechercher..." id="convSearch" oninput="filterConvs(this.value)"/></div>
@@ -1560,6 +1560,10 @@ function initSocket() {
   SOCKET.on('message:new', onNewMsg);
   SOCKET.on('admin:newad', function(data){ showNotif('📢','Nouvelle publicité',((data&&data.title)||'Une pub')+' soumise — à valider','blue',openAdminAds); });
   SOCKET.on('admin:newuser', function(data){ var nm=(data&&data.full_name)||'Nouvel utilisateur'; showNotif('🆕','Nouvelle inscription',nm+' vient de rejoindre Penc','blue',null); var ab=document.getElementById('adminBody'); if(ab&&ab.offsetParent!==null&&typeof openAdmin==='function') openAdmin(); });
+  SOCKET.on('status:new', function(data){ var nn=(data&&data.author_name)||'Un ami'; var sid=(data&&data.status_id); showNotif('📸',nn,'a publié un nouveau statut · Appuie pour voir','blue',function(){ if(sid&&typeof openStatusById==='function') openStatusById(sid); }); playNotifSound('default'); });
+  SOCKET.on('status:reaction', function(data){ var nn=(data&&data.from_name)||'Une personne'; showNotif((data&&data.emoji)||'❤️',nn,'a réagi à ton statut','accent',null); playNotifSound('default'); });
+  SOCKET.on('friend:request', function(){ playNotifSound('default'); });
+  SOCKET.on('friend:accepted', function(){ playNotifSound('default'); });
   SOCKET.on('friend:accepted', function(data){ var n=(data&&data.by&&data.by.full_name)||'Votre demande'; showNotif('✅','Demande acceptée',n+' a accepté votre demande d\'ami','green',null); if(typeof loadConvs==='function') loadConvs(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
   SOCKET.on('friend:request', function(data){ var n=(data&&data.from&&data.from.full_name)||'Quelqu\'un'; showNotif('👤','Nouvelle demande',n+' veut vous ajouter comme ami sur Penc','accent',openFriends); if(typeof loadFriendRequests==='function') loadFriendRequests(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
   SOCKET.on('typing:start', ({userId,conversation_id})=>{
@@ -3876,11 +3880,14 @@ function playNotifSound(type){
     } else if(type==='voice'){
       [440,880].forEach((f,i)=>{const o2=ctx.createOscillator();const g2=ctx.createGain();o2.connect(g2);g2.connect(ctx.destination);o2.frequency.value=f;g2.gain.setValueAtTime(0.08,ctx.currentTime+i*.1);g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*.1+.12);o2.start(ctx.currentTime+i*.1);o2.stop(ctx.currentTime+i*.1+.12);});
     } else {
-      osc.frequency.value=880; gain.gain.setValueAtTime(0.12,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+.15); osc.start(); osc.stop(ctx.currentTime+.15);
+      var t0=ctx.currentTime;
+      var mk=function(freq,start,dur){ var o=ctx.createOscillator(); var g=ctx.createGain(); o.type='sine'; o.connect(g); g.connect(ctx.destination); o.frequency.value=freq; g.gain.setValueAtTime(0.0001,t0+start); g.gain.exponentialRampToValueAtTime(0.5,t0+start+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t0+start+dur); o.start(t0+start); o.stop(t0+start+dur+0.03); };
+      mk(880,0,0.12); mk(1320,0.17,0.18);
     }
   }catch{}
 }
 
+function focusConvSearch(){ var s=document.getElementById('convSearch'); if(s){ try{ s.focus(); }catch(e){} try{ s.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){} } }
 // ══════════════ IMAGE VIEWER ══════════════
 async function saveMedia(url, kind){
   if(!url) return;
@@ -3946,7 +3953,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v43 (creation de pub: utilisateur paye + admin)');
+console.log('PENC build v44 (header SVG + son 2 notes + notif statut ami)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
