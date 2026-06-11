@@ -2356,8 +2356,8 @@ function viewStatuses(items){
   var c=document.getElementById('svContent');
   if(!c._bound){
     var downT=0;
-    c.addEventListener('pointerdown', function(){ downT=Date.now(); svPaused=true; });
-    c.addEventListener('pointerup', function(e){ var _tt=e.target; var _isCtrl=(_tt&&_tt.closest&&(_tt.closest('.sv-vidctrl')||_tt.closest('.sv-actions')||_tt.closest('.sv-reply')||_tt.tagName==='BUTTON')); if(_isCtrl){ return; } svPaused=false; if(Date.now()-downT < 250){ var _skip=window._svZoom||(window._svScale>1.05); if(!_skip){ svTap(e); if(!document.getElementById('statusViewer').classList.contains('show')){ var _sw=function(ev){ ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click',_sw,true); }; document.addEventListener('click',_sw,true); setTimeout(function(){ document.removeEventListener('click',_sw,true); },600); } } } });
+    c.addEventListener('pointerdown', function(){ downT=Date.now(); svPaused=true; var _v=document.getElementById('svVid'); if(_v){ try{_v.pause();}catch(e){} } });
+    c.addEventListener('pointerup', function(e){ var _tt=e.target; var _isCtrl=(_tt&&_tt.closest&&(_tt.closest('.sv-actions')||_tt.closest('.sv-reply')||_tt.tagName==='BUTTON')); if(_isCtrl){ return; } svPaused=false; var _quick=(Date.now()-downT < 250); if(_quick){ var _skip=window._svZoom||(window._svScale>1.05); if(!_skip){ svTap(e); if(!document.getElementById('statusViewer').classList.contains('show')){ var _sw=function(ev){ ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click',_sw,true); }; document.addEventListener('click',_sw,true); setTimeout(function(){ document.removeEventListener('click',_sw,true); },600); } } } else { var _v=document.getElementById('svVid'); if(_v&&_v.paused){ try{ var _pp=_v.play(); if(_pp&&_pp.catch)_pp.catch(function(){}); }catch(e){} } } });
     c._bound=true;
   }
   renderSV(); startSVTimer();
@@ -2442,7 +2442,7 @@ function renderSV(){
     }
   } else if(sv.type==='video'){
     var authorHtml2=buildSVAuthorBar(sv);
-    c.innerHTML=authorHtml2+'<div class="sv-img-wrap sv-vid-full" id="svMediaWrap"><div class="sv-spin"></div><video id="svVid" src="'+sv.media_url+'" autoplay playsinline webkit-playsinline></video><div class="sv-vidctrl"><button onclick="svSeek(event,-5)" title="-5s">'+SVG_REWIND+'</button><button id="svPlayPause" onclick="svTogglePlay(event)" title="Pause / Lecture">'+SVG_PAUSE+'</button><button onclick="svSeek(event,5)" title="+5s">'+SVG_FWD+'</button></div></div>';
+    c.innerHTML=authorHtml2+'<div class="sv-img-wrap sv-vid-full" id="svMediaWrap"><div class="sv-spin"></div><video id="svVid" src="'+sv.media_url+'" autoplay playsinline webkit-playsinline></video></div>';
     var vid=document.getElementById('svVid');
     if(vid){
       var _vloaded=function(){var w=document.getElementById('svMediaWrap');if(w)w.classList.add('loaded');};
@@ -3933,7 +3933,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v46 (rognage statut: format carre / plein ecran)');
+console.log('PENC build v47 (viewer video epure: hold=pause, tap=nav, sans boutons)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
