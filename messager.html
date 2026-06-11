@@ -2441,6 +2441,7 @@ function attachSVZoom(img){
 }
 function renderSV(){
   var sv=svList[svIdx]; if(!sv){closeSV();return;}
+  if((window._adCount||0)>=10 && !window._adShowing && document.getElementById('statusViewer').classList.contains('show')){ showAd(); return; }
   var _ov=document.getElementById('svVid'); if(_ov){ try{ _ov.pause(); }catch(e){} }
   window._svZoom=false; window._svScale=1;
   var _ssb=document.getElementById('svSaveBtn'); if(_ssb) _ssb.style.display=((sv.type==='image'||sv.type==='video')&&sv.media_url)?'flex':'none';
@@ -2522,7 +2523,7 @@ function renderSV(){
     }
   }
   clearTimeout(window.svViewTimer);
-  window.svViewTimer=setTimeout(function(){ api('/statuses/'+sv.id+'/view','POST'); }, 1000);
+  window.svViewTimer=setTimeout(function(){ api('/statuses/'+sv.id+'/view','POST'); window._adCount=(window._adCount||0)+1; window._adCreators=window._adCreators||{}; if(sv.user_id) window._adCreators[String(sv.user_id)]=1; }, 1000);
 }
 function svAdvanceGroup(){
   var order=window._svGroupOrder||[]; var gi=window._svGroupIdx;
@@ -2552,6 +2553,39 @@ function startSVTimer(){
     if(vid){ vid.onended=function(){ svNext(); }; vid.onerror=function(){ svNext(); }; if(sv.duration&&sv.duration>0){ clearTimeout(window._svVidCap); window._svVidCap=setTimeout(function(){ try{vid.pause();}catch(e){} svNext(); }, sv.duration*1000); } return; }   // avance à la fin de la vidéo (ou à la durée définie)
   }
   svTimer=setInterval(function(){if(svPaused)return;svIdx++;if(svIdx>=svList.length){if(typeof svAdvanceGroup==='function'&&svAdvanceGroup())return;closeSV();return;}renderSV();startSVTimer();},((sv.duration&&sv.duration>0)?sv.duration:10)*1000);
+}
+function showAd(){
+  window._adShowing=true; svPaused=true; clearInterval(svTimer); clearTimeout(window._svVidCap);
+  var v=document.getElementById('svVid'); if(v){ try{v.pause();}catch(e){} }
+  api('/ads/next').then(function(d){ var ad=d&&d.ad; if(!ad){ _adDone(null); return; } _renderAd(ad); }).catch(function(){ _adDone(null); });
+}
+function _renderAd(ad){
+  var ov=document.getElementById('adOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='adOverlay'; document.body.appendChild(ov); }
+  var dur=Math.max(5,Math.min(15,ad.duration||8));
+  var media;
+  if(ad.type==='image'&&ad.media_url) media='<img src="'+ad.media_url+'" style="max-width:100%;max-height:68vh;object-fit:contain;"/>';
+  else if(ad.type==='video'&&ad.media_url) media='<video src="'+ad.media_url+'" autoplay muted playsinline style="max-width:100%;max-height:68vh;"></video>';
+  else media='<div style="font-size:25px;font-weight:800;padding:28px;line-height:1.4;">'+esc(ad.title||'Publicité')+'</div>';
+  ov.style.cssText='position:fixed;inset:0;z-index:4000;background:'+(ad.bg_color||'#0E8C7C')+';display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px;box-sizing:border-box;';
+  ov.innerHTML='<div style="position:absolute;top:16px;left:16px;background:rgba(0,0,0,.4);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;">PUBLICITÉ</div>'
+    +'<div id="adCount" style="position:absolute;top:14px;right:16px;background:rgba(0,0,0,.45);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">'+dur+'</div>'
+    +media
+    +(ad.link_url?'<a href="'+ad.link_url+'" target="_blank" rel="noopener" style="margin-top:18px;background:#fff;color:#111;padding:10px 24px;border-radius:22px;font-weight:700;text-decoration:none;">En savoir plus</a>':'')
+    +'<button id="adSkip" style="position:absolute;bottom:30px;right:20px;background:rgba(0,0,0,.5);border:none;color:#fff;padding:10px 18px;border-radius:22px;font-weight:700;cursor:pointer;display:none;">Continuer ➜</button>';
+  ov.style.display='flex';
+  var remain=dur; clearInterval(window._adTimer);
+  window._adTimer=setInterval(function(){
+    remain--; var c=document.getElementById('adCount'); if(c) c.textContent=remain>0?remain:'✓';
+    if(remain<=0){ clearInterval(window._adTimer); var sk=document.getElementById('adSkip'); if(sk){ sk.style.display='block'; sk.onclick=function(){ _adDone(ad); }; } setTimeout(function(){ if(window._adShowing) _adDone(ad); },2500); }
+  },1000);
+}
+function _adDone(ad){
+  clearInterval(window._adTimer);
+  var ov=document.getElementById('adOverlay'); if(ov) ov.style.display='none';
+  if(ad){ try{ api('/ads/view','POST',{ad_id:ad.id, creator_ids:Object.keys(window._adCreators||{})}).catch(function(){}); }catch(e){} }
+  window._adCount=0; window._adCreators={}; window._adShowing=false;
+  if(document.getElementById('statusViewer').classList.contains('show')){ svPaused=false; renderSV(); startSVTimer(); }
 }
 function closeSV(){ window._svLastFloat=null; clearInterval(svTimer); clearTimeout(window.svViewTimer); var _v=document.getElementById('svVid'); if(_v){ try{ _v.pause(); _v.removeAttribute('src'); _v.load(); }catch(e){} } var _vs=document.getElementById('svViewersSheet'); if(_vs)_vs.classList.remove('show'); document.getElementById('statusViewer').classList.remove('show'); }
 function svViewTime(at){
@@ -3787,7 +3821,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v39 (deep-link statut + icones SVG + fix pause/seek)');
+console.log('PENC build v40 (publicite: 1 pub / 10 statuts + revenus 60/30/10)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){

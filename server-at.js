@@ -3996,6 +3996,26 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
+      CREATE TABLE IF NOT EXISTS penc_ads (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        type TEXT DEFAULT 'text',
+        media_url TEXT,
+        bg_color TEXT DEFAULT '#0E8C7C',
+        link_url TEXT,
+        duration INT DEFAULT 8,
+        cpv_fcfa INT DEFAULT 5,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_ad_revenue (
+        id TEXT PRIMARY KEY,
+        ad_id TEXT,
+        viewer_id TEXT,
+        total INT, creator_share INT, penc_share INT, reserve_share INT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4428,6 +4448,40 @@ app.get('/api/penc/statuses/:id/comments', pencAuth, async (req,res)=>{
     const out=r.rows.map(function(c){ const u=users.find(function(x){return x.id===c.user_id;})||{}; return {id:c.id, user_id:c.user_id, content:c.content, full_name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, created_at:c.created_at}; });
     res.json({comments:out});
   }catch(e){ res.json({comments:[]}); }
+});
+
+// ══════════════ PUBLICITÉ (Fonct. 4) ══════════════
+app.get('/api/penc/ads/next', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({ad:null});
+    const r=await _pgPool.query("SELECT * FROM penc_ads WHERE active=TRUE ORDER BY RANDOM() LIMIT 1");
+    if(!r.rows.length) return res.json({ad:null});
+    const a=r.rows[0]; a.duration=Math.max(5,Math.min(15,a.duration||8));
+    res.json({ad:a}); }catch(e){ res.json({ad:null}); }
+});
+app.post('/api/penc/ads/view', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const uid=req.pencUser.userId; const ad_id=(req.body&&req.body.ad_id)||null;
+    let creators=((req.body&&req.body.creator_ids)||[]).filter(function(c){ return c && String(c)!==String(uid); });
+    const ar=await _pgPool.query("SELECT cpv_fcfa FROM penc_ads WHERE id=$1",[ad_id]);
+    const total=(ar.rows[0]&&ar.rows[0].cpv_fcfa)||5;
+    const creatorPool=Math.round(total*0.6); const pencShare=Math.round(total*0.3); const reserve=total-creatorPool-pencShare;
+    if(creators.length){ const per=Math.floor(creatorPool/creators.length); if(per>0){ for(const cid of creators){ try{ await _pgPool.query("UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2",[per,cid]); }catch(e2){} } } }
+    await _pgPool.query("INSERT INTO penc_ad_revenue(id,ad_id,viewer_id,total,creator_share,penc_share,reserve_share,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())",['adv_'+Date.now()+Math.random().toString(36).slice(2),ad_id,uid,total,creatorPool,pencShare,reserve]);
+    res.json({success:true}); }catch(e){ res.json({success:true}); }
+});
+app.get('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
+  try{ const r=await _pgPool.query("SELECT * FROM penc_ads ORDER BY created_at DESC"); res.json({ads:r.rows}); }catch(e){ res.json({ads:[]}); }
+});
+app.post('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
+  try{ const b=req.body||{}; const id='ad_'+Date.now(); const dur=Math.max(5,Math.min(15,parseInt(b.duration||8)));
+    await _pgPool.query("INSERT INTO penc_ads(id,title,type,media_url,bg_color,link_url,duration,cpv_fcfa,active,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,TRUE,NOW())",[id,b.title||'Publicité',b.type||'text',b.media_url||null,b.bg_color||'#0E8C7C',b.link_url||null,dur,parseInt(b.cpv_fcfa||5)]);
+    res.json({success:true,id:id}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/ads/:id/toggle', pencAuth, pencAdmin, async (req,res)=>{
+  try{ await _pgPool.query("UPDATE penc_ads SET active=NOT active WHERE id=$1",[req.params.id]); res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.delete('/api/penc/ads/:id', pencAuth, pencAdmin, async (req,res)=>{
+  try{ await _pgPool.query("DELETE FROM penc_ads WHERE id=$1",[req.params.id]); res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 
 // ════════════════ AMIS — SYSTEME COMPLET ════════════════
