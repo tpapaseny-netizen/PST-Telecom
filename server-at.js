@@ -3969,6 +3969,7 @@ let _pgPool = null;
       );
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
       CREATE TABLE IF NOT EXISTS penc_channels (
@@ -4385,7 +4386,8 @@ app.get('/api/penc/statuses/mine/archive', pencAuth, async (req,res)=>{
       const stt=pgStatusToObj(row);
       const views=Array.isArray(stt.views)?stt.views.length:0;
       const likes=Array.isArray(stt.reactions)?stt.reactions.length:0;
-      return { id:stt.id, type:stt.type, media_url:stt.media_url||null, text_content:stt.text_content||null, bg_color:stt.bg_color||null, caption:stt.caption||null, created_at:stt.created_at, duration:stt.duration||null, views:views, likes:likes, comments:0 };
+      const shares=stt.shares||0;
+      return { id:stt.id, type:stt.type, media_url:stt.media_url||null, text_content:stt.text_content||null, bg_color:stt.bg_color||null, caption:stt.caption||null, created_at:stt.created_at, duration:stt.duration||null, views:views, likes:likes, shares:shares, comments:0 };
     });
     try{
       const ids=pubs.map(function(p){return p.id;});
@@ -4398,6 +4400,13 @@ app.get('/api/penc/statuses/mine/archive', pencAuth, async (req,res)=>{
     res.json({publications:pubs});
   }catch(e){ res.json({publications:[]}); }
 });
+// POST /api/penc/statuses/:id/share — incremente le compteur de partages
+app.post('/api/penc/statuses/:id/share', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true,shares:0});
+    const r=await _pgPool.query("UPDATE penc_statuses SET shares=COALESCE(shares,0)+1 WHERE id=$1 RETURNING shares",[req.params.id]);
+    res.json({success:true, shares:(r.rows[0]&&r.rows[0].shares)||0}); }catch(e){ res.json({success:true}); }
+});
+
 
 // ── Commentaires de statuts (#FONCTIONNALITE 1) ──
 app.post('/api/penc/statuses/:id/comment', pencAuth, async (req,res)=>{
