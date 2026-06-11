@@ -3163,12 +3163,13 @@ function frUnblock(uid,btn){ api('/friends/unblock/'+uid,'POST').then(function()
 function openMyPublications(){
   var ov=document.getElementById('myPubsOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='myPubsOverlay'; ov.className='overlay'; document.body.appendChild(ov); }
-  ov.innerHTML='<div class="sheet" style="max-height:88vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" style="margin:0;">📊 Mes publications</div><div onclick="closeMyPubs()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div><div id="myPubsGrid" style="overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding-bottom:10px;"><div style="grid-column:1/-1;text-align:center;padding:30px;"><div class="spinner"></div></div></div></div>';
+  ov.innerHTML='<div class="sheet" style="max-height:90vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" style="margin:0;">📊 Mes publications</div><div onclick="closeMyPubs()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div><div style="overflow-y:auto;flex:1;"><div id="myPubsHead"></div><div id="myPubsGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding-bottom:10px;"><div style="grid-column:1/-1;text-align:center;padding:30px;"><div class="spinner"></div></div></div></div></div>';
   ov.classList.add('show');
   api('/statuses/mine/archive').then(function(d){
     var grid=document.getElementById('myPubsGrid'); if(!grid) return;
-    var pubs=(d&&d.publications)||[];
-    window._myPubs=pubs;
+    var pubs=(d&&d.publications)||[]; window._myPubs=pubs;
+    var sv=0,sl=0,ss=0; pubs.forEach(function(p){ sv+=(p.views||0); sl+=(p.likes||0); ss+=(p.shares||0); });
+    _renderPubsDash(sv,sl,ss);
     if(!pubs.length){ grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:34px;color:var(--muted);">Aucune publication pour le moment.</div>'; return; }
     grid.innerHTML=pubs.map(function(p,i){
       var thumb;
@@ -3180,6 +3181,29 @@ function openMyPublications(){
         +'<span>&#128065; '+(p.views||0)+'</span><span>&#10084;&#65039; '+(p.likes||0)+'</span><span>&#128279; '+(p.shares||0)+'</span></div></div>';
     }).join('');
   }).catch(function(){ var grid=document.getElementById('myPubsGrid'); if(grid) grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Erreur de chargement.</div>'; });
+}
+function _renderPubsDash(sv,sl,ss){
+  var head=document.getElementById('myPubsHead'); if(!head) return;
+  head.innerHTML='<div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:12px;background:var(--card2);border-radius:14px;padding:14px 6px;">'
+    +'<div><div style="font-size:24px;font-weight:800;">'+sv+'</div><div style="font-size:11px;color:var(--muted);">👁️ Vues</div></div>'
+    +'<div><div style="font-size:24px;font-weight:800;">'+sl+'</div><div style="font-size:11px;color:var(--muted);">❤️ Likes</div></div>'
+    +'<div><div style="font-size:24px;font-weight:800;">'+ss+'</div><div style="font-size:11px;color:var(--muted);">🔗 Partages</div></div>'
+    +'</div>'
+    +'<div style="background:linear-gradient(135deg,rgba(28,107,74,.18),rgba(26,92,158,.18));border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-weight:700;">🏆 Gains</span><span id="mpBalance" style="font-weight:800;font-size:18px;color:var(--accent);">— F</span></div>'
+    +'<div style="height:8px;border-radius:6px;background:rgba(128,128,128,.2);overflow:hidden;margin-bottom:6px;"><div id="mpBar" style="height:100%;width:0;background:var(--accent);transition:width .4s;"></div></div>'
+    +'<div id="mpInfo" style="font-size:11px;color:var(--muted);">Chargement…</div>'
+    +'<button id="mpWithdraw" onclick="withdrawRewards()" disabled style="width:100%;margin-top:10px;padding:10px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;">Retrait</button>'
+    +'</div>';
+  api('/auth/me').then(function(d){
+    if(!d||!d.user) return; var u=d.user;
+    var bal=document.getElementById('mpBalance'); if(bal) bal.textContent=(u.balance||0)+' F';
+    var vv=u.valid_views||0;
+    var bar=document.getElementById('mpBar'); if(bar) bar.style.width=((vv%1000)/1000*100).toFixed(0)+'%';
+    var info=document.getElementById('mpInfo'); if(info) info.textContent=(1000-(vv%1000))+' vues avant le prochain palier · 75 F / 1000 vues';
+    var btn=document.getElementById('mpWithdraw');
+    if(btn){ var ok=(u.balance||0)>=500 && (u.contacts_count||0)>=100; btn.disabled=!ok; btn.textContent= ok ? ('Retirer '+u.balance+' F') : ('Retrait dès 500 F + 100 contacts ('+(u.contacts_count||0)+'/100)'); }
+  }).catch(function(){});
 }
 function closeMyPubs(){ var ov=document.getElementById('myPubsOverlay'); if(ov) ov.classList.remove('show'); }
 function openPub(i){
@@ -3256,18 +3280,6 @@ function renderProfileView(){
       <span style="font-weight:700;">🚫 Utilisateurs bloqués</span>
       <span style="color:var(--muted);font-size:20px;">&#8250;</span>
     </div>
-    <div class="reward-card" id="rewardCard">
-      <div class="reward-head"><span>🏆 Statuts & Gains</span><span id="rwBalance">— F</span></div>
-      <div class="reward-grid">
-        <div><div class="rw-n" id="rwValid">0</div><div class="rw-l">Vues reçues</div></div>
-        <div><div class="rw-n" id="rwOwn">0</div><div class="rw-l">Tes vues</div></div>
-        <div><div class="rw-n" id="rwContacts">0</div><div class="rw-l">Contacts</div></div>
-      </div>
-      <div class="rw-progress"><div class="rw-bar" id="rwBar"></div></div>
-      <div class="rw-info" id="rwInfo">100 F / 1000 vues valides</div>
-      <button class="rw-withdraw" id="rwWithdraw" onclick="withdrawRewards()" disabled>Retrait dès 500 F + 100 contacts</button>
-    </div>
-    <div class="reward-card" id="statHistCard"><div class="reward-head"><span>📜 Mes statuts publiés</span><span id="rwHistTotal">0 vue</span></div><div id="rwHistory" style="display:flex;flex-direction:column;gap:8px;"></div></div>
     <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">🎨 Thème</div>
     <div class="theme-btns">
       <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#F5F0E8;"><div style="width:13px;height:13px;border-radius:4px;background:linear-gradient(135deg,#1C6B4A,#1A5C9E);"></div><span style="color:#1C1917;">Claude</span></div>
@@ -3754,7 +3766,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v37 (partage des statuts + compteurs)');
+console.log('PENC build v38 (tableau de bord createur dans Mes publications)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
