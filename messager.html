@@ -3429,7 +3429,7 @@ function openChannelDetail(chId){
     var posts=(ch.posts||[]).slice().reverse();
     var postsHtml='<div class="ch-posts" id="chPosts_'+chId+'">';
     if(!posts.length) postsHtml+='<div class="ch-empty">📬 Aucune publication encore.</div>';
-    posts.forEach(function(p){ postsHtml+=buildChPost(p,chId,isCreator); });
+    posts.forEach(function(p){ postsHtml+=buildChPost(p,chId,canManage); });
     postsHtml+='</div>';
     var inputBar=canManage
       ?('<div class="ch-input-bar">'
@@ -3745,7 +3745,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v35 (canaux: membres + admins + invitation)');
+console.log('PENC build v36 (canaux: admins suppr posts + notif invitation)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -4733,6 +4733,7 @@ document.addEventListener('DOMContentLoaded',function(){
       el.innerHTML=buildChPost(d.post,d.channel_id,false);
       div.insertBefore(el.firstChild||el,div.firstChild);
     });
+    SOCKET.on('channel:invited',function(d){ showNotif('📣','Nouveau canal','Vous avez été ajouté à « '+((d&&d.name)||'un canal')+' » sur Penc','green',null); if(typeof renderChannelsView==='function') renderChannelsView(); });
   }
   setInterval(bindChSocket,2000);
 });

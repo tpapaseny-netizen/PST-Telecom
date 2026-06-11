@@ -5156,7 +5156,7 @@ app.post('/api/penc/channels/:id/react/:postId', pencAuth, async (req,res) => {
 });
 app.delete('/api/penc/channels/:id/post/:postId', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch||String(ch.creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
+    if(!ch||(String(ch.creator_id)!==String(uid) && !(ch.admins||[]).map(String).includes(String(uid)))) return res.status(403).json({error:'Non autorisé'});
     ch.posts=(ch.posts||[]).filter(p=>p.id!==req.params.postId); await pencSaveChannels(channels);
     res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
