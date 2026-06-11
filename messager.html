@@ -1558,6 +1558,7 @@ function initSocket() {
     console.error('Socket connect_error:', e.message);
   });
   SOCKET.on('message:new', onNewMsg);
+  SOCKET.on('admin:newuser', function(data){ var nm=(data&&data.full_name)||'Nouvel utilisateur'; showNotif('🆕','Nouvelle inscription',nm+' vient de rejoindre Penc','blue',null); var ab=document.getElementById('adminBody'); if(ab&&ab.offsetParent!==null&&typeof openAdmin==='function') openAdmin(); });
   SOCKET.on('friend:accepted', function(data){ var n=(data&&data.by&&data.by.full_name)||'Votre demande'; showNotif('✅','Demande acceptée',n+' a accepté votre demande d\'ami','green',null); if(typeof loadConvs==='function') loadConvs(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
   SOCKET.on('friend:request', function(data){ var n=(data&&data.from&&data.from.full_name)||'Quelqu\'un'; showNotif('👤','Nouvelle demande',n+' veut vous ajouter comme ami sur Penc','accent',openFriends); if(typeof loadFriendRequests==='function') loadFriendRequests(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
   SOCKET.on('typing:start', ({userId,conversation_id})=>{
@@ -3718,16 +3719,62 @@ function renderAdmin(d){
   (d.rewardAlerts||[]).forEach(function(u){
     html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>${u.valid_views} vues · solde ${u.balance} F · ${u.contacts} contacts</span></div><button class="adm-btn" onclick="adminClear('${u.id}')">Vu</button></div>`;
   });
-  html+=`<div class="adm-sec">👥 Utilisateurs — top vues</div>`;
+  window._admUsers=d.users||[];
+  html+=`<div class="adm-sec">👥 Utilisateurs (${(d.users||[]).length}) — touchez pour modérer</div>`;
   (d.users||[]).slice(0,500).forEach(function(u){
     var th=Math.floor((u.total_time_seconds||0)/3600); var tm=Math.floor(((u.total_time_seconds||0)%3600)/60);
     var geo=(u.geo&&u.geo.city)?(esc(u.geo.city)+', '+esc(u.geo.country)):'Position inconnue';
-    html+=`<div class="adm-row"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span><span style="color:var(--text);">${esc(u.phone||'-')} · ${esc(u.email||'-')} · ${geo}</span><span>${th}h ${tm}min dans l'app</span></div></div>`;
+    var badge=''; if(u.suspended) badge=' <span style="color:#FF4D6A;font-weight:700;">⛔</span>'; else if(u.muted_until && new Date(u.muted_until)>new Date()) badge=' <span style="color:#E8A87C;font-weight:700;">🔇</span>';
+    html+=`<div class="adm-row" style="cursor:pointer;" onclick="openAdminUser('${u.id}')"><div class="adm-row-i"><b>${esc(u.full_name||u.username||'')}${badge}</b><span>@${esc(u.username||'')} · ${u.valid_views} vues · ${u.contacts} contacts · ${u.balance} F</span><span style="color:var(--text);">${esc(u.phone||'-')} · ${esc(u.email||'-')} · ${geo}</span><span>${th}h ${tm}min dans l'app</span></div><span style="color:var(--muted);font-size:18px;">›</span></div>`;
   });
   b.innerHTML=html;
 }
 function adminApprove(uid){ api('/admin/withdraw/approve','POST',{user_id:uid}).then(function(r){ if(r&&r.success){ showNotif('✅','Retrait','Marqué payé','green',null); openAdmin(); } else showNotif('❌','Erreur',(r&&r.error)||'','red',null); }); }
 function adminClear(uid){ api('/admin/reward/clear','POST',{user_id:uid}).then(function(){ openAdmin(); }); }
+function openAdminUser(uid){
+  var u=(window._admUsers||[]).find(function(x){return String(x.id)===String(uid);}); if(!u) return;
+  var ov=document.getElementById('admUserOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='admUserOv'; ov.className='overlay'; document.body.appendChild(ov); }
+  var th=Math.floor((u.total_time_seconds||0)/3600); var tm=Math.floor(((u.total_time_seconds||0)%3600)/60);
+  var geo=(u.geo&&u.geo.city)?(esc(u.geo.city)+', '+esc(u.geo.country)):'Position inconnue';
+  var muted=(u.muted_until && new Date(u.muted_until)>new Date());
+  var info='<div style="font-size:12.5px;color:var(--muted);line-height:1.8;">'
+    +'📧 '+esc(u.email||'-')+'<br>📱 '+esc(u.phone||'-')+'<br>📍 '+geo
+    +'<br>📅 Inscrit le '+(u.created_at?new Date(u.created_at).toLocaleDateString('fr-FR'):'-')
+    +'<br>🕒 Vu : '+(u.last_seen?new Date(u.last_seen).toLocaleString('fr-FR'):'-')
+    +'<br>⏱️ '+th+'h '+tm+'min · 👁️ '+(u.valid_views||0)+' vues · '+(u.balance||0)+' F</div>';
+  ov.innerHTML='<div class="sheet" style="max-height:92vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div class="sheet-title" style="margin:0;">'+esc(u.full_name||u.username||'')+'</div><div onclick="closeAdmUser()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div>'
+    +info
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;">'
+      +'<button onclick="admMute(\''+uid+'\',\'24h\')" style="'+_frBtn('ghost')+'flex:none;">🔇 24h</button>'
+      +'<button onclick="admMute(\''+uid+'\',\'7d\')" style="'+_frBtn('ghost')+'flex:none;">🔇 7j</button>'
+      +'<button onclick="admMute(\''+uid+'\',\'perm\')" style="'+_frBtn('ghost')+'flex:none;">🔇 Définitif</button>'
+      +(muted?'<button onclick="admMute(\''+uid+'\',\'off\')" style="'+_frBtn('green')+'flex:none;">🔊 Réactiver</button>':'')
+      +(u.suspended?'<button onclick="admSuspend(\''+uid+'\',false)" style="'+_frBtn('green')+'flex:none;">Réactiver compte</button>':'<button onclick="admSuspend(\''+uid+'\',true)" style="'+_frBtn('danger')+'flex:none;">⛔ Suspendre</button>')
+    +'</div>'
+    +'<div style="font-weight:700;font-size:13px;color:var(--muted);margin-bottom:6px;">Statuts publiés</div>'
+    +'<div id="admUserStatuses" style="overflow-y:auto;flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"><div style="grid-column:1/-1;text-align:center;padding:20px;"><div class="spinner"></div></div></div></div>';
+  ov.classList.add('show');
+  api('/admin/user/'+uid+'/statuses').then(function(d){
+    var box=document.getElementById('admUserStatuses'); if(!box) return;
+    var ss=(d&&d.statuses)||[];
+    if(!ss.length){ box.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);">Aucun statut.</div>'; return; }
+    box.innerHTML=ss.map(function(s){
+      var thumb;
+      if(s.type==='image'&&s.media_url) thumb='<img src="'+s.media_url+'" style="width:100%;height:100%;object-fit:cover;"/>';
+      else if(s.type==='video'&&s.media_url) thumb='<video src="'+s.media_url+'" muted style="width:100%;height:100%;object-fit:cover;"></video>';
+      else thumb='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6px;text-align:center;font-size:11px;color:#fff;background:'+(s.bg_color||'#1a1f2e')+';">'+esc((s.text_content||s.caption||'').slice(0,40))+'</div>';
+      return '<div class="fr-item" style="position:relative;aspect-ratio:9/16;border-radius:8px;overflow:hidden;background:#000;">'+thumb
+        +'<div style="position:absolute;left:0;right:0;bottom:0;padding:3px 5px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:10px;">👁️ '+s.views+' ❤️ '+s.likes+'</div>'
+        +'<button onclick="admDelStatus(\''+s.id+'\',this)" style="position:absolute;top:4px;right:4px;background:rgba(220,38,38,.88);border:none;color:#fff;border-radius:7px;width:26px;height:26px;cursor:pointer;">🗑️</button></div>';
+    }).join('');
+  }).catch(function(){});
+}
+function closeAdmUser(){ var ov=document.getElementById('admUserOv'); if(ov) ov.classList.remove('show'); }
+function admMute(uid,mode){ api('/admin/mute/'+uid,'POST',{mode:mode}).then(function(r){ if(r&&r.success){ showNotif('✅','Sourdine',mode==='off'?'Utilisateur réactivé':'Utilisateur mis en sourdine','green',null); closeAdmUser(); openAdmin(); } }).catch(function(){}); }
+function admSuspend(uid,susp){ if(susp&&!confirm('Suspendre ce compte ? Il ne pourra plus se connecter.')) return; api('/admin/suspend/'+uid,'POST',{suspend:susp}).then(function(r){ if(r&&r.success){ showNotif('✅','Compte',susp?'Compte suspendu':'Compte réactivé','green',null); closeAdmUser(); openAdmin(); } }).catch(function(){}); }
+function admDelStatus(sid,btn){ if(!confirm('Supprimer ce statut ?')) return; api('/admin/statuses/'+sid,'DELETE').then(function(r){ if(r&&r.success){ var c=btn&&btn.closest('.fr-item'); if(c) c.remove(); showNotif('✅','Statut','Supprimé','green',null); } }).catch(function(){}); }
 
 // ══════════════ NOTIFICATIONS ══════════════
 const NOTIF_COLORS={'green':'#00C896','blue':'#0099FF','purple':'#C98BE8','orange':'#E8A87C','gold':'#FFD700','red':'#FF4D6A'};
@@ -3821,7 +3868,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v40 (publicite: 1 pub / 10 statuts + revenus 60/30/10)');
+console.log('PENC build v42 (icones SVG lecteur video)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -4488,7 +4535,7 @@ function openVidViewer(url){
   v.src=url;
   v.load();
   var btn=document.getElementById('vidPlayBtn');
-  if(btn) btn.textContent='⏸';
+  if(btn) btn.innerHTML=SVG_PAUSE;
   // Play direct — la vidéo est en streaming, pas besoin d'attendre canplay
   var _playAttempt=v.play();
   if(_playAttempt!==undefined){
@@ -4527,11 +4574,11 @@ function toggleFullPlay(){
   if(!v) return;
   if(v.paused){
     var p=v.play();
-    if(btn) btn.textContent='⏸';
-    if(p&&p.catch) p.catch(function(){if(btn)btn.textContent='▶';});
+    if(btn) btn.innerHTML=SVG_PAUSE;
+    if(p&&p.catch) p.catch(function(){if(btn)btn.innerHTML=SVG_PLAY;});
   } else {
     v.pause();
-    if(btn) btn.textContent='▶';
+    if(btn) btn.innerHTML=SVG_PLAY;
   }
   showVidCtrl();
 }
@@ -4568,7 +4615,7 @@ function onVidMeta(){
 }
 function onVidEnded(){
   var btn=document.getElementById('vidPlayBtn');
-  if(btn) btn.textContent='▶';
+  if(btn) btn.innerHTML=SVG_PLAY;
   showVidCtrl();
 }
 function fmtVidTime(sec){
@@ -4930,9 +4977,9 @@ document.addEventListener('DOMContentLoaded',function(){
     <input type="range" class="vid-seek" id="vidSeek" value="0" min="0" step="0.1"
       oninput="seekVid(this.value)">
     <div class="vid-ctrl-row">
-      <button class="vid-ctrl-btn" onclick="skipVid(-10)">⏪</button>
-      <button class="vid-ctrl-btn" id="vidPlayBtn" onclick="toggleFullPlay()">⏸</button>
-      <button class="vid-ctrl-btn" onclick="skipVid(10)">⏩</button>
+      <button class="vid-ctrl-btn" onclick="skipVid(-10)"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="11 19 2 12 11 5"/><polygon points="22 19 13 12 22 5"/></svg></button>
+      <button class="vid-ctrl-btn" id="vidPlayBtn" onclick="toggleFullPlay()"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+      <button class="vid-ctrl-btn" onclick="skipVid(10)"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="13 19 22 12 13 5"/><polygon points="2 19 11 12 2 5"/></svg></button>
       <span class="vid-time" id="vidTime">0:00 / 0:00</span>
       <button class="vid-ctrl-btn" id="vidMuteBtn" onclick="toggleVidMute()" style="margin-left:auto">🔊</button>
     </div>

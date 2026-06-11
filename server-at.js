@@ -3970,6 +3970,8 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
       CREATE TABLE IF NOT EXISTS penc_channels (
@@ -4170,6 +4172,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
         pencOnline.forEach(function(sid){
           io.to(sid).emit('penc:welcome',{message:welcomeMsg});
         });
+        try{ if(_pgPool){ const _ar=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); _ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newuser',{id:uid, full_name:full_name, email:email||'', phone:phone}); }); } }catch(e4){}
       }catch(e2){}
     });
     res.json({ user: Object.assign({}, safe, { is_admin: isAdmin }), token: tok });
@@ -4212,6 +4215,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       if (jbu) user = jbu;
     }
 
+    if (user && user.suspended && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu.' });
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
@@ -4878,6 +4882,7 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
       mine=all.filter(s=>s.user_id===uid&&new Date(s.created_at).getTime()>=cutoff).map(s=>({...s,user:vLookup(uid)}));
     }
     const meUser=vLookup(uid);
+    try{ if(_pgPool){ const _mr=await _pgPool.query("SELECT id FROM penc_users WHERE muted_until IS NOT NULL AND muted_until > NOW()"); const _muted={}; _mr.rows.forEach(function(r){ _muted[String(r.id)]=1; }); statuses=statuses.filter(function(s){ return !_muted[String(s.user_id)]; }); } }catch(_me){}
     res.json({statuses,mine,me:meUser});
   }catch(e){console.error('GET statuses:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
@@ -5031,8 +5036,10 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
       id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
-      geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null };
+      geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
+      muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended };
     };
+    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended}; }); } }catch(_e){}
     const all = users.map(enrich);
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
     const rewardAlerts = all.filter(u => u.reward_pending);
@@ -5057,6 +5064,29 @@ app.post('/api/penc/admin/withdraw/approve', pencAuth, pencAdmin, async (req, re
     await pencSaveUsers(users);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ── Modération admin (Fonct. 5) ──
+app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({statuses:[]});
+    const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC',[req.params.id]);
+    const out=r.rows.map(function(row){ const s=pgStatusToObj(row); return {id:s.id, type:s.type, media_url:s.media_url||null, text_content:s.text_content||null, bg_color:s.bg_color||null, caption:s.caption||null, created_at:s.created_at, views:Array.isArray(s.views)?s.views.length:0, likes:Array.isArray(s.reactions)?s.reactions.length:0, shares:s.shares||0}; });
+    res.json({statuses:out}); }catch(e){ res.json({statuses:[]}); }
+});
+app.delete('/api/penc/admin/statuses/:id', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1',[req.params.id]); res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/admin/mute/:userId', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const mode=(req.body&&req.body.mode)||'24h';
+    if(mode==='off'){ await _pgPool.query('UPDATE penc_users SET muted_until=NULL WHERE id=$1',[req.params.userId]); }
+    else { let intv="24 hours"; if(mode==='7d') intv="7 days"; else if(mode==='perm') intv="100 years"; await _pgPool.query("UPDATE penc_users SET muted_until = NOW() + INTERVAL '"+intv+"' WHERE id=$1",[req.params.userId]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const susp=!!(req.body&&req.body.suspend);
+    await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) => {
   try {
