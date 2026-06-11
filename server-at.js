@@ -3986,6 +3986,7 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_pf_recipient ON penc_friendships(recipient);
       CREATE INDEX IF NOT EXISTS idx_pf_pair ON penc_friendships(requester,recipient);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS valid_views INTEGER DEFAULT 0;
+      ALTER TABLE penc_friendships ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
       CREATE TABLE IF NOT EXISTS penc_status_comments (
         id TEXT PRIMARY KEY,
         status_id TEXT NOT NULL,
@@ -4420,7 +4421,7 @@ app.get('/api/penc/statuses/:id/comments', pencAuth, async (req,res)=>{
   }catch(e){ res.json({comments:[]}); }
 });
 
-// ════════════════ AMIS / DEMANDES (#4) ════════════════
+// ════════════════ AMIS — SYSTEME COMPLET ════════════════
 async function pgFriendAccepted(a,b){
   if(!_pgPool) return true;
   try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return true; }
@@ -4430,23 +4431,99 @@ async function pgEnsureFriendRequest(requester,recipient){
   try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[requester,recipient]); if(r.rows.length) return;
     await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at) VALUES($1,$2,$3,'pending',NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),requester,recipient]); }catch(e){}
 }
-app.get('/api/penc/friends/requests', pencAuth, async (req,res)=>{
-  try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({requests:[]});
-    const r=await _pgPool.query("SELECT * FROM penc_friendships WHERE recipient=$1 AND status='pending' ORDER BY created_at DESC",[uid]);
+async function pgIsBlocked(a,b){
+  if(!_pgPool) return false;
+  try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='blocked' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return false; }
+}
+function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, is_online:!!u.is_online}; }
+
+app.get('/api/penc/friends', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({friends:[]});
+    const r=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid]);
+    const ids=r.rows.map(function(x){return x.requester===uid?x.recipient:x.requester;});
     const users=await pgAllUsers()||[];
-    const out=r.rows.map(function(row){ const u=users.find(x=>x.id===row.requester)||{}; return {requester_id:row.requester, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, created_at:row.created_at}; });
-    res.json({requests:out}); }catch(e){ res.json({requests:[]}); }
+    res.json({friends:ids.map(function(id){ return _frInfo(users.find(function(u){return u.id===id;})); })}); }catch(e){ res.json({friends:[]}); }
+});
+app.get('/api/penc/friends/requests', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({requests:[],received:[],sent:[]});
+    const rec=await _pgPool.query("SELECT requester,created_at FROM penc_friendships WHERE recipient=$1 AND status='pending' ORDER BY created_at DESC",[uid]);
+    const snt=await _pgPool.query("SELECT recipient,created_at FROM penc_friendships WHERE requester=$1 AND status='pending' ORDER BY created_at DESC",[uid]);
+    const users=await pgAllUsers()||[];
+    const received=rec.rows.map(function(x){ var i=_frInfo(users.find(function(u){return u.id===x.requester;})); i.requester_id=x.requester; return i; });
+    const sent=snt.rows.map(function(x){ return _frInfo(users.find(function(u){return u.id===x.recipient;})); });
+    res.json({requests:received, received:received, sent:sent}); }catch(e){ res.json({requests:[],received:[],sent:[]}); }
+});
+app.get('/api/penc/friends/discover', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const q=((req.query&&req.query.q)||'').toLowerCase().trim();
+    if(!_pgPool) return res.json({users:[]});
+    const rel=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE requester=$1 OR recipient=$1",[uid]);
+    const excl={}; excl[uid]=1; rel.rows.forEach(function(x){ excl[x.requester]=1; excl[x.recipient]=1; });
+    const users=await pgAllUsers()||[];
+    let out=users.filter(function(u){ return !excl[u.id]; });
+    if(q) out=out.filter(function(u){ return (String(u.full_name||'').toLowerCase().indexOf(q)>-1)||(String(u.username||'').toLowerCase().indexOf(q)>-1)||(String(u.phone||'').indexOf(q)>-1); });
+    res.json({users:out.slice(0,100).map(_frInfo)}); }catch(e){ res.json({users:[]}); }
+});
+app.get('/api/penc/friends/blocked', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({blocked:[]});
+    const r=await _pgPool.query("SELECT recipient FROM penc_friendships WHERE status='blocked' AND requester=$1",[uid]);
+    const users=await pgAllUsers()||[];
+    res.json({blocked:r.rows.map(function(x){ return _frInfo(users.find(function(u){return u.id===x.recipient;})); })}); }catch(e){ res.json({blocked:[]}); }
+});
+app.post('/api/penc/friends/request/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const other=req.params.userId;
+    if(!other||other===uid) return res.status(400).json({error:'Invalide'});
+    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    if(await pgIsBlocked(uid,other)) return res.status(403).json({error:'Action impossible'});
+    const ex=await _pgPool.query("SELECT status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[uid,other]);
+    if(ex.rows.length) return res.json({success:true, status:ex.rows[0].status});
+    await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); }catch(e){}
+    res.json({success:true, status:'pending'}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const requester=req.params.userId;
+    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE requester=$1 AND recipient=$2 AND status='pending'",[requester,uid]);
+    try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester, JSON.stringify([uid])]); }catch(e2){}
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}}); }catch(e){}
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/friends/reject/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const requester=req.params.userId;
+    if(_pgPool){ await _pgPool.query("UPDATE penc_friendships SET status='rejected', updated_at=NOW() WHERE requester=$1 AND recipient=$2",[requester,uid]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.delete('/api/penc/friends/cancel/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const other=req.params.userId;
+    if(_pgPool){ await _pgPool.query("DELETE FROM penc_friendships WHERE requester=$1 AND recipient=$2 AND status='pending'",[uid,other]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.delete('/api/penc/friends/remove/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const other=req.params.userId;
+    if(_pgPool){ await _pgPool.query("DELETE FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1))",[uid,other]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/friends/block/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const other=req.params.userId;
+    if(!other||other===uid) return res.status(400).json({error:'Invalide'});
+    if(_pgPool){
+      await _pgPool.query("DELETE FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)",[uid,other]);
+      await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'blocked',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
+    }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/friends/unblock/:userId', pencAuth, async (req,res)=>{
+  try{ const uid=req.pencUser.userId; const other=req.params.userId;
+    if(_pgPool){ await _pgPool.query("DELETE FROM penc_friendships WHERE status='blocked' AND requester=$1 AND recipient=$2",[uid,other]); }
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/accept', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; const requester_id=req.body&&req.body.requester_id; if(!requester_id) return res.status(400).json({error:'requester_id requis'});
     if(_pgPool){
       await _pgPool.query("UPDATE penc_friendships SET status='accepted' WHERE requester=$1 AND recipient=$2",[requester_id,uid]);
-      const chk=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE requester=$1 AND recipient=$2 LIMIT 1",[uid,requester_id]);
-      if(!chk.rows.length) await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at) VALUES($1,$2,$3,'accepted',NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,requester_id]);
-      else await _pgPool.query("UPDATE penc_friendships SET status='accepted' WHERE requester=$1 AND recipient=$2",[uid,requester_id]);
       try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester_id, JSON.stringify([uid])]); }catch(e2){}
     }
-    try{ if(global._pencIo){ global._pencIo.to('user:'+requester_id).emit('friend:accepted',{by:uid}); } }catch(e3){}
+    try{ emitToUsers(requester_id,'friend:accepted',{by:{id:uid}}); }catch(e3){}
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/reject', pencAuth, async (req,res)=>{
@@ -4454,8 +4531,6 @@ app.post('/api/penc/friends/reject', pencAuth, async (req,res)=>{
     if(_pgPool){ await _pgPool.query("UPDATE penc_friendships SET status='rejected' WHERE requester=$1 AND recipient=$2",[requester_id,uid]); }
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
-
-
 
 // Émettre à des utilisateurs via pencOnline + fetchSockets fallback
 async function emitToUsers(uids, event, data){
@@ -5364,21 +5439,26 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         const u = _pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(x => x.id === pencUserId);
         if (u) sender = pencStrip(u);
       } catch {}
-      // ── Demande d'ami : 1er message vers un non-ami => en attente (fail-open) ──
+      // ── Amis : blocage + 1er message en attente (fail-open) ──
+      let _blocked = false;
       try {
         if (_pgPool) {
           const _cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
           let _parts = _cr.rows[0] ? (Array.isArray(_cr.rows[0].participants)?_cr.rows[0].participants:JSON.parse(_cr.rows[0].participants||'[]')) : [];
           const _other = _parts.find(p=>p!==pencUserId);
           if (_other) {
-            const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
-            if (parseInt(_cnt.rows[0].n) === 0) {
-              const _acc = await pgFriendAccepted(pencUserId, _other);
-              if (!_acc) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
+            _blocked = await pgIsBlocked(pencUserId, _other);
+            if (!_blocked) {
+              const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
+              if (parseInt(_cnt.rows[0].n) === 0) {
+                const _acc = await pgFriendAccepted(pencUserId, _other);
+                if (!_acc) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
+              }
             }
           }
         }
-      } catch(_e){ msg.pending = false; }
+      } catch(_e){ _blocked = false; msg.pending = false; }
+      if (_blocked) { if (typeof cb === 'function') cb({ error: 'Vous ne pouvez pas écrire à cet utilisateur.' }); return; }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);

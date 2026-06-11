@@ -1558,7 +1558,8 @@ function initSocket() {
     console.error('Socket connect_error:', e.message);
   });
   SOCKET.on('message:new', onNewMsg);
-  SOCKET.on('friend:accepted', function(){ if(typeof loadConvs==='function') loadConvs(); });
+  SOCKET.on('friend:accepted', function(data){ var n=(data&&data.by&&data.by.full_name)||'Votre demande'; showNotif('✅','Demande acceptée',n+' a accepté votre demande d\'ami','green',null); if(typeof loadConvs==='function') loadConvs(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
+  SOCKET.on('friend:request', function(data){ var n=(data&&data.from&&data.from.full_name)||'Quelqu\'un'; showNotif('👤','Nouvelle demande',n+' veut vous ajouter comme ami sur Penc','accent',openFriends); if(typeof loadFriendRequests==='function') loadFriendRequests(); if(document.getElementById('friendsOverlay')&&document.getElementById('friendsOverlay').classList.contains('show')&&window._frTab==='req') loadFriendRequestsTab(); });
   SOCKET.on('typing:start', ({userId,conversation_id})=>{
     if(conversation_id===CUR_CONV && userId!==ME.id) {
       document.getElementById('typingRow').classList.add('show'); scrollBottom();
@@ -3067,6 +3068,88 @@ function openConvById(cid){
   if(conv) openConv(conv);
 }
 
+// ══════════════ AMIS — 3 ONGLETS (Fonct. complète) ══════════════
+function _frAv(u){ return u.avatar_url?('<img src="'+u.avatar_url+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;"/>'):('<div style="width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:none;">'+esc(initials(u.full_name||'?'))+'</div>'); }
+function _frBtn(kind){ var b='flex:1;padding:8px 6px;border:none;border-radius:9px;font-weight:700;font-size:12px;cursor:pointer;'; if(kind==='accent') return b+'background:var(--accent);color:#fff;'; if(kind==='green') return b+'background:#22c55e;color:#fff;'; if(kind==='danger') return b+'background:rgba(239,68,68,.15);color:#ef4444;'; return b+'background:rgba(128,128,128,.16);color:var(--muted);'; }
+function _frCard(u, btns){ var dot=u.is_online?' <span style="color:#22c55e;font-size:11px;">●</span>':''; return '<div class="fr-item" style="padding:10px 4px;border-bottom:1px solid rgba(128,128,128,.12);">'+'<div style="display:flex;align-items:center;gap:10px;">'+_frAv(u)+'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(u.full_name||'Utilisateur')+dot+'</div><div style="font-size:12px;color:var(--muted);">@'+esc(u.username||'')+'</div></div></div>'+(btns?'<div style="display:flex;gap:6px;margin-top:8px;">'+btns+'</div>':'')+'</div>'; }
+function _frDropRow(el){ try{ var c=el.closest('.fr-item'); if(c){ c.style.transition='opacity .2s'; c.style.opacity='0'; setTimeout(function(){ c.remove(); },200); } }catch(e){} }
+
+function openFriends(){
+  var ov=document.getElementById('friendsOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='friendsOverlay'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="sheet" style="max-height:90vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" style="margin:0;">👥 Amis</div><div onclick="closeFriends()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px;"><button id="frTab-friends" onclick="switchFriendTab(\'friends\')">Mes amis</button><button id="frTab-req" onclick="switchFriendTab(\'req\')">Demandes</button><button id="frTab-disc" onclick="switchFriendTab(\'disc\')">Découvrir</button></div>'
+    +'<div id="frBody" style="overflow-y:auto;flex:1;min-height:220px;"></div></div>';
+  ov.classList.add('show');
+  switchFriendTab('friends');
+}
+function closeFriends(){ var ov=document.getElementById('friendsOverlay'); if(ov) ov.classList.remove('show'); }
+function switchFriendTab(tab){
+  window._frTab=tab;
+  ['friends','req','disc'].forEach(function(x){ var b=document.getElementById('frTab-'+x); if(!b) return; var on=(x===tab); b.style.cssText='flex:1;padding:9px 6px;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;'+(on?'background:var(--accent);color:#fff;':'background:rgba(128,128,128,.15);color:var(--muted);'); });
+  var body=document.getElementById('frBody'); if(body) body.innerHTML='<div style="text-align:center;padding:28px;"><div class="spinner"></div></div>';
+  if(tab==='friends') loadFriendsList(); else if(tab==='req') loadFriendRequestsTab(); else loadDiscoverTab('');
+}
+function loadFriendsList(){
+  api('/friends').then(function(d){
+    var b=document.getElementById('frBody'); if(!b||window._frTab!=='friends') return;
+    var fr=(d&&d.friends)||[];
+    if(!fr.length){ b.innerHTML='<div style="text-align:center;padding:34px;color:var(--muted);">Aucun ami pour le moment.<br>Va dans « Découvrir » pour en ajouter.</div>'; return; }
+    b.innerHTML=fr.map(function(u){ var btns='<button onclick="frMessage(\''+u.id+'\')" style="'+_frBtn('accent')+'">💬 Message</button><button onclick="frRemove(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">Retirer</button><button onclick="frBlock(\''+u.id+'\',this)" style="'+_frBtn('danger')+'">Bloquer</button>'; return _frCard(u,btns); }).join('');
+  }).catch(function(){});
+}
+function loadFriendRequestsTab(){
+  api('/friends/requests').then(function(d){
+    var b=document.getElementById('frBody'); if(!b||window._frTab!=='req') return;
+    var rec=(d&&d.received)||[]; var snt=(d&&d.sent)||[]; var html='';
+    html+='<div style="font-weight:700;font-size:13px;color:var(--muted);margin:2px 0 6px;">Reçues ('+rec.length+')</div>';
+    html+= rec.length? rec.map(function(u){ var btns='<button onclick="frAccept(\''+u.id+'\',this)" style="'+_frBtn('green')+'">✅ Accepter</button><button onclick="frReject(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">❌ Refuser</button>'; return _frCard(u,btns); }).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0 10px;">Aucune demande reçue.</div>';
+    html+='<div style="font-weight:700;font-size:13px;color:var(--muted);margin:16px 0 6px;">Envoyées ('+snt.length+')</div>';
+    html+= snt.length? snt.map(function(u){ var btns='<button onclick="frCancel(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">Annuler la demande</button>'; return _frCard(u,btns); }).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0;">Aucune demande envoyée.</div>';
+    b.innerHTML=html;
+  }).catch(function(){});
+}
+function loadDiscoverTab(q){
+  var body=document.getElementById('frBody'); if(!body) return;
+  if(!document.getElementById('frSearch')){ body.innerHTML='<input id="frSearch" placeholder="Rechercher par nom, @username ou numéro…" oninput="_frDiscDebounce(this.value)" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(128,128,128,.25);background:transparent;color:inherit;margin-bottom:10px;font-size:14px;outline:none;box-sizing:border-box;"/><div id="frDiscList"></div>'; }
+  var list=document.getElementById('frDiscList'); if(list) list.innerHTML='<div style="text-align:center;padding:20px;"><div class="spinner"></div></div>';
+  api('/friends/discover'+(q?('?q='+encodeURIComponent(q)):'')).then(function(d){
+    var l=document.getElementById('frDiscList'); if(!l||window._frTab!=='disc') return;
+    var us=(d&&d.users)||[];
+    if(!us.length){ l.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);">Aucun utilisateur trouvé.</div>'; return; }
+    l.innerHTML=us.map(function(u){ var btns='<button id="fradd-'+u.id+'" onclick="frAdd(\''+u.id+'\')" style="'+_frBtn('accent')+'">➕ Ajouter</button>'; return _frCard(u,btns); }).join('');
+  }).catch(function(){});
+}
+var _frDiscTimer=null;
+function _frDiscDebounce(v){ clearTimeout(_frDiscTimer); _frDiscTimer=setTimeout(function(){ loadDiscoverTab((v||'').trim()); },350); }
+function frAdd(uid){
+  var btn=document.getElementById('fradd-'+uid);
+  if(btn){ btn.disabled=true; btn.textContent='Demande envoyée ⏳'; btn.style.background='rgba(128,128,128,.2)'; btn.style.color='var(--muted)'; }
+  api('/friends/request/'+uid,'POST').then(function(r){ if(!(r&&r.success)&&btn){ btn.disabled=false; btn.textContent='➕ Ajouter'; } }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='➕ Ajouter'; } });
+}
+function frMessage(uid){
+  api('/conversations/direct','POST',{target_user_id:uid}).then(function(r){
+    if(r&&r.conversation){ closeFriends(); if(typeof showTab==='function') showTab('chats'); openConv(Object.assign({},r.conversation,{other_user_id:uid})); if(typeof loadConvs==='function') loadConvs(); }
+    else showNotif('❌','Erreur','Discussion impossible','red',null);
+  }).catch(function(){ showNotif('❌','Erreur','Discussion impossible','red',null); });
+}
+function frRemove(uid,btn){ if(!confirm('Retirer cet ami ?')) return; api('/friends/remove/'+uid,'DELETE').then(function(){ _frDropRow(btn); }).catch(function(){}); }
+function frBlock(uid,btn){ if(!confirm('Bloquer cet utilisateur ? Il ne pourra plus vous écrire ni vous envoyer de demande.')) return; api('/friends/block/'+uid,'POST').then(function(){ _frDropRow(btn); showNotif('🚫','Utilisateur bloqué','','red',null); }).catch(function(){}); }
+function frAccept(uid,btn){ api('/friends/accept/'+uid,'POST').then(function(r){ if(r&&r.success){ _frDropRow(btn); showNotif('✅','Demande acceptée','Vous êtes maintenant amis','green',null); if(typeof loadConvs==='function') loadConvs(); if(typeof loadFriendRequests==='function') loadFriendRequests(); } }).catch(function(){}); }
+function frReject(uid,btn){ api('/friends/reject/'+uid,'POST').then(function(){ _frDropRow(btn); if(typeof loadFriendRequests==='function') loadFriendRequests(); }).catch(function(){}); }
+function frCancel(uid,btn){ api('/friends/cancel/'+uid,'DELETE').then(function(){ _frDropRow(btn); }).catch(function(){}); }
+
+function openBlocked(){
+  var ov=document.getElementById('blockedOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='blockedOverlay'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="sheet" style="max-height:80vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" style="margin:0;">🚫 Utilisateurs bloqués</div><div onclick="closeBlocked()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div><div id="blockedBody" style="overflow-y:auto;"><div style="text-align:center;padding:24px;"><div class="spinner"></div></div></div></div>';
+  ov.classList.add('show');
+  api('/friends/blocked').then(function(d){ var b=document.getElementById('blockedBody'); if(!b) return; var us=(d&&d.blocked)||[]; if(!us.length){ b.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted);">Aucun utilisateur bloqué.</div>'; return; } b.innerHTML=us.map(function(u){ var btns='<button onclick="frUnblock(\''+u.id+'\',this)" style="'+_frBtn('accent')+'">Débloquer</button>'; return _frCard(u,btns); }).join(''); }).catch(function(){});
+}
+function closeBlocked(){ var ov=document.getElementById('blockedOverlay'); if(ov) ov.classList.remove('show'); }
+function frUnblock(uid,btn){ api('/friends/unblock/'+uid,'POST').then(function(){ _frDropRow(btn); showNotif('✅','Débloqué','','green',null); }).catch(function(){}); }
+
 // ══════════════ MES PUBLICATIONS (Fonct.1) ══════════════
 function openMyPublications(){
   var ov=document.getElementById('myPubsOverlay');
@@ -3154,6 +3237,14 @@ function renderProfileView(){
     </div>
     <div class="reward-card" onclick="openMyPublications()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
       <span style="font-weight:700;">📊 Mes publications</span>
+      <span style="color:var(--muted);font-size:20px;">&#8250;</span>
+    </div>
+    <div class="reward-card" onclick="openFriends()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+      <span style="font-weight:700;">👥 Mes amis</span>
+      <span style="color:var(--muted);font-size:20px;">&#8250;</span>
+    </div>
+    <div class="reward-card" onclick="openBlocked()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+      <span style="font-weight:700;">🚫 Utilisateurs bloqués</span>
       <span style="color:var(--muted);font-size:20px;">&#8250;</span>
     </div>
     <div class="reward-card" id="rewardCard">
@@ -3531,7 +3622,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v32 (mes publications + commentaires)');
+console.log('PENC build v33 (systeme amis complet 3 onglets + blocage)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
