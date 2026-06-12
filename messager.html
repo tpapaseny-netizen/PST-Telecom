@@ -399,6 +399,8 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .adm-btn{border:none;background:var(--card2);color:var(--text);border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;flex-shrink:0;}
 .adm-btn.ok{background:var(--accent);color:#fff;}
 .conv-avatar.has-status{border:2.5px solid var(--accent);box-shadow:0 0 0 3px rgba(28,107,74,0.15);cursor:pointer;}
+.st-ring-unseen{box-shadow:0 0 0 2px var(--bg),0 0 0 5px #FF8C00 !important;cursor:pointer;}
+.st-ring-seen{box-shadow:0 0 0 2px var(--bg),0 0 0 5px #8A9BB0 !important;cursor:pointer;}
 .sv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sv-head-title{font-size:16px;font-weight:700;}
 .sv-head-add{border:none;background:var(--accent);color:#fff;border-radius:9px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -1709,6 +1711,8 @@ async function loadConvs() {
   if(typeof loadFriendRequests==='function') loadFriendRequests();
 }
 
+function _statusState(uid){ if(!uid) return ''; var has=false, unseen=false; (STATUSES||[]).forEach(function(s){ if(String(s.user_id)===String(uid)){ has=true; if(!(s.views||[]).includes(ME&&ME.id)) unseen=true; } }); return unseen?'unseen':(has?'seen':''); }
+function _statusRingClass(uid){ var st=_statusState(uid); return st==='unseen'?'st-ring-unseen':(st==='seen'?'st-ring-seen':''); }
 function renderConvList(filter='') {
   const list=document.getElementById('convList'), empty=document.getElementById('convEmpty');
   if(!list) return;
@@ -1725,7 +1729,7 @@ function renderConvList(filter='') {
     var unread=conv.unread_count||0;
     var hasStatus=unseenStatusUsers.has(conv.other_user_id);
     var preview=(function(lm){ if(!lm) return 'Démarrer la conversation'; if(typeof lm==='string') return esc(lm); return esc(msgPreview(lm)); })(conv.last_message);
-    var html='<div class="conv-avatar'+(hasStatus?' has-status':'')+'">'+(conv.avatar_url?'<img src="'+conv.avatar_url+'" alt=""/>':'<span>'+init+'</span>')+(isOnline?'<div class="online-dot"></div>':'')+'</div>'
+    var html='<div class="conv-avatar '+_statusRingClass(conv.other_user_id)+'">'+(conv.avatar_url?'<img src="'+conv.avatar_url+'" alt=""/>':'<span>'+init+'</span>')+(isOnline?'<div class="online-dot"></div>':'')+'</div>'
       +'<div class="conv-info"><div class="conv-name">'+esc(conv.name||'Inconnu')+'</div><div class="conv-last '+(unread?'unread-last':'')+'">'+preview+'</div></div>'
       +'<div class="conv-meta"><div class="conv-time">'+fmtTime(conv.updated_at)+'</div>'+(unread?'<div class="conv-badge">'+unread+'</div>':'')+'</div>';
     var el=list.querySelector('.conv-item[data-id="'+conv.id+'"]');
@@ -1737,7 +1741,7 @@ function renderConvList(filter='') {
       list.appendChild(el); /* deplace a la bonne position sans recreer (pas de rechargement d'image) */
     }
     el.onclick=function(){ openConv(conv); };
-    if(hasStatus){ var av=el.querySelector('.conv-avatar'); if(av){ av.onclick=function(e){ e.stopPropagation(); viewStatusesOfUser(conv.other_user_id); }; } }
+    if(_statusState(conv.other_user_id)){ var av=el.querySelector('.conv-avatar'); if(av){ av.onclick=function(e){ e.stopPropagation(); viewStatusesOfUser(conv.other_user_id); }; } }
   });
   list.querySelectorAll('.conv-item').forEach(function(e){ if(!seen[e.dataset.id]) e.remove(); });
 }
@@ -3126,7 +3130,7 @@ function renderContactsView(){
       list.forEach(function(c){
         var av=c.avatar_url?'<img src="'+c.avatar_url+'" alt=""/>':esc((c.full_name||'?')[0].toUpperCase());
         h+='<div class="contact-row" onclick="openConvById(\''+c.conv_id+'\')">';
-        h+='<div class="contact-av">'+av+'</div>';
+        h+='<div class="contact-av '+_statusRingClass(c.id)+'">'+av+'</div>';
         h+='<div><div class="contact-name">'+esc(c.full_name||c.username||'?')+'</div><div class="contact-user">@'+esc(c.username||'')+'</div></div>';
         h+='</div>';
       });
@@ -3151,7 +3155,7 @@ function filterContacts(q){
   else filtered.forEach(function(c){
     var av=c.avatar_url?'<img src="'+c.avatar_url+'" alt=""/>':esc((c.full_name||'?')[0].toUpperCase());
     h+='<div class="contact-row" onclick="openConvById(\''+c.conv_id+'\')">';
-    h+='<div class="contact-av">'+av+'</div>';
+    h+='<div class="contact-av '+_statusRingClass(c.id)+'">'+av+'</div>';
     h+='<div><div class="contact-name">'+esc(c.full_name||c.username||'?')+'</div><div class="contact-user">@'+esc(c.username||'')+'</div></div>';
     h+='</div>';
   });
@@ -4085,7 +4089,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v52 (types statut + pages legales internes)');
+console.log('PENC build v53 (cercle statut orange/gris sur les avatars)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
