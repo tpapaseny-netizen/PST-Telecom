@@ -1914,8 +1914,8 @@ function buildVoiceBubble(msg){
   var barsHtml=barsH.map(function(h,i){ return '<div class="voice-bar unplayed" style="height:'+h+'px;"></div>'; }).join('');
   return '<div class="msg-bubble voice-wrap"><div class="voice-bubble">'
     +'<button class="voice-play" id="'+uid+'" onclick="playVoice(\''+uid+'\',\''+encodeURIComponent(msg.media_url)+'\')">▶</button>'
-    +'<div class="voice-wave" id="wave_'+uid+'">'+barsHtml+'</div>'
-    +'<div class="voice-info"><span class="voice-dur" id="dur_'+uid+'">'+dur+'</span></div>'
+    +'<div class="voice-wave" id="wave_'+uid+'" onclick="seekVoice(\''+uid+'\',\''+encodeURIComponent(msg.media_url)+'\',event)" style="cursor:pointer;">'+barsHtml+'</div>'
+    +'<div class="voice-info"><span class="voice-dur" id="dur_'+uid+'">'+fmtTimeV(0)+' / '+fmtTimeV((msg.media_duration||0)/1000)+'</span></div>'
     +'</div></div>';
 }
 function playVoice(uid,urlEnc){
@@ -1935,12 +1935,12 @@ function playVoice(uid,urlEnc){
         b.classList.toggle('played',i<played);
         b.classList.toggle('unplayed',i>=played);
       });
-      if(durEl) durEl.textContent=fmtTime(a.currentTime);
+      if(durEl) durEl.textContent=fmtTimeV(a.currentTime)+' / '+fmtTimeV(a.duration);
     });
     a.addEventListener('ended',function(){
       if(btn) btn.textContent='▶';
       if(wave) wave.querySelectorAll('.voice-bar').forEach(function(b){ b.classList.remove('played'); b.classList.add('unplayed'); });
-      if(durEl) durEl.textContent=fmtDur(a.duration*1000||0);
+      if(durEl) durEl.textContent=fmtTimeV(0)+' / '+fmtTimeV(a.duration);
       try{ var _vb=Array.from(document.querySelectorAll('#msgsArea .voice-play')); var _vi=_vb.indexOf(btn); if(_vi>-1&&_vi<_vb.length-1){ var _nb=_vb[_vi+1]; if(_nb) setTimeout(function(){ _nb.click(); },350); } }catch(e){}
     });
   }
@@ -1949,6 +1949,17 @@ function playVoice(uid,urlEnc){
   else{ a.pause(); if(btn) btn.textContent='▶'; }
 }
 function fmtTime(s){ s=Math.floor(s||0); return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60; }
+function fmtTimeV(s){ s=Math.max(0,Math.floor(s||0)); var m=Math.floor(s/60), ss=s%60; return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss; }
+function seekVoice(uid,urlEnc,ev){ try{ ev.stopPropagation(); }catch(_){ }
+  if(!window._voices||!window._voices[uid]){ playVoice(uid,urlEnc); }
+  var a=window._voices&&window._voices[uid]; if(!a) return;
+  var wave=document.getElementById('wave_'+uid); if(!wave) return;
+  var r=wave.getBoundingClientRect();
+  var cx=(ev.touches&&ev.touches[0])?ev.touches[0].clientX:ev.clientX;
+  var ratio=Math.max(0,Math.min(1,(cx-r.left)/r.width));
+  var doSeek=function(){ if(a.duration){ a.currentTime=ratio*a.duration; var bars=wave.querySelectorAll('.voice-bar'); var pl=Math.floor(ratio*bars.length); Array.prototype.forEach.call(bars,function(b,i){ b.classList.toggle('played',i<pl); b.classList.toggle('unplayed',i>=pl); }); } };
+  if(a.duration) doSeek(); else a.addEventListener('loadedmetadata',doSeek,{once:true});
+}
 
 function buildMoneyCard(msg){
   return `<div class="money-card"><div class="money-card-top">${esc(msg.sender?.full_name?.split(' ')[0]||'Quelqu\'un')} vous envoie</div><div class="money-card-amount">${esc(msg.money_amount||'')} FCFA</div><div class="money-card-op">via ${esc(msg.money_op||'')} · <span style="color:var(--accent)">En attente ⏳</span></div></div>`;
@@ -3376,7 +3387,7 @@ function loadFriendsList(){
     var b=document.getElementById('frBody'); if(!b||window._frTab!=='friends') return;
     var fr=(d&&d.friends)||[];
     if(!fr.length){ b.innerHTML='<div style="text-align:center;padding:34px;color:var(--muted);">Aucun ami pour le moment.<br>Va dans « Découvrir » pour en ajouter.</div>'; return; }
-    b.innerHTML=fr.map(function(u){ var btns='<button onclick="frMessage(\''+u.id+'\')" style="'+_frBtn('accent')+'">💬 Message</button><button onclick="openUserPublications(\''+u.id+'\')" style="'+_frBtn('ghost')+'">📊 Publications</button><button onclick="frRemove(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">Retirer</button><button onclick="frBlock(\''+u.id+'\',this)" style="'+_frBtn('danger')+'">Bloquer</button>'; return _frCard(u,btns); }).join('');
+    b.innerHTML=fr.map(function(u){ var btns='<button onclick="frMessage(\''+u.id+'\')" style="'+_frBtn('accent')+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Message</button><button onclick="openUserPublications(\''+u.id+'\')" style="'+_frBtn('ghost')+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Publications</button><button onclick="frRemove(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg>Retirer</button><button onclick="frBlock(\''+u.id+'\',this)" style="'+_frBtn('danger')+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Bloquer</button>'; return _frCard(u,btns); }).join('');
   }).catch(function(){});
 }
 function loadFriendRequestsTab(){
@@ -4252,7 +4263,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v59 (anti-Google + Copier + amis sans doublon)');
+console.log('PENC build v60 (boutons amis SVG + vocaux timer/seek precis)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
