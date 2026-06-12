@@ -166,7 +166,11 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .voice-dur{font-size:11px;font-weight:700;opacity:.8;flex-shrink:0;}
 
 /* Image / Video */
-.media-bubble{width:260px;max-width:min(260px,75vw);cursor:pointer;
+.media-dl{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+.media-dl:active{transform:scale(.9);}
+.voice-dl{background:none;border:none;color:inherit;opacity:.7;cursor:pointer;padding:2px;display:inline-flex;align-items:center;flex-shrink:0;}
+.voice-dl:active{opacity:1;}
+.media-bubble{position:relative;width:260px;max-width:min(260px,75vw);cursor:pointer;
   border-radius:14px;overflow:hidden;position:relative;background:#000;}
 .media-bubble img{width:100%;display:block;max-height:320px;
   object-fit:cover;border-radius:14px;}
@@ -1889,6 +1893,7 @@ function appendMsg(msg) {
   if(msg.type==='voice') bubble=buildVoiceBubble(msg);
   else if(msg.type==='image') bubble=`<div class="media-bubble" onclick="openImgViewer('${msg.media_url}')" style="background:transparent;">
     <img src="${msg.media_url}" loading="lazy" onload="window._stickBottom&&window._stickBottom()" style="min-height:120px;background:#1a1f2e;"/>
+    <button class="media-dl" onclick="event.stopPropagation();saveMedia('${msg.media_url}','image')" title="Télécharger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
   </div>`;
   else if(msg.type==='video') bubble=`<div class="media-bubble" id="vw_${msg.id}" onclick="openVidViewer('${msg.media_url}')" style="cursor:pointer;">
   <div class="vid-wrap">
@@ -1898,6 +1903,7 @@ function appendMsg(msg) {
       <svg width='48' height='48' viewBox='0 0 48 48'><circle cx='24' cy='24' r='24' fill='rgba(0,0,0,.45)'/><polygon points='19,14 37,24 19,34' fill='#fff'/></svg>
     </div>
   </div>
+  <button class="media-dl" onclick="event.stopPropagation();saveMedia('${msg.media_url}','video')" title="Télécharger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
 </div>`;
   else if(msg.type==='money') bubble=buildMoneyCard(msg);
   else if(msg.type==='radio') bubble=buildRadioCard(msg);
@@ -1923,6 +1929,7 @@ function buildVoiceBubble(msg){
     +'<button class="voice-play" id="'+uid+'" onclick="playVoice(\''+uid+'\',\''+encodeURIComponent(msg.media_url)+'\')">▶</button>'
     +'<div class="voice-wave" id="wave_'+uid+'" onclick="seekVoice(\''+uid+'\',\''+encodeURIComponent(msg.media_url)+'\',event)" style="cursor:pointer;">'+barsHtml+'</div>'
     +'<div class="voice-info"><span class="voice-dur" id="dur_'+uid+'">'+fmtTimeV(0)+' / '+fmtTimeV((msg.media_duration||0)/1000)+'</span></div>'
+    +'<button class="voice-dl" onclick="saveMedia(\''+msg.media_url+'\',\'audio\')" title="Télécharger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>'
     +'</div></div>';
 }
 function playVoice(uid,urlEnc){
@@ -4283,7 +4290,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v61 (palette emoji complete + recherche)');
+console.log('PENC build v62 (bouton Telecharger sur medias + zero suppression auto)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
