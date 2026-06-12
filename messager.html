@@ -2824,6 +2824,7 @@ function withdrawRewards(){
     else showNotif('❌','Retrait', (r&&r.error)||'Refusé','red',null);
   }).catch(function(){ showNotif('❌','Retrait','Erreur','red',null); });
 }
+function _stTypeLabel(tp){ if(tp==='image') return '📷 Photo'; if(tp==='video') return '🎬 Vidéo'; return '✍️ Texte'; }
 function renderStatusView(){
   var sc=document.getElementById('screen-main');
   sc.querySelectorAll('#status-view').forEach(function(e){e.remove();});
@@ -2833,12 +2834,12 @@ function renderStatusView(){
   var mine=window.MY_STATUSES||[]; var html='';
   html+='<div class="sv-header"><div class="sv-head-title">Statuts récents</div><button class="sv-head-add" onclick="openAddStatus()">+ Ajouter</button></div>';
   var myAv=(ME&&ME.avatar_url)?('<img src="'+ME.avatar_url+'" alt=""/>'):'<span>'+initials((ME&&ME.full_name)||'?')+'</span>';
-  html+='<div class="sv-entry" data-type="mine"><div class="sv-av my">'+myAv+'<div class="sv-add-dot">+</div></div><div class="sv-info"><div class="sv-uname">Mon statut</div><div class="sv-sub">'+(mine.length?mine.length+' statut'+(mine.length>1?'s':''):'Appuyer pour ajouter')+'</div></div>'+(mine.length&&mine[mine.length-1].type==='image'?('<div class="sv-thumb"><img src="'+mine[mine.length-1].media_url+'" alt=""/></div>'):'')+'</div>';
+  html+='<div class="sv-entry" data-type="mine"><div class="sv-av my">'+myAv+'<div class="sv-add-dot">+</div></div><div class="sv-info"><div class="sv-uname">Mon statut</div><div class="sv-sub">'+(mine.length?(_stTypeLabel(mine[mine.length-1].type)+' · '+fmtTime(mine[mine.length-1].created_at)):'Appuyer pour ajouter')+'</div></div>'+(mine.length&&mine[mine.length-1].type==='image'?('<div class="sv-thumb"><img src="'+mine[mine.length-1].media_url+'" alt=""/></div>'):'')+'</div>';
   Object.keys(grouped).forEach(function(uid){
     var sArr=grouped[uid]; var u=sArr[0].user||{}; var last=sArr[sArr.length-1];
     var unseen=sArr.some(function(ss){return !(ss.views||[]).includes(ME&&ME.id);});
     var av=u.avatar_url?('<img src="'+u.avatar_url+'" alt=""/>'):'<span>'+initials(u.full_name||u.username||'?')+'</span>';
-    html+='<div class="sv-entry" data-uid="'+esc(uid)+'"><div class="sv-av'+(unseen?' unseen':'')+'">'+av+'</div><div class="sv-info"><div class="sv-uname">'+esc(u.full_name||u.username||'?')+'</div><div class="sv-sub">'+fmtTime(last.created_at)+' · '+sArr.length+' statut'+(sArr.length>1?'s':'')+'</div></div>'+(last.type==='image'&&last.media_url?('<div class="sv-thumb"><img src="'+last.media_url+'" alt=""/></div>'):'')+'</div>';
+    html+='<div class="sv-entry" data-uid="'+esc(uid)+'"><div class="sv-av'+(unseen?' unseen':'')+'">'+av+'</div><div class="sv-info"><div class="sv-uname">'+esc(u.full_name||u.username||'?')+'</div><div class="sv-sub">'+_stTypeLabel(last.type)+' · '+fmtTime(last.created_at)+(sArr.length>1?' · '+sArr.length:'')+'</div></div>'+(last.type==='image'&&last.media_url?('<div class="sv-thumb"><img src="'+last.media_url+'" alt=""/></div>'):'')+'</div>';
   });
   if(!Object.keys(grouped).length&&!mine.length) html+='<div class="empty-state" style="flex:1;"><div class="empty-icon">📸</div><div class="empty-text">Aucun statut récent.<br>Sois le premier !</div></div>';
   div.innerHTML=html;
@@ -3434,6 +3435,13 @@ function renderProfileView(){
       <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='17'?' active':''}" data-s="17" onclick="setMsgSize(17)"><span style="font-size:17px;">Grand</span></div>
       <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='20'?' active':''}" data-s="20" onclick="setMsgSize(20)"><span style="font-size:18px;">Tr\u00E8s grand</span></div>
     </div></div>
+    <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">Informations & légal</div></div>
+    <div class="reward-card" onclick="openLegalPage('about')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">À propos de Penc</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
+    <div class="reward-card" onclick="openLegalPage('privacy')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">Confidentialité</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
+    <div class="reward-card" onclick="openLegalPage('terms')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">Conditions d\'utilisation</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
+    <div class="reward-card" onclick="openLegalPage('cookies')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">Politique des cookies</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
+    <div class="reward-card" onclick="openLegalPage('help')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">Aide et support</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
+    <div class="reward-card" onclick="openLegalPage('contact')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;"><span style="font-weight:700;">Contacter Penc</span><span style="color:var(--muted);font-size:20px;">&#8250;</span></div>
     <div class="settings-horiz">
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
       <div class="sh-item" onclick="changePP()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="sh-label">Photo</div></div>
@@ -3449,6 +3457,23 @@ function renderProfileView(){
   loadRewards();
 }
 
+var LEGAL_PAGES={
+  about:{title:'À propos de Penc',html:'<h3 style="margin:0 0 10px;">Penc</h3><p>Penc est une messagerie moderne d\u00E9velopp\u00E9e par <b>PST Telecom</b> au S\u00E9n\u00E9gal. Elle r\u00E9unit messages, appels, statuts, canaux, transferts d\'argent et radios s\u00E9n\u00E9galaises dans une seule application rapide et s\u00E9curis\u00E9e.</p><p>Notre mission : offrir une plateforme de communication africaine, simple et accessible \u00E0 tous.</p><p style="color:var(--muted);">Version 1.0 \u00B7 PST Telecom \u00B7 M\u00E9dina Sabakh, S\u00E9n\u00E9gal</p>'},
+  privacy:{title:'Confidentialité',html:'<p>Nous respectons ta vie priv\u00E9e. Tes messages sont transmis de fa\u00E7on s\u00E9curis\u00E9e et ne sont pas vendus \u00E0 des tiers.</p><p>Nous collectons le minimum de donn\u00E9es n\u00E9cessaires au fonctionnement du service : profil, contacts que tu ajoutes et contenus que tu publies.</p><p>Tu peux \u00E0 tout moment supprimer ton compte et tes donn\u00E9es depuis l\'application.</p>'},
+  terms:{title:'Conditions d\'utilisation',html:'<p>En utilisant Penc, tu acceptes de ne pas publier de contenu ill\u00E9gal, haineux, violent ou portant atteinte aux droits d\'autrui.</p><p>PST Telecom peut suspendre tout compte qui enfreint ces r\u00E8gles.</p><p>Le service est fourni tel quel, sans garantie de disponibilit\u00E9 permanente.</p>'},
+  cookies:{title:'Politique des cookies',html:'<p>Penc utilise le stockage local de ton appareil pour m\u00E9moriser ta session, ton th\u00E8me et tes pr\u00E9f\u00E9rences.</p><p>Aucun cookie publicitaire de pistage tiers n\'est utilis\u00E9.</p>'},
+  help:{title:'Aide et support',html:'<p><b>Publier un statut ?</b><br>Onglet Statuts puis + Ajouter.</p><p><b>Cr\u00E9er un canal ?</b><br>Onglet Canaux puis Cr\u00E9er.</p><p><b>Probl\u00E8me de connexion ?</b><br>V\u00E9rifie ta connexion internet et r\u00E9essaie. Si le souci persiste, contacte-nous.</p>'},
+  contact:{title:'Contacter Penc',html:'<p>Une question, un bug, une suggestion ?</p><p>Email : <a href="mailto:papasenytoure@gmail.com" style="color:var(--accent);text-decoration:none;">papasenytoure@gmail.com</a></p><p>PST Telecom \u2014 M\u00E9dina Sabakh, R\u00E9gion de Kaolack, S\u00E9n\u00E9gal.</p>'}
+};
+function openLegalPage(key){
+  var P=LEGAL_PAGES[key]; if(!P) return;
+  var ov=document.getElementById('legalOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='legalOv'; ov.className='iab-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="iab-bar"><button class="iab-btn" onclick="closeLegal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="iab-addr" style="cursor:default;">'+P.title+'</div></div>'
+    +'<div style="flex:1;overflow-y:auto;padding:22px;color:var(--text);line-height:1.7;font-size:14.5px;">'+P.html+'</div>';
+  ov.classList.add('show');
+}
+function closeLegal(){ var ov=document.getElementById('legalOv'); if(ov) ov.classList.remove('show'); }
 // ══════════════ CHANNELS ══════════════
 function renderChannelsView(){
   var sc=document.getElementById('screen-main');
@@ -4060,7 +4085,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v51 (taille texte + splash rapide + stories off chats)');
+console.log('PENC build v52 (types statut + pages legales internes)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
