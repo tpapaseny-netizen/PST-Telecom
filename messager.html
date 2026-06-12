@@ -889,7 +889,9 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
   outline:none;cursor:pointer;margin-bottom:12px;}
 .vid-seek::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
   border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);}
-.vid-ctrl-row{display:flex;align-items:center;gap:18px;}
+.vid-ctrl-row{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;}
+.vid-vol{width:54px;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:rgba(255,255,255,.3);outline:none;flex-shrink:0;cursor:pointer;}
+.vid-vol::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff;cursor:pointer;}
 .vid-ctrl-btn{background:none;border:none;color:#fff;font-size:24px;
   cursor:pointer;padding:6px;flex-shrink:0;line-height:1;}
 .vid-time{color:rgba(255,255,255,.75);font-size:13px;font-family:monospace;
@@ -4124,7 +4126,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v55 (icones SVG premium: tel, video, argent, piece jointe)');
+console.log('PENC build v56 (controles video complets: vitesse, volume, plein ecran)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -4783,6 +4785,9 @@ function updateMsgTick(msgId, state){
 
 // ═══ FULLSCREEN VIDEO PLAYER ═══
 var _fvCtrlTimer=null;
+var SVG_VOL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+var SVG_MUTE='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+var VID_SPEEDS=[0.5,1,1.5,2];
 function openVidViewer(url){
   var v=document.getElementById('fullVidEl');
   var o=document.getElementById('vidViewer');
@@ -4790,6 +4795,7 @@ function openVidViewer(url){
   o.classList.add('active');
   v.src=url;
   v.load();
+  v.playbackRate=1; var _sb=document.getElementById('vidSpeedBtn'); if(_sb) _sb.textContent='1×'; var _vv=document.getElementById('vidVol'); if(_vv) _vv.value=(v.muted?0:(v.volume||1));
   var btn=document.getElementById('vidPlayBtn');
   if(btn) btn.innerHTML=SVG_PAUSE;
   // Play direct — la vidéo est en streaming, pas besoin d'attendre canplay
@@ -4853,9 +4859,12 @@ function toggleVidMute(){
   var btn=document.getElementById('vidMuteBtn');
   if(!v) return;
   v.muted=!v.muted;
-  if(btn) btn.textContent=v.muted?'🔇':'🔊';
+  if(btn) btn.innerHTML=v.muted?SVG_MUTE:SVG_VOL; var _vol=document.getElementById('vidVol'); if(_vol&&!v.muted&&v.volume===0){ v.volume=1; _vol.value=1; }
   showVidCtrl();
 }
+function cycleVidSpeed(){ var v=document.getElementById('fullVidEl'); if(!v) return; var cur=v.playbackRate||1; var i=VID_SPEEDS.indexOf(cur); if(i<0) i=1; i=(i+1)%VID_SPEEDS.length; v.playbackRate=VID_SPEEDS[i]; var b=document.getElementById('vidSpeedBtn'); if(b) b.textContent=VID_SPEEDS[i]+'×'; showVidCtrl(); }
+function setVidVol(val){ var v=document.getElementById('fullVidEl'); if(!v) return; val=parseFloat(val); v.volume=val; v.muted=(val<=0); var b=document.getElementById('vidMuteBtn'); if(b) b.innerHTML=(v.muted)?SVG_MUTE:SVG_VOL; showVidCtrl(); }
+function toggleVidFullscreen(){ var o=document.getElementById('vidViewer'); var v=document.getElementById('fullVidEl'); try{ if(document.fullscreenElement){ document.exitFullscreen(); } else if(o&&o.requestFullscreen){ o.requestFullscreen(); } else if(v&&v.webkitEnterFullscreen){ v.webkitEnterFullscreen(); } }catch(e){} showVidCtrl(); }
 function onVidTime(){
   var v=document.getElementById('fullVidEl');
   var seek=document.getElementById('vidSeek');
@@ -5237,7 +5246,10 @@ document.addEventListener('DOMContentLoaded',function(){
       <button class="vid-ctrl-btn" id="vidPlayBtn" onclick="toggleFullPlay()"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
       <button class="vid-ctrl-btn" onclick="skipVid(10)"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="13 19 22 12 13 5"/><polygon points="2 19 11 12 2 5"/></svg></button>
       <span class="vid-time" id="vidTime">0:00 / 0:00</span>
-      <button class="vid-ctrl-btn" id="vidMuteBtn" onclick="toggleVidMute()" style="margin-left:auto">🔊</button>
+      <button class="vid-ctrl-btn" id="vidSpeedBtn" onclick="cycleVidSpeed()" title="Vitesse" style="margin-left:auto;font-size:14px;font-weight:700;min-width:40px;">1×</button>
+      <button class="vid-ctrl-btn" id="vidMuteBtn" onclick="toggleVidMute()" title="Son"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+      <input type="range" id="vidVol" class="vid-vol" min="0" max="1" step="0.05" value="1" oninput="setVidVol(this.value)" title="Volume"/>
+      <button class="vid-ctrl-btn" onclick="toggleVidFullscreen()" title="Plein écran"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     </div>
   </div>
 </div>
