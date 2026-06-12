@@ -92,6 +92,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 .stories-label span:first-child{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
 .stories-hint{font-size:10px;color:var(--muted);background:var(--card2);padding:2px 8px;border-radius:8px;font-weight:600;}
 .stories-row::-webkit-scrollbar{display:none;}
+.stories-row,.stories-label{display:none!important;}
 .story-item{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;}
 .story-ring{width:56px;height:56px;border-radius:17px;padding:2.5px;background:linear-gradient(135deg,var(--accent),var(--accent2));position:relative;}
 .story-ring.seen{background:var(--border);}
@@ -148,7 +149,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(
 @keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .msg-row.me{align-items:flex-end;}
 .msg-row.them{align-items:flex-start;}
-.msg-bubble{max-width:100%;padding:9px 13px;border-radius:17px;word-break:break-word;overflow-wrap:anywhere;font-size:15px;line-height:1.45;}
+.msg-bubble{max-width:100%;padding:9px 13px;border-radius:17px;word-break:break-word;overflow-wrap:anywhere;font-size:var(--msg-font,15px);line-height:1.45;}
 .msg-row.me .msg-bubble{background:var(--me-bg);color:var(--me-text);border-radius:17px 17px 4px 17px;}
 .msg-row.them .msg-bubble{background:var(--them-bg);color:var(--them-text);border-radius:17px 17px 17px 4px;border:1px solid var(--border);}
 .msg-meta{display:flex;align-items:center;gap:3px;font-size:11px;margin-top:3px;margin-bottom:7px;padding:0 3px;}
@@ -908,7 +909,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 #screen-chat{background:#0A0A0A;}
 #screen-chat .messages-area{background:#0A0A0A;}
 /* ===== BULLES TEXTE ===== */
-.msg-bubble{font-size:15px;line-height:1.5;font-weight:400;padding:10px 14px;}
+.msg-bubble{font-size:var(--msg-font,15px);line-height:1.5;font-weight:400;padding:10px 14px;}
 .msg-row.me .msg-bubble{background:linear-gradient(135deg,#FF6B00,#FF8C00);color:#FFFFFF;border:none;border-radius:18px 18px 4px 18px;box-shadow:0 4px 12px rgba(255,107,0,0.35);}
 .msg-row.them .msg-bubble{background:#1A1A1A;color:#FFFFFF;border:1px solid rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;box-shadow:none;}
 .msg-row.me .msg-bubble a,.msg-row.me .ml-url,.msg-row.me .msg-link{color:#FFFFFF;text-decoration:underline;}
@@ -1361,7 +1362,7 @@ const WOLOF_DICT = {
 
 // ══════════════ INIT ══════════════
 window.addEventListener('DOMContentLoaded', () => {
-  initTheme();
+  initTheme(); initMsgSize();
   buildStickerPanel();
   buildRadioList();
   const tok = localStorage.getItem('penc_tok');
@@ -1379,6 +1380,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ══════════════ THEMES ══════════════
+function setMsgSize(px){ try{ document.documentElement.style.setProperty('--msg-font', px+'px'); localStorage.setItem('penc_msgsize', px); var bs=document.querySelectorAll('#msgSizeBtns .t-btn'); bs.forEach(function(b){ b.classList.toggle('active', String(b.dataset.s)===String(px)); }); }catch(e){} }
+function initMsgSize(){ try{ var px=localStorage.getItem('penc_msgsize')||'15'; document.documentElement.style.setProperty('--msg-font', px+'px'); }catch(e){} }
 function initTheme() {
   let t = localStorage.getItem('penc_theme') || '';
   if (t !== 'dark') { t=''; localStorage.setItem('penc_theme',''); }
@@ -3424,6 +3427,13 @@ function renderProfileView(){
       <div class="t-btn${curTheme===''?' active':''}" data-t="" onclick="applyTheme('','claude')" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.12);"><div style="width:13px;height:13px;border-radius:4px;background:#00C896;"></div><span style="color:#1A1A1A;">Mode Claude</span></div>
       <div class="t-btn${curTheme==='dark'?' active':''}" data-t="dark" onclick="applyTheme('dark','dark')" style="background:#0A0A0A;"><div style="width:13px;height:13px;border-radius:4px;background:#00C896;"></div><span style="color:#FFFFFF;">Mode Sombre</span></div>
     </div></div>
+    <div style="padding:14px 14px 6px;"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;">\uD83D\uDD24 Taille du texte</div>
+    <div class="theme-btns" id="msgSizeBtns">
+      <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='13'?' active':''}" data-s="13" onclick="setMsgSize(13)"><span style="font-size:13px;">Petit</span></div>
+      <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='15'?' active':''}" data-s="15" onclick="setMsgSize(15)"><span style="font-size:15px;">Normal</span></div>
+      <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='17'?' active':''}" data-s="17" onclick="setMsgSize(17)"><span style="font-size:17px;">Grand</span></div>
+      <div class="t-btn${(localStorage.getItem('penc_msgsize')||'15')==='20'?' active':''}" data-s="20" onclick="setMsgSize(20)"><span style="font-size:18px;">Tr\u00E8s grand</span></div>
+    </div></div>
     <div class="settings-horiz">
       <input type="file" id="ppInput" accept="image/*" style="display:none" onchange="uploadPP(event)"/>
       <div class="sh-item" onclick="changePP()"><div class="sh-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="sh-label">Photo</div></div>
@@ -4050,7 +4060,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v50 (navigateur interne pour les liens)');
+console.log('PENC build v51 (taille texte + splash rapide + stories off chats)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -5021,7 +5031,7 @@ async function saveEdit(text){
   setTimeout(function(){
     sp.classList.add('sp-out');
     setTimeout(function(){ if(sp.parentNode) sp.parentNode.removeChild(sp); },340);
-  },1380);
+  },1050);
 })();
 
 // ── Canal: socket temps réel ──
