@@ -975,6 +975,9 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 #stickerPanel .sticker-cat{color:#888888;}
 #stickerPanel .sticker-item{font-size:26px;padding:5px;}
 #stickerPanel .sticker-item:active{background:#1A1A1A;}
+.emoji-search-wrap{position:sticky;top:0;background:#111111;padding:8px 10px;z-index:3;}
+#emojiSearch{width:100%;box-sizing:border-box;background:#1d1d1d;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:9px 14px;color:#fff;font-size:14px;outline:none;}
+#emojiSearch::placeholder{color:#888888;}
 /* ===== FLÈCHE ALLER EN BAS ===== */
 #scrollDownFab{position:absolute;right:14px;bottom:84px;width:42px;height:42px;border-radius:50%;background:#1A1A1A;color:#FF6B00;border:1px solid rgba(255,255,255,0.12);box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(8px) scale(.9);pointer-events:none;transition:opacity .18s,transform .18s;z-index:40;}
 #scrollDownFab.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
@@ -1338,6 +1341,10 @@ const EMOJIS = {
   "Objets": ["⌚","📱","💻","⌨️","🖥️","🖨️","💾","💿","📷","📸","📹","🎥","📞","☎️","📺","📻","🎙️","⏰","🔋","💡","🔦","🕯️","💸","💵","💰","💳","💎","⚖️","🔧","🔨","🛠️","⚙️","🧲","🔌","💣","🔪","🔑","🚪","🛋️","🛏️","🧳","💊","💉","🌡️","🧹","🚿","🧼","🔮","📿","🔭","🔬","🎈","🎁","🎀"],
   "Symboles": ["✅","❌","❓","❗","‼️","⁉️","💤","🔔","🔕","🎵","🎶","➕","➖","➗","✖️","♾️","💲","©️","®️","™️","⚠️","🚸","♻️","✳️","❇️","🔟","🔣","🆘","🆗","🆙","🆒","🆕","🆓","🔘","🔴","🟠","🟡","🟢","🔵","🟣","⚫","⚪","🟥","🟧","🟨","🟩","🟦","🟪"],
   "Drapeaux": ["🇸🇳","🏳️","🏴","🏁","🚩","🏳️‍🌈","🇫🇷","🇺🇸","🇬🇧","🇲🇦","🇨🇮","🇲🇱","🇳🇪","🇧🇫","🇬🇳","🇨🇲","🇹🇳","🇲🇦","🇩🇿"]
+};
+var EMOJI_KW={'':''};
+EMOJI_KW={
+ '😀':'sourire content heureux','😂':'rire mdr lol pleure','🤣':'rire mdr explose','😍':'amour yeux coeur adore','🥰':'amour adore coeur','😘':'bisou bise kiss','😎':'cool lunettes soleil','😭':'pleure triste larmes','😢':'triste pleure','😡':'colere enerve fache rouge','😱':'peur cri choc','🤔':'reflechir penser doute','👍':'pouce ok bien oui jaime like','👎':'pouce non mauvais dislike','👏':'applaudir bravo','🙏':'merci prier priere stp','🔥':'feu chaud flamme','❤️':'coeur amour rouge','💔':'coeur brise rupture','✨':'etoiles brillant','💯':'cent parfait','🎉':'fete bravo felicitations','🎂':'gateau anniversaire','🍕':'pizza','🍔':'burger hamburger','☕':'cafe the','⚽':'foot football ballon','🏀':'basket','🎮':'jeu manette gaming','🎵':'musique note','📱':'telephone portable','💻':'ordinateur laptop pc','💰':'argent sac money','💸':'argent billet','🚗':'voiture auto','✈️':'avion voyage','🌍':'terre monde','🐶':'chien chiot','🐱':'chat','🦁':'lion','🐸':'grenouille','😴':'dormir sommeil fatigue','🤮':'vomir degout','🤒':'malade fievre','🥳':'fete fetard anniversaire','🙄':'yeux ciel agace','😉':'clin oeil','💪':'muscle force fort','🙌':'mains bravo youpi','👋':'salut bonjour coucou main','🤝':'main accord deal','🇸🇳':'senegal drapeau','🇫🇷':'france drapeau','😊':'sourire timide','😅':'gene sueur','🤐':'silence bouche','🥱':'fatigue baille','🤯':'choc explose tete'
 };
 const STICKERS = {
   'Réactions':[
@@ -2281,16 +2288,29 @@ function _sendMsgVid(){
 }
 // ══════════════ STICKERS ══════════════
 function buildStickerPanel(){
-  var p=document.getElementById('stickerPanel'); if(!p||typeof EMOJIS==='undefined') return; var html='';
+  var p=document.getElementById('stickerPanel'); if(!p||typeof EMOJIS==='undefined') return; var cats='';
   Object.keys(EMOJIS).forEach(function(cat){
-    html+='<div class="sticker-cat">'+cat+'</div><div class="sticker-grid">';
-    EMOJIS[cat].forEach(function(em){ html+='<div class="sticker-item" data-emoji="'+em+'">'+em+'</div>'; });
-    html+='</div>';
+    cats+='<div class="sticker-cat">'+cat+'</div><div class="sticker-grid">';
+    EMOJIS[cat].forEach(function(em){ cats+='<div class="sticker-item" data-emoji="'+em+'">'+em+'</div>'; });
+    cats+='</div>';
   });
-  p.innerHTML=html;
+  p.innerHTML='<div class="emoji-search-wrap"><input id="emojiSearch" type="text" placeholder="Rechercher un emoji\u2026" oninput="filterEmojis(this.value)" autocomplete="off"/></div>'
+    +'<div id="emojiResults" style="display:none;"></div><div id="emojiCats">'+cats+'</div>';
   if(!p._emojiBound){ p._emojiBound=true;
     p.addEventListener('click',function(e){ var it=e.target.closest('.sticker-item'); if(it){ insertEmoji(it.getAttribute('data-emoji')); } });
   }
+}
+function _deburr(s){ try{ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }catch(e){ return (s||'').toLowerCase(); } }
+function filterEmojis(q){
+  q=_deburr(q).trim();
+  var cats=document.getElementById('emojiCats'), res=document.getElementById('emojiResults'); if(!cats||!res) return;
+  if(!q){ cats.style.display=''; res.style.display='none'; res.innerHTML=''; return; }
+  var found=[], seen={};
+  for(var em in EMOJI_KW){ if(EMOJI_KW[em].indexOf(q)>=0 && !seen[em]){ seen[em]=1; found.push(em); } }
+  Object.keys(EMOJIS).forEach(function(cat){ if(_deburr(cat).indexOf(q)>=0){ EMOJIS[cat].forEach(function(e){ if(!seen[e]){ seen[e]=1; found.push(e); } }); } });
+  cats.style.display='none'; res.style.display='';
+  if(!found.length){ res.innerHTML='<div style="padding:22px;text-align:center;color:#888;font-size:13px;">Aucun emoji trouv\u00E9</div>'; return; }
+  res.innerHTML='<div class="sticker-grid" style="padding:6px 4px;">'+found.map(function(e){ return '<div class="sticker-item" data-emoji="'+e+'">'+e+'</div>'; }).join('')+'</div>';
 }
 function insertEmoji(em){
   var ta=document.getElementById('chatInput'); if(!ta) return;
@@ -4263,7 +4283,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v60 (boutons amis SVG + vocaux timer/seek precis)');
+console.log('PENC build v61 (palette emoji complete + recherche)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
