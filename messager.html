@@ -2198,6 +2198,31 @@ function pickFile(t){
 function handleFileAuto(e){var f=e.target.files[0];if(!f)return;e.target.value='';var t=(f.type&&f.type.startsWith('video'))?'video':((f.type&&f.type.startsWith('image'))?'image':'file'); if(t==='video'){ _msgVideoPreview(f); return; } uploadAndSend(f,t,f.type);}
 function handleFile(e,t){const f=e.target.files[0];if(!f)return;e.target.value=''; if(t==='video'){ _msgVideoPreview(f); return; } uploadAndSend(f,t,f.type);}
 
+function _cldUploadChunked(blob, folder, onProgress){
+  return new Promise(function(resolve,reject){
+    var CHUNK=20*1024*1024, total=blob.size, start=0;
+    var uid='penc-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+    function next(){
+      var end=Math.min(start+CHUNK,total);
+      var fd=new FormData(); fd.append('file',blob.slice(start,end)); fd.append('upload_preset',CLD_PRESET); fd.append('folder',folder);
+      var x=new XMLHttpRequest();
+      x.open('POST','https://api.cloudinary.com/v1_1/'+CLD_CLOUD+'/auto/upload');
+      x.setRequestHeader('X-Unique-Upload-Id',uid);
+      x.setRequestHeader('Content-Range','bytes '+start+'-'+(end-1)+'/'+total);
+      x.upload.onprogress=function(e){ if(e.lengthComputable&&onProgress){ onProgress(Math.min(99,Math.round((start+e.loaded)/total*100))); } };
+      x.onload=function(){
+        var d=null; try{ d=JSON.parse(x.responseText); }catch(_){ }
+        if(x.status>=200 && x.status<300){
+          if(end>=total){ if(d&&d.secure_url){ if(onProgress) onProgress(100); resolve(d.secure_url); } else { reject(new Error((d&&d.error&&d.error.message)||'Cloudinary (final)')); } }
+          else { start=end; next(); }
+        } else { reject(new Error((d&&d.error&&d.error.message)||('Cloudinary HTTP '+x.status))); }
+      };
+      x.onerror=function(){ reject(new Error('Réseau Cloudinary')); };
+      x.send(fd);
+    }
+    next();
+  });
+}
 async function uploadAndSend(blob,type,mimeType,trim){
   if(!CUR_CONV) return;
   const tid='up_'+Date.now();
@@ -2221,7 +2246,7 @@ async function uploadAndSend(blob,type,mimeType,trim){
         <circle cx='18' cy='18' r='15' fill='none' stroke='#4dd0e1' stroke-width='3'
           stroke-dasharray='94' stroke-dashoffset='70' stroke-linecap='round'/>
       </svg>
-      <span id='pg_${tid}' style='color:#fff;font-size:12px;font-weight:700;'>0%</span>
+      <span id='pg_${tid}' style='color:#fff;font-size:12px;font-weight:700;'>Envoi 0%</span>
     </div></div></div>`;
   // CSS spin
   if(!document.getElementById('spinStyle')){
@@ -2235,9 +2260,13 @@ async function uploadAndSend(blob,type,mimeType,trim){
     const folder=type==='voice'?'penc/voice':type==='image'?'penc/images':type==='video'?'penc/videos':'penc/docs';
     const rt=type==='image'?'image':type==='file'?'raw':'video';
     const fd=new FormData(); fd.append('file',blob); fd.append('upload_preset',CLD_PRESET); fd.append('folder',folder);
-    const url=await new Promise((res,rej)=>{
+    let url;
+    if((type==='video'||type==='file') && blob.size>20971520){
+      url=await _cldUploadChunked(blob,folder,function(pp){ var _el=document.getElementById('pg_'+tid); if(_el) _el.textContent='Envoi '+pp+'%'; });
+    } else {
+    url=await new Promise((res,rej)=>{
       const x=new XMLHttpRequest();
-      x.upload.onprogress=e=>{if(e.lengthComputable){const p=document.getElementById('pg_'+tid);if(p)p.textContent=Math.round(e.loaded/e.total*100)+'%';}};
+      x.upload.onprogress=e=>{if(e.lengthComputable){const p=document.getElementById('pg_'+tid);if(p)p.textContent='Envoi '+Math.round(e.loaded/e.total*100)+'%';}};
       x.open('POST',`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/auto/upload`);
       x.onload=()=>{
         let d; try{ d=JSON.parse(x.responseText); }catch(_){ return rej(new Error('Réponse Cloudinary invalide ('+x.status+')')); }
@@ -2246,6 +2275,7 @@ async function uploadAndSend(blob,type,mimeType,trim){
       };
       x.onerror=()=>rej(new Error('Réseau Cloudinary')); x.send(fd);
     });
+    }
     row.remove();
     const dur=type==='voice'?recSecs*1000:undefined;
     let _mu=url;
@@ -4290,7 +4320,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v62 (bouton Telecharger sur medias + zero suppression auto)');
+console.log('PENC build v63 (upload video chunke jusqu a 4h + progression)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
