@@ -930,7 +930,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
 #screen-chat{background:#0A0A0A;}
 #screen-chat .messages-area{background:#0A0A0A;}
 /* ===== BULLES TEXTE ===== */
-.msg-bubble{font-size:var(--msg-font,15px);line-height:1.5;font-weight:400;padding:10px 14px;}
+.msg-bubble{font-size:var(--msg-font,15px);line-height:1.5;font-weight:400;padding:10px 14px;-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .msg-row.me .msg-bubble{background:linear-gradient(135deg,#FF6B00,#FF8C00);color:#FFFFFF;border:none;border-radius:18px 18px 4px 18px;box-shadow:0 4px 12px rgba(255,107,0,0.35);}
 .msg-row.them .msg-bubble{background:#1A1A1A;color:#FFFFFF;border:1px solid rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;box-shadow:none;}
 .msg-row.me .msg-bubble a,.msg-row.me .ml-url,.msg-row.me .msg-link{color:#FFFFFF;text-decoration:underline;}
@@ -4252,7 +4252,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v58 (timeline video a miniatures + poignees)');
+console.log('PENC build v59 (anti-Google + Copier + amis sans doublon)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){
@@ -4751,6 +4751,8 @@ function showMsgMenu(msg, rowEl){
   if(canEdit) items.push({svg:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',label:'Modifier',fn:function(){startEditMsg(msg,rowEl);}});
   items.push({svg:SVG_TRASH,label:'Supprimer pour moi',fn:function(){deleteMsgLocal(msg,rowEl);},danger:false});
   if(canAll) items.push({svg:SVG_TRASH+SVG_GLOBE,label:'Supprimer pour tous',fn:function(){deleteMsgAll(msg,rowEl);},danger:true});
+  var SVG_COPY='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  if(msg.type==='text' && (msg.content||'').trim()){ items.unshift({svg:SVG_COPY,label:'Copier',fn:function(){ try{ navigator.clipboard.writeText(msg.content||''); showNotif('📋','Copié','Texte copié','green',null); }catch(e){} }}); }
   items.forEach(function(it){
     var el=document.createElement('div'); el.className='msg-ctx-item'+(it.danger?' danger':'');
     el.innerHTML='<div class="ctx-icon">'+(it.svg||it.icon||'')+'</div><span>'+it.label+'</span>';

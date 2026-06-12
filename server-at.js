@@ -4535,8 +4535,8 @@ function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username
 
 app.get('/api/penc/friends', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({friends:[]});
-    const r=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid]);
-    const ids=r.rows.map(function(x){return x.requester===uid?x.recipient:x.requester;});
+    const r=await _pgPool.query("SELECT DISTINCT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid]);
+    const _seen={}; const ids=[]; r.rows.forEach(function(x){ var fid=x.requester===uid?x.recipient:x.requester; if(!_seen[fid]){ _seen[fid]=1; ids.push(fid); } });
     const users=await pgAllUsers()||[];
     res.json({friends:ids.map(function(id){ return _frInfo(users.find(function(u){return u.id===id;})); })}); }catch(e){ res.json({friends:[]}); }
 });
