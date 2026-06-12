@@ -54,3 +54,23 @@ self.addEventListener('notificationclick', function (e) {
     })
   );
 });
+
+// ══════════════ Envoi en arrière-plan (Background Sync) ══════════════
+var PENC_SEND_URL = 'https://pst-telecom.onrender.com/api/penc/send';
+function _swDB(){ return new Promise(function(res,rej){ try{ var r=indexedDB.open('penc-outbox',1); r.onupgradeneeded=function(){ try{ r.result.createObjectStore('q',{keyPath:'id'}); }catch(_){} }; r.onsuccess=function(){res(r.result);}; r.onerror=function(){rej(r.error);}; }catch(e){ rej(e); } }); }
+function _swAll(db){ return new Promise(function(res){ try{ var rq=db.transaction('q','readonly').objectStore('q').getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){res([]);}; }catch(_){ res([]); } }); }
+function _swDel(db,id){ try{ db.transaction('q','readwrite').objectStore('q').delete(id); }catch(_){} }
+function _swFlush(){
+  return _swDB().then(function(db){
+    return _swAll(db).then(function(items){
+      if(!items||!items.length) return;
+      return Promise.all(items.map(function(it){
+        return fetch(PENC_SEND_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(it.token||'')},body:JSON.stringify(it.payload)})
+          .then(function(r){return r.json();})
+          .then(function(d){ if(d&&d.success){ _swDel(db,it.id); if(!d.duplicate){ return self.registration.showNotification('Penc',{body:'Message envoyé \u2705',icon:'/icon-192.png',badge:'/icon-192.png',tag:'penc-sent'}); } } })
+          .catch(function(){});
+      }));
+    });
+  }).catch(function(){});
+}
+self.addEventListener('sync', function(e){ if(e.tag==='penc-outbox'){ e.waitUntil(_swFlush()); } });

@@ -3948,6 +3948,8 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pending BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS client_id TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
@@ -4112,8 +4114,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -4637,6 +4639,36 @@ async function emitToUsers(uids, event, data){
     io.to('user:'+String(uid)).emit(event,data);
   }
 }
+// POST /api/penc/send — envoi REST (file d'attente / arriere-plan, idempotent via client_id)
+app.post('/api/penc/send', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const { conversation_id, type, content, media_url, media_duration, reply_to, client_id } = req.body || {};
+    if(!conversation_id) return res.status(400).json({ error:'conversation_id requis' });
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    if(client_id){
+      try{ const ex=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); if(ex.rows[0]) return res.json({ success:true, duplicate:true, id:ex.rows[0].id }); }catch(_e){}
+    }
+    const msg = {
+      id: 'msg_'+Date.now()+Math.random().toString(36).slice(2),
+      conversation_id, sender_id: uid, reply_to: reply_to||null,
+      type: type||'text', content: content||null,
+      media_url: media_url||null, media_duration: media_duration||null,
+      client_id: client_id||null, created_at: new Date().toISOString(), read_at:null
+    };
+    let sender = { id: uid };
+    try{ const u=await pgFindUser('id',uid); if(u) sender=pencStrip(u); }catch(_){}
+    const fullMsg = { ...msg, sender };
+    try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
+    try{
+      const cr=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
+      let parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
+      parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
+    }catch(_){}
+    try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); }
+    return res.json({ success:true, message: fullMsg });
+  }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
+});
 // PATCH /api/penc/messages/:id — modifier un message
 app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
   try{
@@ -5616,7 +5648,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 
   // Envoyer message
   socket.on('message:send', async (data, cb) => {
-    const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op } = data;
+    const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op, client_id } = data;
     try {
       const { reply_to } = data;
       const msg = {
@@ -5630,6 +5662,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         poll_results: poll_options ? poll_options.map(() => 0) : null,
         radio_name: radio_name || null, radio_url: radio_url || null,
         money_amount: money_amount || null, money_op: money_op || null,
+        client_id: client_id || null,
         created_at: new Date().toISOString(), read_at: null
       };
 
@@ -5685,7 +5718,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             id: msg.id, conversation_id: msg.conversation_id,
             sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null,
-            duration: msg.media_duration || null, created_at: msg.created_at
+            duration: msg.media_duration || null, created_at: msg.created_at, client_id: msg.client_id||null
           });
         } else {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
