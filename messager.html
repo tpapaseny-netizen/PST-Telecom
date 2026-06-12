@@ -3248,7 +3248,7 @@ function loadFriendsList(){
     var b=document.getElementById('frBody'); if(!b||window._frTab!=='friends') return;
     var fr=(d&&d.friends)||[];
     if(!fr.length){ b.innerHTML='<div style="text-align:center;padding:34px;color:var(--muted);">Aucun ami pour le moment.<br>Va dans « Découvrir » pour en ajouter.</div>'; return; }
-    b.innerHTML=fr.map(function(u){ var btns='<button onclick="frMessage(\''+u.id+'\')" style="'+_frBtn('accent')+'">💬 Message</button><button onclick="frRemove(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">Retirer</button><button onclick="frBlock(\''+u.id+'\',this)" style="'+_frBtn('danger')+'">Bloquer</button>'; return _frCard(u,btns); }).join('');
+    b.innerHTML=fr.map(function(u){ var btns='<button onclick="frMessage(\''+u.id+'\')" style="'+_frBtn('accent')+'">💬 Message</button><button onclick="openUserPublications(\''+u.id+'\')" style="'+_frBtn('ghost')+'">📊 Publications</button><button onclick="frRemove(\''+u.id+'\',this)" style="'+_frBtn('ghost')+'">Retirer</button><button onclick="frBlock(\''+u.id+'\',this)" style="'+_frBtn('danger')+'">Bloquer</button>'; return _frCard(u,btns); }).join('');
   }).catch(function(){});
 }
 function loadFriendRequestsTab(){
@@ -3349,6 +3349,41 @@ function _renderPubsDash(sv,sl,ss){
   }).catch(function(){});
 }
 function closeMyPubs(){ var ov=document.getElementById('myPubsOverlay'); if(ov) ov.classList.remove('show'); }
+function openUserPublications(uid){
+  var ov=document.getElementById('friendPubsOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='friendPubsOverlay'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="sheet" style="max-height:90vh;display:flex;flex-direction:column;"><div class="sheet-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="sheet-title" id="fpTitle" style="margin:0;">\uD83D\uDCCA Publications</div><div onclick="closeFriendPubs()" style="cursor:pointer;font-size:20px;color:var(--muted);">&#10005;</div></div><div style="overflow-y:auto;flex:1;"><div id="fpHead"></div><div id="fpGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding-bottom:10px;"><div style="grid-column:1/-1;text-align:center;padding:30px;"><div class="spinner"></div></div></div></div></div>';
+  ov.classList.add('show');
+  api('/users/'+uid+'/publications').then(function(d){
+    var grid=document.getElementById('fpGrid'); if(!grid) return;
+    var pubs=(d&&d.publications)||[]; window._friendPubs=pubs;
+    var nm=(d&&d.user&&d.user.full_name)||''; var tt=document.getElementById('fpTitle'); if(tt&&nm) tt.textContent='\uD83D\uDCCA Publications de '+nm;
+    var sv=0,sl=0,ss=0; pubs.forEach(function(p){ sv+=(p.views||0); sl+=(p.likes||0); ss+=(p.shares||0); });
+    var head=document.getElementById('fpHead'); if(head) head.innerHTML='<div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:12px;background:var(--card2);border-radius:14px;padding:14px 6px;"><div><div style="font-size:24px;font-weight:800;">'+sv+'</div><div style="font-size:11px;color:var(--muted);">\uD83D\uDC41\uFE0F Vues</div></div><div><div style="font-size:24px;font-weight:800;">'+sl+'</div><div style="font-size:11px;color:var(--muted);">\u2764\uFE0F Likes</div></div><div><div style="font-size:24px;font-weight:800;">'+ss+'</div><div style="font-size:11px;color:var(--muted);">\uD83D\uDD17 Partages</div></div></div>';
+    if(!pubs.length){ grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:34px;color:var(--muted);">Aucune publication.</div>'; return; }
+    grid.innerHTML=pubs.map(function(p,i){
+      var thumb;
+      if(p.type==='image'&&p.media_url) thumb='<img src="'+p.media_url+'" style="width:100%;height:100%;object-fit:cover;"/>';
+      else if(p.type==='video'&&p.media_url) thumb='<video src="'+p.media_url+'" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;"></video>';
+      else thumb='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-size:12px;color:#fff;background:'+(p.bg_color||'#1a1f2e')+';">'+esc((p.text_content||p.caption||'').slice(0,60))+'</div>';
+      return '<div onclick="openFriendPub('+i+')" style="position:relative;aspect-ratio:9/16;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;">'+thumb+'<div style="position:absolute;left:0;right:0;bottom:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:11px;display:flex;gap:8px;"><span>&#128065; '+(p.views||0)+'</span><span>&#10084;&#65039; '+(p.likes||0)+'</span><span>&#128279; '+(p.shares||0)+'</span></div></div>';
+    }).join('');
+  }).catch(function(){ var grid=document.getElementById('fpGrid'); if(grid) grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Visible uniquement par les amis.</div>'; });
+}
+function closeFriendPubs(){ var ov=document.getElementById('friendPubsOverlay'); if(ov) ov.classList.remove('show'); }
+function openFriendPub(i){
+  var p=(window._friendPubs||[])[i]; if(!p) return;
+  var ov=document.getElementById('friendPubViewer');
+  if(!ov){ ov=document.createElement('div'); ov.id='friendPubViewer'; ov.style.cssText='position:fixed;inset:0;z-index:3200;background:#000;display:flex;flex-direction:column;'; document.body.appendChild(ov); }
+  var media;
+  if(p.type==='image'&&p.media_url) media='<img src="'+p.media_url+'" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto;"/>';
+  else if(p.type==='video'&&p.media_url) media='<video src="'+p.media_url+'" controls autoplay playsinline style="max-width:100%;max-height:100%;margin:auto;"></video>';
+  else media='<div style="margin:auto;width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;font-size:22px;color:#fff;background:'+(p.bg_color||'#1a1f2e')+';">'+esc(p.text_content||p.caption||'')+'</div>';
+  var dt=new Date(p.created_at); var dstr=dt.toLocaleDateString('fr-FR')+' \u00E0 '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  ov.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;color:#fff;"><span style="font-size:13px;opacity:.85;">'+dstr+'</span><div onclick="closeFriendPub()" style="cursor:pointer;font-size:24px;">&#10005;</div></div><div style="flex:1;display:flex;overflow:hidden;">'+media+'</div><div style="display:flex;justify-content:center;gap:22px;padding:14px;color:#fff;font-size:14px;"><span>&#128065; '+(p.views||0)+'</span><span>&#10084;&#65039; '+(p.likes||0)+'</span><span>&#128279; '+(p.shares||0)+'</span></div>';
+  ov.style.display='flex';
+}
+function closeFriendPub(){ var ov=document.getElementById('friendPubViewer'); if(ov) ov.style.display='none'; }
 function openPub(i){
   var p=(window._myPubs||[])[i]; if(!p) return;
   var ov=document.getElementById('pubViewer');
@@ -4089,7 +4124,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v53 (cercle statut orange/gris sur les avatars)');
+console.log('PENC build v54 (publications visibles par les amis)');
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){
   function init(){

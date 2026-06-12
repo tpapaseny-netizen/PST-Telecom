@@ -4403,6 +4403,21 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
 });
 
 // ════════════════ ARCHIVE PUBLICATIONS (Fonct.1) ════════════════
+// GET /api/penc/users/:id/publications — visibles par les amis (relation acceptee)
+app.get('/api/penc/users/:id/publications', pencAuth, async (req,res)=>{
+  try{
+    const me=req.pencUser.userId; const target=req.params.id;
+    if(!_pgPool) return res.json({publications:[]});
+    if(String(me)!==String(target)){
+      const fr=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[me,target]);
+      if(!fr.rows.length) return res.status(403).json({error:'Reserve aux amis', publications:[]});
+    }
+    const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC',[target]);
+    const pubs=r.rows.map(function(row){ const stt=pgStatusToObj(row); return { id:stt.id, type:stt.type, media_url:stt.media_url||null, text_content:stt.text_content||null, bg_color:stt.bg_color||null, caption:stt.caption||null, created_at:stt.created_at, duration:stt.duration||null, views:Array.isArray(stt.views)?stt.views.length:0, likes:Array.isArray(stt.reactions)?stt.reactions.length:0, shares:stt.shares||0 }; });
+    let uname=''; try{ const u=await pgFindUser('id',target); if(u) uname=u.full_name||u.username||''; }catch(e){}
+    res.json({publications:pubs, user:{full_name:uname}});
+  }catch(e){ res.json({publications:[]}); }
+});
 app.get('/api/penc/statuses/mine/archive', pencAuth, async (req,res)=>{
   try{
     const uid=req.pencUser.userId;
