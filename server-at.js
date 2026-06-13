@@ -4639,7 +4639,7 @@ app.post("/api/penc/polls/:id/vote", pencAuth, async (req,res)=>{
     const poll=pr.rows[0];
     if(poll.status!=="active") return res.status(400).json({error:"Ce sondage n'est pas ouvert"});
     if(poll.ends_at && new Date(poll.ends_at).getTime()<Date.now()) return res.status(400).json({error:"Ce sondage est terminé"});
-    const already=await _pgPool.query("SELECT 1 FROM penc_poll_votes WHERE poll_id=$1 AND (user_id=$2 OR ip_address=$3) LIMIT 1",[pid,uid,ip]);
+    const already=await _pgPool.query("SELECT 1 FROM penc_poll_votes WHERE poll_id=$1 AND user_id=$2 LIMIT 1",[pid,uid]);
     if(already.rows[0]) return res.status(409).json({error:"Vous avez déjà participé à ce sondage."});
     let optionIds=Array.isArray(req.body&&req.body.option_ids)?req.body.option_ids:[];
     if(!optionIds.length && req.body&&req.body.option_id) optionIds=[req.body.option_id];
