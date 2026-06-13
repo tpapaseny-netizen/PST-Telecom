@@ -4022,6 +4022,42 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      CREATE TABLE IF NOT EXISTS penc_polls (
+        id TEXT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_by TEXT,
+        channel_id TEXT,
+        conversation_id TEXT,
+        type VARCHAR(20) DEFAULT 'single' CHECK (type IN ('single','multiple','rating')),
+        status VARCHAR(10) DEFAULT 'draft' CHECK (status IN ('draft','active','closed')),
+        is_anonymous BOOLEAN DEFAULT FALSE,
+        show_results_before_vote BOOLEAN DEFAULT FALSE,
+        starts_at TIMESTAMPTZ DEFAULT NOW(),
+        ends_at TIMESTAMPTZ,
+        total_votes INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_poll_options (
+        id TEXT PRIMARY KEY,
+        poll_id TEXT REFERENCES penc_polls(id) ON DELETE CASCADE,
+        option_text VARCHAR(255) NOT NULL,
+        votes_count INTEGER DEFAULT 0,
+        position INTEGER DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS penc_poll_votes (
+        id TEXT PRIMARY KEY,
+        poll_id TEXT REFERENCES penc_polls(id) ON DELETE CASCADE,
+        option_id TEXT,
+        user_id TEXT,
+        ip_address VARCHAR(50),
+        voted_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(poll_id, user_id, option_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ppoll_status  ON penc_polls(status);
+      CREATE INDEX IF NOT EXISTS idx_ppopt_poll    ON penc_poll_options(poll_id);
+      CREATE INDEX IF NOT EXISTS idx_ppvote_poll   ON penc_poll_votes(poll_id);
+      CREATE INDEX IF NOT EXISTS idx_ppvote_user   ON penc_poll_votes(poll_id, user_id);
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
@@ -4481,6 +4517,186 @@ app.get('/api/penc/ads/next', pencAuth, async (req,res)=>{
     const a=r.rows[0]; a.duration=Math.max(5,Math.min(15,a.duration||8));
     res.json({ad:a}); }catch(e){ res.json({ad:null}); }
 });
+// ═══════════ SONDAGES (Phase 2) ═══════════
+function _pollGenId(p){ return p+"_"+Date.now()+Math.random().toString(36).slice(2,8); }
+function _pollClientIp(req){ return (req.headers["x-forwarded-for"]||"").split(",")[0].trim() || (req.socket&&req.socket.remoteAddress) || "unknown"; }
+
+async function _pollPayload(pollId, userId){
+  const pr=await _pgPool.query("SELECT * FROM penc_polls WHERE id=$1",[pollId]);
+  if(!pr.rows[0]) return null;
+  const poll=pr.rows[0];
+  const or=await _pgPool.query("SELECT id,option_text,votes_count,position FROM penc_poll_options WHERE poll_id=$1 ORDER BY position ASC",[pollId]);
+  let voted=[];
+  if(userId){ const vr=await _pgPool.query("SELECT option_id FROM penc_poll_votes WHERE poll_id=$1 AND user_id=$2",[pollId,userId]); voted=vr.rows.map(function(r){return r.option_id;}); }
+  const hasVoted=voted.length>0;
+  const showResults = hasVoted || poll.show_results_before_vote || poll.status==="closed";
+  const total=poll.total_votes||0;
+  const options=or.rows.map(function(o){ return { id:o.id, text:o.option_text, votes: showResults?(o.votes_count||0):null, percent: (showResults&&total>0)?Math.round((o.votes_count||0)*100/total):(showResults?0:null) }; });
+  return { id:poll.id, title:poll.title, description:poll.description, type:poll.type, status:poll.status, is_anonymous:poll.is_anonymous, ends_at:poll.ends_at, channel_id:poll.channel_id, conversation_id:poll.conversation_id, total_votes:total, options:options, has_voted:hasVoted, voted_options:voted, show_results:showResults }; 
+}
+
+// Admin : liste de tous les sondages
+app.get("/api/penc/admin/polls", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({polls:[]});
+    const r=await _pgPool.query("SELECT * FROM penc_polls ORDER BY created_at DESC");
+    res.json({polls:r.rows});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// Admin : créer un sondage (brouillon)
+app.post("/api/penc/polls", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const b=req.body||{};
+    const title=(b.title||"").trim(); if(!title) return res.status(400).json({error:"Titre requis"});
+    let opts=Array.isArray(b.options)?b.options.map(function(o){return String(o||"").trim();}).filter(Boolean):[];
+    if(opts.length<2) return res.status(400).json({error:"Au moins 2 options"});
+    if(opts.length>10) opts=opts.slice(0,10);
+    const type=["single","multiple","rating"].includes(b.type)?b.type:"single";
+    const id=_pollGenId("poll");
+    await _pgPool.query("INSERT INTO penc_polls(id,title,description,created_by,channel_id,conversation_id,type,status,is_anonymous,show_results_before_vote,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+      [id,title,b.description||null,req.pencUser.userId,b.channel_id||null,b.conversation_id||null,type,"draft",!!b.is_anonymous,!!b.show_results_before_vote,b.ends_at||null]);
+    for(let i=0;i<opts.length;i++){ await _pgPool.query("INSERT INTO penc_poll_options(id,poll_id,option_text,position) VALUES($1,$2,$3,$4)",[_pollGenId("opt"),id,opts[i],i]); }
+    res.json({success:true,id:id});
+  }catch(e){ console.error("poll create:",e.message); res.status(500).json({error:"Erreur création"}); }
+});
+
+// Admin : modifier (brouillon uniquement)
+app.patch("/api/penc/polls/:id", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const pr=await _pgPool.query("SELECT status FROM penc_polls WHERE id=$1",[req.params.id]);
+    if(!pr.rows[0]) return res.status(404).json({error:"Sondage introuvable"});
+    if(pr.rows[0].status!=="draft") return res.status(400).json({error:"Modifiable uniquement en brouillon"});
+    const b=req.body||{};
+    await _pgPool.query("UPDATE penc_polls SET title=COALESCE($2,title),description=COALESCE($3,description),is_anonymous=COALESCE($4,is_anonymous),show_results_before_vote=COALESCE($5,show_results_before_vote),ends_at=$6,type=COALESCE($7,type) WHERE id=$1",
+      [req.params.id,(b.title||null),(b.description||null),(typeof b.is_anonymous==="boolean"?b.is_anonymous:null),(typeof b.show_results_before_vote==="boolean"?b.show_results_before_vote:null),(b.ends_at||null),(["single","multiple","rating"].includes(b.type)?b.type:null)]);
+    if(Array.isArray(b.options)){
+      let opts=b.options.map(function(o){return String(o||"").trim();}).filter(Boolean).slice(0,10);
+      if(opts.length>=2){ await _pgPool.query("DELETE FROM penc_poll_options WHERE poll_id=$1",[req.params.id]);
+        for(let i=0;i<opts.length;i++){ await _pgPool.query("INSERT INTO penc_poll_options(id,poll_id,option_text,position) VALUES($1,$2,$3,$4)",[_pollGenId("opt"),req.params.id,opts[i],i]); } }
+    }
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// Admin : activer (draft -> active) + notifier tout le monde
+app.post("/api/penc/polls/:id/activate", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const pr=await _pgPool.query("UPDATE penc_polls SET status='active', starts_at=NOW() WHERE id=$1 AND status='draft' RETURNING title",[req.params.id]);
+    if(!pr.rows[0]) return res.status(400).json({error:"Déjà activé ou introuvable"});
+    try{ const ur=await _pgPool.query("SELECT id FROM penc_users"); ur.rows.forEach(function(u){ const tid=String(u.id);
+      emitToUsers(tid,"poll:new",{id:req.params.id,title:pr.rows[0].title});
+      if(typeof sendPencPush==="function") sendPencPush(tid,{title:"Nouveau sondage",body:pr.rows[0].title+" — Appuyez pour participer",icon:"/penc-icon-192.png",badge:"/penc-icon-192.png",tag:"penc-poll-"+req.params.id,data:{type:"poll",url:"/messager"}});
+    }); }catch(_n){}
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// Admin : fermer (active -> closed) + notifier les participants
+app.post("/api/penc/polls/:id/close", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const pr=await _pgPool.query("UPDATE penc_polls SET status='closed' WHERE id=$1 AND status='active' RETURNING title",[req.params.id]);
+    if(!pr.rows[0]) return res.status(400).json({error:"Non actif ou introuvable"});
+    try{ const vr=await _pgPool.query("SELECT DISTINCT user_id FROM penc_poll_votes WHERE poll_id=$1 AND user_id IS NOT NULL",[req.params.id]); vr.rows.forEach(function(v){ const tid=String(v.user_id);
+      emitToUsers(tid,"poll:closed",{id:req.params.id,title:pr.rows[0].title});
+      if(typeof sendPencPush==="function") sendPencPush(tid,{title:"Résultats disponibles",body:"Sondage : "+pr.rows[0].title,icon:"/penc-icon-192.png",badge:"/penc-icon-192.png",tag:"penc-pollres-"+req.params.id,data:{type:"poll_results",url:"/messager"}});
+    }); }catch(_n){}
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// Admin : supprimer
+app.delete("/api/penc/polls/:id", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    await _pgPool.query("DELETE FROM penc_polls WHERE id=$1",[req.params.id]);
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// User : liste des sondages actifs
+app.get("/api/penc/polls", pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({polls:[]});
+    const r=await _pgPool.query("SELECT id FROM penc_polls WHERE status='active' ORDER BY created_at DESC");
+    const out=[]; for(const row of r.rows){ const p=await _pollPayload(row.id, req.pencUser.userId); if(p) out.push(p); }
+    res.json({polls:out});
+  }catch(e){ res.json({polls:[]}); }
+});
+
+// User/Admin : détail d'un sondage
+app.get("/api/penc/polls/:id", pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const p=await _pollPayload(req.params.id, req.pencUser.userId);
+    if(!p) return res.status(404).json({error:"Sondage introuvable"});
+    res.json({poll:p});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// User : voter (double contrôle user_id + IP, une seule participation)
+app.post("/api/penc/polls/:id/vote", pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const uid=req.pencUser.userId; const ip=_pollClientIp(req); const pid=req.params.id;
+    const pr=await _pgPool.query("SELECT status,type,ends_at FROM penc_polls WHERE id=$1",[pid]);
+    if(!pr.rows[0]) return res.status(404).json({error:"Sondage introuvable"});
+    const poll=pr.rows[0];
+    if(poll.status!=="active") return res.status(400).json({error:"Ce sondage n'est pas ouvert"});
+    if(poll.ends_at && new Date(poll.ends_at).getTime()<Date.now()) return res.status(400).json({error:"Ce sondage est terminé"});
+    const already=await _pgPool.query("SELECT 1 FROM penc_poll_votes WHERE poll_id=$1 AND (user_id=$2 OR ip_address=$3) LIMIT 1",[pid,uid,ip]);
+    if(already.rows[0]) return res.status(409).json({error:"Vous avez déjà participé à ce sondage."});
+    let optionIds=Array.isArray(req.body&&req.body.option_ids)?req.body.option_ids:[];
+    if(!optionIds.length && req.body&&req.body.option_id) optionIds=[req.body.option_id];
+    optionIds=optionIds.filter(Boolean);
+    if(!optionIds.length) return res.status(400).json({error:"Choisissez une option"});
+    if(poll.type!=="multiple") optionIds=[optionIds[0]];
+    const ov=await _pgPool.query("SELECT id FROM penc_poll_options WHERE poll_id=$1",[pid]);
+    const valid=ov.rows.map(function(r){return r.id;});
+    optionIds=optionIds.filter(function(o){return valid.includes(o);});
+    if(!optionIds.length) return res.status(400).json({error:"Option invalide"});
+    for(const oid of optionIds){
+      await _pgPool.query("INSERT INTO penc_poll_votes(id,poll_id,option_id,user_id,ip_address) VALUES($1,$2,$3,$4,$5) ON CONFLICT(poll_id,user_id,option_id) DO NOTHING",[_pollGenId("v"),pid,oid,uid,ip]);
+      await _pgPool.query("UPDATE penc_poll_options SET votes_count=votes_count+1 WHERE id=$1",[oid]);
+    }
+    await _pgPool.query("UPDATE penc_polls SET total_votes=total_votes+1 WHERE id=$1",[pid]);
+    const payload=await _pollPayload(pid, uid);
+    try{ io.emit("poll:update",{id:pid}); }catch(_){}
+    res.json({success:true,poll:payload});
+  }catch(e){ console.error("poll vote:",e.message); res.status(500).json({error:"Erreur vote"}); }
+});
+
+// Admin : résultats détaillés (toujours visibles)
+app.get("/api/penc/polls/:id/results", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const p=await _pollPayload(req.params.id, null);
+    if(!p) return res.status(404).json({error:"Introuvable"});
+    const or=await _pgPool.query("SELECT id,option_text,votes_count FROM penc_poll_options WHERE poll_id=$1 ORDER BY position ASC",[req.params.id]);
+    const total=p.total_votes||0;
+    p.show_results=true;
+    p.options=or.rows.map(function(o){return {id:o.id,text:o.option_text,votes:o.votes_count||0,percent:total>0?Math.round((o.votes_count||0)*100/total):0};});
+    res.json({poll:p});
+  }catch(e){ res.status(500).json({error:"Erreur"}); }
+});
+
+// Admin : liste des votants (si non anonyme)
+app.get("/api/penc/polls/:id/voters", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({voters:[]});
+    const pr=await _pgPool.query("SELECT is_anonymous FROM penc_polls WHERE id=$1",[req.params.id]);
+    if(!pr.rows[0]) return res.status(404).json({error:"Introuvable"});
+    if(pr.rows[0].is_anonymous) return res.json({anonymous:true,voters:[]});
+    const r=await _pgPool.query("SELECT v.user_id, u.full_name, u.username, o.option_text, v.voted_at FROM penc_poll_votes v LEFT JOIN penc_users u ON u.id=v.user_id LEFT JOIN penc_poll_options o ON o.id=v.option_id WHERE v.poll_id=$1 ORDER BY v.voted_at DESC",[req.params.id]);
+    res.json({voters:r.rows});
+  }catch(e){ res.json({voters:[]}); }
+});
+
+// Admin : export CSV
+app.get("/api/penc/polls/:id/export", pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).send("BD indisponible");
+    const or=await _pgPool.query("SELECT option_text,votes_count FROM penc_poll_options WHERE poll_id=$1 ORDER BY position ASC",[req.params.id]);
+    let csv="Option,Votes\r\n";
+    or.rows.forEach(function(o){ csv+='"'+String(o.option_text).replace(/"/g,'""')+'",'+(o.votes_count||0)+"\r\n"; });
+    res.setHeader("Content-Type","text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition",'attachment; filename="sondage-'+req.params.id+'.csv"');
+    res.send("\uFEFF"+csv);
+  }catch(e){ res.status(500).send("Erreur"); }
+});
+// ═══════════ FIN SONDAGES ═══════════
 app.post('/api/penc/ads/view', pencAuth, async (req,res)=>{
   try{ if(!_pgPool) return res.json({success:true});
     const uid=req.pencUser.userId; const ad_id=(req.body&&req.body.ad_id)||null;
