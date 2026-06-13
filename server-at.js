@@ -4158,6 +4158,17 @@ async function pgSaveMessage(msg){
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
   return r.rows[0];
 }
+// GET /api/penc/check-username — vérif dispo username (public)
+app.get('/api/penc/check-username', async (req, res) => {
+  try {
+    const u = ((req.query.u||'')+'').trim();
+    if (!u || u.length < 2) return res.json({ available: false });
+    let taken = false;
+    if (_pgPool) { taken = !!(await pgFindUser('username', u)); }
+    else { const users = await pencUsers(); taken = users.some(x => (x.username||'').toLowerCase() === u.toLowerCase()); }
+    res.json({ available: !taken });
+  } catch (e) { res.json({ available: true }); }
+});
 // POST /api/penc/auth/register
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
@@ -5885,10 +5896,10 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       };
 
       // 1) Livraison TEMPS RÉEL d'abord (ne dépend pas de JSONBin)
-      let sender = { id: pencUserId };
+      let sender = { id: pencUserId }; let _senderAdmin = false;
       try {
         const u = _pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(x => x.id === pencUserId);
-        if (u) sender = pencStrip(u);
+        if (u) { sender = pencStrip(u); _senderAdmin = (u.is_admin === true) || PENC_ADMIN_EMAILS.includes(((u.email || '') + '').toLowerCase()); }
       } catch {}
       // ── Amis : blocage + 1er message en attente (fail-open) ──
       let _blocked = false;
@@ -5903,7 +5914,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
               const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
               if (parseInt(_cnt.rows[0].n) === 0) {
                 const _acc = await pgFriendAccepted(pencUserId, _other);
-                if (!_acc) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
+                if (!_acc && !_senderAdmin) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
               }
             }
           }
@@ -5936,7 +5947,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             id: msg.id, conversation_id: msg.conversation_id,
             sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null,
-            duration: msg.media_duration || null, created_at: msg.created_at, client_id: msg.client_id||null
+            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null
           });
         } else {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
