@@ -4575,7 +4575,7 @@ app.post('/api/penc/friends/request/:userId', pencAuth, async (req,res)=>{
     const ex=await _pgPool.query("SELECT status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[uid,other]);
     if(ex.rows.length) return res.json({success:true, status:ex.rows[0].status});
     await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
-    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); }catch(e){}
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Nouvelle demande d\'ami', body:(me.full_name||me.username||'Quelqu\'un')+' souhaite vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
     res.json({success:true, status:'pending'}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
@@ -4583,7 +4583,7 @@ app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
     await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE requester=$1 AND recipient=$2 AND status='pending'",[requester,uid]);
     try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester, JSON.stringify([uid])]); }catch(e2){}
-    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}}); }catch(e){}
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}}); try{ sendPencPush(requester,{title:'Demande acceptee', body:(me.full_name||me.username||'Quelqu\'un')+' a accepte votre demande d\'ami', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendacc', data:{type:'friend_accepted', url:'/messager'}}); }catch(_p){} }catch(e){}
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/reject/:userId', pencAuth, async (req,res)=>{
@@ -4991,7 +4991,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
           const convs=await pencConvs();
           for(const c of convs){ const parts=c.participants||c.members||[]; if(parts.includes(req.pencUser.userId)) parts.forEach(p=>{ if(p!==req.pencUser.userId) partners.add(p); }); }
         }
-        const ppayload={ title:aname, body:'a publié un nouveau statut', icon:'/icon-192.png', badge:'/icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
+        const ppayload={ title:aname, body:'a publié un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
         partners.forEach(uid=>{ sendPencPush(uid, ppayload); });
       }
     } catch(e){ console.error('push statut:', e.message); }
