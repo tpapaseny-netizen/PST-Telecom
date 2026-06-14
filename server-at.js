@@ -5350,6 +5350,28 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+app.get('/api/penc/admin/analytics', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ series:{signups:[],messages:[],statuses:[],views:[]}, realtime:{online:0,messages_today:0,ad_revenue_month:0} });
+    const dayCounts = async (table) => {
+      const q = await _pgPool.query("SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'),'YYYY-MM-DD') d, COUNT(*)::int c FROM " + table + " WHERE created_at >= NOW() - INTERVAL '29 days' GROUP BY d");
+      const map = {}; q.rows.forEach(r => { map[r.d] = r.c; });
+      const out = [];
+      for (let i = 29; i >= 0; i--) { const key = new Date(Date.now() - i*86400000).toISOString().slice(0,10); out.push({ date: key, count: map[key] || 0 }); }
+      return out;
+    };
+    let signups=[], messages=[], statuses=[], views=[];
+    try { signups  = await dayCounts('penc_users'); } catch(e){}
+    try { messages = await dayCounts('penc_messages'); } catch(e){}
+    try { statuses = await dayCounts('penc_statuses'); } catch(e){}
+    try { views    = await dayCounts('penc_ad_revenue'); } catch(e){}
+    let messages_today = 0, ad_revenue_month = 0, online = 0;
+    try { const t = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_messages WHERE created_at >= date_trunc('day', NOW())"); messages_today = t.rows[0].c; } catch(e){}
+    try { const m = await _pgPool.query("SELECT COALESCE(SUM(total),0)::int s FROM penc_ad_revenue WHERE created_at >= date_trunc('month', NOW())"); ad_revenue_month = m.rows[0].s; } catch(e){}
+    try { online = pencOnline.size; } catch(e){}
+    res.json({ series:{signups,messages,statuses,views}, realtime:{online, messages_today, ad_revenue_month} });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.post('/api/penc/admin/withdraw/approve', pencAuth, pencAdmin, async (req, res) => {
   try {
     const { user_id } = req.body;
