@@ -5509,6 +5509,26 @@ app.post('/api/penc/admin/verify-requests/:id/reject', pencAuth, pencAdmin, asyn
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    const { title, body, url } = req.body || {};
+    if (!body || !String(body).trim()) return res.status(400).json({ error: 'Message requis' });
+    const data = { title: (title||'Penc'), body: String(body), url: (url||'/messager') };
+    try { io.emit('penc:broadcast', data); } catch(e){}
+    let sent = 0, total = 0;
+    if (webpush) {
+      const payload = JSON.stringify({ title: data.title, body: data.body, tag: 'penc-broadcast', url: data.url });
+      const subs = await pencPushSubs(); total = subs.length;
+      const dead = [];
+      for (const sb of subs) {
+        try { await webpush.sendNotification(sb.subscription, payload); sent++; }
+        catch (err) { if (err && (err.statusCode===404||err.statusCode===410) && sb.subscription) dead.push(sb.subscription.endpoint); }
+      }
+      if (dead.length) { try { const all = await pencPushSubs(); await pencSavePushSubs(all.filter(z => !(z.subscription && dead.includes(z.subscription.endpoint)))); } catch(e){} }
+    }
+    res.json({ success: true, sent, total });
+  } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 // ── Modération admin (Fonct. 5) ──
 app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({statuses:[]});
