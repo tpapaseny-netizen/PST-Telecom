@@ -5395,6 +5395,14 @@ app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res
     const out=r.rows.map(function(row){ const s=pgStatusToObj(row); return {id:s.id, type:s.type, media_url:s.media_url||null, text_content:s.text_content||null, bg_color:s.bg_color||null, caption:s.caption||null, created_at:s.created_at, views:Array.isArray(s.views)?s.views.length:0, likes:Array.isArray(s.reactions)?s.reactions.length:0, shares:s.shares||0}; });
     res.json({statuses:out}); }catch(e){ res.json({statuses:[]}); }
 });
+app.get('/api/penc/admin/statuses', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ statuses: [] });
+    const r = await _pgPool.query('SELECT s.*, u.full_name AS _fn, u.username AS _un FROM penc_statuses s LEFT JOIN penc_users u ON u.id = s.user_id ORDER BY s.created_at DESC LIMIT 300');
+    const out = r.rows.map(function(row){ const x = pgStatusToObj(row); return { id:x.id, user_id:row.user_id, owner:(row._fn||row._un||'Inconnu'), type:x.type, media_url:x.media_url||null, text_content:x.text_content||null, bg_color:x.bg_color||null, caption:x.caption||null, created_at:x.created_at, views:Array.isArray(x.views)?x.views.length:0, likes:Array.isArray(x.reactions)?x.reactions.length:0 }; });
+    res.json({ statuses: out });
+  } catch (e) { res.json({ statuses: [] }); }
+});
 app.delete('/api/penc/admin/statuses/:id', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1',[req.params.id]); res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
