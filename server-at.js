@@ -3976,6 +3976,9 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS owner_id TEXT;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
@@ -5353,7 +5356,7 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
-      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended };
+      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, verified:!!u.verified };
     };
     const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator}; }); } }catch(_e){}
     const _msgMap={}; try{ if(_pgPool){ const _qq=await _pgPool.query('SELECT sender_id, COUNT(*)::int c FROM penc_messages GROUP BY sender_id'); _qq.rows.forEach(function(r){ _msgMap[String(r.sender_id)]=r.c; }); } }catch(_e){}
@@ -5434,6 +5437,23 @@ app.post('/api/penc/admin/withdraw/reject', pencAuth, pencAdmin, async (req, res
     u.withdraw_request.rejected_at = new Date().toISOString();
     u.reward_pending = false;
     await pencSaveUsers(users);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/verified', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ ids: [] });
+    const r = await _pgPool.query('SELECT id FROM penc_users WHERE verified=TRUE');
+    res.json({ ids: r.rows.map(x => String(x.id)) });
+  } catch (e) { res.json({ ids: [] }); }
+});
+app.post('/api/penc/admin/verify/:userId', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const v = !!(req.body && req.body.verified);
+    const type = (req.body && req.body.type) || (v ? 'admin' : null);
+    await _pgPool.query('UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END WHERE id=$3', [v, type, req.params.userId]);
+    try { emitToUsers(String(req.params.userId), 'penc:verified', { verified: v }); } catch(e){}
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
