@@ -4745,7 +4745,9 @@ app.post('/api/penc/ads/view', pencAuth, async (req,res)=>{
 app.get('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
   try{ const r=await _pgPool.query("SELECT * FROM penc_ads ORDER BY created_at DESC");
     const users=await pgAllUsers()||[];
-    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } return a; });
+    let statMap={};
+    try{ const sr=await _pgPool.query("SELECT ad_id, COUNT(*)::int views, COALESCE(SUM(total),0)::int revenue FROM penc_ad_revenue GROUP BY ad_id"); sr.rows.forEach(function(x){ statMap[String(x.ad_id)]={views:x.views, revenue:x.revenue}; }); }catch(e){}
+    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } var st=statMap[String(a.id)]||{views:0,revenue:0}; a.views=st.views; a.revenue=st.revenue; return a; });
     res.json({ads:ads}); }catch(e){ res.json({ads:[]}); }
 });
 app.post('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
