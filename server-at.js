@@ -3975,6 +3975,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS owner_id TEXT;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
@@ -5336,9 +5337,9 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
-      msgs_sent:(_msgMap[String(u.id)]||0), muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended };
+      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended };
     };
-    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended}; }); } }catch(_e){}
+    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator}; }); } }catch(_e){}
     const _msgMap={}; try{ if(_pgPool){ const _qq=await _pgPool.query('SELECT sender_id, COUNT(*)::int c FROM penc_messages GROUP BY sender_id'); _qq.rows.forEach(function(r){ _msgMap[String(r.sender_id)]=r.c; }); } }catch(_e){}
     const all = users.map(enrich);
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
@@ -5408,6 +5409,12 @@ app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)
   try{ if(!_pgPool) return res.json({success:true});
     const susp=!!(req.body&&req.body.suspend);
     await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/admin/moderator/:userId', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const mod=!!(req.body&&req.body.moderator);
+    await _pgPool.query('UPDATE penc_users SET moderator=$1 WHERE id=$2',[mod,req.params.userId]);
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.delete('/api/penc/admin/user/:id', pencAuth, pencAdmin, async (req, res) => {
