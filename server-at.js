@@ -3549,6 +3549,16 @@ async function getGeoForIp(rawIp){
 }
 async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
 async function pencSavePushSubs(a) { return jbSet(BINS.penc_push, { subs: a }); }
+async function pencSecLog(type, req, extra) {
+  try {
+    if (!_pgPool) return;
+    extra = extra || {};
+    const ip = (req && req.headers && (req.headers['x-forwarded-for']||'').split(',')[0].trim()) || (req && req.ip) || '';
+    const ua = (req && req.headers && req.headers['user-agent']) || '';
+    const id = 'sec_' + Date.now() + Math.random().toString(36).slice(2);
+    await _pgPool.query('INSERT INTO penc_security_logs(id, type, user_id, identifier, ip, user_agent, detail, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id, type, (extra.user_id||null), (extra.identifier||null), ip, String(ua).slice(0,300), (extra.detail||null)]);
+  } catch(e) {}
+}
 async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
@@ -4011,6 +4021,8 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
       CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_pvr_status ON penc_verif_requests(status);
+      CREATE TABLE IF NOT EXISTS penc_security_logs (id TEXT PRIMARY KEY, type TEXT, user_id TEXT, identifier TEXT, ip TEXT, user_agent TEXT, detail TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4301,7 +4313,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       user = adminUser;
     }
 
-    if (!user) return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'});
+    if (!user) { pencSecLog('login_failed', req, {identifier:id, detail:'compte introuvable'}); return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'}); }
 
     // ── Vérification mot de passe ──
     let pwdOk = isAdminBypass;
@@ -4309,13 +4321,14 @@ app.post('/api/penc/auth/login', async (req, res) => {
       const hash = user.password_hash || user.password || '';
       pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
     }
-    if (!pwdOk) return res.status(400).json({error:'Mot de passe incorrect.'});
+    if (!pwdOk) { pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
 
     // ── Mise à jour last_seen ──
     if (_pgPool) {
       await pgUpdateUser(user.id, { is_online:true, last_seen:'NOW()' }).catch(()=>{});
     }
 
+    pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
     const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
     const isAdmin = isAdminEmail || user.is_admin || false;
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
@@ -5531,6 +5544,17 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
     res.json({ success: true, sent, total });
   } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
+app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] });
+    let logs=[], failed_24h=0, suspended=[], moderators=[];
+    try { const r = await _pgPool.query("SELECT * FROM penc_security_logs ORDER BY created_at DESC LIMIT 100"); logs = r.rows; } catch(e){}
+    try { const f = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_security_logs WHERE type='login_failed' AND created_at >= NOW() - INTERVAL '24 hours'"); failed_24h = f.rows[0].c; } catch(e){}
+    try { const sq = await _pgPool.query("SELECT id, full_name, username, phone FROM penc_users WHERE suspended=TRUE LIMIT 100"); suspended = sq.rows; } catch(e){}
+    try { const m = await _pgPool.query("SELECT id, full_name, username FROM penc_users WHERE moderator=TRUE LIMIT 100"); moderators = m.rows; } catch(e){}
+    res.json({ logs, failed_24h, suspended, moderators });
+  } catch (e) { res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] }); }
+});
 // ── Modération admin (Fonct. 5) ──
 app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({statuses:[]});
@@ -5603,6 +5627,7 @@ app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)
   try{ if(!_pgPool) return res.json({success:true});
     const susp=!!(req.body&&req.body.suspend);
     await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
+    pencSecLog(susp?'user_suspended':'user_unsuspended', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null});
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/admin/message/:userId', pencAuth, pencAdmin, async (req, res) => {
