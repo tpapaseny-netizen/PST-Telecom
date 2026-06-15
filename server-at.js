@@ -5555,6 +5555,21 @@ app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
     res.json({ logs, failed_24h, suspended, moderators });
   } catch (e) { res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] }); }
 });
+app.post('/api/penc/client-log', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ ok: true });
+    let uid = null;
+    try { const a=(req.headers.authorization||'').replace('Bearer ',''); if(a){ const dec=jwt_penc.verify(a, PENC_SECRET); uid=dec&&dec.userId; } } catch(e){}
+    const { message, detail } = req.body || {};
+    if (!message) return res.json({ ok: true });
+    const id='cer_'+Date.now()+Math.random().toString(36).slice(2);
+    const ua=String(req.headers['user-agent']||'').slice(0,300);
+    const ip=((req.headers['x-forwarded-for']||'').split(',')[0].trim())||req.ip||'';
+    const det=String(message).slice(0,200)+(detail?(' | '+String(detail).slice(0,300)):'');
+    await _pgPool.query('INSERT INTO penc_security_logs(id,type,user_id,identifier,ip,user_agent,detail,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id,'client_error',uid,null,ip,ua,det]);
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: true }); }
+});
 // ── Modération admin (Fonct. 5) ──
 app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({statuses:[]});
