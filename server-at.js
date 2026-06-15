@@ -4004,6 +4004,8 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
+      CREATE TABLE IF NOT EXISTS penc_reports (id TEXT PRIMARY KEY, reporter_id TEXT, target_type TEXT, target_id TEXT, target_user_id TEXT, reason TEXT, content_snapshot TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -5408,6 +5410,31 @@ app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res
     const r=await _pgPool.query('SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC',[req.params.id]);
     const out=r.rows.map(function(row){ const s=pgStatusToObj(row); return {id:s.id, type:s.type, media_url:s.media_url||null, text_content:s.text_content||null, bg_color:s.bg_color||null, caption:s.caption||null, created_at:s.created_at, views:Array.isArray(s.views)?s.views.length:0, likes:Array.isArray(s.reactions)?s.reactions.length:0, shares:s.shares||0}; });
     res.json({statuses:out}); }catch(e){ res.json({statuses:[]}); }
+});
+app.post('/api/penc/report', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const { target_type, target_id, target_user_id, reason, content_snapshot } = req.body || {};
+    const id = 'rep_' + Date.now() + Math.random().toString(36).slice(2);
+    await _pgPool.query('INSERT INTO penc_reports(id, reporter_id, target_type, target_id, target_user_id, reason, content_snapshot, status, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW())', [id, req.pencUser.userId, (target_type||'status'), (target_id||null), (target_user_id||null), (reason||'Non precise'), (content_snapshot||null), 'pending']);
+    res.json({ success: true });
+  } catch (e) { console.error('report:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/reports', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ reports: [] });
+    const r = await _pgPool.query("SELECT rep.*, ru.full_name AS _rep_name, tu.full_name AS _tgt_name, tu.username AS _tgt_un FROM penc_reports rep LEFT JOIN penc_users ru ON ru.id=rep.reporter_id LEFT JOIN penc_users tu ON tu.id=rep.target_user_id WHERE rep.status='pending' ORDER BY rep.created_at DESC LIMIT 200");
+    const reports = r.rows.map(function(x){ return { id:x.id, reporter:(x._rep_name||'Utilisateur'), target_type:x.target_type, target_id:x.target_id, target_user_id:x.target_user_id, target_owner:(x._tgt_name||x._tgt_un||'Inconnu'), reason:x.reason, content_snapshot:x.content_snapshot, created_at:x.created_at }; });
+    res.json({ reports });
+  } catch (e) { res.json({ reports: [] }); }
+});
+app.post('/api/penc/admin/reports/:id/resolve', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const st = (req.body && req.body.status === 'resolved') ? 'resolved' : 'dismissed';
+    await _pgPool.query('UPDATE penc_reports SET status=$1 WHERE id=$2', [st, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res) => {
   try {
