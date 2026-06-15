@@ -5547,12 +5547,13 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
 app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] });
-    let logs=[], failed_24h=0, suspended=[], moderators=[];
+    let logs=[], failed_24h=0, errors_24h=0, suspended=[], moderators=[];
     try { const r = await _pgPool.query("SELECT * FROM penc_security_logs ORDER BY created_at DESC LIMIT 100"); logs = r.rows; } catch(e){}
     try { const f = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_security_logs WHERE type='login_failed' AND created_at >= NOW() - INTERVAL '24 hours'"); failed_24h = f.rows[0].c; } catch(e){}
+    try { const ce = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_security_logs WHERE type='client_error' AND created_at >= NOW() - INTERVAL '24 hours'"); errors_24h = ce.rows[0].c; } catch(e){}
     try { const sq = await _pgPool.query("SELECT id, full_name, username, phone FROM penc_users WHERE suspended=TRUE LIMIT 100"); suspended = sq.rows; } catch(e){}
     try { const m = await _pgPool.query("SELECT id, full_name, username FROM penc_users WHERE moderator=TRUE LIMIT 100"); moderators = m.rows; } catch(e){}
-    res.json({ logs, failed_24h, suspended, moderators });
+    res.json({ logs, failed_24h, errors_24h, suspended, moderators });
   } catch (e) { res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] }); }
 });
 app.post('/api/penc/client-log', async (req, res) => {
