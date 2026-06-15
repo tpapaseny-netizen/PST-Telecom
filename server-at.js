@@ -6205,11 +6205,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           if (_other) {
             _blocked = await pgIsBlocked(pencUserId, _other);
             if (!_blocked) {
-              const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
-              if (parseInt(_cnt.rows[0].n) === 0) {
-                const _acc = await pgFriendAccepted(pencUserId, _other);
-                if (!_acc && !_senderAdmin) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
-              }
+              const _acc = await pgFriendAccepted(pencUserId, _other);
+              if (!_acc && !_senderAdmin && _parts.length===2 && String(_other)!=='penc_official') { await pgEnsureFriendRequest(pencUserId, _other); try { io.to('user:'+_other).emit('friend:request',{from:pencUserId}); } catch(e){} if (typeof cb === 'function') cb({ error: 'Vous devez etre amis pour discuter. Demande d\'ami envoyee.', need_friend: true }); return; }
             }
           }
         }
