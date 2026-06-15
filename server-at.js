@@ -5463,7 +5463,7 @@ app.post('/api/penc/verify/request', pencAuth, async (req, res) => {
   try {
     if (!_pgPool) return res.json({ success: true });
     const { doc_url, doc_url2, note, type } = req.body || {};
-    if (!doc_url) return res.status(400).json({ error: 'Document requis' });
+    if (!doc_url && (type||'id') !== 'subscription') return res.status(400).json({ error: 'Document requis' });
     const uid = req.pencUser.userId;
     await _pgPool.query("UPDATE penc_verif_requests SET status='cancelled' WHERE user_id=$1 AND status='pending'", [uid]);
     const id = 'vrq_' + Date.now() + Math.random().toString(36).slice(2);
