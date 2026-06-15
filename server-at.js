@@ -5411,6 +5411,33 @@ app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)
     await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
+app.post('/api/penc/admin/message/:userId', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const adminId = req.pencUser.userId;
+    const target = req.params.userId;
+    const content = ((req.body && req.body.content) || '').toString().trim();
+    if (!content) return res.status(400).json({ error: 'Message vide' });
+    if (String(target) === String(adminId)) return res.status(400).json({ error: 'Destinataire invalide' });
+    const conv = await pgGetOrCreateConv(adminId, target);
+    if (!conv) return res.status(500).json({ error: 'Conversation impossible' });
+    const msg = {
+      id: 'msg_' + Date.now() + Math.random().toString(36).slice(2),
+      conversation_id: conv.id, sender_id: adminId, reply_to: null,
+      type: 'text', content: content, media_url: null, media_duration: null,
+      client_id: null, created_at: new Date().toISOString(), read_at: null
+    };
+    let sender = { id: adminId };
+    try { const u = await pgFindUser('id', adminId); if (u) sender = pencStrip(u); } catch (_) {}
+    const fullMsg = { ...msg, sender };
+    try { io.to('penc:' + conv.id).emit('message:new', fullMsg); } catch (_) {}
+    try { io.to('user:' + String(target)).emit('message:new', fullMsg); } catch (_) {}
+    try { io.to('user:' + String(adminId)).emit('message:new', fullMsg); } catch (_) {}
+    try { await pgSaveMessage({ id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: 'text', content: content, media_url: null, duration: null, reply_to: null, created_at: msg.created_at, client_id: null }); } catch (e) { console.error('admin dm persist:', e.message); }
+    try { if (typeof webpush !== 'undefined' && webpush) { const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message'; await sendPencPush(target, { title: ptitle, body: content.slice(0, 120), tag: 'penc-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); } } catch (_pp) {}
+    return res.json({ success: true, message: fullMsg, conversation_id: conv.id });
+  } catch (e) { return res.status(500).json({ error: 'Erreur envoi' }); }
+});
 app.post('/api/penc/admin/moderator/:userId', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({success:true});
     const mod=!!(req.body&&req.body.moderator);
