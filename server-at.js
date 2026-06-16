@@ -3575,6 +3575,15 @@ async function sendPencPush(userId, payload) {
     }
   } catch (e) { console.error('sendPencPush:', e.message); }
 }
+function _pencDur(sec){ sec=Math.max(0,Math.round(sec||0)); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
+function pencMsgBody(type, content, duration){
+  if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' '+_pencDur(duration):'');
+  if(type==='image') return 'A envoyé une photo 📷';
+  if(type==='video') return 'A envoyé une vidéo 🎬';
+  if(type==='money') return '💸 '+(content||'Transfert');
+  if(type==='sticker') return content||'Sticker';
+  return (content||'').slice(0,50);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // ─── ROUTES SENSMS (JSONBin — persistant sans MongoDB)
@@ -4546,6 +4555,7 @@ app.post('/api/penc/statuses/:id/comment', pencAuth, async (req,res)=>{
     const id='cmt_'+Date.now()+Math.random().toString(36).slice(2);
     await _pgPool.query('INSERT INTO penc_status_comments(id,status_id,user_id,content,created_at) VALUES($1,$2,$3,$4,NOW())',[id,req.params.id,uid,content.slice(0,500)]);
     const u=await pgFindUser('id',uid)||{};
+    try{ const _sr=await _pgPool.query('SELECT user_id FROM penc_statuses WHERE id=$1',[req.params.id]); const _own=_sr.rows[0]&&_sr.rows[0].user_id; if(_own && String(_own)!==String(uid)){ const _cn=u.full_name||u.username||'Une personne'; sendPencPush(String(_own),{title:_cn, body:'a commenté votre statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-comment-'+req.params.id, url:'/messager?status='+req.params.id, data:{type:'status_comment', status_id:req.params.id, url:'/messager?status='+req.params.id}}); } }catch(_cp){}
     res.json({success:true, comment:{id, status_id:req.params.id, user_id:uid, content:content.slice(0,500), full_name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, created_at:new Date().toISOString()}});
   }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
@@ -4843,7 +4853,7 @@ app.post('/api/penc/friends/request/:userId', pencAuth, async (req,res)=>{
     const ex=await _pgPool.query("SELECT status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[uid,other]);
     if(ex.rows.length) return res.json({success:true, status:ex.rows[0].status});
     await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
-    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Nouvelle demande d\'ami', body:(me.full_name||me.username||'Quelqu\'un')+' souhaite vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' veut vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
     res.json({success:true, status:'pending'}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
@@ -4934,7 +4944,7 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
     try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); }
-    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=type==='voice'?'Message vocal':type==='image'?'Photo':type==='video'?'Video':type==='money'?('Transfert '+(content||'')):type==='sticker'?(content||'Sticker'):((content||'').slice(0,120)); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
+    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
 });
@@ -5261,7 +5271,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
           const convs=await pencConvs();
           for(const c of convs){ const parts=c.participants||c.members||[]; if(parts.includes(req.pencUser.userId)) parts.forEach(p=>{ if(p!==req.pencUser.userId) partners.add(p); }); }
         }
-        const ppayload={ title:aname, body:'a publié un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
+        const ppayload={ title:aname, body:'A publié un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
         partners.forEach(uid=>{ sendPencPush(uid, ppayload); });
       }
     } catch(e){ console.error('push statut:', e.message); }
@@ -5673,7 +5683,7 @@ app.post('/api/penc/admin/message/:userId', pencAuth, pencAdmin, async (req, res
     try { io.to('user:' + String(target)).emit('message:new', fullMsg); } catch (_) {}
     try { io.to('user:' + String('penc_official')).emit('message:new', fullMsg); } catch (_) {}
     try { await pgSaveMessage({ id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: 'text', content: content, media_url: null, duration: null, reply_to: null, created_at: msg.created_at, client_id: null }); } catch (e) { console.error('admin dm persist:', e.message); }
-    try { if (typeof webpush !== 'undefined' && webpush) { const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message'; await sendPencPush(target, { title: ptitle, body: content.slice(0, 120), tag: 'penc-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); } } catch (_pp) {}
+    try { if (typeof webpush !== 'undefined' && webpush) { const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message'; await sendPencPush(target, { title: ptitle, body: pencMsgBody('text', content), tag: 'penc-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); } } catch (_pp) {}
     return res.json({ success: true, message: fullMsg, conversation_id: conv.id });
   } catch (e) { return res.status(500).json({ error: 'Erreur envoi' }); }
 });
@@ -5987,7 +5997,7 @@ app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
       const existing=st.reactions.find(r=>r.user_id===uid);
       if(existing) existing.emoji=emoji; else st.reactions.push({user_id:uid,emoji,created_at:new Date().toISOString()});
       await pgUpdateStatus(req.params.id,{reactions:st.reactions});
-      try{ if(String(st.user_id)!==String(uid)){ let _rn='Une personne'; try{ const _ru=await pgFindUser('id',uid); if(_ru) _rn=_ru.full_name||_ru.username||'Une personne'; }catch(_e11){} emitToUsers(String(st.user_id),'status:reaction',{status_id:req.params.id, emoji:emoji, from_name:_rn}); } }catch(_e12){}
+      try{ if(String(st.user_id)!==String(uid)){ let _rn='Une personne'; try{ const _ru=await pgFindUser('id',uid); if(_ru) _rn=_ru.full_name||_ru.username||'Une personne'; }catch(_e11){} emitToUsers(String(st.user_id),'status:reaction',{status_id:req.params.id, emoji:emoji, from_name:_rn}); try{ sendPencPush(String(st.user_id),{title:'Penc', body:_rn+' a aimé votre statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-like-'+req.params.id, url:'/messager?status='+req.params.id, data:{type:'status_like', status_id:req.params.id, url:'/messager?status='+req.params.id}}); }catch(_lp){} } }catch(_e12){}
       return res.json({success:true,reactions:st.reactions});
     }
     const statuses=await pencStatuses();
@@ -6284,13 +6294,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             const c3 = (await pencConvs()).find(x => x.id === conversation_id);
             recipients = (c3 && Array.isArray(c3.participants||c3.members)) ? (c3.participants||c3.members).filter(m => m !== pencUserId) : [];
           }
-          let pbody = '';
-          if (type === 'voice') pbody = '🎙️ Message vocal';
-          else if (type === 'image') pbody = '📷 Photo';
-          else if (type === 'video') pbody = '🎬 Vidéo';
-          else if (type === 'money') pbody = '💸 ' + (content || 'Transfert');
-          else if (type === 'sticker') pbody = content || 'Sticker';
-          else pbody = (content || '').slice(0, 120);
+          let pbody = pencMsgBody(type, content, msg.media_duration);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
           for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id }); }
         }
