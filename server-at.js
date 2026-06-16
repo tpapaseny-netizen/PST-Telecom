@@ -3983,6 +3983,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
@@ -4404,14 +4405,15 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
      st.created_at||new Date().toISOString(),
      st.expires_at||new Date(Date.now()+86400000).toISOString(),
-     st.duration||10]
+     st.duration||10,
+     (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null]
   );
   return r.rows[0];
 }
@@ -4428,7 +4430,8 @@ function pgStatusToObj(row){
     reactions: typeof row.reactions==='string'?JSON.parse(row.reactions):row.reactions||[],
     views: typeof row.views==='string'?JSON.parse(row.views):row.views||[],
     view_ips: typeof row.view_ips==='string'?JSON.parse(row.view_ips):row.view_ips||[],
-    view_log: typeof row.view_log==='string'?JSON.parse(row.view_log):row.view_log||[]
+    view_log: typeof row.view_log==='string'?JSON.parse(row.view_log):row.view_log||[],
+    media_urls: typeof row.media_urls==='string'?JSON.parse(row.media_urls):(row.media_urls||null)
   };
 }
 // GET /api/penc/messages/:convId
@@ -5217,11 +5220,12 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration, media_urls } = req.body;
+    const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type: type||'text',
-      media_url: media_url||null, text_content: text_content||null,
+      media_url: (_mu&&_mu.length)?_mu[0]:(media_url||null), media_urls: (_mu&&_mu.length>1)?_mu:null, text_content: text_content||null,
       bg_color: bg_color||'#050D18', caption: caption||null,
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
