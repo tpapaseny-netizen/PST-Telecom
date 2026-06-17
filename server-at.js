@@ -5619,7 +5619,10 @@ app.post('/api/penc/admin/reports/:id/resolve', pencAuth, pencAdmin, async (req,
 });
 app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration } = req.body || {};
+    const { type, media_url, text_content, bg_color, caption, duration, expires_hours } = req.body || {};
+    let _offExp;
+    if(expires_hours==='permanent' || expires_hours===0 || expires_hours==='0'){ _offExp = new Date(Date.now() + 3650*86400000).toISOString(); }
+    else { let _h=parseInt(expires_hours,10); if(!(_h>0)) _h=24; _offExp = new Date(Date.now() + _h*3600*1000).toISOString(); }
     const status = {
       id: 'st_' + Date.now() + Math.random().toString(36).slice(2),
       user_id: 'penc_official', type: type || 'text',
@@ -5628,7 +5631,7 @@ app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res
       duration: (typeof duration === 'number' && duration > 0 && duration <= 60) ? Math.round(duration) : (type === 'video' ? 0 : 10),
       reactions: [], views: [], view_ips: [],
       created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 30 * 86400000).toISOString()
+      expires_at: _offExp
     };
     if (_pgPool) { await pgSaveStatus(status); }
     else { const statuses = await pencStatuses(); statuses.push(status); await pencSaveStatuses(statuses); }
@@ -5987,7 +5990,8 @@ app.delete('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
     const uid=req.pencUser.userId;
     if(_pgPool){
-      await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1 AND user_id=$2',[req.params.id,uid]);
+      const _del=await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1 AND user_id=$2',[req.params.id,uid]);
+      if(_del.rowCount===0){ try{ const _u=await pgFindUser('id',uid); if(_u && PENC_ADMIN_EMAILS.includes(String(_u.email||'').toLowerCase())){ await _pgPool.query("DELETE FROM penc_statuses WHERE id=$1 AND user_id='penc_official'",[req.params.id]); } }catch(_e){} }
       return res.json({success:true});
     }
     const statuses=await pencStatuses();
