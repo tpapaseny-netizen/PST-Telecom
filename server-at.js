@@ -5962,6 +5962,15 @@ app.put('/api/penc/channels/:id', pencAuth, async (req,res) => {
     await pencSaveChannels(channels);
     res.json({success:true,channel:{id:ch.id,name:ch.name,description:ch.description,icon_url:ch.icon_url}}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
+app.post('/api/penc/channels/:id/posts/:pid/view', pencAuth, async (req,res) => {
+  try{ const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    const p=(ch.posts||[]).find(x=>x.id===req.params.pid);
+    if(!p) return res.status(404).json({error:'Post introuvable'});
+    p.views=(p.views||0)+1; await pencSaveChannels(channels);
+    res.json({success:true,views:p.views});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 
 // DELETE /api/penc/statuses/:id
 // GET /api/penc/statuses/:id — un statut precis (lien de partage)
