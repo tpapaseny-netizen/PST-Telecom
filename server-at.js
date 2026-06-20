@@ -6161,6 +6161,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
+    try{ let _rc=0; try{ const _rs=await io.in('user:'+String(target_user_id)).fetchSockets(); _rc=_rs?_rs.length:0; }catch(_e){} socket.emit('call:debug',{target:String(target_user_id), online:ok, room_sockets:_rc}); }catch(_ed){}
     // Si hors ligne → push notification d'appel entrant
     if(!ok){
       try{
