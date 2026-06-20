@@ -6135,13 +6135,15 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 });
   // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
   async function emitToUser(uid, event, data){
+    // 0) Livraison via la room user: (fiable, identique aux messages)
+    try{ const _room=await io.in('user:'+String(uid)).fetchSockets(); if(_room && _room.length){ io.to('user:'+String(uid)).emit(event,data); console.log('📡',event,'→',String(uid).slice(0,10),'via room'); return true; } }catch(_e0){}
     // 1) pencOnline map (rapide)
-    const sid=pencOnline.get(uid);
+    const sid=pencOnline.get(uid)||pencOnline.get(String(uid));
     if(sid){ io.to(sid).emit(event,data); console.log('📡',event,'→',uid.slice(0,10),'via map'); return true; }
     // 2) fetchSockets (fiable même si map périmée)
     try{
       const sockets=await io.fetchSockets();
-      const target=sockets.find(s=>s.data.pencUserId===uid);
+      const target=sockets.find(s=>String(s.data.pencUserId)===String(uid));
       if(target){
         target.emit(event,data);
         pencOnline.set(uid,target.id); // mise à jour map
