@@ -4373,6 +4373,46 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
 });
 
 // PUT /api/penc/auth/profile
+// GET /api/penc/calls — historique des appels (façon WhatsApp)
+app.get('/api/penc/calls', pencAuth, async (req, res) => {
+  try {
+    const me = req.pencUser.userId;
+    if (!_pgPool) return res.json({ calls: [] });
+    const r = await _pgPool.query(
+      "SELECT m.id, m.content, m.created_at, m.sender_id, m.conversation_id, c.participants " +
+      "FROM penc_messages m JOIN penc_conversations c ON c.id = m.conversation_id " +
+      "WHERE m.type = 'call' AND (m.deleted_for_all IS NOT TRUE) AND c.participants @> $1::jsonb " +
+      "ORDER BY m.created_at DESC LIMIT 200",
+      [JSON.stringify([me])]
+    );
+    const others = new Set();
+    const rows = r.rows.map(row => {
+      let parts = []; try { parts = Array.isArray(row.participants) ? row.participants : JSON.parse(row.participants || '[]'); } catch (e) {}
+      const other = parts.find(p => String(p) !== String(me)) || null;
+      if (other) others.add(other);
+      let d = {}; try { d = JSON.parse(row.content || '{}'); } catch (e) {}
+      return {
+        id: row.id, conversation_id: row.conversation_id,
+        call_type: d.call_type === 'video' ? 'video' : 'audio',
+        status: d.status || 'answered', duration: d.duration || 0,
+        direction: String(row.sender_id) === String(me) ? 'out' : 'in',
+        other_id: other, created_at: row.created_at
+      };
+    });
+    let profiles = {};
+    if (others.size) {
+      const ids = Array.from(others);
+      const pr = await _pgPool.query("SELECT id, full_name, username, avatar_url FROM penc_users WHERE id = ANY($1)", [ids]);
+      pr.rows.forEach(u => { profiles[u.id] = { id: u.id, full_name: u.full_name, username: u.username, avatar_url: u.avatar_url }; });
+    }
+    const calls = rows.map(c => ({
+      id: c.id, conversation_id: c.conversation_id, call_type: c.call_type,
+      status: c.status, duration: c.duration, direction: c.direction, created_at: c.created_at,
+      other: c.other_id ? (profiles[c.other_id] || { id: c.other_id, full_name: 'Inconnu' }) : null
+    }));
+    res.json({ calls });
+  } catch (e) { console.error('penc /calls:', e.message); res.json({ calls: [] }); }
+});
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
     const { full_name, bio, avatar_url } = req.body;
