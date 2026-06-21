@@ -6135,8 +6135,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 });
   // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
   async function emitToUser(uid, event, data){
-    // 0) Livraison via la room user: (fiable, identique aux messages)
-    try{ const _room=await io.in('user:'+String(uid)).fetchSockets(); if(_room && _room.length){ io.to('user:'+String(uid)).emit(event,data); console.log('📡',event,'→',String(uid).slice(0,10),'via room'); return true; } }catch(_e0){}
+    // 0) Émettre vers la room user: SANS condition (identique à emitToUsers/messages — fiable)
+    io.to('user:'+String(uid)).emit(event,data);
+    try{ const _room=await io.in('user:'+String(uid)).fetchSockets(); if(_room && _room.length){ console.log('📡',event,'→',String(uid).slice(0,10),'via room (online)'); return true; } }catch(_e0){}
     // 1) pencOnline map (rapide)
     const sid=pencOnline.get(uid)||pencOnline.get(String(uid));
     if(sid){ io.to(sid).emit(event,data); console.log('📡',event,'→',uid.slice(0,10),'via map'); return true; }
