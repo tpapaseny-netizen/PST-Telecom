@@ -6195,6 +6195,34 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     console.log('⚠️',event,'→',uid.slice(0,10),'HORS LIGNE');
     return false;
   }
+  socket.on('channel:call:start', async ({channel_id, type}) => {
+    try{
+      if(!channel_id) return;
+      const chans = await pencChannels();
+      const ch = (chans||[]).find(c=>String(c.id)===String(channel_id));
+      if(!ch || ch.type!=='group') return;
+      const members = Array.from(new Set([...(ch.followers||[]), ...(ch.admins||[]), ch.creator_id].map(String))).filter(Boolean);
+      if(!members.includes(String(pencUserId))) return;
+      const room_name = 'chcall_'+channel_id;
+      let callerName="Quelqu'un";
+      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) callerName=u.full_name||u.username||callerName; }catch(e){}
+      const targets = members.filter(m=>m!==String(pencUserId));
+      await emitToUsers(targets, 'channel:call:incoming', { channel_id, room_name, type:type||'audio', from:pencUserId, caller_name:callerName, channel_name:ch.name||'Canal', channel_icon:ch.icon_url||null });
+      console.log('[channel:call:start]', String(channel_id).slice(0,8), 'by', String(pencUserId).slice(0,8), '->', targets.length, 'membres');
+    }catch(e){ console.error('channel:call:start err', e.message); }
+  });
+  socket.on('channel:call:invite', async ({channel_id, room_name, type, user_ids}) => {
+    try{
+      if(!channel_id || !Array.isArray(user_ids) || !user_ids.length) return;
+      const chans = await pencChannels();
+      const ch = (chans||[]).find(c=>String(c.id)===String(channel_id));
+      if(!ch) return;
+      let callerName="Quelqu'un";
+      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) callerName=u.full_name||u.username||callerName; }catch(e){}
+      await emitToUsers(user_ids.map(String), 'channel:call:incoming', { channel_id, room_name:room_name||('chcall_'+channel_id), type:type||'audio', from:pencUserId, caller_name:callerName, channel_name:ch.name||'Canal', channel_icon:ch.icon_url||null, invite:true });
+      console.log('[channel:call:invite]', String(channel_id).slice(0,8), '->', user_ids.length);
+    }catch(e){ console.error('channel:call:invite err', e.message); }
+  });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
