@@ -3867,6 +3867,7 @@ function pencAuth(req, res, next) {
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Token manquant' });
   try {
     req.pencUser = jwt_penc.verify(h.slice(7), PENC_SECRET);
+    if (typeof _pencBlocked!=='undefined' && _pencBlocked.has(String(req.pencUser.userId))) return res.status(403).json({ error: 'compte_restreint', restricted:true });
     next();
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
@@ -3995,6 +3996,8 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
@@ -4311,7 +4314,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       if (jbu) user = jbu;
     }
 
-    if (user && user.suspended && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu.' });
+    if (user && (user.suspended||user.blocked||user.deleted_at) && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
@@ -5416,6 +5419,32 @@ function pencContactsCount(convs, uid) {
   convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
   return set.size;
 }
+// ── Etape 2 : moderation temps reel ───────────────────────────
+let _pencBlocked = new Set();
+async function _loadBlocked(){
+  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE suspended=TRUE OR blocked=TRUE OR deleted_at IS NOT NULL"); const set=new Set(); r.rows.forEach(function(x){ set.add(String(x.id)); }); _pencBlocked=set; }catch(e){ console.error('_loadBlocked', e.message); }
+}
+async function _forceLogout(userId, reason){
+  try{ _pencBlocked.add(String(userId));
+    try{ io.to('user:'+String(userId)).emit('admin:forcelogout', { reason: reason||'suspended' }); }catch(e){}
+    try{ const socks=await io.in('user:'+String(userId)).fetchSockets(); socks.forEach(function(sk){ try{ sk.disconnect(true); }catch(_){} }); }catch(e){}
+    try{ pencOnline.delete(String(userId)); }catch(e){}
+  }catch(e){ console.error('_forceLogout', e.message); }
+}
+async function _purgeTrash(){
+  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'");
+    for(const row of r.rows){ const uid=row.id;
+      try{ await _pgPool.query('DELETE FROM penc_messages WHERE sender_id=$1',[uid]); }catch(e){}
+      try{ await _pgPool.query('DELETE FROM penc_statuses WHERE user_id=$1',[uid]); }catch(e){}
+      try{ await _pgPool.query('DELETE FROM penc_status_comments WHERE user_id=$1',[uid]); }catch(e){}
+      try{ await _pgPool.query('DELETE FROM penc_friendships WHERE requester=$1 OR recipient=$1',[uid]); }catch(e){}
+      try{ await _pgPool.query('DELETE FROM penc_users WHERE id=$1',[uid]); }catch(e){}
+    }
+    if(r.rows.length) console.log('[purge] '+r.rows.length+' compte(s) purge(s) apres 30j');
+  }catch(e){ console.error('_purgeTrash', e.message); }
+}
+setTimeout(_loadBlocked, 8000); setInterval(_loadBlocked, 60000);
+setTimeout(_purgeTrash, 20000); setInterval(_purgeTrash, 6*3600*1000);
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
     const users = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
@@ -5427,11 +5456,12 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
-      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, verified:!!u.verified };
+      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, blocked:!!(_modMap[String(u.id)]||{}).blocked, verified:!!u.verified };
     };
-    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator}; }); } }catch(_e){}
+    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator, blocked FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator, blocked:!!r.blocked}; }); } }catch(_e){}
     const _msgMap={}; try{ if(_pgPool){ const _qq=await _pgPool.query('SELECT sender_id, COUNT(*)::int c FROM penc_messages GROUP BY sender_id'); _qq.rows.forEach(function(r){ _msgMap[String(r.sender_id)]=r.c; }); } }catch(_e){}
-    const all = users.map(enrich);
+    let _del=new Set(); try{ if(_pgPool){ const _dq=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL"); _dq.rows.forEach(function(r){ _del.add(String(r.id)); }); } }catch(_e){}
+    const all = users.filter(function(u){ return !_del.has(String(u.id)); }).map(enrich);
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
     const rewardAlerts = all.filter(u => u.reward_pending);
     const totalValidViews = all.reduce((a, u) => a + u.valid_views, 0);
@@ -5700,6 +5730,7 @@ app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)
   try{ if(!_pgPool) return res.json({success:true});
     const susp=!!(req.body&&req.body.suspend);
     await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
+    if(susp){ await _forceLogout(req.params.userId,'suspended'); } else { _pencBlocked.delete(String(req.params.userId)); await _loadBlocked(); }
     pencSecLog(susp?'user_suspended':'user_unsuspended', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null});
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
@@ -5736,22 +5767,36 @@ app.post('/api/penc/admin/moderator/:userId', pencAuth, pencAdmin, async (req,re
     await _pgPool.query('UPDATE penc_users SET moderator=$1 WHERE id=$2',[mod,req.params.userId]);
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
+app.post('/api/penc/admin/block/:userId', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const blk=!!(req.body&&req.body.block);
+    await _pgPool.query('UPDATE penc_users SET blocked=$1 WHERE id=$2',[blk,req.params.userId]);
+    if(blk){ await _forceLogout(req.params.userId,'blocked'); } else { _pencBlocked.delete(String(req.params.userId)); await _loadBlocked(); }
+    try{ pencSecLog(blk?'user_blocked':'user_unblocked', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.get('/api/penc/admin/deleted', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({deleted:[]});
+    const r=await _pgPool.query("SELECT id,full_name,username,email,phone,avatar_url,deleted_at FROM penc_users WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC");
+    res.json({deleted:r.rows.map(function(x){ return {id:x.id,full_name:x.full_name,username:x.username,email:x.email||'',phone:x.phone||'',avatar_url:x.avatar_url||null,deleted_at:x.deleted_at}; })}); }catch(e){ res.json({deleted:[]}); }
+});
+app.post('/api/penc/admin/user/:id/restore', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    await _pgPool.query('UPDATE penc_users SET deleted_at=NULL, suspended=FALSE, blocked=FALSE WHERE id=$1',[req.params.id]);
+    _pencBlocked.delete(String(req.params.id));
+    try{ pencSecLog('user_restored', req, {user_id:req.params.id, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 app.delete('/api/penc/admin/user/:id', pencAuth, pencAdmin, async (req, res) => {
   try {
     const uid = req.params.id;
     let target = null;
     try { if (_pgPool) { const r = await _pgPool.query('SELECT email FROM penc_users WHERE id=$1', [uid]); target = r.rows[0] || null; } } catch (e) {}
     if (target && PENC_ADMIN_EMAILS.includes(String(target.email || '').toLowerCase())) return res.status(400).json({ error: 'Impossible de supprimer un administrateur' });
-    if (_pgPool) {
-      try { await _pgPool.query('DELETE FROM penc_messages WHERE sender_id=$1', [uid]); } catch (e) {}
-      try { await _pgPool.query('DELETE FROM penc_statuses WHERE user_id=$1', [uid]); } catch (e) {}
-      try { await _pgPool.query('DELETE FROM penc_status_comments WHERE user_id=$1', [uid]); } catch (e) {}
-      try { await _pgPool.query('DELETE FROM penc_friendships WHERE requester=$1 OR recipient=$1', [uid]); } catch (e) {}
-      try { await _pgPool.query('DELETE FROM penc_users WHERE id=$1', [uid]); } catch (e) {}
-    }
-    try { const users = await pencUsers(); const i = users.findIndex(x => String(x.id) === String(uid)); if (i >= 0) { users.splice(i, 1); await pencSaveUsers(users); } } catch (e) {}
-    try { pencOnline.delete(uid); } catch (e) {}
-    res.json({ success: true });
+    if (_pgPool) { try { await _pgPool.query('UPDATE penc_users SET deleted_at=NOW(), suspended=TRUE WHERE id=$1', [uid]); } catch (e) {} }
+    await _forceLogout(uid,'deleted');
+    try{ pencSecLog('user_trashed', req, {user_id:uid, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
+    res.json({ success: true, trashed:true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) => {
