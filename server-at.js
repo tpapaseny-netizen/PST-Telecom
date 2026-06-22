@@ -5454,6 +5454,79 @@ app.get('/api/penc/admin/call-ratings', pencAuth, pencAdmin, async (req,res)=>{
     });
   }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
+// ── Etape 6 : fiche detaillee par utilisateur ─────────────────
+app.get('/api/penc/admin/user/:id/fiche', pencAuth, pencAdmin, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({error:'no_db'});
+    const uid=String(req.params.id);
+    const out={};
+    let urow=null;
+    try{ const r=await _pgPool.query('SELECT * FROM penc_users WHERE id=$1',[uid]); urow=r.rows[0]||null; }catch(e){}
+    if(!urow) return res.status(404).json({error:'introuvable'});
+    const geo=(urow.geo&&typeof urow.geo==='object')?urow.geo:{};
+    const vv=urow.valid_views||0;
+    out.info={ id:uid, full_name:urow.full_name||'', username:urow.username||'', phone:urow.phone||'', email:urow.email||'', avatar_url:urow.avatar_url||null, country:geo.country||'', city:geo.city||'', created_at:urow.created_at||null, last_seen:urow.last_seen||null, total_time_seconds:urow.total_time_seconds||0, status:(urow.deleted_at?'supprime':(urow.blocked?'bloque':(urow.suspended?'suspendu':'actif'))) };
+    const msg={total:0,text:0,voice:0,voice_duration:0,image:0,video:0,file:0};
+    try{
+      const mr=await _pgPool.query("SELECT type, content, duration FROM penc_messages WHERE sender_id=$1 AND (deleted_for_all IS NOT TRUE)",[uid]);
+      mr.rows.forEach(function(m){
+        if(m.type==='call') return;
+        msg.total++;
+        if(m.type==='text') msg.text++;
+        else if(m.type==='voice'||m.type==='audio'){ msg.voice++; msg.voice_duration+=(parseInt(m.duration,10)||0); }
+        else if(m.type==='image') msg.image++;
+        else if(m.type==='video') msg.video++;
+        else if(m.type==='file'||m.type==='document') msg.file++;
+      });
+    }catch(e){}
+    out.messaging=msg;
+    const convPeer={};
+    try{ const cr=await _pgPool.query("SELECT id, participants FROM penc_conversations WHERE participants @> $1::jsonb",[JSON.stringify([uid])]);
+      cr.rows.forEach(function(c){ let p=c.participants; if(!Array.isArray(p)){ try{ p=JSON.parse(p||'[]'); }catch(e){ p=[]; } } const other=(p||[]).map(String).find(function(x){ return x!==uid; }); convPeer[String(c.id)]=other||null; });
+    }catch(e){}
+    const calls={emis:0,recus:0,manques:0,duree_sec:0,note_moyenne:0};
+    const peerAgg={};
+    try{
+      const convIds=Object.keys(convPeer);
+      if(convIds.length){
+        const cm=await _pgPool.query("SELECT sender_id, content, conversation_id FROM penc_messages WHERE type='call' AND conversation_id = ANY($1)",[convIds]);
+        cm.rows.forEach(function(m){
+          let d={}; try{ d=JSON.parse(m.content||'{}'); }catch(e){}
+          const isMine=(String(m.sender_id)===uid);
+          const answered=(d.status==='answered');
+          const dur=(typeof d.duration==='number')?d.duration:0;
+          if(isMine){ calls.emis++; if(answered) calls.duree_sec+=dur; const peer=convPeer[String(m.conversation_id)]; if(peer){ if(!peerAgg[peer]) peerAgg[peer]={count:0,dur:0}; peerAgg[peer].count++; peerAgg[peer].dur+=(answered?dur:0); } }
+          else { calls.recus++; if(!answered) calls.manques++; }
+        });
+      }
+    }catch(e){}
+    try{ const rr=await _pgPool.query("SELECT COALESCE(AVG(rating),0)::numeric(10,2) a FROM penc_call_ratings WHERE rater_id=$1",[uid]); calls.note_moyenne=parseFloat(rr.rows[0].a)||0; }catch(e){}
+    const social={amis:0,envoyees:0,recues:0,bloques:0,amis_list:[],bloques_list:[]};
+    const idNeeded=new Set();
+    Object.keys(peerAgg).forEach(function(id){ idNeeded.add(id); });
+    try{
+      const fr=await _pgPool.query("SELECT requester, recipient, status FROM penc_friendships WHERE requester=$1 OR recipient=$1",[uid]);
+      fr.rows.forEach(function(f){
+        const other=(String(f.requester)===uid)?String(f.recipient):String(f.requester);
+        if(f.status==='accepted'){ social.amis++; social.amis_list.push(other); idNeeded.add(other); }
+        else if(f.status==='pending'){ if(String(f.requester)===uid) social.envoyees++; else social.recues++; }
+        else if(f.status==='blocked'){ if(String(f.requester)===uid){ social.bloques++; social.bloques_list.push(other); idNeeded.add(other); } }
+      });
+    }catch(e){}
+    const nameMap={};
+    try{ const ids=Array.from(idNeeded); if(ids.length){ const nr=await _pgPool.query("SELECT id, full_name, username FROM penc_users WHERE id = ANY($1)",[ids]); nr.rows.forEach(function(u){ nameMap[String(u.id)]=u.full_name||u.username||'?'; }); } }catch(e){}
+    social.amis_list=social.amis_list.slice(0,300).map(function(id){ return {id:id, name:nameMap[id]||'?'}; });
+    social.bloques_list=social.bloques_list.map(function(id){ return {id:id, name:nameMap[id]||'?'}; });
+    out.social=social;
+    calls.top=Object.keys(peerAgg).map(function(id){ return {id:id, name:nameMap[id]||'?', count:peerAgg[id].count, duration:peerAgg[id].dur}; }).sort(function(a,b){ return b.count-a.count; }).slice(0,5);
+    out.calls=calls;
+    const content={statuts:0,vues:0,likes:0,gains_fcfa:Math.round((vv/1000)*75),canaux_crees:0,canaux_suivis:0};
+    try{ const sr=await _pgPool.query("SELECT COUNT(*)::int n, COALESCE(SUM(COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(views)='array' THEN views ELSE '[]'::jsonb END),0)),0)::int v, COALESCE(SUM(COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(reactions)='array' THEN reactions ELSE '[]'::jsonb END),0)),0)::int l FROM penc_statuses WHERE user_id=$1",[uid]); content.statuts=sr.rows[0].n||0; content.vues=sr.rows[0].v||0; content.likes=sr.rows[0].l||0; }catch(e){}
+    try{ const cc=await _pgPool.query("SELECT COUNT(*) FILTER (WHERE data->>'creator_id'=$1)::int created, COUNT(*) FILTER (WHERE data->'followers' @> to_jsonb($1::text))::int followed FROM penc_channels",[uid]); content.canaux_crees=cc.rows[0].created||0; content.canaux_suivis=cc.rows[0].followed||0; }catch(e){}
+    out.content=content;
+    res.json(out);
+  }catch(e){ console.error('fiche', e.message); res.status(500).json({error:'Erreur serveur'}); }
+});
 // ── Etape 4 : isolation entre utilisateurs ────────────────────
 app.post('/api/penc/admin/isolate', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({success:true});
