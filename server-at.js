@@ -6223,6 +6223,22 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       console.log('[channel:call:invite]', String(channel_id).slice(0,8), '->', user_ids.length);
     }catch(e){ console.error('channel:call:invite err', e.message); }
   });
+  socket.on('call:invite', async ({room_name, type, user_ids, caller_name}) => {
+    try{
+      if(!room_name || !Array.isArray(user_ids) || !user_ids.length) return;
+      let cn = caller_name || "Quelqu'un";
+      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) cn=u.full_name||u.username||cn; }catch(e){}
+      await emitToUsers(user_ids.map(String), 'channel:call:incoming', { channel_id:null, room_name, type:type||'audio', from:pencUserId, caller_name:cn, channel_name:'Appel de groupe', invite:true });
+      console.log('[call:invite]', String(pencUserId).slice(0,8), '->', user_ids.length);
+    }catch(e){ console.error('call:invite err', e.message); }
+  });
+  socket.on('call:upgrade', async ({target_user_id, room_name, type}) => {
+    try{
+      if(!target_user_id || !room_name) return;
+      await emitToUsers([String(target_user_id)], 'call:upgrade', { room_name, type:type||'audio', from:pencUserId });
+      console.log('[call:upgrade]', String(pencUserId).slice(0,8), '->', String(target_user_id).slice(0,8));
+    }catch(e){ console.error('call:upgrade err', e.message); }
+  });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
