@@ -4036,6 +4036,7 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_pvr_status ON penc_verif_requests(status);
       CREATE TABLE IF NOT EXISTS penc_security_logs (id TEXT PRIMARY KEY, type TEXT, user_id TEXT, identifier TEXT, ip TEXT, user_agent TEXT, detail TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_call_ratings (id TEXT PRIMARY KEY, rater_id TEXT, peer_id TEXT, call_type TEXT, rating INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_isolations (id TEXT PRIMARY KEY, user_a TEXT, user_b TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
@@ -4548,6 +4549,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
 app.get('/api/penc/users/:id/publications', pencAuth, async (req,res)=>{
   try{
     const me=req.pencUser.userId; const target=req.params.id;
+    if(_areIsolated(me,target)) return res.status(403).json({error:'Indisponible', publications:[]});
     if(!_pgPool) return res.json({publications:[]});
     if(String(me)!==String(target)){
       const fr=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[me,target]);
@@ -5200,6 +5202,7 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
         (u.phone||'').includes(q)
       )).map(pencStrip);
     }
+    results = results.filter(function(u){ return !_areIsolated(uid, u.id); });
     res.json({ users: results, contacts: results });
   } catch(e) { console.error('search:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -5451,6 +5454,35 @@ app.get('/api/penc/admin/call-ratings', pencAuth, pencAdmin, async (req,res)=>{
     });
   }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
+// ── Etape 4 : isolation entre utilisateurs ────────────────────
+app.post('/api/penc/admin/isolate', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const a=(req.body&&req.body.user_a)?String(req.body.user_a):null;
+    let bs=(req.body&&req.body.user_ids)||[]; if(!Array.isArray(bs)) bs=[];
+    if(!a||!bs.length) return res.status(400).json({error:'Selection invalide'});
+    const adminId=req.pencUser.userId; let n=0;
+    for(const b0 of bs){ const b=String(b0); if(!b||b===a) continue;
+      const ex=await _pgPool.query('SELECT 1 FROM penc_isolations WHERE (user_a=$1 AND user_b=$2) OR (user_a=$2 AND user_b=$1) LIMIT 1',[a,b]);
+      if(ex.rows.length) continue;
+      await _pgPool.query('INSERT INTO penc_isolations(id,user_a,user_b,created_by,created_at) VALUES($1,$2,$3,$4,NOW())',['iso_'+Date.now()+Math.random().toString(36).slice(2),a,b,adminId]); n++;
+    }
+    await _loadIso();
+    res.json({success:true, created:n});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.get('/api/penc/admin/isolations', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({isolations:[]});
+    const r=await _pgPool.query("SELECT i.id, i.user_a, i.user_b, i.created_at, ua.full_name fa, ua.username una, ub.full_name fb, ub.username unb FROM penc_isolations i LEFT JOIN penc_users ua ON ua.id=i.user_a LEFT JOIN penc_users ub ON ub.id=i.user_b ORDER BY i.created_at DESC");
+    res.json({isolations:r.rows.map(function(x){ return {id:x.id, a:{id:x.user_a,name:x.fa||x.una||'?'}, b:{id:x.user_b,name:x.fb||x.unb||'?'}, created_at:x.created_at}; })});
+  }catch(e){ res.json({isolations:[]}); }
+});
+app.delete('/api/penc/admin/isolation/:id', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    await _pgPool.query('DELETE FROM penc_isolations WHERE id=$1',[req.params.id]);
+    await _loadIso();
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 // ── Etape 2 : moderation temps reel ───────────────────────────
 let _pencBlocked = new Set();
 async function _loadBlocked(){
@@ -5476,6 +5508,11 @@ async function _purgeTrash(){
   }catch(e){ console.error('_purgeTrash', e.message); }
 }
 setTimeout(_loadBlocked, 8000); setInterval(_loadBlocked, 60000);
+var _pencIso = new Set();
+function _isoKey(a,b){ a=String(a); b=String(b); return a<b ? a+'|'+b : b+'|'+a; }
+function _areIsolated(a,b){ try{ return _pencIso.has(_isoKey(a,b)); }catch(e){ return false; } }
+async function _loadIso(){ try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT user_a,user_b FROM penc_isolations"); const set=new Set(); r.rows.forEach(function(x){ set.add(_isoKey(x.user_a,x.user_b)); }); _pencIso=set; }catch(e){ console.error('_loadIso', e.message); } }
+setTimeout(_loadIso, 9000); setInterval(_loadIso, 60000);
 setTimeout(_purgeTrash, 20000); setInterval(_purgeTrash, 6*3600*1000);
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
@@ -6447,6 +6484,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           const _cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
           let _parts = _cr.rows[0] ? (Array.isArray(_cr.rows[0].participants)?_cr.rows[0].participants:JSON.parse(_cr.rows[0].participants||'[]')) : [];
           const _other = _parts.find(p=>p!==pencUserId);
+          if (_other && _areIsolated(pencUserId, _other)) { if (typeof cb === 'function') cb({ error: 'Conversation indisponible.' }); return; }
           if (_other) {
             _blocked = await pgIsBlocked(pencUserId, _other);
             if (!_blocked) {
