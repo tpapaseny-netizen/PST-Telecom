@@ -4035,6 +4035,7 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_pvr_status ON penc_verif_requests(status);
       CREATE TABLE IF NOT EXISTS penc_security_logs (id TEXT PRIMARY KEY, type TEXT, user_id TEXT, identifier TEXT, ip TEXT, user_agent TEXT, detail TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_call_ratings (id TEXT PRIMARY KEY, rater_id TEXT, peer_id TEXT, call_type TEXT, rating INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
@@ -5419,6 +5420,37 @@ function pencContactsCount(convs, uid) {
   convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
   return set.size;
 }
+// ── Etape 3 : evaluations des appels ──────────────────────────
+app.post('/api/penc/call/rate', pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({success:true});
+    const uid=req.pencUser.userId;
+    const r=parseInt((req.body&&req.body.rating),10);
+    if(!(r>=1&&r<=5)) return res.status(400).json({error:'note invalide'});
+    const ct=((req.body&&req.body.call_type)==='video')?'video':'audio';
+    const peer=(req.body&&req.body.peer_id)?String(req.body.peer_id):null;
+    const cm=((req.body&&req.body.comment)||'').toString().slice(0,500);
+    await _pgPool.query('INSERT INTO penc_call_ratings(id,rater_id,peer_id,call_type,rating,comment,created_at) VALUES($1,$2,$3,$4,$5,$6,NOW())',['cr_'+Date.now()+Math.random().toString(36).slice(2),uid,peer,ct,r,cm||null]);
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.get('/api/penc/admin/call-ratings', pencAuth, pencAdmin, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({avg:0,count:0,per_user:[],history:[]});
+    const from=(req.query.from||'').trim(); const to=(req.query.to||'').trim(); const user=(req.query.user||'').trim();
+    let where=[]; let params=[]; let i=1;
+    if(from){ where.push('cr.created_at >= $'+i); params.push(from); i++; }
+    if(to){ where.push('cr.created_at <= $'+i); params.push(to+' 23:59:59'); i++; }
+    if(user){ where.push('cr.rater_id = $'+i); params.push(user); i++; }
+    const W = where.length?(' WHERE '+where.join(' AND ')):'';
+    const g=await _pgPool.query('SELECT COALESCE(AVG(rating),0)::numeric(10,2) avg, COUNT(*)::int c FROM penc_call_ratings cr'+W, params);
+    const pu=await _pgPool.query('SELECT cr.rater_id, COALESCE(AVG(cr.rating),0)::numeric(10,2) avg, COUNT(*)::int c, u.full_name, u.username FROM penc_call_ratings cr LEFT JOIN penc_users u ON u.id=cr.rater_id'+W+' GROUP BY cr.rater_id,u.full_name,u.username ORDER BY c DESC LIMIT 100', params);
+    const h=await _pgPool.query('SELECT cr.id, cr.rating, cr.comment, cr.call_type, cr.created_at, u.full_name, u.username FROM penc_call_ratings cr LEFT JOIN penc_users u ON u.id=cr.rater_id'+W+' ORDER BY cr.created_at DESC LIMIT 100', params);
+    res.json({
+      avg: parseFloat(g.rows[0].avg)||0, count: g.rows[0].c||0,
+      per_user: pu.rows.map(function(r){ return {user_id:r.rater_id, name:r.full_name||r.username||'?', username:r.username||'', avg:parseFloat(r.avg)||0, count:r.c||0}; }),
+      history: h.rows.map(function(r){ return {id:r.id, rating:r.rating, comment:r.comment||'', call_type:r.call_type||'audio', created_at:r.created_at, name:r.full_name||r.username||'?', username:r.username||''}; })
+    });
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 // ── Etape 2 : moderation temps reel ───────────────────────────
 let _pencBlocked = new Set();
 async function _loadBlocked(){
