@@ -6239,6 +6239,22 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       console.log('[call:upgrade]', String(pencUserId).slice(0,8), '->', String(target_user_id).slice(0,8));
     }catch(e){ console.error('call:upgrade err', e.message); }
   });
+  socket.on('call:invite:request', async ({host_id, room_name, type, user_ids, requester_name, user_names}) => {
+    try{
+      if(!host_id || !room_name || !Array.isArray(user_ids) || !user_ids.length) return;
+      let rn = requester_name || 'Un participant';
+      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) rn=u.full_name||u.username||rn; }catch(e){}
+      await emitToUsers([String(host_id)], 'call:invite:request', { room_name, type:type||'audio', user_ids:user_ids.map(String), user_names:Array.isArray(user_names)?user_names:[], requester_id:pencUserId, requester_name:rn });
+      console.log('[call:invite:request]', String(pencUserId).slice(0,8), '-> host', String(host_id).slice(0,8), user_ids.length);
+    }catch(e){ console.error('call:invite:request err', e.message); }
+  });
+  socket.on('call:invite:declined', async ({requester_id, room_name}) => {
+    try{
+      if(!requester_id) return;
+      await emitToUsers([String(requester_id)], 'call:invite:declined', { room_name:room_name||null, from:pencUserId });
+      console.log('[call:invite:declined] host', String(pencUserId).slice(0,8), '-> ', String(requester_id).slice(0,8));
+    }catch(e){ console.error('call:invite:declined err', e.message); }
+  });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
