@@ -5882,6 +5882,11 @@ app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) =
 app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
+    if (_pgPool) {
+      try { await _pgPool.query("UPDATE penc_users SET total_time_seconds = COALESCE(total_time_seconds,0)+300, last_seen=NOW() WHERE id=$1", [uid]); } catch(e){}
+      try { const gr=await _pgPool.query("SELECT geo FROM penc_users WHERE id=$1",[uid]); const cur=gr.rows[0]?gr.rows[0].geo:null; const hasGeo=cur&&typeof cur==='object'&&cur.country; if(!hasGeo){ const xfRaw=(req.headers['x-forwarded-for']||(req.socket&&req.socket.remoteAddress)||'unknown'); const ip=xfRaw.replace('::ffff:','').split(',')[0].trim(); if(ip&&ip!=='unknown'&&!ip.startsWith('127.')&&!ip.startsWith('10.')&&ip!=='::1'){ getGeoForIp(ip).then(async function(geo){ if(geo){ try{ await _pgPool.query("UPDATE penc_users SET geo=$1::jsonb WHERE id=$2",[JSON.stringify(geo),uid]); }catch(e){} } }).catch(function(){}); } } } catch(e){}
+      return res.json({ success:true });
+    }
     const users = await pencUsers();
     const u = users.find(x => x.id === uid);
     if (u) {
