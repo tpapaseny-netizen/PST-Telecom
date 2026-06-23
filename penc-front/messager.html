@@ -1814,6 +1814,12 @@ input, textarea, select, [contenteditable="true"], .allow-select{ -webkit-user-s
 /* La waveform s'etire et les barres se repartissent sur toute la largeur */
 .msg-body > .msg-bubble.voice-wrap .voice-wave{ width:100%; gap:0 !important; justify-content:space-between; }
 .msg-body > .msg-bubble.voice-wrap .voice-bar{ width:2px; }
+/* === Vocaux v9 : waveform pleine + visible facon WhatsApp (v230) === */
+.msg-body > .msg-bubble.voice-wrap .voice-wave{ width:100% !important; gap:0 !important; justify-content:space-between !important; }
+.msg-body > .msg-bubble.voice-wrap .voice-bar{ flex:0 0 auto; }
+.msg-body > .msg-bubble.voice-wrap .voice-bar.unplayed{ opacity:.5 !important; }
+.msg-body > .msg-bubble.voice-wrap .voice-bar.played{ opacity:1 !important; }
+.msg-body > .msg-bubble.voice-wrap .voice-foot{ justify-content:space-between !important; }
 </style>
 </head>
 <body>
@@ -2959,7 +2965,7 @@ function _logCall(status){
 function buildVoiceBubble(msg){
   const uid='v'+Date.now()+Math.random().toString(36).slice(2);
   var seed=0; for(var _i=0;_i<(msg.media_url||'').length;_i++) seed=(seed*31+(msg.media_url||'').charCodeAt(_i))&0xffffff;
-  var barsH=Array.from({length:42},function(_,i){ seed=(seed*1664525+1013904223)&0x7fffffff; return 3+(seed%11); });
+  var barsH=Array.from({length:50},function(_,i){ seed=(seed*1664525+1013904223)&0x7fffffff; return 3+(seed%11); });
   var barsHtml=barsH.map(function(h,i){ return '<div class="voice-bar unplayed" style="height:'+h+'px;"></div>'; }).join('');
   var enc=encodeURIComponent(msg.media_url);
   var _mine = (msg.is_mine===true) || (typeof ME!=='undefined' && ME && String(msg.sender_id||'')===String(ME.id||''));
@@ -7060,7 +7066,7 @@ function fmtDur(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${Str
 function scrollBottom(){const a=document.getElementById('msgsArea');if(a)requestAnimationFrame(()=>{a.scrollTop=a.scrollHeight;});}
 document.getElementById('chatInput')?.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px';});
 /* === Repère de build (pour vérifier que la bonne version est chargée) === */
-console.log('PENC build v229 (vocaux pleine largeur WhatsApp)');
+console.log('PENC build v230 (waveform pleine + visible WhatsApp)');
 (function(){ document.addEventListener('contextmenu', function(e){ try{ var t=e.target; if(t&&t.closest&&t.closest('input,textarea,select,[contenteditable=\"true\"]')) return; e.preventDefault(); }catch(_){} }, false); })();
 /* === Flèche "aller en bas" === */
 (function scrollDownFab(){

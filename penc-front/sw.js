@@ -4,7 +4,7 @@
    SW_VERSION change à chaque release => le navigateur détecte la mise à jour,
    le SW s'active (skipWaiting+claim) et l'app ouverte se recharge (controllerchange). */
 
-var SW_VERSION = 'v229';
+var SW_VERSION = 'v230';
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
