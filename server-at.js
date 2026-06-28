@@ -4353,6 +4353,82 @@ app.post('/api/penc/auth/login', async (req, res) => {
   }
 });
 
+// POST /api/penc/auth/google — Connexion / inscription via compte Google
+app.post('/api/penc/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Jeton Google manquant' });
+
+    // Vérifier le jeton auprès de Google (aucune dépendance : fetch natif)
+    const GCID = process.env.GOOGLE_CLIENT_ID || '740435347802-h61347strjq1h0rrihu0llsosui18329.apps.googleusercontent.com';
+    let payload;
+    try {
+      const gr = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential));
+      payload = await gr.json();
+    } catch (e) { return res.status(401).json({ error: 'Vérification Google échouée' }); }
+    if (!payload || payload.error_description || payload.aud !== GCID)
+      return res.status(401).json({ error: 'Jeton Google invalide' });
+    if (payload.email_verified !== 'true' && payload.email_verified !== true)
+      return res.status(401).json({ error: 'Email Google non vérifié' });
+
+    const email = String(payload.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ error: 'Email Google introuvable' });
+    const fullName = payload.name || email.split('@')[0];
+    const picture = payload.picture || null;
+    const gsub = payload.sub || null;
+
+    // Chercher un utilisateur existant (PostgreSQL puis JSONBin)
+    let user = null;
+    if (_pgPool) { user = await pgFindUser('email', email); }
+    if (!user) {
+      const jbUsers = await pencUsers();
+      user = jbUsers.find(u => (u.email || '').toLowerCase() === email) || null;
+    }
+
+    if (user && (user.suspended || user.blocked || user.deleted_at))
+      return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
+
+    // Créer le compte s'il n'existe pas
+    if (!user) {
+      let base = (email.split('@')[0] || 'user').replace(/[^a-z0-9_.]/gi, '').toLowerCase() || 'user';
+      let uname = base, n = 0;
+      async function unameTaken(x) {
+        if (_pgPool && await pgFindUser('username', x)) return true;
+        const jb = await pencUsers();
+        return jb.some(u => (u.username || '').toLowerCase() === x.toLowerCase());
+      }
+      while (await unameTaken(uname)) { n++; uname = base + n; }
+
+      const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      const randomPwd = 'g_' + Math.random().toString(36).slice(2) + Date.now();
+      const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 10) : randomPwd;
+      const isAdmin = PENC_ADMIN_EMAILS.includes(email);
+      const newUser = { id: uid, full_name: fullName, username: uname, phone: '', email,
+        password_hash: hash, avatar_url: picture, bio: '', is_admin: isAdmin, google_id: gsub };
+
+      if (_pgPool) { try { await pgCreateUser(newUser); } catch (e) { console.error('google pgCreate:', e.message); } }
+      else { const users = await pencUsers(); users.push({ ...newUser, password: hash }); await pencSaveUsers(users); }
+      user = newUser;
+
+      // Message de bienvenue (même logique que register, best-effort)
+      setImmediate(async function () {
+        try {
+          pencOnline.forEach(function (sid) { io.to(sid).emit('penc:welcome', { message: '🎉 ' + fullName + ' vient de rejoindre Penc !' }); });
+        } catch (e) {}
+      });
+    } else if (_pgPool && picture && !user.avatar_url) {
+      try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
+    }
+
+    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
+    const isAdmin = PENC_ADMIN_EMAILS.includes(email) || user.is_admin || false;
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
+  } catch (e) {
+    console.error('google auth:', e.message);
+    res.status(500).json({ error: 'Erreur serveur: ' + e.message });
+  }
+});
+
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
