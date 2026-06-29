@@ -3898,6 +3898,7 @@ function pencAuth(req, res, next) {
   try {
     req.pencUser = jwt_penc.verify(h.slice(7), PENC_SECRET);
     if (typeof _pencBlocked!=='undefined' && _pencBlocked.has(String(req.pencUser.userId))) return res.status(403).json({ error: 'compte_restreint', restricted:true });
+    if (req.pencUser.sid && typeof _pencRevokedSids!=='undefined' && _pencRevokedSids.has(req.pencUser.sid)) return res.status(401).json({ error: 'session_revoked' });
     next();
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
@@ -4068,6 +4069,8 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_call_ratings (id TEXT PRIMARY KEY, rater_id TEXT, peer_id TEXT, call_type TEXT, rating INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_isolations (id TEXT PRIMARY KEY, user_a TEXT, user_b TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
+      CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
+      CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4283,7 +4286,9 @@ app.post('/api/penc/auth/register', async (req, res) => {
       await pencSaveUsers(users);
     }
 
-    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '7d' });
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+    _pencCreateSession(uid, _sid, req).catch(function(){});
     const safe = pencStrip({...newUser,password:hash});
     // Notifier les utilisateurs connectés
     setImmediate(async function(){
@@ -4324,8 +4329,33 @@ app.post('/api/penc/auth/register', async (req, res) => {
 const _pencFails = new Map();
 function _pencBruteKey(req, id){ const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); return ip+'|'+String(id||'').toLowerCase(); }
 function _pencBruteBlocked(req, id){ const e=_pencFails.get(_pencBruteKey(req,id)); if(e&&e.until&&e.until>Date.now()) return Math.ceil((e.until-Date.now())/60000); return 0; }
-function _pencBruteFail(req, id){ const k=_pencBruteKey(req,id); const now=Date.now(); let e=_pencFails.get(k); if(!e||(e.first&&now-e.first>15*60*1000)) e={n:0,first:now,until:0}; e.n++; if(e.n>=5){ e.until=now+15*60*1000; } _pencFails.set(k,e); if(_pencFails.size>5000){ for(const kk of _pencFails.keys()){ _pencFails.delete(kk); if(_pencFails.size<=4000) break; } } }
+function _pencBruteFail(req, id){ const k=_pencBruteKey(req,id); const now=Date.now(); let e=_pencFails.get(k); if(!e||(e.first&&now-e.first>15*60*1000)) e={n:0,first:now,until:0}; e.n++; if(e.n>=5){ e.until=now+15*60*1000; } _pencFails.set(k,e); if(_pencFails.size>5000){ for(const kk of _pencFails.keys()){ _pencFails.delete(kk); if(_pencFails.size<=4000) break; } } try{ const ipOnly=_pencBruteKey(req,'').split('|')[0]; let a=_pencIpFails.get(ipOnly); if(!a||now-a.first>5*60*1000) a={n:0,first:now,alerted:false}; a.n++; if(a.n>10 && !a.alerted){ a.alerted=true; _pencSecurityAlert(ipOnly,a.n); } _pencIpFails.set(ipOnly,a); }catch(_){} }
 function _pencBruteOk(req, id){ _pencFails.delete(_pencBruteKey(req,id)); }
+// ── Sessions & révocation (Couche 4) ──
+const _pencRevokedSids = new Set();
+const _pencIpFails = new Map();
+async function _pencLoadRevoked(){ try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT sid FROM penc_sessions WHERE revoked=TRUE"); r.rows.forEach(function(x){ _pencRevokedSids.add(x.sid); }); }catch(e){} }
+function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).slice(2,10); }
+async function _pencCreateSession(uid, sid, req){
+  try{
+    const ip=(req&&req.headers&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim())||'';
+    const ua=(req&&req.headers&&req.headers['user-agent'])||'';
+    let isNew=false;
+    if(_pgPool){
+      try{ const ex=await _pgPool.query("SELECT 1 FROM penc_sessions WHERE user_id=$1 AND ua=$2 AND revoked=FALSE LIMIT 1",[uid,String(ua).slice(0,300)]); isNew=(ex.rowCount===0); }catch(_){}
+      try{ await _pgPool.query("INSERT INTO penc_sessions(sid,user_id,ua,ip) VALUES($1,$2,$3,$4) ON CONFLICT (sid) DO NOTHING",[sid,uid,String(ua).slice(0,300),ip]); }catch(_){}
+    }
+    return { isNew:isNew };
+  }catch(e){ return { isNew:false }; }
+}
+async function _pencSecurityAlert(ip, n){
+  try{
+    if(!_pgPool) return;
+    const r=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]);
+    r.rows.forEach(function(a){ try{ emitToUsers(String(a.id),'admin:security_alert',{ip:ip,count:n,time:new Date().toISOString()}); }catch(_){} });
+  }catch(e){}
+}
+setTimeout(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 9000);
 // POST /api/penc/auth/login
 app.post('/api/penc/auth/login', async (req, res) => {
   try {
@@ -4384,7 +4414,9 @@ app.post('/api/penc/auth/login', async (req, res) => {
     }
 
     pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
-    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '7d' });
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
     const isAdmin = isAdminEmail || user.is_admin || false;
     _pencBruteOk(req, id);
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
@@ -4461,7 +4493,9 @@ app.post('/api/penc/auth/google', async (req, res) => {
       try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
     }
 
-    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '7d' });
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
     const isAdmin = PENC_ADMIN_EMAILS.includes(email) || user.is_admin || false;
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
   } catch (e) {
@@ -4474,11 +4508,41 @@ app.post('/api/penc/auth/google', async (req, res) => {
 app.post('/api/penc/auth/refresh', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '7d' });
+    const tok = jwt_penc.sign({ userId: uid, sid: req.pencUser.sid }, PENC_SECRET, { expiresIn: '7d' });
     res.json({ token: tok });
   } catch (e) { res.status(401).json({ error: 'refresh impossible' }); }
 });
 
+// GET /api/penc/auth/sessions — sessions actives de l'utilisateur
+app.get('/api/penc/auth/sessions', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId; const cur = req.pencUser.sid || '';
+    if (!_pgPool) return res.json({ sessions: [], current: cur });
+    const r = await _pgPool.query("SELECT sid, ua, ip, created_at, last_seen FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE ORDER BY last_seen DESC LIMIT 50", [uid]);
+    res.json({ sessions: r.rows.map(function(x){ return { sid:x.sid, ua:x.ua, ip:x.ip, created_at:x.created_at, last_seen:x.last_seen, current:(x.sid===cur) }; }), current: cur });
+  } catch(e) { res.status(500).json({ error: 'Erreur sessions' }); }
+});
+// POST /api/penc/auth/sessions/revoke — révoquer une session
+app.post('/api/penc/auth/sessions/revoke', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId; const sid = req.body && req.body.sid;
+    if (!sid) return res.status(400).json({ error: 'sid manquant' });
+    if (_pgPool) { const r = await _pgPool.query("UPDATE penc_sessions SET revoked=TRUE WHERE sid=$1 AND user_id=$2", [sid, uid]); if (r.rowCount===0) return res.status(404).json({ error: 'Session introuvable' }); }
+    _pencRevokedSids.add(sid);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur révocation' }); }
+});
+// GET /api/penc/admin/security-log — journal des connexions échouées (admin)
+app.get('/api/penc/admin/security-log', pencAuth, async (req, res) => {
+  try {
+    let isAdmin = false;
+    try { const u = await pgFindUser('id', req.pencUser.userId); isAdmin = !!(u && (u.is_admin || PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()))); } catch(_){}
+    if (!isAdmin) return res.status(403).json({ error: 'Accès refusé' });
+    if (!_pgPool) return res.json({ logs: [] });
+    const r = await _pgPool.query("SELECT type, identifier, ip, user_agent, detail, created_at FROM penc_security_logs WHERE type LIKE 'login_%' ORDER BY created_at DESC LIMIT 100");
+    res.json({ logs: r.rows });
+  } catch(e) { res.status(500).json({ error: 'Erreur log' }); }
+});
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
