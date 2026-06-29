@@ -14,6 +14,27 @@ app.use(function(_secReq, _secRes, _secNext){
   _secRes.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   _secNext();
 });
+// ── Anti-abus / rate-limiting (Couche 3) — tolérant au partage d'IP (CGNAT) ──
+const _rlMap = new Map();
+function _rlIp(req){ return String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); }
+app.use(function(req, res, next){
+  try{
+    var pth = req.path || req.url || '';
+    if (req.method === 'OPTIONS') return next();
+    if (pth.indexOf('/socket.io') === 0) return next();
+    var ip = _rlIp(req); var now = Date.now();
+    var e = _rlMap.get(ip);
+    if (!e || now - e.ws > 60000) { e = { ws: now, n: 0, a: 0 }; }
+    e.n++;
+    var isAuth = pth.indexOf('/api/penc/auth/') === 0 && req.method === 'POST';
+    if (isAuth) e.a++;
+    _rlMap.set(ip, e);
+    if (_rlMap.size > 20000){ for (var k of _rlMap.keys()){ var v=_rlMap.get(k); if (now - v.ws > 60000) _rlMap.delete(k); } }
+    if (isAuth && e.a > 30){ return res.status(429).json({ error: '🚫 Trop de tentatives. Réessaie dans une minute.' }); }
+    if (e.n > 3000){ return res.status(429).json({ error: '🚫 Trop de requêtes. Réessaie dans une minute.' }); }
+  }catch(_e){}
+  next();
+});
 
 // ── Socket.io init (Penc temps réel) ──────────────────────
 const http = require('http');
@@ -4222,6 +4243,8 @@ app.post('/api/penc/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     if (password.length < 6)
       return res.status(400).json({ error: 'Mot de passe min. 6 caractères' });
+    if (full_name.length>120 || username.length>60 || (email && String(email).length>160) || password.length>200)
+      return res.status(400).json({ error: 'Champs trop longs' });
 
     // ── Vérification unicité PostgreSQL (source de vérité) ──
     if (_pgPool) {
@@ -4308,6 +4331,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
     if (!identifier||!password) return res.status(400).json({error:'Identifiant et mot de passe requis'});
+    if (String(identifier).length>200 || String(password).length>200) return res.status(400).json({error:'Entrée invalide'});
     const id = String(identifier).trim();
     const _bm = _pencBruteBlocked(req, id); if (_bm > 0) { try{ pencSecLog('login_blocked', req, {identifier:id}); }catch(_){} return res.status(429).json({ error: '🚫 Trop de tentatives échouées. Réessaie dans '+_bm+' min.' }); }
     const idLow = id.toLowerCase();
