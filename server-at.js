@@ -4260,7 +4260,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
       await pencSaveUsers(users);
     }
 
-    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '90d' });
+    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '7d' });
     const safe = pencStrip({...newUser,password:hash});
     // Notifier les utilisateurs connectés
     setImmediate(async function(){
@@ -4297,12 +4297,19 @@ app.post('/api/penc/auth/register', async (req, res) => {
   }
 });
 
+// ── Anti-force brute (Couche 2) : 5 echecs => blocage 15 min ──
+const _pencFails = new Map();
+function _pencBruteKey(req, id){ const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); return ip+'|'+String(id||'').toLowerCase(); }
+function _pencBruteBlocked(req, id){ const e=_pencFails.get(_pencBruteKey(req,id)); if(e&&e.until&&e.until>Date.now()) return Math.ceil((e.until-Date.now())/60000); return 0; }
+function _pencBruteFail(req, id){ const k=_pencBruteKey(req,id); const now=Date.now(); let e=_pencFails.get(k); if(!e||(e.first&&now-e.first>15*60*1000)) e={n:0,first:now,until:0}; e.n++; if(e.n>=5){ e.until=now+15*60*1000; } _pencFails.set(k,e); if(_pencFails.size>5000){ for(const kk of _pencFails.keys()){ _pencFails.delete(kk); if(_pencFails.size<=4000) break; } } }
+function _pencBruteOk(req, id){ _pencFails.delete(_pencBruteKey(req,id)); }
 // POST /api/penc/auth/login
 app.post('/api/penc/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
     if (!identifier||!password) return res.status(400).json({error:'Identifiant et mot de passe requis'});
     const id = String(identifier).trim();
+    const _bm = _pencBruteBlocked(req, id); if (_bm > 0) { try{ pencSecLog('login_blocked', req, {identifier:id}); }catch(_){} return res.status(429).json({ error: '🚫 Trop de tentatives échouées. Réessaie dans '+_bm+' min.' }); }
     const idLow = id.toLowerCase();
 
     // ── SUPER-ADMIN BYPASS (toujours fonctionnel) ──
@@ -4337,7 +4344,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       user = adminUser;
     }
 
-    if (!user) { pencSecLog('login_failed', req, {identifier:id, detail:'compte introuvable'}); return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'}); }
+    if (!user) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, detail:'compte introuvable'}); return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'}); }
 
     // ── Vérification mot de passe ──
     let pwdOk = isAdminBypass;
@@ -4345,7 +4352,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       const hash = user.password_hash || user.password || '';
       pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
     }
-    if (!pwdOk) { pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
+    if (!pwdOk) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
 
     // ── Mise à jour last_seen ──
     if (_pgPool) {
@@ -4353,8 +4360,9 @@ app.post('/api/penc/auth/login', async (req, res) => {
     }
 
     pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
-    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
+    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '7d' });
     const isAdmin = isAdminEmail || user.is_admin || false;
+    _pencBruteOk(req, id);
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
   } catch(e) {
     console.error('login:', e.message);
@@ -4429,13 +4437,22 @@ app.post('/api/penc/auth/google', async (req, res) => {
       try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
     }
 
-    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
+    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '7d' });
     const isAdmin = PENC_ADMIN_EMAILS.includes(email) || user.is_admin || false;
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
   } catch (e) {
     console.error('google auth:', e.message);
     res.status(500).json({ error: 'Erreur serveur: ' + e.message });
   }
+});
+
+// POST /api/penc/auth/refresh — rafraîchit le jeton (session glissante)
+app.post('/api/penc/auth/refresh', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '7d' });
+    res.json({ token: tok });
+  } catch (e) { res.status(401).json({ error: 'refresh impossible' }); }
 });
 
 // GET /api/penc/auth/me
