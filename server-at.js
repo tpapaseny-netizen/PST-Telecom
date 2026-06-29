@@ -4071,6 +4071,7 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4531,6 +4532,23 @@ app.post('/api/penc/auth/sessions/revoke', pencAuth, async (req, res) => {
     _pencRevokedSids.add(sid);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: 'Erreur révocation' }); }
+});
+// POST /api/penc/keys — publier sa clé publique E2E
+app.post('/api/penc/keys', pencAuth, async (req, res) => {
+  try {
+    const pk = req.body && req.body.public_key;
+    if (!pk || String(pk).length > 200) return res.status(400).json({ error: 'cle invalide' });
+    if (_pgPool) { try { await _pgPool.query("UPDATE penc_users SET public_key=$1 WHERE id=$2", [String(pk), req.pencUser.userId]); } catch(_){} }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur cle' }); }
+});
+// GET /api/penc/keys/:uid — récupérer la clé publique d'un utilisateur
+app.get('/api/penc/keys/:uid', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ public_key: null });
+    const r = await _pgPool.query("SELECT public_key FROM penc_users WHERE id=$1", [req.params.uid]);
+    res.json({ public_key: (r.rows[0] && r.rows[0].public_key) || null });
+  } catch(e) { res.status(500).json({ error: 'Erreur cle' }); }
 });
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
