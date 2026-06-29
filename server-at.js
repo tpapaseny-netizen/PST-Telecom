@@ -5,6 +5,15 @@ const crypto = require('crypto');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
+// ── En-têtes de sécurité HTTP (Couche 1) ──
+app.use(function(_secReq, _secRes, _secNext){
+  _secRes.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  _secRes.setHeader('X-Content-Type-Options', 'nosniff');
+  _secRes.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  _secRes.setHeader('Referrer-Policy', 'no-referrer');
+  _secRes.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  _secNext();
+});
 
 // ── Socket.io init (Penc temps réel) ──────────────────────
 const http = require('http');
@@ -4235,7 +4244,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
         return res.status(400).json({ error: '⚠️ Ce username est pris.' });
     }
 
-    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 10) : password;
+    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 12) : password;
     const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
     const newUser = { id:uid, full_name, username, phone, email:email||null,
@@ -4320,7 +4329,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 10) : ADMIN_PWD;
+      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 12) : ADMIN_PWD;
       const adminUser = { id:'superadmin_'+Date.now(), full_name:'Papa Seny Touré',
         username:'admin_pst', phone:'', email:idLow,
         password_hash:hash, avatar_url:null, bio:'', is_admin:true };
@@ -4401,7 +4410,7 @@ app.post('/api/penc/auth/google', async (req, res) => {
 
       const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const randomPwd = 'g_' + Math.random().toString(36).slice(2) + Date.now();
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 10) : randomPwd;
+      const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 12) : randomPwd;
       const isAdmin = PENC_ADMIN_EMAILS.includes(email);
       const newUser = { id: uid, full_name: fullName, username: uname, phone: '', email,
         password_hash: hash, avatar_url: picture, bio: '', is_admin: isAdmin, google_id: gsub };
