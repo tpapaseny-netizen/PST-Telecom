@@ -4072,6 +4072,7 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4541,6 +4542,23 @@ app.post('/api/penc/keys', pencAuth, async (req, res) => {
     if (_pgPool) { try { await _pgPool.query("UPDATE penc_users SET public_key=$1 WHERE id=$2", [String(pk), req.pencUser.userId]); } catch(_){} }
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: 'Erreur cle' }); }
+});
+// POST /api/penc/keys/backup — sauvegarde chiffrée de la clé privée (zero-knowledge)
+app.post('/api/penc/keys/backup', pencAuth, async (req, res) => {
+  try {
+    const bk = req.body && req.body.backup;
+    if (!bk || String(bk).length > 4000) return res.status(400).json({ error: 'sauvegarde invalide' });
+    if (_pgPool) { try { await _pgPool.query("UPDATE penc_users SET key_backup=$1 WHERE id=$2", [String(bk), req.pencUser.userId]); } catch(_){} }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur sauvegarde' }); }
+});
+// GET /api/penc/keys/backup — récupère la sauvegarde chiffrée
+app.get('/api/penc/keys/backup', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ backup: null });
+    const r = await _pgPool.query("SELECT key_backup FROM penc_users WHERE id=$1", [req.pencUser.userId]);
+    res.json({ backup: (r.rows[0] && r.rows[0].key_backup) || null });
+  } catch(e) { res.status(500).json({ error: 'Erreur sauvegarde' }); }
 });
 // GET /api/penc/keys/:uid — récupérer la clé publique d'un utilisateur
 app.get('/api/penc/keys/:uid', pencAuth, async (req, res) => {
