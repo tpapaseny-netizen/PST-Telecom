@@ -4532,17 +4532,6 @@ app.post('/api/penc/auth/sessions/revoke', pencAuth, async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: 'Erreur révocation' }); }
 });
-// GET /api/penc/admin/security-log — journal des connexions échouées (admin)
-app.get('/api/penc/admin/security-log', pencAuth, async (req, res) => {
-  try {
-    let isAdmin = false;
-    try { const u = await pgFindUser('id', req.pencUser.userId); isAdmin = !!(u && (u.is_admin || PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()))); } catch(_){}
-    if (!isAdmin) return res.status(403).json({ error: 'Accès refusé' });
-    if (!_pgPool) return res.json({ logs: [] });
-    const r = await _pgPool.query("SELECT type, identifier, ip, user_agent, detail, created_at FROM penc_security_logs WHERE type LIKE 'login_%' ORDER BY created_at DESC LIMIT 100");
-    res.json({ logs: r.rows });
-  } catch(e) { res.status(500).json({ error: 'Erreur log' }); }
-});
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
