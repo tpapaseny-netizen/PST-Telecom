@@ -4187,6 +4187,21 @@ async function pgAllUsers(){
   const r=await _pgPool.query('SELECT * FROM penc_users ORDER BY created_at DESC');
   return r.rows.map(pgRow);
 }
+// Fusion PostgreSQL + JSONBin : garantit que TOUT utilisateur (meme cree quand PG etait indisponible) apparait
+async function pgAllUsersMerged(){
+  if(!_pgPool){ try{ return await pencUsers()||[]; }catch(_){ return []; } }
+  const pg=await pgAllUsers()||[];
+  let jb=[]; try{ jb=await pencUsers()||[]; }catch(_){}
+  if(!jb.length) return pg;
+  const ids=new Set(pg.map(u=>String(u.id)));
+  const phones=new Set(pg.map(u=>String((u.phone||'')).trim()).filter(Boolean));
+  const extra=jb.filter(u=>u&&u.id&&!ids.has(String(u.id))&&!(u.phone&&phones.has(String(u.phone).trim()))).map(u=>({
+    id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', phone:u.phone||'', email:u.email||null,
+    password:u.password||u.password_hash||'', avatar_url:u.avatar_url||null, bio:u.bio||'', is_admin:!!u.is_admin,
+    created_at:u.created_at||null, valid_views:u.valid_views||0
+  }));
+  return pg.concat(extra);
+}
 
 // ── Helpers PG conversations & messages ─────────────────
 async function pgGetConvs(userId){
@@ -5490,8 +5505,8 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
         );
         results = r.rows.map(pgRow).map(pencStrip);
       } else {
-        // Sans query: retourner tous les utilisateurs
-        const all = await pgAllUsers() || [];
+        // Sans query: retourner tous les utilisateurs (PG + JSONBin)
+        const all = await pgAllUsersMerged() || [];
         results = all.filter(u => u.id !== uid).map(pencStrip);
       }
     } else {
@@ -5535,8 +5550,8 @@ app.get('/api/penc/health', async (req,res)=>{
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    // PostgreSQL prioritaire — fallback JSONBin
-    const users = _pgPool ? (await pgAllUsers() || []) : await pencUsers();
+    // PostgreSQL + JSONBin fusionnes (tous les utilisateurs)
+    const users = await pgAllUsersMerged();
     res.json({ contacts: users.filter(u => u.id !== uid).map(pencStrip) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -5890,7 +5905,7 @@ setTimeout(_loadIso, 9000); setInterval(_loadIso, 60000);
 setTimeout(_purgeTrash, 20000); setInterval(_purgeTrash, 6*3600*1000);
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
-    const users = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
+    const users = await pgAllUsersMerged();
     const convs = await pencConvs();
     const statuses = await pencStatuses();
     let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
