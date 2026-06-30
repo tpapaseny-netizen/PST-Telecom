@@ -3924,7 +3924,7 @@ async function pencMsgs(){const d=await jbGet(BINS.penc_msgs);if(!d)return[];if(
 async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
 async function pencStatuses(){const d=await jbGet(BINS.penc_status);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.statuses)?d.statuses:[];}
 async function pencSaveStatuses(a){ return jbSet(BINS.penc_status, { statuses: a }); }
-const pencStrip = u => { if (!u) return null; const { password, ...s } = u; return s; };
+const pencStrip = u => { if (!u) return null; const { password, password_hash, totp_secret, ...s } = u; return s; };
 
 // ════════════════════════════════════════════════════════════
 // AUTH
@@ -4073,6 +4073,8 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false;
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4158,7 +4160,7 @@ function pgRow(row){ if(!row) return null;
            email:row.email, password:row.password_hash, avatar_url:row.avatar_url,
            bio:row.bio||'', is_admin:row.is_admin||false,
            is_online:row.is_online, last_seen:row.last_seen, geo:row.geo||{},
-           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, created_at:row.created_at };
+           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, totp_enabled:row.totp_enabled||false, created_at:row.created_at };
 }
 async function pgFindUser(field, value){
   if(!_pgPool) return null;
@@ -4415,6 +4417,13 @@ app.post('/api/penc/auth/login', async (req, res) => {
       await pgUpdateUser(user.id, { is_online:true, last_seen:'NOW()' }).catch(()=>{});
     }
 
+    // ── 2FA : si activee, exiger un code avant de delivrer le jeton (sauf bypass admin) ──
+    if (!isAdminBypass && user.totp_enabled) {
+      const _pend = jwt_penc.sign({ userId: user.id, pending2fa: true }, PENC_SECRET, { expiresIn: '5m' });
+      _pencBruteOk(req, id);
+      try{ pencSecLog('2fa_challenge', req, {identifier:id, user_id:user.id}); }catch(_){}
+      return res.json({ twofa_required: true, pending: _pend });
+    }
     pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
     const _sid = _pencNewSid();
     const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
@@ -4428,6 +4437,83 @@ app.post('/api/penc/auth/login', async (req, res) => {
   }
 });
 
+// ===== 2FA TOTP (Google Authenticator, RFC 6238) =====
+const _B32A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function _b32encode(buf){ var bits=0,val=0,out=''; for(var i=0;i<buf.length;i++){ val=(val<<8)|buf[i]; bits+=8; while(bits>=5){ out+=_B32A[(val>>>(bits-5))&31]; bits-=5; } } if(bits>0){ out+=_B32A[(val<<(5-bits))&31]; } return out; }
+function _b32decode(str){ str=String(str||'').replace(/=+$/,'').toUpperCase().replace(/[^A-Z2-7]/g,''); var bits=0,val=0,out=[]; for(var i=0;i<str.length;i++){ var idx=_B32A.indexOf(str[i]); if(idx<0) continue; val=(val<<5)|idx; bits+=5; if(bits>=8){ out.push((val>>>(bits-8))&0xff); bits-=8; } } return Buffer.from(out); }
+function _totpSecret(){ return _b32encode(crypto.randomBytes(20)); }
+function _hotp(secretB32, counter){ var key=_b32decode(secretB32); var buf=Buffer.alloc(8); var c=counter; for(var i=7;i>=0;i--){ buf[i]=c&0xff; c=Math.floor(c/256); } var h=crypto.createHmac('sha1',key).update(buf).digest(); var off=h[h.length-1]&0xf; var bin=((h[off]&0x7f)<<24)|((h[off+1]&0xff)<<16)|((h[off+2]&0xff)<<8)|(h[off+3]&0xff); return (bin%1000000).toString().padStart(6,'0'); }
+function _totpVerify(secretB32, code, win){ code=String(code||'').replace(/\D/g,''); if(code.length!==6) return false; var t=Math.floor(Date.now()/1000/30); win=win||1; for(var w=-win; w<=win; w++){ if(_hotp(secretB32, t+w)===code) return true; } return false; }
+function _totpEncKey(){ return crypto.createHash('sha256').update('totp:'+PENC_SECRET).digest(); }
+function _totpEnc(plain){ var iv=crypto.randomBytes(12); var c=crypto.createCipheriv('aes-256-gcm',_totpEncKey(),iv); var e=Buffer.concat([c.update(String(plain),'utf8'),c.final()]); var tag=c.getAuthTag(); return iv.toString('base64')+'.'+tag.toString('base64')+'.'+e.toString('base64'); }
+function _totpDec(env){ try{ var p=String(env).split('.'); var iv=Buffer.from(p[0],'base64'),tag=Buffer.from(p[1],'base64'),e=Buffer.from(p[2],'base64'); var d=crypto.createDecipheriv('aes-256-gcm',_totpEncKey(),iv); d.setAuthTag(tag); return Buffer.concat([d.update(e),d.final()]).toString('utf8'); }catch(_){ return null; } }
+
+// GET statut 2FA
+app.get('/api/penc/auth/2fa/status', pencAuth, async (req,res)=>{
+  try{ var en=false; if(_pgPool){ var r=await _pgPool.query("SELECT totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]); en=!!(r.rows[0]&&r.rows[0].totp_enabled); } res.json({enabled:en}); }
+  catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
+});
+// POST configuration -> genere un secret en attente + URI otpauth (QR)
+app.post('/api/penc/auth/2fa/setup', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
+    var r=await _pgPool.query("SELECT email,username,totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]);
+    var u=r.rows[0]||{}; if(u.totp_enabled) return res.status(400).json({error:'2FA deja activee'});
+    var secret=_totpSecret();
+    await _pgPool.query("UPDATE penc_users SET totp_secret=$1, totp_enabled=false WHERE id=$2",[_totpEnc(secret), req.pencUser.userId]);
+    var label=encodeURIComponent('Penc ('+(u.email||u.username||'compte')+')');
+    var uri='otpauth://totp/'+label+'?secret='+secret+'&issuer=Penc&algorithm=SHA1&digits=6&period=30';
+    res.json({ secret:secret, otpauth:uri });
+  }catch(e){ res.status(500).json({error:'Erreur 2FA setup'}); }
+});
+// POST activation -> verifie un code et active
+app.post('/api/penc/auth/2fa/enable', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
+    var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
+    var r=await _pgPool.query("SELECT totp_secret FROM penc_users WHERE id=$1",[req.pencUser.userId]);
+    var enc=r.rows[0]&&r.rows[0].totp_secret; var sec=enc?_totpDec(enc):null;
+    if(!sec) return res.status(400).json({error:"Lance d'abord la configuration."});
+    if(!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect. Reessaie.'});
+    await _pgPool.query("UPDATE penc_users SET totp_enabled=true WHERE id=$1",[req.pencUser.userId]);
+    try{ pencSecLog('2fa_enabled', req, {user_id:req.pencUser.userId}); }catch(_){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
+});
+// POST desactivation -> verifie un code et desactive
+app.post('/api/penc/auth/2fa/disable', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
+    var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
+    var r=await _pgPool.query("SELECT totp_secret,totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]);
+    var row=r.rows[0]||{}; if(!row.totp_enabled) return res.json({success:true});
+    var sec=row.totp_secret?_totpDec(row.totp_secret):null;
+    if(!sec||!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect.'});
+    await _pgPool.query("UPDATE penc_users SET totp_enabled=false, totp_secret=NULL WHERE id=$1",[req.pencUser.userId]);
+    try{ pencSecLog('2fa_disabled', req, {user_id:req.pencUser.userId}); }catch(_){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
+});
+// POST connexion 2FA -> termine la connexion avec le code
+app.post('/api/penc/auth/2fa/login', async (req,res)=>{
+  try{
+    var pending=(req.body&&req.body.pending)||''; var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
+    var dec; try{ dec=jwt_penc.verify(pending, PENC_SECRET); }catch(_){ return res.status(401).json({error:'Session expiree, reconnecte-toi.'}); }
+    if(!dec||!dec.pending2fa||!dec.userId) return res.status(401).json({error:'Session invalide.'});
+    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
+    var r=await _pgPool.query("SELECT * FROM penc_users WHERE id=$1",[dec.userId]); var user=r.rows[0];
+    if(!user) return res.status(400).json({error:'Compte introuvable.'});
+    var sec=user.totp_secret?_totpDec(user.totp_secret):null;
+    if(!sec||!user.totp_enabled) return res.status(400).json({error:'2FA non configuree.'});
+    if(!_totpVerify(sec, code, 1)){ try{ pencSecLog('2fa_failed', req, {user_id:user.id}); }catch(_){} return res.status(400).json({error:'Code incorrect.'}); }
+    var _sid=_pencNewSid();
+    var tok=jwt_penc.sign({ userId:user.id, sid:_sid }, PENC_SECRET, { expiresIn:'7d' });
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
+    var isAdmin = PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) || user.is_admin || false;
+    try{ pencSecLog('login_ok', req, {user_id:user.id, detail:'2fa'}); }catch(_){}
+    res.json({ user: Object.assign({}, pencStrip(user), { is_admin:isAdmin }), token: tok });
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 // POST /api/penc/auth/google — Connexion / inscription via compte Google
 app.post('/api/penc/auth/google', async (req, res) => {
   try {
