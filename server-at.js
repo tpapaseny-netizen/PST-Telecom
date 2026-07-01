@@ -4376,6 +4376,34 @@ async function _pencScheduledStatusTick(){
   }catch(e){ console.error('scheduler statut tick:', e.message); }
 }
 setInterval(_pencScheduledStatusTick, 30000);
+// ==== Programmation de contenu : canaux/broadcast (phase 4/4) ====
+async function _firePencScheduledChannelPost(row){
+  try{
+    const channels = await pencChannels();
+    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
+    if(!ch){ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1",[row.id]); return; }
+    const post = { id:'p_'+Date.now(), sender_id: row.sender_id, content: row.content||'', type: row.type||'text',
+      media_url: row.media_url||null, created_at: new Date().toISOString(), reactions:{} };
+    if(!ch.posts) ch.posts=[];
+    ch.posts.push(post);
+    await pencSaveChannels(channels);
+    if(global._pencIo){
+      (ch.followers||[]).forEach(function(fid){ global._pencIo.to('user:'+fid).emit('channel:post',{channel_id:ch.id,post:post}); });
+    }
+    await _pgPool.query("UPDATE penc_scheduled_messages SET status='sent', sent_at=NOW() WHERE id=$1", [row.id]);
+  }catch(e){
+    console.error('scheduled channel post fire:', e.message);
+    try{ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1", [row.id]); }catch(_){}
+  }
+}
+async function _pencScheduledChannelTick(){
+  if(!_pgPool) return;
+  try{
+    const r = await _pgPool.query("UPDATE penc_scheduled_messages SET status='sending' WHERE id IN (SELECT id FROM penc_scheduled_messages WHERE status='pending' AND kind='channel_post' AND scheduled_for<=NOW() ORDER BY scheduled_for ASC LIMIT 25) RETURNING *");
+    for(const row of r.rows){ await _firePencScheduledChannelPost(row); }
+  }catch(e){ console.error('scheduler canal tick:', e.message); }
+}
+setInterval(_pencScheduledChannelTick, 30000);
 // GET /api/penc/check-username — vérif dispo username (public)
 app.get('/api/penc/check-username', async (req, res) => {
   try {
@@ -5552,6 +5580,82 @@ app.delete('/api/penc/scheduled-status/:id', pencAuth, async (req, res) => {
     await _pgPool.query("UPDATE penc_scheduled_messages SET status='cancelled' WHERE id=$1", [req.params.id]);
     return res.json({ success:true });
   }catch(e){ console.error('DELETE /scheduled-status:', e.message); return res.status(500).json({ error:'Erreur' }); }
+});
+// ==== Programmation de contenu : canaux/broadcast (phase 4/4) ====
+// POST /api/penc/channels/:id/scheduled — programmer une publication de canal
+app.post('/api/penc/channels/:id/scheduled', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const { content, type, media_url, scheduled_for } = req.body || {};
+    if(!content && !media_url) return res.status(400).json({ error:'Contenu vide' });
+    if(!scheduled_for) return res.status(400).json({ error:'scheduled_for requis' });
+    const _when = new Date(scheduled_for);
+    if(isNaN(_when.getTime()) || _when.getTime() <= Date.now()) return res.status(400).json({ error:'La date programmee doit etre dans le futur.' });
+    const channels = await pencChannels();
+    const ch = channels.find(function(x){ return x.id === req.params.id; });
+    if(!ch) return res.status(404).json({ error:'Canal introuvable' });
+    const _isChAdmin = String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid));
+    const _memberCanPost = (ch.type==='group') && !ch.read_only && (ch.followers||[]).map(String).includes(String(uid));
+    if(!_isChAdmin && !_memberCanPost) return res.status(403).json({ error:'Vous ne pouvez pas publier dans ce canal' });
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const id = 'sch_'+Date.now()+Math.random().toString(36).slice(2);
+    await _pgPool.query(
+      "INSERT INTO penc_scheduled_messages(id,kind,conversation_id,sender_id,type,content,media_url,scheduled_for,status) VALUES($1,'channel_post',$2,$3,$4,$5,$6,$7,'pending')",
+      [id, req.params.id, uid, type||'text', content||null, media_url||null, _when.toISOString()]
+    );
+    return res.json({ success:true, id, scheduled_for:_when.toISOString() });
+  }catch(e){ console.error('POST /channels/:id/scheduled:', e.message); return res.status(500).json({ error:'Erreur programmation' }); }
+});
+// GET /api/penc/channels/:id/scheduled — calendrier editorial (publications a venir)
+app.get('/api/penc/channels/:id/scheduled', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.json({ items: [] });
+    const channels = await pencChannels();
+    const ch = channels.find(function(x){ return x.id === req.params.id; });
+    if(!ch) return res.status(404).json({ error:'Canal introuvable' });
+    const _isChAdmin = String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid));
+    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
+    const r = await _pgPool.query("SELECT * FROM penc_scheduled_messages WHERE conversation_id=$1 AND kind='channel_post' AND status='pending' ORDER BY scheduled_for ASC", [req.params.id]);
+    return res.json({ items: r.rows });
+  }catch(e){ console.error('GET /channels/:id/scheduled:', e.message); return res.status(500).json({ error:'Erreur' }); }
+});
+// PATCH /api/penc/channels/scheduled/:schedId — modifier avant publication
+app.patch('/api/penc/channels/scheduled/:schedId', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.schedId]);
+    const row = r.rows[0];
+    if(!row || row.kind!=='channel_post') return res.status(404).json({ error:'Introuvable' });
+    const channels = await pencChannels();
+    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
+    const _isChAdmin = ch && (String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid)));
+    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
+    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
+    const { content, scheduled_for } = req.body || {};
+    let _when = row.scheduled_for;
+    if(scheduled_for){ const d=new Date(scheduled_for); if(isNaN(d.getTime())||d.getTime()<=Date.now()) return res.status(400).json({ error:'Date invalide' }); _when=d.toISOString(); }
+    await _pgPool.query('UPDATE penc_scheduled_messages SET content=COALESCE($1,content), scheduled_for=$2 WHERE id=$3', [content||null, _when, req.params.schedId]);
+    return res.json({ success:true });
+  }catch(e){ console.error('PATCH /channels/scheduled/:schedId:', e.message); return res.status(500).json({ error:'Erreur' }); }
+});
+// DELETE /api/penc/channels/scheduled/:schedId — annuler une publication programmee
+app.delete('/api/penc/channels/scheduled/:schedId', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.schedId]);
+    const row = r.rows[0];
+    if(!row || row.kind!=='channel_post') return res.status(404).json({ error:'Introuvable' });
+    const channels = await pencChannels();
+    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
+    const _isChAdmin = ch && (String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid)));
+    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
+    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
+    await _pgPool.query("UPDATE penc_scheduled_messages SET status='cancelled' WHERE id=$1", [req.params.schedId]);
+    return res.json({ success:true });
+  }catch(e){ console.error('DELETE /channels/scheduled/:schedId:', e.message); return res.status(500).json({ error:'Erreur' }); }
 });
 // PATCH /api/penc/messages/:id — modifier un message
 app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
