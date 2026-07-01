@@ -4246,6 +4246,27 @@ async function pgSaveMessage(msg){
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
   return r.rows[0];
 }
+// ==== Message d'accueil Penc (complet) + relance apres absence ====
+function _pencWelcomeText(fullName){
+  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Ta messagerie mondiale gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDCB8 transferts d'argent. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
+}
+function _pencWelcomeBackText(fullName){
+  return "Contente\u2026 non, content de te revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant ton absence, tes messages, tes appels, tes statuts et la radio DeglouFM en direct t'attendent. Jette un \u0153il \u00e0 tes conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
+}
+async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
+  try{
+    if(!_pgPool || !uid || String(uid)==='penc_official') return;
+    const _conv = await pgGetOrCreateConv('penc_official', uid);
+    if(!_conv) return;
+    const _msg = { id:'msg_'+Date.now()+Math.random().toString(36).slice(2), conversation_id:_conv.id, sender_id:'penc_official', type:'text', content:text, created_at:new Date().toISOString() };
+    let _sender={ id:'penc_official', full_name:'Penc' }; try{ const _pu=await pgFindUser('id','penc_official'); if(_pu) _sender=pencStrip(_pu); }catch(_){}
+    const _full = Object.assign({}, _msg, { sender:_sender });
+    try{ io.to('penc:'+_conv.id).emit('message:new',_full); }catch(_){}
+    try{ io.to('user:'+String(uid)).emit('message:new',_full); }catch(_){}
+    try{ await pgSaveMessage({ id:_msg.id, conversation_id:_conv.id, sender_id:'penc_official', type:'text', content:text, created_at:_msg.created_at }); }catch(_){}
+    try{ if(typeof webpush!=='undefined' && webpush){ await sendPencPush(uid,{title:pushTitle,body:pushBody,tag:tag,url:'/messager?conv='+_conv.id,conv_id:_conv.id}); } }catch(_){}
+  }catch(_e){}
+}
 // GET /api/penc/check-username — vérif dispo username (public)
 app.get('/api/penc/check-username', async (req, res) => {
   try {
@@ -4317,19 +4338,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
           io.to(sid).emit('penc:welcome',{message:welcomeMsg});
         });
         try{ if(_pgPool){ const _ar=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); _ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newuser',{id:uid, full_name:full_name, email:email||'', phone:phone}); }); } }catch(e4){}
-        try{ if(_pgPool){
-          const _wconv = await pgGetOrCreateConv('penc_official', uid);
-          if(_wconv){
-            const _wtext = "Bienvenue sur Penc, "+full_name+" ! \ud83c\udf89 Heureux de t'accueillir parmi nous. Discute en priv\u00e9, partage tes statuts, \u00e9coute la radio DeglouFM et profite de toutes les fonctionnalit\u00e9s. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \ud83d\udc9a";
-            const _wmsg = { id:'msg_'+Date.now()+Math.random().toString(36).slice(2), conversation_id:_wconv.id, sender_id:'penc_official', type:'text', content:_wtext, created_at:new Date().toISOString() };
-            let _wsender={ id:'penc_official', full_name:'Penc' }; try{ const _pu=await pgFindUser('id','penc_official'); if(_pu) _wsender=pencStrip(_pu); }catch(_){}
-            const _wfull = Object.assign({}, _wmsg, { sender:_wsender });
-            try{ io.to('penc:'+_wconv.id).emit('message:new',_wfull); }catch(_){}
-            try{ io.to('user:'+String(uid)).emit('message:new',_wfull); }catch(_){}
-            try{ await pgSaveMessage({ id:_wmsg.id, conversation_id:_wconv.id, sender_id:'penc_official', type:'text', content:_wtext, created_at:_wmsg.created_at }); }catch(_){}
-            try{ if(typeof webpush!=='undefined' && webpush){ await sendPencPush(uid,{title:'Penc',body:'Bienvenue sur Penc ! \ud83c\udf89',tag:'penc-welcome',url:'/messager?conv='+_wconv.id,conv_id:_wconv.id}); } }catch(_){}
-          }
-        } }catch(eWel){}
+        try{ if(_pgPool){ await _sendPencOfficialDM(uid, _pencWelcomeText(full_name), 'Penc', 'Bienvenue sur Penc ! \ud83c\udf89', 'penc-welcome'); } }catch(eWel){}
       }catch(e2){}
     });
     res.json({ user: Object.assign({}, safe, { is_admin: isAdmin }), token: tok });
@@ -4590,6 +4599,7 @@ app.post('/api/penc/auth/google', async (req, res) => {
       setImmediate(async function () {
         try {
           pencOnline.forEach(function (sid) { io.to(sid).emit('penc:welcome', { message: '🎉 ' + fullName + ' vient de rejoindre Penc !' }); });
+          if(_pgPool){ await _sendPencOfficialDM(uid, _pencWelcomeText(fullName), 'Penc', 'Bienvenue sur Penc ! 🎉', 'penc-welcome'); }
         } catch (e) {}
       });
     } else if (_pgPool && picture && !user.avatar_url) {
@@ -6272,7 +6282,17 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
     if (_pgPool) {
-      try { await _pgPool.query("UPDATE penc_users SET total_time_seconds = COALESCE(total_time_seconds,0)+300, last_seen=NOW() WHERE id=$1", [uid]); } catch(e){}
+      try {
+        const _prevSeenR = await _pgPool.query("SELECT last_seen, full_name FROM penc_users WHERE id=$1", [uid]);
+        const _prevSeen = _prevSeenR.rows[0];
+        await _pgPool.query("UPDATE penc_users SET total_time_seconds = COALESCE(total_time_seconds,0)+300, last_seen=NOW() WHERE id=$1", [uid]);
+        if (_prevSeen && _prevSeen.last_seen) {
+          const _gapMs = Date.now() - new Date(_prevSeen.last_seen).getTime();
+          if (_gapMs >= 24*60*60*1000) {
+            _sendPencOfficialDM(uid, _pencWelcomeBackText(_prevSeen.full_name||''), 'Penc', 'Content de te revoir sur Penc ! \ud83d\udc4b', 'penc-welcomeback').catch(function(){});
+          }
+        }
+      } catch(e){}
       try { const gr=await _pgPool.query("SELECT geo FROM penc_users WHERE id=$1",[uid]); const cur=gr.rows[0]?gr.rows[0].geo:null; const hasGeo=cur&&typeof cur==='object'&&cur.country; if(!hasGeo){ const xfRaw=(req.headers['x-forwarded-for']||(req.socket&&req.socket.remoteAddress)||'unknown'); const ip=xfRaw.replace('::ffff:','').split(',')[0].trim(); if(ip&&ip!=='unknown'&&!ip.startsWith('127.')&&!ip.startsWith('10.')&&ip!=='::1'){ getGeoForIp(ip).then(async function(geo){ if(geo){ try{ await _pgPool.query("UPDATE penc_users SET geo=$1::jsonb WHERE id=$2",[JSON.stringify(geo),uid]); }catch(e){} } }).catch(function(){}); } } } catch(e){}
       return res.json({ success:true });
     }
