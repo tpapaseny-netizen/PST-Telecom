@@ -6086,6 +6086,30 @@ app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
 
 // ─── PENC ADMIN ─────────────────────────────────────────────
 const PENC_ADMIN_EMAILS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
+// Reparation globale : comptes au nom vide (souvent d'anciennes inscriptions Google)
+app.post('/api/penc/admin/repair-names', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    let me = null; try { me = await pgFindUser('id', uid); } catch(_) {}
+    const isAdmin = me && (me.is_admin || PENC_ADMIN_EMAILS.includes(String(me.email||'').toLowerCase()));
+    if (!isAdmin) return res.status(403).json({ error: 'Reserve aux administrateurs' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const r = await _pgPool.query("SELECT id, username, email FROM penc_users WHERE full_name IS NULL OR TRIM(full_name)=''");
+    let fixed = 0;
+    for (const row of r.rows) {
+      let nm = '';
+      if (row.username && String(row.username).trim()) {
+        nm = String(row.username).replace(/[._-]+/g, ' ').trim();
+      } else if (row.email) {
+        nm = String(row.email).split('@')[0].replace(/[._-]+/g, ' ').trim();
+      }
+      nm = nm.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase()+w.slice(1)) : w; }).join(' ').trim();
+      if (!nm) nm = 'Utilisateur Penc';
+      try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
+    }
+    return res.json({ success: true, fixed: fixed, total: r.rows.length });
+  } catch (e) { console.error('repair-names:', e.message); return res.status(500).json({ error: 'Erreur: ' + e.message }); }
+});
 async function pencAdmin(req, res, next) {
   try {
     let u = null;
