@@ -4695,7 +4695,16 @@ app.post('/api/penc/auth/google', async (req, res) => {
 
     const email = String(payload.email || '').toLowerCase();
     if (!email) return res.status(400).json({ error: 'Email Google introuvable' });
-    const fullName = payload.name || email.split('@')[0];
+    var _gName = payload.name;
+    if (!_gName || !String(_gName).trim()) {
+      var _gn = [payload.given_name, payload.family_name].filter(Boolean).join(' ').trim();
+      _gName = _gn || '';
+    }
+    if (!_gName || !String(_gName).trim()) {
+      var _localPart = (email.split('@')[0] || 'user').replace(/[._-]+/g, ' ').trim();
+      _gName = _localPart.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase() + w.slice(1)) : w; }).join(' ');
+    }
+    const fullName = _gName || 'Utilisateur Penc';
     const picture = payload.picture || null;
     const gsub = payload.sub || null;
 
@@ -4739,8 +4748,14 @@ app.post('/api/penc/auth/google', async (req, res) => {
           if(_pgPool){ await _sendPencOfficialDM(uid, _pencWelcomeText(fullName), 'Penc', 'Bienvenue sur Penc ! 🎉', 'penc-welcome'); }
         } catch (e) {}
       });
-    } else if (_pgPool && picture && !user.avatar_url) {
-      try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
+    } else {
+      // Compte Google existant : reparer un nom vide (anciens comptes crees sans full_name)
+      if (_pgPool && (!user.full_name || !String(user.full_name).trim())) {
+        try { await pgUpdateUser(user.id, { full_name: fullName }); user.full_name = fullName; } catch (e) {}
+      }
+      if (_pgPool && picture && !user.avatar_url) {
+        try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
+      }
     }
 
     const _sid = _pencNewSid();
