@@ -5795,7 +5795,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
         const other = users.find(u => u.id === otherId) || {};
         const convMsgs = msgs.filter(m => m.conversation_id === c.id);
         const last = convMsgs[convMsgs.length - 1] || null;
-        return { ...c, other_user_id: otherId, name: other.full_name || 'Utilisateur',
+        return { ...c, other_user_id: otherId, name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null, last_message: last };
       });
     }
@@ -5830,7 +5830,7 @@ app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
     }
     const users = await pencUsers();
     const other = users.find(u => u.id === target_user_id) || {};
-    res.json({ conversation: { ...conv, other_user_id: target_user_id, name: other.full_name || 'Utilisateur', avatar_url: other.avatar_url || null }});
+    res.json({ conversation: { ...conv, other_user_id: target_user_id, name: other.full_name || other.username || 'Utilisateur', avatar_url: other.avatar_url || null }});
   } catch(e) { console.error('POST direct:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
@@ -6094,20 +6094,40 @@ app.post('/api/penc/admin/repair-names', pencAuth, async (req, res) => {
     const isAdmin = me && (me.is_admin || PENC_ADMIN_EMAILS.includes(String(me.email||'').toLowerCase()));
     if (!isAdmin) return res.status(403).json({ error: 'Reserve aux administrateurs' });
     if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
-    const r = await _pgPool.query("SELECT id, username, email FROM penc_users WHERE full_name IS NULL OR TRIM(full_name)=''");
-    let fixed = 0;
-    for (const row of r.rows) {
-      let nm = '';
-      if (row.username && String(row.username).trim()) {
-        nm = String(row.username).replace(/[._-]+/g, ' ').trim();
-      } else if (row.email) {
-        nm = String(row.email).split('@')[0].replace(/[._-]+/g, ' ').trim();
-      }
+    function deriveName(username, email){
+      var nm = '';
+      if (username && String(username).trim()) { nm = String(username).replace(/[._-]+/g, ' ').trim(); }
+      else if (email) { nm = String(email).split('@')[0].replace(/[._-]+/g, ' ').trim(); }
       nm = nm.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase()+w.slice(1)) : w; }).join(' ').trim();
-      if (!nm) nm = 'Utilisateur Penc';
-      try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
+      return nm || 'Utilisateur Penc';
     }
-    return res.json({ success: true, fixed: fixed, total: r.rows.length });
+    // Un nom est 'a reparer' s'il est vide OU s'il vaut litteralement Utilisateur / Utilisateur Penc
+    var badName = "(full_name IS NULL OR TRIM(full_name)='' OR LOWER(TRIM(full_name)) IN ('utilisateur','utilisateur penc','user'))";
+    var fixed = 0, jbFixed = 0;
+    var r = { rows: [] };
+    // 1) PostgreSQL
+    try {
+      r = await _pgPool.query('SELECT id, username, email, full_name FROM penc_users WHERE ' + badName);
+      for (const row of r.rows) {
+        var nm = deriveName(row.username, row.email);
+        try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
+      }
+    } catch(e) { console.error('repair pg:', e.message); }
+    // 2) JSONBin (comptes qui n'ont jamais migre vers PostgreSQL)
+    var jbTotal = 0;
+    try {
+      var jb = await pencUsers();
+      var changed = false;
+      for (var i=0; i<jb.length; i++) {
+        var u = jb[i]; var fn = String(u.full_name||'').trim().toLowerCase();
+        if (!fn || fn==='utilisateur' || fn==='utilisateur penc' || fn==='user') {
+          u.full_name = deriveName(u.username, u.email); jbFixed++; changed = true;
+        }
+      }
+      jbTotal = jb.length;
+      if (changed) { await pencSaveUsers(jb); }
+    } catch(e) { console.error('repair jb:', e.message); }
+    return res.json({ success: true, fixed: fixed, jbFixed: jbFixed, pgTotal: r.rows.length, jbScanned: jbTotal });
   } catch (e) { console.error('repair-names:', e.message); return res.status(500).json({ error: 'Erreur: ' + e.message }); }
 });
 async function pencAdmin(req, res, next) {
