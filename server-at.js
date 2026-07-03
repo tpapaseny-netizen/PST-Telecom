@@ -4749,8 +4749,9 @@ app.post('/api/penc/auth/google', async (req, res) => {
         } catch (e) {}
       });
     } else {
-      // Compte Google existant : reparer un nom vide (anciens comptes crees sans full_name)
-      if (_pgPool && (!user.full_name || !String(user.full_name).trim())) {
+      // Compte Google existant : reparer nom vide OU 'Utilisateur' (anciens comptes)
+      var _fn = String(user.full_name||'').trim().toLowerCase();
+      if (_pgPool && (!_fn || _fn==='utilisateur' || _fn==='utilisateur penc' || _fn==='user')) {
         try { await pgUpdateUser(user.id, { full_name: fullName }); user.full_name = fullName; } catch (e) {}
       }
       if (_pgPool && picture && !user.avatar_url) {
