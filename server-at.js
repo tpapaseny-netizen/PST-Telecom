@@ -6101,33 +6101,16 @@ app.post('/api/penc/admin/repair-names', pencAuth, async (req, res) => {
       nm = nm.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase()+w.slice(1)) : w; }).join(' ').trim();
       return nm || 'Utilisateur Penc';
     }
-    // Un nom est 'a reparer' s'il est vide OU s'il vaut litteralement Utilisateur / Utilisateur Penc
+    // PostgreSQL UNIQUEMENT (base principale penc-db). Un nom est 'a reparer'
+    // s'il est vide OU s'il vaut litteralement Utilisateur / Utilisateur Penc / User.
     var badName = "(full_name IS NULL OR TRIM(full_name)='' OR LOWER(TRIM(full_name)) IN ('utilisateur','utilisateur penc','user'))";
-    var fixed = 0, jbFixed = 0;
-    var r = { rows: [] };
-    // 1) PostgreSQL
-    try {
-      r = await _pgPool.query('SELECT id, username, email, full_name FROM penc_users WHERE ' + badName);
-      for (const row of r.rows) {
-        var nm = deriveName(row.username, row.email);
-        try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
-      }
-    } catch(e) { console.error('repair pg:', e.message); }
-    // 2) JSONBin (comptes qui n'ont jamais migre vers PostgreSQL)
-    var jbTotal = 0;
-    try {
-      var jb = await pencUsers();
-      var changed = false;
-      for (var i=0; i<jb.length; i++) {
-        var u = jb[i]; var fn = String(u.full_name||'').trim().toLowerCase();
-        if (!fn || fn==='utilisateur' || fn==='utilisateur penc' || fn==='user') {
-          u.full_name = deriveName(u.username, u.email); jbFixed++; changed = true;
-        }
-      }
-      jbTotal = jb.length;
-      if (changed) { await pencSaveUsers(jb); }
-    } catch(e) { console.error('repair jb:', e.message); }
-    return res.json({ success: true, fixed: fixed, jbFixed: jbFixed, pgTotal: r.rows.length, jbScanned: jbTotal });
+    var fixed = 0;
+    var r = await _pgPool.query('SELECT id, username, email, full_name FROM penc_users WHERE ' + badName);
+    for (const row of r.rows) {
+      var nm = deriveName(row.username, row.email);
+      try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
+    }
+    return res.json({ success: true, fixed: fixed, total: r.rows.length });
   } catch (e) { console.error('repair-names:', e.message); return res.status(500).json({ error: 'Erreur: ' + e.message }); }
 });
 async function pencAdmin(req, res, next) {
