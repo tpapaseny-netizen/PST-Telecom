@@ -6299,7 +6299,7 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     const statuses = await pencStatuses();
     let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
     const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 75; const withdrawn = u.withdrawn || 0; return {
-      id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
+      id: u.id, full_name: (u.full_name && String(u.full_name).trim() && String(u.full_name).trim().toLowerCase()!=='utilisateur') ? u.full_name : (u.username || 'Utilisateur'), username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
@@ -6315,7 +6315,7 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     res.json({
       stats: { users: users.length, conversations: convs.length, statuses: statuses.length, messages: msgsCount, total_valid_views: totalValidViews },
       withdrawals, rewardAlerts,
-      users: all.sort((a, b) => b.valid_views - a.valid_views)
+      users: all.sort((a, b) => new Date(b.created_at||0) - new Date(a.created_at||0))
     });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
