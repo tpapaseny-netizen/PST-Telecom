@@ -5385,8 +5385,21 @@ app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
     await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE requester=$1 AND recipient=$2 AND status='pending'",[requester,uid]);
     try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester, JSON.stringify([uid])]); }catch(e2){}
-    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}}); try{ sendPencPush(requester,{title:'Demande acceptee', body:(me.full_name||me.username||'Quelqu\'un')+' a accepte votre demande d\'ami', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendacc', data:{type:'friend_accepted', url:'/messager'}}); }catch(_p){} }catch(e){}
-    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+    // CREER la conversation immediatement -> elle apparait des DEUX cotes
+    let _conv=null; try{ _conv=await pgGetOrCreateConv(uid, requester); }catch(e3){ console.error('accept conv:', e3.message); }
+    try{
+      const me=await pgFindUser('id',uid)||{};
+      const him=await pgFindUser('id',requester)||{};
+      // Notifier le DEMANDEUR (demande acceptee) + lui pousser la nouvelle conv
+      emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}});
+      if(_conv){
+        emitToUsers(requester,'conversation:new',{conversation:_conv, other:{id:uid, full_name:me.full_name||me.username||'Utilisateur', username:me.username||'', avatar_url:me.avatar_url||null}});
+        // Notifier CELUI qui accepte aussi -> la conv s'ouvre chez lui en meme temps
+        emitToUsers(uid,'conversation:new',{conversation:_conv, other:{id:requester, full_name:him.full_name||him.username||'Utilisateur', username:him.username||'', avatar_url:him.avatar_url||null}});
+      }
+      try{ sendPencPush(requester,{title:'Demande acceptee', body:(me.full_name||me.username||'Quelqu\'un')+' a accepte votre demande d\'ami', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendacc', data:{type:'friend_accepted', url:'/messager'}}); }catch(_p){}
+    }catch(e){}
+    res.json({success:true, conversation:_conv}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/reject/:userId', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; const requester=req.params.userId;
