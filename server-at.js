@@ -4161,6 +4161,10 @@ let _pgPool = null;
       const _nr2=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(username,'[._-]+',' ','g'))) WHERE (email IS NULL OR position('@' in email)<=1) AND username IS NOT NULL AND btrim(username)<>'' AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
       if(_nr2.rowCount>0) console.log('✅ Noms repares au demarrage (via pseudo): '+_nr2.rowCount);
     }catch(eNr2){}
+    try{
+      const _pr=await _pgPool.query("UPDATE penc_users SET phone='g_'||id WHERE phone=''");
+      if(_pr.rowCount>0) console.log('\u2705 Telephones vides repares (comptes Google): '+_pr.rowCount);
+    }catch(ePr){ console.error('repair phones:', ePr.message); }
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -4744,10 +4748,28 @@ app.post('/api/penc/auth/google', async (req, res) => {
       const randomPwd = 'g_' + Math.random().toString(36).slice(2) + Date.now();
       const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 12) : randomPwd;
       const isAdmin = PENC_ADMIN_EMAILS.includes(email);
-      const newUser = { id: uid, full_name: fullName, username: uname, phone: '', email,
+      // v12 : phone est UNIQUE NOT NULL -> '' ne peut exister qu'UNE fois. Tous les comptes
+      // Google suivants echouaient a l'INSERT en silence = comptes FANTOMES ('Utilisateur',
+      // aucun contact, messages jamais recus). Placeholder unique par compte :
+      const newUser = { id: uid, full_name: fullName, username: uname, phone: 'g_'+uid, email,
         password_hash: hash, avatar_url: picture, bio: '', is_admin: isAdmin, google_id: gsub };
 
-      if (_pgPool) { try { await pgCreateUser(newUser); } catch (e) { console.error('google pgCreate:', e.message); } }
+      if (_pgPool) {
+        try { await pgCreateUser(newUser); }
+        catch (e) {
+          console.error('google pgCreate (1er essai):', e.message);
+          // v12 : on re-essaie avec pseudo/phone regeneres, sinon ERREUR CLAIRE —
+          // on n'emet JAMAIS de jeton pour un compte absent de la base (fantome).
+          try {
+            newUser.username = uname + '_' + Math.random().toString(36).slice(2,5);
+            newUser.phone = 'g_' + uid + '_' + Math.random().toString(36).slice(2,4);
+            await pgCreateUser(newUser);
+          } catch (e2) {
+            console.error('google pgCreate (2e essai):', e2.message);
+            return res.status(500).json({ error: 'Cr\u00e9ation du compte impossible, r\u00e9essayez dans un instant.' });
+          }
+        }
+      }
       else { const users = await pencUsers(); users.push({ ...newUser, password: hash }); await pencSaveUsers(users); }
       user = newUser;
 
