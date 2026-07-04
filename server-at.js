@@ -5985,11 +5985,14 @@ app.get('/api/penc/statuses/of/:userId', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     const target = req.params.userId;
     try{ const _m=await _pgPool.query("SELECT 1 FROM penc_users WHERE id=$1 AND muted_until IS NOT NULL AND muted_until > NOW()",[target]); if(_m.rows.length) return res.json({statuses:[]}); }catch(_e){}
-    const rows = await pgGetStatuses(true);
+    // v15 : HISTORIQUE COMPLET — les 30 derniers statuts de la personne, actifs ET expires
+    const _sq = await _pgPool.query("SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30",[target]);
+    const rows = _sq.rows;
     const allUsers = await pgAllUsers()||[];
     const u = allUsers.find(x=>String(x.id)===String(target));
     const user = u?{id:u.id,full_name:(u.full_name||u.username||'Utilisateur'),username:u.username||'',avatar_url:u.avatar_url||null}:{id:target,full_name:'Utilisateur',username:''};
-    const statuses = rows.map(pgStatusToObj).filter(x=>String(x.user_id)===String(target)).map(x=>({...x,user,viewed:(x.views||[]).includes(uid)}));
+    const _cut = Date.now()-86400000;
+    const statuses = rows.map(pgStatusToObj).map(x=>({...x,user,viewed:(x.views||[]).includes(uid),active:new Date(x.created_at).getTime()>=_cut}));
     res.json({statuses});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
