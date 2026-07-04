@@ -5977,6 +5977,22 @@ app.get('/api/penc/contacts', pencAuth, async (req, res) => {
 // ════════════════════════════════════════════════════════════
 
 // GET /api/penc/statuses
+// v14 : statuts d'UN utilisateur precis, lus directement en base — fiable depuis les profils,
+// meme si la personne n'est pas encore amie (verification avant d'accepter une demande).
+app.get('/api/penc/statuses/of/:userId', pencAuth, async (req, res) => {
+  try {
+    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    const uid = req.pencUser.userId;
+    const target = req.params.userId;
+    try{ const _m=await _pgPool.query("SELECT 1 FROM penc_users WHERE id=$1 AND muted_until IS NOT NULL AND muted_until > NOW()",[target]); if(_m.rows.length) return res.json({statuses:[]}); }catch(_e){}
+    const rows = await pgGetStatuses(true);
+    const allUsers = await pgAllUsers()||[];
+    const u = allUsers.find(x=>String(x.id)===String(target));
+    const user = u?{id:u.id,full_name:(u.full_name||u.username||'Utilisateur'),username:u.username||'',avatar_url:u.avatar_url||null}:{id:target,full_name:'Utilisateur',username:''};
+    const statuses = rows.map(pgStatusToObj).filter(x=>String(x.user_id)===String(target)).map(x=>({...x,user,viewed:(x.views||[]).includes(uid)}));
+    res.json({statuses});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
 app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
