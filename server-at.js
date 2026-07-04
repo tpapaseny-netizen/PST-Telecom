@@ -4151,6 +4151,16 @@ let _pgPool = null;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     try{ await _pgPool.query("INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,created_at) VALUES('penc_official','Penc','penc_officiel','+00000000000',NULL,'-','https://penc-messagerie.com/penc-icon-192.png','Compte officiel Penc',NOW()) ON CONFLICT(id) DO UPDATE SET full_name='Penc', avatar_url='https://penc-messagerie.com/penc-icon-192.png', bio='Compte officiel Penc'"); console.log('✅ Compte officiel Penc pret'); }catch(eOff){ console.error('Penc official:', eOff.message); }
+    // v11 : reparation GLOBALE des noms au demarrage (comptes Google restes 'Utilisateur' —
+    // ils ne repassent jamais par /auth/google tant que leur jeton est valide, donc on repare ici).
+    try{
+      const _nr=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(split_part(email,'@',1),'[._-]+',' ','g'))) WHERE email IS NOT NULL AND position('@' in email)>1 AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
+      if(_nr.rowCount>0) console.log('✅ Noms repares au demarrage (via email): '+_nr.rowCount);
+    }catch(eNr){ console.error('repair noms email:', eNr.message); }
+    try{
+      const _nr2=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(username,'[._-]+',' ','g'))) WHERE (email IS NULL OR position('@' in email)<=1) AND username IS NOT NULL AND btrim(username)<>'' AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
+      if(_nr2.rowCount>0) console.log('✅ Noms repares au demarrage (via pseudo): '+_nr2.rowCount);
+    }catch(eNr2){}
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -4240,7 +4250,7 @@ async function pgGetOrCreateConv(uid1,uid2){
   // Créer nouvelle conv
   const id='conv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
   const ins=await _pgPool.query(
-    'INSERT INTO penc_conversations(id,participants) VALUES($1,$2) RETURNING *',
+    'INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',
     [id,JSON.stringify([uid1,uid2])]
   );
   return ins.rows[0];
@@ -5376,15 +5386,23 @@ app.post('/api/penc/friends/request/:userId', pencAuth, async (req,res)=>{
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
     if(await pgIsBlocked(uid,other)) return res.status(403).json({error:'Action impossible'});
     const ex=await _pgPool.query("SELECT status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[uid,other]);
-    if(ex.rows.length) return res.json({success:true, status:ex.rows[0].status});
-    await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
+    if(ex.rows.length && ex.rows[0].status!=='rejected') return res.json({success:true, status:ex.rows[0].status});
+    if(ex.rows.length){
+      // v11 : ancienne demande refusee -> on la relance proprement (nouveau sens requester->recipient)
+      await _pgPool.query("UPDATE penc_friendships SET requester=$1, recipient=$2, status='pending', updated_at=NOW() WHERE ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) AND status='rejected'",[uid,other]);
+    } else {
+      await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
+    }
     try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' veut vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
     res.json({success:true, status:'pending'}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; const requester=req.params.userId;
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
-    await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE requester=$1 AND recipient=$2 AND status='pending'",[requester,uid]);
+    // BLINDAGE v11 : accepter quel que soit le sens ou l'etat de la ligne (sauf blocage),
+    // et creer la ligne 'accepted' si elle n'existe pas -> l'amitie devient TOUJOURS effective.
+    const _up=await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) AND status<>'blocked'",[requester,uid]);
+    if(!_up.rowCount){ try{ await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'accepted',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),requester,uid]); }catch(_ei){} }
     try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester, JSON.stringify([uid])]); }catch(e2){}
     // CREER la conversation immediatement -> elle apparait des DEUX cotes
     let _conv=null; try{ _conv=await pgGetOrCreateConv(uid, requester); }catch(e3){ console.error('accept conv:', e3.message); }
