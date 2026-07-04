@@ -5368,7 +5368,7 @@ async function pgIsBlocked(a,b){
   if(!_pgPool) return false;
   try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='blocked' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return false; }
 }
-function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, is_online:!!u.is_online}; }
+function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, bio:u.bio||'', is_online:!!u.is_online}; }
 
 app.get('/api/penc/friends', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({friends:[]});
