@@ -4161,6 +4161,19 @@ let _pgPool = null;
       const _nr2=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(username,'[._-]+',' ','g'))) WHERE (email IS NULL OR position('@' in email)<=1) AND username IS NOT NULL AND btrim(username)<>'' AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
       if(_nr2.rowCount>0) console.log('✅ Noms repares au demarrage (via pseudo): '+_nr2.rowCount);
     }catch(eNr2){}
+    // v16 : NETTOYAGE des debris de l'ere des comptes fantomes
+    try{
+      const _d1=await _pgPool.query("DELETE FROM penc_conversations WHERE jsonb_array_length(participants)<2 OR participants->>0 = participants->>1");
+      if(_d1.rowCount>0) console.log('\u{1F9F9} Conversations avec soi-meme supprimees: '+_d1.rowCount);
+    }catch(eD1){ console.error('cleanup self-convs:', eD1.message); }
+    try{
+      const _d2=await _pgPool.query("DELETE FROM penc_conversations c WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(c.participants) p WHERE NOT EXISTS (SELECT 1 FROM penc_users u WHERE u.id=p))");
+      if(_d2.rowCount>0) console.log('\u{1F9F9} Conversations fantomes supprimees: '+_d2.rowCount);
+    }catch(eD2){ console.error('cleanup ghost-convs:', eD2.message); }
+    try{
+      const _d3=await _pgPool.query("DELETE FROM penc_friendships f WHERE f.requester=f.recipient OR NOT EXISTS(SELECT 1 FROM penc_users u WHERE u.id=f.requester) OR NOT EXISTS(SELECT 1 FROM penc_users u2 WHERE u2.id=f.recipient)");
+      if(_d3.rowCount>0) console.log('\u{1F9F9} Amities fantomes supprimees: '+_d3.rowCount);
+    }catch(eD3){ console.error('cleanup ghost-friendships:', eD3.message); }
     try{
       const _pr=await _pgPool.query("UPDATE penc_users SET phone='g_'||id WHERE phone=''");
       if(_pr.rowCount>0) console.log('\u2705 Telephones vides repares (comptes Google): '+_pr.rowCount);
