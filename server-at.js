@@ -4178,6 +4178,8 @@ let _pgPool = null;
       const _pr=await _pgPool.query("UPDATE penc_users SET phone='g_'||id WHERE phone=''");
       if(_pr.rowCount>0) console.log('\u2705 Telephones vides repares (comptes Google): '+_pr.rowCount);
     }catch(ePr){ console.error('repair phones:', ePr.message); }
+    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meetings ( code TEXT PRIMARY KEY, title TEXT DEFAULT '', host TEXT NOT NULL, scheduled_at TIMESTAMPTZ, approval BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM1){}
+    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_ratings ( id TEXT PRIMARY KEY, code TEXT, user_id TEXT, stars INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM2){}
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -7093,6 +7095,45 @@ app.post('/api/penc/meet/create', pencAuth, (req,res)=>{
     res.json({ success:true, code });
   }catch(e){ res.status(500).json({error:e.message}); }
 });
+app.post('/api/penc/meet/schedule', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
+    let code=_meetCode(); let g=0; while(_meetRooms[code]&&g++<20) code=_meetCode();
+    const when=new Date(req.body&&req.body.when||''); if(isNaN(when.getTime())) return res.status(400).json({error:'Date invalide'});
+    const title=String((req.body&&req.body.title)||'').slice(0,80);
+    const approval=!!(req.body&&req.body.approval);
+    await _pgPool.query('INSERT INTO penc_meetings(code,title,host,scheduled_at,approval) VALUES($1,$2,$3,$4,$5)',[code,title,req.pencUser.userId,when.toISOString(),approval]);
+    res.json({ success:true, code, title, when: when.toISOString() });
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+app.get('/api/penc/meet/upcoming/mine', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({meetings:[]});
+    const r=await _pgPool.query("SELECT code,title,scheduled_at,approval FROM penc_meetings WHERE host=$1 AND scheduled_at > NOW() - INTERVAL '3 hours' ORDER BY scheduled_at ASC LIMIT 20",[req.pencUser.userId]);
+    res.json({ meetings: r.rows });
+  }catch(e){ res.json({meetings:[]}); }
+});
+app.delete('/api/penc/meet/schedule/:code', pencAuth, async (req,res)=>{
+  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_meetings WHERE code=$1 AND host=$2',[req.params.code, req.pencUser.userId]); res.json({success:true}); }catch(e){ res.json({success:false}); }
+});
+app.post('/api/penc/meet/rate', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({success:false});
+    const stars=Math.max(1,Math.min(5,parseInt(req.body&&req.body.stars,10)||0)); if(!stars) return res.status(400).json({error:'stars'});
+    await _pgPool.query('INSERT INTO penc_meet_ratings(id,code,user_id,stars,comment) VALUES($1,$2,$3,$4,$5)',['mr_'+Date.now()+Math.random().toString(36).slice(2,6), String((req.body&&req.body.code)||'').slice(0,24), req.pencUser.userId, stars, String((req.body&&req.body.comment)||'').slice(0,400)]);
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+app.get('/api/penc/admin/meet-ratings', pencAuth, pencAdmin, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({avg:0,count:0,history:[]});
+    const a=await _pgPool.query('SELECT COALESCE(AVG(stars),0) avg, COUNT(*) count FROM penc_meet_ratings');
+    const users=await pgAllUsers()||[];
+    const h=await _pgPool.query('SELECT * FROM penc_meet_ratings ORDER BY created_at DESC LIMIT 120');
+    const history=h.rows.map(x=>{ const u=users.find(y=>String(y.id)===String(x.user_id)); return {...x, name:(u&&(u.full_name||u.username))||'Utilisateur'}; });
+    res.json({ avg: parseFloat(a.rows[0].avg)||0, count: parseInt(a.rows[0].count,10)||0, history });
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
 app.get('/api/penc/meet/:code', pencAuth, (req,res)=>{
   const r=_meetRooms[String(req.params.code||'').toLowerCase().trim()];
   if(!r) return res.json({ exists:false });
@@ -7100,24 +7141,65 @@ app.get('/api/penc/meet/:code', pencAuth, (req,res)=>{
 });
 io.on('connection', async (socket) => {
   // \u2500\u2500 PENC MEET : signalisation \u2500\u2500
-  socket.on('meet:join', (d)=>{
+  socket.on('meet:join', async (d)=>{
     try{
       const code=String((d&&d.code)||'').toLowerCase().trim(); if(!code) return;
+      const uid=(d&&d.uid)||''; const name=String((d&&d.name)||'Participant').slice(0,40);
       let room=_meetRooms[code];
-      if(!room){ room=_meetRooms[code]={ title:String((d&&d.title)||'').slice(0,80), host:(d&&d.uid)||'', createdAt:Date.now(), peers:{} }; }
-      if(Object.keys(room.peers).length>=12){ socket.emit('meet:full',{code}); return; }
-      room.peers[socket.id]={ uid:(d&&d.uid)||'', name:String((d&&d.name)||'Participant').slice(0,40) };
+      if(!room){
+        let sched=null;
+        try{ if(_pgPool){ const r=await _pgPool.query('SELECT * FROM penc_meetings WHERE code=$1',[code]); sched=r.rows[0]||null; } }catch(eS){}
+        room=_meetRooms[code]={ title:(sched&&sched.title)||String((d&&d.title)||'').slice(0,80), host:(sched&&sched.host)||uid, approval:!!((sched&&sched.approval)||(d&&d.approval&&(!sched))), createdAt:Date.now(), peers:{}, pending:{}, banned:{}, hostSid:null };
+      }
+      room.pending=room.pending||{}; room.banned=room.banned||{};
+      if(uid&&room.banned[uid]){ socket.emit('meet:banned',{code}); return; }
+      if(Object.keys(room.peers).length>=30){ socket.emit('meet:full',{code}); return; }
+      const isHost=(uid&&String(uid)===String(room.host));
+      if(room.approval&&!isHost){
+        room.pending[socket.id]={uid,name}; socket._meetPend=code;
+        socket.emit('meet:wait',{code, title:room.title||''});
+        if(room.hostSid) io.to(room.hostSid).emit('meet:knock',{ sid:socket.id, name, uid });
+        return;
+      }
+      room.peers[socket.id]={ uid, name };
+      if(isHost) room.hostSid=socket.id;
       socket.join('meet_'+code);
       socket._meetCode=code;
       const others=Object.keys(room.peers).filter(id=>id!==socket.id).map(id=>({ sid:id, name:room.peers[id].name, uid:room.peers[id].uid }));
-      socket.emit('meet:peers',{ code, title:room.title||'', peers:others });
-      socket.to('meet_'+code).emit('meet:peer-joined',{ sid:socket.id, name:room.peers[socket.id].name, uid:room.peers[socket.id].uid });
+      socket.emit('meet:peers',{ code, title:room.title||'', host:room.host||'', peers:others });
+      socket.to('meet_'+code).emit('meet:peer-joined',{ sid:socket.id, name, uid });
+    }catch(e){}
+  });
+  socket.on('meet:admit', (d)=>{
+    try{
+      const code=socket._meetCode; if(!code||!d||!d.sid) return;
+      const room=_meetRooms[code]; if(!room||room.hostSid!==socket.id) return;
+      const p=(room.pending||{})[d.sid]; if(!p) return; delete room.pending[d.sid];
+      const ts=io.sockets.sockets.get(d.sid); if(!ts) return;
+      if(!d.ok){ ts.emit('meet:denied',{code}); ts._meetPend=null; return; }
+      if(Object.keys(room.peers).length>=30){ ts.emit('meet:full',{code}); return; }
+      room.peers[d.sid]=p; ts.join('meet_'+code); ts._meetCode=code; ts._meetPend=null;
+      const others=Object.keys(room.peers).filter(id=>id!==d.sid).map(id=>({ sid:id, name:room.peers[id].name, uid:room.peers[id].uid }));
+      ts.emit('meet:peers',{ code, title:room.title||'', host:room.host||'', peers:others });
+      ts.to('meet_'+code).emit('meet:peer-joined',{ sid:d.sid, name:p.name, uid:p.uid });
+    }catch(e){}
+  });
+  socket.on('meet:kick', (d)=>{
+    try{
+      const code=socket._meetCode; if(!code||!d||!d.sid) return;
+      const room=_meetRooms[code]; if(!room||room.hostSid!==socket.id) return;
+      const p=room.peers[d.sid]; if(!p) return;
+      if(d.ban&&p.uid) room.banned[p.uid]=1;
+      const ts=io.sockets.sockets.get(d.sid);
+      delete room.peers[d.sid];
+      if(ts){ ts.emit('meet:kicked',{code, ban:!!d.ban}); ts.leave('meet_'+code); ts._meetCode=null; }
+      io.to('meet_'+code).emit('meet:peer-left',{ sid:d.sid, kicked:true, name:p.name });
     }catch(e){}
   });
   socket.on('meet:signal', (d)=>{ try{ if(d&&d.to) io.to(d.to).emit('meet:signal',{ from:socket.id, data:d.data }); }catch(e){} });
-  socket.on('meet:chat', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; io.to('meet_'+code).emit('meet:chat',{ from:socket.id, name:nm, text:String((d&&d.text)||'').slice(0,500), ts:Date.now() }); }catch(e){} });
+  socket.on('meet:chat', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; const rep=(d&&d.reply&&d.reply.name)?{name:String(d.reply.name).slice(0,40),text:String(d.reply.text||'').slice(0,120)}:null; io.to('meet_'+code).emit('meet:chat',{ from:socket.id, name:nm, text:String((d&&d.text)||'').slice(0,500), reply:rep, ts:Date.now() }); }catch(e){} });
   socket.on('meet:state', (d)=>{ try{ const code=socket._meetCode; if(!code) return; socket.to('meet_'+code).emit('meet:state',{ sid:socket.id, audio:!!(d&&d.audio), video:!!(d&&d.video), hand:!!(d&&d.hand), screen:!!(d&&d.screen) }); }catch(e){} });
-  const _meetLeave=()=>{ try{ const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; if(room){ delete room.peers[socket.id]; if(!Object.keys(room.peers).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id }); }catch(e){} };
+  const _meetLeave=()=>{ try{ if(socket._meetPend){ const rp=_meetRooms[socket._meetPend]; if(rp&&rp.pending) delete rp.pending[socket.id]; socket._meetPend=null; } const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; let nm=''; if(room){ nm=(room.peers[socket.id]&&room.peers[socket.id].name)||''; delete room.peers[socket.id]; if(room.hostSid===socket.id) room.hostSid=null; if(!Object.keys(room.peers).length&&!Object.keys(room.pending||{}).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id, name:nm }); }catch(e){} };
   socket.on('meet:leave', _meetLeave);
   socket.on('disconnect', _meetLeave);
   const tok = socket.handshake.auth?.token;
