@@ -4180,6 +4180,7 @@ let _pgPool = null;
     }catch(ePr){ console.error('repair phones:', ePr.message); }
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meetings ( code TEXT PRIMARY KEY, title TEXT DEFAULT '', host TEXT NOT NULL, scheduled_at TIMESTAMPTZ, approval BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM1){}
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_ratings ( id TEXT PRIMARY KEY, code TEXT, user_id TEXT, stars INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM2){}
+    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_history ( id TEXT PRIMARY KEY, code TEXT, title TEXT, host TEXT, participant TEXT, joined_at TIMESTAMPTZ DEFAULT NOW(), left_at TIMESTAMPTZ )`); }catch(eM3){}
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -7106,6 +7107,13 @@ app.post('/api/penc/meet/schedule', pencAuth, async (req,res)=>{
     res.json({ success:true, code, title, when: when.toISOString() });
   }catch(e){ res.status(500).json({error:e.message}); }
 });
+app.get('/api/penc/meet/history/mine', pencAuth, async (req,res)=>{
+  try{
+    if(!_pgPool) return res.json({history:[]});
+    const r=await _pgPool.query("SELECT code, MAX(title) title, MAX(host) host, MIN(joined_at) joined_at, MAX(left_at) left_at, COUNT(DISTINCT participant) participants FROM penc_meet_history WHERE participant=$1 GROUP BY code ORDER BY MIN(joined_at) DESC LIMIT 40",[req.pencUser.userId]);
+    res.json({ history: r.rows });
+  }catch(e){ res.json({history:[]}); }
+});
 app.get('/api/penc/meet/upcoming/mine', pencAuth, async (req,res)=>{
   try{
     if(!_pgPool) return res.json({meetings:[]});
@@ -7163,6 +7171,7 @@ io.on('connection', async (socket) => {
       }
       room.peers[socket.id]={ uid, name };
       if(isHost) room.hostSid=socket.id;
+      try{ if(_pgPool&&uid){ const _hid='mh_'+Date.now()+Math.random().toString(36).slice(2,6); socket._meetHistId=_hid; _pgPool.query('INSERT INTO penc_meet_history(id,code,title,host,participant) VALUES($1,$2,$3,$4,$5)',[_hid,code,room.title||'',room.host||'',uid]).catch(()=>{}); } }catch(_eh){}
       socket.join('meet_'+code);
       socket._meetCode=code;
       const others=Object.keys(room.peers).filter(id=>id!==socket.id).map(id=>({ sid:id, name:room.peers[id].name, uid:room.peers[id].uid }));
@@ -7199,7 +7208,7 @@ io.on('connection', async (socket) => {
   socket.on('meet:signal', (d)=>{ try{ if(d&&d.to) io.to(d.to).emit('meet:signal',{ from:socket.id, data:d.data }); }catch(e){} });
   socket.on('meet:chat', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; const rep=(d&&d.reply&&d.reply.name)?{name:String(d.reply.name).slice(0,40),text:String(d.reply.text||'').slice(0,120)}:null; io.to('meet_'+code).emit('meet:chat',{ from:socket.id, name:nm, text:String((d&&d.text)||'').slice(0,500), reply:rep, ts:Date.now() }); }catch(e){} });
   socket.on('meet:state', (d)=>{ try{ const code=socket._meetCode; if(!code) return; socket.to('meet_'+code).emit('meet:state',{ sid:socket.id, audio:!!(d&&d.audio), video:!!(d&&d.video), hand:!!(d&&d.hand), screen:!!(d&&d.screen) }); }catch(e){} });
-  const _meetLeave=()=>{ try{ if(socket._meetPend){ const rp=_meetRooms[socket._meetPend]; if(rp&&rp.pending) delete rp.pending[socket.id]; socket._meetPend=null; } const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; let nm=''; if(room){ nm=(room.peers[socket.id]&&room.peers[socket.id].name)||''; delete room.peers[socket.id]; if(room.hostSid===socket.id) room.hostSid=null; if(!Object.keys(room.peers).length&&!Object.keys(room.pending||{}).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id, name:nm }); }catch(e){} };
+  const _meetLeave=()=>{ try{ if(socket._meetPend){ const rp=_meetRooms[socket._meetPend]; if(rp&&rp.pending) delete rp.pending[socket.id]; socket._meetPend=null; } const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; let nm=''; if(room){ nm=(room.peers[socket.id]&&room.peers[socket.id].name)||''; delete room.peers[socket.id]; if(room.hostSid===socket.id) room.hostSid=null; if(!Object.keys(room.peers).length&&!Object.keys(room.pending||{}).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id, name:nm }); try{ if(_pgPool&&socket._meetHistId){ _pgPool.query('UPDATE penc_meet_history SET left_at=NOW() WHERE id=$1',[socket._meetHistId]).catch(()=>{}); socket._meetHistId=null; } }catch(_lh){} }catch(e){} };
   socket.on('meet:leave', _meetLeave);
   socket.on('disconnect', _meetLeave);
   const tok = socket.handshake.auth?.token;
