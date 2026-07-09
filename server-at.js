@@ -4181,6 +4181,7 @@ let _pgPool = null;
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meetings ( code TEXT PRIMARY KEY, title TEXT DEFAULT '', host TEXT NOT NULL, scheduled_at TIMESTAMPTZ, approval BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM1){}
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_ratings ( id TEXT PRIMARY KEY, code TEXT, user_id TEXT, stars INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM2){}
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_history ( id TEXT PRIMARY KEY, code TEXT, title TEXT, host TEXT, participant TEXT, joined_at TIMESTAMPTZ DEFAULT NOW(), left_at TIMESTAMPTZ )`); }catch(eM3){}
+    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_transcripts ( url_hash TEXT PRIMARY KEY, text TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM4){}
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -7129,6 +7130,34 @@ app.get('/api/penc/meet/upcoming/mine', pencAuth, async (req,res)=>{
 });
 app.delete('/api/penc/meet/schedule/:code', pencAuth, async (req,res)=>{
   try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_meetings WHERE code=$1 AND host=$2',[req.params.code, req.pencUser.userId]); res.json({success:true}); }catch(e){ res.json({success:false}); }
+});
+app.post('/api/penc/transcribe', pencAuth, async (req,res)=>{
+  try{
+    const url=String((req.body&&req.body.url)||'').trim();
+    if(!url||!/^https?:\/\//.test(url)) return res.status(400).json({error:'URL audio invalide'});
+    const hash=crypto.createHash('sha256').update(url).digest('hex');
+    if(_pgPool){
+      try{ const c=await _pgPool.query('SELECT text FROM penc_transcripts WHERE url_hash=$1',[hash]); if(c.rows[0]) return res.json({success:true,text:c.rows[0].text,cached:true}); }catch(eC){}
+    }
+    const AAI_KEY=process.env.ASSEMBLYAI_API_KEY||'';
+    if(!AAI_KEY) return res.status(503).json({error:'Transcription non configur\u00e9e \u2014 cl\u00e9 ASSEMBLYAI_API_KEY manquante sur le serveur.'});
+    const initR=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'Authorization':AAI_KEY, 'Content-Type':'application/json' }, body:JSON.stringify({ audio_url:url, language_detection:true }) });
+    if(!initR.ok) return res.status(502).json({error:'Service de transcription indisponible.'});
+    const initD=await initR.json();
+    const tid=initD.id; if(!tid) return res.status(502).json({error:'R\u00e9ponse invalide du service de transcription.'});
+    let text=null, tries=0;
+    while(tries<40){
+      await new Promise(r=>setTimeout(r,1500));
+      const pr=await fetch('https://api.assemblyai.com/v2/transcript/'+tid,{ headers:{ 'Authorization':AAI_KEY } });
+      const pd=await pr.json();
+      if(pd.status==='completed'){ text=pd.text||''; break; }
+      if(pd.status==='error'){ return res.status(502).json({error:pd.error||'Erreur de transcription.'}); }
+      tries++;
+    }
+    if(text===null) return res.status(504).json({error:'Transcription trop longue \u2014 r\u00e9essaie.'});
+    if(_pgPool){ try{ await _pgPool.query('INSERT INTO penc_transcripts(url_hash,text) VALUES($1,$2) ON CONFLICT (url_hash) DO NOTHING',[hash,text]); }catch(eI){} }
+    res.json({ success:true, text: text||'(Aucune parole d\u00e9tect\u00e9e)' });
+  }catch(e){ res.status(500).json({error:e.message}); }
 });
 app.post('/api/penc/meet/rate', pencAuth, async (req,res)=>{
   try{
