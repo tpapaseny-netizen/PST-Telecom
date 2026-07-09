@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
@@ -7141,7 +7141,7 @@ app.post('/api/penc/transcribe', pencAuth, async (req,res)=>{
     }
     const AAI_KEY=process.env.ASSEMBLYAI_API_KEY||'';
     if(!AAI_KEY) return res.status(503).json({error:'Transcription non configur\u00e9e \u2014 cl\u00e9 ASSEMBLYAI_API_KEY manquante sur le serveur.'});
-    const initR=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'Authorization':AAI_KEY, 'Content-Type':'application/json' }, body:JSON.stringify({ audio_url:url, language_detection:true }) });
+    const initR=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'Authorization':AAI_KEY, 'Content-Type':'application/json' }, body:JSON.stringify({ audio_url:url, speech_models:['universal-3-5-pro','universal-2'], language_detection:true }) });
     if(!initR.ok) return res.status(502).json({error:'Service de transcription indisponible.'});
     const initD=await initR.json();
     const tid=initD.id; if(!tid) return res.status(502).json({error:'R\u00e9ponse invalide du service de transcription.'});
