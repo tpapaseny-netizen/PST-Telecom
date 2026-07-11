@@ -4844,6 +4844,11 @@ app.post('/api/penc/auth/sessions/revoke', pencAuth, async (req, res) => {
     if (!sid) return res.status(400).json({ error: 'sid manquant' });
     if (_pgPool) { const r = await _pgPool.query("UPDATE penc_sessions SET revoked=TRUE WHERE sid=$1 AND user_id=$2", [sid, uid]); if (r.rowCount===0) return res.status(404).json({ error: 'Session introuvable' }); }
     _pencRevokedSids.add(sid);
+    // Déconnexion immédiate de CET appareil précis uniquement (les autres appareils de l'utilisateur restent connectés)
+    try{
+      const socks = await io.in('user:'+String(uid)).fetchSockets();
+      socks.forEach(function(sk){ if(sk.data && sk.data.pencSid === sid){ try{ sk.emit('session:revoked', {}); sk.disconnect(true); }catch(_e2){} } });
+    }catch(_e1){}
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: 'Erreur révocation' }); }
 });
@@ -7279,7 +7284,7 @@ io.on('connection', async (socket) => {
   const tok = socket.handshake.auth?.token;
   if (!tok) return;
   let pencUserId;
-  try { pencUserId = jwt_penc.verify(tok, PENC_SECRET).userId; }
+  try { const _dec = jwt_penc.verify(tok, PENC_SECRET); pencUserId = _dec.userId; socket.data.pencSid = _dec.sid; }
   catch { return; }
 
   pencOnline.set(pencUserId, socket.id);
