@@ -5806,8 +5806,7 @@ app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
     const parts=cp.rows[0]&&cp.rows[0].participants||[];
     const arr=Array.isArray(parts)?parts:(typeof parts==='object'?Object.values(parts):[]);
     arr.forEach(function(pid){
-      const sid=pencOnline.get(String(pid));
-      if(sid) io.to(sid).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
+      io.to('user:'+String(pid)).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
     });
     res.json({success:true});
   }catch(e){console.error('edit:',e.message);res.status(500).json({error:e.message});}
@@ -7482,8 +7481,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     try{
       const r=await _pgPool.query('UPDATE penc_messages SET delivered_at=NOW() WHERE id=$1 AND delivered_at IS NULL RETURNING sender_id',[id]);
       if(r.rows[0]){
-        const senderSid=pencOnline.get(r.rows[0].sender_id);
-        if(senderSid) io.to(senderSid).emit('message:delivered',{id});
+        io.to('user:'+String(r.rows[0].sender_id)).emit('message:delivered',{id});
       }
     }catch(e){}
   });
@@ -7498,9 +7496,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // Grouper par expéditeur pour notifier
       const bySender={};
       r.rows.forEach(row=>{ if(!bySender[row.sender_id]) bySender[row.sender_id]=[]; bySender[row.sender_id].push(row.id); });
-      Object.entries(bySender).forEach(([sid,ids])=>{
-        const senderSock=pencOnline.get(sid);
-        if(senderSock) io.to(senderSock).emit('message:read_receipt',{ids,conv_id});
+      Object.entries(bySender).forEach(([senderId,ids])=>{
+        io.to('user:'+String(senderId)).emit('message:read_receipt',{ids,conv_id});
       });
     }catch(e){}
   });
@@ -7628,6 +7625,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
 
   socket.on('disconnect', async () => {
+    // Multi-appareils : ne déclarer l'utilisateur hors ligne que si c'était
+    // son DERNIER appareil connecté (les autres onglets/téléphones restent actifs).
+    // Le socket qui se déconnecte a déjà quitté ses rooms à ce stade (comportement Socket.io),
+    // donc la taille restante de la room reflète bien les AUTRES appareils.
+    let stillOnline = false;
+    try { const room = io.sockets.adapter.rooms.get('user:'+pencUserId); stillOnline = !!(room && room.size > 0); } catch(e){}
+    if (stillOnline) { try{ pencOnline.set(pencUserId, Array.from(io.sockets.adapter.rooms.get('user:'+pencUserId))[0]); }catch(e){} return; }
     pencOnline.delete(pencUserId);
     try {
       const users = await pencUsers();
