@@ -7284,7 +7284,11 @@ io.on('connection', async (socket) => {
   const tok = socket.handshake.auth?.token;
   if (!tok) return;
   let pencUserId;
-  try { const _dec = jwt_penc.verify(tok, PENC_SECRET); pencUserId = _dec.userId; socket.data.pencSid = _dec.sid; }
+  try {
+    const _dec = jwt_penc.verify(tok, PENC_SECRET);
+    if (_dec.sid && _pencRevokedSids.has(_dec.sid)) { socket.emit('session:revoked', {}); socket.disconnect(true); return; }
+    pencUserId = _dec.userId; socket.data.pencSid = _dec.sid;
+  }
   catch { return; }
 
   pencOnline.set(pencUserId, socket.id);
