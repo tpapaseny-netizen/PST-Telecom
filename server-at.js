@@ -7183,6 +7183,21 @@ app.get('/api/penc/meet/:code', pencAuth, (req,res)=>{
 });
 setInterval(()=>{ try{ const now=Date.now(); Object.keys(_meetRooms).forEach(c=>{ const r=_meetRooms[c]; if(r && !Object.keys(r.peers).length && !Object.keys(r.pending||{}).length && (now-r.createdAt)>7200000) delete _meetRooms[c]; }); }catch(_e){} }, 900000);
 io.on('connection', async (socket) => {
+  // \u2500\u2500 Liaison d'appareil par QR : le nouvel appareil demande un code \u2500\u2500
+  socket._pairAttempts=0; socket._pairWindow=Date.now();
+  socket.on('device:pair:start', () => {
+    try{
+      const _now=Date.now();
+      if(_now-socket._pairWindow>60000){ socket._pairWindow=_now; socket._pairAttempts=0; }
+      socket._pairAttempts++;
+      if(socket._pairAttempts>10) return; // anti-abus
+      const code=_pairNewCode();
+      _pairPending.set(code, { createdAt: Date.now(), requesterSid: socket.id });
+      socket.join('pair:'+code);
+      socket.emit('device:pair:code', { code, expiresIn: 120000 });
+      setTimeout(() => { _pairPending.delete(code); }, 120000);
+    }catch(e){}
+  });
   // \u2500\u2500 PENC MEET : signalisation \u2500\u2500
   socket._meetJoinAttempts=0; socket._meetJoinWindow=Date.now();
   socket.on('meet:join', async (d)=>{
@@ -7269,6 +7284,24 @@ io.on('connection', async (socket) => {
 
   pencOnline.set(pencUserId, socket.id);
   socket.data.pencUserId = pencUserId;
+
+  // \u2500\u2500 Liaison d'appareil par QR : l'appareil déjà connecté confirme la liaison \u2500\u2500
+  socket.on('device:pair:confirm', async ({code}) => {
+    try{
+      const uid = socket.data.pencUserId; if(!uid || !code) return;
+      const pending = _pairPending.get(code);
+      if(!pending){ socket.emit('device:pair:error', {code, reason:'expired'}); return; }
+      _pairPending.delete(code);
+      const _sid = _pencNewSid();
+      const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+      const fakeReq = { headers: socket.handshake.headers || {} };
+      await _pencCreateSession(uid, _sid, fakeReq);
+      let profile = null;
+      try{ if(_pgPool){ const r=await _pgPool.query('SELECT * FROM penc_users WHERE id=$1',[uid]); profile = r.rows[0] ? pencStrip(r.rows[0]) : null; } }catch(eU){}
+      io.to('pair:'+code).emit('device:pair:success', { token: tok, user: profile });
+      socket.emit('device:pair:linked', { code });
+    }catch(e){ socket.emit('device:pair:error', {code, reason:'server_error'}); }
+  });
 
   // Rejoindre ses conversations (PostgreSQL prioritaire)
   try {
