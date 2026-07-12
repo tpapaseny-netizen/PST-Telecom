@@ -5082,13 +5082,29 @@ app.get('/api/penc/calls', pencAuth, async (req, res) => {
 });
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
-    const { full_name, bio, avatar_url } = req.body;
+    const { full_name, bio, avatar_url, email } = req.body;
     const uid = req.pencUser.userId;
+    // Validation email si fourni (permet d'ajouter/changer l'email, notamment pour le
+    // filet de securite "mot de passe oublie" — necessaire pour les comptes crees au telephone seul)
+    let cleanEmail;
+    if (email !== undefined) {
+      const e = String(email||'').trim();
+      if (e === '') { cleanEmail = null; }
+      else {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return res.status(400).json({ error: 'Email invalide' });
+        if (_pgPool) {
+          const existing = await pgFindUser('email', e);
+          if (existing && String(existing.id) !== String(uid)) return res.status(400).json({ error: 'Cet email est deja utilise par un autre compte' });
+        }
+        cleanEmail = e;
+      }
+    }
     if (_pgPool) {
       const fields = {};
       if (full_name !== undefined) fields.full_name = full_name;
       if (bio !== undefined) fields.bio = bio;
       if (avatar_url !== undefined) fields.avatar_url = avatar_url;
+      if (cleanEmail !== undefined) fields.email = cleanEmail;
       if (Object.keys(fields).length) await pgUpdateUser(uid, fields);
       const pu = await pgFindUser('id', uid);
       if (pu) return res.json({ success: true, user: pencStrip(pu) });
@@ -5099,6 +5115,7 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
     if (full_name !== undefined) user.full_name = full_name;
     if (bio !== undefined) user.bio = bio;
     if (avatar_url !== undefined) user.avatar_url = avatar_url;
+    if (cleanEmail !== undefined) user.email = cleanEmail;
     user.updated_at = new Date().toISOString();
     await pencSaveUsers(users);
     res.json({ success: true, user: pencStrip(user) });
