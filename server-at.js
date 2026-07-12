@@ -4582,17 +4582,28 @@ async function _pencSendResetSMS(phone, code){
       '&sender_id=' + encodeURIComponent('Penc');
     const r = await fetch(url);
     const txt = await r.text();
-    return !/error/i.test(txt);
-  }catch(e){ return false; }
+    const ok = !/error/i.test(txt);
+    console.log('[forgot-password][SMS]', phone, '->', ok ? 'OK' : 'ECHEC', '| reponse Techsoft:', txt.slice(0,200));
+    return ok;
+  }catch(e){ console.log('[forgot-password][SMS] EXCEPTION:', e.message); return false; }
 }
 async function _pencSendResetEmail(email, code){
   try{
+    if(!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD){
+      console.log('[forgot-password][EMAIL] ECHEC: GMAIL_USER ou GMAIL_APP_PASSWORD non configure sur ce service Render');
+      return false;
+    }
     const nodemailer = require('nodemailer');
-    const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.GMAIL_USER, pass:process.env.GMAIL_APP_PASSWORD } });
+    const t = nodemailer.createTransport({
+      service:'gmail',
+      auth:{ user:process.env.GMAIL_USER, pass:process.env.GMAIL_APP_PASSWORD },
+      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000
+    });
     await t.sendMail({ from:process.env.GMAIL_USER, to:email, subject:'Penc - Code de reinitialisation',
       html:'<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p>' });
+    console.log('[forgot-password][EMAIL]', email, '-> OK');
     return true;
-  }catch(e){ return false; }
+  }catch(e){ console.log('[forgot-password][EMAIL] ECHEC:', email, '->', e.message); return false; }
 }
 // POST /api/penc/auth/forgot — demande d'un code de reinitialisation (SMS ou email selon l'identifiant saisi)
 app.post('/api/penc/auth/forgot', async (req, res) => {
@@ -4608,9 +4619,10 @@ app.post('/api/penc/auth/forgot', async (req, res) => {
     const key = _pencForgotKey(user.id);
     _pencForgotPending.set(key, { code, expiresAt: Date.now()+10*60*1000, attempts:0, channel: isEmail?'email':'sms' });
     setTimeout(function(){ const p=_pencForgotPending.get(key); if(p && p.code===code){ _pencForgotPending.delete(key); } }, 10*60*1000);
-    if(isEmail && user.email){ await _pencSendResetEmail(user.email, code); }
-    else if(user.phone){ await _pencSendResetSMS(user.phone, code); }
+    // Répondre immédiatement : l'envoi SMS/email se fait en arrière-plan pour ne jamais bloquer le front
     res.json({ success:true });
+    if(isEmail && user.email){ _pencSendResetEmail(user.email, code); }
+    else if(user.phone){ _pencSendResetSMS(user.phone, code); }
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // POST /api/penc/auth/forgot/verify — verifie le code, renvoie un jeton de reset court (10 min)
