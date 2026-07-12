@@ -4589,24 +4589,34 @@ async function _pencSendResetSMS(phone, code){
 }
 async function _pencSendResetEmail(email, code){
   try{
-    if(!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD){
-      console.log('[forgot-password][EMAIL] ECHEC: GMAIL_USER ou GMAIL_APP_PASSWORD non configure sur ce service Render');
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if(!RESEND_API_KEY){
+      console.log('[forgot-password][EMAIL] ECHEC: RESEND_API_KEY non configuree sur ce service Render');
       return false;
     }
-    const nodemailer = require('nodemailer');
-    // family:4 force IPv4 — Render ne route pas correctement les connexions sortantes IPv6,
-    // ce qui provoque ECONNREFUSED/ENETUNREACH vers smtp.gmail.com en IPv6 sinon.
-    const t = nodemailer.createTransport({
-      host: 'smtp.gmail.com', port: 465, secure: true,
-      auth:{ user:process.env.GMAIL_USER, pass:process.env.GMAIL_APP_PASSWORD },
-      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000,
-      family: 4
+    // Resend = API HTTPS pure (pas de SMTP/IPv6, contourne definitivement les soucis reseau Render)
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Penc <no-reply@penc-messagerie.com>',
+        to: [email],
+        subject: 'Penc - Code de reinitialisation',
+        html: '<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p><p style="color:#888;font-size:12px;">Si tu n\'es pas a l\'origine de cette demande, ignore cet email.</p>'
+      }),
+      signal: ctrl.signal
     });
-    await t.sendMail({ from:process.env.GMAIL_USER, to:email, subject:'Penc - Code de reinitialisation',
-      html:'<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p>' });
-    console.log('[forgot-password][EMAIL]', email, '-> OK');
+    clearTimeout(timeoutId);
+    const data = await r.json().catch(function(){ return null; });
+    if(!r.ok){
+      console.log('[forgot-password][EMAIL] ECHEC:', email, '-> HTTP', r.status, JSON.stringify(data));
+      return false;
+    }
+    console.log('[forgot-password][EMAIL]', email, '-> OK, id:', data && data.id);
     return true;
-  }catch(e){ console.log('[forgot-password][EMAIL] ECHEC:', email, '->', e.message); return false; }
+  }catch(e){ console.log('[forgot-password][EMAIL] EXCEPTION:', email, '->', e.message); return false; }
 }
 // POST /api/penc/auth/forgot — demande d'un code de reinitialisation (SMS ou email selon l'identifiant saisi)
 app.post('/api/penc/auth/forgot', async (req, res) => {
