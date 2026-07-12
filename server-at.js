@@ -4594,10 +4594,13 @@ async function _pencSendResetEmail(email, code){
       return false;
     }
     const nodemailer = require('nodemailer');
+    // family:4 force IPv4 — Render ne route pas correctement les connexions sortantes IPv6,
+    // ce qui provoque ECONNREFUSED/ENETUNREACH vers smtp.gmail.com en IPv6 sinon.
     const t = nodemailer.createTransport({
-      service:'gmail',
+      host: 'smtp.gmail.com', port: 465, secure: true,
       auth:{ user:process.env.GMAIL_USER, pass:process.env.GMAIL_APP_PASSWORD },
-      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000
+      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000,
+      family: 4
     });
     await t.sendMail({ from:process.env.GMAIL_USER, to:email, subject:'Penc - Code de reinitialisation',
       html:'<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p>' });
