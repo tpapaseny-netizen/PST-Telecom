@@ -4566,6 +4566,100 @@ async function _pencSecurityAlert(ip, n){
   }catch(e){}
 }
 setTimeout(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 9000);
+
+// ══════════════ MOT DE PASSE OUBLIÉ (réel, connecté serveur + SMS/email) ══════════════
+// NOTE: n'utilise JAMAIS les routes /api/sen-sms/* existantes (règle absolue : ne jamais
+// toucher au code SenSMS). Appel direct et indépendant de l'API Techsoft ici.
+const _pencForgotPending = new Map(); // userId -> { code, expiresAt, attempts, channel }
+function _pencForgotKey(userId){ return String(userId); }
+async function _pencSendResetSMS(phone, code){
+  try{
+    const TECHSOFT_TOKEN = process.env.TECHSOFT_TOKEN || '1597|WVx84MHm3x4VoCzT7vzBm2RKZKANDok1N0wCtRd8f6f57823';
+    const url = 'https://app.techsoft-sms.com/api/http/' +
+      '?token=' + encodeURIComponent(TECHSOFT_TOKEN) +
+      '&to=' + encodeURIComponent(phone) +
+      '&message=' + encodeURIComponent('Penc - Votre code de reinitialisation est : ' + code + ' (valable 10 min)') +
+      '&sender_id=' + encodeURIComponent('Penc');
+    const r = await fetch(url);
+    const txt = await r.text();
+    return !/error/i.test(txt);
+  }catch(e){ return false; }
+}
+async function _pencSendResetEmail(email, code){
+  try{
+    const nodemailer = require('nodemailer');
+    const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.GMAIL_USER, pass:process.env.GMAIL_APP_PASSWORD } });
+    await t.sendMail({ from:process.env.GMAIL_USER, to:email, subject:'Penc - Code de reinitialisation',
+      html:'<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p>' });
+    return true;
+  }catch(e){ return false; }
+}
+// POST /api/penc/auth/forgot — demande d'un code de reinitialisation (SMS ou email selon l'identifiant saisi)
+app.post('/api/penc/auth/forgot', async (req, res) => {
+  try{
+    const id = String((req.body && req.body.id) || '').trim();
+    if(!id) return res.status(400).json({ error: 'Identifiant requis' });
+    const isEmail = id.includes('@');
+    let user = null;
+    if(_pgPool){ user = isEmail ? await pgFindUser('email', id) : await pgFindUser('phone', id); }
+    // Reponse generique dans tous les cas : ne jamais reveler si le compte existe
+    if(!user) return res.json({ success:true });
+    const code = String(Math.floor(100000+Math.random()*900000));
+    const key = _pencForgotKey(user.id);
+    _pencForgotPending.set(key, { code, expiresAt: Date.now()+10*60*1000, attempts:0, channel: isEmail?'email':'sms' });
+    setTimeout(function(){ const p=_pencForgotPending.get(key); if(p && p.code===code){ _pencForgotPending.delete(key); } }, 10*60*1000);
+    if(isEmail && user.email){ await _pencSendResetEmail(user.email, code); }
+    else if(user.phone){ await _pencSendResetSMS(user.phone, code); }
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// POST /api/penc/auth/forgot/verify — verifie le code, renvoie un jeton de reset court (10 min)
+app.post('/api/penc/auth/forgot/verify', async (req, res) => {
+  try{
+    const id = String((req.body && req.body.id) || '').trim();
+    const code = String((req.body && req.body.code) || '').trim();
+    if(!id || !code) return res.status(400).json({ error: 'Donnees manquantes' });
+    const isEmail = id.includes('@');
+    const user = _pgPool ? (isEmail ? await pgFindUser('email', id) : await pgFindUser('phone', id)) : null;
+    if(!user) return res.status(400).json({ error: 'Code invalide ou expire' });
+    const key = _pencForgotKey(user.id);
+    const p = _pencForgotPending.get(key);
+    if(!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expire' });
+    p.attempts = (p.attempts||0)+1;
+    if(p.attempts > 5){ _pencForgotPending.delete(key); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
+    if(p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
+    const resetToken = jwt_penc.sign({ userId:user.id, purpose:'pwreset' }, PENC_SECRET, { expiresIn:'10m' });
+    res.json({ success:true, reset_token: resetToken });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// POST /api/penc/auth/forgot/reset — applique le nouveau mot de passe + revoque toutes les anciennes sessions
+app.post('/api/penc/auth/forgot/reset', async (req, res) => {
+  try{
+    const resetToken = req.body && req.body.reset_token;
+    const newPassword = req.body && req.body.new_password;
+    if(!resetToken || !newPassword || String(newPassword).length<6) return res.status(400).json({ error: 'Donnees invalides' });
+    let payload;
+    try{ payload = jwt_penc.verify(resetToken, PENC_SECRET); }catch(e){ return res.status(401).json({ error: 'Lien expire, redemande un code' }); }
+    if(!payload || payload.purpose !== 'pwreset') return res.status(401).json({ error: 'Jeton invalide' });
+    const uid = payload.userId;
+    const hash = bcrypt_penc ? await bcrypt_penc.hash(newPassword, 12) : newPassword;
+    if(_pgPool){ await _pgPool.query('UPDATE penc_users SET password_hash=$1 WHERE id=$2', [hash, uid]); }
+    _pencForgotPending.delete(_pencForgotKey(uid));
+    // Securite : revoque TOUTES les sessions actives (l'ancien appareil perdu n'a plus acces)
+    // et leve automatiquement le verrou d'appareil pour la reconnexion sur le nouvel appareil.
+    try{
+      if(_pgPool){
+        const r = await _pgPool.query('SELECT sid FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [uid]);
+        await _pgPool.query('UPDATE penc_sessions SET revoked=TRUE WHERE user_id=$1', [uid]);
+        r.rows.forEach(function(row){ _pencRevokedSids.add(row.sid); });
+      }
+      const socks = await io.in('user:'+String(uid)).fetchSockets();
+      socks.forEach(function(sk){ try{ sk.emit('session:revoked', {}); sk.disconnect(true); }catch(_e2){} });
+    }catch(_e1){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 // POST /api/penc/auth/login
 app.post('/api/penc/auth/login', async (req, res) => {
   try {
