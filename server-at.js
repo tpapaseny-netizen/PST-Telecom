@@ -7516,29 +7516,34 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
     try{ let _rc=0; try{ const _rs=await io.in('user:'+String(target_user_id)).fetchSockets(); _rc=_rs?_rs.length:0; }catch(_e){} socket.emit('call:debug',{target:String(target_user_id), online:ok, room_sockets:_rc}); }catch(_ed){}
-    // Si hors ligne → push notification d'appel entrant
-    if(!ok){
-      try{
-        const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-        const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
-        const callerName = callerUser.full_name||callerUser.username||'Inconnu';
-        await sendPencPush(target_user_id, {
-          title: callerName+' appelle...',
-          body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
-          tag: 'penc-call',
-          url: '/messager',
-          conv_id: null,
-          call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
-        });
-        console.log('📲 Push call envoyé à',target_user_id.slice(0,10));
-      }catch(ep){console.error('push call err:',ep.message);}
-    }
+    // v396 : TOUJOURS pousser une notification d'appel, même si un AUTRE appareil de la
+    // personne est déjà connecté (PC par ex.) — sinon un téléphone en veille/arrière-plan
+    // (socket suspendu par le système, JS gelé) ne sonne jamais, même si "l'utilisateur"
+    // est techniquement en ligne ailleurs. Un appel doit sonner sur TOUS les appareils.
+    try{
+      const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
+      const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
+      const callerName = callerUser.full_name||callerUser.username||'Inconnu';
+      await sendPencPush(target_user_id, {
+        title: callerName+' appelle...',
+        body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
+        tag: 'penc-call',
+        url: '/messager',
+        conv_id: null,
+        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
+      });
+      console.log('📲 Push call envoyé à',target_user_id.slice(0,10),'(en plus du socket, pour tous les appareils)');
+    }catch(ep){console.error('push call err:',ep.message);}
   });
   socket.on('call:accept', ({caller_id}) => {
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
+    // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
+    // doit arrêter de sonner dès qu'un autre appareil du même compte a répondu.
+    try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:decline', ({caller_id}) => {
     emitToUser(caller_id,'call:declined',{by:pencUserId});
+    try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:offer', ({target_id, offer}) => {
     emitToUser(target_id,'call:offer',{from:pencUserId, offer});
