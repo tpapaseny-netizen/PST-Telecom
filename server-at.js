@@ -7137,8 +7137,8 @@ app.post('/api/penc/auth/pair/start', (req, res) => {
   try{
     const code = _pairNewCode();
     _pairPending.set(code, { createdAt: Date.now(), status: 'pending', token: null, user: null });
-    setTimeout(() => { _pairPending.delete(code); }, 120000);
-    res.json({ code, expiresIn: 120000 });
+    setTimeout(() => { _pairPending.delete(code); }, 300000);
+    res.json({ code, expiresIn: 300000 });
   }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.get('/api/penc/auth/pair/status/:code', (req, res) => {
