@@ -4532,6 +4532,19 @@ const _pencRevokedSids = new Set();
 const _pencIpFails = new Map();
 async function _pencLoadRevoked(){ try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT sid FROM penc_sessions WHERE revoked=TRUE"); r.rows.forEach(function(x){ _pencRevokedSids.add(x.sid); }); }catch(e){} }
 function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).slice(2,10); }
+// ═══ Verrou d'appareil : un compte déjà connecté sur un appareil ne peut en ajouter un nouveau
+// que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
+async function _pencDeviceLockCheck(userId, req){
+  try{
+    if(!_pgPool) return {blocked:false};
+    const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
+    const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
+    if(!r.rows.length) return {blocked:false}; // aucun appareil actif -> première connexion, toujours autorisée
+    const sameDevice = r.rows.some(function(row){ return String(row.ua||'')===ua; });
+    if(sameDevice) return {blocked:false}; // reconnexion sur un appareil déjà connu -> autorisée
+    return {blocked:true};
+  }catch(e){ return {blocked:false}; } // en cas de doute technique, ne jamais bloquer l'accès par erreur
+}
 async function _pencCreateSession(uid, sid, req){
   try{
     const ip=(req&&req.headers&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim())||'';
@@ -4616,6 +4629,8 @@ app.post('/api/penc/auth/login', async (req, res) => {
       try{ pencSecLog('2fa_challenge', req, {identifier:id, user_id:user.id}); }catch(_){}
       return res.json({ twofa_required: true, pending: _pend });
     }
+    const _lock1 = await _pencDeviceLockCheck(user.id, req);
+    if(_lock1.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
     const _sid = _pencNewSid();
     const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
@@ -4698,6 +4713,8 @@ app.post('/api/penc/auth/2fa/login', async (req,res)=>{
     var sec=user.totp_secret?_totpDec(user.totp_secret):null;
     if(!sec||!user.totp_enabled) return res.status(400).json({error:'2FA non configuree.'});
     if(!_totpVerify(sec, code, 1)){ try{ pencSecLog('2fa_failed', req, {user_id:user.id}); }catch(_){} return res.status(400).json({error:'Code incorrect.'}); }
+    var _lock2 = await _pencDeviceLockCheck(user.id, req);
+    if(_lock2.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     var _sid=_pencNewSid();
     var tok=jwt_penc.sign({ userId:user.id, sid:_sid }, PENC_SECRET, { expiresIn:'7d' });
     _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
@@ -4808,6 +4825,8 @@ app.post('/api/penc/auth/google', async (req, res) => {
       }
     }
 
+    const _lock3 = await _pencDeviceLockCheck(user.id, req);
+    if(_lock3.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     const _sid = _pencNewSid();
     const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
     _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
