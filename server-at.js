@@ -4070,6 +4070,7 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_isolations (id TEXT PRIMARY KEY, user_a TEXT, user_b TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
+      CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
@@ -5862,6 +5863,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
     if (_pgPool) {
       const convs = await pgGetConvs(uid);
       const allUsers = await pgAllUsers() || [];
+      let _pinnedIds = new Set();
+      try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
         const otherId = parts.find(p => p !== uid);
@@ -5876,7 +5879,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null,
           last_message: last ? { content: last.content, type: last.type, created_at: last.created_at } : null,
-          updated_at: c.updated_at
+          updated_at: c.updated_at,
+          pinned: _pinnedIds.has(c.id)
         };
       }));
     } else {
@@ -5897,6 +5901,22 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
   } catch(e) { console.error('GET convs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
+// POST /api/penc/conversations/:id/pin-toggle — épingler/désépingler une conversation (propre à chaque utilisateur)
+app.post('/api/penc/conversations/:id/pin-toggle', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const convId = req.params.id;
+    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const ex = await _pgPool.query('SELECT 1 FROM penc_pinned_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+    if(ex.rowCount>0){
+      await _pgPool.query('DELETE FROM penc_pinned_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+      return res.json({ success:true, pinned:false });
+    }
+    const cnt = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_pinned_convs WHERE user_id=$1',[uid]);
+    if((cnt.rows[0]&&cnt.rows[0].n||0)>=5) return res.status(400).json({ error:'Maximum 5 conversations épinglées.' });
+    await _pgPool.query('INSERT INTO penc_pinned_convs(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
+    res.json({ success:true, pinned:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 // POST /api/penc/conversations/direct
 app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
   try {
@@ -7110,6 +7130,41 @@ app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
 
 const pencOnline = new Map();
 
+// \u2550\u2550 Liaison d'appareil par QR (v390 : REST, plus de Socket.io — fiabilité et simplicité) \u2550\u2550
+const _pairPending = new Map(); // code -> { createdAt, status:'pending'|'linked', token, user }
+function _pairNewCode(){ return require('crypto').randomBytes(16).toString('hex'); }
+app.post('/api/penc/auth/pair/start', (req, res) => {
+  try{
+    const code = _pairNewCode();
+    _pairPending.set(code, { createdAt: Date.now(), status: 'pending', token: null, user: null });
+    setTimeout(() => { _pairPending.delete(code); }, 120000);
+    res.json({ code, expiresIn: 120000 });
+  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/auth/pair/status/:code', (req, res) => {
+  try{
+    const p = _pairPending.get(req.params.code);
+    if(!p) return res.json({ status: 'expired' });
+    if(p.status === 'linked'){ const out = { status:'linked', token:p.token, user:p.user }; _pairPending.delete(req.params.code); return res.json(out); }
+    res.json({ status: 'pending' });
+  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/auth/pair/confirm', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const code = req.body && req.body.code;
+    if(!code) return res.status(400).json({ error: 'code manquant' });
+    const p = _pairPending.get(code);
+    if(!p || p.status === 'linked') return res.status(404).json({ error: 'Code invalide ou expiré' });
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+    await _pencCreateSession(uid, _sid, req);
+    let profile = null;
+    try{ if(_pgPool){ const r = await _pgPool.query('SELECT * FROM penc_users WHERE id=$1', [uid]); profile = r.rows[0] ? pencStrip(r.rows[0]) : null; } }catch(eU){}
+    p.status = 'linked'; p.token = tok; p.user = profile;
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // \u2550\u2550 PENC MEET (v17) \u2014 reunions video de groupe, signalisation maillage \u2550\u2550
 const _meetRooms = {}; // code -> { title, host, createdAt, peers: { socketId: {uid, name} } }
 function _meetCode(){ const a='abcdefghijkmnpqrstuvwxyz'; const r=n=>Array.from({length:n},()=>a[Math.floor(Math.random()*a.length)]).join(''); return r(3)+'-'+r(4)+'-'+r(3); }
@@ -7207,21 +7262,6 @@ app.get('/api/penc/meet/:code', pencAuth, (req,res)=>{
 });
 setInterval(()=>{ try{ const now=Date.now(); Object.keys(_meetRooms).forEach(c=>{ const r=_meetRooms[c]; if(r && !Object.keys(r.peers).length && !Object.keys(r.pending||{}).length && (now-r.createdAt)>7200000) delete _meetRooms[c]; }); }catch(_e){} }, 900000);
 io.on('connection', async (socket) => {
-  // \u2500\u2500 Liaison d'appareil par QR : le nouvel appareil demande un code \u2500\u2500
-  socket._pairAttempts=0; socket._pairWindow=Date.now();
-  socket.on('device:pair:start', () => {
-    try{
-      const _now=Date.now();
-      if(_now-socket._pairWindow>60000){ socket._pairWindow=_now; socket._pairAttempts=0; }
-      socket._pairAttempts++;
-      if(socket._pairAttempts>10) return; // anti-abus
-      const code=_pairNewCode();
-      _pairPending.set(code, { createdAt: Date.now(), requesterSid: socket.id });
-      socket.join('pair:'+code);
-      socket.emit('device:pair:code', { code, expiresIn: 120000 });
-      setTimeout(() => { _pairPending.delete(code); }, 120000);
-    }catch(e){}
-  });
   // \u2500\u2500 PENC MEET : signalisation \u2500\u2500
   socket._meetJoinAttempts=0; socket._meetJoinWindow=Date.now();
   socket.on('meet:join', async (d)=>{
@@ -7312,24 +7352,6 @@ io.on('connection', async (socket) => {
 
   pencOnline.set(pencUserId, socket.id);
   socket.data.pencUserId = pencUserId;
-
-  // \u2500\u2500 Liaison d'appareil par QR : l'appareil déjà connecté confirme la liaison \u2500\u2500
-  socket.on('device:pair:confirm', async ({code}) => {
-    try{
-      const uid = socket.data.pencUserId; if(!uid || !code) return;
-      const pending = _pairPending.get(code);
-      if(!pending){ socket.emit('device:pair:error', {code, reason:'expired'}); return; }
-      _pairPending.delete(code);
-      const _sid = _pencNewSid();
-      const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-      const fakeReq = { headers: socket.handshake.headers || {} };
-      await _pencCreateSession(uid, _sid, fakeReq);
-      let profile = null;
-      try{ if(_pgPool){ const r=await _pgPool.query('SELECT * FROM penc_users WHERE id=$1',[uid]); profile = r.rows[0] ? pencStrip(r.rows[0]) : null; } }catch(eU){}
-      io.to('pair:'+code).emit('device:pair:success', { token: tok, user: profile });
-      socket.emit('device:pair:linked', { code });
-    }catch(e){ socket.emit('device:pair:error', {code, reason:'server_error'}); }
-  });
 
   // Rejoindre ses conversations (PostgreSQL prioritaire)
   try {
