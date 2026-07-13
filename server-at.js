@@ -3592,6 +3592,13 @@ async function pencSecLog(type, req, extra) {
 async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
+    // Respecter le mute par conversation : ne pas notifier si l'utilisateur a coupé cette discussion
+    if (payload && payload.conv_id && _pgPool) {
+      try {
+        const _mc = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2', [userId, payload.conv_id]);
+        if (_mc.rowCount > 0) return;
+      } catch (_me) {}
+    }
     const subs = await pencPushSubs();
     const mine = subs.filter(x => x.user_id === userId);
     for (const sb of mine) {
@@ -4079,6 +4086,8 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
       CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
+      CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
+      CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
@@ -5210,6 +5219,32 @@ app.get('/api/penc/calls', pencAuth, async (req, res) => {
     res.json({ calls });
   } catch (e) { console.error('penc /calls:', e.message); res.json({ calls: [] }); }
 });
+// GET /api/penc/me/stats — statistiques personnelles de l'utilisateur connecte
+app.get('/api/penc/me/stats', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.json({ stats:{} });
+    const monthAgo = new Date(Date.now() - 30*24*60*60*1000);
+    const [msgsTotal, msgsMonth, statuses, friends, meetJoined, me] = await Promise.all([
+      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1', [uid]),
+      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND created_at > $2', [uid, monthAgo]),
+      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_statuses WHERE user_id=$1', [uid]),
+      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)", [uid]),
+      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_meet_history WHERE participant=$1', [uid]).catch(function(){ return {rows:[{n:0}]}; }),
+      _pgPool.query('SELECT created_at, total_time_seconds FROM penc_users WHERE id=$1', [uid])
+    ]);
+    const meRow = me.rows[0] || {};
+    res.json({ stats:{
+      messages_total: msgsTotal.rows[0].n,
+      messages_month: msgsMonth.rows[0].n,
+      statuses_total: statuses.rows[0].n,
+      friends_total: friends.rows[0].n,
+      meet_joined: meetJoined.rows[0].n,
+      member_since: meRow.created_at || null,
+      total_time_seconds: meRow.total_time_seconds || 0
+    }});
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
     const { full_name, bio, avatar_url, email } = req.body;
@@ -5328,6 +5363,15 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     const uid = req.pencUser.userId;
     if (_pgPool) {
       const rows = await pgGetMessages(convId, 200);
+      // Reactions groupees par message pour cette conversation (une seule requete)
+      let _reactByMsg = {};
+      try{
+        const ids = rows.map(m=>m.id);
+        if(ids.length){
+          const rr = await _pgPool.query('SELECT message_id, user_id, emoji FROM penc_message_reactions WHERE message_id = ANY($1)', [ids]);
+          rr.rows.forEach(function(x){ (_reactByMsg[x.message_id] = _reactByMsg[x.message_id]||[]).push({user_id:x.user_id, emoji:x.emoji}); });
+        }
+      }catch(_re){}
       messages = rows.map(m => ({
         id: m.id, conversation_id: m.conversation_id,
         sender_id: m.sender_id,
@@ -5342,6 +5386,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         delivered_at: m.delivered_at || null,
         read_at: m.read_at || null,
         pending: m.pending || false,
+        reactions: _reactByMsg[m.id] || [],
         created_at: m.created_at
       }));
     } else {
@@ -6121,6 +6166,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       const allUsers = await pgAllUsers() || [];
       let _pinnedIds = new Set();
       try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
+      let _mutedIds = new Set();
+      try{ const _mr = await _pgPool.query('SELECT conv_id FROM penc_muted_convs WHERE user_id=$1',[uid]); _mutedIds = new Set(_mr.rows.map(r=>r.conv_id)); }catch(_me){}
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
         const otherId = parts.find(p => p !== uid);
@@ -6136,7 +6183,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           avatar_url: other.avatar_url || null,
           last_message: last ? { content: last.content, type: last.type, created_at: last.created_at } : null,
           updated_at: c.updated_at,
-          pinned: _pinnedIds.has(c.id)
+          pinned: _pinnedIds.has(c.id),
+          muted: _mutedIds.has(c.id)
         };
       }));
     } else {
@@ -6158,6 +6206,19 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
 });
 
 // POST /api/penc/conversations/:id/pin-toggle — épingler/désépingler une conversation (propre à chaque utilisateur)
+app.post('/api/penc/conversations/:id/mute-toggle', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const convId = req.params.id;
+    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const ex = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+    if(ex.rowCount>0){
+      await _pgPool.query('DELETE FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+      return res.json({ success:true, muted:false });
+    }
+    await _pgPool.query('INSERT INTO penc_muted_convs(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
+    res.json({ success:true, muted:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.post('/api/penc/conversations/:id/pin-toggle', pencAuth, async (req, res) => {
   try{
     const uid = req.pencUser.userId; const convId = req.params.id;
@@ -8092,6 +8153,35 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('typing:stop', ({ conversation_id }) => {
     socket.to('penc:' + conversation_id).emit('typing:stop', { userId: pencUserId, conversation_id });
+  });
+  socket.on('message:react', async (data, cb) => {
+    try {
+      const { message_id, emoji } = data || {};
+      if (!message_id) { if (typeof cb === 'function') cb({ error: 'message_id manquant' }); return; }
+      if (!_pgPool) { if (typeof cb === 'function') cb({ error: 'BD indisponible' }); return; }
+      const mr = await _pgPool.query('SELECT conversation_id FROM penc_messages WHERE id=$1', [message_id]);
+      if (!mr.rows.length) { if (typeof cb === 'function') cb({ error: 'Message introuvable' }); return; }
+      const convId = mr.rows[0].conversation_id;
+      const ex = await _pgPool.query('SELECT emoji FROM penc_message_reactions WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
+      let action;
+      if (ex.rows.length && ex.rows[0].emoji === emoji) {
+        // Meme emoji re-tape : on retire la reaction (toggle off)
+        await _pgPool.query('DELETE FROM penc_message_reactions WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
+        action = 'removed';
+      } else {
+        await _pgPool.query(
+          'INSERT INTO penc_message_reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT (message_id,user_id) DO UPDATE SET emoji=$3, created_at=NOW()',
+          [message_id, pencUserId, emoji]
+        );
+        action = 'set';
+      }
+      const rr = await _pgPool.query('SELECT user_id, emoji FROM penc_message_reactions WHERE message_id=$1', [message_id]);
+      const payload = { message_id, conv_id: convId, reactions: rr.rows };
+      const cparts = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [convId]);
+      const parts = cparts.rows[0] ? (Array.isArray(cparts.rows[0].participants) ? cparts.rows[0].participants : JSON.parse(cparts.rows[0].participants || '[]')) : [];
+      emitToUsers(parts, 'message:reaction', payload);
+      if (typeof cb === 'function') cb({ success: true, action, reactions: rr.rows });
+    } catch (e) { if (typeof cb === 'function') cb({ error: 'Erreur serveur' }); }
   });
   socket.on('message:read', async ({ conversation_id }) => {
     try {
