@@ -4448,13 +4448,87 @@ app.get('/api/penc/check-username', async (req, res) => {
   } catch (e) { res.json({ available: true }); }
 });
 // POST /api/penc/auth/register
+// ══════════════ VERIFICATION EMAIL OBLIGATOIRE A L'INSCRIPTION ══════════════
+const _pencSignupPending = new Map(); // email (lowercase) -> { code, expiresAt, attempts }
+async function _pencSendSignupEmail(email, code){
+  try{
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if(!RESEND_API_KEY){ console.log('[signup-email] ECHEC: RESEND_API_KEY non configuree'); return false; }
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Penc <no-reply@penc-messagerie.com>',
+        to: [email],
+        subject: 'Penc — Verifiez votre adresse email',
+        html: _pencEmailShell(
+          'Bienvenue sur Penc !',
+          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
+          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Merci de rejoindre Penc. Pour confirmer que cette adresse email vous appartient bien, voici votre code de verification :</p>'+
+          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
+          '<p style="margin:0 0 6px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
+          '<p style="margin:0;color:#999;font-size:13px;line-height:1.6;">Si vous n\'etes pas a l\'origine de cette inscription, ignorez simplement cet email.</p>'
+        )
+      }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timeoutId);
+    const ok = r.ok;
+    console.log('[signup-email]', email, '->', ok ? 'OK' : ('ECHEC HTTP '+r.status));
+    return ok;
+  }catch(e){ console.log('[signup-email] EXCEPTION:', email, '->', e.message); return false; }
+}
+// POST /api/penc/auth/register/email/send — envoie un code de verification a l'email saisi (avant inscription)
+app.post('/api/penc/auth/register/email/send', async (req, res) => {
+  try{
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    if(_pgPool){
+      const existing = await pgFindUser('email', email);
+      if(existing) return res.status(400).json({ error: '⚠️ Cet email existe déjà. Connecte-toi.' });
+    }
+    const code = String(Math.floor(100000+Math.random()*900000));
+    _pencSignupPending.set(email, { code, expiresAt: Date.now()+10*60*1000, attempts:0 });
+    setTimeout(function(){ const p=_pencSignupPending.get(email); if(p && p.code===code){ _pencSignupPending.delete(email); } }, 10*60*1000);
+    const sent = await _pencSendSignupEmail(email, code);
+    if(!sent) return res.status(500).json({ error: 'Envoi impossible, réessaie dans un instant' });
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// POST /api/penc/auth/register/email/verify — verifie le code, renvoie un jeton temporaire (10 min) a fournir a /register
+app.post('/api/penc/auth/register/email/verify', async (req, res) => {
+  try{
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    const code = String((req.body && req.body.code) || '').trim();
+    if(!email || !code) return res.status(400).json({ error: 'Données manquantes' });
+    const p = _pencSignupPending.get(email);
+    if(!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expiré' });
+    p.attempts = (p.attempts||0)+1;
+    if(p.attempts > 5){ _pencSignupPending.delete(email); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
+    if(p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
+    _pencSignupPending.delete(email);
+    const token = jwt_penc.sign({ email:email, purpose:'signup_email_verified' }, PENC_SECRET, { expiresIn:'15m' });
+    res.json({ success:true, email_verify_token: token });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
-    const { full_name, username, phone, email, password } = req.body;
+    const { full_name, username, phone, email, password, email_verify_token } = req.body;
     if (!full_name||!username||!phone||!password)
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     if (password.length < 6)
       return res.status(400).json({ error: 'Mot de passe min. 6 caractères' });
+    // Si un email est fourni, il doit avoir été vérifié au préalable via /register/email/verify
+    if (email) {
+      if (!email_verify_token) return res.status(400).json({ error: 'Email non vérifié' });
+      let payload;
+      try{ payload = jwt_penc.verify(email_verify_token, PENC_SECRET); }catch(e){ return res.status(400).json({ error: 'Vérification email expirée, recommence' }); }
+      if (!payload || payload.purpose !== 'signup_email_verified' || String(payload.email||'').toLowerCase() !== String(email).trim().toLowerCase()) {
+        return res.status(400).json({ error: 'Email non vérifié' });
+      }
+    }
     if (full_name.length>120 || username.length>60 || (email && String(email).length>160) || password.length>200)
       return res.status(400).json({ error: 'Champs trop longs' });
 
@@ -4587,6 +4661,22 @@ async function _pencSendResetSMS(phone, code){
     return ok;
   }catch(e){ console.log('[forgot-password][SMS] EXCEPTION:', e.message); return false; }
 }
+function _pencEmailShell(title, bodyHtml){
+  return '<div style="background:#F4F6FB;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'+
+  '<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(18,56,140,0.08);">'+
+    '<div style="background:linear-gradient(135deg,#12388C,#1877F2);padding:26px 28px;">'+
+      '<span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:.3px;">Penc</span>'+
+    '</div>'+
+    '<div style="padding:28px 28px 22px;">'+
+      '<h1 style="margin:0 0 18px;color:#12388C;font-size:19px;font-weight:800;">'+title+'</h1>'+
+      bodyHtml+
+    '</div>'+
+    '<div style="padding:18px 28px;background:#FAFBFD;border-top:1px solid #EEF1F6;">'+
+      '<p style="margin:0;color:#9AA3B2;font-size:12px;line-height:1.5;">Penc — La messagerie panafricaine · <a href="https://penc-messagerie.com" style="color:#1877F2;text-decoration:none;">penc-messagerie.com</a></p>'+
+    '</div>'+
+  '</div>'+
+  '</div>';
+}
 async function _pencSendResetEmail(email, code){
   try{
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -4603,8 +4693,17 @@ async function _pencSendResetEmail(email, code){
       body: JSON.stringify({
         from: 'Penc <no-reply@penc-messagerie.com>',
         to: [email],
-        subject: 'Penc - Code de reinitialisation',
-        html: '<p>Votre code de reinitialisation Penc est : <b>'+code+'</b></p><p>Valable 10 minutes.</p><p style="color:#888;font-size:12px;">Si tu n\'es pas a l\'origine de cette demande, ignore cet email.</p>'
+        subject: 'Penc — Votre code de reinitialisation',
+        html: _pencEmailShell(
+          'Reinitialisation de mot de passe',
+          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
+          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demande la reinitialisation du mot de passe de votre compte Penc. Voici votre code de verification :</p>'+
+          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
+          '<p style="margin:0 0 22px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
+          '<div style="background:#FFF6E5;border:1px solid #FFE1A8;border-radius:12px;padding:14px 16px;margin-top:24px;">'+
+          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'etes pas a l\'origine de cette demande ?</b><br/>Cela signifie que quelqu\'un d\'autre a peut-etre tente d\'acceder a votre compte. Ignorez simplement cet email — votre mot de passe ne sera pas modifie sans ce code. Si cela se reproduit, changez votre mot de passe par securite des que possible.</p>'+
+          '</div>'
+        )
       }),
       signal: ctrl.signal
     });
@@ -6743,6 +6842,48 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
     }
     res.json({ success: true, sent, total });
   } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// POST /api/penc/admin/broadcast-email — diffusion email (annonces, rappels, mises a jour) via Resend
+app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const { subject, message } = req.body || {};
+    if(!subject || !String(subject).trim()) return res.status(400).json({ error: 'Sujet requis' });
+    if(!message || !String(message).trim()) return res.status(400).json({ error: 'Message requis' });
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if(!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY non configuree' });
+    if(!_pgPool) return res.status(500).json({ error: 'Base de donnees indisponible' });
+
+    const r = await _pgPool.query("SELECT email, full_name FROM penc_users WHERE email IS NOT NULL AND email != '' ");
+    const recipients = r.rows;
+    const total = recipients.length;
+    if(!total) return res.json({ success:true, sent:0, total:0 });
+
+    // Corps HTML : le message est saisi en texte simple, converti en paragraphes
+    const bodyHtml = String(message).split('\n').filter(function(l){ return l.trim(); })
+      .map(function(l){ return '<p style="margin:0 0 14px;color:#333;font-size:15px;line-height:1.6;">'+l+'</p>'; }).join('');
+    const html = _pencEmailShell(String(subject), bodyHtml);
+
+    // Resend batch API : max 100 destinataires par appel
+    let sent = 0;
+    const CHUNK = 100;
+    for(let i=0; i<recipients.length; i+=CHUNK){
+      const chunk = recipients.slice(i, i+CHUNK);
+      const payload = chunk.map(function(u){ return { from:'Penc <no-reply@penc-messagerie.com>', to:[u.email], subject:String(subject), html:html }; });
+      try{
+        const rr = await fetch('https://api.resend.com/emails/batch', {
+          method:'POST',
+          headers:{ 'Authorization':'Bearer '+RESEND_API_KEY, 'Content-Type':'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if(rr.ok){ sent += chunk.length; }
+        else{ const t = await rr.text().catch(function(){return '';}); console.log('[broadcast-email] ECHEC chunk', i, '-> HTTP', rr.status, t.slice(0,200)); }
+      }catch(e){ console.log('[broadcast-email] EXCEPTION chunk', i, '->', e.message); }
+      // Petite pause entre les lots pour rester sous les limites de debit Resend
+      if(i+CHUNK < recipients.length) await new Promise(function(res2){ setTimeout(res2, 600); });
+    }
+    console.log('[broadcast-email]', sent, '/', total, 'envoyes, sujet:', subject);
+    res.json({ success:true, sent, total });
+  }catch(e){ console.error('broadcast-email:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
   try {
