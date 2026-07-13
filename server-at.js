@@ -6287,7 +6287,7 @@ app.post('/api/penc/contacts/match', pencAuth, async (req, res) => {
       "SELECT id, full_name, username, phone, avatar_url FROM penc_users WHERE phone = ANY($1) AND id != $2 AND deleted_at IS NULL",
       [normalized, req.pencUser.userId]
     );
-    res.json({ matches: r.rows });
+    res.json({ matches: r.rows, matched_phones: r.rows.map(function(u){ return u.phone; }) });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
