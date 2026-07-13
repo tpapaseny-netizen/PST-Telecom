@@ -4844,7 +4844,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       if (jbu) user = jbu;
     }
 
-    if (user && (user.suspended||user.blocked||user.deleted_at) && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
+    if (user && (user.suspended||user.blocked) && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
@@ -4865,6 +4865,9 @@ app.post('/api/penc/auth/login', async (req, res) => {
       pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
     }
     if (!pwdOk) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
+    if (user.deleted_at && !isAdminBypass) {
+      return res.status(403).json({ error: 'account_deleted', account_deleted: true, deleted_at: user.deleted_at, message: 'Ce compte est en cours de suppression. Tu peux le restaurer.' });
+    }
 
     // ── Mise à jour last_seen ──
     if (_pgPool) {
@@ -5225,21 +5228,42 @@ app.get('/api/penc/me/stats', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     if(!_pgPool) return res.json({ stats:{} });
     const monthAgo = new Date(Date.now() - 30*24*60*60*1000);
-    const [msgsTotal, msgsMonth, statuses, friends, meetJoined, me] = await Promise.all([
+    const [msgsTotal, msgsMonth, statuses, friends, meetJoined, me, callsRows, photosSent, videosSent, statusViewRows] = await Promise.all([
       _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1', [uid]),
       _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND created_at > $2', [uid, monthAgo]),
       _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_statuses WHERE user_id=$1', [uid]),
       _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)", [uid]),
       _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_meet_history WHERE participant=$1', [uid]).catch(function(){ return {rows:[{n:0}]}; }),
-      _pgPool.query('SELECT created_at, total_time_seconds FROM penc_users WHERE id=$1', [uid])
+      _pgPool.query('SELECT created_at, total_time_seconds FROM penc_users WHERE id=$1', [uid]),
+      _pgPool.query(
+        "SELECT m.content FROM penc_messages m JOIN penc_conversations c ON c.id = m.conversation_id " +
+        "WHERE m.type = 'call' AND (m.deleted_for_all IS NOT TRUE) AND c.participants @> $1::jsonb",
+        [JSON.stringify([uid])]
+      ).catch(function(){ return {rows:[]}; }),
+      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND type='image'", [uid]),
+      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND type='video'", [uid]),
+      _pgPool.query('SELECT views FROM penc_statuses WHERE user_id=$1', [uid])
     ]);
     const meRow = me.rows[0] || {};
+    let callsVoice = 0, callsVideo = 0;
+    callsRows.rows.forEach(function(row){
+      try{ const d = JSON.parse(row.content || '{}'); if(d.call_type === 'video') callsVideo++; else callsVoice++; }catch(e){ callsVoice++; }
+    });
+    let statusViewsTotal = 0;
+    statusViewRows.rows.forEach(function(row){
+      try{ const v = typeof row.views==='string' ? JSON.parse(row.views) : row.views; if(Array.isArray(v)) statusViewsTotal += v.length; }catch(e){}
+    });
     res.json({ stats:{
       messages_total: msgsTotal.rows[0].n,
       messages_month: msgsMonth.rows[0].n,
       statuses_total: statuses.rows[0].n,
       friends_total: friends.rows[0].n,
       meet_joined: meetJoined.rows[0].n,
+      calls_voice: callsVoice,
+      calls_video: callsVideo,
+      photos_sent: photosSent.rows[0].n,
+      videos_sent: videosSent.rows[0].n,
+      status_views_total: statusViewsTotal,
       member_since: meRow.created_at || null,
       total_time_seconds: meRow.total_time_seconds || 0
     }});
@@ -6742,7 +6766,7 @@ async function _forceLogout(userId, reason){
   }catch(e){ console.error('_forceLogout', e.message); }
 }
 async function _purgeTrash(){
-  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'");
+  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '60 days'");
     for(const row of r.rows){ const uid=row.id;
       try{ await _pgPool.query('DELETE FROM penc_messages WHERE sender_id=$1',[uid]); }catch(e){}
       try{ await _pgPool.query('DELETE FROM penc_statuses WHERE user_id=$1',[uid]); }catch(e){}
@@ -7193,7 +7217,10 @@ app.post('/api/penc/admin/user/:id/restore', pencAuth, pencAdmin, async (req,res
 });
 // DELETE /api/penc/account — suppression de compte en libre-service (l'utilisateur lui-meme)
 // Reutilise le meme mecanisme de soft-delete + purge a 30 jours que la suppression admin.
-app.delete('/api/penc/account', pencAuth, async (req, res) => {
+// ══════════════ SUPPRESSION DE COMPTE : mot de passe -> code de confirmation -> suppression reelle ══════════════
+const _pencDeletePending = new Map(); // userId -> { code, expiresAt, attempts }
+// Etape 1/2 : verifie le mot de passe, envoie un code de confirmation (email si dispo, sinon SMS)
+app.post('/api/penc/account/delete/request', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
     const password = req.body && req.body.password;
@@ -7207,10 +7234,87 @@ app.delete('/api/penc/account', pencAuth, async (req, res) => {
     const hash = user.password_hash || user.password || '';
     const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
     if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
+    const code = String(Math.floor(100000+Math.random()*900000));
+    _pencDeletePending.set(uid, { code, expiresAt: Date.now()+10*60*1000, attempts:0 });
+    setTimeout(function(){ const p=_pencDeletePending.get(uid); if(p && p.code===code){ _pencDeletePending.delete(uid); } }, 10*60*1000);
+    let channel = 'aucun';
+    if(user.email){ _pencSendDeleteEmail(user.email, code); channel = 'email'; }
+    else if(user.phone){ _pencSendResetSMS(user.phone, code); channel = 'sms'; }
+    res.json({ success:true, channel: channel });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+async function _pencSendDeleteEmail(email, code){
+  try{
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if(!RESEND_API_KEY){ console.log('[account-delete][EMAIL] ECHEC: RESEND_API_KEY non configuree'); return false; }
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Penc <no-reply@penc-messagerie.com>',
+        to: [email],
+        subject: 'Penc — Confirmation de suppression de compte',
+        html: _pencEmailShell(
+          'Confirmation de suppression',
+          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
+          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demandé la suppression de votre compte Penc. Voici votre code de confirmation :</p>'+
+          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#FDEDEC;color:#C0392B;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #F5C6C0;">'+code+'</span></div>'+
+          '<p style="margin:0 0 22px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>. Une fois confirmé, vous aurez <b>60 jours</b> pour annuler la suppression en te reconnectant.</p>'+
+          '<div style="background:#FFF6E5;border:1px solid #FFE1A8;border-radius:12px;padding:14px 16px;margin-top:24px;">'+
+          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'êtes pas à l\'origine de cette demande ?</b><br/>Ignorez simplement cet email — ton compte ne sera pas supprimé sans ce code.</p>'+
+          '</div>'
+        )
+      }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timeoutId);
+    console.log('[account-delete][EMAIL]', email, '->', r.ok ? 'OK' : ('ECHEC HTTP '+r.status));
+    return r.ok;
+  }catch(e){ console.log('[account-delete][EMAIL] EXCEPTION:', email, '->', e.message); return false; }
+}
+// Etape 2/2 : verifie le code, execute la suppression (soft-delete, 60 jours avant purge definitive)
+app.post('/api/penc/account/delete/confirm', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const code = req.body && req.body.code;
+    if (!code) return res.status(400).json({ error: 'Code requis' });
+    const p = _pencDeletePending.get(uid);
+    if (!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expiré, recommence' });
+    p.attempts = (p.attempts||0)+1;
+    if (p.attempts > 5) { _pencDeletePending.delete(uid); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
+    if (p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
+    _pencDeletePending.delete(uid);
+    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
     await _pgPool.query('UPDATE penc_users SET deleted_at=NOW(), suspended=TRUE WHERE id=$1', [uid]);
     await _forceLogout(uid, 'self_deleted');
     try{ pencSecLog('user_self_deleted', req, {user_id:uid}); }catch(e){}
     res.json({ success:true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// Restauration en libre-service : un compte supprime ne peut pas obtenir de jeton via /auth/login,
+// cette route verifie donc les identifiants directement (comme un login) et restaure + reconnecte si valide.
+// Possible pendant 60 jours (avant purge definitive par _purgeTrash).
+app.post('/api/penc/account/restore', async (req, res) => {
+  try {
+    const { identifier, password } = req.body || {};
+    if (!identifier || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
+    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
+    const id = String(identifier).trim(); const idLow = id.toLowerCase();
+    const user = await pgFindUser('phone', id) || await pgFindUser('email', idLow) || await pgFindUser('username', idLow);
+    if (!user) return res.status(400).json({ error: 'Compte introuvable' });
+    if (!user.deleted_at) return res.status(400).json({ error: 'Ce compte n\'est pas supprimé' });
+    const hash = user.password_hash || user.password || '';
+    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+    if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
+    await _pgPool.query('UPDATE penc_users SET deleted_at=NULL, suspended=FALSE WHERE id=$1', [user.id]);
+    try{ pencSecLog('user_self_restored', req, {user_id:user.id, identifier:id}); }catch(e){}
+    // Reconnexion immediate : on renvoie un jeton pour eviter a l'utilisateur de retaper ses identifiants
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
+    _pencCreateSession(user.id, _sid, req).catch(function(){});
+    res.json({ success:true, token: tok, user: pencStrip(user) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.delete('/api/penc/admin/user/:id', pencAuth, pencAdmin, async (req, res) => {
