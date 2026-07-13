@@ -4030,6 +4030,13 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_legal_pages (
+        key         TEXT PRIMARY KEY,
+        title       TEXT NOT NULL,
+        html        TEXT NOT NULL,
+        updated_at  TIMESTAMPTZ DEFAULT NOW(),
+        updated_by  TEXT
+      );
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
@@ -6932,6 +6939,37 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
     console.log('[broadcast-email]', sent, '/', total, 'envoyes, sujet:', subject);
     res.json({ success:true, sent, total });
   }catch(e){ console.error('broadcast-email:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// GET /api/penc/legal — pages legales personnalisees (publique, utilisee par l'app pour surcharger les textes par defaut)
+app.get('/api/penc/legal', async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ pages:{} });
+    const r = await _pgPool.query('SELECT key, title, html FROM penc_legal_pages');
+    const pages = {};
+    r.rows.forEach(function(row){ pages[row.key] = { title: row.title, html: row.html }; });
+    res.json({ pages });
+  }catch(e){ res.json({ pages:{} }); }
+});
+// PUT /api/penc/admin/legal/:key — creer/mettre a jour une page legale
+app.put('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const key = req.params.key;
+    const { title, html } = req.body || {};
+    if(!title || !html) return res.status(400).json({ error: 'Titre et contenu requis' });
+    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
+    await _pgPool.query(
+      'INSERT INTO penc_legal_pages(key,title,html,updated_at,updated_by) VALUES($1,$2,$3,NOW(),$4) ON CONFLICT (key) DO UPDATE SET title=$2, html=$3, updated_at=NOW(), updated_by=$4',
+      [key, title, html, req.pencAdminUser && req.pencAdminUser.email || null]
+    );
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// DELETE /api/penc/admin/legal/:key — revenir au texte par defaut integre a l'app
+app.delete('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(_pgPool) await _pgPool.query('DELETE FROM penc_legal_pages WHERE key=$1', [req.params.key]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
   try {
