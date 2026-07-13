@@ -4029,6 +4029,7 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
@@ -4597,6 +4598,18 @@ app.post('/api/penc/auth/register', async (req, res) => {
 });
 
 // ── Anti-force brute (Couche 2) : 5 echecs => blocage 15 min ──
+const _msgFloodMap = new Map(); // userId -> {count, windowStart}
+function _pencMsgFlood(userId){
+  try{
+    const now = Date.now(), WINDOW = 10000, LIMIT = 20;
+    let e = _msgFloodMap.get(userId);
+    if(!e || now - e.windowStart > WINDOW){ e = { count:0, windowStart:now }; }
+    e.count++;
+    _msgFloodMap.set(userId, e);
+    if(_msgFloodMap.size > 5000){ for(const k of _msgFloodMap.keys()){ _msgFloodMap.delete(k); if(_msgFloodMap.size<=4000) break; } }
+    return e.count > LIMIT;
+  }catch(e){ return false; }
+}
 const _pencFails = new Map();
 function _pencBruteKey(req, id){ const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); return ip+'|'+String(id||'').toLowerCase(); }
 function _pencBruteBlocked(req, id){ const e=_pencFails.get(_pencBruteKey(req,id)); if(e&&e.until&&e.until>Date.now()) return Math.ceil((e.until-Date.now())/60000); return 0; }
@@ -6259,6 +6272,24 @@ app.get('/api/penc/health', async (req,res)=>{
 });
 
 // GET /api/penc/contacts
+// POST /api/penc/contacts/match — fait correspondre une liste de numeros de telephone (importes localement
+// depuis le carnet d'adresses du telephone, jamais stockes cote serveur) aux comptes Penc existants.
+app.post('/api/penc/contacts/match', pencAuth, async (req, res) => {
+  try{
+    const phones = Array.isArray(req.body && req.body.phones) ? req.body.phones : [];
+    if(!phones.length) return res.json({ matches: [] });
+    if(!_pgPool) return res.json({ matches: [] });
+    // Normalisation simple : ne garder que les chiffres (+ prefixe)
+    const norm = function(p){ return String(p||'').replace(/[^0-9+]/g,''); };
+    const normalized = Array.from(new Set(phones.map(norm).filter(function(p){ return p.length>=8; }))).slice(0, 1000);
+    if(!normalized.length) return res.json({ matches: [] });
+    const r = await _pgPool.query(
+      "SELECT id, full_name, username, phone, avatar_url FROM penc_users WHERE phone = ANY($1) AND id != $2 AND deleted_at IS NULL",
+      [normalized, req.pencUser.userId]
+    );
+    res.json({ matches: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
@@ -6845,6 +6876,18 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
   } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 // POST /api/penc/admin/broadcast-email — diffusion email (annonces, rappels, mises a jour) via Resend
+// GET /api/penc/email/unsubscribe — desinscription des emails groupes via lien signe dans l'email
+app.get('/api/penc/email/unsubscribe', async (req, res) => {
+  try{
+    const token = req.query.token;
+    if(!token) return res.status(400).send('Lien invalide.');
+    let payload;
+    try{ payload = jwt_penc.verify(String(token), PENC_SECRET); }catch(e){ return res.status(400).send('Lien invalide ou expire.'); }
+    if(!payload || payload.purpose !== 'email_unsub') return res.status(400).send('Lien invalide.');
+    if(_pgPool){ await _pgPool.query('UPDATE penc_users SET email_opt_out=TRUE WHERE id=$1', [payload.userId]); }
+    res.send('<html><body style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#333;"><h2 style="color:#12388C;">Vous etes desinscrit</h2><p>Vous ne recevrez plus les emails groupes de Penc (annonces, rappels, mises a jour). Les emails de securite (reinitialisation de mot de passe) continueront de fonctionner normalement.</p></body></html>');
+  }catch(e){ res.status(500).send('Erreur serveur.'); }
+});
 app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res) => {
   try{
     const { subject, message } = req.body || {};
@@ -6854,7 +6897,7 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
     if(!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY non configuree' });
     if(!_pgPool) return res.status(500).json({ error: 'Base de donnees indisponible' });
 
-    const r = await _pgPool.query("SELECT email, full_name FROM penc_users WHERE email IS NOT NULL AND email != '' ");
+    const r = await _pgPool.query("SELECT id, email, full_name FROM penc_users WHERE email IS NOT NULL AND email != '' AND COALESCE(email_opt_out,FALSE) = FALSE");
     const recipients = r.rows;
     const total = recipients.length;
     if(!total) return res.json({ success:true, sent:0, total:0 });
@@ -6862,14 +6905,18 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
     // Corps HTML : le message est saisi en texte simple, converti en paragraphes
     const bodyHtml = String(message).split('\n').filter(function(l){ return l.trim(); })
       .map(function(l){ return '<p style="margin:0 0 14px;color:#333;font-size:15px;line-height:1.6;">'+l+'</p>'; }).join('');
-    const html = _pencEmailShell(String(subject), bodyHtml);
 
-    // Resend batch API : max 100 destinataires par appel
+    // Resend batch API : max 100 destinataires par appel — chaque email a son propre lien de desinscription
     let sent = 0;
     const CHUNK = 100;
     for(let i=0; i<recipients.length; i+=CHUNK){
       const chunk = recipients.slice(i, i+CHUNK);
-      const payload = chunk.map(function(u){ return { from:'Penc <no-reply@penc-messagerie.com>', to:[u.email], subject:String(subject), html:html }; });
+      const payload = chunk.map(function(u){
+        const unsubToken = jwt_penc.sign({ userId:u.id, purpose:'email_unsub' }, PENC_SECRET, { expiresIn:'365d' });
+        const unsubUrl = 'https://api.penc-messagerie.com/api/penc/email/unsubscribe?token=' + encodeURIComponent(unsubToken);
+        const footerHtml = bodyHtml + '<p style="margin:24px 0 0;color:#AAB2C0;font-size:11.5px;line-height:1.5;"><a href="'+unsubUrl+'" style="color:#AAB2C0;text-decoration:underline;">Se désinscrire de ces emails</a></p>';
+        return { from:'Penc <no-reply@penc-messagerie.com>', to:[u.email], subject:String(subject), html:_pencEmailShell(String(subject), footerHtml) };
+      });
       try{
         const rr = await fetch('https://api.resend.com/emails/batch', {
           method:'POST',
@@ -7044,6 +7091,28 @@ app.post('/api/penc/admin/user/:id/restore', pencAuth, pencAdmin, async (req,res
     _pencBlocked.delete(String(req.params.id));
     try{ pencSecLog('user_restored', req, {user_id:req.params.id, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+// DELETE /api/penc/account — suppression de compte en libre-service (l'utilisateur lui-meme)
+// Reutilise le meme mecanisme de soft-delete + purge a 30 jours que la suppression admin.
+app.delete('/api/penc/account', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const password = req.body && req.body.password;
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });
+    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
+    const user = await pgFindUser('id', uid);
+    if (!user) return res.status(404).json({ error: 'Compte introuvable' });
+    if (PENC_ADMIN_EMAILS.includes(String(user.email || '').toLowerCase())) {
+      return res.status(400).json({ error: 'Les comptes administrateurs ne peuvent pas être supprimés depuis l\'app. Contacte le support.' });
+    }
+    const hash = user.password_hash || user.password || '';
+    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+    if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
+    await _pgPool.query('UPDATE penc_users SET deleted_at=NOW(), suspended=TRUE WHERE id=$1', [uid]);
+    await _forceLogout(uid, 'self_deleted');
+    try{ pencSecLog('user_self_deleted', req, {user_id:uid}); }catch(e){}
+    res.json({ success:true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.delete('/api/penc/admin/user/:id', pencAuth, pencAdmin, async (req, res) => {
   try {
@@ -7874,6 +7943,11 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   // Envoyer message
   socket.on('message:send', async (data, cb) => {
     const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op, client_id } = data;
+    // ── Anti-flood : max 20 messages / 10s par utilisateur (evite le spam/bots, sans genner un usage normal) ──
+    if (_pencMsgFlood(pencUserId)) {
+      if (typeof cb === 'function') cb({ error: 'Trop de messages envoyes trop vite, patiente quelques secondes.' });
+      return;
+    }
     try {
       const { reply_to } = data;
       const msg = {
