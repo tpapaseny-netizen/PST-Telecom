@@ -4462,14 +4462,14 @@ async function _pencSendSignupEmail(email, code){
       body: JSON.stringify({
         from: 'Penc <no-reply@penc-messagerie.com>',
         to: [email],
-        subject: 'Penc — Verifiez votre adresse email',
+        subject: 'Penc — Vérifiez votre adresse email',
         html: _pencEmailShell(
           'Bienvenue sur Penc !',
           '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
-          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Merci de rejoindre Penc. Pour confirmer que cette adresse email vous appartient bien, voici votre code de verification :</p>'+
+          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Merci de rejoindre Penc. Pour confirmer que cette adresse email vous appartient bien, voici votre code de vérification :</p>'+
           '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
           '<p style="margin:0 0 6px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
-          '<p style="margin:0;color:#999;font-size:13px;line-height:1.6;">Si vous n\'etes pas a l\'origine de cette inscription, ignorez simplement cet email.</p>'
+          '<p style="margin:0;color:#999;font-size:13px;line-height:1.6;">Si vous n\'êtes pas à l\'origine de cette inscription, ignorez simplement cet email.</p>'
         )
       }),
       signal: ctrl.signal
@@ -4664,8 +4664,9 @@ async function _pencSendResetSMS(phone, code){
 function _pencEmailShell(title, bodyHtml){
   return '<div style="background:#F4F6FB;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'+
   '<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(18,56,140,0.08);">'+
-    '<div style="background:linear-gradient(135deg,#12388C,#1877F2);padding:26px 28px;">'+
-      '<span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:.3px;">Penc</span>'+
+    '<div style="background:linear-gradient(135deg,#12388C,#1877F2);padding:24px 28px;display:flex;align-items:center;gap:12px;">'+
+      '<img src="https://penc-messagerie.com/penc-icon-192.png" width="36" height="36" alt="Penc" style="border-radius:9px;display:block;"/>'+
+      '<span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:.3px;">Penc<span style="font-weight:500;font-size:14px;opacity:.85;margin-left:8px;vertical-align:middle;">Messagerie</span></span>'+
     '</div>'+
     '<div style="padding:28px 28px 22px;">'+
       '<h1 style="margin:0 0 18px;color:#12388C;font-size:19px;font-weight:800;">'+title+'</h1>'+
@@ -4693,15 +4694,15 @@ async function _pencSendResetEmail(email, code){
       body: JSON.stringify({
         from: 'Penc <no-reply@penc-messagerie.com>',
         to: [email],
-        subject: 'Penc — Votre code de reinitialisation',
+        subject: 'Penc — Votre code de réinitialisation',
         html: _pencEmailShell(
-          'Reinitialisation de mot de passe',
+          'Réinitialisation de mot de passe',
           '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
-          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demande la reinitialisation du mot de passe de votre compte Penc. Voici votre code de verification :</p>'+
+          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demandé la réinitialisation du mot de passe de votre compte Penc. Voici votre code de vérification :</p>'+
           '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
           '<p style="margin:0 0 22px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
           '<div style="background:#FFF6E5;border:1px solid #FFE1A8;border-radius:12px;padding:14px 16px;margin-top:24px;">'+
-          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'etes pas a l\'origine de cette demande ?</b><br/>Cela signifie que quelqu\'un d\'autre a peut-etre tente d\'acceder a votre compte. Ignorez simplement cet email — votre mot de passe ne sera pas modifie sans ce code. Si cela se reproduit, changez votre mot de passe par securite des que possible.</p>'+
+          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'êtes pas à l\'origine de cette demande ?</b><br/>Cela signifie que quelqu\'un d\'autre a peut-être tenté d\'accéder à votre compte. Ignorez simplement cet email — votre mot de passe ne sera pas modifié sans ce code. Si cela se reproduit, changez votre mot de passe par sécurité dès que possible.</p>'+
           '</div>'
         )
       }),
