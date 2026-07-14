@@ -41,13 +41,61 @@ const http = require('http');
 const { Server: IOServer } = require('socket.io');
 const httpServer = http.createServer(app);
 const io = new IOServer(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  // Reglages adaptes a un grand nombre de connexions simultanees : evite de garder des sockets
+  // fantomes ouverts trop longtemps (chaque connexion inactive consomme de la memoire serveur).
+  pingInterval: 25000,
+  pingTimeout: 20000,
+  maxHttpBufferSize: 2e6, // 2MB — evite qu'un client envoie des paquets socket enormes
+  transports: ['websocket', 'polling']
 });
+// ══════════════ MISE À L'ÉCHELLE HORIZONTALE (Redis adapter) ══════════════
+// Sans ceci, Socket.io ne fonctionne que sur UN SEUL serveur : deux instances de Penc
+// ne peuvent pas se voir entre elles (message envoyé sur l'instance A jamais recu par
+// quelqu'un connecte sur l'instance B). Le Redis adapter resout ca en partageant les
+// evenements entre toutes les instances via Redis pub/sub.
+// N'affecte RIEN si REDIS_URL n'est pas configuree (fonctionne exactement comme avant,
+// en mode un seul serveur) — donc aucun risque a deployer ce changement des maintenant.
+(async function _setupScaling(){
+  const REDIS_URL = process.env.REDIS_URL;
+  if(!REDIS_URL){
+    console.log('[scaling] REDIS_URL non configuree — Penc tourne en mode "un seul serveur" (OK pour du trafic modere, mais ne peut PAS etre duplique sur plusieurs instances tant que ce n\'est pas ajoute)');
+    return;
+  }
+  try{
+    const { createClient } = require('redis');
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const pubClient = createClient({ url: REDIS_URL });
+    const subClient = pubClient.duplicate();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('[scaling] Redis adapter actif — Penc peut maintenant tourner sur plusieurs instances en parallele');
+  }catch(e){
+    console.log('[scaling] Echec de connexion Redis (Penc continue en mode un seul serveur):', e.message);
+  }
+})();
 
 
 
 app.use(cors({ origin: '*', methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
 app.get('/ping', function(req,res){ res.set('Cache-Control','no-store'); res.status(200).type('text/plain').send('pong'); });
+// ══ Sante / monitoring de charge : nombre de connexions temps reel + etat du pool BD ══
+app.get('/health', function(req,res){
+  try{
+    var sockCount = (io && io.engine) ? io.engine.clientsCount : 0;
+    var meetCount = (typeof _meetRooms!=='undefined') ? Object.keys(_meetRooms).length : 0;
+    var pgStats = _pgPool ? { total: _pgPool.totalCount, idle: _pgPool.idleCount, waiting: _pgPool.waitingCount } : null;
+    res.json({
+      status: 'ok',
+      uptime_seconds: Math.round(process.uptime()),
+      memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      socket_connections: sockCount,
+      active_meetings: meetCount,
+      db_pool: pgStats,
+      redis_scaling: !!process.env.REDIS_URL
+    });
+  }catch(e){ res.status(500).json({ status:'error', error:e.message }); }
+});
 app.use(express.json({ limit: '10mb' }));
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
@@ -3953,7 +4001,22 @@ let _pgPool = null;
   if(!process.env.DATABASE_URL){ console.log('⚠️ DATABASE_URL non défini — auth Penc sur JSONBin seulement'); return; }
   try{
     const { Pool } = require('pg');
-    _pgPool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    // Reglages du pool adaptes a une charge importante :
+    // - max : nombre de connexions simultanees vers Postgres. A ajuster selon le plan de la BD
+    //   (verifie la limite "max connections" de ton offre Render Postgres et reste EN DESSOUS).
+    // - idleTimeoutMillis : ferme les connexions inactives pour ne pas gaspiller le quota.
+    // - connectionTimeoutMillis : echoue vite plutot que de faire attendre un utilisateur indéfiniment
+    //   si la base est saturee (mieux vaut une erreur claire qu'un app qui parait figee).
+    const PG_POOL_MAX = parseInt(process.env.PG_POOL_MAX || '20', 10);
+    _pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: PG_POOL_MAX,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    });
+    _pgPool.on('error', function(err){ console.error('[pgPool] erreur inattendue sur une connexion inactive:', err.message); });
+    console.log('[pgPool] initialise avec max='+PG_POOL_MAX+' connexions simultanees');
     await _pgPool.query(`
       CREATE TABLE IF NOT EXISTS penc_users (
         id          TEXT PRIMARY KEY,
@@ -4677,6 +4740,10 @@ async function _pencSecurityAlert(ip, n){
   }catch(e){}
 }
 setTimeout(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 9000);
+// Recharge periodique (toutes les 60s) : essentiel des qu'il y a plusieurs instances derriere un
+// equilibreur de charge — sans ca, une session revoquee sur le serveur A resterait valide sur le
+// serveur B indefiniment (l'instance B n'apprend la revocation qu'au demarrage sinon).
+setInterval(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 60000);
 
 // ══════════════ MOT DE PASSE OUBLIÉ (réel, connecté serveur + SMS/email) ══════════════
 // NOTE: n'utilise JAMAIS les routes /api/sen-sms/* existantes (règle absolue : ne jamais
