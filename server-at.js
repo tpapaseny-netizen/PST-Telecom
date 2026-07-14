@@ -4009,6 +4009,8 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pending BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS client_id TEXT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once_consumed BOOLEAN DEFAULT FALSE;
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
@@ -4310,8 +4312,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -5428,23 +5430,30 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           rr.rows.forEach(function(x){ (_reactByMsg[x.message_id] = _reactByMsg[x.message_id]||[]).push({user_id:x.user_id, emoji:x.emoji}); });
         }
       }catch(_re){}
-      messages = rows.map(m => ({
-        id: m.id, conversation_id: m.conversation_id,
-        sender_id: m.sender_id,
-        is_mine: String(m.sender_id) === String(uid),
-        type: m.type, content: m.content,
-        media_url: m.media_url, media_duration: m.duration,
-        reply_to: m.reply_to?(function(){
-          if(typeof m.reply_to==='object') return m.reply_to;
-          try{return JSON.parse(m.reply_to);}catch(e){return null;}
-        })():null,
-        deleted_for_all: m.deleted_for_all || false,
-        delivered_at: m.delivered_at || null,
-        read_at: m.read_at || null,
-        pending: m.pending || false,
-        reactions: _reactByMsg[m.id] || [],
-        created_at: m.created_at
-      }));
+      messages = rows.map(m => {
+        const _isMine = String(m.sender_id) === String(uid);
+        // Vue unique : si deja consommee, le destinataire ne recoit plus jamais le media (l'expediteur si)
+        const _voHidden = m.view_once && m.view_once_consumed && !_isMine;
+        return {
+          id: m.id, conversation_id: m.conversation_id,
+          sender_id: m.sender_id,
+          is_mine: _isMine,
+          type: m.type, content: m.content,
+          media_url: _voHidden ? null : m.media_url, media_duration: m.duration,
+          reply_to: m.reply_to?(function(){
+            if(typeof m.reply_to==='object') return m.reply_to;
+            try{return JSON.parse(m.reply_to);}catch(e){return null;}
+          })():null,
+          deleted_for_all: m.deleted_for_all || false,
+          delivered_at: m.delivered_at || null,
+          read_at: m.read_at || null,
+          pending: m.pending || false,
+          reactions: _reactByMsg[m.id] || [],
+          view_once: m.view_once || false,
+          view_once_consumed: m.view_once_consumed || false,
+          created_at: m.created_at
+        };
+      });
     } else {
       const all = await pencMsgs();
       messages = all.filter(m => m.conversation_id === convId)
@@ -6283,6 +6292,7 @@ app.get('/api/penc/folders', pencAuth, async (req, res) => {
     if(!_pgPool) return res.json({ folders:[], items:{} });
     const uid = req.pencUser.userId;
     const fr = await _pgPool.query('SELECT folder_name FROM penc_conv_folders WHERE user_id=$1 ORDER BY folder_name', [uid]);
+    console.log('[folders] lecture pour', uid, '->', fr.rows.length, 'dossier(s) trouve(s)');
     const ir = await _pgPool.query('SELECT folder_name, conv_id FROM penc_conv_folder_items WHERE user_id=$1', [uid]);
     const items = {};
     ir.rows.forEach(function(row){ (items[row.folder_name]=items[row.folder_name]||[]).push(row.conv_id); });
@@ -6295,6 +6305,8 @@ app.post('/api/penc/folders', pencAuth, async (req, res) => {
     if(!name) return res.status(400).json({ error: 'Nom de dossier requis' });
     if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
     await _pgPool.query('INSERT INTO penc_conv_folders(user_id,folder_name) VALUES($1,$2) ON CONFLICT DO NOTHING', [req.pencUser.userId, name]);
+    const _verif = await _pgPool.query('SELECT 1 FROM penc_conv_folders WHERE user_id=$1 AND folder_name=$2', [req.pencUser.userId, name]);
+    console.log('[folders] cree pour', req.pencUser.userId, '->', name, '| verifie en base:', _verif.rowCount>0);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
@@ -8382,6 +8394,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         money_amount: money_amount || null, money_op: money_op || null,
         client_id: client_id || null,
         expires_at: _expiresAt,
+        view_once: !!data.view_once,
         created_at: new Date().toISOString(), read_at: null
       };
 
@@ -8436,7 +8449,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null,
             duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
-            expires_at: msg.expires_at || null
+            expires_at: msg.expires_at || null, view_once: msg.view_once || false
           });
         } else {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
@@ -8475,6 +8488,27 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('typing:stop', ({ conversation_id }) => {
     socket.to('penc:' + conversation_id).emit('typing:stop', { userId: pencUserId, conversation_id });
+  });
+  // Vue unique : le destinataire consomme le media (photo/video/audio) — plus jamais revisible ensuite
+  socket.on('message:view_once_consume', async (data, cb) => {
+    try{
+      const messageId = data && data.message_id;
+      if(!messageId || !_pgPool){ if(cb) cb({error:'invalide'}); return; }
+      const r = await _pgPool.query('SELECT id, sender_id, conversation_id, media_url, view_once, view_once_consumed FROM penc_messages WHERE id=$1', [messageId]);
+      if(!r.rows.length){ if(cb) cb({error:'introuvable'}); return; }
+      const m = r.rows[0];
+      if(String(m.sender_id) === String(pencUserId)){ if(cb) cb({ success:true, media_url:m.media_url }); return; } // l'expediteur garde toujours acces
+      if(!m.view_once){ if(cb) cb({ success:true, media_url:m.media_url }); return; }
+      if(m.view_once_consumed){ if(cb) cb({error:'deja_vu'}); return; }
+      await _pgPool.query('UPDATE penc_messages SET view_once_consumed=TRUE WHERE id=$1', [messageId]);
+      // Informe tous les participants (dont l'expediteur) que le media a ete consomme
+      try{
+        const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [m.conversation_id]);
+        const parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]')) : [];
+        emitToUsers(parts, 'message:view_once_consumed', { message_id: messageId, conv_id: m.conversation_id });
+      }catch(_e){}
+      if(cb) cb({ success:true, media_url:m.media_url }); // renvoie l'URL UNE fois pour l'affichage immediat
+    }catch(e){ if(cb) cb({error:'Erreur serveur'}); }
   });
   socket.on('message:react', async (data, cb) => {
     try {
