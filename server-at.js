@@ -7214,6 +7214,33 @@ app.delete('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) =
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // ══════════════ TABLEAU DE BORD APPELS / PENC MEET (admin) ══════════════
+// ══════════════ TABLEAU DE BORD CROISSANCE (admin) ══════════════
+app.get('/api/penc/admin/growth-dashboard', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
+    const totalUsers = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE deleted_at IS NULL");
+    const signups7 = await _pgPool.query("SELECT to_char(d.day,'YYYY-MM-DD') AS day, COUNT(u.id)::int AS n FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d(day) LEFT JOIN penc_users u ON u.created_at::date = d.day WHERE 1=1 GROUP BY d.day ORDER BY d.day");
+    const signupsToday = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at::date = CURRENT_DATE");
+    const signupsWeek = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at > NOW() - INTERVAL '7 days'");
+    const signupsMonth = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at > NOW() - INTERVAL '30 days'");
+    const activeToday = await _pgPool.query("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_sessions WHERE last_seen > NOW() - INTERVAL '24 hours'");
+    const activeWeek = await _pgPool.query("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_sessions WHERE last_seen > NOW() - INTERVAL '7 days'");
+    const withEmail = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE email IS NOT NULL AND email != '' AND deleted_at IS NULL");
+    const deletedCount = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE deleted_at IS NOT NULL");
+    const langBreakdown = { note: 'Repartition par langue non suivie cote serveur (choix stocke localement sur l\'appareil).' };
+    res.json({
+      total_users: totalUsers.rows[0].n,
+      signups_today: signupsToday.rows[0].n,
+      signups_week: signupsWeek.rows[0].n,
+      signups_month: signupsMonth.rows[0].n,
+      active_today: activeToday.rows[0].n,
+      active_week: activeWeek.rows[0].n,
+      with_email: withEmail.rows[0].n,
+      deleted_accounts: deletedCount.rows[0].n,
+      signups_last_7_days: signups7.rows.map(function(r){ return { day: r.day, count: r.n }; })
+    });
+  }catch(e){ console.error('growth-dashboard:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.get('/api/penc/admin/calls-dashboard', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
