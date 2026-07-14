@@ -6256,6 +6256,9 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       try{ const _mr = await _pgPool.query('SELECT conv_id FROM penc_muted_convs WHERE user_id=$1',[uid]); _mutedIds = new Set(_mr.rows.map(r=>r.conv_id)); }catch(_me){}
       let _ephemeralMap = {};
       try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral'); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
+      // Messages en attente : demandes d'ami RECUES (quelqu'un d'autre a écrit en premier, pas encore acceptées)
+      let _pendingFrom = new Set();
+      try{ const _pfr = await _pgPool.query("SELECT requester FROM penc_friendships WHERE recipient=$1 AND status='pending'", [uid]); _pfr.rows.forEach(function(row){ _pendingFrom.add(row.requester); }); }catch(_pfe){}
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
         const otherId = parts.find(p => p !== uid);
@@ -6273,7 +6276,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           updated_at: c.updated_at,
           pinned: _pinnedIds.has(c.id),
           muted: _mutedIds.has(c.id),
-          ephemeral_seconds: _ephemeralMap[c.id] || 0
+          ephemeral_seconds: _ephemeralMap[c.id] || 0,
+          is_request: _pendingFrom.has(otherId)
         };
       }));
     } else {
