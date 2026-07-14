@@ -4095,6 +4095,7 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_conv_folders (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, PRIMARY KEY (user_id, folder_name));
       CREATE TABLE IF NOT EXISTS penc_conv_folder_items (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, conv_id TEXT NOT NULL, PRIMARY KEY (user_id, folder_name, conv_id));
       CREATE TABLE IF NOT EXISTS penc_conv_ephemeral (conv_id TEXT PRIMARY KEY, duration_seconds INTEGER NOT NULL, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_media_views (message_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
@@ -5430,6 +5431,15 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           rr.rows.forEach(function(x){ (_reactByMsg[x.message_id] = _reactByMsg[x.message_id]||[]).push({user_id:x.user_id, emoji:x.emoji}); });
         }
       }catch(_re){}
+      // Vues uniques (accuse de "vu" par personne, distinct de "view_once" qui autodetruit le media)
+      let _viewsByMsg = {};
+      try{
+        const ids2 = rows.map(m=>m.id);
+        if(ids2.length){
+          const vr2 = await _pgPool.query('SELECT message_id, COUNT(*)::int AS n FROM penc_media_views WHERE message_id = ANY($1) GROUP BY message_id', [ids2]);
+          vr2.rows.forEach(function(x){ _viewsByMsg[x.message_id] = x.n; });
+        }
+      }catch(_ve){}
       messages = rows.map(m => {
         const _isMine = String(m.sender_id) === String(uid);
         // Vue unique : si deja consommee, le destinataire ne recoit plus jamais le media (l'expediteur si)
@@ -5451,6 +5461,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           reactions: _reactByMsg[m.id] || [],
           view_once: m.view_once || false,
           view_once_consumed: m.view_once_consumed || false,
+          media_views_count: _viewsByMsg[m.id] || 0,
           created_at: m.created_at
         };
       });
@@ -8509,6 +8520,25 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(_e){}
       if(cb) cb({ success:true, media_url:m.media_url }); // renvoie l'URL UNE fois pour l'affichage immediat
     }catch(e){ if(cb) cb({error:'Erreur serveur'}); }
+  });
+  // ══ Vue unique d'un media (photo/video/audio/document) — declenchee quand l'utilisateur l'ouvre reellement ══
+  socket.on('media:view', async (data, cb) => {
+    try{
+      const { message_id } = data || {};
+      if(!message_id || !_pgPool){ if(typeof cb==='function') cb({error:'invalide'}); return; }
+      const mr = await _pgPool.query('SELECT conversation_id, sender_id FROM penc_messages WHERE id=$1', [message_id]);
+      if(!mr.rows.length){ if(typeof cb==='function') cb({error:'introuvable'}); return; }
+      const { conversation_id: convId, sender_id: senderId } = mr.rows[0];
+      // Pas de vue enregistree pour son propre media envoye
+      if(String(senderId)===String(pencUserId)){ if(typeof cb==='function') cb({success:true, skipped:true}); return; }
+      const already = await _pgPool.query('SELECT 1 FROM penc_media_views WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
+      if(already.rowCount===0){
+        await _pgPool.query('INSERT INTO penc_media_views(message_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [message_id, pencUserId]);
+        const vr = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_media_views WHERE message_id=$1', [message_id]);
+        io.to('user:'+String(senderId)).emit('media:viewed', { message_id, conv_id:convId, viewer_id:pencUserId, view_count: vr.rows[0].n });
+      }
+      if(typeof cb==='function') cb({success:true});
+    }catch(e){ if(typeof cb==='function') cb({error:'Erreur serveur'}); }
   });
   socket.on('message:react', async (data, cb) => {
     try {
