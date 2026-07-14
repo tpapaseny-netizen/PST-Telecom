@@ -7190,6 +7190,81 @@ app.delete('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) =
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ══════════════ TABLEAU DE BORD APPELS / PENC MEET (admin) ══════════════
+app.get('/api/penc/admin/calls-dashboard', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
+
+    // ── Appels 1-a-1 (voix + video), stockes comme messages type='call' ──
+    const callRows = await _pgPool.query("SELECT content, created_at FROM penc_messages WHERE type='call' AND (deleted_for_all IS NOT TRUE)");
+    let voiceCount=0, videoCount=0, voiceSeconds=0, videoSeconds=0;
+    let callsToday=0, callsWeek=0;
+    const now = Date.now(), dayAgo = now-86400000, weekAgo = now-7*86400000;
+    callRows.rows.forEach(function(row){
+      let d={}; try{ d=JSON.parse(row.content||'{}'); }catch(_e){}
+      const isVideo = d.call_type==='video';
+      const dur = (d.status==='answered' && typeof d.duration==='number') ? d.duration : 0;
+      if(isVideo){ videoCount++; videoSeconds+=dur; } else { voiceCount++; voiceSeconds+=dur; }
+      const t = new Date(row.created_at).getTime();
+      if(t>dayAgo) callsToday++;
+      if(t>weekAgo) callsWeek++;
+    });
+
+    // ── Historique Penc Meet (table persistante) ──
+    const meetHistRows = await _pgPool.query(
+      "SELECT code, MAX(title) AS title, MAX(host) AS host, MIN(joined_at) AS started_at, MAX(COALESCE(left_at, joined_at)) AS ended_at, COUNT(DISTINCT participant)::int AS participants " +
+      "FROM penc_meet_history GROUP BY code ORDER BY MIN(joined_at) DESC LIMIT 50"
+    );
+    const meetTotalSessions = await _pgPool.query("SELECT COUNT(DISTINCT code)::int AS n FROM penc_meet_history");
+    const meetTotalJoins = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_meet_history");
+
+    // Noms complets pour l'historique (host + participants), en un seul aller-retour
+    const hostIds = Array.from(new Set(meetHistRows.rows.map(function(r){return r.host;}).filter(Boolean)));
+    let hostNames = {};
+    if(hostIds.length){
+      const hu = await _pgPool.query('SELECT id, full_name FROM penc_users WHERE id = ANY($1)', [hostIds]);
+      hu.rows.forEach(function(u){ hostNames[u.id]=u.full_name; });
+    }
+
+    // ── Reunions Penc Meet EN COURS, en temps reel (mémoire serveur) ──
+    const activeMeets = Object.keys(_meetRooms).map(function(code){
+      const room = _meetRooms[code];
+      const peerList = Object.values(room.peers||{}).map(function(p){ return p.name||'Participant'; });
+      return {
+        code: code,
+        title: room.title || '(sans titre)',
+        host: hostNames[room.host] || room.host || '?',
+        participant_count: peerList.length,
+        participants: peerList,
+        started_at: new Date(room.createdAt).toISOString(),
+        duration_seconds: Math.round((Date.now()-room.createdAt)/1000)
+      };
+    }).filter(function(m){ return m.participant_count > 0; });
+    const activeTotalParticipants = activeMeets.reduce(function(a,m){ return a+m.participant_count; }, 0);
+
+    res.json({
+      calls: {
+        voice_total: voiceCount, video_total: videoCount,
+        voice_minutes: Math.round(voiceSeconds/60), video_minutes: Math.round(videoSeconds/60),
+        total_minutes: Math.round((voiceSeconds+videoSeconds)/60),
+        calls_today: callsToday, calls_week: callsWeek
+      },
+      meet: {
+        total_sessions: (meetTotalSessions.rows[0]&&meetTotalSessions.rows[0].n)||0,
+        total_joins: (meetTotalJoins.rows[0]&&meetTotalJoins.rows[0].n)||0,
+        history: meetHistRows.rows.map(function(r){
+          return {
+            code: r.code, title: r.title||'(sans titre)', host: hostNames[r.host]||r.host||'?',
+            participants: r.participants, started_at: r.started_at, ended_at: r.ended_at
+          };
+        }),
+        active: activeMeets,
+        active_count: activeMeets.length,
+        active_total_participants: activeTotalParticipants
+      }
+    });
+  }catch(e){ console.error('calls-dashboard:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] });
