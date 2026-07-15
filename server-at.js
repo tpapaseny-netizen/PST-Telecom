@@ -4139,7 +4139,8 @@ async function _pencUsernameFor(userId) {
 // ── Route 1 : demande d'URL présignée pour upload direct vers R2 ──
 app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
   try {
-    if (!_r2Ready) return res.status(500).json({ error: 'R2 non configuré côté serveur' });
+    console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
+    if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
     const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad'];
     if (!allowed.includes(type)) return res.status(400).json({ error: 'type media invalide' });
@@ -4147,59 +4148,75 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     const ext = req.body.ext || 'bin';
     const key = r2Key(type, req.pencUser.userId, ext);
     const uploadUrl = await r2PresignPut(key, mime);
+    console.log('[media/presign] OK key=' + key);
     res.json({ success: true, uploadUrl, key, publicUrl: R2_PUBLIC + '/' + key });
-  } catch (e) { console.error('media/presign erreur:', e.message); res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error('[media/presign] ERREUR:', e.message, e.stack); res.status(500).json({ error: e.message }); }
 });
 
 // ── Route 2 : traitement post-upload (filigrane / rognage / conversion mp3) ──
 app.post('/api/penc/media/process', pencAuth, async (req, res) => {
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   let tmpFiles = [];
+  const _t0 = Date.now();
   try {
-    if (!_r2Ready) return res.status(500).json({ error: 'R2 non configuré côté serveur' });
+    console.log('[media/process] reçu type=' + req.body.type + ' key=' + req.body.key + ' user=' + req.pencUser.userId);
+    if (!_r2Ready) { console.error('[media/process] R2 non configuré'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const { key, type, trim } = req.body;
     if (!key || !type) return res.status(400).json({ error: 'paramètres manquants' });
 
     if (type === 'photo') {
+      console.log('[media/process] photo: téléchargement depuis R2...');
       const buf = await r2GetBuffer(key);
+      console.log('[media/process] photo: ' + buf.length + ' octets récupérés, filigrane en cours...');
       const username = await _pencUsernameFor(req.pencUser.userId);
       const out = await _wmPhoto(buf, username);
+      console.log('[media/process] photo: filigrane OK, ré-upload...');
       const url = await r2PutBuffer(key, out, 'image/jpeg');
+      console.log('[media/process] photo: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url);
       return res.json({ success: true, url });
     }
 
     if (type === 'video' || type === 'status_video') {
+      console.log('[media/process] video: téléchargement depuis R2...');
       const buf = await r2GetBuffer(key);
+      console.log('[media/process] video: ' + buf.length + ' octets récupérés');
       const tmpIn = pathMod.join(os.tmpdir(), 'vin_' + Date.now() + '.mp4');
       const tmpOut = pathMod.join(os.tmpdir(), 'vout_' + Date.now() + '.mp4');
       tmpFiles = [tmpIn, tmpOut];
       fs.writeFileSync(tmpIn, buf);
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
+      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ')...');
       await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark);
+      console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const url = await r2PutBuffer(key, outBuf, 'video/mp4');
       tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+      console.log('[media/process] video: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url);
       return res.json({ success: true, url });
     }
 
     if (type === 'voice') {
+      console.log('[media/process] voice: téléchargement depuis R2...');
       const buf = await r2GetBuffer(key);
+      console.log('[media/process] voice: ' + buf.length + ' octets récupérés, conversion mp3...');
       const tmpIn = pathMod.join(os.tmpdir(), 'ain_' + Date.now());
       const tmpOut = pathMod.join(os.tmpdir(), 'aout_' + Date.now() + '.mp3');
       tmpFiles = [tmpIn, tmpOut];
       fs.writeFileSync(tmpIn, buf);
       await _voiceToMp3(tmpIn, tmpOut);
+      console.log('[media/process] voice: conversion OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const mp3Key = key.replace(/\.[a-z0-9]+$/i, '.mp3');
       const url = await r2PutBuffer(mp3Key, outBuf, 'audio/mpeg');
       tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+      console.log('[media/process] voice: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url);
       return res.json({ success: true, url });
     }
 
     return res.status(400).json({ error: 'type inconnu pour traitement' });
   } catch (e) {
-    console.error('media/process erreur:', e.message);
+    console.error('[media/process] ERREUR après ' + (Date.now() - _t0) + 'ms:', e.message, e.stack);
     tmpFiles.forEach(p => { try { require('fs').unlinkSync(p); } catch (_e) {} });
     res.status(500).json({ error: e.message });
   }
