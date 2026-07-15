@@ -1,101 +1,23 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-// ── En-têtes de sécurité HTTP (Couche 1) ──
-app.use(function(_secReq, _secRes, _secNext){
-  _secRes.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  _secRes.setHeader('X-Content-Type-Options', 'nosniff');
-  _secRes.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  _secRes.setHeader('Referrer-Policy', 'no-referrer');
-  _secRes.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-  _secNext();
-});
-// ── Anti-abus / rate-limiting (Couche 3) — tolérant au partage d'IP (CGNAT) ──
-const _rlMap = new Map();
-function _rlIp(req){ return String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); }
-app.use(function(req, res, next){
-  try{
-    var pth = req.path || req.url || '';
-    if (req.method === 'OPTIONS') return next();
-    if (pth.indexOf('/socket.io') === 0) return next();
-    var ip = _rlIp(req); var now = Date.now();
-    var e = _rlMap.get(ip);
-    if (!e || now - e.ws > 60000) { e = { ws: now, n: 0, a: 0 }; }
-    e.n++;
-    var isAuth = pth.indexOf('/api/penc/auth/') === 0 && req.method === 'POST';
-    if (isAuth) e.a++;
-    _rlMap.set(ip, e);
-    if (_rlMap.size > 20000){ for (var k of _rlMap.keys()){ var v=_rlMap.get(k); if (now - v.ws > 60000) _rlMap.delete(k); } }
-    if (isAuth && e.a > 30){ return res.status(429).json({ error: '🚫 Trop de tentatives. Réessaie dans une minute.' }); }
-    if (e.n > 3000){ return res.status(429).json({ error: '🚫 Trop de requêtes. Réessaie dans une minute.' }); }
-  }catch(_e){}
-  next();
-});
 
 // ── Socket.io init (Penc temps réel) ──────────────────────
 const http = require('http');
 const { Server: IOServer } = require('socket.io');
 const httpServer = http.createServer(app);
 const io = new IOServer(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  // Reglages adaptes a un grand nombre de connexions simultanees : evite de garder des sockets
-  // fantomes ouverts trop longtemps (chaque connexion inactive consomme de la memoire serveur).
-  pingInterval: 25000,
-  pingTimeout: 20000,
-  maxHttpBufferSize: 2e6, // 2MB — evite qu'un client envoie des paquets socket enormes
-  transports: ['websocket', 'polling']
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
-// ══════════════ MISE À L'ÉCHELLE HORIZONTALE (Redis adapter) ══════════════
-// Sans ceci, Socket.io ne fonctionne que sur UN SEUL serveur : deux instances de Penc
-// ne peuvent pas se voir entre elles (message envoyé sur l'instance A jamais recu par
-// quelqu'un connecte sur l'instance B). Le Redis adapter resout ca en partageant les
-// evenements entre toutes les instances via Redis pub/sub.
-// N'affecte RIEN si REDIS_URL n'est pas configuree (fonctionne exactement comme avant,
-// en mode un seul serveur) — donc aucun risque a deployer ce changement des maintenant.
-(async function _setupScaling(){
-  const REDIS_URL = process.env.REDIS_URL;
-  if(!REDIS_URL){
-    console.log('[scaling] REDIS_URL non configuree — Penc tourne en mode "un seul serveur" (OK pour du trafic modere, mais ne peut PAS etre duplique sur plusieurs instances tant que ce n\'est pas ajoute)');
-    return;
-  }
-  try{
-    const { createClient } = require('redis');
-    const { createAdapter } = require('@socket.io/redis-adapter');
-    const pubClient = createClient({ url: REDIS_URL });
-    const subClient = pubClient.duplicate();
-    await Promise.all([pubClient.connect(), subClient.connect()]);
-    io.adapter(createAdapter(pubClient, subClient));
-    console.log('[scaling] Redis adapter actif — Penc peut maintenant tourner sur plusieurs instances en parallele');
-  }catch(e){
-    console.log('[scaling] Echec de connexion Redis (Penc continue en mode un seul serveur):', e.message);
-  }
-})();
 
 
 
 app.use(cors({ origin: '*', methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
 app.get('/ping', function(req,res){ res.set('Cache-Control','no-store'); res.status(200).type('text/plain').send('pong'); });
-// ══ Sante / monitoring de charge : nombre de connexions temps reel + etat du pool BD ══
-app.get('/health', function(req,res){
-  try{
-    var sockCount = (io && io.engine) ? io.engine.clientsCount : 0;
-    var meetCount = (typeof _meetRooms!=='undefined') ? Object.keys(_meetRooms).length : 0;
-    var pgStats = _pgPool ? { total: _pgPool.totalCount, idle: _pgPool.idleCount, waiting: _pgPool.waitingCount } : null;
-    res.json({
-      status: 'ok',
-      uptime_seconds: Math.round(process.uptime()),
-      memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      socket_connections: sockCount,
-      active_meetings: meetCount,
-      db_pool: pgStats,
-      redis_scaling: !!process.env.REDIS_URL
-    });
-  }catch(e){ res.status(500).json({ status:'error', error:e.message }); }
-});
 app.use(express.json({ limit: '10mb' }));
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
@@ -3627,26 +3549,9 @@ async function getGeoForIp(rawIp){
 }
 async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
 async function pencSavePushSubs(a) { return jbSet(BINS.penc_push, { subs: a }); }
-async function pencSecLog(type, req, extra) {
-  try {
-    if (!_pgPool) return;
-    extra = extra || {};
-    const ip = (req && req.headers && (req.headers['x-forwarded-for']||'').split(',')[0].trim()) || (req && req.ip) || '';
-    const ua = (req && req.headers && req.headers['user-agent']) || '';
-    const id = 'sec_' + Date.now() + Math.random().toString(36).slice(2);
-    await _pgPool.query('INSERT INTO penc_security_logs(id, type, user_id, identifier, ip, user_agent, detail, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id, type, (extra.user_id||null), (extra.identifier||null), ip, String(ua).slice(0,300), (extra.detail||null)]);
-  } catch(e) {}
-}
 async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
-    // Respecter le mute par conversation : ne pas notifier si l'utilisateur a coupé cette discussion
-    if (payload && payload.conv_id && _pgPool) {
-      try {
-        const _mc = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2', [userId, payload.conv_id]);
-        if (_mc.rowCount > 0) return;
-      } catch (_me) {}
-    }
     const subs = await pencPushSubs();
     const mine = subs.filter(x => x.user_id === userId);
     for (const sb of mine) {
@@ -3659,15 +3564,6 @@ async function sendPencPush(userId, payload) {
       }
     }
   } catch (e) { console.error('sendPencPush:', e.message); }
-}
-function _pencDur(sec){ sec=Math.max(0,Math.round(sec||0)); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
-function pencMsgBody(type, content, duration){
-  if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' '+_pencDur(duration):'');
-  if(type==='image') return 'A envoyé une photo 📷';
-  if(type==='video') return 'A envoyé une vidéo 🎬';
-  if(type==='money') return '💸 '+(content||'Transfert');
-  if(type==='sticker') return content||'Sticker';
-  return (content||'').slice(0,50);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3952,8 +3848,6 @@ function pencAuth(req, res, next) {
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Token manquant' });
   try {
     req.pencUser = jwt_penc.verify(h.slice(7), PENC_SECRET);
-    if (typeof _pencBlocked!=='undefined' && _pencBlocked.has(String(req.pencUser.userId))) return res.status(403).json({ error: 'compte_restreint', restricted:true });
-    if (req.pencUser.sid && typeof _pencRevokedSids!=='undefined' && _pencRevokedSids.has(req.pencUser.sid)) return res.status(401).json({ error: 'session_revoked' });
     next();
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
@@ -3979,7 +3873,7 @@ async function pencMsgs(){const d=await jbGet(BINS.penc_msgs);if(!d)return[];if(
 async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
 async function pencStatuses(){const d=await jbGet(BINS.penc_status);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.statuses)?d.statuses:[];}
 async function pencSaveStatuses(a){ return jbSet(BINS.penc_status, { statuses: a }); }
-const pencStrip = u => { if (!u) return null; const { password, password_hash, totp_secret, ...s } = u; return s; };
+const pencStrip = u => { if (!u) return null; const { password, ...s } = u; return s; };
 
 // ════════════════════════════════════════════════════════════
 // AUTH
@@ -4001,22 +3895,7 @@ let _pgPool = null;
   if(!process.env.DATABASE_URL){ console.log('⚠️ DATABASE_URL non défini — auth Penc sur JSONBin seulement'); return; }
   try{
     const { Pool } = require('pg');
-    // Reglages du pool adaptes a une charge importante :
-    // - max : nombre de connexions simultanees vers Postgres. A ajuster selon le plan de la BD
-    //   (verifie la limite "max connections" de ton offre Render Postgres et reste EN DESSOUS).
-    // - idleTimeoutMillis : ferme les connexions inactives pour ne pas gaspiller le quota.
-    // - connectionTimeoutMillis : echoue vite plutot que de faire attendre un utilisateur indéfiniment
-    //   si la base est saturee (mieux vaut une erreur claire qu'un app qui parait figee).
-    const PG_POOL_MAX = parseInt(process.env.PG_POOL_MAX || '20', 10);
-    _pgPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: PG_POOL_MAX,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000
-    });
-    _pgPool.on('error', function(err){ console.error('[pgPool] erreur inattendue sur une connexion inactive:', err.message); });
-    console.log('[pgPool] initialise avec max='+PG_POOL_MAX+' connexions simultanees');
+    _pgPool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
     await _pgPool.query(`
       CREATE TABLE IF NOT EXISTS penc_users (
         id          TEXT PRIMARY KEY,
@@ -4071,9 +3950,6 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pending BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS client_id TEXT;
-      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
-      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once BOOLEAN DEFAULT FALSE;
-      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once_consumed BOOLEAN DEFAULT FALSE;
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
@@ -4097,23 +3973,9 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
-      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN DEFAULT FALSE;
-      CREATE TABLE IF NOT EXISTS penc_legal_pages (
-        key         TEXT PRIMARY KEY,
-        title       TEXT NOT NULL,
-        html        TEXT NOT NULL,
-        updated_at  TIMESTAMPTZ DEFAULT NOW(),
-        updated_by  TEXT
-      );
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS moderator BOOLEAN DEFAULT FALSE;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS owner_id TEXT;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
@@ -4144,26 +4006,6 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
       CREATE TABLE IF NOT EXISTS penc_reports (id TEXT PRIMARY KEY, reporter_id TEXT, target_type TEXT, target_id TEXT, target_user_id TEXT, reason TEXT, content_snapshot TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
-      CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE INDEX IF NOT EXISTS idx_pvr_status ON penc_verif_requests(status);
-      CREATE TABLE IF NOT EXISTS penc_security_logs (id TEXT PRIMARY KEY, type TEXT, user_id TEXT, identifier TEXT, ip TEXT, user_agent TEXT, detail TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE TABLE IF NOT EXISTS penc_call_ratings (id TEXT PRIMARY KEY, rater_id TEXT, peer_id TEXT, call_type TEXT, rating INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE TABLE IF NOT EXISTS penc_isolations (id TEXT PRIMARY KEY, user_a TEXT, user_b TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
-      CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
-      CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
-      CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
-      CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
-      CREATE TABLE IF NOT EXISTS penc_saved_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, saved_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE TABLE IF NOT EXISTS penc_conv_folders (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, PRIMARY KEY (user_id, folder_name));
-      CREATE TABLE IF NOT EXISTS penc_conv_folder_items (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, conv_id TEXT NOT NULL, PRIMARY KEY (user_id, folder_name, conv_id));
-      CREATE TABLE IF NOT EXISTS penc_conv_ephemeral (conv_id TEXT PRIMARY KEY, duration_seconds INTEGER NOT NULL, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
-      CREATE TABLE IF NOT EXISTS penc_media_views (message_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
-      CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
-      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false;
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -4220,57 +4062,9 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_ppopt_poll    ON penc_poll_options(poll_id);
       CREATE INDEX IF NOT EXISTS idx_ppvote_poll   ON penc_poll_votes(poll_id);
       CREATE INDEX IF NOT EXISTS idx_ppvote_user   ON penc_poll_votes(poll_id, user_id);
-      CREATE TABLE IF NOT EXISTS penc_scheduled_messages (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL DEFAULT 'message',
-        conversation_id TEXT,
-        sender_id TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'text',
-        content TEXT,
-        media_url TEXT,
-        duration INTEGER,
-        scheduled_for TIMESTAMPTZ NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        sent_at TIMESTAMPTZ
-      );
-      CREATE INDEX IF NOT EXISTS idx_psched_due    ON penc_scheduled_messages(status, scheduled_for);
-      CREATE INDEX IF NOT EXISTS idx_psched_sender ON penc_scheduled_messages(sender_id, status);
-      ALTER TABLE penc_scheduled_messages ADD COLUMN IF NOT EXISTS meta JSONB;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     try{ await _pgPool.query("INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,created_at) VALUES('penc_official','Penc','penc_officiel','+00000000000',NULL,'-','https://penc-messagerie.com/penc-icon-192.png','Compte officiel Penc',NOW()) ON CONFLICT(id) DO UPDATE SET full_name='Penc', avatar_url='https://penc-messagerie.com/penc-icon-192.png', bio='Compte officiel Penc'"); console.log('✅ Compte officiel Penc pret'); }catch(eOff){ console.error('Penc official:', eOff.message); }
-    // v11 : reparation GLOBALE des noms au demarrage (comptes Google restes 'Utilisateur' —
-    // ils ne repassent jamais par /auth/google tant que leur jeton est valide, donc on repare ici).
-    try{
-      const _nr=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(split_part(email,'@',1),'[._-]+',' ','g'))) WHERE email IS NOT NULL AND position('@' in email)>1 AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
-      if(_nr.rowCount>0) console.log('✅ Noms repares au demarrage (via email): '+_nr.rowCount);
-    }catch(eNr){ console.error('repair noms email:', eNr.message); }
-    try{
-      const _nr2=await _pgPool.query("UPDATE penc_users SET full_name = initcap(btrim(regexp_replace(username,'[._-]+',' ','g'))) WHERE (email IS NULL OR position('@' in email)<=1) AND username IS NOT NULL AND btrim(username)<>'' AND (full_name IS NULL OR btrim(full_name)='' OR lower(btrim(full_name)) IN ('utilisateur','utilisateur penc','user'))");
-      if(_nr2.rowCount>0) console.log('✅ Noms repares au demarrage (via pseudo): '+_nr2.rowCount);
-    }catch(eNr2){}
-    // v16 : NETTOYAGE des debris de l'ere des comptes fantomes
-    try{
-      const _d1=await _pgPool.query("DELETE FROM penc_conversations WHERE jsonb_array_length(participants)<2 OR participants->>0 = participants->>1");
-      if(_d1.rowCount>0) console.log('\u{1F9F9} Conversations avec soi-meme supprimees: '+_d1.rowCount);
-    }catch(eD1){ console.error('cleanup self-convs:', eD1.message); }
-    try{
-      const _d2=await _pgPool.query("DELETE FROM penc_conversations c WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(c.participants) p WHERE NOT EXISTS (SELECT 1 FROM penc_users u WHERE u.id=p))");
-      if(_d2.rowCount>0) console.log('\u{1F9F9} Conversations fantomes supprimees: '+_d2.rowCount);
-    }catch(eD2){ console.error('cleanup ghost-convs:', eD2.message); }
-    try{
-      const _d3=await _pgPool.query("DELETE FROM penc_friendships f WHERE f.requester=f.recipient OR NOT EXISTS(SELECT 1 FROM penc_users u WHERE u.id=f.requester) OR NOT EXISTS(SELECT 1 FROM penc_users u2 WHERE u2.id=f.recipient)");
-      if(_d3.rowCount>0) console.log('\u{1F9F9} Amities fantomes supprimees: '+_d3.rowCount);
-    }catch(eD3){ console.error('cleanup ghost-friendships:', eD3.message); }
-    try{
-      const _pr=await _pgPool.query("UPDATE penc_users SET phone='g_'||id WHERE phone=''");
-      if(_pr.rowCount>0) console.log('\u2705 Telephones vides repares (comptes Google): '+_pr.rowCount);
-    }catch(ePr){ console.error('repair phones:', ePr.message); }
-    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meetings ( code TEXT PRIMARY KEY, title TEXT DEFAULT '', host TEXT NOT NULL, scheduled_at TIMESTAMPTZ, approval BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM1){}
-    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_ratings ( id TEXT PRIMARY KEY, code TEXT, user_id TEXT, stars INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM2){}
-    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_history ( id TEXT PRIMARY KEY, code TEXT, title TEXT, host TEXT, participant TEXT, joined_at TIMESTAMPTZ DEFAULT NOW(), left_at TIMESTAMPTZ )`); }catch(eM3){}
-    try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_transcripts ( url_hash TEXT PRIMARY KEY, text TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM4){}
     // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
     const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
     if(parseInt(r.rows[0].count)===0){
@@ -4297,7 +4091,7 @@ function pgRow(row){ if(!row) return null;
            email:row.email, password:row.password_hash, avatar_url:row.avatar_url,
            bio:row.bio||'', is_admin:row.is_admin||false,
            is_online:row.is_online, last_seen:row.last_seen, geo:row.geo||{},
-           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, totp_enabled:row.totp_enabled||false, created_at:row.created_at };
+           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, created_at:row.created_at };
 }
 async function pgFindUser(field, value){
   if(!_pgPool) return null;
@@ -4324,21 +4118,6 @@ async function pgAllUsers(){
   const r=await _pgPool.query('SELECT * FROM penc_users ORDER BY created_at DESC');
   return r.rows.map(pgRow);
 }
-// Fusion PostgreSQL + JSONBin : garantit que TOUT utilisateur (meme cree quand PG etait indisponible) apparait
-async function pgAllUsersMerged(){
-  if(!_pgPool){ try{ return await pencUsers()||[]; }catch(_){ return []; } }
-  const pg=await pgAllUsers()||[];
-  let jb=[]; try{ jb=await pencUsers()||[]; }catch(_){}
-  if(!jb.length) return pg;
-  const ids=new Set(pg.map(u=>String(u.id)));
-  const phones=new Set(pg.map(u=>String((u.phone||'')).trim()).filter(Boolean));
-  const extra=jb.filter(u=>u&&u.id&&!ids.has(String(u.id))&&!(u.phone&&phones.has(String(u.phone).trim()))).map(u=>({
-    id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', phone:u.phone||'', email:u.email||null,
-    password:u.password||u.password_hash||'', avatar_url:u.avatar_url||null, bio:u.bio||'', is_admin:!!u.is_admin,
-    created_at:u.created_at||null, valid_views:u.valid_views||0
-  }));
-  return pg.concat(extra);
-}
 
 // ── Helpers PG conversations & messages ─────────────────
 async function pgGetConvs(userId){
@@ -4360,7 +4139,7 @@ async function pgGetOrCreateConv(uid1,uid2){
   // Créer nouvelle conv
   const id='conv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
   const ins=await _pgPool.query(
-    'INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',
+    'INSERT INTO penc_conversations(id,participants) VALUES($1,$2) RETURNING *',
     [id,JSON.stringify([uid1,uid2])]
   );
   return ins.rows[0];
@@ -4376,154 +4155,13 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
   return r.rows[0];
 }
-// ==== Message d'accueil Penc (complet) + relance apres absence ====
-function _pencWelcomeText(fullName){
-  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Ta messagerie mondiale gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDCB8 transferts d'argent. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
-}
-function _pencWelcomeBackText(fullName){
-  return "Contente\u2026 non, content de te revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant ton absence, tes messages, tes appels, tes statuts et la radio DeglouFM en direct t'attendent. Jette un \u0153il \u00e0 tes conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
-}
-async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
-  try{
-    if(!_pgPool || !uid || String(uid)==='penc_official') return;
-    const _conv = await pgGetOrCreateConv('penc_official', uid);
-    if(!_conv) return;
-    const _msg = { id:'msg_'+Date.now()+Math.random().toString(36).slice(2), conversation_id:_conv.id, sender_id:'penc_official', type:'text', content:text, created_at:new Date().toISOString() };
-    let _sender={ id:'penc_official', full_name:'Penc' }; try{ const _pu=await pgFindUser('id','penc_official'); if(_pu) _sender=pencStrip(_pu); }catch(_){}
-    const _full = Object.assign({}, _msg, { sender:_sender });
-    try{ io.to('penc:'+_conv.id).emit('message:new',_full); }catch(_){}
-    try{ io.to('user:'+String(uid)).emit('message:new',_full); }catch(_){}
-    try{ await pgSaveMessage({ id:_msg.id, conversation_id:_conv.id, sender_id:'penc_official', type:'text', content:text, created_at:_msg.created_at }); }catch(_){}
-    try{ if(typeof webpush!=='undefined' && webpush){ await sendPencPush(uid,{title:pushTitle,body:pushBody,tag:tag,url:'/messager?conv='+_conv.id,conv_id:_conv.id}); } }catch(_){}
-  }catch(_e){}
-}
-// ==== Programmation de contenu : messages texte (phase 1/4) ====
-async function _firePencScheduledMessage(row){
-  try{
-    const msg = {
-      id: 'msg_'+Date.now()+Math.random().toString(36).slice(2),
-      conversation_id: row.conversation_id, sender_id: row.sender_id,
-      type: row.type||'text', content: row.content||null,
-      media_url: row.media_url||null, media_duration: row.duration||null,
-      created_at: new Date().toISOString(), read_at:null
-    };
-    let sender = { id: row.sender_id };
-    try{ const u=await pgFindUser('id',row.sender_id); if(u) sender=pencStrip(u); }catch(_){}
-    const fullMsg = { ...msg, sender };
-    try{ io.to('penc:'+row.conversation_id).emit('message:new', fullMsg); }catch(_){}
-    let parts=[];
-    try{
-      const cr=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[row.conversation_id]);
-      parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
-      parts.forEach(function(pid){ if(String(pid)!==String(row.sender_id)) io.to('user:'+pid).emit('message:new', fullMsg); });
-    }catch(_){}
-    try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, created_at:msg.created_at }); }catch(e){ console.error('scheduled persist:', e.message); }
-    try{
-      if(typeof webpush!=='undefined' && webpush){
-        const pbody = (typeof msg.content==='string' && msg.content.indexOf('PENC_E2E_v1:')===0) ? '\uD83D\uDD12 Nouveau message' : pencMsgBody(msg.type, msg.content, msg.media_duration);
-        const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
-        for(const rid of parts){ if(String(rid)!==String(row.sender_id)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+row.conversation_id,url:'/messager?conv='+row.conversation_id,conv_id:row.conversation_id}); }catch(_pp){} } }
-      }
-    }catch(_){}
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='sent', sent_at=NOW() WHERE id=$1", [row.id]);
-  }catch(e){
-    console.error('scheduled fire:', e.message);
-    try{ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1", [row.id]); }catch(_){}
-  }
-}
-async function _pencScheduledMessagesTick(){
-  if(!_pgPool) return;
-  try{
-    const r = await _pgPool.query("UPDATE penc_scheduled_messages SET status='sending' WHERE id IN (SELECT id FROM penc_scheduled_messages WHERE status='pending' AND kind='message' AND scheduled_for<=NOW() ORDER BY scheduled_for ASC LIMIT 25) RETURNING *");
-    for(const row of r.rows){ await _firePencScheduledMessage(row); }
-  }catch(e){ console.error('scheduler tick:', e.message); }
-}
-setInterval(_pencScheduledMessagesTick, 30000);
-// ==== Programmation de contenu : statuts (phase 3/4) ====
-async function _firePencScheduledStatus(row){
-  try{
-    let meta = row.meta || {};
-    if(typeof meta === 'string'){ try{ meta = JSON.parse(meta); }catch(_){ meta = {}; } }
-    const expireH = (typeof meta.expire_hours==='number' && meta.expire_hours>0) ? meta.expire_hours : 24;
-    const status = {
-      id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
-      user_id: row.sender_id, type: row.type||'text',
-      media_url: row.media_url||null, media_urls: meta.media_urls||null,
-      text_content: row.content||null,
-      bg_color: meta.bg_color||'#050D18', caption: meta.caption||null,
-      duration: row.duration||(row.type==='video'?0:10),
-      reactions: [], views: [], view_ips: [],
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now()+expireH*3600000).toISOString()
-    };
-    if(_pgPool){ await pgSaveStatus(status); }
-    try{
-      const _fr=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[row.sender_id]);
-      const _fids=_fr.rows.map(function(x){ return String(x.requester)===String(row.sender_id)?x.recipient:x.requester; });
-      let _an='Un ami'; try{ const _au=await _pgPool.query('SELECT full_name,username FROM penc_users WHERE id=$1',[row.sender_id]); if(_au.rows[0]) _an=_au.rows[0].full_name||_au.rows[0].username||'Un ami'; }catch(_e9){}
-      _fids.forEach(function(fid){ try{ emitToUsers(String(fid),'status:new',{status_id:status.id, author_id:row.sender_id, author_name:_an}); }catch(_e10){} });
-    }catch(_eF){}
-    try{
-      if(typeof webpush!=='undefined' && webpush){
-        let author=null;
-        const ar=await _pgPool.query('SELECT full_name,username FROM penc_users WHERE id=$1',[row.sender_id]); author=ar.rows[0];
-        const aname=author?(author.full_name||author.username||'Quelqu\'un'):'Quelqu\'un';
-        const partners=new Set();
-        const cr=await _pgPool.query('SELECT participants FROM penc_conversations');
-        for(const crow of cr.rows){ const parts=Array.isArray(crow.participants)?crow.participants:JSON.parse(crow.participants||'[]'); if(parts.includes(row.sender_id)) parts.forEach(p=>{ if(p!==row.sender_id) partners.add(p); }); }
-        const ppayload={ title:aname, body:'A publi\u00e9 un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+row.sender_id, data:{ type:'status', user_id:row.sender_id, url:'/' } };
-        partners.forEach(uid=>{ sendPencPush(uid, ppayload); });
-      }
-    }catch(_ePush){}
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='sent', sent_at=NOW() WHERE id=$1", [row.id]);
-  }catch(e){
-    console.error('scheduled status fire:', e.message);
-    try{ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1", [row.id]); }catch(_){}
-  }
-}
-async function _pencScheduledStatusTick(){
-  if(!_pgPool) return;
-  try{
-    const r = await _pgPool.query("UPDATE penc_scheduled_messages SET status='sending' WHERE id IN (SELECT id FROM penc_scheduled_messages WHERE status='pending' AND kind='status' AND scheduled_for<=NOW() ORDER BY scheduled_for ASC LIMIT 25) RETURNING *");
-    for(const row of r.rows){ await _firePencScheduledStatus(row); }
-  }catch(e){ console.error('scheduler statut tick:', e.message); }
-}
-setInterval(_pencScheduledStatusTick, 30000);
-// ==== Programmation de contenu : canaux/broadcast (phase 4/4) ====
-async function _firePencScheduledChannelPost(row){
-  try{
-    const channels = await pencChannels();
-    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
-    if(!ch){ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1",[row.id]); return; }
-    const post = { id:'p_'+Date.now(), sender_id: row.sender_id, content: row.content||'', type: row.type||'text',
-      media_url: row.media_url||null, created_at: new Date().toISOString(), reactions:{} };
-    if(!ch.posts) ch.posts=[];
-    ch.posts.push(post);
-    await pencSaveChannels(channels);
-    if(global._pencIo){
-      (ch.followers||[]).forEach(function(fid){ global._pencIo.to('user:'+fid).emit('channel:post',{channel_id:ch.id,post:post}); });
-    }
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='sent', sent_at=NOW() WHERE id=$1", [row.id]);
-  }catch(e){
-    console.error('scheduled channel post fire:', e.message);
-    try{ await _pgPool.query("UPDATE penc_scheduled_messages SET status='failed' WHERE id=$1", [row.id]); }catch(_){}
-  }
-}
-async function _pencScheduledChannelTick(){
-  if(!_pgPool) return;
-  try{
-    const r = await _pgPool.query("UPDATE penc_scheduled_messages SET status='sending' WHERE id IN (SELECT id FROM penc_scheduled_messages WHERE status='pending' AND kind='channel_post' AND scheduled_for<=NOW() ORDER BY scheduled_for ASC LIMIT 25) RETURNING *");
-    for(const row of r.rows){ await _firePencScheduledChannelPost(row); }
-  }catch(e){ console.error('scheduler canal tick:', e.message); }
-}
-setInterval(_pencScheduledChannelTick, 30000);
 // GET /api/penc/check-username — vérif dispo username (public)
 app.get('/api/penc/check-username', async (req, res) => {
   try {
@@ -4536,89 +4174,13 @@ app.get('/api/penc/check-username', async (req, res) => {
   } catch (e) { res.json({ available: true }); }
 });
 // POST /api/penc/auth/register
-// ══════════════ VERIFICATION EMAIL OBLIGATOIRE A L'INSCRIPTION ══════════════
-const _pencSignupPending = new Map(); // email (lowercase) -> { code, expiresAt, attempts }
-async function _pencSendSignupEmail(email, code){
-  try{
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    if(!RESEND_API_KEY){ console.log('[signup-email] ECHEC: RESEND_API_KEY non configuree'); return false; }
-    const ctrl = new AbortController();
-    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Penc <no-reply@penc-messagerie.com>',
-        to: [email],
-        subject: 'Penc — Vérifiez votre adresse email',
-        html: _pencEmailShell(
-          'Bienvenue sur Penc !',
-          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
-          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Merci de rejoindre Penc. Pour confirmer que cette adresse email vous appartient bien, voici votre code de vérification :</p>'+
-          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
-          '<p style="margin:0 0 6px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
-          '<p style="margin:0;color:#999;font-size:13px;line-height:1.6;">Si vous n\'êtes pas à l\'origine de cette inscription, ignorez simplement cet email.</p>'
-        )
-      }),
-      signal: ctrl.signal
-    });
-    clearTimeout(timeoutId);
-    const ok = r.ok;
-    console.log('[signup-email]', email, '->', ok ? 'OK' : ('ECHEC HTTP '+r.status));
-    return ok;
-  }catch(e){ console.log('[signup-email] EXCEPTION:', email, '->', e.message); return false; }
-}
-// POST /api/penc/auth/register/email/send — envoie un code de verification a l'email saisi (avant inscription)
-app.post('/api/penc/auth/register/email/send', async (req, res) => {
-  try{
-    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
-    if(_pgPool){
-      const existing = await pgFindUser('email', email);
-      if(existing) return res.status(400).json({ error: '⚠️ Cet email existe déjà. Connecte-toi.' });
-    }
-    const code = String(Math.floor(100000+Math.random()*900000));
-    _pencSignupPending.set(email, { code, expiresAt: Date.now()+10*60*1000, attempts:0 });
-    setTimeout(function(){ const p=_pencSignupPending.get(email); if(p && p.code===code){ _pencSignupPending.delete(email); } }, 10*60*1000);
-    const sent = await _pencSendSignupEmail(email, code);
-    if(!sent) return res.status(500).json({ error: 'Envoi impossible, réessaie dans un instant' });
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// POST /api/penc/auth/register/email/verify — verifie le code, renvoie un jeton temporaire (10 min) a fournir a /register
-app.post('/api/penc/auth/register/email/verify', async (req, res) => {
-  try{
-    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-    const code = String((req.body && req.body.code) || '').trim();
-    if(!email || !code) return res.status(400).json({ error: 'Données manquantes' });
-    const p = _pencSignupPending.get(email);
-    if(!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expiré' });
-    p.attempts = (p.attempts||0)+1;
-    if(p.attempts > 5){ _pencSignupPending.delete(email); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
-    if(p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
-    _pencSignupPending.delete(email);
-    const token = jwt_penc.sign({ email:email, purpose:'signup_email_verified' }, PENC_SECRET, { expiresIn:'15m' });
-    res.json({ success:true, email_verify_token: token });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
-    const { full_name, username, phone, email, password, email_verify_token } = req.body;
+    const { full_name, username, phone, email, password } = req.body;
     if (!full_name||!username||!phone||!password)
       return res.status(400).json({ error: 'Champs obligatoires manquants' });
     if (password.length < 6)
       return res.status(400).json({ error: 'Mot de passe min. 6 caractères' });
-    // Si un email est fourni, il doit avoir été vérifié au préalable via /register/email/verify
-    if (email) {
-      if (!email_verify_token) return res.status(400).json({ error: 'Email non vérifié' });
-      let payload;
-      try{ payload = jwt_penc.verify(email_verify_token, PENC_SECRET); }catch(e){ return res.status(400).json({ error: 'Vérification email expirée, recommence' }); }
-      if (!payload || payload.purpose !== 'signup_email_verified' || String(payload.email||'').toLowerCase() !== String(email).trim().toLowerCase()) {
-        return res.status(400).json({ error: 'Email non vérifié' });
-      }
-    }
-    if (full_name.length>120 || username.length>60 || (email && String(email).length>160) || password.length>200)
-      return res.status(400).json({ error: 'Champs trop longs' });
 
     // ── Vérification unicité PostgreSQL (source de vérité) ──
     if (_pgPool) {
@@ -4641,7 +4203,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
         return res.status(400).json({ error: '⚠️ Ce username est pris.' });
     }
 
-    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 12) : password;
+    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 10) : password;
     const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
     const newUser = { id:uid, full_name, username, phone, email:email||null,
@@ -4657,9 +4219,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
       await pencSaveUsers(users);
     }
 
-    const _sid = _pencNewSid();
-    const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(uid, _sid, req).catch(function(){});
+    const tok = jwt_penc.sign({ userId: uid }, PENC_SECRET, { expiresIn: '90d' });
     const safe = pencStrip({...newUser,password:hash});
     // Notifier les utilisateurs connectés
     setImmediate(async function(){
@@ -4669,7 +4229,19 @@ app.post('/api/penc/auth/register', async (req, res) => {
           io.to(sid).emit('penc:welcome',{message:welcomeMsg});
         });
         try{ if(_pgPool){ const _ar=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); _ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newuser',{id:uid, full_name:full_name, email:email||'', phone:phone}); }); } }catch(e4){}
-        try{ if(_pgPool){ await _sendPencOfficialDM(uid, _pencWelcomeText(full_name), 'Penc', 'Bienvenue sur Penc ! \ud83c\udf89', 'penc-welcome'); } }catch(eWel){}
+        try{ if(_pgPool){
+          const _wconv = await pgGetOrCreateConv('penc_official', uid);
+          if(_wconv){
+            const _wtext = "Bienvenue sur Penc, "+full_name+" ! \ud83c\udf89 Heureux de t'accueillir parmi nous. Discute en priv\u00e9, partage tes statuts, \u00e9coute la radio DeglouFM et profite de toutes les fonctionnalit\u00e9s. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \ud83d\udc9a";
+            const _wmsg = { id:'msg_'+Date.now()+Math.random().toString(36).slice(2), conversation_id:_wconv.id, sender_id:'penc_official', type:'text', content:_wtext, created_at:new Date().toISOString() };
+            let _wsender={ id:'penc_official', full_name:'Penc' }; try{ const _pu=await pgFindUser('id','penc_official'); if(_pu) _wsender=pencStrip(_pu); }catch(_){}
+            const _wfull = Object.assign({}, _wmsg, { sender:_wsender });
+            try{ io.to('penc:'+_wconv.id).emit('message:new',_wfull); }catch(_){}
+            try{ io.to('user:'+String(uid)).emit('message:new',_wfull); }catch(_){}
+            try{ await pgSaveMessage({ id:_wmsg.id, conversation_id:_wconv.id, sender_id:'penc_official', type:'text', content:_wtext, created_at:_wmsg.created_at }); }catch(_){}
+            try{ if(typeof webpush!=='undefined' && webpush){ await sendPencPush(uid,{title:'Penc',body:'Bienvenue sur Penc ! \ud83c\udf89',tag:'penc-welcome',url:'/messager?conv='+_wconv.id,conv_id:_wconv.id}); } }catch(_){}
+          }
+        } }catch(eWel){}
       }catch(e2){}
     });
     res.json({ user: Object.assign({}, safe, { is_admin: isAdmin }), token: tok });
@@ -4684,219 +4256,12 @@ app.post('/api/penc/auth/register', async (req, res) => {
   }
 });
 
-// ── Anti-force brute (Couche 2) : 5 echecs => blocage 15 min ──
-const _msgFloodMap = new Map(); // userId -> {count, windowStart}
-function _pencMsgFlood(userId){
-  try{
-    const now = Date.now(), WINDOW = 10000, LIMIT = 20;
-    let e = _msgFloodMap.get(userId);
-    if(!e || now - e.windowStart > WINDOW){ e = { count:0, windowStart:now }; }
-    e.count++;
-    _msgFloodMap.set(userId, e);
-    if(_msgFloodMap.size > 5000){ for(const k of _msgFloodMap.keys()){ _msgFloodMap.delete(k); if(_msgFloodMap.size<=4000) break; } }
-    return e.count > LIMIT;
-  }catch(e){ return false; }
-}
-const _pencFails = new Map();
-function _pencBruteKey(req, id){ const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim(); return ip+'|'+String(id||'').toLowerCase(); }
-function _pencBruteBlocked(req, id){ const e=_pencFails.get(_pencBruteKey(req,id)); if(e&&e.until&&e.until>Date.now()) return Math.ceil((e.until-Date.now())/60000); return 0; }
-function _pencBruteFail(req, id){ const k=_pencBruteKey(req,id); const now=Date.now(); let e=_pencFails.get(k); if(!e||(e.first&&now-e.first>15*60*1000)) e={n:0,first:now,until:0}; e.n++; if(e.n>=5){ e.until=now+15*60*1000; } _pencFails.set(k,e); if(_pencFails.size>5000){ for(const kk of _pencFails.keys()){ _pencFails.delete(kk); if(_pencFails.size<=4000) break; } } try{ const ipOnly=_pencBruteKey(req,'').split('|')[0]; let a=_pencIpFails.get(ipOnly); if(!a||now-a.first>5*60*1000) a={n:0,first:now,alerted:false}; a.n++; if(a.n>10 && !a.alerted){ a.alerted=true; _pencSecurityAlert(ipOnly,a.n); } _pencIpFails.set(ipOnly,a); }catch(_){} }
-function _pencBruteOk(req, id){ _pencFails.delete(_pencBruteKey(req,id)); }
-// ── Sessions & révocation (Couche 4) ──
-const _pencRevokedSids = new Set();
-const _pencIpFails = new Map();
-async function _pencLoadRevoked(){ try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT sid FROM penc_sessions WHERE revoked=TRUE"); r.rows.forEach(function(x){ _pencRevokedSids.add(x.sid); }); }catch(e){} }
-function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).slice(2,10); }
-// ═══ Verrou d'appareil : un compte déjà connecté sur un appareil ne peut en ajouter un nouveau
-// que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
-async function _pencDeviceLockCheck(userId, req){
-  try{
-    if(!_pgPool) return {blocked:false};
-    const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
-    const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
-    if(!r.rows.length) return {blocked:false}; // aucun appareil actif -> première connexion, toujours autorisée
-    const sameDevice = r.rows.some(function(row){ return String(row.ua||'')===ua; });
-    if(sameDevice) return {blocked:false}; // reconnexion sur un appareil déjà connu -> autorisée
-    return {blocked:true};
-  }catch(e){ return {blocked:false}; } // en cas de doute technique, ne jamais bloquer l'accès par erreur
-}
-async function _pencCreateSession(uid, sid, req){
-  try{
-    const ip=(req&&req.headers&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim())||'';
-    const ua=(req&&req.headers&&req.headers['user-agent'])||'';
-    let isNew=false;
-    if(_pgPool){
-      try{ const ex=await _pgPool.query("SELECT 1 FROM penc_sessions WHERE user_id=$1 AND ua=$2 AND revoked=FALSE LIMIT 1",[uid,String(ua).slice(0,300)]); isNew=(ex.rowCount===0); }catch(_){}
-      try{ await _pgPool.query("INSERT INTO penc_sessions(sid,user_id,ua,ip) VALUES($1,$2,$3,$4) ON CONFLICT (sid) DO NOTHING",[sid,uid,String(ua).slice(0,300),ip]); }catch(_){}
-    }
-    return { isNew:isNew };
-  }catch(e){ return { isNew:false }; }
-}
-async function _pencSecurityAlert(ip, n){
-  try{
-    if(!_pgPool) return;
-    const r=await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]);
-    r.rows.forEach(function(a){ try{ emitToUsers(String(a.id),'admin:security_alert',{ip:ip,count:n,time:new Date().toISOString()}); }catch(_){} });
-  }catch(e){}
-}
-setTimeout(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 9000);
-// Recharge periodique (toutes les 60s) : essentiel des qu'il y a plusieurs instances derriere un
-// equilibreur de charge — sans ca, une session revoquee sur le serveur A resterait valide sur le
-// serveur B indefiniment (l'instance B n'apprend la revocation qu'au demarrage sinon).
-setInterval(function(){ try{ _pencLoadRevoked(); }catch(e){} }, 60000);
-
-// ══════════════ MOT DE PASSE OUBLIÉ (réel, connecté serveur + SMS/email) ══════════════
-// NOTE: n'utilise JAMAIS les routes /api/sen-sms/* existantes (règle absolue : ne jamais
-// toucher au code SenSMS). Appel direct et indépendant de l'API Techsoft ici.
-const _pencForgotPending = new Map(); // userId -> { code, expiresAt, attempts, channel }
-function _pencForgotKey(userId){ return String(userId); }
-async function _pencSendResetSMS(phone, code){
-  try{
-    const TECHSOFT_TOKEN = process.env.TECHSOFT_TOKEN || '1597|WVx84MHm3x4VoCzT7vzBm2RKZKANDok1N0wCtRd8f6f57823';
-    const url = 'https://app.techsoft-sms.com/api/http/' +
-      '?token=' + encodeURIComponent(TECHSOFT_TOKEN) +
-      '&to=' + encodeURIComponent(phone) +
-      '&message=' + encodeURIComponent('Penc - Votre code de reinitialisation est : ' + code + ' (valable 10 min)') +
-      '&sender_id=' + encodeURIComponent('Penc');
-    const r = await fetch(url);
-    const txt = await r.text();
-    const ok = !/error/i.test(txt);
-    console.log('[forgot-password][SMS]', phone, '->', ok ? 'OK' : 'ECHEC', '| reponse Techsoft:', txt.slice(0,200));
-    return ok;
-  }catch(e){ console.log('[forgot-password][SMS] EXCEPTION:', e.message); return false; }
-}
-function _pencEmailShell(title, bodyHtml){
-  return '<div style="background:#F4F6FB;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'+
-  '<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(18,56,140,0.08);">'+
-    '<div style="background:linear-gradient(135deg,#12388C,#1877F2);padding:24px 28px;display:flex;align-items:center;gap:12px;">'+
-      '<img src="https://penc-messagerie.com/penc-icon-192.png" width="36" height="36" alt="Penc" style="border-radius:9px;display:block;"/>'+
-      '<span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:.3px;">Penc<span style="font-weight:500;font-size:14px;opacity:.85;margin-left:8px;vertical-align:middle;">Messagerie</span></span>'+
-    '</div>'+
-    '<div style="padding:28px 28px 22px;">'+
-      '<h1 style="margin:0 0 18px;color:#12388C;font-size:19px;font-weight:800;">'+title+'</h1>'+
-      bodyHtml+
-    '</div>'+
-    '<div style="padding:18px 28px;background:#FAFBFD;border-top:1px solid #EEF1F6;">'+
-      '<p style="margin:0;color:#9AA3B2;font-size:12px;line-height:1.5;">Penc — La messagerie panafricaine · <a href="https://penc-messagerie.com" style="color:#1877F2;text-decoration:none;">penc-messagerie.com</a></p>'+
-    '</div>'+
-  '</div>'+
-  '</div>';
-}
-async function _pencSendResetEmail(email, code){
-  try{
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    if(!RESEND_API_KEY){
-      console.log('[forgot-password][EMAIL] ECHEC: RESEND_API_KEY non configuree sur ce service Render');
-      return false;
-    }
-    // Resend = API HTTPS pure (pas de SMTP/IPv6, contourne definitivement les soucis reseau Render)
-    const ctrl = new AbortController();
-    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Penc <no-reply@penc-messagerie.com>',
-        to: [email],
-        subject: 'Penc — Votre code de réinitialisation',
-        html: _pencEmailShell(
-          'Réinitialisation de mot de passe',
-          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
-          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demandé la réinitialisation du mot de passe de votre compte Penc. Voici votre code de vérification :</p>'+
-          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#F0F5FF;color:#12388C;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #D6E4FF;">'+code+'</span></div>'+
-          '<p style="margin:0 0 22px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>.</p>'+
-          '<div style="background:#FFF6E5;border:1px solid #FFE1A8;border-radius:12px;padding:14px 16px;margin-top:24px;">'+
-          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'êtes pas à l\'origine de cette demande ?</b><br/>Cela signifie que quelqu\'un d\'autre a peut-être tenté d\'accéder à votre compte. Ignorez simplement cet email — votre mot de passe ne sera pas modifié sans ce code. Si cela se reproduit, changez votre mot de passe par sécurité dès que possible.</p>'+
-          '</div>'
-        )
-      }),
-      signal: ctrl.signal
-    });
-    clearTimeout(timeoutId);
-    const data = await r.json().catch(function(){ return null; });
-    if(!r.ok){
-      console.log('[forgot-password][EMAIL] ECHEC:', email, '-> HTTP', r.status, JSON.stringify(data));
-      return false;
-    }
-    console.log('[forgot-password][EMAIL]', email, '-> OK, id:', data && data.id);
-    return true;
-  }catch(e){ console.log('[forgot-password][EMAIL] EXCEPTION:', email, '->', e.message); return false; }
-}
-// POST /api/penc/auth/forgot — demande d'un code de reinitialisation (SMS ou email selon l'identifiant saisi)
-app.post('/api/penc/auth/forgot', async (req, res) => {
-  try{
-    const id = String((req.body && req.body.id) || '').trim();
-    if(!id) return res.status(400).json({ error: 'Identifiant requis' });
-    const isEmail = id.includes('@');
-    let user = null;
-    if(_pgPool){ user = isEmail ? await pgFindUser('email', id) : await pgFindUser('phone', id); }
-    // Reponse generique dans tous les cas : ne jamais reveler si le compte existe
-    if(!user) return res.json({ success:true });
-    const code = String(Math.floor(100000+Math.random()*900000));
-    const key = _pencForgotKey(user.id);
-    _pencForgotPending.set(key, { code, expiresAt: Date.now()+10*60*1000, attempts:0, channel: isEmail?'email':'sms' });
-    setTimeout(function(){ const p=_pencForgotPending.get(key); if(p && p.code===code){ _pencForgotPending.delete(key); } }, 10*60*1000);
-    // Répondre immédiatement : l'envoi SMS/email se fait en arrière-plan pour ne jamais bloquer le front
-    res.json({ success:true });
-    if(isEmail && user.email){ _pencSendResetEmail(user.email, code); }
-    else if(user.phone){ _pencSendResetSMS(user.phone, code); }
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// POST /api/penc/auth/forgot/verify — verifie le code, renvoie un jeton de reset court (10 min)
-app.post('/api/penc/auth/forgot/verify', async (req, res) => {
-  try{
-    const id = String((req.body && req.body.id) || '').trim();
-    const code = String((req.body && req.body.code) || '').trim();
-    if(!id || !code) return res.status(400).json({ error: 'Donnees manquantes' });
-    const isEmail = id.includes('@');
-    const user = _pgPool ? (isEmail ? await pgFindUser('email', id) : await pgFindUser('phone', id)) : null;
-    if(!user) return res.status(400).json({ error: 'Code invalide ou expire' });
-    const key = _pencForgotKey(user.id);
-    const p = _pencForgotPending.get(key);
-    if(!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expire' });
-    p.attempts = (p.attempts||0)+1;
-    if(p.attempts > 5){ _pencForgotPending.delete(key); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
-    if(p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
-    const resetToken = jwt_penc.sign({ userId:user.id, purpose:'pwreset' }, PENC_SECRET, { expiresIn:'10m' });
-    res.json({ success:true, reset_token: resetToken });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// POST /api/penc/auth/forgot/reset — applique le nouveau mot de passe + revoque toutes les anciennes sessions
-app.post('/api/penc/auth/forgot/reset', async (req, res) => {
-  try{
-    const resetToken = req.body && req.body.reset_token;
-    const newPassword = req.body && req.body.new_password;
-    if(!resetToken || !newPassword || String(newPassword).length<6) return res.status(400).json({ error: 'Donnees invalides' });
-    let payload;
-    try{ payload = jwt_penc.verify(resetToken, PENC_SECRET); }catch(e){ return res.status(401).json({ error: 'Lien expire, redemande un code' }); }
-    if(!payload || payload.purpose !== 'pwreset') return res.status(401).json({ error: 'Jeton invalide' });
-    const uid = payload.userId;
-    const hash = bcrypt_penc ? await bcrypt_penc.hash(newPassword, 12) : newPassword;
-    if(_pgPool){ await _pgPool.query('UPDATE penc_users SET password_hash=$1 WHERE id=$2', [hash, uid]); }
-    _pencForgotPending.delete(_pencForgotKey(uid));
-    // Securite : revoque TOUTES les sessions actives (l'ancien appareil perdu n'a plus acces)
-    // et leve automatiquement le verrou d'appareil pour la reconnexion sur le nouvel appareil.
-    try{
-      if(_pgPool){
-        const r = await _pgPool.query('SELECT sid FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [uid]);
-        await _pgPool.query('UPDATE penc_sessions SET revoked=TRUE WHERE user_id=$1', [uid]);
-        r.rows.forEach(function(row){ _pencRevokedSids.add(row.sid); });
-      }
-      const socks = await io.in('user:'+String(uid)).fetchSockets();
-      socks.forEach(function(sk){ try{ sk.emit('session:revoked', {}); sk.disconnect(true); }catch(_e2){} });
-    }catch(_e1){}
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-
 // POST /api/penc/auth/login
 app.post('/api/penc/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
     if (!identifier||!password) return res.status(400).json({error:'Identifiant et mot de passe requis'});
-    if (String(identifier).length>200 || String(password).length>200) return res.status(400).json({error:'Entrée invalide'});
     const id = String(identifier).trim();
-    const _bm = _pencBruteBlocked(req, id); if (_bm > 0) { try{ pencSecLog('login_blocked', req, {identifier:id}); }catch(_){} return res.status(429).json({ error: '🚫 Trop de tentatives échouées. Réessaie dans '+_bm+' min.' }); }
     const idLow = id.toLowerCase();
 
     // ── SUPER-ADMIN BYPASS (toujours fonctionnel) ──
@@ -4919,11 +4284,11 @@ app.post('/api/penc/auth/login', async (req, res) => {
       if (jbu) user = jbu;
     }
 
-    if (user && (user.suspended||user.blocked) && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
+    if (user && user.suspended && !isAdminBypass) return res.status(403).json({ error: '🚫 Ce compte a été suspendu.' });
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 12) : ADMIN_PWD;
+      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 10) : ADMIN_PWD;
       const adminUser = { id:'superadmin_'+Date.now(), full_name:'Papa Seny Touré',
         username:'admin_pst', phone:'', email:idLow,
         password_hash:hash, avatar_url:null, bio:'', is_admin:true };
@@ -4931,7 +4296,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
       user = adminUser;
     }
 
-    if (!user) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, detail:'compte introuvable'}); return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'}); }
+    if (!user) return res.status(400).json({error:'Compte introuvable. Inscris-toi d\'abord.'});
 
     // ── Vérification mot de passe ──
     let pwdOk = isAdminBypass;
@@ -4939,31 +4304,15 @@ app.post('/api/penc/auth/login', async (req, res) => {
       const hash = user.password_hash || user.password || '';
       pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
     }
-    if (!pwdOk) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
-    if (user.deleted_at && !isAdminBypass) {
-      return res.status(403).json({ error: 'account_deleted', account_deleted: true, deleted_at: user.deleted_at, message: 'Ce compte est en cours de suppression. Tu peux le restaurer.' });
-    }
+    if (!pwdOk) return res.status(400).json({error:'Mot de passe incorrect.'});
 
     // ── Mise à jour last_seen ──
     if (_pgPool) {
       await pgUpdateUser(user.id, { is_online:true, last_seen:'NOW()' }).catch(()=>{});
     }
 
-    // ── 2FA : si activee, exiger un code avant de delivrer le jeton (sauf bypass admin) ──
-    if (!isAdminBypass && user.totp_enabled) {
-      const _pend = jwt_penc.sign({ userId: user.id, pending2fa: true }, PENC_SECRET, { expiresIn: '5m' });
-      _pencBruteOk(req, id);
-      try{ pencSecLog('2fa_challenge', req, {identifier:id, user_id:user.id}); }catch(_){}
-      return res.json({ twofa_required: true, pending: _pend });
-    }
-    const _lock1 = await _pencDeviceLockCheck(user.id, req);
-    if(_lock1.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
-    pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
-    const _sid = _pencNewSid();
-    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
+    const tok = jwt_penc.sign({ userId: user.id }, PENC_SECRET, { expiresIn: '90d' });
     const isAdmin = isAdminEmail || user.is_admin || false;
-    _pencBruteOk(req, id);
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
   } catch(e) {
     console.error('login:', e.message);
@@ -4971,267 +4320,6 @@ app.post('/api/penc/auth/login', async (req, res) => {
   }
 });
 
-// ===== 2FA TOTP (Google Authenticator, RFC 6238) =====
-const _B32A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function _b32encode(buf){ var bits=0,val=0,out=''; for(var i=0;i<buf.length;i++){ val=(val<<8)|buf[i]; bits+=8; while(bits>=5){ out+=_B32A[(val>>>(bits-5))&31]; bits-=5; } } if(bits>0){ out+=_B32A[(val<<(5-bits))&31]; } return out; }
-function _b32decode(str){ str=String(str||'').replace(/=+$/,'').toUpperCase().replace(/[^A-Z2-7]/g,''); var bits=0,val=0,out=[]; for(var i=0;i<str.length;i++){ var idx=_B32A.indexOf(str[i]); if(idx<0) continue; val=(val<<5)|idx; bits+=5; if(bits>=8){ out.push((val>>>(bits-8))&0xff); bits-=8; } } return Buffer.from(out); }
-function _totpSecret(){ return _b32encode(crypto.randomBytes(20)); }
-function _hotp(secretB32, counter){ var key=_b32decode(secretB32); var buf=Buffer.alloc(8); var c=counter; for(var i=7;i>=0;i--){ buf[i]=c&0xff; c=Math.floor(c/256); } var h=crypto.createHmac('sha1',key).update(buf).digest(); var off=h[h.length-1]&0xf; var bin=((h[off]&0x7f)<<24)|((h[off+1]&0xff)<<16)|((h[off+2]&0xff)<<8)|(h[off+3]&0xff); return (bin%1000000).toString().padStart(6,'0'); }
-function _totpVerify(secretB32, code, win){ code=String(code||'').replace(/\D/g,''); if(code.length!==6) return false; var t=Math.floor(Date.now()/1000/30); win=win||1; for(var w=-win; w<=win; w++){ if(_hotp(secretB32, t+w)===code) return true; } return false; }
-function _totpEncKey(){ return crypto.createHash('sha256').update('totp:'+PENC_SECRET).digest(); }
-function _totpEnc(plain){ var iv=crypto.randomBytes(12); var c=crypto.createCipheriv('aes-256-gcm',_totpEncKey(),iv); var e=Buffer.concat([c.update(String(plain),'utf8'),c.final()]); var tag=c.getAuthTag(); return iv.toString('base64')+'.'+tag.toString('base64')+'.'+e.toString('base64'); }
-function _totpDec(env){ try{ var p=String(env).split('.'); var iv=Buffer.from(p[0],'base64'),tag=Buffer.from(p[1],'base64'),e=Buffer.from(p[2],'base64'); var d=crypto.createDecipheriv('aes-256-gcm',_totpEncKey(),iv); d.setAuthTag(tag); return Buffer.concat([d.update(e),d.final()]).toString('utf8'); }catch(_){ return null; } }
-
-// GET statut 2FA
-app.get('/api/penc/auth/2fa/status', pencAuth, async (req,res)=>{
-  try{ var en=false; if(_pgPool){ var r=await _pgPool.query("SELECT totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]); en=!!(r.rows[0]&&r.rows[0].totp_enabled); } res.json({enabled:en}); }
-  catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
-});
-// POST configuration -> genere un secret en attente + URI otpauth (QR)
-app.post('/api/penc/auth/2fa/setup', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
-    var r=await _pgPool.query("SELECT email,username,totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]);
-    var u=r.rows[0]||{}; if(u.totp_enabled) return res.status(400).json({error:'2FA deja activee'});
-    var secret=_totpSecret();
-    await _pgPool.query("UPDATE penc_users SET totp_secret=$1, totp_enabled=false WHERE id=$2",[_totpEnc(secret), req.pencUser.userId]);
-    var label=encodeURIComponent('Penc ('+(u.email||u.username||'compte')+')');
-    var uri='otpauth://totp/'+label+'?secret='+secret+'&issuer=Penc&algorithm=SHA1&digits=6&period=30';
-    res.json({ secret:secret, otpauth:uri });
-  }catch(e){ res.status(500).json({error:'Erreur 2FA setup'}); }
-});
-// POST activation -> verifie un code et active
-app.post('/api/penc/auth/2fa/enable', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
-    var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
-    var r=await _pgPool.query("SELECT totp_secret FROM penc_users WHERE id=$1",[req.pencUser.userId]);
-    var enc=r.rows[0]&&r.rows[0].totp_secret; var sec=enc?_totpDec(enc):null;
-    if(!sec) return res.status(400).json({error:"Lance d'abord la configuration."});
-    if(!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect. Reessaie.'});
-    await _pgPool.query("UPDATE penc_users SET totp_enabled=true WHERE id=$1",[req.pencUser.userId]);
-    try{ pencSecLog('2fa_enabled', req, {user_id:req.pencUser.userId}); }catch(_){}
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
-});
-// POST desactivation -> verifie un code et desactive
-app.post('/api/penc/auth/2fa/disable', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
-    var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
-    var r=await _pgPool.query("SELECT totp_secret,totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]);
-    var row=r.rows[0]||{}; if(!row.totp_enabled) return res.json({success:true});
-    var sec=row.totp_secret?_totpDec(row.totp_secret):null;
-    if(!sec||!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect.'});
-    await _pgPool.query("UPDATE penc_users SET totp_enabled=false, totp_secret=NULL WHERE id=$1",[req.pencUser.userId]);
-    try{ pencSecLog('2fa_disabled', req, {user_id:req.pencUser.userId}); }catch(_){}
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({error:'Erreur 2FA'}); }
-});
-// POST connexion 2FA -> termine la connexion avec le code
-app.post('/api/penc/auth/2fa/login', async (req,res)=>{
-  try{
-    var pending=(req.body&&req.body.pending)||''; var code=String((req.body&&req.body.code)||'').replace(/\D/g,'');
-    var dec; try{ dec=jwt_penc.verify(pending, PENC_SECRET); }catch(_){ return res.status(401).json({error:'Session expiree, reconnecte-toi.'}); }
-    if(!dec||!dec.pending2fa||!dec.userId) return res.status(401).json({error:'Session invalide.'});
-    if(!_pgPool) return res.status(400).json({error:'Indisponible'});
-    var r=await _pgPool.query("SELECT * FROM penc_users WHERE id=$1",[dec.userId]); var user=r.rows[0];
-    if(!user) return res.status(400).json({error:'Compte introuvable.'});
-    var sec=user.totp_secret?_totpDec(user.totp_secret):null;
-    if(!sec||!user.totp_enabled) return res.status(400).json({error:'2FA non configuree.'});
-    if(!_totpVerify(sec, code, 1)){ try{ pencSecLog('2fa_failed', req, {user_id:user.id}); }catch(_){} return res.status(400).json({error:'Code incorrect.'}); }
-    var _lock2 = await _pencDeviceLockCheck(user.id, req);
-    if(_lock2.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
-    var _sid=_pencNewSid();
-    var tok=jwt_penc.sign({ userId:user.id, sid:_sid }, PENC_SECRET, { expiresIn:'7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
-    var isAdmin = PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) || user.is_admin || false;
-    try{ pencSecLog('login_ok', req, {user_id:user.id, detail:'2fa'}); }catch(_){}
-    res.json({ user: Object.assign({}, pencStrip(user), { is_admin:isAdmin }), token: tok });
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-// POST /api/penc/auth/google — Connexion / inscription via compte Google
-app.post('/api/penc/auth/google', async (req, res) => {
-  try {
-    const { credential } = req.body;
-    if (!credential) return res.status(400).json({ error: 'Jeton Google manquant' });
-
-    // Vérifier le jeton auprès de Google (aucune dépendance : fetch natif)
-    const GCID = process.env.GOOGLE_CLIENT_ID || '740435347802-h61347strjq1h0rrihu0llsosui18329.apps.googleusercontent.com';
-    let payload;
-    try {
-      const gr = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential));
-      payload = await gr.json();
-    } catch (e) { return res.status(401).json({ error: 'Vérification Google échouée' }); }
-    if (!payload || payload.error_description || payload.aud !== GCID)
-      return res.status(401).json({ error: 'Jeton Google invalide' });
-    if (payload.email_verified !== 'true' && payload.email_verified !== true)
-      return res.status(401).json({ error: 'Email Google non vérifié' });
-
-    const email = String(payload.email || '').toLowerCase();
-    if (!email) return res.status(400).json({ error: 'Email Google introuvable' });
-    var _gName = payload.name;
-    if (!_gName || !String(_gName).trim()) {
-      var _gn = [payload.given_name, payload.family_name].filter(Boolean).join(' ').trim();
-      _gName = _gn || '';
-    }
-    if (!_gName || !String(_gName).trim()) {
-      var _localPart = (email.split('@')[0] || 'user').replace(/[._-]+/g, ' ').trim();
-      _gName = _localPart.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase() + w.slice(1)) : w; }).join(' ');
-    }
-    const fullName = _gName || 'Utilisateur Penc';
-    const picture = payload.picture || null;
-    const gsub = payload.sub || null;
-
-    // Chercher un utilisateur existant (PostgreSQL puis JSONBin)
-    let user = null;
-    if (_pgPool) { user = await pgFindUser('email', email); }
-    if (!user) {
-      const jbUsers = await pencUsers();
-      user = jbUsers.find(u => (u.email || '').toLowerCase() === email) || null;
-    }
-
-    if (user && (user.suspended || user.blocked || user.deleted_at))
-      return res.status(403).json({ error: '🚫 Ce compte a été suspendu. Contactez support@penc-messagerie.com' });
-
-    // Créer le compte s'il n'existe pas
-    if (!user) {
-      let base = (email.split('@')[0] || 'user').replace(/[^a-z0-9_.]/gi, '').toLowerCase() || 'user';
-      let uname = base, n = 0;
-      async function unameTaken(x) {
-        if (_pgPool && await pgFindUser('username', x)) return true;
-        const jb = await pencUsers();
-        return jb.some(u => (u.username || '').toLowerCase() === x.toLowerCase());
-      }
-      while (await unameTaken(uname)) { n++; uname = base + n; }
-
-      const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      const randomPwd = 'g_' + Math.random().toString(36).slice(2) + Date.now();
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 12) : randomPwd;
-      const isAdmin = PENC_ADMIN_EMAILS.includes(email);
-      // v12 : phone est UNIQUE NOT NULL -> '' ne peut exister qu'UNE fois. Tous les comptes
-      // Google suivants echouaient a l'INSERT en silence = comptes FANTOMES ('Utilisateur',
-      // aucun contact, messages jamais recus). Placeholder unique par compte :
-      const newUser = { id: uid, full_name: fullName, username: uname, phone: 'g_'+uid, email,
-        password_hash: hash, avatar_url: picture, bio: '', is_admin: isAdmin, google_id: gsub };
-
-      if (_pgPool) {
-        try { await pgCreateUser(newUser); }
-        catch (e) {
-          console.error('google pgCreate (1er essai):', e.message);
-          // v12 : on re-essaie avec pseudo/phone regeneres, sinon ERREUR CLAIRE —
-          // on n'emet JAMAIS de jeton pour un compte absent de la base (fantome).
-          try {
-            newUser.username = uname + '_' + Math.random().toString(36).slice(2,5);
-            newUser.phone = 'g_' + uid + '_' + Math.random().toString(36).slice(2,4);
-            await pgCreateUser(newUser);
-          } catch (e2) {
-            console.error('google pgCreate (2e essai):', e2.message);
-            return res.status(500).json({ error: 'Cr\u00e9ation du compte impossible, r\u00e9essayez dans un instant.' });
-          }
-        }
-      }
-      else { const users = await pencUsers(); users.push({ ...newUser, password: hash }); await pencSaveUsers(users); }
-      user = newUser;
-
-      // Message de bienvenue (même logique que register, best-effort)
-      setImmediate(async function () {
-        try {
-          pencOnline.forEach(function (sid) { io.to(sid).emit('penc:welcome', { message: '🎉 ' + fullName + ' vient de rejoindre Penc !' }); });
-          if(_pgPool){ await _sendPencOfficialDM(uid, _pencWelcomeText(fullName), 'Penc', 'Bienvenue sur Penc ! 🎉', 'penc-welcome'); }
-        } catch (e) {}
-      });
-    } else {
-      // Compte Google existant : reparer nom vide OU 'Utilisateur' (anciens comptes)
-      var _fn = String(user.full_name||'').trim().toLowerCase();
-      if (_pgPool && (!_fn || _fn==='utilisateur' || _fn==='utilisateur penc' || _fn==='user')) {
-        try { await pgUpdateUser(user.id, { full_name: fullName }); user.full_name = fullName; } catch (e) {}
-      }
-      if (_pgPool && picture && !user.avatar_url) {
-        try { await pgUpdateUser(user.id, { avatar_url: picture }); } catch (e) {}
-      }
-    }
-
-    const _lock3 = await _pencDeviceLockCheck(user.id, req);
-    if(_lock3.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
-    const _sid = _pencNewSid();
-    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
-    const isAdmin = PENC_ADMIN_EMAILS.includes(email) || user.is_admin || false;
-    res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
-  } catch (e) {
-    console.error('google auth:', e.message);
-    res.status(500).json({ error: 'Erreur serveur: ' + e.message });
-  }
-});
-
-// POST /api/penc/auth/refresh — rafraîchit le jeton (session glissante)
-app.post('/api/penc/auth/refresh', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId;
-    const tok = jwt_penc.sign({ userId: uid, sid: req.pencUser.sid }, PENC_SECRET, { expiresIn: '7d' });
-    res.json({ token: tok });
-  } catch (e) { res.status(401).json({ error: 'refresh impossible' }); }
-});
-
-// GET /api/penc/auth/sessions — sessions actives de l'utilisateur
-app.get('/api/penc/auth/sessions', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId; const cur = req.pencUser.sid || '';
-    if (!_pgPool) return res.json({ sessions: [], current: cur });
-    const r = await _pgPool.query("SELECT sid, ua, ip, created_at, last_seen FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE ORDER BY last_seen DESC LIMIT 50", [uid]);
-    res.json({ sessions: r.rows.map(function(x){ return { sid:x.sid, ua:x.ua, ip:x.ip, created_at:x.created_at, last_seen:x.last_seen, current:(x.sid===cur) }; }), current: cur });
-  } catch(e) { res.status(500).json({ error: 'Erreur sessions' }); }
-});
-// POST /api/penc/auth/sessions/revoke — révoquer une session
-app.post('/api/penc/auth/sessions/revoke', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId; const sid = req.body && req.body.sid;
-    if (!sid) return res.status(400).json({ error: 'sid manquant' });
-    if (_pgPool) { const r = await _pgPool.query("UPDATE penc_sessions SET revoked=TRUE WHERE sid=$1 AND user_id=$2", [sid, uid]); if (r.rowCount===0) return res.status(404).json({ error: 'Session introuvable' }); }
-    _pencRevokedSids.add(sid);
-    // Déconnexion immédiate de CET appareil précis uniquement (les autres appareils de l'utilisateur restent connectés)
-    try{
-      const socks = await io.in('user:'+String(uid)).fetchSockets();
-      socks.forEach(function(sk){ if(sk.data && sk.data.pencSid === sid){ try{ sk.emit('session:revoked', {}); sk.disconnect(true); }catch(_e2){} } });
-    }catch(_e1){}
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Erreur révocation' }); }
-});
-// POST /api/penc/keys — publier sa clé publique E2E
-app.post('/api/penc/keys', pencAuth, async (req, res) => {
-  try {
-    const pk = req.body && req.body.public_key;
-    if (!pk || String(pk).length > 200) return res.status(400).json({ error: 'cle invalide' });
-    if (_pgPool) { try { await _pgPool.query("UPDATE penc_users SET public_key=$1 WHERE id=$2", [String(pk), req.pencUser.userId]); } catch(_){} }
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Erreur cle' }); }
-});
-// POST /api/penc/keys/backup — sauvegarde chiffrée de la clé privée (zero-knowledge)
-app.post('/api/penc/keys/backup', pencAuth, async (req, res) => {
-  try {
-    const bk = req.body && req.body.backup;
-    if (!bk || String(bk).length > 4000) return res.status(400).json({ error: 'sauvegarde invalide' });
-    if (_pgPool) { try { await _pgPool.query("UPDATE penc_users SET key_backup=$1 WHERE id=$2", [String(bk), req.pencUser.userId]); } catch(_){} }
-    res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: 'Erreur sauvegarde' }); }
-});
-// GET /api/penc/keys/backup — récupère la sauvegarde chiffrée
-app.get('/api/penc/keys/backup', pencAuth, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ backup: null });
-    const r = await _pgPool.query("SELECT key_backup FROM penc_users WHERE id=$1", [req.pencUser.userId]);
-    res.json({ backup: (r.rows[0] && r.rows[0].key_backup) || null });
-  } catch(e) { res.status(500).json({ error: 'Erreur sauvegarde' }); }
-});
-// GET /api/penc/keys/:uid — récupérer la clé publique d'un utilisateur
-app.get('/api/penc/keys/:uid', pencAuth, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ public_key: null });
-    const r = await _pgPool.query("SELECT public_key FROM penc_users WHERE id=$1", [req.params.uid]);
-    res.json({ public_key: (r.rows[0] && r.rows[0].public_key) || null });
-  } catch(e) { res.status(500).json({ error: 'Erreur cle' }); }
-});
 // GET /api/penc/auth/me
 app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
   try {
@@ -5257,145 +4345,15 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
 });
 
 // PUT /api/penc/auth/profile
-// GET /api/penc/calls — historique des appels (façon WhatsApp)
-app.get('/api/penc/calls', pencAuth, async (req, res) => {
-  try {
-    const me = req.pencUser.userId;
-    if (!_pgPool) return res.json({ calls: [] });
-    const r = await _pgPool.query(
-      "SELECT m.id, m.content, m.created_at, m.sender_id, m.conversation_id, c.participants " +
-      "FROM penc_messages m JOIN penc_conversations c ON c.id = m.conversation_id " +
-      "WHERE m.type = 'call' AND (m.deleted_for_all IS NOT TRUE) AND c.participants @> $1::jsonb " +
-      "ORDER BY m.created_at DESC LIMIT 200",
-      [JSON.stringify([me])]
-    );
-    const others = new Set();
-    const rows = r.rows.map(row => {
-      let parts = []; try { parts = Array.isArray(row.participants) ? row.participants : JSON.parse(row.participants || '[]'); } catch (e) {}
-      const other = parts.find(p => String(p) !== String(me)) || null;
-      if (other) others.add(other);
-      let d = {}; try { d = JSON.parse(row.content || '{}'); } catch (e) {}
-      return {
-        id: row.id, conversation_id: row.conversation_id,
-        call_type: d.call_type === 'video' ? 'video' : 'audio',
-        status: d.status || 'answered', duration: d.duration || 0,
-        direction: String(row.sender_id) === String(me) ? 'out' : 'in',
-        other_id: other, created_at: row.created_at
-      };
-    });
-    let profiles = {};
-    if (others.size) {
-      const ids = Array.from(others);
-      const pr = await _pgPool.query("SELECT id, full_name, username, avatar_url FROM penc_users WHERE id = ANY($1)", [ids]);
-      pr.rows.forEach(u => { profiles[u.id] = { id: u.id, full_name: u.full_name, username: u.username, avatar_url: u.avatar_url }; });
-    }
-    const calls = rows.map(c => ({
-      id: c.id, conversation_id: c.conversation_id, call_type: c.call_type,
-      status: c.status, duration: c.duration, direction: c.direction, created_at: c.created_at,
-      other: c.other_id ? (profiles[c.other_id] || { id: c.other_id, full_name: 'Inconnu' }) : null
-    }));
-    res.json({ calls });
-  } catch (e) { console.error('penc /calls:', e.message); res.json({ calls: [] }); }
-});
-// GET /api/penc/me/stats — statistiques personnelles de l'utilisateur connecte
-// ══════════════ MESSAGES ENREGISTRÉS (bloc-notes personnel) ══════════════
-app.post('/api/penc/saved', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    const { message_id, conv_id, sender_name, type, content, media_url } = req.body || {};
-    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    const id = 'sv_'+Date.now()+Math.random().toString(36).slice(2,8);
-    await _pgPool.query(
-      'INSERT INTO penc_saved_messages(id,user_id,message_id,conv_id,sender_name,type,content,media_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, uid, message_id||null, conv_id||null, sender_name||null, type||'text', content||null, media_url||null]
-    );
-    res.json({ success:true, id });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.get('/api/penc/saved', pencAuth, async (req, res) => {
-  try{
-    if(!_pgPool) return res.json({ items:[] });
-    const r = await _pgPool.query('SELECT * FROM penc_saved_messages WHERE user_id=$1 ORDER BY saved_at DESC LIMIT 300', [req.pencUser.userId]);
-    res.json({ items: r.rows });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.delete('/api/penc/saved/:id', pencAuth, async (req, res) => {
-  try{
-    if(_pgPool) await _pgPool.query('DELETE FROM penc_saved_messages WHERE id=$1 AND user_id=$2', [req.params.id, req.pencUser.userId]);
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.get('/api/penc/me/stats', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.json({ stats:{} });
-    const monthAgo = new Date(Date.now() - 30*24*60*60*1000);
-    const [msgsTotal, msgsMonth, statuses, friends, meetJoined, me, callsRows, photosSent, videosSent, statusViewRows] = await Promise.all([
-      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1', [uid]),
-      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND created_at > $2', [uid, monthAgo]),
-      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_statuses WHERE user_id=$1', [uid]),
-      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)", [uid]),
-      _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_meet_history WHERE participant=$1', [uid]).catch(function(){ return {rows:[{n:0}]}; }),
-      _pgPool.query('SELECT created_at, total_time_seconds FROM penc_users WHERE id=$1', [uid]),
-      _pgPool.query(
-        "SELECT m.content FROM penc_messages m JOIN penc_conversations c ON c.id = m.conversation_id " +
-        "WHERE m.type = 'call' AND (m.deleted_for_all IS NOT TRUE) AND c.participants @> $1::jsonb",
-        [JSON.stringify([uid])]
-      ).catch(function(){ return {rows:[]}; }),
-      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND type='image'", [uid]),
-      _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_messages WHERE sender_id=$1 AND type='video'", [uid]),
-      _pgPool.query('SELECT views FROM penc_statuses WHERE user_id=$1', [uid])
-    ]);
-    const meRow = me.rows[0] || {};
-    let callsVoice = 0, callsVideo = 0;
-    callsRows.rows.forEach(function(row){
-      try{ const d = JSON.parse(row.content || '{}'); if(d.call_type === 'video') callsVideo++; else callsVoice++; }catch(e){ callsVoice++; }
-    });
-    let statusViewsTotal = 0;
-    statusViewRows.rows.forEach(function(row){
-      try{ const v = typeof row.views==='string' ? JSON.parse(row.views) : row.views; if(Array.isArray(v)) statusViewsTotal += v.length; }catch(e){}
-    });
-    res.json({ stats:{
-      messages_total: msgsTotal.rows[0].n,
-      messages_month: msgsMonth.rows[0].n,
-      statuses_total: statuses.rows[0].n,
-      friends_total: friends.rows[0].n,
-      meet_joined: meetJoined.rows[0].n,
-      calls_voice: callsVoice,
-      calls_video: callsVideo,
-      photos_sent: photosSent.rows[0].n,
-      videos_sent: videosSent.rows[0].n,
-      status_views_total: statusViewsTotal,
-      member_since: meRow.created_at || null,
-      total_time_seconds: meRow.total_time_seconds || 0
-    }});
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
-    const { full_name, bio, avatar_url, email } = req.body;
+    const { full_name, bio, avatar_url } = req.body;
     const uid = req.pencUser.userId;
-    // Validation email si fourni (permet d'ajouter/changer l'email, notamment pour le
-    // filet de securite "mot de passe oublie" — necessaire pour les comptes crees au telephone seul)
-    let cleanEmail;
-    if (email !== undefined) {
-      const e = String(email||'').trim();
-      if (e === '') { cleanEmail = null; }
-      else {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return res.status(400).json({ error: 'Email invalide' });
-        if (_pgPool) {
-          const existing = await pgFindUser('email', e);
-          if (existing && String(existing.id) !== String(uid)) return res.status(400).json({ error: 'Cet email est deja utilise par un autre compte' });
-        }
-        cleanEmail = e;
-      }
-    }
     if (_pgPool) {
       const fields = {};
       if (full_name !== undefined) fields.full_name = full_name;
       if (bio !== undefined) fields.bio = bio;
       if (avatar_url !== undefined) fields.avatar_url = avatar_url;
-      if (cleanEmail !== undefined) fields.email = cleanEmail;
       if (Object.keys(fields).length) await pgUpdateUser(uid, fields);
       const pu = await pgFindUser('id', uid);
       if (pu) return res.json({ success: true, user: pencStrip(pu) });
@@ -5406,7 +4364,6 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
     if (full_name !== undefined) user.full_name = full_name;
     if (bio !== undefined) user.bio = bio;
     if (avatar_url !== undefined) user.avatar_url = avatar_url;
-    if (cleanEmail !== undefined) user.email = cleanEmail;
     user.updated_at = new Date().toISOString();
     await pencSaveUsers(users);
     res.json({ success: true, user: pencStrip(user) });
@@ -5429,15 +4386,14 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
      st.created_at||new Date().toISOString(),
      st.expires_at||new Date(Date.now()+86400000).toISOString(),
-     st.duration||10,
-     (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null]
+     st.duration||10]
   );
   return r.rows[0];
 }
@@ -5454,8 +4410,7 @@ function pgStatusToObj(row){
     reactions: typeof row.reactions==='string'?JSON.parse(row.reactions):row.reactions||[],
     views: typeof row.views==='string'?JSON.parse(row.views):row.views||[],
     view_ips: typeof row.view_ips==='string'?JSON.parse(row.view_ips):row.view_ips||[],
-    view_log: typeof row.view_log==='string'?JSON.parse(row.view_log):row.view_log||[],
-    media_urls: typeof row.media_urls==='string'?JSON.parse(row.media_urls):(row.media_urls||null)
+    view_log: typeof row.view_log==='string'?JSON.parse(row.view_log):row.view_log||[]
   };
 }
 // GET /api/penc/messages/:convId
@@ -5489,49 +4444,22 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     const uid = req.pencUser.userId;
     if (_pgPool) {
       const rows = await pgGetMessages(convId, 200);
-      // Reactions groupees par message pour cette conversation (une seule requete)
-      let _reactByMsg = {};
-      try{
-        const ids = rows.map(m=>m.id);
-        if(ids.length){
-          const rr = await _pgPool.query('SELECT message_id, user_id, emoji FROM penc_message_reactions WHERE message_id = ANY($1)', [ids]);
-          rr.rows.forEach(function(x){ (_reactByMsg[x.message_id] = _reactByMsg[x.message_id]||[]).push({user_id:x.user_id, emoji:x.emoji}); });
-        }
-      }catch(_re){}
-      // Vues uniques (accuse de "vu" par personne, distinct de "view_once" qui autodetruit le media)
-      let _viewsByMsg = {};
-      try{
-        const ids2 = rows.map(m=>m.id);
-        if(ids2.length){
-          const vr2 = await _pgPool.query('SELECT message_id, COUNT(*)::int AS n FROM penc_media_views WHERE message_id = ANY($1) GROUP BY message_id', [ids2]);
-          vr2.rows.forEach(function(x){ _viewsByMsg[x.message_id] = x.n; });
-        }
-      }catch(_ve){}
-      messages = rows.map(m => {
-        const _isMine = String(m.sender_id) === String(uid);
-        // Vue unique : si deja consommee, le destinataire ne recoit plus jamais le media (l'expediteur si)
-        const _voHidden = m.view_once && m.view_once_consumed && !_isMine;
-        return {
-          id: m.id, conversation_id: m.conversation_id,
-          sender_id: m.sender_id,
-          is_mine: _isMine,
-          type: m.type, content: m.content,
-          media_url: _voHidden ? null : m.media_url, media_duration: m.duration,
-          reply_to: m.reply_to?(function(){
-            if(typeof m.reply_to==='object') return m.reply_to;
-            try{return JSON.parse(m.reply_to);}catch(e){return null;}
-          })():null,
-          deleted_for_all: m.deleted_for_all || false,
-          delivered_at: m.delivered_at || null,
-          read_at: m.read_at || null,
-          pending: m.pending || false,
-          reactions: _reactByMsg[m.id] || [],
-          view_once: m.view_once || false,
-          view_once_consumed: m.view_once_consumed || false,
-          media_views_count: _viewsByMsg[m.id] || 0,
-          created_at: m.created_at
-        };
-      });
+      messages = rows.map(m => ({
+        id: m.id, conversation_id: m.conversation_id,
+        sender_id: m.sender_id,
+        is_mine: String(m.sender_id) === String(uid),
+        type: m.type, content: m.content,
+        media_url: m.media_url, media_duration: m.duration,
+        reply_to: m.reply_to?(function(){
+          if(typeof m.reply_to==='object') return m.reply_to;
+          try{return JSON.parse(m.reply_to);}catch(e){return null;}
+        })():null,
+        deleted_for_all: m.deleted_for_all || false,
+        delivered_at: m.delivered_at || null,
+        read_at: m.read_at || null,
+        pending: m.pending || false,
+        created_at: m.created_at
+      }));
     } else {
       const all = await pencMsgs();
       messages = all.filter(m => m.conversation_id === convId)
@@ -5543,20 +4471,9 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
 
 // ════════════════ ARCHIVE PUBLICATIONS (Fonct.1) ════════════════
 // GET /api/penc/users/:id/publications — visibles par les amis (relation acceptee)
-// GET /api/penc/users/by-username/:username — resolution pour le QR code de profil
-app.get('/api/penc/users/by-username/:username', pencAuth, async (req, res) => {
-  try{
-    const uname = String(req.params.username||'').replace(/^@/,'').trim().toLowerCase();
-    if(!uname) return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
-    const u = _pgPool ? await pgFindUser('username', uname) : (await pencUsers()).find(x=>String(x.username||'').toLowerCase()===uname);
-    if(!u || u.deleted_at) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    res.json({ user: pencStrip(u) });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
 app.get('/api/penc/users/:id/publications', pencAuth, async (req,res)=>{
   try{
     const me=req.pencUser.userId; const target=req.params.id;
-    if(_areIsolated(me,target)) return res.status(403).json({error:'Indisponible', publications:[]});
     if(!_pgPool) return res.json({publications:[]});
     if(String(me)!==String(target)){
       const fr=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[me,target]);
@@ -5608,7 +4525,6 @@ app.post('/api/penc/statuses/:id/comment', pencAuth, async (req,res)=>{
     const id='cmt_'+Date.now()+Math.random().toString(36).slice(2);
     await _pgPool.query('INSERT INTO penc_status_comments(id,status_id,user_id,content,created_at) VALUES($1,$2,$3,$4,NOW())',[id,req.params.id,uid,content.slice(0,500)]);
     const u=await pgFindUser('id',uid)||{};
-    try{ const _sr=await _pgPool.query('SELECT user_id FROM penc_statuses WHERE id=$1',[req.params.id]); const _own=_sr.rows[0]&&_sr.rows[0].user_id; if(_own && String(_own)!==String(uid)){ const _cn=u.full_name||u.username||'Une personne'; sendPencPush(String(_own),{title:_cn, body:'a commenté votre statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-comment-'+req.params.id, url:'/messager?status='+req.params.id, data:{type:'status_comment', status_id:req.params.id, url:'/messager?status='+req.params.id}}); } }catch(_cp){}
     res.json({success:true, comment:{id, status_id:req.params.id, user_id:uid, content:content.slice(0,500), full_name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, created_at:new Date().toISOString()}});
   }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
@@ -5824,9 +4740,7 @@ app.post('/api/penc/ads/view', pencAuth, async (req,res)=>{
 app.get('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
   try{ const r=await _pgPool.query("SELECT * FROM penc_ads ORDER BY created_at DESC");
     const users=await pgAllUsers()||[];
-    let statMap={};
-    try{ const sr=await _pgPool.query("SELECT ad_id, COUNT(*)::int views, COALESCE(SUM(total),0)::int revenue FROM penc_ad_revenue GROUP BY ad_id"); sr.rows.forEach(function(x){ statMap[String(x.ad_id)]={views:x.views, revenue:x.revenue}; }); }catch(e){}
-    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } var st=statMap[String(a.id)]||{views:0,revenue:0}; a.views=st.views; a.revenue=st.revenue; return a; });
+    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } return a; });
     res.json({ads:ads}); }catch(e){ res.json({ads:[]}); }
 });
 app.post('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
@@ -5864,7 +4778,7 @@ async function pgIsBlocked(a,b){
   if(!_pgPool) return false;
   try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='blocked' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return false; }
 }
-function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, bio:u.bio||'', is_online:!!u.is_online}; }
+function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, is_online:!!u.is_online}; }
 
 app.get('/api/penc/friends', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({friends:[]});
@@ -5904,39 +4818,18 @@ app.post('/api/penc/friends/request/:userId', pencAuth, async (req,res)=>{
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
     if(await pgIsBlocked(uid,other)) return res.status(403).json({error:'Action impossible'});
     const ex=await _pgPool.query("SELECT status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) LIMIT 1",[uid,other]);
-    if(ex.rows.length && ex.rows[0].status!=='rejected') return res.json({success:true, status:ex.rows[0].status});
-    if(ex.rows.length){
-      // v11 : ancienne demande refusee -> on la relance proprement (nouveau sens requester->recipient)
-      await _pgPool.query("UPDATE penc_friendships SET requester=$1, recipient=$2, status='pending', updated_at=NOW() WHERE ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) AND status='rejected'",[uid,other]);
-    } else {
-      await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
-    }
-    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' veut vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
+    if(ex.rows.length) return res.json({success:true, status:ex.rows[0].status});
+    await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'pending',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),uid,other]);
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(other,'friend:request',{from:{id:uid, full_name:me.full_name||me.username||'Utilisateur', avatar_url:me.avatar_url||null}}); try{ sendPencPush(other,{title:'Nouvelle demande d\'ami', body:(me.full_name||me.username||'Quelqu\'un')+' souhaite vous ajouter', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendreq', data:{type:'friend_request', url:'/messager'}}); }catch(_p){} }catch(e){}
     res.json({success:true, status:'pending'}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/accept/:userId', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; const requester=req.params.userId;
     if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
-    // BLINDAGE v11 : accepter quel que soit le sens ou l'etat de la ligne (sauf blocage),
-    // et creer la ligne 'accepted' si elle n'existe pas -> l'amitie devient TOUJOURS effective.
-    const _up=await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) AND status<>'blocked'",[requester,uid]);
-    if(!_up.rowCount){ try{ await _pgPool.query("INSERT INTO penc_friendships(id,requester,recipient,status,created_at,updated_at) VALUES($1,$2,$3,'accepted',NOW(),NOW())",['fr_'+Date.now()+Math.random().toString(36).slice(2),requester,uid]); }catch(_ei){} }
+    await _pgPool.query("UPDATE penc_friendships SET status='accepted', updated_at=NOW() WHERE requester=$1 AND recipient=$2 AND status='pending'",[requester,uid]);
     try{ await _pgPool.query("UPDATE penc_messages SET pending=FALSE WHERE sender_id=$1 AND pending=TRUE AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)",[requester, JSON.stringify([uid])]); }catch(e2){}
-    // CREER la conversation immediatement -> elle apparait des DEUX cotes
-    let _conv=null; try{ _conv=await pgGetOrCreateConv(uid, requester); }catch(e3){ console.error('accept conv:', e3.message); }
-    try{
-      const me=await pgFindUser('id',uid)||{};
-      const him=await pgFindUser('id',requester)||{};
-      // Notifier le DEMANDEUR (demande acceptee) + lui pousser la nouvelle conv
-      emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}});
-      if(_conv){
-        emitToUsers(requester,'conversation:new',{conversation:_conv, other:{id:uid, full_name:me.full_name||me.username||'Utilisateur', username:me.username||'', avatar_url:me.avatar_url||null}});
-        // Notifier CELUI qui accepte aussi -> la conv s'ouvre chez lui en meme temps
-        emitToUsers(uid,'conversation:new',{conversation:_conv, other:{id:requester, full_name:him.full_name||him.username||'Utilisateur', username:him.username||'', avatar_url:him.avatar_url||null}});
-      }
-      try{ sendPencPush(requester,{title:'Demande acceptee', body:(me.full_name||me.username||'Quelqu\'un')+' a accepte votre demande d\'ami', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendacc', data:{type:'friend_accepted', url:'/messager'}}); }catch(_p){}
-    }catch(e){}
-    res.json({success:true, conversation:_conv}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+    try{ const me=await pgFindUser('id',uid)||{}; emitToUsers(requester,'friend:accepted',{by:{id:uid, full_name:me.full_name||me.username||'Utilisateur'}}); try{ sendPencPush(requester,{title:'Demande acceptee', body:(me.full_name||me.username||'Quelqu\'un')+' a accepte votre demande d\'ami', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-friendacc', data:{type:'friend_accepted', url:'/messager'}}); }catch(_p){} }catch(e){}
+    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/friends/reject/:userId', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; const requester=req.params.userId;
@@ -6018,209 +4911,9 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
     try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); }
-    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
+    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=type==='voice'?'Message vocal':type==='image'?'Photo':type==='video'?'Video':type==='money'?('Transfert '+(content||'')):type==='sticker'?(content||'Sticker'):((content||'').slice(0,120)); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
-});
-// ==== Programmation de contenu : messages texte (phase 1/4) ====
-// POST /api/penc/scheduled — programmer l'envoi d'un message
-app.post('/api/penc/scheduled', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    const { conversation_id, type, content, media_url, media_duration, scheduled_for } = req.body || {};
-    if(!conversation_id) return res.status(400).json({ error:'conversation_id requis' });
-    if(!scheduled_for) return res.status(400).json({ error:'scheduled_for requis' });
-    const _when = new Date(scheduled_for);
-    if(isNaN(_when.getTime()) || _when.getTime() <= Date.now()) return res.status(400).json({ error:'La date programmee doit etre dans le futur.' });
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    if(!content && !media_url) return res.status(400).json({ error:'Contenu requis' });
-    const id = 'sch_'+Date.now()+Math.random().toString(36).slice(2);
-    await _pgPool.query(
-      "INSERT INTO penc_scheduled_messages(id,kind,conversation_id,sender_id,type,content,media_url,duration,scheduled_for,status) VALUES($1,'message',$2,$3,$4,$5,$6,$7,$8,'pending')",
-      [id, conversation_id, uid, type||'text', content||null, media_url||null, media_duration||null, _when.toISOString()]
-    );
-    return res.json({ success:true, id, scheduled_for:_when.toISOString() });
-  }catch(e){ console.error('POST /scheduled:', e.message); return res.status(500).json({ error:'Erreur programmation' }); }
-});
-// GET /api/penc/scheduled — lister mes envois programmes en attente (optionnellement filtres par conversation)
-app.get('/api/penc/scheduled', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.json({ items: [] });
-    const { conversation_id } = req.query || {};
-    let r;
-    if(conversation_id){
-      r = await _pgPool.query("SELECT * FROM penc_scheduled_messages WHERE sender_id=$1 AND conversation_id=$2 AND kind='message' AND status='pending' ORDER BY scheduled_for ASC", [uid, conversation_id]);
-    } else {
-      r = await _pgPool.query("SELECT * FROM penc_scheduled_messages WHERE sender_id=$1 AND kind='message' AND status='pending' ORDER BY scheduled_for ASC", [uid]);
-    }
-    return res.json({ items: r.rows });
-  }catch(e){ console.error('GET /scheduled:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// PATCH /api/penc/scheduled/:id — modifier l'heure ou le contenu (avant envoi)
-app.patch('/api/penc/scheduled/:id', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.id]);
-    const row = r.rows[0];
-    if(!row || String(row.sender_id)!==String(uid)) return res.status(404).json({ error:'Introuvable' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja envoye ou annule' });
-    const { content, scheduled_for } = req.body || {};
-    let _when = row.scheduled_for;
-    if(scheduled_for){ const d=new Date(scheduled_for); if(isNaN(d.getTime())||d.getTime()<=Date.now()) return res.status(400).json({ error:'Date invalide' }); _when=d.toISOString(); }
-    await _pgPool.query('UPDATE penc_scheduled_messages SET content=COALESCE($1,content), scheduled_for=$2 WHERE id=$3', [content||null, _when, req.params.id]);
-    return res.json({ success:true });
-  }catch(e){ console.error('PATCH /scheduled:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// DELETE /api/penc/scheduled/:id — annuler un envoi programme
-app.delete('/api/penc/scheduled/:id', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query('SELECT sender_id, status FROM penc_scheduled_messages WHERE id=$1', [req.params.id]);
-    const row = r.rows[0];
-    if(!row || String(row.sender_id)!==String(uid)) return res.status(404).json({ error:'Introuvable' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja envoye ou annule' });
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='cancelled' WHERE id=$1", [req.params.id]);
-    return res.json({ success:true });
-  }catch(e){ console.error('DELETE /scheduled:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// ==== Programmation de contenu : statuts (phase 3/4) ====
-// POST /api/penc/scheduled-status — programmer un statut
-app.post('/api/penc/scheduled-status', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    const { type, media_url, text_content, bg_color, caption, media_urls, duration, scheduled_for, expire_hours } = req.body || {};
-    if(!scheduled_for) return res.status(400).json({ error:'scheduled_for requis' });
-    const _when = new Date(scheduled_for);
-    if(isNaN(_when.getTime()) || _when.getTime() <= Date.now()) return res.status(400).json({ error:'La date programmee doit etre dans le futur.' });
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    if(!text_content && !media_url && !(Array.isArray(media_urls)&&media_urls.length)) return res.status(400).json({ error:'Contenu requis' });
-    const id = 'sch_'+Date.now()+Math.random().toString(36).slice(2);
-    const meta = { bg_color: bg_color||'#050D18', caption: caption||null, media_urls: (Array.isArray(media_urls)&&media_urls.length)?media_urls:null, expire_hours: (typeof expire_hours==='number'&&expire_hours>0)?expire_hours:24 };
-    await _pgPool.query(
-      "INSERT INTO penc_scheduled_messages(id,kind,conversation_id,sender_id,type,content,media_url,duration,scheduled_for,status,meta) VALUES($1,'status',NULL,$2,$3,$4,$5,$6,$7,'pending',$8)",
-      [id, uid, type||'text', text_content||null, media_url||null, duration||null, _when.toISOString(), JSON.stringify(meta)]
-    );
-    return res.json({ success:true, id, scheduled_for:_when.toISOString() });
-  }catch(e){ console.error('POST /scheduled-status:', e.message); return res.status(500).json({ error:'Erreur programmation' }); }
-});
-// GET /api/penc/scheduled-status — lister mes statuts programmes en attente
-app.get('/api/penc/scheduled-status', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.json({ items: [] });
-    const r = await _pgPool.query("SELECT * FROM penc_scheduled_messages WHERE sender_id=$1 AND kind='status' AND status='pending' ORDER BY scheduled_for ASC", [uid]);
-    return res.json({ items: r.rows });
-  }catch(e){ console.error('GET /scheduled-status:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// PATCH /api/penc/scheduled-status/:id — modifier avant publication
-app.patch('/api/penc/scheduled-status/:id', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.id]);
-    const row = r.rows[0];
-    if(!row || String(row.sender_id)!==String(uid) || row.kind!=='status') return res.status(404).json({ error:'Introuvable' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
-    const { scheduled_for, expire_hours } = req.body || {};
-    let _when = row.scheduled_for;
-    if(scheduled_for){ const d=new Date(scheduled_for); if(isNaN(d.getTime())||d.getTime()<=Date.now()) return res.status(400).json({ error:'Date invalide' }); _when=d.toISOString(); }
-    let meta = row.meta || {}; if(typeof meta==='string'){ try{ meta=JSON.parse(meta); }catch(_){ meta={}; } }
-    if(typeof expire_hours==='number' && expire_hours>0) meta.expire_hours=expire_hours;
-    await _pgPool.query('UPDATE penc_scheduled_messages SET scheduled_for=$1, meta=$2 WHERE id=$3', [_when, JSON.stringify(meta), req.params.id]);
-    return res.json({ success:true });
-  }catch(e){ console.error('PATCH /scheduled-status:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// DELETE /api/penc/scheduled-status/:id — annuler un statut programme
-app.delete('/api/penc/scheduled-status/:id', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query("SELECT sender_id, status, kind FROM penc_scheduled_messages WHERE id=$1", [req.params.id]);
-    const row = r.rows[0];
-    if(!row || String(row.sender_id)!==String(uid) || row.kind!=='status') return res.status(404).json({ error:'Introuvable' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='cancelled' WHERE id=$1", [req.params.id]);
-    return res.json({ success:true });
-  }catch(e){ console.error('DELETE /scheduled-status:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// ==== Programmation de contenu : canaux/broadcast (phase 4/4) ====
-// POST /api/penc/channels/:id/scheduled — programmer une publication de canal
-app.post('/api/penc/channels/:id/scheduled', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    const { content, type, media_url, scheduled_for } = req.body || {};
-    if(!content && !media_url) return res.status(400).json({ error:'Contenu vide' });
-    if(!scheduled_for) return res.status(400).json({ error:'scheduled_for requis' });
-    const _when = new Date(scheduled_for);
-    if(isNaN(_when.getTime()) || _when.getTime() <= Date.now()) return res.status(400).json({ error:'La date programmee doit etre dans le futur.' });
-    const channels = await pencChannels();
-    const ch = channels.find(function(x){ return x.id === req.params.id; });
-    if(!ch) return res.status(404).json({ error:'Canal introuvable' });
-    const _isChAdmin = String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid));
-    const _memberCanPost = (ch.type==='group') && !ch.read_only && (ch.followers||[]).map(String).includes(String(uid));
-    if(!_isChAdmin && !_memberCanPost) return res.status(403).json({ error:'Vous ne pouvez pas publier dans ce canal' });
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const id = 'sch_'+Date.now()+Math.random().toString(36).slice(2);
-    await _pgPool.query(
-      "INSERT INTO penc_scheduled_messages(id,kind,conversation_id,sender_id,type,content,media_url,scheduled_for,status) VALUES($1,'channel_post',$2,$3,$4,$5,$6,$7,'pending')",
-      [id, req.params.id, uid, type||'text', content||null, media_url||null, _when.toISOString()]
-    );
-    return res.json({ success:true, id, scheduled_for:_when.toISOString() });
-  }catch(e){ console.error('POST /channels/:id/scheduled:', e.message); return res.status(500).json({ error:'Erreur programmation' }); }
-});
-// GET /api/penc/channels/:id/scheduled — calendrier editorial (publications a venir)
-app.get('/api/penc/channels/:id/scheduled', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.json({ items: [] });
-    const channels = await pencChannels();
-    const ch = channels.find(function(x){ return x.id === req.params.id; });
-    if(!ch) return res.status(404).json({ error:'Canal introuvable' });
-    const _isChAdmin = String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid));
-    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
-    const r = await _pgPool.query("SELECT * FROM penc_scheduled_messages WHERE conversation_id=$1 AND kind='channel_post' AND status='pending' ORDER BY scheduled_for ASC", [req.params.id]);
-    return res.json({ items: r.rows });
-  }catch(e){ console.error('GET /channels/:id/scheduled:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// PATCH /api/penc/channels/scheduled/:schedId — modifier avant publication
-app.patch('/api/penc/channels/scheduled/:schedId', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.schedId]);
-    const row = r.rows[0];
-    if(!row || row.kind!=='channel_post') return res.status(404).json({ error:'Introuvable' });
-    const channels = await pencChannels();
-    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
-    const _isChAdmin = ch && (String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid)));
-    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
-    const { content, scheduled_for } = req.body || {};
-    let _when = row.scheduled_for;
-    if(scheduled_for){ const d=new Date(scheduled_for); if(isNaN(d.getTime())||d.getTime()<=Date.now()) return res.status(400).json({ error:'Date invalide' }); _when=d.toISOString(); }
-    await _pgPool.query('UPDATE penc_scheduled_messages SET content=COALESCE($1,content), scheduled_for=$2 WHERE id=$3', [content||null, _when, req.params.schedId]);
-    return res.json({ success:true });
-  }catch(e){ console.error('PATCH /channels/scheduled/:schedId:', e.message); return res.status(500).json({ error:'Erreur' }); }
-});
-// DELETE /api/penc/channels/scheduled/:schedId — annuler une publication programmee
-app.delete('/api/penc/channels/scheduled/:schedId', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId;
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const r = await _pgPool.query('SELECT * FROM penc_scheduled_messages WHERE id=$1', [req.params.schedId]);
-    const row = r.rows[0];
-    if(!row || row.kind!=='channel_post') return res.status(404).json({ error:'Introuvable' });
-    const channels = await pencChannels();
-    const ch = channels.find(function(x){ return x.id === row.conversation_id; });
-    const _isChAdmin = ch && (String(ch.creator_id)===String(uid) || (ch.admins||[]).map(String).includes(String(uid)));
-    if(!_isChAdmin) return res.status(403).json({ error:'R\u00e9serv\u00e9 aux administrateurs du canal' });
-    if(row.status!=='pending') return res.status(400).json({ error:'Deja publie ou annule' });
-    await _pgPool.query("UPDATE penc_scheduled_messages SET status='cancelled' WHERE id=$1", [req.params.schedId]);
-    return res.json({ success:true });
-  }catch(e){ console.error('DELETE /channels/scheduled/:schedId:', e.message); return res.status(500).json({ error:'Erreur' }); }
 });
 // PATCH /api/penc/messages/:id — modifier un message
 app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
@@ -6285,7 +4978,8 @@ app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
     const parts=cp.rows[0]&&cp.rows[0].participants||[];
     const arr=Array.isArray(parts)?parts:(typeof parts==='object'?Object.values(parts):[]);
     arr.forEach(function(pid){
-      io.to('user:'+String(pid)).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
+      const sid=pencOnline.get(String(pid));
+      if(sid) io.to(sid).emit('message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
     });
     res.json({success:true});
   }catch(e){console.error('edit:',e.message);res.status(500).json({error:e.message});}
@@ -6317,15 +5011,6 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
     if (_pgPool) {
       const convs = await pgGetConvs(uid);
       const allUsers = await pgAllUsers() || [];
-      let _pinnedIds = new Set();
-      try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
-      let _mutedIds = new Set();
-      try{ const _mr = await _pgPool.query('SELECT conv_id FROM penc_muted_convs WHERE user_id=$1',[uid]); _mutedIds = new Set(_mr.rows.map(r=>r.conv_id)); }catch(_me){}
-      let _ephemeralMap = {};
-      try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral'); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
-      // Messages en attente : demandes d'ami RECUES (quelqu'un d'autre a écrit en premier, pas encore acceptées)
-      let _pendingFrom = new Set();
-      try{ const _pfr = await _pgPool.query("SELECT requester FROM penc_friendships WHERE recipient=$1 AND status='pending'", [uid]); _pfr.rows.forEach(function(row){ _pendingFrom.add(row.requester); }); }catch(_pfe){}
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
         const otherId = parts.find(p => p !== uid);
@@ -6340,11 +5025,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null,
           last_message: last ? { content: last.content, type: last.type, created_at: last.created_at } : null,
-          updated_at: c.updated_at,
-          pinned: _pinnedIds.has(c.id),
-          muted: _mutedIds.has(c.id),
-          ephemeral_seconds: _ephemeralMap[c.id] || 0,
-          is_request: _pendingFrom.has(otherId)
+          updated_at: c.updated_at
         };
       }));
     } else {
@@ -6357,7 +5038,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
         const other = users.find(u => u.id === otherId) || {};
         const convMsgs = msgs.filter(m => m.conversation_id === c.id);
         const last = convMsgs[convMsgs.length - 1] || null;
-        return { ...c, other_user_id: otherId, name: other.full_name || other.username || 'Utilisateur',
+        return { ...c, other_user_id: otherId, name: other.full_name || 'Utilisateur',
           avatar_url: other.avatar_url || null, last_message: last };
       });
     }
@@ -6365,127 +5046,6 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
   } catch(e) { console.error('GET convs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
-// POST /api/penc/conversations/:id/pin-toggle — épingler/désépingler une conversation (propre à chaque utilisateur)
-// ══════════════ MESSAGES ÉPHÉMÈRES ══════════════
-// POST /api/penc/conversations/:id/ephemeral — regle la duree de vie des messages (0 = desactive)
-// ══════════════ DOSSIERS DE DISCUSSIONS ══════════════
-app.get('/api/penc/folders', pencAuth, async (req, res) => {
-  try{
-    if(!_pgPool) return res.json({ folders:[], items:{} });
-    const uid = req.pencUser.userId;
-    const fr = await _pgPool.query('SELECT folder_name FROM penc_conv_folders WHERE user_id=$1 ORDER BY folder_name', [uid]);
-    console.log('[folders] lecture pour', uid, '->', fr.rows.length, 'dossier(s) trouve(s)');
-    const ir = await _pgPool.query('SELECT folder_name, conv_id FROM penc_conv_folder_items WHERE user_id=$1', [uid]);
-    const items = {};
-    ir.rows.forEach(function(row){ (items[row.folder_name]=items[row.folder_name]||[]).push(row.conv_id); });
-    res.json({ folders: fr.rows.map(function(r){return r.folder_name;}), items: items });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/folders', pencAuth, async (req, res) => {
-  try{
-    const name = String((req.body && req.body.name) || '').trim().slice(0,40);
-    if(!name) return res.status(400).json({ error: 'Nom de dossier requis' });
-    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    await _pgPool.query('INSERT INTO penc_conv_folders(user_id,folder_name) VALUES($1,$2) ON CONFLICT DO NOTHING', [req.pencUser.userId, name]);
-    const _verif = await _pgPool.query('SELECT 1 FROM penc_conv_folders WHERE user_id=$1 AND folder_name=$2', [req.pencUser.userId, name]);
-    console.log('[folders] cree pour', req.pencUser.userId, '->', name, '| verifie en base:', _verif.rowCount>0);
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.delete('/api/penc/folders/:name', pencAuth, async (req, res) => {
-  try{
-    if(_pgPool){
-      const uid = req.pencUser.userId, name = req.params.name;
-      await _pgPool.query('DELETE FROM penc_conv_folder_items WHERE user_id=$1 AND folder_name=$2', [uid, name]);
-      await _pgPool.query('DELETE FROM penc_conv_folders WHERE user_id=$1 AND folder_name=$2', [uid, name]);
-    }
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/folders/:name/toggle', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId, name = req.params.name;
-    const convId = req.body && req.body.conv_id;
-    if(!convId) return res.status(400).json({ error: 'conv_id requis' });
-    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    const ex = await _pgPool.query('SELECT 1 FROM penc_conv_folder_items WHERE user_id=$1 AND folder_name=$2 AND conv_id=$3', [uid, name, convId]);
-    if(ex.rowCount>0){
-      await _pgPool.query('DELETE FROM penc_conv_folder_items WHERE user_id=$1 AND folder_name=$2 AND conv_id=$3', [uid, name, convId]);
-      return res.json({ success:true, added:false });
-    }
-    await _pgPool.query('INSERT INTO penc_conv_folder_items(user_id,folder_name,conv_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [uid, name, convId]);
-    res.json({ success:true, added:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/conversations/:id/ephemeral', pencAuth, async (req, res) => {
-  try{
-    const convId = req.params.id;
-    const duration = parseInt((req.body && req.body.duration_seconds) || 0, 10);
-    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
-    if(duration <= 0){
-      await _pgPool.query('DELETE FROM penc_conv_ephemeral WHERE conv_id=$1', [convId]);
-    } else {
-      await _pgPool.query(
-        'INSERT INTO penc_conv_ephemeral(conv_id,duration_seconds,set_by) VALUES($1,$2,$3) ON CONFLICT (conv_id) DO UPDATE SET duration_seconds=$2, set_by=$3, updated_at=NOW()',
-        [convId, duration, req.pencUser.userId]
-      );
-    }
-    // Informe tous les participants en temps reel
-    try{
-      const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [convId]);
-      const parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]')) : [];
-      emitToUsers(parts, 'conversation:ephemeral', { conv_id:convId, duration_seconds:duration>0?duration:0 });
-    }catch(_e){}
-    res.json({ success:true, duration_seconds: duration>0?duration:0 });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// Nettoyage periodique des messages expires (toutes les 5 minutes)
-setInterval(async function(){
-  try{
-    if(!_pgPool) return;
-    const r = await _pgPool.query("SELECT id, conversation_id FROM penc_messages WHERE expires_at IS NOT NULL AND expires_at < NOW() AND deleted_for_all IS NOT TRUE");
-    if(!r.rows.length) return;
-    const byConv = {};
-    r.rows.forEach(function(row){ (byConv[row.conversation_id]=byConv[row.conversation_id]||[]).push(row.id); });
-    await _pgPool.query("UPDATE penc_messages SET deleted_for_all=TRUE WHERE expires_at IS NOT NULL AND expires_at < NOW()");
-    for(const convId of Object.keys(byConv)){
-      try{
-        const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [convId]);
-        const parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]')) : [];
-        emitToUsers(parts, 'message:expired', { conv_id:convId, message_ids:byConv[convId] });
-      }catch(_e2){}
-    }
-    console.log('[ephemeral] ' + r.rows.length + ' message(s) expire(s) supprime(s)');
-  }catch(e){ console.log('[ephemeral] erreur nettoyage:', e.message); }
-}, 5*60*1000);
-app.post('/api/penc/conversations/:id/mute-toggle', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId; const convId = req.params.id;
-    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
-    const ex = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
-    if(ex.rowCount>0){
-      await _pgPool.query('DELETE FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
-      return res.json({ success:true, muted:false });
-    }
-    await _pgPool.query('INSERT INTO penc_muted_convs(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
-    res.json({ success:true, muted:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/conversations/:id/pin-toggle', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId; const convId = req.params.id;
-    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
-    const ex = await _pgPool.query('SELECT 1 FROM penc_pinned_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
-    if(ex.rowCount>0){
-      await _pgPool.query('DELETE FROM penc_pinned_convs WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
-      return res.json({ success:true, pinned:false });
-    }
-    const cnt = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_pinned_convs WHERE user_id=$1',[uid]);
-    if((cnt.rows[0]&&cnt.rows[0].n||0)>=5) return res.status(400).json({ error:'Maximum 5 conversations épinglées.' });
-    await _pgPool.query('INSERT INTO penc_pinned_convs(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
-    res.json({ success:true, pinned:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
 // POST /api/penc/conversations/direct
 app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
   try {
@@ -6513,7 +5073,7 @@ app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
     }
     const users = await pencUsers();
     const other = users.find(u => u.id === target_user_id) || {};
-    res.json({ conversation: { ...conv, other_user_id: target_user_id, name: other.full_name || other.username || 'Utilisateur', avatar_url: other.avatar_url || null }});
+    res.json({ conversation: { ...conv, other_user_id: target_user_id, name: other.full_name || 'Utilisateur', avatar_url: other.avatar_url || null }});
   } catch(e) { console.error('POST direct:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
@@ -6550,8 +5110,8 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
         );
         results = r.rows.map(pgRow).map(pencStrip);
       } else {
-        // Sans query: retourner tous les utilisateurs (PG + JSONBin)
-        const all = await pgAllUsersMerged() || [];
+        // Sans query: retourner tous les utilisateurs
+        const all = await pgAllUsers() || [];
         results = all.filter(u => u.id !== uid).map(pencStrip);
       }
     } else {
@@ -6563,7 +5123,6 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
         (u.phone||'').includes(q)
       )).map(pencStrip);
     }
-    results = results.filter(function(u){ return !_areIsolated(uid, u.id); });
     res.json({ users: results, contacts: results });
   } catch(e) { console.error('search:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -6592,29 +5151,11 @@ app.get('/api/penc/health', async (req,res)=>{
 });
 
 // GET /api/penc/contacts
-// POST /api/penc/contacts/match — fait correspondre une liste de numeros de telephone (importes localement
-// depuis le carnet d'adresses du telephone, jamais stockes cote serveur) aux comptes Penc existants.
-app.post('/api/penc/contacts/match', pencAuth, async (req, res) => {
-  try{
-    const phones = Array.isArray(req.body && req.body.phones) ? req.body.phones : [];
-    if(!phones.length) return res.json({ matches: [] });
-    if(!_pgPool) return res.json({ matches: [] });
-    // Normalisation simple : ne garder que les chiffres (+ prefixe)
-    const norm = function(p){ return String(p||'').replace(/[^0-9+]/g,''); };
-    const normalized = Array.from(new Set(phones.map(norm).filter(function(p){ return p.length>=8; }))).slice(0, 1000);
-    if(!normalized.length) return res.json({ matches: [] });
-    const r = await _pgPool.query(
-      "SELECT id, full_name, username, phone, avatar_url FROM penc_users WHERE phone = ANY($1) AND id != $2 AND deleted_at IS NULL",
-      [normalized, req.pencUser.userId]
-    );
-    res.json({ matches: r.rows, matched_phones: r.rows.map(function(u){ return u.phone; }) });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    // PostgreSQL + JSONBin fusionnes (tous les utilisateurs)
-    const users = await pgAllUsersMerged();
+    // PostgreSQL prioritaire — fallback JSONBin
+    const users = _pgPool ? (await pgAllUsers() || []) : await pencUsers();
     res.json({ contacts: users.filter(u => u.id !== uid).map(pencStrip) });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -6624,25 +5165,6 @@ app.get('/api/penc/contacts', pencAuth, async (req, res) => {
 // ════════════════════════════════════════════════════════════
 
 // GET /api/penc/statuses
-// v14 : statuts d'UN utilisateur precis, lus directement en base — fiable depuis les profils,
-// meme si la personne n'est pas encore amie (verification avant d'accepter une demande).
-app.get('/api/penc/statuses/of/:userId', pencAuth, async (req, res) => {
-  try {
-    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
-    const uid = req.pencUser.userId;
-    const target = req.params.userId;
-    try{ const _m=await _pgPool.query("SELECT 1 FROM penc_users WHERE id=$1 AND muted_until IS NOT NULL AND muted_until > NOW()",[target]); if(_m.rows.length) return res.json({statuses:[]}); }catch(_e){}
-    // v15 : HISTORIQUE COMPLET — les 30 derniers statuts de la personne, actifs ET expires
-    const _sq = await _pgPool.query("SELECT * FROM penc_statuses WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30",[target]);
-    const rows = _sq.rows;
-    const allUsers = await pgAllUsers()||[];
-    const u = allUsers.find(x=>String(x.id)===String(target));
-    const user = u?{id:u.id,full_name:(u.full_name||u.username||'Utilisateur'),username:u.username||'',avatar_url:u.avatar_url||null}:{id:target,full_name:'Utilisateur',username:''};
-    const _cut = Date.now()-86400000;
-    const statuses = rows.map(pgStatusToObj).map(x=>({...x,user,viewed:(x.views||[]).includes(uid),active:new Date(x.created_at).getTime()>=_cut}));
-    res.json({statuses});
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
 app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
@@ -6675,12 +5197,11 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 // POST /api/penc/statuses
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, media_urls } = req.body;
-    const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
+    const { type, media_url, text_content, bg_color, caption, duration } = req.body;
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type: type||'text',
-      media_url: (_mu&&_mu.length)?_mu[0]:(media_url||null), media_urls: (_mu&&_mu.length>1)?_mu:null, text_content: text_content||null,
+      media_url: media_url||null, text_content: text_content||null,
       bg_color: bg_color||'#050D18', caption: caption||null,
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
@@ -6716,7 +5237,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
           const convs=await pencConvs();
           for(const c of convs){ const parts=c.participants||c.members||[]; if(parts.includes(req.pencUser.userId)) parts.forEach(p=>{ if(p!==req.pencUser.userId) partners.add(p); }); }
         }
-        const ppayload={ title:aname, body:'A publié un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
+        const ppayload={ title:aname, body:'a publié un nouveau statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-status-'+req.pencUser.userId, data:{ type:'status', user_id:req.pencUser.userId, url:'/' } };
         partners.forEach(uid=>{ sendPencPush(uid, ppayload); });
       }
     } catch(e){ console.error('push statut:', e.message); }
@@ -6806,33 +5327,6 @@ app.post('/api/penc/rewards/withdraw', pencAuth, async (req, res) => {
 
 // ─── PENC ADMIN ─────────────────────────────────────────────
 const PENC_ADMIN_EMAILS = ['tpapaseny@ept.sn', 'papasenytoure@gmail.com'];
-// Reparation globale : comptes au nom vide (souvent d'anciennes inscriptions Google)
-app.post('/api/penc/admin/repair-names', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId;
-    let me = null; try { me = await pgFindUser('id', uid); } catch(_) {}
-    const isAdmin = me && (me.is_admin || PENC_ADMIN_EMAILS.includes(String(me.email||'').toLowerCase()));
-    if (!isAdmin) return res.status(403).json({ error: 'Reserve aux administrateurs' });
-    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
-    function deriveName(username, email){
-      var nm = '';
-      if (username && String(username).trim()) { nm = String(username).replace(/[._-]+/g, ' ').trim(); }
-      else if (email) { nm = String(email).split('@')[0].replace(/[._-]+/g, ' ').trim(); }
-      nm = nm.split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase()+w.slice(1)) : w; }).join(' ').trim();
-      return nm || 'Utilisateur Penc';
-    }
-    // PostgreSQL UNIQUEMENT (base principale penc-db). Un nom est 'a reparer'
-    // s'il est vide OU s'il vaut litteralement Utilisateur / Utilisateur Penc / User.
-    var badName = "(full_name IS NULL OR TRIM(full_name)='' OR LOWER(TRIM(full_name)) IN ('utilisateur','utilisateur penc','user'))";
-    var fixed = 0;
-    var r = await _pgPool.query('SELECT id, username, email, full_name FROM penc_users WHERE ' + badName);
-    for (const row of r.rows) {
-      var nm = deriveName(row.username, row.email);
-      try { await _pgPool.query('UPDATE penc_users SET full_name=$1 WHERE id=$2', [nm, row.id]); fixed++; } catch(_) {}
-    }
-    return res.json({ success: true, fixed: fixed, total: r.rows.length });
-  } catch (e) { console.error('repair-names:', e.message); return res.status(500).json({ error: 'Erreur: ' + e.message }); }
-});
 async function pencAdmin(req, res, next) {
   try {
     let u = null;
@@ -6848,194 +5342,29 @@ function pencContactsCount(convs, uid) {
   convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
   return set.size;
 }
-// ── Etape 3 : evaluations des appels ──────────────────────────
-app.post('/api/penc/call/rate', pencAuth, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({success:true});
-    const uid=req.pencUser.userId;
-    const r=parseInt((req.body&&req.body.rating),10);
-    if(!(r>=1&&r<=5)) return res.status(400).json({error:'note invalide'});
-    const ct=((req.body&&req.body.call_type)==='video')?'video':'audio';
-    const peer=(req.body&&req.body.peer_id)?String(req.body.peer_id):null;
-    const cm=((req.body&&req.body.comment)||'').toString().slice(0,500);
-    await _pgPool.query('INSERT INTO penc_call_ratings(id,rater_id,peer_id,call_type,rating,comment,created_at) VALUES($1,$2,$3,$4,$5,$6,NOW())',['cr_'+Date.now()+Math.random().toString(36).slice(2),uid,peer,ct,r,cm||null]);
-    res.json({success:true});
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-app.get('/api/penc/admin/call-ratings', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({avg:0,count:0,per_user:[],history:[]});
-    const from=(req.query.from||'').trim(); const to=(req.query.to||'').trim(); const user=(req.query.user||'').trim();
-    let where=[]; let params=[]; let i=1;
-    if(from){ where.push('cr.created_at >= $'+i); params.push(from); i++; }
-    if(to){ where.push('cr.created_at <= $'+i); params.push(to+' 23:59:59'); i++; }
-    if(user){ where.push('cr.rater_id = $'+i); params.push(user); i++; }
-    const W = where.length?(' WHERE '+where.join(' AND ')):'';
-    const g=await _pgPool.query('SELECT COALESCE(AVG(rating),0)::numeric(10,2) avg, COUNT(*)::int c FROM penc_call_ratings cr'+W, params);
-    const pu=await _pgPool.query('SELECT cr.rater_id, COALESCE(AVG(cr.rating),0)::numeric(10,2) avg, COUNT(*)::int c, u.full_name, u.username FROM penc_call_ratings cr LEFT JOIN penc_users u ON u.id=cr.rater_id'+W+' GROUP BY cr.rater_id,u.full_name,u.username ORDER BY c DESC LIMIT 100', params);
-    const h=await _pgPool.query('SELECT cr.id, cr.rating, cr.comment, cr.call_type, cr.created_at, u.full_name, u.username FROM penc_call_ratings cr LEFT JOIN penc_users u ON u.id=cr.rater_id'+W+' ORDER BY cr.created_at DESC LIMIT 100', params);
-    res.json({
-      avg: parseFloat(g.rows[0].avg)||0, count: g.rows[0].c||0,
-      per_user: pu.rows.map(function(r){ return {user_id:r.rater_id, name:r.full_name||r.username||'?', username:r.username||'', avg:parseFloat(r.avg)||0, count:r.c||0}; }),
-      history: h.rows.map(function(r){ return {id:r.id, rating:r.rating, comment:r.comment||'', call_type:r.call_type||'audio', created_at:r.created_at, name:r.full_name||r.username||'?', username:r.username||''}; })
-    });
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-// ── Etape 6 : fiche detaillee par utilisateur ─────────────────
-app.get('/api/penc/admin/user/:id/fiche', pencAuth, pencAdmin, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.json({error:'no_db'});
-    const uid=String(req.params.id);
-    const out={};
-    let urow=null;
-    try{ const r=await _pgPool.query('SELECT * FROM penc_users WHERE id=$1',[uid]); urow=r.rows[0]||null; }catch(e){}
-    if(!urow) return res.status(404).json({error:'introuvable'});
-    const geo=(urow.geo&&typeof urow.geo==='object')?urow.geo:{};
-    const vv=urow.valid_views||0;
-    out.info={ id:uid, full_name:urow.full_name||'', username:urow.username||'', phone:urow.phone||'', email:urow.email||'', avatar_url:urow.avatar_url||null, country:geo.country||'', city:geo.city||'', created_at:urow.created_at||null, last_seen:urow.last_seen||null, total_time_seconds:urow.total_time_seconds||0, status:(urow.deleted_at?'supprime':(urow.blocked?'bloque':(urow.suspended?'suspendu':'actif'))) };
-    const msg={total:0,text:0,voice:0,voice_duration:0,image:0,video:0,file:0};
-    try{
-      const mr=await _pgPool.query("SELECT type, content, duration FROM penc_messages WHERE sender_id=$1 AND (deleted_for_all IS NOT TRUE)",[uid]);
-      mr.rows.forEach(function(m){
-        if(m.type==='call') return;
-        msg.total++;
-        if(m.type==='text') msg.text++;
-        else if(m.type==='voice'||m.type==='audio'){ msg.voice++; msg.voice_duration+=(parseInt(m.duration,10)||0); }
-        else if(m.type==='image') msg.image++;
-        else if(m.type==='video') msg.video++;
-        else if(m.type==='file'||m.type==='document') msg.file++;
-      });
-    }catch(e){}
-    out.messaging=msg;
-    const convPeer={};
-    try{ const cr=await _pgPool.query("SELECT id, participants FROM penc_conversations WHERE participants @> $1::jsonb",[JSON.stringify([uid])]);
-      cr.rows.forEach(function(c){ let p=c.participants; if(!Array.isArray(p)){ try{ p=JSON.parse(p||'[]'); }catch(e){ p=[]; } } const other=(p||[]).map(String).find(function(x){ return x!==uid; }); convPeer[String(c.id)]=other||null; });
-    }catch(e){}
-    const calls={emis:0,recus:0,manques:0,duree_sec:0,note_moyenne:0};
-    const peerAgg={};
-    try{
-      const convIds=Object.keys(convPeer);
-      if(convIds.length){
-        const cm=await _pgPool.query("SELECT sender_id, content, conversation_id FROM penc_messages WHERE type='call' AND conversation_id = ANY($1)",[convIds]);
-        cm.rows.forEach(function(m){
-          let d={}; try{ d=JSON.parse(m.content||'{}'); }catch(e){}
-          const isMine=(String(m.sender_id)===uid);
-          const answered=(d.status==='answered');
-          const dur=(typeof d.duration==='number')?d.duration:0;
-          if(isMine){ calls.emis++; if(answered) calls.duree_sec+=dur; const peer=convPeer[String(m.conversation_id)]; if(peer){ if(!peerAgg[peer]) peerAgg[peer]={count:0,dur:0}; peerAgg[peer].count++; peerAgg[peer].dur+=(answered?dur:0); } }
-          else { calls.recus++; if(!answered) calls.manques++; }
-        });
-      }
-    }catch(e){}
-    try{ const rr=await _pgPool.query("SELECT COALESCE(AVG(rating),0)::numeric(10,2) a FROM penc_call_ratings WHERE rater_id=$1",[uid]); calls.note_moyenne=parseFloat(rr.rows[0].a)||0; }catch(e){}
-    const social={amis:0,envoyees:0,recues:0,bloques:0,amis_list:[],bloques_list:[]};
-    const idNeeded=new Set();
-    Object.keys(peerAgg).forEach(function(id){ idNeeded.add(id); });
-    try{
-      const fr=await _pgPool.query("SELECT requester, recipient, status FROM penc_friendships WHERE requester=$1 OR recipient=$1",[uid]);
-      fr.rows.forEach(function(f){
-        const other=(String(f.requester)===uid)?String(f.recipient):String(f.requester);
-        if(f.status==='accepted'){ social.amis++; social.amis_list.push(other); idNeeded.add(other); }
-        else if(f.status==='pending'){ if(String(f.requester)===uid) social.envoyees++; else social.recues++; }
-        else if(f.status==='blocked'){ if(String(f.requester)===uid){ social.bloques++; social.bloques_list.push(other); idNeeded.add(other); } }
-      });
-    }catch(e){}
-    const nameMap={};
-    try{ const ids=Array.from(idNeeded); if(ids.length){ const nr=await _pgPool.query("SELECT id, full_name, username FROM penc_users WHERE id = ANY($1)",[ids]); nr.rows.forEach(function(u){ nameMap[String(u.id)]=u.full_name||u.username||'?'; }); } }catch(e){}
-    social.amis_list=social.amis_list.slice(0,300).map(function(id){ return {id:id, name:nameMap[id]||'?'}; });
-    social.bloques_list=social.bloques_list.map(function(id){ return {id:id, name:nameMap[id]||'?'}; });
-    out.social=social;
-    calls.top=Object.keys(peerAgg).map(function(id){ return {id:id, name:nameMap[id]||'?', count:peerAgg[id].count, duration:peerAgg[id].dur}; }).sort(function(a,b){ return b.count-a.count; }).slice(0,5);
-    out.calls=calls;
-    const content={statuts:0,vues:0,likes:0,gains_fcfa:Math.round((vv/1000)*75),canaux_crees:0,canaux_suivis:0};
-    try{ const sr=await _pgPool.query("SELECT COUNT(*)::int n, COALESCE(SUM(COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(views)='array' THEN views ELSE '[]'::jsonb END),0)),0)::int v, COALESCE(SUM(COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(reactions)='array' THEN reactions ELSE '[]'::jsonb END),0)),0)::int l FROM penc_statuses WHERE user_id=$1",[uid]); content.statuts=sr.rows[0].n||0; content.vues=sr.rows[0].v||0; content.likes=sr.rows[0].l||0; }catch(e){}
-    try{ const cc=await _pgPool.query("SELECT COUNT(*) FILTER (WHERE data->>'creator_id'=$1)::int created, COUNT(*) FILTER (WHERE data->'followers' @> to_jsonb($1::text))::int followed FROM penc_channels",[uid]); content.canaux_crees=cc.rows[0].created||0; content.canaux_suivis=cc.rows[0].followed||0; }catch(e){}
-    out.content=content;
-    res.json(out);
-  }catch(e){ console.error('fiche', e.message); res.status(500).json({error:'Erreur serveur'}); }
-});
-// ── Etape 4 : isolation entre utilisateurs ────────────────────
-app.post('/api/penc/admin/isolate', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({success:true});
-    const a=(req.body&&req.body.user_a)?String(req.body.user_a):null;
-    let bs=(req.body&&req.body.user_ids)||[]; if(!Array.isArray(bs)) bs=[];
-    if(!a||!bs.length) return res.status(400).json({error:'Selection invalide'});
-    const adminId=req.pencUser.userId; let n=0;
-    for(const b0 of bs){ const b=String(b0); if(!b||b===a) continue;
-      const ex=await _pgPool.query('SELECT 1 FROM penc_isolations WHERE (user_a=$1 AND user_b=$2) OR (user_a=$2 AND user_b=$1) LIMIT 1',[a,b]);
-      if(ex.rows.length) continue;
-      await _pgPool.query('INSERT INTO penc_isolations(id,user_a,user_b,created_by,created_at) VALUES($1,$2,$3,$4,NOW())',['iso_'+Date.now()+Math.random().toString(36).slice(2),a,b,adminId]); n++;
-    }
-    await _loadIso();
-    res.json({success:true, created:n});
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-app.get('/api/penc/admin/isolations', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({isolations:[]});
-    const r=await _pgPool.query("SELECT i.id, i.user_a, i.user_b, i.created_at, ua.full_name fa, ua.username una, ub.full_name fb, ub.username unb FROM penc_isolations i LEFT JOIN penc_users ua ON ua.id=i.user_a LEFT JOIN penc_users ub ON ub.id=i.user_b ORDER BY i.created_at DESC");
-    res.json({isolations:r.rows.map(function(x){ return {id:x.id, a:{id:x.user_a,name:x.fa||x.una||'?'}, b:{id:x.user_b,name:x.fb||x.unb||'?'}, created_at:x.created_at}; })});
-  }catch(e){ res.json({isolations:[]}); }
-});
-app.delete('/api/penc/admin/isolation/:id', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({success:true});
-    await _pgPool.query('DELETE FROM penc_isolations WHERE id=$1',[req.params.id]);
-    await _loadIso();
-    res.json({success:true});
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-// ── Etape 2 : moderation temps reel ───────────────────────────
-let _pencBlocked = new Set();
-async function _loadBlocked(){
-  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE suspended=TRUE OR blocked=TRUE OR deleted_at IS NOT NULL"); const set=new Set(); r.rows.forEach(function(x){ set.add(String(x.id)); }); _pencBlocked=set; }catch(e){ console.error('_loadBlocked', e.message); }
-}
-async function _forceLogout(userId, reason){
-  try{ _pencBlocked.add(String(userId));
-    try{ io.to('user:'+String(userId)).emit('admin:forcelogout', { reason: reason||'suspended' }); }catch(e){}
-    try{ const socks=await io.in('user:'+String(userId)).fetchSockets(); socks.forEach(function(sk){ try{ sk.disconnect(true); }catch(_){} }); }catch(e){}
-    try{ pencOnline.delete(String(userId)); }catch(e){}
-  }catch(e){ console.error('_forceLogout', e.message); }
-}
-async function _purgeTrash(){
-  try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '60 days'");
-    for(const row of r.rows){ const uid=row.id;
-      try{ await _pgPool.query('DELETE FROM penc_messages WHERE sender_id=$1',[uid]); }catch(e){}
-      try{ await _pgPool.query('DELETE FROM penc_statuses WHERE user_id=$1',[uid]); }catch(e){}
-      try{ await _pgPool.query('DELETE FROM penc_status_comments WHERE user_id=$1',[uid]); }catch(e){}
-      try{ await _pgPool.query('DELETE FROM penc_friendships WHERE requester=$1 OR recipient=$1',[uid]); }catch(e){}
-      try{ await _pgPool.query('DELETE FROM penc_users WHERE id=$1',[uid]); }catch(e){}
-    }
-    if(r.rows.length) console.log('[purge] '+r.rows.length+' compte(s) purge(s) apres 30j');
-  }catch(e){ console.error('_purgeTrash', e.message); }
-}
-setTimeout(_loadBlocked, 8000); setInterval(_loadBlocked, 60000);
-var _pencIso = new Set();
-function _isoKey(a,b){ a=String(a); b=String(b); return a<b ? a+'|'+b : b+'|'+a; }
-function _areIsolated(a,b){ try{ return _pencIso.has(_isoKey(a,b)); }catch(e){ return false; } }
-async function _loadIso(){ try{ if(!_pgPool) return; const r=await _pgPool.query("SELECT user_a,user_b FROM penc_isolations"); const set=new Set(); r.rows.forEach(function(x){ set.add(_isoKey(x.user_a,x.user_b)); }); _pencIso=set; }catch(e){ console.error('_loadIso', e.message); } }
-setTimeout(_loadIso, 9000); setInterval(_loadIso, 60000);
-setTimeout(_purgeTrash, 20000); setInterval(_purgeTrash, 6*3600*1000);
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
-    const users = await pgAllUsersMerged();
+    const users = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
     const convs = await pencConvs();
     const statuses = await pencStatuses();
     let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
     const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 75; const withdrawn = u.withdrawn || 0; return {
-      id: u.id, full_name: (u.full_name && String(u.full_name).trim() && String(u.full_name).trim().toLowerCase()!=='utilisateur') ? u.full_name : (u.username || 'Utilisateur'), username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
+      id: u.id, full_name: u.full_name, username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
-      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, blocked:!!(_modMap[String(u.id)]||{}).blocked, verified:!!u.verified };
+      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended };
     };
-    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator, blocked FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator, blocked:!!r.blocked}; }); } }catch(_e){}
+    const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator}; }); } }catch(_e){}
     const _msgMap={}; try{ if(_pgPool){ const _qq=await _pgPool.query('SELECT sender_id, COUNT(*)::int c FROM penc_messages GROUP BY sender_id'); _qq.rows.forEach(function(r){ _msgMap[String(r.sender_id)]=r.c; }); } }catch(_e){}
-    let _del=new Set(); try{ if(_pgPool){ const _dq=await _pgPool.query("SELECT id FROM penc_users WHERE deleted_at IS NOT NULL"); _dq.rows.forEach(function(r){ _del.add(String(r.id)); }); } }catch(_e){}
-    const all = users.filter(function(u){ return !_del.has(String(u.id)); }).map(enrich);
+    const all = users.map(enrich);
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
     const rewardAlerts = all.filter(u => u.reward_pending);
     const totalValidViews = all.reduce((a, u) => a + u.valid_views, 0);
     res.json({
       stats: { users: users.length, conversations: convs.length, statuses: statuses.length, messages: msgsCount, total_valid_views: totalValidViews },
       withdrawals, rewardAlerts,
-      users: all.sort((a, b) => new Date(b.created_at||0) - new Date(a.created_at||0))
+      users: all.sort((a, b) => b.valid_views - a.valid_views)
     });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7075,344 +5404,6 @@ app.post('/api/penc/admin/withdraw/approve', pencAuth, pencAdmin, async (req, re
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
-app.get('/api/penc/admin/finance', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    let allTime = { total:0, creators:0, penc:0, reserve:0 };
-    let month   = { total:0, creators:0, penc:0, reserve:0 };
-    let months = [];
-    if (_pgPool) {
-      try { const a = await _pgPool.query("SELECT COALESCE(SUM(total),0)::int t, COALESCE(SUM(creator_share),0)::int c, COALESCE(SUM(penc_share),0)::int p, COALESCE(SUM(reserve_share),0)::int r FROM penc_ad_revenue"); allTime = { total:a.rows[0].t, creators:a.rows[0].c, penc:a.rows[0].p, reserve:a.rows[0].r }; } catch(e){}
-      try { const m = await _pgPool.query("SELECT COALESCE(SUM(total),0)::int t, COALESCE(SUM(creator_share),0)::int c, COALESCE(SUM(penc_share),0)::int p, COALESCE(SUM(reserve_share),0)::int r FROM penc_ad_revenue WHERE created_at >= date_trunc('month', NOW())"); month = { total:m.rows[0].t, creators:m.rows[0].c, penc:m.rows[0].p, reserve:m.rows[0].r }; } catch(e){}
-      try { const mm = await _pgPool.query("SELECT to_char(date_trunc('month', created_at),'YYYY-MM') m, COALESCE(SUM(total),0)::int t, COALESCE(SUM(creator_share),0)::int c, COALESCE(SUM(penc_share),0)::int p FROM penc_ad_revenue WHERE created_at >= date_trunc('month', NOW()) - INTERVAL '5 months' GROUP BY m ORDER BY m"); months = mm.rows.map(function(x){ return { month:x.m, total:x.t, creators:x.c, penc:x.p }; }); } catch(e){}
-    }
-    const users = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-    const enrich = (u) => { const vv=u.valid_views||0; const earned=Math.floor(vv/1000)*75; const withdrawn=u.withdrawn||0; return { id:u.id, full_name:u.full_name, username:u.username, phone:u.phone, avatar_url:u.avatar_url||null, valid_views:vv, earned, withdrawn, balance:Math.max(0,earned-withdrawn), withdraw_request:u.withdraw_request||null }; };
-    const all = users.map(enrich);
-    const topCreators = all.filter(u=>u.earned>0).sort((a,b)=>b.earned-a.earned).slice(0,20);
-    const pendingWithdrawals = all.filter(u=>u.withdraw_request && u.withdraw_request.status==='pending');
-    const paidHistory = all.filter(u=>u.withdraw_request && u.withdraw_request.status==='paid').sort(function(a,b){ return new Date(b.withdraw_request.paid_at||0)-new Date(a.withdraw_request.paid_at||0); }).slice(0,50);
-    const totalPaidOut = all.reduce((a,u)=>a+(u.withdrawn||0),0);
-    res.json({ allTime, month, months, topCreators, pendingWithdrawals, paidHistory, totalPaidOut });
-  } catch (e) { res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/admin/withdraw/reject', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    const { user_id } = req.body;
-    const users = await pencUsers();
-    const u = users.find(x => x.id === user_id);
-    if (!u || !u.withdraw_request) return res.status(404).json({ error: 'Aucune demande' });
-    u.withdraw_request.status = 'rejected';
-    u.withdraw_request.rejected_at = new Date().toISOString();
-    u.reward_pending = false;
-    await pencSaveUsers(users);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.get('/api/penc/verified', pencAuth, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ ids: [] });
-    const r = await _pgPool.query('SELECT id FROM penc_users WHERE verified=TRUE');
-    res.json({ ids: r.rows.map(x => String(x.id)) });
-  } catch (e) { res.json({ ids: [] }); }
-});
-app.post('/api/penc/admin/verify/:userId', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ success: true });
-    const v = !!(req.body && req.body.verified);
-    const type = (req.body && req.body.type) || (v ? 'admin' : null);
-    await _pgPool.query('UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END WHERE id=$3', [v, type, req.params.userId]);
-    try { emitToUsers(String(req.params.userId), 'penc:verified', { verified: v }); } catch(e){}
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.post('/api/penc/verify/request', pencAuth, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ success: true });
-    const { doc_url, doc_url2, note, type } = req.body || {};
-    if (!doc_url && (type||'id') !== 'subscription') return res.status(400).json({ error: 'Document requis' });
-    const uid = req.pencUser.userId;
-    await _pgPool.query("UPDATE penc_verif_requests SET status='cancelled' WHERE user_id=$1 AND status='pending'", [uid]);
-    const id = 'vrq_' + Date.now() + Math.random().toString(36).slice(2);
-    await _pgPool.query('INSERT INTO penc_verif_requests(id, user_id, doc_url, doc_url2, type, note, status, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id, uid, doc_url, (doc_url2||null), (type||'id'), (note||null), 'pending']);
-    res.json({ success: true });
-  } catch (e) { console.error('verify/request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.get('/api/penc/verify/status', pencAuth, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ verified:false, pending:false });
-    const uid = req.pencUser.userId;
-    let verified = false;
-    try { const u = await pgFindUser('id', uid); verified = !!(u && u.verified); } catch(e){}
-    let pending = false;
-    try { const r = await _pgPool.query("SELECT 1 FROM penc_verif_requests WHERE user_id=$1 AND status='pending' LIMIT 1",[uid]); pending = r.rows.length>0; } catch(e){}
-    res.json({ verified, pending });
-  } catch (e) { res.json({ verified:false, pending:false }); }
-});
-app.get('/api/penc/admin/verify-requests', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ requests: [] });
-    const r = await _pgPool.query("SELECT vr.*, u.full_name AS _name, u.username AS _un, u.phone AS _phone, u.avatar_url AS _av, u.verified AS _verified FROM penc_verif_requests vr LEFT JOIN penc_users u ON u.id=vr.user_id WHERE vr.status='pending' ORDER BY vr.created_at DESC LIMIT 200");
-    const requests = r.rows.map(function(x){ return { id:x.id, user_id:x.user_id, name:(x._name||x._un||'Utilisateur'), username:x._un||'', phone:x._phone||'', avatar_url:x._av||null, already_verified:!!x._verified, doc_url:x.doc_url, doc_url2:x.doc_url2, type:x.type, note:x.note, created_at:x.created_at }; });
-    res.json({ requests });
-  } catch (e) { res.json({ requests: [] }); }
-});
-app.post('/api/penc/admin/verify-requests/:id/approve', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ success: true });
-    const rq = await _pgPool.query('SELECT user_id FROM penc_verif_requests WHERE id=$1', [req.params.id]);
-    if (!rq.rows.length) return res.status(404).json({ error: 'Introuvable' });
-    const uid = rq.rows[0].user_id;
-    await _pgPool.query("UPDATE penc_verif_requests SET status='approved' WHERE id=$1", [req.params.id]);
-    await _pgPool.query("UPDATE penc_users SET verified=TRUE, verified_type='id', verified_at=NOW() WHERE id=$1", [uid]);
-    try { emitToUsers(String(uid), 'penc:verified', { verified: true }); } catch(e){}
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.post('/api/penc/admin/verify-requests/:id/reject', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ success: true });
-    await _pgPool.query("UPDATE penc_verif_requests SET status='rejected' WHERE id=$1", [req.params.id]);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    const { title, body, url } = req.body || {};
-    if (!body || !String(body).trim()) return res.status(400).json({ error: 'Message requis' });
-    const data = { title: (title||'Penc'), body: String(body), url: (url||'/messager') };
-    try { io.emit('penc:broadcast', data); } catch(e){}
-    let sent = 0, total = 0;
-    if (webpush) {
-      const payload = JSON.stringify({ title: data.title, body: data.body, tag: 'penc-broadcast', url: data.url });
-      const subs = await pencPushSubs(); total = subs.length;
-      const dead = [];
-      for (const sb of subs) {
-        try { await webpush.sendNotification(sb.subscription, payload); sent++; }
-        catch (err) { if (err && (err.statusCode===404||err.statusCode===410) && sb.subscription) dead.push(sb.subscription.endpoint); }
-      }
-      if (dead.length) { try { const all = await pencPushSubs(); await pencSavePushSubs(all.filter(z => !(z.subscription && dead.includes(z.subscription.endpoint)))); } catch(e){} }
-    }
-    res.json({ success: true, sent, total });
-  } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
-});
-// POST /api/penc/admin/broadcast-email — diffusion email (annonces, rappels, mises a jour) via Resend
-// GET /api/penc/email/unsubscribe — desinscription des emails groupes via lien signe dans l'email
-app.get('/api/penc/email/unsubscribe', async (req, res) => {
-  try{
-    const token = req.query.token;
-    if(!token) return res.status(400).send('Lien invalide.');
-    let payload;
-    try{ payload = jwt_penc.verify(String(token), PENC_SECRET); }catch(e){ return res.status(400).send('Lien invalide ou expire.'); }
-    if(!payload || payload.purpose !== 'email_unsub') return res.status(400).send('Lien invalide.');
-    if(_pgPool){ await _pgPool.query('UPDATE penc_users SET email_opt_out=TRUE WHERE id=$1', [payload.userId]); }
-    res.send('<html><body style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#333;"><h2 style="color:#12388C;">Vous etes desinscrit</h2><p>Vous ne recevrez plus les emails groupes de Penc (annonces, rappels, mises a jour). Les emails de securite (reinitialisation de mot de passe) continueront de fonctionner normalement.</p></body></html>');
-  }catch(e){ res.status(500).send('Erreur serveur.'); }
-});
-app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    const { subject, message } = req.body || {};
-    if(!subject || !String(subject).trim()) return res.status(400).json({ error: 'Sujet requis' });
-    if(!message || !String(message).trim()) return res.status(400).json({ error: 'Message requis' });
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    if(!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY non configuree' });
-    if(!_pgPool) return res.status(500).json({ error: 'Base de donnees indisponible' });
-
-    const r = await _pgPool.query("SELECT id, email, full_name FROM penc_users WHERE email IS NOT NULL AND email != '' AND COALESCE(email_opt_out,FALSE) = FALSE");
-    const recipients = r.rows;
-    const total = recipients.length;
-    if(!total) return res.json({ success:true, sent:0, total:0 });
-
-    // Corps HTML : le message est saisi en texte simple, converti en paragraphes
-    const bodyHtml = String(message).split('\n').filter(function(l){ return l.trim(); })
-      .map(function(l){ return '<p style="margin:0 0 14px;color:#333;font-size:15px;line-height:1.6;">'+l+'</p>'; }).join('');
-
-    // Resend batch API : max 100 destinataires par appel — chaque email a son propre lien de desinscription
-    let sent = 0;
-    const CHUNK = 100;
-    for(let i=0; i<recipients.length; i+=CHUNK){
-      const chunk = recipients.slice(i, i+CHUNK);
-      const payload = chunk.map(function(u){
-        const unsubToken = jwt_penc.sign({ userId:u.id, purpose:'email_unsub' }, PENC_SECRET, { expiresIn:'365d' });
-        const unsubUrl = 'https://api.penc-messagerie.com/api/penc/email/unsubscribe?token=' + encodeURIComponent(unsubToken);
-        const footerHtml = bodyHtml + '<p style="margin:24px 0 0;color:#AAB2C0;font-size:11.5px;line-height:1.5;"><a href="'+unsubUrl+'" style="color:#AAB2C0;text-decoration:underline;">Se désinscrire de ces emails</a></p>';
-        return { from:'Penc <no-reply@penc-messagerie.com>', to:[u.email], subject:String(subject), html:_pencEmailShell(String(subject), footerHtml) };
-      });
-      try{
-        const rr = await fetch('https://api.resend.com/emails/batch', {
-          method:'POST',
-          headers:{ 'Authorization':'Bearer '+RESEND_API_KEY, 'Content-Type':'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if(rr.ok){ sent += chunk.length; }
-        else{ const t = await rr.text().catch(function(){return '';}); console.log('[broadcast-email] ECHEC chunk', i, '-> HTTP', rr.status, t.slice(0,200)); }
-      }catch(e){ console.log('[broadcast-email] EXCEPTION chunk', i, '->', e.message); }
-      // Petite pause entre les lots pour rester sous les limites de debit Resend
-      if(i+CHUNK < recipients.length) await new Promise(function(res2){ setTimeout(res2, 600); });
-    }
-    console.log('[broadcast-email]', sent, '/', total, 'envoyes, sujet:', subject);
-    res.json({ success:true, sent, total });
-  }catch(e){ console.error('broadcast-email:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
-});
-// GET /api/penc/legal — pages legales personnalisees (publique, utilisee par l'app pour surcharger les textes par defaut)
-app.get('/api/penc/legal', async (req, res) => {
-  try{
-    if(!_pgPool) return res.json({ pages:{} });
-    const r = await _pgPool.query('SELECT key, title, html FROM penc_legal_pages');
-    const pages = {};
-    r.rows.forEach(function(row){ pages[row.key] = { title: row.title, html: row.html }; });
-    res.json({ pages });
-  }catch(e){ res.json({ pages:{} }); }
-});
-// PUT /api/penc/admin/legal/:key — creer/mettre a jour une page legale
-app.put('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    const key = req.params.key;
-    const { title, html } = req.body || {};
-    if(!title || !html) return res.status(400).json({ error: 'Titre et contenu requis' });
-    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    await _pgPool.query(
-      'INSERT INTO penc_legal_pages(key,title,html,updated_at,updated_by) VALUES($1,$2,$3,NOW(),$4) ON CONFLICT (key) DO UPDATE SET title=$2, html=$3, updated_at=NOW(), updated_by=$4',
-      [key, title, html, req.pencAdminUser && req.pencAdminUser.email || null]
-    );
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// DELETE /api/penc/admin/legal/:key — revenir au texte par defaut integre a l'app
-app.delete('/api/penc/admin/legal/:key', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(_pgPool) await _pgPool.query('DELETE FROM penc_legal_pages WHERE key=$1', [req.params.key]);
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// ══════════════ TABLEAU DE BORD APPELS / PENC MEET (admin) ══════════════
-// ══════════════ TABLEAU DE BORD CROISSANCE (admin) ══════════════
-app.get('/api/penc/admin/growth-dashboard', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
-    const totalUsers = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE deleted_at IS NULL");
-    const signups7 = await _pgPool.query("SELECT to_char(d.day,'YYYY-MM-DD') AS day, COUNT(u.id)::int AS n FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d(day) LEFT JOIN penc_users u ON u.created_at::date = d.day WHERE 1=1 GROUP BY d.day ORDER BY d.day");
-    const signupsToday = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at::date = CURRENT_DATE");
-    const signupsWeek = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at > NOW() - INTERVAL '7 days'");
-    const signupsMonth = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE created_at > NOW() - INTERVAL '30 days'");
-    const activeToday = await _pgPool.query("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_sessions WHERE last_seen > NOW() - INTERVAL '24 hours'");
-    const activeWeek = await _pgPool.query("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_sessions WHERE last_seen > NOW() - INTERVAL '7 days'");
-    const withEmail = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE email IS NOT NULL AND email != '' AND deleted_at IS NULL");
-    const deletedCount = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_users WHERE deleted_at IS NOT NULL");
-    const langBreakdown = { note: 'Repartition par langue non suivie cote serveur (choix stocke localement sur l\'appareil).' };
-    res.json({
-      total_users: totalUsers.rows[0].n,
-      signups_today: signupsToday.rows[0].n,
-      signups_week: signupsWeek.rows[0].n,
-      signups_month: signupsMonth.rows[0].n,
-      active_today: activeToday.rows[0].n,
-      active_week: activeWeek.rows[0].n,
-      with_email: withEmail.rows[0].n,
-      deleted_accounts: deletedCount.rows[0].n,
-      signups_last_7_days: signups7.rows.map(function(r){ return { day: r.day, count: r.n }; })
-    });
-  }catch(e){ console.error('growth-dashboard:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.get('/api/penc/admin/calls-dashboard', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
-
-    // ── Appels 1-a-1 (voix + video), stockes comme messages type='call' ──
-    const callRows = await _pgPool.query("SELECT content, created_at FROM penc_messages WHERE type='call' AND (deleted_for_all IS NOT TRUE)");
-    let voiceCount=0, videoCount=0, voiceSeconds=0, videoSeconds=0;
-    let callsToday=0, callsWeek=0;
-    const now = Date.now(), dayAgo = now-86400000, weekAgo = now-7*86400000;
-    callRows.rows.forEach(function(row){
-      let d={}; try{ d=JSON.parse(row.content||'{}'); }catch(_e){}
-      const isVideo = d.call_type==='video';
-      const dur = (d.status==='answered' && typeof d.duration==='number') ? d.duration : 0;
-      if(isVideo){ videoCount++; videoSeconds+=dur; } else { voiceCount++; voiceSeconds+=dur; }
-      const t = new Date(row.created_at).getTime();
-      if(t>dayAgo) callsToday++;
-      if(t>weekAgo) callsWeek++;
-    });
-
-    // ── Historique Penc Meet (table persistante) ──
-    const meetHistRows = await _pgPool.query(
-      "SELECT code, MAX(title) AS title, MAX(host) AS host, MIN(joined_at) AS started_at, MAX(COALESCE(left_at, joined_at)) AS ended_at, COUNT(DISTINCT participant)::int AS participants " +
-      "FROM penc_meet_history GROUP BY code ORDER BY MIN(joined_at) DESC LIMIT 50"
-    );
-    const meetTotalSessions = await _pgPool.query("SELECT COUNT(DISTINCT code)::int AS n FROM penc_meet_history");
-    const meetTotalJoins = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_meet_history");
-
-    // Noms complets pour l'historique (host + participants), en un seul aller-retour
-    const hostIds = Array.from(new Set(meetHistRows.rows.map(function(r){return r.host;}).filter(Boolean)));
-    let hostNames = {};
-    if(hostIds.length){
-      const hu = await _pgPool.query('SELECT id, full_name FROM penc_users WHERE id = ANY($1)', [hostIds]);
-      hu.rows.forEach(function(u){ hostNames[u.id]=u.full_name; });
-    }
-
-    // ── Reunions Penc Meet EN COURS, en temps reel (mémoire serveur) ──
-    const activeMeets = Object.keys(_meetRooms).map(function(code){
-      const room = _meetRooms[code];
-      const peerList = Object.values(room.peers||{}).map(function(p){ return p.name||'Participant'; });
-      return {
-        code: code,
-        title: room.title || '(sans titre)',
-        host: hostNames[room.host] || room.host || '?',
-        participant_count: peerList.length,
-        participants: peerList,
-        started_at: new Date(room.createdAt).toISOString(),
-        duration_seconds: Math.round((Date.now()-room.createdAt)/1000)
-      };
-    }).filter(function(m){ return m.participant_count > 0; });
-    const activeTotalParticipants = activeMeets.reduce(function(a,m){ return a+m.participant_count; }, 0);
-
-    res.json({
-      calls: {
-        voice_total: voiceCount, video_total: videoCount,
-        voice_minutes: Math.round(voiceSeconds/60), video_minutes: Math.round(videoSeconds/60),
-        total_minutes: Math.round((voiceSeconds+videoSeconds)/60),
-        calls_today: callsToday, calls_week: callsWeek
-      },
-      meet: {
-        total_sessions: (meetTotalSessions.rows[0]&&meetTotalSessions.rows[0].n)||0,
-        total_joins: (meetTotalJoins.rows[0]&&meetTotalJoins.rows[0].n)||0,
-        history: meetHistRows.rows.map(function(r){
-          return {
-            code: r.code, title: r.title||'(sans titre)', host: hostNames[r.host]||r.host||'?',
-            participants: r.participants, started_at: r.started_at, ended_at: r.ended_at
-          };
-        }),
-        active: activeMeets,
-        active_count: activeMeets.length,
-        active_total_participants: activeTotalParticipants
-      }
-    });
-  }catch(e){ console.error('calls-dashboard:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.get('/api/penc/admin/security', pencAuth, pencAdmin, async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] });
-    let logs=[], failed_24h=0, errors_24h=0, suspended=[], moderators=[];
-    try { const r = await _pgPool.query("SELECT * FROM penc_security_logs ORDER BY created_at DESC LIMIT 100"); logs = r.rows; } catch(e){}
-    try { const f = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_security_logs WHERE type='login_failed' AND created_at >= NOW() - INTERVAL '24 hours'"); failed_24h = f.rows[0].c; } catch(e){}
-    try { const ce = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_security_logs WHERE type='client_error' AND created_at >= NOW() - INTERVAL '24 hours'"); errors_24h = ce.rows[0].c; } catch(e){}
-    try { const sq = await _pgPool.query("SELECT id, full_name, username, phone FROM penc_users WHERE suspended=TRUE LIMIT 100"); suspended = sq.rows; } catch(e){}
-    try { const m = await _pgPool.query("SELECT id, full_name, username FROM penc_users WHERE moderator=TRUE LIMIT 100"); moderators = m.rows; } catch(e){}
-    res.json({ logs, failed_24h, errors_24h, suspended, moderators });
-  } catch (e) { res.json({ logs:[], failed_24h:0, suspended:[], moderators:[] }); }
-});
-app.post('/api/penc/client-log', async (req, res) => {
-  try {
-    if (!_pgPool) return res.json({ ok: true });
-    let uid = null;
-    try { const a=(req.headers.authorization||'').replace('Bearer ',''); if(a){ const dec=jwt_penc.verify(a, PENC_SECRET); uid=dec&&dec.userId; } } catch(e){}
-    const { message, detail } = req.body || {};
-    if (!message) return res.json({ ok: true });
-    const id='cer_'+Date.now()+Math.random().toString(36).slice(2);
-    const ua=String(req.headers['user-agent']||'').slice(0,300);
-    const ip=((req.headers['x-forwarded-for']||'').split(',')[0].trim())||req.ip||'';
-    const det=String(message).slice(0,200)+(detail?(' | '+String(detail).slice(0,300)):'');
-    await _pgPool.query('INSERT INTO penc_security_logs(id,type,user_id,identifier,ip,user_agent,detail,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id,'client_error',uid,null,ip,ua,det]);
-    res.json({ ok: true });
-  } catch (e) { res.json({ ok: true }); }
-});
 // ── Modération admin (Fonct. 5) ──
 app.get('/api/penc/admin/user/:id/statuses', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({statuses:[]});
@@ -7447,10 +5438,7 @@ app.post('/api/penc/admin/reports/:id/resolve', pencAuth, pencAdmin, async (req,
 });
 app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, expires_hours } = req.body || {};
-    let _offExp;
-    if(expires_hours==='permanent' || expires_hours===0 || expires_hours==='0'){ _offExp = new Date(Date.now() + 3650*86400000).toISOString(); }
-    else { let _h=parseInt(expires_hours,10); if(!(_h>0)) _h=24; _offExp = new Date(Date.now() + _h*3600*1000).toISOString(); }
+    const { type, media_url, text_content, bg_color, caption, duration } = req.body || {};
     const status = {
       id: 'st_' + Date.now() + Math.random().toString(36).slice(2),
       user_id: 'penc_official', type: type || 'text',
@@ -7459,7 +5447,7 @@ app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res
       duration: (typeof duration === 'number' && duration > 0 && duration <= 60) ? Math.round(duration) : (type === 'video' ? 0 : 10),
       reactions: [], views: [], view_ips: [],
       created_at: new Date().toISOString(),
-      expires_at: _offExp
+      expires_at: new Date(Date.now() + 30 * 86400000).toISOString()
     };
     if (_pgPool) { await pgSaveStatus(status); }
     else { const statuses = await pencStatuses(); statuses.push(status); await pencSaveStatuses(statuses); }
@@ -7488,8 +5476,6 @@ app.post('/api/penc/admin/suspend/:userId', pencAuth, pencAdmin, async (req,res)
   try{ if(!_pgPool) return res.json({success:true});
     const susp=!!(req.body&&req.body.suspend);
     await _pgPool.query('UPDATE penc_users SET suspended=$1 WHERE id=$2',[susp,req.params.userId]);
-    if(susp){ await _forceLogout(req.params.userId,'suspended'); } else { _pencBlocked.delete(String(req.params.userId)); await _loadBlocked(); }
-    pencSecLog(susp?'user_suspended':'user_unsuspended', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null});
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/admin/message/:userId', pencAuth, pencAdmin, async (req, res) => {
@@ -7515,7 +5501,7 @@ app.post('/api/penc/admin/message/:userId', pencAuth, pencAdmin, async (req, res
     try { io.to('user:' + String(target)).emit('message:new', fullMsg); } catch (_) {}
     try { io.to('user:' + String('penc_official')).emit('message:new', fullMsg); } catch (_) {}
     try { await pgSaveMessage({ id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: 'text', content: content, media_url: null, duration: null, reply_to: null, created_at: msg.created_at, client_id: null }); } catch (e) { console.error('admin dm persist:', e.message); }
-    try { if (typeof webpush !== 'undefined' && webpush) { const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message'; await sendPencPush(target, { title: ptitle, body: pencMsgBody('text', content), tag: 'penc-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); } } catch (_pp) {}
+    try { if (typeof webpush !== 'undefined' && webpush) { const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message'; await sendPencPush(target, { title: ptitle, body: content.slice(0, 120), tag: 'penc-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); } } catch (_pp) {}
     return res.json({ success: true, message: fullMsg, conversation_id: conv.id });
   } catch (e) { return res.status(500).json({ error: 'Erreur envoi' }); }
 });
@@ -7525,138 +5511,22 @@ app.post('/api/penc/admin/moderator/:userId', pencAuth, pencAdmin, async (req,re
     await _pgPool.query('UPDATE penc_users SET moderator=$1 WHERE id=$2',[mod,req.params.userId]);
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
-app.post('/api/penc/admin/block/:userId', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({success:true});
-    const blk=!!(req.body&&req.body.block);
-    await _pgPool.query('UPDATE penc_users SET blocked=$1 WHERE id=$2',[blk,req.params.userId]);
-    if(blk){ await _forceLogout(req.params.userId,'blocked'); } else { _pencBlocked.delete(String(req.params.userId)); await _loadBlocked(); }
-    try{ pencSecLog(blk?'user_blocked':'user_unblocked', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
-    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-app.get('/api/penc/admin/deleted', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({deleted:[]});
-    const r=await _pgPool.query("SELECT id,full_name,username,email,phone,avatar_url,deleted_at FROM penc_users WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC");
-    res.json({deleted:r.rows.map(function(x){ return {id:x.id,full_name:x.full_name,username:x.username,email:x.email||'',phone:x.phone||'',avatar_url:x.avatar_url||null,deleted_at:x.deleted_at}; })}); }catch(e){ res.json({deleted:[]}); }
-});
-app.post('/api/penc/admin/user/:id/restore', pencAuth, pencAdmin, async (req,res)=>{
-  try{ if(!_pgPool) return res.json({success:true});
-    await _pgPool.query('UPDATE penc_users SET deleted_at=NULL, suspended=FALSE, blocked=FALSE WHERE id=$1',[req.params.id]);
-    _pencBlocked.delete(String(req.params.id));
-    try{ pencSecLog('user_restored', req, {user_id:req.params.id, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
-    res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-// DELETE /api/penc/account — suppression de compte en libre-service (l'utilisateur lui-meme)
-// Reutilise le meme mecanisme de soft-delete + purge a 30 jours que la suppression admin.
-// ══════════════ SUPPRESSION DE COMPTE : mot de passe -> code de confirmation -> suppression reelle ══════════════
-const _pencDeletePending = new Map(); // userId -> { code, expiresAt, attempts }
-// Etape 1/2 : verifie le mot de passe, envoie un code de confirmation (email si dispo, sinon SMS)
-app.post('/api/penc/account/delete/request', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId;
-    const password = req.body && req.body.password;
-    if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer' });
-    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    const user = await pgFindUser('id', uid);
-    if (!user) return res.status(404).json({ error: 'Compte introuvable' });
-    if (PENC_ADMIN_EMAILS.includes(String(user.email || '').toLowerCase())) {
-      return res.status(400).json({ error: 'Les comptes administrateurs ne peuvent pas être supprimés depuis l\'app. Contacte le support.' });
-    }
-    const hash = user.password_hash || user.password || '';
-    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
-    if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
-    const code = String(Math.floor(100000+Math.random()*900000));
-    _pencDeletePending.set(uid, { code, expiresAt: Date.now()+10*60*1000, attempts:0 });
-    setTimeout(function(){ const p=_pencDeletePending.get(uid); if(p && p.code===code){ _pencDeletePending.delete(uid); } }, 10*60*1000);
-    let channel = 'aucun';
-    if(user.email){ _pencSendDeleteEmail(user.email, code); channel = 'email'; }
-    else if(user.phone){ _pencSendResetSMS(user.phone, code); channel = 'sms'; }
-    res.json({ success:true, channel: channel });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-async function _pencSendDeleteEmail(email, code){
-  try{
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    if(!RESEND_API_KEY){ console.log('[account-delete][EMAIL] ECHEC: RESEND_API_KEY non configuree'); return false; }
-    const ctrl = new AbortController();
-    const timeoutId = setTimeout(function(){ ctrl.abort(); }, 8000);
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Penc <no-reply@penc-messagerie.com>',
-        to: [email],
-        subject: 'Penc — Confirmation de suppression de compte',
-        html: _pencEmailShell(
-          'Confirmation de suppression',
-          '<p style="margin:0 0 18px;color:#333;font-size:15px;line-height:1.6;">Bonjour,</p>'+
-          '<p style="margin:0 0 22px;color:#333;font-size:15px;line-height:1.6;">Vous avez demandé la suppression de votre compte Penc. Voici votre code de confirmation :</p>'+
-          '<div style="text-align:center;margin:28px 0;"><span style="display:inline-block;background:#FDEDEC;color:#C0392B;font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;border-radius:14px;border:1px solid #F5C6C0;">'+code+'</span></div>'+
-          '<p style="margin:0 0 22px;color:#666;font-size:14px;line-height:1.6;">Ce code est valable pendant <b>10 minutes</b>. Une fois confirmé, vous aurez <b>60 jours</b> pour annuler la suppression en te reconnectant.</p>'+
-          '<div style="background:#FFF6E5;border:1px solid #FFE1A8;border-radius:12px;padding:14px 16px;margin-top:24px;">'+
-          '<p style="margin:0;color:#8A5A00;font-size:13.5px;line-height:1.5;">⚠️ <b>Vous n\'êtes pas à l\'origine de cette demande ?</b><br/>Ignorez simplement cet email — ton compte ne sera pas supprimé sans ce code.</p>'+
-          '</div>'
-        )
-      }),
-      signal: ctrl.signal
-    });
-    clearTimeout(timeoutId);
-    console.log('[account-delete][EMAIL]', email, '->', r.ok ? 'OK' : ('ECHEC HTTP '+r.status));
-    return r.ok;
-  }catch(e){ console.log('[account-delete][EMAIL] EXCEPTION:', email, '->', e.message); return false; }
-}
-// Etape 2/2 : verifie le code, execute la suppression (soft-delete, 60 jours avant purge definitive)
-app.post('/api/penc/account/delete/confirm', pencAuth, async (req, res) => {
-  try {
-    const uid = req.pencUser.userId;
-    const code = req.body && req.body.code;
-    if (!code) return res.status(400).json({ error: 'Code requis' });
-    const p = _pencDeletePending.get(uid);
-    if (!p || p.expiresAt < Date.now()) return res.status(400).json({ error: 'Code invalide ou expiré, recommence' });
-    p.attempts = (p.attempts||0)+1;
-    if (p.attempts > 5) { _pencDeletePending.delete(uid); return res.status(429).json({ error: 'Trop de tentatives, redemande un code' }); }
-    if (p.code !== code) return res.status(400).json({ error: 'Code incorrect' });
-    _pencDeletePending.delete(uid);
-    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    await _pgPool.query('UPDATE penc_users SET deleted_at=NOW(), suspended=TRUE WHERE id=$1', [uid]);
-    await _forceLogout(uid, 'self_deleted');
-    try{ pencSecLog('user_self_deleted', req, {user_id:uid}); }catch(e){}
-    res.json({ success:true });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
-// Restauration en libre-service : un compte supprime ne peut pas obtenir de jeton via /auth/login,
-// cette route verifie donc les identifiants directement (comme un login) et restaure + reconnecte si valide.
-// Possible pendant 60 jours (avant purge definitive par _purgeTrash).
-app.post('/api/penc/account/restore', async (req, res) => {
-  try {
-    const { identifier, password } = req.body || {};
-    if (!identifier || !password) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
-    if (!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
-    const id = String(identifier).trim(); const idLow = id.toLowerCase();
-    const user = await pgFindUser('phone', id) || await pgFindUser('email', idLow) || await pgFindUser('username', idLow);
-    if (!user) return res.status(400).json({ error: 'Compte introuvable' });
-    if (!user.deleted_at) return res.status(400).json({ error: 'Ce compte n\'est pas supprimé' });
-    const hash = user.password_hash || user.password || '';
-    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
-    if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
-    await _pgPool.query('UPDATE penc_users SET deleted_at=NULL, suspended=FALSE WHERE id=$1', [user.id]);
-    try{ pencSecLog('user_self_restored', req, {user_id:user.id, identifier:id}); }catch(e){}
-    // Reconnexion immediate : on renvoie un jeton pour eviter a l'utilisateur de retaper ses identifiants
-    const _sid = _pencNewSid();
-    const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(user.id, _sid, req).catch(function(){});
-    res.json({ success:true, token: tok, user: pencStrip(user) });
-  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
-});
 app.delete('/api/penc/admin/user/:id', pencAuth, pencAdmin, async (req, res) => {
   try {
     const uid = req.params.id;
     let target = null;
     try { if (_pgPool) { const r = await _pgPool.query('SELECT email FROM penc_users WHERE id=$1', [uid]); target = r.rows[0] || null; } } catch (e) {}
     if (target && PENC_ADMIN_EMAILS.includes(String(target.email || '').toLowerCase())) return res.status(400).json({ error: 'Impossible de supprimer un administrateur' });
-    if (_pgPool) { try { await _pgPool.query('UPDATE penc_users SET deleted_at=NOW(), suspended=TRUE WHERE id=$1', [uid]); } catch (e) {} }
-    await _forceLogout(uid,'deleted');
-    try{ pencSecLog('user_trashed', req, {user_id:uid, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
-    res.json({ success: true, trashed:true });
+    if (_pgPool) {
+      try { await _pgPool.query('DELETE FROM penc_messages WHERE sender_id=$1', [uid]); } catch (e) {}
+      try { await _pgPool.query('DELETE FROM penc_statuses WHERE user_id=$1', [uid]); } catch (e) {}
+      try { await _pgPool.query('DELETE FROM penc_status_comments WHERE user_id=$1', [uid]); } catch (e) {}
+      try { await _pgPool.query('DELETE FROM penc_friendships WHERE requester=$1 OR recipient=$1', [uid]); } catch (e) {}
+      try { await _pgPool.query('DELETE FROM penc_users WHERE id=$1', [uid]); } catch (e) {}
+    }
+    try { const users = await pencUsers(); const i = users.findIndex(x => String(x.id) === String(uid)); if (i >= 0) { users.splice(i, 1); await pencSaveUsers(users); } } catch (e) {}
+    try { pencOnline.delete(uid); } catch (e) {}
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) => {
@@ -7673,21 +5543,6 @@ app.post('/api/penc/admin/reward/clear', pencAuth, pencAdmin, async (req, res) =
 app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    if (_pgPool) {
-      try {
-        const _prevSeenR = await _pgPool.query("SELECT last_seen, full_name FROM penc_users WHERE id=$1", [uid]);
-        const _prevSeen = _prevSeenR.rows[0];
-        await _pgPool.query("UPDATE penc_users SET total_time_seconds = COALESCE(total_time_seconds,0)+300, last_seen=NOW() WHERE id=$1", [uid]);
-        if (_prevSeen && _prevSeen.last_seen) {
-          const _gapMs = Date.now() - new Date(_prevSeen.last_seen).getTime();
-          if (_gapMs >= 24*60*60*1000) {
-            _sendPencOfficialDM(uid, _pencWelcomeBackText(_prevSeen.full_name||''), 'Penc', 'Content de te revoir sur Penc ! \ud83d\udc4b', 'penc-welcomeback').catch(function(){});
-          }
-        }
-      } catch(e){}
-      try { const gr=await _pgPool.query("SELECT geo FROM penc_users WHERE id=$1",[uid]); const cur=gr.rows[0]?gr.rows[0].geo:null; const hasGeo=cur&&typeof cur==='object'&&cur.country; if(!hasGeo){ const xfRaw=(req.headers['x-forwarded-for']||(req.socket&&req.socket.remoteAddress)||'unknown'); const ip=xfRaw.replace('::ffff:','').split(',')[0].trim(); if(ip&&ip!=='unknown'&&!ip.startsWith('127.')&&!ip.startsWith('10.')&&ip!=='::1'){ getGeoForIp(ip).then(async function(geo){ if(geo){ try{ await _pgPool.query("UPDATE penc_users SET geo=$1::jsonb WHERE id=$2",[JSON.stringify(geo),uid]); }catch(e){} } }).catch(function(){}); } } } catch(e){}
-      return res.json({ success:true });
-    }
     const users = await pencUsers();
     const u = users.find(x => x.id === uid);
     if (u) {
@@ -7776,21 +5631,21 @@ async function pencSaveChannels(arr){
 }
 app.get('/api/penc/channels', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const channels=await pencChannels();
-    const enriched=channels.map(ch=>({...ch,posts:undefined,post_count:(ch.posts||[]).length,follower_count:(ch.followers||[]).length,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid)),type:ch.type||'broadcast',read_only:!!ch.read_only,can_post:(String(ch.creator_id)===String(uid)||(ch.admins||[]).map(String).includes(String(uid))||((ch.type==='group')&&!ch.read_only&&(ch.followers||[]).map(String).includes(String(uid)))),last_post:(ch.posts||[]).slice(-1)[0]||null}));
+    const enriched=channels.map(ch=>({...ch,posts:undefined,post_count:(ch.posts||[]).length,follower_count:(ch.followers||[]).length,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid)),last_post:(ch.posts||[]).slice(-1)[0]||null}));
     res.json({channels:enriched}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 app.post('/api/penc/channels', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const {name,description,icon_url,type}=req.body; const _ctype=(type==='group')?'group':'broadcast';
+  try{ const uid=req.pencUser.userId; const {name,description,icon_url}=req.body;
     if(!name||name.trim().length<2) return res.status(400).json({error:'Nom requis (2 car. min)'});
     const channels=await pencChannels();
-    const ch={id:'ch_'+Date.now(),name:name.trim(),description:(description||'').trim(),icon_url:icon_url||null,type:_ctype,read_only:false,creator_id:uid,admins:[],followers:[uid],posts:[],created_at:new Date().toISOString()};
+    const ch={id:'ch_'+Date.now(),name:name.trim(),description:(description||'').trim(),icon_url:icon_url||null,creator_id:uid,admins:[],followers:[uid],posts:[],created_at:new Date().toISOString()};
     channels.push(ch); await pencSaveChannels(channels);
     res.json({success:true,channel:{...ch,posts:undefined,follower_count:1,is_following:true,is_creator:true}}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 app.get('/api/penc/channels/:id', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    res.json({...ch,type:ch.type||'broadcast',read_only:!!ch.read_only,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid)),can_post:(String(ch.creator_id)===String(uid)||(ch.admins||[]).map(String).includes(String(uid))||((ch.type==='group')&&!ch.read_only&&(ch.followers||[]).map(String).includes(String(uid))))}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
+    res.json({...ch,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid))}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
 app.post('/api/penc/channels/:id/follow', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
@@ -7807,10 +5662,8 @@ app.post('/api/penc/channels/:id/post', pencAuth, async (req,res) => {
     const channels=await pencChannels();
     const ch=channels.find(x=>x.id===req.params.id);
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    const _isChAdmin=String(ch.creator_id)===String(uid)||(ch.admins||[]).map(String).includes(String(uid));
-    const _memberCanPost=(ch.type==='group')&&!ch.read_only&&(ch.followers||[]).map(String).includes(String(uid));
-    if(!_isChAdmin && !_memberCanPost) return res.status(403).json({error:'Vous ne pouvez pas publier dans ce canal'});
-    const post={id:'p_'+Date.now(),sender_id:uid,content:content||'',type:type||'text',
+    if(String(ch.creator_id)!==String(uid) && !(ch.admins||[]).map(String).includes(String(uid))) return res.status(403).json({error:'Seuls le proprietaire et les admins peuvent publier'});
+    const post={id:'p_'+Date.now(),content:content||'',type:type||'text',
       media_url:media_url||null,created_at:new Date().toISOString(),reactions:{}};
     if(!ch.posts) ch.posts=[];
     ch.posts.push(post);
@@ -7906,34 +5759,6 @@ app.delete('/api/penc/channels/:id', pencAuth, async (req,res) => {
     if(String(channels[idx].creator_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
     channels.splice(idx,1); await pencSaveChannels(channels); res.json({success:true}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
-app.post('/api/penc/channels/:id/readonly', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    if(String(ch.creator_id)!==String(uid) && !(ch.admins||[]).map(String).includes(String(uid))) return res.status(403).json({error:'Non autorise'});
-    ch.read_only=!!req.body.read_only; await pencSaveChannels(channels);
-    try{ (ch.followers||[]).forEach(function(fid){ emitToUsers(String(fid),'channel:update',{channel_id:ch.id,read_only:ch.read_only}); }); }catch(e){}
-    res.json({success:true,read_only:ch.read_only}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-app.put('/api/penc/channels/:id', pencAuth, async (req,res) => {
-  try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    if(String(ch.creator_id)!==String(uid) && !(ch.admins||[]).map(String).includes(String(uid))) return res.status(403).json({error:'Non autorise'});
-    const b=req.body||{};
-    if(b.name && b.name.trim().length>=2) ch.name=b.name.trim();
-    if(typeof b.description==='string') ch.description=b.description.trim();
-    if(b.icon_url) ch.icon_url=b.icon_url;
-    await pencSaveChannels(channels);
-    res.json({success:true,channel:{id:ch.id,name:ch.name,description:ch.description,icon_url:ch.icon_url}}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
-app.post('/api/penc/channels/:id/posts/:pid/view', pencAuth, async (req,res) => {
-  try{ const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
-    if(!ch) return res.status(404).json({error:'Canal introuvable'});
-    const p=(ch.posts||[]).find(x=>x.id===req.params.pid);
-    if(!p) return res.status(404).json({error:'Post introuvable'});
-    p.views=(p.views||0)+1; await pencSaveChannels(channels);
-    res.json({success:true,views:p.views});
-  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
-});
 
 // DELETE /api/penc/statuses/:id
 // GET /api/penc/statuses/:id — un statut precis (lien de partage)
@@ -7950,8 +5775,7 @@ app.delete('/api/penc/statuses/:id', pencAuth, async (req, res) => {
   try {
     const uid=req.pencUser.userId;
     if(_pgPool){
-      const _del=await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1 AND user_id=$2',[req.params.id,uid]);
-      if(_del.rowCount===0){ try{ const _u=await pgFindUser('id',uid); if(_u && PENC_ADMIN_EMAILS.includes(String(_u.email||'').toLowerCase())){ await _pgPool.query("DELETE FROM penc_statuses WHERE id=$1 AND user_id='penc_official'",[req.params.id]); } }catch(_e){} }
+      await _pgPool.query('DELETE FROM penc_statuses WHERE id=$1 AND user_id=$2',[req.params.id,uid]);
       return res.json({success:true});
     }
     const statuses=await pencStatuses();
@@ -7991,7 +5815,7 @@ app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
       const existing=st.reactions.find(r=>r.user_id===uid);
       if(existing) existing.emoji=emoji; else st.reactions.push({user_id:uid,emoji,created_at:new Date().toISOString()});
       await pgUpdateStatus(req.params.id,{reactions:st.reactions});
-      try{ if(String(st.user_id)!==String(uid)){ let _rn='Une personne'; try{ const _ru=await pgFindUser('id',uid); if(_ru) _rn=_ru.full_name||_ru.username||'Une personne'; }catch(_e11){} emitToUsers(String(st.user_id),'status:reaction',{status_id:req.params.id, emoji:emoji, from_name:_rn}); try{ sendPencPush(String(st.user_id),{title:'Penc', body:_rn+' a aimé votre statut', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-like-'+req.params.id, url:'/messager?status='+req.params.id, data:{type:'status_like', status_id:req.params.id, url:'/messager?status='+req.params.id}}); }catch(_lp){} } }catch(_e12){}
+      try{ if(String(st.user_id)!==String(uid)){ let _rn='Une personne'; try{ const _ru=await pgFindUser('id',uid); if(_ru) _rn=_ru.full_name||_ru.username||'Une personne'; }catch(_e11){} emitToUsers(String(st.user_id),'status:reaction',{status_id:req.params.id, emoji:emoji, from_name:_rn}); } }catch(_e12){}
       return res.json({success:true,reactions:st.reactions});
     }
     const statuses=await pencStatuses();
@@ -8010,224 +5834,11 @@ app.post('/api/penc/statuses/:id/react', pencAuth, async (req, res) => {
 
 const pencOnline = new Map();
 
-// \u2550\u2550 Liaison d'appareil par QR (v390 : REST, plus de Socket.io — fiabilité et simplicité) \u2550\u2550
-const _pairPending = new Map(); // code -> { createdAt, status:'pending'|'linked', token, user }
-function _pairNewCode(){ return require('crypto').randomBytes(16).toString('hex'); }
-app.post('/api/penc/auth/pair/start', (req, res) => {
-  try{
-    const code = _pairNewCode();
-    _pairPending.set(code, { createdAt: Date.now(), status: 'pending', token: null, user: null });
-    setTimeout(() => { _pairPending.delete(code); }, 300000);
-    res.json({ code, expiresIn: 300000 });
-  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.get('/api/penc/auth/pair/status/:code', (req, res) => {
-  try{
-    const p = _pairPending.get(req.params.code);
-    if(!p) return res.json({ status: 'expired' });
-    if(p.status === 'linked'){ const out = { status:'linked', token:p.token, user:p.user }; _pairPending.delete(req.params.code); return res.json(out); }
-    res.json({ status: 'pending' });
-  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
-});
-app.post('/api/penc/auth/pair/confirm', pencAuth, async (req, res) => {
-  try{
-    const uid = req.pencUser.userId; const code = req.body && req.body.code;
-    if(!code) return res.status(400).json({ error: 'code manquant' });
-    const p = _pairPending.get(code);
-    if(!p || p.status === 'linked') return res.status(404).json({ error: 'Code invalide ou expiré' });
-    const _sid = _pencNewSid();
-    const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    await _pencCreateSession(uid, _sid, req);
-    let profile = null;
-    try{ if(_pgPool){ const r = await _pgPool.query('SELECT * FROM penc_users WHERE id=$1', [uid]); profile = r.rows[0] ? pencStrip(r.rows[0]) : null; } }catch(eU){}
-    p.status = 'linked'; p.token = tok; p.user = profile;
-    res.json({ success: true });
-  }catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
-});
-
-// \u2550\u2550 PENC MEET (v17) \u2014 reunions video de groupe, signalisation maillage \u2550\u2550
-const _meetRooms = {}; // code -> { title, host, createdAt, peers: { socketId: {uid, name} } }
-function _meetCode(){ const a='abcdefghijkmnpqrstuvwxyz'; const r=n=>Array.from({length:n},()=>a[Math.floor(Math.random()*a.length)]).join(''); return r(3)+'-'+r(4)+'-'+r(3); }
-const _meetCreateThrottle={};
-app.post('/api/penc/meet/create', pencAuth, (req,res)=>{
-  try{
-    const uid=req.pencUser.userId;
-    const now=Date.now(); const win=_meetCreateThrottle[uid]||{n:0,t:now};
-    if(now-win.t>60000){ win.n=0; win.t=now; }
-    win.n++; _meetCreateThrottle[uid]=win;
-    if(win.n>20) return res.status(429).json({error:'Trop de r\u00e9unions cr\u00e9\u00e9es, r\u00e9essaie dans une minute.'});
-    let code=_meetCode(); let g=0; while(_meetRooms[code]&&g++<20) code=_meetCode();
-    _meetRooms[code]={ title:String((req.body&&req.body.title)||'').slice(0,80), host:uid, createdAt:Date.now(), peers:{}, pending:{}, banned:{}, hostSid:null };
-    res.json({ success:true, code });
-  }catch(e){ res.status(500).json({error:e.message}); }
-});
-app.post('/api/penc/meet/schedule', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.status(503).json({error:'BD indisponible'});
-    let code=_meetCode(); let g=0; while(_meetRooms[code]&&g++<20) code=_meetCode();
-    const when=new Date(req.body&&req.body.when||''); if(isNaN(when.getTime())) return res.status(400).json({error:'Date invalide'});
-    const title=String((req.body&&req.body.title)||'').slice(0,80);
-    const approval=!!(req.body&&req.body.approval);
-    await _pgPool.query('INSERT INTO penc_meetings(code,title,host,scheduled_at,approval) VALUES($1,$2,$3,$4,$5)',[code,title,req.pencUser.userId,when.toISOString(),approval]);
-    res.json({ success:true, code, title, when: when.toISOString() });
-  }catch(e){ res.status(500).json({error:e.message}); }
-});
-app.get('/api/penc/meet/history/mine', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.json({history:[]});
-    const r=await _pgPool.query("SELECT code, MAX(title) title, MAX(host) host, MIN(joined_at) joined_at, MAX(left_at) left_at, COUNT(DISTINCT participant) participants FROM penc_meet_history WHERE participant=$1 GROUP BY code ORDER BY MIN(joined_at) DESC LIMIT 40",[req.pencUser.userId]);
-    res.json({ history: r.rows });
-  }catch(e){ res.json({history:[]}); }
-});
-app.get('/api/penc/meet/upcoming/mine', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.json({meetings:[]});
-    const r=await _pgPool.query("SELECT code,title,scheduled_at,approval FROM penc_meetings WHERE host=$1 AND scheduled_at > NOW() - INTERVAL '3 hours' ORDER BY scheduled_at ASC LIMIT 20",[req.pencUser.userId]);
-    res.json({ meetings: r.rows });
-  }catch(e){ res.json({meetings:[]}); }
-});
-app.delete('/api/penc/meet/schedule/:code', pencAuth, async (req,res)=>{
-  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_meetings WHERE code=$1 AND host=$2',[req.params.code, req.pencUser.userId]); res.json({success:true}); }catch(e){ res.json({success:false}); }
-});
-app.post('/api/penc/transcribe', pencAuth, async (req,res)=>{
-  try{
-    const url=String((req.body&&req.body.url)||'').trim();
-    if(!url||!/^https?:\/\//.test(url)) return res.status(400).json({error:'URL audio invalide'});
-    const hash=crypto.createHash('sha256').update(url).digest('hex');
-    if(_pgPool){
-      try{ const c=await _pgPool.query('SELECT text FROM penc_transcripts WHERE url_hash=$1',[hash]); if(c.rows[0]) return res.json({success:true,text:c.rows[0].text,cached:true}); }catch(eC){}
-    }
-    const AAI_KEY=process.env.ASSEMBLYAI_API_KEY||'';
-    if(!AAI_KEY) return res.status(503).json({error:'Transcription non configur\u00e9e \u2014 cl\u00e9 ASSEMBLYAI_API_KEY manquante sur le serveur.'});
-    const initR=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'Authorization':AAI_KEY, 'Content-Type':'application/json' }, body:JSON.stringify({ audio_url:url, speech_models:['universal-3-5-pro','universal-2'], language_detection:true }) });
-    if(!initR.ok) return res.status(502).json({error:'Service de transcription indisponible.'});
-    const initD=await initR.json();
-    const tid=initD.id; if(!tid) return res.status(502).json({error:'R\u00e9ponse invalide du service de transcription.'});
-    let text=null, tries=0;
-    while(tries<40){
-      await new Promise(r=>setTimeout(r,1500));
-      const pr=await fetch('https://api.assemblyai.com/v2/transcript/'+tid,{ headers:{ 'Authorization':AAI_KEY } });
-      const pd=await pr.json();
-      if(pd.status==='completed'){ text=pd.text||''; break; }
-      if(pd.status==='error'){ return res.status(502).json({error:pd.error||'Erreur de transcription.'}); }
-      tries++;
-    }
-    if(text===null) return res.status(504).json({error:'Transcription trop longue \u2014 r\u00e9essaie.'});
-    if(_pgPool){ try{ await _pgPool.query('INSERT INTO penc_transcripts(url_hash,text) VALUES($1,$2) ON CONFLICT (url_hash) DO NOTHING',[hash,text]); }catch(eI){} }
-    res.json({ success:true, text: text||'(Aucune parole d\u00e9tect\u00e9e)' });
-  }catch(e){ res.status(500).json({error:e.message}); }
-});
-app.post('/api/penc/meet/rate', pencAuth, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.json({success:false});
-    const stars=Math.max(1,Math.min(5,parseInt(req.body&&req.body.stars,10)||0)); if(!stars) return res.status(400).json({error:'stars'});
-    await _pgPool.query('INSERT INTO penc_meet_ratings(id,code,user_id,stars,comment) VALUES($1,$2,$3,$4,$5)',['mr_'+Date.now()+Math.random().toString(36).slice(2,6), String((req.body&&req.body.code)||'').slice(0,24), req.pencUser.userId, stars, String((req.body&&req.body.comment)||'').slice(0,400)]);
-    res.json({success:true});
-  }catch(e){ res.status(500).json({error:e.message}); }
-});
-app.get('/api/penc/admin/meet-ratings', pencAuth, pencAdmin, async (req,res)=>{
-  try{
-    if(!_pgPool) return res.json({avg:0,count:0,history:[]});
-    const a=await _pgPool.query('SELECT COALESCE(AVG(stars),0) avg, COUNT(*) count FROM penc_meet_ratings');
-    const users=await pgAllUsers()||[];
-    const h=await _pgPool.query('SELECT * FROM penc_meet_ratings ORDER BY created_at DESC LIMIT 120');
-    const history=h.rows.map(x=>{ const u=users.find(y=>String(y.id)===String(x.user_id)); return {...x, name:(u&&(u.full_name||u.username))||'Utilisateur'}; });
-    res.json({ avg: parseFloat(a.rows[0].avg)||0, count: parseInt(a.rows[0].count,10)||0, history });
-  }catch(e){ res.status(500).json({error:e.message}); }
-});
-app.get('/api/penc/meet/:code', pencAuth, (req,res)=>{
-  const r=_meetRooms[String(req.params.code||'').toLowerCase().trim()];
-  if(!r) return res.json({ exists:false });
-  res.json({ exists:true, title:r.title||'', count:Object.keys(r.peers).length });
-});
-setInterval(()=>{ try{ const now=Date.now(); Object.keys(_meetRooms).forEach(c=>{ const r=_meetRooms[c]; if(r && !Object.keys(r.peers).length && !Object.keys(r.pending||{}).length && (now-r.createdAt)>7200000) delete _meetRooms[c]; }); }catch(_e){} }, 900000);
 io.on('connection', async (socket) => {
-  // \u2500\u2500 PENC MEET : signalisation \u2500\u2500
-  socket._meetJoinAttempts=0; socket._meetJoinWindow=Date.now();
-  socket.on('meet:join', async (d)=>{
-    try{
-      const _now=Date.now();
-      if(_now-socket._meetJoinWindow>60000){ socket._meetJoinWindow=_now; socket._meetJoinAttempts=0; }
-      socket._meetJoinAttempts++;
-      if(socket._meetJoinAttempts>15){ socket.emit('meet:full',{code:''}); return; }
-      const code=String((d&&d.code)||'').toLowerCase().trim(); if(!code) return;
-      const uid=socket.data.pencUserId || '';
-      if(!uid){ socket.emit('meet:denied',{code}); return; }
-      const name=String((d&&d.name)||'Participant').slice(0,40);
-      let room=_meetRooms[code];
-      if(!room){
-        let sched=null;
-        try{ if(_pgPool){ const r=await _pgPool.query('SELECT * FROM penc_meetings WHERE code=$1',[code]); sched=r.rows[0]||null; } }catch(eS){}
-        room=_meetRooms[code]={ title:(sched&&sched.title)||String((d&&d.title)||'').slice(0,80), host:(sched&&sched.host)||uid, approval:!!((sched&&sched.approval)||(d&&d.approval&&(!sched))), createdAt:Date.now(), peers:{}, pending:{}, banned:{}, hostSid:null };
-      }
-      room.pending=room.pending||{}; room.banned=room.banned||{};
-      if(uid&&room.banned[uid]){ socket.emit('meet:banned',{code}); return; }
-      if(Object.keys(room.peers).length>=30){ socket.emit('meet:full',{code}); return; }
-      const isHost=(uid&&String(uid)===String(room.host));
-      if(room.approval&&!isHost){
-        room.pending[socket.id]={uid,name}; socket._meetPend=code;
-        socket.emit('meet:wait',{code, title:room.title||''});
-        if(room.hostSid) io.to(room.hostSid).emit('meet:knock',{ sid:socket.id, name, uid });
-        return;
-      }
-      room.peers[socket.id]={ uid, name };
-      if(isHost) room.hostSid=socket.id;
-      try{ if(_pgPool&&uid){ const _hid='mh_'+Date.now()+Math.random().toString(36).slice(2,6); socket._meetHistId=_hid; _pgPool.query('INSERT INTO penc_meet_history(id,code,title,host,participant) VALUES($1,$2,$3,$4,$5)',[_hid,code,room.title||'',room.host||'',uid]).catch(()=>{}); } }catch(_eh){}
-      socket.join('meet_'+code);
-      socket._meetCode=code;
-      const others=Object.keys(room.peers).filter(id=>id!==socket.id).map(id=>({ sid:id, name:room.peers[id].name, uid:room.peers[id].uid }));
-      socket.emit('meet:peers',{ code, title:room.title||'', host:room.host||'', peers:others });
-      socket.to('meet_'+code).emit('meet:peer-joined',{ sid:socket.id, name, uid });
-    }catch(e){}
-  });
-  socket.on('meet:admit', (d)=>{
-    try{
-      const code=socket._meetCode; if(!code||!d||!d.sid) return;
-      const room=_meetRooms[code]; if(!room||room.hostSid!==socket.id) return;
-      const p=(room.pending||{})[d.sid]; if(!p) return; delete room.pending[d.sid];
-      const ts=io.sockets.sockets.get(d.sid); if(!ts) return;
-      if(!d.ok){ ts.emit('meet:denied',{code}); ts._meetPend=null; return; }
-      if(Object.keys(room.peers).length>=30){ ts.emit('meet:full',{code}); return; }
-      room.peers[d.sid]=p; ts.join('meet_'+code); ts._meetCode=code; ts._meetPend=null;
-      const others=Object.keys(room.peers).filter(id=>id!==d.sid).map(id=>({ sid:id, name:room.peers[id].name, uid:room.peers[id].uid }));
-      ts.emit('meet:peers',{ code, title:room.title||'', host:room.host||'', peers:others });
-      ts.to('meet_'+code).emit('meet:peer-joined',{ sid:d.sid, name:p.name, uid:p.uid });
-    }catch(e){}
-  });
-  socket.on('meet:kick', (d)=>{
-    try{
-      const code=socket._meetCode; if(!code||!d||!d.sid) return;
-      const room=_meetRooms[code]; if(!room||room.hostSid!==socket.id) return;
-      if(d.sid===socket.id) return;
-      const p=room.peers[d.sid]; if(!p) return;
-      if(d.ban&&p.uid) room.banned[p.uid]=1;
-      const ts=io.sockets.sockets.get(d.sid);
-      delete room.peers[d.sid];
-      if(ts){ ts.emit('meet:kicked',{code, ban:!!d.ban}); ts.leave('meet_'+code); ts._meetCode=null; }
-      io.to('meet_'+code).emit('meet:peer-left',{ sid:d.sid, kicked:true, name:p.name });
-    }catch(e){}
-  });
-  socket.on('meet:signal', (d)=>{
-    try{
-      if(!d||!d.to) return;
-      const code=socket._meetCode; if(!code) return;
-      const room=_meetRooms[code]; if(!room||!room.peers[d.to]) return;
-      io.to(d.to).emit('meet:signal',{ from:socket.id, data:d.data });
-    }catch(e){}
-  });
-  socket.on('meet:chat', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; const rep=(d&&d.reply&&d.reply.name)?{name:String(d.reply.name).slice(0,40),text:String(d.reply.text||'').slice(0,120)}:null; io.to('meet_'+code).emit('meet:chat',{ from:socket.id, name:nm, text:String((d&&d.text)||'').slice(0,500), reply:rep, ts:Date.now() }); }catch(e){} });
-  socket.on('meet:state', (d)=>{ try{ const code=socket._meetCode; if(!code) return; socket.to('meet_'+code).emit('meet:state',{ sid:socket.id, audio:!!(d&&d.audio), video:!!(d&&d.video), hand:!!(d&&d.hand), screen:!!(d&&d.screen) }); }catch(e){} });
-  const _meetLeave=()=>{ try{ if(socket._meetPend){ const rp=_meetRooms[socket._meetPend]; if(rp&&rp.pending) delete rp.pending[socket.id]; socket._meetPend=null; } const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; let nm=''; if(room){ nm=(room.peers[socket.id]&&room.peers[socket.id].name)||''; delete room.peers[socket.id]; if(room.hostSid===socket.id) room.hostSid=null; if(!Object.keys(room.peers).length&&!Object.keys(room.pending||{}).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id, name:nm }); try{ if(_pgPool&&socket._meetHistId){ _pgPool.query('UPDATE penc_meet_history SET left_at=NOW() WHERE id=$1',[socket._meetHistId]).catch(()=>{}); socket._meetHistId=null; } }catch(_lh){} }catch(e){} };
-  socket.on('meet:leave', _meetLeave);
-  socket.on('disconnect', _meetLeave);
   const tok = socket.handshake.auth?.token;
   if (!tok) return;
   let pencUserId;
-  try {
-    const _dec = jwt_penc.verify(tok, PENC_SECRET);
-    if (_dec.sid && _pencRevokedSids.has(_dec.sid)) { socket.emit('session:revoked', {}); socket.disconnect(true); return; }
-    pencUserId = _dec.userId; socket.data.pencSid = _dec.sid;
-  }
+  try { pencUserId = jwt_penc.verify(tok, PENC_SECRET).userId; }
   catch { return; }
 
   pencOnline.set(pencUserId, socket.id);
@@ -8308,16 +5919,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 });
   // ── APPELS WEBRTC (via pencOnline map = livraison directe) ──
   async function emitToUser(uid, event, data){
-    // 0) Émettre vers la room user: SANS condition (identique à emitToUsers/messages — fiable)
-    io.to('user:'+String(uid)).emit(event,data);
-    try{ const _room=await io.in('user:'+String(uid)).fetchSockets(); if(_room && _room.length){ console.log('📡',event,'→',String(uid).slice(0,10),'via room (online)'); return true; } }catch(_e0){}
     // 1) pencOnline map (rapide)
-    const sid=pencOnline.get(uid)||pencOnline.get(String(uid));
+    const sid=pencOnline.get(uid);
     if(sid){ io.to(sid).emit(event,data); console.log('📡',event,'→',uid.slice(0,10),'via map'); return true; }
     // 2) fetchSockets (fiable même si map périmée)
     try{
       const sockets=await io.fetchSockets();
-      const target=sockets.find(s=>String(s.data.pencUserId)===String(uid));
+      const target=sockets.find(s=>s.data.pencUserId===uid);
       if(target){
         target.emit(event,data);
         pencOnline.set(uid,target.id); // mise à jour map
@@ -8328,66 +5936,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     console.log('⚠️',event,'→',uid.slice(0,10),'HORS LIGNE');
     return false;
   }
-  socket.on('channel:call:start', async ({channel_id, type}) => {
-    try{
-      if(!channel_id) return;
-      const chans = await pencChannels();
-      const ch = (chans||[]).find(c=>String(c.id)===String(channel_id));
-      if(!ch || ch.type!=='group') return;
-      const members = Array.from(new Set([...(ch.followers||[]), ...(ch.admins||[]), ch.creator_id].map(String))).filter(Boolean);
-      if(!members.includes(String(pencUserId))) return;
-      const room_name = 'chcall_'+channel_id;
-      let callerName="Quelqu'un";
-      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) callerName=u.full_name||u.username||callerName; }catch(e){}
-      const targets = members.filter(m=>m!==String(pencUserId));
-      await emitToUsers(targets, 'channel:call:incoming', { channel_id, room_name, type:type||'audio', from:pencUserId, caller_name:callerName, channel_name:ch.name||'Canal', channel_icon:ch.icon_url||null });
-      console.log('[channel:call:start]', String(channel_id).slice(0,8), 'by', String(pencUserId).slice(0,8), '->', targets.length, 'membres');
-    }catch(e){ console.error('channel:call:start err', e.message); }
-  });
-  socket.on('channel:call:invite', async ({channel_id, room_name, type, user_ids}) => {
-    try{
-      if(!channel_id || !Array.isArray(user_ids) || !user_ids.length) return;
-      const chans = await pencChannels();
-      const ch = (chans||[]).find(c=>String(c.id)===String(channel_id));
-      if(!ch) return;
-      let callerName="Quelqu'un";
-      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) callerName=u.full_name||u.username||callerName; }catch(e){}
-      await emitToUsers(user_ids.map(String), 'channel:call:incoming', { channel_id, room_name:room_name||('chcall_'+channel_id), type:type||'audio', from:pencUserId, caller_name:callerName, channel_name:ch.name||'Canal', channel_icon:ch.icon_url||null, invite:true });
-      console.log('[channel:call:invite]', String(channel_id).slice(0,8), '->', user_ids.length);
-    }catch(e){ console.error('channel:call:invite err', e.message); }
-  });
-  socket.on('call:invite', async ({room_name, type, user_ids, caller_name}) => {
-    try{
-      if(!room_name || !Array.isArray(user_ids) || !user_ids.length) return;
-      let cn = caller_name || "Quelqu'un";
-      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) cn=u.full_name||u.username||cn; }catch(e){}
-      await emitToUsers(user_ids.map(String), 'channel:call:incoming', { channel_id:null, room_name, type:type||'audio', from:pencUserId, caller_name:cn, channel_name:'Appel de groupe', invite:true });
-      console.log('[call:invite]', String(pencUserId).slice(0,8), '->', user_ids.length);
-    }catch(e){ console.error('call:invite err', e.message); }
-  });
-  socket.on('call:upgrade', async ({target_user_id, room_name, type}) => {
-    try{
-      if(!target_user_id || !room_name) return;
-      await emitToUsers([String(target_user_id)], 'call:upgrade', { room_name, type:type||'audio', from:pencUserId });
-      console.log('[call:upgrade]', String(pencUserId).slice(0,8), '->', String(target_user_id).slice(0,8));
-    }catch(e){ console.error('call:upgrade err', e.message); }
-  });
-  socket.on('call:invite:request', async ({host_id, room_name, type, user_ids, requester_name, user_names}) => {
-    try{
-      if(!host_id || !room_name || !Array.isArray(user_ids) || !user_ids.length) return;
-      let rn = requester_name || 'Un participant';
-      try{ const us=_pgPool?(await pgAllUsers()||[]):await pencUsers(); const u=(us||[]).find(x=>String(x.id)===String(pencUserId)); if(u) rn=u.full_name||u.username||rn; }catch(e){}
-      await emitToUsers([String(host_id)], 'call:invite:request', { room_name, type:type||'audio', user_ids:user_ids.map(String), user_names:Array.isArray(user_names)?user_names:[], requester_id:pencUserId, requester_name:rn });
-      console.log('[call:invite:request]', String(pencUserId).slice(0,8), '-> host', String(host_id).slice(0,8), user_ids.length);
-    }catch(e){ console.error('call:invite:request err', e.message); }
-  });
-  socket.on('call:invite:declined', async ({requester_id, room_name}) => {
-    try{
-      if(!requester_id) return;
-      await emitToUsers([String(requester_id)], 'call:invite:declined', { room_name:room_name||null, from:pencUserId });
-      console.log('[call:invite:declined] host', String(pencUserId).slice(0,8), '-> ', String(requester_id).slice(0,8));
-    }catch(e){ console.error('call:invite:declined err', e.message); }
-  });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
@@ -8395,35 +5943,29 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
-    try{ let _rc=0; try{ const _rs=await io.in('user:'+String(target_user_id)).fetchSockets(); _rc=_rs?_rs.length:0; }catch(_e){} socket.emit('call:debug',{target:String(target_user_id), online:ok, room_sockets:_rc}); }catch(_ed){}
-    // v396 : TOUJOURS pousser une notification d'appel, même si un AUTRE appareil de la
-    // personne est déjà connecté (PC par ex.) — sinon un téléphone en veille/arrière-plan
-    // (socket suspendu par le système, JS gelé) ne sonne jamais, même si "l'utilisateur"
-    // est techniquement en ligne ailleurs. Un appel doit sonner sur TOUS les appareils.
-    try{
-      const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-      const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
-      const callerName = callerUser.full_name||callerUser.username||'Inconnu';
-      await sendPencPush(target_user_id, {
-        title: callerName+' appelle...',
-        body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
-        tag: 'penc-call',
-        url: '/messager',
-        conv_id: null,
-        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
-      });
-      console.log('📲 Push call envoyé à',target_user_id.slice(0,10),'(en plus du socket, pour tous les appareils)');
-    }catch(ep){console.error('push call err:',ep.message);}
+    // Si hors ligne → push notification d'appel entrant
+    if(!ok){
+      try{
+        const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
+        const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
+        const callerName = callerUser.full_name||callerUser.username||'Inconnu';
+        await sendPencPush(target_user_id, {
+          title: callerName+' appelle...',
+          body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
+          tag: 'penc-call',
+          url: '/messager',
+          conv_id: null,
+          call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
+        });
+        console.log('📲 Push call envoyé à',target_user_id.slice(0,10));
+      }catch(ep){console.error('push call err:',ep.message);}
+    }
   });
   socket.on('call:accept', ({caller_id}) => {
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
-    // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
-    // doit arrêter de sonner dès qu'un autre appareil du même compte a répondu.
-    try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:decline', ({caller_id}) => {
     emitToUser(caller_id,'call:declined',{by:pencUserId});
-    try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:offer', ({target_id, offer}) => {
     emitToUser(target_id,'call:offer',{from:pencUserId, offer});
@@ -8449,7 +5991,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     try{
       const r=await _pgPool.query('UPDATE penc_messages SET delivered_at=NOW() WHERE id=$1 AND delivered_at IS NULL RETURNING sender_id',[id]);
       if(r.rows[0]){
-        io.to('user:'+String(r.rows[0].sender_id)).emit('message:delivered',{id});
+        const senderSid=pencOnline.get(r.rows[0].sender_id);
+        if(senderSid) io.to(senderSid).emit('message:delivered',{id});
       }
     }catch(e){}
   });
@@ -8464,8 +6007,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // Grouper par expéditeur pour notifier
       const bySender={};
       r.rows.forEach(row=>{ if(!bySender[row.sender_id]) bySender[row.sender_id]=[]; bySender[row.sender_id].push(row.id); });
-      Object.entries(bySender).forEach(([senderId,ids])=>{
-        io.to('user:'+String(senderId)).emit('message:read_receipt',{ids,conv_id});
+      Object.entries(bySender).forEach(([sid,ids])=>{
+        const senderSock=pencOnline.get(sid);
+        if(senderSock) io.to(senderSock).emit('message:read_receipt',{ids,conv_id});
       });
     }catch(e){}
   });
@@ -8476,20 +6020,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   // Envoyer message
   socket.on('message:send', async (data, cb) => {
     const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op, client_id } = data;
-    // ── Anti-flood : max 20 messages / 10s par utilisateur (evite le spam/bots, sans genner un usage normal) ──
-    if (_pencMsgFlood(pencUserId)) {
-      if (typeof cb === 'function') cb({ error: 'Trop de messages envoyes trop vite, patiente quelques secondes.' });
-      return;
-    }
     try {
       const { reply_to } = data;
-      let _expiresAt = null;
-      try{
-        if(_pgPool){
-          const _er = await _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1', [conversation_id]);
-          if(_er.rows.length){ _expiresAt = new Date(Date.now() + _er.rows[0].duration_seconds*1000).toISOString(); }
-        }
-      }catch(_ee){}
       const msg = {
         id: 'msg_' + Date.now() + Math.random().toString(36).slice(2),
         conversation_id, sender_id: pencUserId,
@@ -8502,8 +6034,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         radio_name: radio_name || null, radio_url: radio_url || null,
         money_amount: money_amount || null, money_op: money_op || null,
         client_id: client_id || null,
-        expires_at: _expiresAt,
-        view_once: !!data.view_once,
         created_at: new Date().toISOString(), read_at: null
       };
 
@@ -8520,12 +6050,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           const _cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
           let _parts = _cr.rows[0] ? (Array.isArray(_cr.rows[0].participants)?_cr.rows[0].participants:JSON.parse(_cr.rows[0].participants||'[]')) : [];
           const _other = _parts.find(p=>p!==pencUserId);
-          if (_other && _areIsolated(pencUserId, _other)) { if (typeof cb === 'function') cb({ error: 'Conversation indisponible.' }); return; }
           if (_other) {
             _blocked = await pgIsBlocked(pencUserId, _other);
             if (!_blocked) {
-              const _acc = await pgFriendAccepted(pencUserId, _other);
-              if (!_acc && !_senderAdmin && _parts.length===2 && String(_other)!=='penc_official') { await pgEnsureFriendRequest(pencUserId, _other); try { io.to('user:'+_other).emit('friend:request',{from:pencUserId}); } catch(e){} if (typeof cb === 'function') cb({ error: 'Vous devez etre amis pour discuter. Demande d\'ami envoyee.', need_friend: true }); return; }
+              const _cnt = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE conversation_id=$1',[conversation_id]);
+              if (parseInt(_cnt.rows[0].n) === 0) {
+                const _acc = await pgFriendAccepted(pencUserId, _other);
+                if (!_acc && !_senderAdmin) { msg.pending = true; await pgEnsureFriendRequest(pencUserId, _other); }
+              }
             }
           }
         }
@@ -8557,8 +6089,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             id: msg.id, conversation_id: msg.conversation_id,
             sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null,
-            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
-            expires_at: msg.expires_at || null, view_once: msg.view_once || false
+            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null
           });
         } else {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
@@ -8584,7 +6115,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             const c3 = (await pencConvs()).find(x => x.id === conversation_id);
             recipients = (c3 && Array.isArray(c3.participants||c3.members)) ? (c3.participants||c3.members).filter(m => m !== pencUserId) : [];
           }
-          let pbody = pencMsgBody(type, content, msg.media_duration);
+          let pbody = '';
+          if (type === 'voice') pbody = '🎙️ Message vocal';
+          else if (type === 'image') pbody = '📷 Photo';
+          else if (type === 'video') pbody = '🎬 Vidéo';
+          else if (type === 'money') pbody = '💸 ' + (content || 'Transfert');
+          else if (type === 'sticker') pbody = content || 'Sticker';
+          else pbody = (content || '').slice(0, 120);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
           for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id }); }
         }
@@ -8598,75 +6135,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   socket.on('typing:stop', ({ conversation_id }) => {
     socket.to('penc:' + conversation_id).emit('typing:stop', { userId: pencUserId, conversation_id });
   });
-  // Vue unique : le destinataire consomme le media (photo/video/audio) — plus jamais revisible ensuite
-  socket.on('message:view_once_consume', async (data, cb) => {
-    try{
-      const messageId = data && data.message_id;
-      if(!messageId || !_pgPool){ if(cb) cb({error:'invalide'}); return; }
-      const r = await _pgPool.query('SELECT id, sender_id, conversation_id, media_url, view_once, view_once_consumed FROM penc_messages WHERE id=$1', [messageId]);
-      if(!r.rows.length){ if(cb) cb({error:'introuvable'}); return; }
-      const m = r.rows[0];
-      if(String(m.sender_id) === String(pencUserId)){ if(cb) cb({ success:true, media_url:m.media_url }); return; } // l'expediteur garde toujours acces
-      if(!m.view_once){ if(cb) cb({ success:true, media_url:m.media_url }); return; }
-      if(m.view_once_consumed){ if(cb) cb({error:'deja_vu'}); return; }
-      await _pgPool.query('UPDATE penc_messages SET view_once_consumed=TRUE WHERE id=$1', [messageId]);
-      // Informe tous les participants (dont l'expediteur) que le media a ete consomme
-      try{
-        const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [m.conversation_id]);
-        const parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]')) : [];
-        emitToUsers(parts, 'message:view_once_consumed', { message_id: messageId, conv_id: m.conversation_id });
-      }catch(_e){}
-      if(cb) cb({ success:true, media_url:m.media_url }); // renvoie l'URL UNE fois pour l'affichage immediat
-    }catch(e){ if(cb) cb({error:'Erreur serveur'}); }
-  });
-  // ══ Vue unique d'un media (photo/video/audio/document) — declenchee quand l'utilisateur l'ouvre reellement ══
-  socket.on('media:view', async (data, cb) => {
-    try{
-      const { message_id } = data || {};
-      if(!message_id || !_pgPool){ if(typeof cb==='function') cb({error:'invalide'}); return; }
-      const mr = await _pgPool.query('SELECT conversation_id, sender_id FROM penc_messages WHERE id=$1', [message_id]);
-      if(!mr.rows.length){ if(typeof cb==='function') cb({error:'introuvable'}); return; }
-      const { conversation_id: convId, sender_id: senderId } = mr.rows[0];
-      // Pas de vue enregistree pour son propre media envoye
-      if(String(senderId)===String(pencUserId)){ if(typeof cb==='function') cb({success:true, skipped:true}); return; }
-      const already = await _pgPool.query('SELECT 1 FROM penc_media_views WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
-      if(already.rowCount===0){
-        await _pgPool.query('INSERT INTO penc_media_views(message_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [message_id, pencUserId]);
-        const vr = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_media_views WHERE message_id=$1', [message_id]);
-        io.to('user:'+String(senderId)).emit('media:viewed', { message_id, conv_id:convId, viewer_id:pencUserId, view_count: vr.rows[0].n });
-      }
-      if(typeof cb==='function') cb({success:true});
-    }catch(e){ if(typeof cb==='function') cb({error:'Erreur serveur'}); }
-  });
-  socket.on('message:react', async (data, cb) => {
-    try {
-      const { message_id, emoji } = data || {};
-      if (!message_id) { if (typeof cb === 'function') cb({ error: 'message_id manquant' }); return; }
-      if (!_pgPool) { if (typeof cb === 'function') cb({ error: 'BD indisponible' }); return; }
-      const mr = await _pgPool.query('SELECT conversation_id FROM penc_messages WHERE id=$1', [message_id]);
-      if (!mr.rows.length) { if (typeof cb === 'function') cb({ error: 'Message introuvable' }); return; }
-      const convId = mr.rows[0].conversation_id;
-      const ex = await _pgPool.query('SELECT emoji FROM penc_message_reactions WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
-      let action;
-      if (ex.rows.length && ex.rows[0].emoji === emoji) {
-        // Meme emoji re-tape : on retire la reaction (toggle off)
-        await _pgPool.query('DELETE FROM penc_message_reactions WHERE message_id=$1 AND user_id=$2', [message_id, pencUserId]);
-        action = 'removed';
-      } else {
-        await _pgPool.query(
-          'INSERT INTO penc_message_reactions(message_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT (message_id,user_id) DO UPDATE SET emoji=$3, created_at=NOW()',
-          [message_id, pencUserId, emoji]
-        );
-        action = 'set';
-      }
-      const rr = await _pgPool.query('SELECT user_id, emoji FROM penc_message_reactions WHERE message_id=$1', [message_id]);
-      const payload = { message_id, conv_id: convId, reactions: rr.rows };
-      const cparts = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [convId]);
-      const parts = cparts.rows[0] ? (Array.isArray(cparts.rows[0].participants) ? cparts.rows[0].participants : JSON.parse(cparts.rows[0].participants || '[]')) : [];
-      emitToUsers(parts, 'message:reaction', payload);
-      if (typeof cb === 'function') cb({ success: true, action, reactions: rr.rows });
-    } catch (e) { if (typeof cb === 'function') cb({ error: 'Erreur serveur' }); }
-  });
   socket.on('message:read', async ({ conversation_id }) => {
     try {
       const convs = await pencConvs();
@@ -8677,13 +6145,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
 
   socket.on('disconnect', async () => {
-    // Multi-appareils : ne déclarer l'utilisateur hors ligne que si c'était
-    // son DERNIER appareil connecté (les autres onglets/téléphones restent actifs).
-    // Le socket qui se déconnecte a déjà quitté ses rooms à ce stade (comportement Socket.io),
-    // donc la taille restante de la room reflète bien les AUTRES appareils.
-    let stillOnline = false;
-    try { const room = io.sockets.adapter.rooms.get('user:'+pencUserId); stillOnline = !!(room && room.size > 0); } catch(e){}
-    if (stillOnline) { try{ pencOnline.set(pencUserId, Array.from(io.sockets.adapter.rooms.get('user:'+pencUserId))[0]); }catch(e){} return; }
     pencOnline.delete(pencUserId);
     try {
       const users = await pencUsers();
