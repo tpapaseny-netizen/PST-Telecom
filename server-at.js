@@ -3641,7 +3641,7 @@ async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
     // Respecter le mute par conversation : ne pas notifier si l'utilisateur a coupé cette discussion
-    if (payload && payload.conv_id && _pgPool) {
+    if (payload && payload.conv_id && typeof _pgPool !== 'undefined' && _pgPool) {
       try {
         const _mc = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2', [userId, payload.conv_id]);
         if (_mc.rowCount > 0) return;
@@ -7444,6 +7444,8 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
     const { title, body, url } = req.body || {};
     if (!body || !String(body).trim()) return res.status(400).json({ error: 'Message requis' });
     const data = { title: (title||'Penc'), body: String(body), url: (url||'/messager') };
+    let liveCount = 0;
+    try { liveCount = io.engine && io.engine.clientsCount || 0; } catch(e){}
     try { io.emit('penc:broadcast', data); } catch(e){}
     let sent = 0, total = 0;
     if (webpush) {
@@ -7456,7 +7458,7 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
       }
       if (dead.length) { try { const all = await pencPushSubs(); await pencSavePushSubs(all.filter(z => !(z.subscription && dead.includes(z.subscription.endpoint)))); } catch(e){} }
     }
-    res.json({ success: true, sent, total });
+    res.json({ success: true, sent, total, liveCount });
   } catch (e) { console.error('broadcast:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 // POST /api/penc/admin/broadcast-email — diffusion email (annonces, rappels, mises a jour) via Resend
@@ -7472,6 +7474,10 @@ app.get('/api/penc/email/unsubscribe', async (req, res) => {
     res.send('<html><body style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#333;"><h2 style="color:#12388C;">Vous etes desinscrit</h2><p>Vous ne recevrez plus les emails groupes de Penc (annonces, rappels, mises a jour). Les emails de securite (reinitialisation de mot de passe) continueront de fonctionner normalement.</p></body></html>');
   }catch(e){ res.status(500).send('Erreur serveur.'); }
 });
+// Suivi des diffusions email : stocke les IDs Resend renvoyés pour vérifier ensuite la
+// livraison réelle (délivré / rebond / etc.) via l'API Resend. En mémoire (perdu au redémarrage,
+// suffisant pour un contrôle admin ponctuel juste après l'envoi).
+var _bcastEmailStore = {};
 app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res) => {
   try{
     const { subject, message } = req.body || {};
@@ -7482,9 +7488,16 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
     if(!_pgPool) return res.status(500).json({ error: 'Base de donnees indisponible' });
 
     const r = await _pgPool.query("SELECT id, email, full_name FROM penc_users WHERE email IS NOT NULL AND email != '' AND COALESCE(email_opt_out,FALSE) = FALSE");
-    const recipients = r.rows;
+    // Filtrage des adresses mal formées : l'API Resend rejette le LOT ENTIER si une seule
+    // adresse est invalide, donc on les écarte ici pour ne plus jamais bloquer tout le monde.
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const allRows = r.rows;
+    const recipients = allRows.filter(function(u){ return EMAIL_RE.test(String(u.email||'').trim()); });
+    const invalidCount = allRows.length - recipients.length;
+    const invalidSamples = allRows.filter(function(u){ return !EMAIL_RE.test(String(u.email||'').trim()); }).slice(0,5).map(function(u){ return u.email; });
+    if(invalidCount>0) console.log('[broadcast-email]', invalidCount, 'email(s) invalide(s) ignore(s), ex:', invalidSamples.join(', '));
     const total = recipients.length;
-    if(!total) return res.json({ success:true, sent:0, total:0 });
+    if(!total) return res.json({ success:true, sent:0, total:0, invalid:invalidCount });
 
     // Corps HTML : le message est saisi en texte simple, converti en paragraphes
     const bodyHtml = String(message).split('\n').filter(function(l){ return l.trim(); })
@@ -7492,6 +7505,8 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
 
     // Resend batch API : max 100 destinataires par appel — chaque email a son propre lien de desinscription
     let sent = 0;
+    const chunkErrors = [];
+    const resendIds = [];
     const CHUNK = 100;
     for(let i=0; i<recipients.length; i+=CHUNK){
       const chunk = recipients.slice(i, i+CHUNK);
@@ -7507,15 +7522,48 @@ app.post('/api/penc/admin/broadcast-email', pencAuth, pencAdmin, async (req, res
           headers:{ 'Authorization':'Bearer '+RESEND_API_KEY, 'Content-Type':'application/json' },
           body: JSON.stringify(payload)
         });
-        if(rr.ok){ sent += chunk.length; }
-        else{ const t = await rr.text().catch(function(){return '';}); console.log('[broadcast-email] ECHEC chunk', i, '-> HTTP', rr.status, t.slice(0,200)); }
-      }catch(e){ console.log('[broadcast-email] EXCEPTION chunk', i, '->', e.message); }
+        if(rr.ok){
+          sent += chunk.length;
+          try{ const rd = await rr.json(); if(rd && Array.isArray(rd.data)){ rd.data.forEach(function(o){ if(o&&o.id) resendIds.push(o.id); }); } }catch(_rj){}
+        }
+        else{ const t = await rr.text().catch(function(){return '';}); console.log('[broadcast-email] ECHEC chunk', i, '-> HTTP', rr.status, t.slice(0,200)); chunkErrors.push('HTTP '+rr.status+' : '+t.slice(0,150)); }
+      }catch(e){ console.log('[broadcast-email] EXCEPTION chunk', i, '->', e.message); chunkErrors.push(e.message); }
       // Petite pause entre les lots pour rester sous les limites de debit Resend
       if(i+CHUNK < recipients.length) await new Promise(function(res2){ setTimeout(res2, 600); });
     }
     console.log('[broadcast-email]', sent, '/', total, 'envoyes, sujet:', subject);
-    res.json({ success:true, sent, total });
+    const bcastId = crypto.randomBytes(8).toString('hex');
+    _bcastEmailStore[bcastId] = { ids: resendIds, subject: String(subject), ts: Date.now() };
+    res.json({ success:true, sent, total, invalid:invalidCount, errors: chunkErrors, broadcastId: bcastId });
   }catch(e){ console.error('broadcast-email:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+// Vérification de la livraison réelle d'une diffusion email (statut Resend par destinataire)
+app.get('/api/penc/admin/broadcast-email/status/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const rec = _bcastEmailStore[req.params.id];
+    if(!rec) return res.status(404).json({ error: 'Introuvable (serveur redémarré depuis l\'envoi, ou lien expiré)' });
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if(!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY non configuree' });
+    const counts = { delivered:0, bounced:0, complained:0, sent:0, queued:0, other:0 };
+    const ids = rec.ids.slice(0, 200); // limite de sécurité par vérification
+    for(const id of ids){
+      try{
+        const rr = await fetch('https://api.resend.com/emails/'+id, { headers:{ 'Authorization':'Bearer '+RESEND_API_KEY } });
+        if(rr.ok){
+          const d = await rr.json();
+          const st = (d && (d.last_event || d.status)) || 'unknown';
+          if(st==='delivered') counts.delivered++;
+          else if(st==='bounced') counts.bounced++;
+          else if(st==='complained') counts.complained++;
+          else if(st==='sent' || st==='delivery_delayed') counts.sent++;
+          else if(st==='queued') counts.queued++;
+          else counts.other++;
+        } else counts.other++;
+      }catch(_e){ counts.other++; }
+    }
+    res.json({ success:true, subject: rec.subject, total: rec.ids.length, checked: ids.length, counts, resendDashboard: 'https://resend.com/emails' });
+  }catch(e){ res.status(500).json({ error: e.message }); }
 });
 // GET /api/penc/legal — pages legales personnalisees (publique, utilisee par l'app pour surcharger les textes par defaut)
 app.get('/api/penc/legal', async (req, res) => {
