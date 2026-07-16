@@ -6649,7 +6649,9 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       try{ const _pfr = await _pgPool.query("SELECT requester FROM penc_friendships WHERE recipient=$1 AND status='pending'", [uid]); _pfr.rows.forEach(function(row){ _pendingFrom.add(row.requester); }); }catch(_pfe){}
       result = await Promise.all(convs.map(async (c) => {
         const parts = Array.isArray(c.participants) ? c.participants : JSON.parse(c.participants||'[]');
-        const otherId = parts.find(p => p !== uid);
+        // v459 : pour une discussion avec soi-même (Notes personnelles), tous les participants
+        // sont "moi" — sans ce repli, otherId reste indéfini et casse le profil/la recherche/le renommage.
+        const otherId = parts.find(p => p !== uid) || uid;
         let other = allUsers.find(u => u.id === otherId) || {};
         if(!other.full_name && !other.username && otherId){ try{ const _pu=await pgFindUser('id',otherId); if(_pu) other=_pu; }catch(_e){} }
         // Dernier message
@@ -6674,7 +6676,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       const users = await pencUsers();
       const msgs = await pencMsgs();
       result = convs.filter(c => Array.isArray(c.participants) && c.participants.includes(uid)).map(c => {
-        const otherId = c.participants.find(p => p !== uid);
+        const otherId = c.participants.find(p => p !== uid) || uid;
         const other = users.find(u => u.id === otherId) || {};
         const convMsgs = msgs.filter(m => m.conversation_id === c.id);
         const last = convMsgs[convMsgs.length - 1] || null;
