@@ -5845,6 +5845,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           delivered_at: m.delivered_at || null,
           read_at: m.read_at || null,
           pending: m.pending || false,
+          pinned_at: m.pinned_at || null,
           reactions: _reactByMsg[m.id] || [],
           view_once: m.view_once || false,
           view_once_consumed: m.view_once_consumed || false,
