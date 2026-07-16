@@ -4947,7 +4947,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
     const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 12) : password;
     const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
-    const myRefCode = (username||'penc').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10) + Math.random().toString(36).slice(2,5);
+    const myRefCode = (username||'penc').toLowerCase().replace(/[^a-z0-9]/g,'');
     // ── Parrainage : si un code valide est fourni, le nouveau membre ET son parrain reçoivent un bonus ──
     const { referral_code } = req.body;
     let referrerUser = null;
@@ -7269,10 +7269,12 @@ app.get('/api/penc/referral/mine', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     const r=await _pgPool.query('SELECT referral_code, username FROM penc_users WHERE id=$1',[uid]);
     let code=r.rows[0]&&r.rows[0].referral_code;
-    // Compte créé avant l'existence du parrainage : on génère son code à la volée
-    if(!code){
-      const uname = (r.rows[0]&&r.rows[0].username) || 'penc';
-      code = uname.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10) + Math.random().toString(36).slice(2,5);
+    const uname = (r.rows[0]&&r.rows[0].username) || 'penc';
+    const cleanCode = uname.toLowerCase().replace(/[^a-z0-9]/g,'');
+    // Compte créé avant l'existence du parrainage (ou ancien format tronqué/aléatoire) : on aligne
+    // le code sur le nom d'utilisateur exact, pour que tout reste cohérent et mémorable.
+    if(!code || code !== cleanCode){
+      code = cleanCode;
       try{ await _pgPool.query('UPDATE penc_users SET referral_code=$1 WHERE id=$2',[code, uid]); }
       catch(_dup){ code = code + Math.random().toString(36).slice(2,4); await _pgPool.query('UPDATE penc_users SET referral_code=$1 WHERE id=$2',[code, uid]); }
     }
