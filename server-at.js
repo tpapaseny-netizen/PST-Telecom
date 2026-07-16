@@ -3992,10 +3992,12 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
+  // Sauvegarde de clé : chemin fixe par utilisateur (écrase la précédente à chaque sauvegarde, pas d'accumulation)
+  if (type === 'key_backup') return folder + '/' + userId + '.' + safeExt;
   return folder + '/' + userId + '/' + Date.now() + '-' + crypto.randomBytes(6).toString('hex') + '.' + safeExt;
 }
 
@@ -4144,7 +4146,7 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
     if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
-    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper'];
+    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup'];
     if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
@@ -4374,6 +4376,7 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS profile_hide_info BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referral_code TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referred_by TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
       CREATE TABLE IF NOT EXISTS penc_webauthn_credentials (
         id            TEXT PRIMARY KEY,
@@ -7130,15 +7133,41 @@ app.delete('/api/penc/webauthn/:credId', pencAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
+// ══════════════ SAUVEGARDE CLOUD DE LA CLÉ E2E (automatique) ══════════════
+// Ne sauvegarde QUE la clé secrète de chiffrement (petite, critique, non-récupérable si perdue) —
+// les messages eux-mêmes sont déjà en sécurité côté serveur PostgreSQL, aucune duplication inutile.
+app.get('/api/penc/keybackup/status', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ exists:false });
+    const r=await _pgPool.query('SELECT key_backup_at FROM penc_users WHERE id=$1',[req.pencUser.userId]);
+    res.json({ exists: !!(r.rows[0]&&r.rows[0].key_backup_at), at: r.rows[0]&&r.rows[0].key_backup_at });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success:true });
+    await _pgPool.query('UPDATE penc_users SET key_backup_at=NOW() WHERE id=$1',[req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.get('/api/penc/referral/mine', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ code:null, count:0 });
-    const r=await _pgPool.query('SELECT referral_code FROM penc_users WHERE id=$1',[req.pencUser.userId]);
-    const code=r.rows[0]&&r.rows[0].referral_code;
+    const uid = req.pencUser.userId;
+    const r=await _pgPool.query('SELECT referral_code, username FROM penc_users WHERE id=$1',[uid]);
+    let code=r.rows[0]&&r.rows[0].referral_code;
+    // Compte créé avant l'existence du parrainage : on génère son code à la volée
+    if(!code){
+      const uname = (r.rows[0]&&r.rows[0].username) || 'penc';
+      code = uname.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10) + Math.random().toString(36).slice(2,5);
+      try{ await _pgPool.query('UPDATE penc_users SET referral_code=$1 WHERE id=$2',[code, uid]); }
+      catch(_dup){ code = code + Math.random().toString(36).slice(2,4); await _pgPool.query('UPDATE penc_users SET referral_code=$1 WHERE id=$2',[code, uid]); }
+    }
     let count=0;
-    if(code){ const cr=await _pgPool.query('SELECT COUNT(*) FROM penc_users WHERE referred_by=$1',[req.pencUser.userId]); count=parseInt(cr.rows[0].count,10)||0; }
+    if(code){ const cr=await _pgPool.query('SELECT COUNT(*) FROM penc_users WHERE referred_by=$1',[uid]); count=parseInt(cr.rows[0].count,10)||0; }
     res.json({ code, count, bonus_per_filleul:200 });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+  }catch(e){ console.error('referral/mine:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 
 app.post('/api/penc/settings/privacy', pencAuth, async (req, res) => {
