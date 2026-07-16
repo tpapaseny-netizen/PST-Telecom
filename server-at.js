@@ -7469,6 +7469,22 @@ app.post('/api/penc/admin/repair-names', pencAuth, async (req, res) => {
     return res.json({ success: true, fixed: fixed, total: r.rows.length });
   } catch (e) { console.error('repair-names:', e.message); return res.status(500).json({ error: 'Erreur: ' + e.message }); }
 });
+// ── Modération admin des petites annonces ──
+app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ listings:[] });
+    const r = await _pgPool.query('SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.phone as seller_phone FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id ORDER BY l.created_at DESC LIMIT 200');
+    res.json({ listings: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/listings/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    await _pgPool.query('DELETE FROM penc_listings WHERE id=$1',[req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 async function pencAdmin(req, res, next) {
   try {
     let u = null;
