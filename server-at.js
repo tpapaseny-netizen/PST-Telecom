@@ -3990,7 +3990,7 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
@@ -4142,8 +4142,8 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
     if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
-    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad'];
-    if (!allowed.includes(type)) return res.status(400).json({ error: 'type media invalide' });
+    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper'];
+    if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
     const key = r2Key(type, req.pencUser.userId, ext);
@@ -4367,6 +4367,9 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS status_privacy TEXT DEFAULT 'everyone';
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS status_privacy_list JSONB DEFAULT '[]';
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS profile_hide_info BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_legal_pages (
         key         TEXT PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -6879,7 +6882,19 @@ app.get('/api/penc/contacts', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     // PostgreSQL + JSONBin fusionnes (tous les utilisateurs)
     const users = await pgAllUsersMerged();
-    res.json({ contacts: users.filter(u => u.id !== uid).map(pencStrip) });
+    let friendSet=new Set();
+    try{
+      if(_pgPool){
+        const fr=await _pgPool.query("SELECT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid]);
+        fr.rows.forEach(function(row){ friendSet.add(row.requester===uid?row.recipient:row.requester); });
+      }
+    }catch(_fe){}
+    const contacts = users.filter(u => u.id !== uid).map(function(u){
+      const s = pencStrip(u);
+      if(s.profile_hide_info && !friendSet.has(u.id)){ s.bio=''; s.phone=''; }
+      return s;
+    });
+    res.json({ contacts });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -6932,11 +6947,58 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
     }
     const meUser=vLookup(uid);
     try{ if(_pgPool){ const _mr=await _pgPool.query("SELECT id FROM penc_users WHERE muted_until IS NOT NULL AND muted_until > NOW()"); const _muted={}; _mr.rows.forEach(function(r){ _muted[String(r.id)]=1; }); statuses=statuses.filter(function(s){ return !_muted[String(s.user_id)]; }); } }catch(_me){}
+    // Confidentialité des statuts : chaque auteur choisit qui peut voir ses statuts
+    // (tout le monde / amis uniquement / tous sauf certains / uniquement certains).
+    try{
+      if(_pgPool && statuses.length){
+        const authorIds=[...new Set(statuses.map(s=>s.user_id))];
+        const pr=await _pgPool.query("SELECT id, status_privacy, status_privacy_list FROM penc_users WHERE id = ANY($1)",[authorIds]);
+        const privMap={}; pr.rows.forEach(function(row){ privMap[row.id]={mode:row.status_privacy||'everyone', list:row.status_privacy_list||[]}; });
+        const filtered=[];
+        for(const s of statuses){
+          const p=privMap[s.user_id]||{mode:'everyone',list:[]};
+          if(p.mode==='everyone'){ filtered.push(s); continue; }
+          if(p.mode==='friends'){ if(await pgFriendAccepted(uid,s.user_id)) filtered.push(s); continue; }
+          if(p.mode==='except'){ if(!(p.list||[]).includes(uid)) filtered.push(s); continue; }
+          if(p.mode==='only'){ if((p.list||[]).includes(uid)) filtered.push(s); continue; }
+          filtered.push(s);
+        }
+        statuses=filtered;
+      }
+    }catch(_pe){ console.error('filtre confidentialite statuts:', _pe.message); }
     res.json({statuses,mine,me:meUser});
   }catch(e){console.error('GET statuses:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 
 // POST /api/penc/statuses
+// POST /api/penc/settings/privacy — confidentialité des statuts + visibilité des infos de profil
+app.post('/api/penc/settings/privacy', pencAuth, async (req, res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const { status_privacy, status_privacy_list, profile_hide_info } = req.body;
+    const validModes=['everyone','friends','except','only'];
+    if(status_privacy && !validModes.includes(status_privacy)) return res.status(400).json({ error:'Mode de confidentialité invalide' });
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const fields=[]; const vals=[]; let i=1;
+    if(status_privacy!==undefined){ fields.push('status_privacy=$'+(i++)); vals.push(status_privacy); }
+    if(status_privacy_list!==undefined){ fields.push('status_privacy_list=$'+(i++)); vals.push(JSON.stringify(Array.isArray(status_privacy_list)?status_privacy_list:[])); }
+    if(profile_hide_info!==undefined){ fields.push('profile_hide_info=$'+(i++)); vals.push(!!profile_hide_info); }
+    if(!fields.length) return res.json({ success:true });
+    vals.push(uid);
+    await _pgPool.query('UPDATE penc_users SET '+fields.join(', ')+' WHERE id=$'+i, vals);
+    res.json({ success:true });
+  }catch(e){ console.error('settings/privacy:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// GET /api/penc/settings/privacy — récupérer mes préférences actuelles
+app.get('/api/penc/settings/privacy', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ status_privacy:'everyone', status_privacy_list:[], profile_hide_info:false });
+    const r=await _pgPool.query('SELECT status_privacy, status_privacy_list, profile_hide_info FROM penc_users WHERE id=$1',[req.pencUser.userId]);
+    const row=r.rows[0]||{};
+    res.json({ status_privacy:row.status_privacy||'everyone', status_privacy_list:row.status_privacy_list||[], profile_hide_info:!!row.profile_hide_info });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const { type, media_url, text_content, bg_color, caption, duration, media_urls } = req.body;
