@@ -3992,7 +3992,7 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
@@ -4146,7 +4146,7 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
     if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
-    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup'];
+    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup', 'listing'];
     if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
@@ -4387,6 +4387,25 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_webauthn_user ON penc_webauthn_credentials(user_id);
+      CREATE TABLE IF NOT EXISTS penc_listings (
+        id            TEXT PRIMARY KEY,
+        seller_id     TEXT NOT NULL,
+        title         TEXT NOT NULL,
+        description   TEXT DEFAULT '',
+        price         BIGINT DEFAULT 0,
+        currency      TEXT DEFAULT 'FCFA',
+        category      TEXT DEFAULT 'autre',
+        location      TEXT DEFAULT '',
+        media_urls    JSONB DEFAULT '[]',
+        status        TEXT DEFAULT 'active',
+        views_count   INTEGER DEFAULT 0,
+        created_at    TIMESTAMPTZ DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_listings_seller ON penc_listings(seller_id);
+      CREATE INDEX IF NOT EXISTS idx_listings_category ON penc_listings(category);
+      CREATE INDEX IF NOT EXISTS idx_listings_status ON penc_listings(status);
+      CREATE INDEX IF NOT EXISTS idx_listings_created ON penc_listings(created_at DESC);
       CREATE TABLE IF NOT EXISTS penc_legal_pages (
         key         TEXT PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -7136,6 +7155,98 @@ app.delete('/api/penc/webauthn/:credId', pencAuth, async (req, res) => {
 // ══════════════ SAUVEGARDE CLOUD DE LA CLÉ E2E (automatique) ══════════════
 // Ne sauvegarde QUE la clé secrète de chiffrement (petite, critique, non-récupérable si perdue) —
 // les messages eux-mêmes sont déjà en sécurité côté serveur PostgreSQL, aucune duplication inutile.
+// ══════════════ PETITES ANNONCES COMMUNAUTAIRES ══════════════
+const LISTING_CATEGORIES = ['electronique','vehicules','immobilier','mode','maison','services','emploi','autre'];
+
+app.post('/api/penc/listings', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    let { title, description, price, category, location, media_urls } = req.body;
+    title = String(title||'').trim().slice(0,120);
+    if(!title) return res.status(400).json({ error:'Titre requis' });
+    description = String(description||'').trim().slice(0,2000);
+    price = Math.max(0, parseInt(price,10)||0);
+    category = LISTING_CATEGORIES.includes(category) ? category : 'autre';
+    location = String(location||'').trim().slice(0,100);
+    media_urls = Array.isArray(media_urls) ? media_urls.slice(0,6) : [];
+    const id = 'lst_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_listings(id,seller_id,title,description,price,category,location,media_urls) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, uid, title, description, price, category, location, JSON.stringify(media_urls)]
+    );
+    const r = await _pgPool.query('SELECT * FROM penc_listings WHERE id=$1',[id]);
+    res.json({ success:true, listing:r.rows[0] });
+  }catch(e){ console.error('listings create:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/listings', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ listings:[] });
+    const { category, q, min_price, max_price, cursor } = req.query;
+    const conds = ["status='active'"]; const vals = []; let n=1;
+    if(category && LISTING_CATEGORIES.includes(category)){ conds.push('category=$'+(n++)); vals.push(category); }
+    if(q){ conds.push('(title ILIKE $'+(n)+' OR description ILIKE $'+(n)+')'); vals.push('%'+String(q).slice(0,80)+'%'); n++; }
+    if(min_price){ conds.push('price >= $'+(n++)); vals.push(parseInt(min_price,10)||0); }
+    if(max_price){ conds.push('price <= $'+(n++)); vals.push(parseInt(max_price,10)||0); }
+    if(cursor){ conds.push('created_at < $'+(n++)); vals.push(new Date(cursor)); }
+    const sql = 'SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE '+conds.join(' AND ')+' ORDER BY created_at DESC LIMIT 30';
+    const r = await _pgPool.query(sql, vals);
+    res.json({ listings: r.rows, categories: LISTING_CATEGORIES });
+  }catch(e){ console.error('listings list:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/listings/mine', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ listings:[] });
+    const r = await _pgPool.query('SELECT * FROM penc_listings WHERE seller_id=$1 ORDER BY created_at DESC',[req.pencUser.userId]);
+    res.json({ listings: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/listings/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(404).json({ error:'Introuvable' });
+    const r = await _pgPool.query('SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar, u.phone as seller_phone FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE l.id=$1',[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({ error:'Annonce introuvable' });
+    if(String(r.rows[0].seller_id)!==String(req.pencUser.userId)){
+      await _pgPool.query('UPDATE penc_listings SET views_count=views_count+1 WHERE id=$1',[req.params.id]);
+    }
+    res.json({ listing: r.rows[0] });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.patch('/api/penc/listings/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query('SELECT seller_id FROM penc_listings WHERE id=$1',[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({ error:'Introuvable' });
+    if(String(r.rows[0].seller_id)!==String(req.pencUser.userId)) return res.status(403).json({ error:'Action non autorisée' });
+    const { status, price, title, description } = req.body;
+    const fields=[]; const vals=[]; let n=1;
+    if(status && ['active','sold','expired'].includes(status)){ fields.push('status=$'+(n++)); vals.push(status); }
+    if(price!==undefined){ fields.push('price=$'+(n++)); vals.push(Math.max(0,parseInt(price,10)||0)); }
+    if(title){ fields.push('title=$'+(n++)); vals.push(String(title).trim().slice(0,120)); }
+    if(description!==undefined){ fields.push('description=$'+(n++)); vals.push(String(description).trim().slice(0,2000)); }
+    if(!fields.length) return res.json({ success:true });
+    fields.push('updated_at=NOW()');
+    vals.push(req.params.id);
+    await _pgPool.query('UPDATE penc_listings SET '+fields.join(', ')+' WHERE id=$'+n, vals);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.delete('/api/penc/listings/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query('SELECT seller_id FROM penc_listings WHERE id=$1',[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({ error:'Introuvable' });
+    if(String(r.rows[0].seller_id)!==String(req.pencUser.userId)) return res.status(403).json({ error:'Action non autorisée' });
+    await _pgPool.query('DELETE FROM penc_listings WHERE id=$1',[req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.get('/api/penc/keybackup/status', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ exists:false });
