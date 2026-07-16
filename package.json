@@ -15,6 +15,7 @@
     "@aws-sdk/client-s3": "^3.1087.0",
     "@aws-sdk/s3-request-presigner": "^3.1087.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@vonage/server-sdk": "^3.27.0",
     "africastalking": "^0.7.9",
     "axios": "^1.16.0",

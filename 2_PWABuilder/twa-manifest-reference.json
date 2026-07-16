@@ -1,0 +1,45 @@
+{
+  "_commentaire": "Configuration TWA de référence pour Penc — reprend TOUTES les fonctionnalités existantes de l'app. Ces valeurs correspondent aux champs du formulaire PWABuilder (voir REGLAGES_PWABUILDER.md).",
+  "packageId": "com.penc.messagerie",
+  "name": "Penc — La messagerie panafricaine",
+  "launcherName": "Penc",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "host": "penc-messagerie.com",
+  "startUrl": "/messager?source=twa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#1877F2",
+  "navigationColor": "#12388C",
+  "navigationColorDark": "#12388C",
+  "navigationDividerColor": "#12388C",
+  "backgroundColor": "#12388C",
+  "iconUrl": "https://penc-messagerie.com/penc-icon-512.png",
+  "maskableIconUrl": "https://penc-messagerie.com/penc-icon-maskable-512.png",
+  "webManifestUrl": "https://penc-messagerie.com/penc-manifest.json",
+  "fallbackType": "customtabs",
+  "enableNotifications": true,
+  "isChromeOSOnly": false,
+  "includeSourceCode": false,
+  "signingMode": "new",
+  "features": {
+    "locationDelegation": { "enabled": false },
+    "playBilling": { "enabled": false }
+  },
+  "shortcuts": [
+    { "name": "Penc Meet", "short_name": "Meet", "url": "/messager?open=meet" },
+    { "name": "Statuts", "short_name": "Statuts", "url": "/messager?open=status" },
+    { "name": "Canaux", "short_name": "Canaux", "url": "/messager?open=channels" },
+    { "name": "Appels", "short_name": "Appels", "url": "/messager?open=calls" }
+  ],
+  "_permissions_android_expliquees": {
+    "INTERNET": "Base — communication avec api.penc-messagerie.com (inclus d'office)",
+    "CAMERA": "Photos, vidéos, statuts, appels vidéo et Penc Meet — demandée via le navigateur au moment de l'usage",
+    "RECORD_AUDIO": "Messages vocaux, appels, Penc Meet, sous-titres en direct — demandée via le navigateur au moment de l'usage",
+    "MODIFY_AUDIO_SETTINGS": "Annulation d'écho et réduction de bruit WebRTC (gérée par Chrome)",
+    "POST_NOTIFICATIONS": "Notifications push messages/statuts/demandes d'amis (enableNotifications: true)",
+    "VIBRATE": "Vibration des notifications (gérée par le service worker)",
+    "WAKE_LOCK": "Écran actif pendant les appels et réunions (API web Wake Lock, gérée par Chrome)"
+  },
+  "_note_importante": "En TWA, caméra/micro/notifications passent par le moteur Chrome : l'app n'a PAS besoin de déclarer manuellement CAMERA et RECORD_AUDIO dans AndroidManifest.xml — Chrome affiche ses invites de permission au moment où Penc les demande (getUserMedia, Push API). Toutes les fonctionnalités existantes (vocaux, appels, Meet, partage d'écran, sous-titres, TTS/STT, arrière-plans IA, enregistrement local, PiP, notifications, hors-ligne) fonctionnent donc sans configuration supplémentaire. Il suffit d'activer enableNotifications dans PWABuilder."
+}

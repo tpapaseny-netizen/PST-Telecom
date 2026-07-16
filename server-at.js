@@ -3944,6 +3944,8 @@ app.get('/messager', (req, res) => {
 const jwt_penc = require('jsonwebtoken');
 let bcrypt_penc=null;
 try{ bcrypt_penc=require('bcryptjs'); }catch(e){ console.log('⚠️ bcryptjs non installé - routes Penc auth dégradées'); }
+let _webauthn=null;
+try{ _webauthn=require('@simplewebauthn/server'); console.log('✅ WebAuthn (biométrie) prêt'); }catch(e){ console.log('⚠️ @simplewebauthn/server non installé — biométrie désactivée (npm install @simplewebauthn/server)'); }
 const PENC_SECRET = process.env.JWT_SECRET || 'pst-jwt-2026-xK9mPq7nR3';
 
 // ── Middleware auth Penc ──────────────────────────────────────
@@ -4370,6 +4372,18 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS status_privacy TEXT DEFAULT 'everyone';
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS status_privacy_list JSONB DEFAULT '[]';
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS profile_hide_info BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referral_code TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referred_by TEXT;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      CREATE TABLE IF NOT EXISTS penc_webauthn_credentials (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL,
+        public_key    TEXT NOT NULL,
+        counter       BIGINT DEFAULT 0,
+        device_label  TEXT,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_webauthn_user ON penc_webauthn_credentials(user_id);
       CREATE TABLE IF NOT EXISTS penc_legal_pages (
         key         TEXT PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -4575,8 +4589,8 @@ async function pgFindUser(field, value){
 }
 async function pgCreateUser(u){
   const r=await _pgPool.query(
-    'INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,is_admin,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *',
-    [u.id,u.full_name,u.username,u.phone,u.email||null,u.password_hash,u.avatar_url||null,u.is_admin||false]
+    'INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,is_admin,referral_code,referred_by,balance,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING *',
+    [u.id,u.full_name,u.username,u.phone,u.email||null,u.password_hash,u.avatar_url||null,u.is_admin||false,u.referral_code||null,u.referred_by||null,u.balance||0]
   ); return pgRow(r.rows[0]);
 }
 async function pgUpdateUser(id,fields){
@@ -4911,8 +4925,18 @@ app.post('/api/penc/auth/register', async (req, res) => {
     const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 12) : password;
     const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
+    const myRefCode = (username||'penc').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10) + Math.random().toString(36).slice(2,5);
+    // ── Parrainage : si un code valide est fourni, le nouveau membre ET son parrain reçoivent un bonus ──
+    const { referral_code } = req.body;
+    let referrerUser = null;
+    if (referral_code && _pgPool) {
+      try { const rr = await _pgPool.query('SELECT id, balance FROM penc_users WHERE referral_code=$1', [String(referral_code).trim()]); referrerUser = rr.rows[0] || null; } catch(_re){}
+    }
+    const REFERRAL_BONUS = 200; // FCFA, pour le filleul ET le parrain
     const newUser = { id:uid, full_name, username, phone, email:email||null,
-      password_hash:hash, avatar_url:null, bio:'', is_admin:isAdmin };
+      password_hash:hash, avatar_url:null, bio:'', is_admin:isAdmin,
+      referral_code: myRefCode, referred_by: referrerUser ? referrerUser.id : null,
+      balance: referrerUser ? REFERRAL_BONUS : 0 };
 
     // ── Sauvegarder PostgreSQL (prioritaire) ──
     if (_pgPool) {
@@ -4928,6 +4952,13 @@ app.post('/api/penc/auth/register', async (req, res) => {
     const tok = jwt_penc.sign({ userId: uid, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
     _pencCreateSession(uid, _sid, req).catch(function(){});
     const safe = pencStrip({...newUser,password:hash});
+    // Créditer le parrain (le filleul a déjà son bonus inclus dans newUser.balance)
+    if (referrerUser && _pgPool) {
+      try {
+        await _pgPool.query('UPDATE penc_users SET balance = COALESCE(balance,0) + $1 WHERE id=$2', [REFERRAL_BONUS, referrerUser.id]);
+        try { await _sendPencOfficialDM(referrerUser.id, '🎉 '+full_name+' a rejoint Penc grâce à ton lien de parrainage ! +'+REFERRAL_BONUS+' F ajoutés à ton solde.', 'Penc', 'Parrainage réussi !', 'penc-referral'); } catch(_rd){}
+      } catch(_ru){}
+    }
     // Notifier les utilisateurs connectés
     setImmediate(async function(){
       try{
@@ -6972,6 +7003,144 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
 
 // POST /api/penc/statuses
 // POST /api/penc/settings/privacy — confidentialité des statuts + visibilité des infos de profil
+// GET /api/penc/referral/mine — mon code de parrainage + nombre de filleuls
+// POST /api/penc/messages/:id/pin — épingler/désépingler un message dans sa discussion
+app.post('/api/penc/messages/:id/pin', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
+    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1',[req.params.id]);
+    const msg=r.rows[0];
+    if(!msg) return res.status(404).json({error:'Message introuvable'});
+    const convR=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
+    const parts=(convR.rows[0]?JSON.parse(JSON.stringify(convR.rows[0].participants)):[]).map(String);
+    if(!parts.includes(String(uid))) return res.status(403).json({error:'Action non autorisée'});
+    const pin = !msg.pinned_at;
+    // Un seul message épinglé à la fois par discussion — on désépingle l'ancien
+    if(pin) await _pgPool.query('UPDATE penc_messages SET pinned_at=NULL WHERE conversation_id=$1',[msg.conversation_id]);
+    await _pgPool.query('UPDATE penc_messages SET pinned_at=$1 WHERE id=$2',[pin?new Date():null, req.params.id]);
+    await emitToUsers(parts,'message:pinned',{conv_id:msg.conversation_id, message_id:req.params.id, pinned:pin});
+    res.json({success:true, pinned:pin});
+  }catch(e){console.error('pin msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
+});
+
+// ══════════════ BIOMÉTRIE (WebAuthn : empreinte / Face ID) ══════════════
+const PENC_RP_ID = process.env.PENC_RP_ID || 'penc-messagerie.com';
+const PENC_RP_NAME = 'Penc';
+const PENC_ORIGINS = ['https://penc-messagerie.com', 'https://www.penc-messagerie.com'];
+var _webauthnChallenges = {}; // clé: userId (enregistrement) ou "login:"+phone/username (connexion)
+
+app.post('/api/penc/webauthn/register-options', pencAuth, async (req, res) => {
+  try{
+    if(!_webauthn) return res.status(503).json({ error:'Biométrie non disponible côté serveur' });
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const cr = await _pgPool.query('SELECT id FROM penc_webauthn_credentials WHERE user_id=$1',[uid]);
+    const u = await pgFindUser('id', uid);
+    const options = await _webauthn.generateRegistrationOptions({
+      rpName: PENC_RP_NAME, rpID: PENC_RP_ID,
+      userID: Buffer.from(String(uid)), userName: (u&&u.username)||'penc',
+      userDisplayName: (u&&u.full_name)||'Utilisateur Penc',
+      attestationType: 'none',
+      excludeCredentials: cr.rows.map(function(c){ return { id: c.id, type:'public-key' }; }),
+      authenticatorSelection: { residentKey:'preferred', userVerification:'preferred', authenticatorAttachment:'platform' }
+    });
+    _webauthnChallenges[uid] = options.challenge;
+    res.json(options);
+  }catch(e){ console.error('webauthn register-options:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.post('/api/penc/webauthn/register-verify', pencAuth, async (req, res) => {
+  try{
+    if(!_webauthn || !_pgPool) return res.status(503).json({ error:'Biométrie non disponible' });
+    const uid = req.pencUser.userId;
+    const expectedChallenge = _webauthnChallenges[uid];
+    if(!expectedChallenge) return res.status(400).json({ error:'Session expirée, recommence' });
+    const verification = await _webauthn.verifyRegistrationResponse({
+      response: req.body, expectedChallenge, expectedOrigin: PENC_ORIGINS, expectedRPID: PENC_RP_ID
+    });
+    if(!verification.verified || !verification.registrationInfo) return res.status(400).json({ error:'Vérification échouée' });
+    const { credential } = verification.registrationInfo;
+    await _pgPool.query(
+      'INSERT INTO penc_webauthn_credentials(id,user_id,public_key,counter,device_label) VALUES($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING',
+      [credential.id, uid, Buffer.from(credential.publicKey).toString('base64'), credential.counter||0, (req.body.deviceLabel||'Cet appareil')]
+    );
+    delete _webauthnChallenges[uid];
+    res.json({ success:true });
+  }catch(e){ console.error('webauthn register-verify:', e.message); res.status(500).json({ error:'Vérification échouée' }); }
+});
+
+app.post('/api/penc/webauthn/login-options', async (req, res) => {
+  try{
+    if(!_webauthn || !_pgPool) return res.status(503).json({ error:'Biométrie non disponible' });
+    const { identifier } = req.body; // téléphone, username ou email
+    if(!identifier) return res.status(400).json({ error:'Identifiant requis' });
+    let u = await pgFindUser('phone', identifier) || await pgFindUser('username', identifier) || await pgFindUser('email', identifier);
+    if(!u) return res.status(404).json({ error:'Compte introuvable' });
+    const cr = await _pgPool.query('SELECT id FROM penc_webauthn_credentials WHERE user_id=$1',[u.id]);
+    if(!cr.rows.length) return res.status(400).json({ error:'Aucune biométrie enregistrée pour ce compte' });
+    const options = await _webauthn.generateAuthenticationOptions({
+      rpID: PENC_RP_ID, userVerification:'preferred',
+      allowCredentials: cr.rows.map(function(c){ return { id: c.id, type:'public-key' }; })
+    });
+    _webauthnChallenges['login:'+u.id] = options.challenge;
+    res.json({ options, userId: u.id });
+  }catch(e){ console.error('webauthn login-options:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.post('/api/penc/webauthn/login-verify', async (req, res) => {
+  try{
+    if(!_webauthn || !_pgPool) return res.status(503).json({ error:'Biométrie non disponible' });
+    const { userId, response } = req.body;
+    const expectedChallenge = _webauthnChallenges['login:'+userId];
+    if(!expectedChallenge) return res.status(400).json({ error:'Session expirée, recommence' });
+    const cr = await _pgPool.query('SELECT * FROM penc_webauthn_credentials WHERE id=$1 AND user_id=$2',[response.id, userId]);
+    const stored = cr.rows[0];
+    if(!stored) return res.status(400).json({ error:'Identifiant biométrique inconnu' });
+    const verification = await _webauthn.verifyAuthenticationResponse({
+      response, expectedChallenge, expectedOrigin: PENC_ORIGINS, expectedRPID: PENC_RP_ID,
+      credential: { id: stored.id, publicKey: Buffer.from(stored.public_key,'base64'), counter: Number(stored.counter)||0 }
+    });
+    if(!verification.verified) return res.status(400).json({ error:'Vérification échouée' });
+    await _pgPool.query('UPDATE penc_webauthn_credentials SET counter=$1 WHERE id=$2',[verification.authenticationInfo.newCounter, stored.id]);
+    delete _webauthnChallenges['login:'+userId];
+    const u = await pgFindUser('id', userId);
+    if(!u) return res.status(404).json({ error:'Compte introuvable' });
+    const _sid = _pencNewSid();
+    const tok = jwt_penc.sign({ userId: u.id, sid: _sid }, PENC_SECRET, { expiresIn:'7d' });
+    _pencCreateSession(u.id, _sid, req).catch(function(){});
+    const isAdmin = PENC_ADMIN_EMAILS.includes((u.email||'').toLowerCase());
+    res.json({ user: Object.assign({}, pencStrip(u), { is_admin: isAdmin }), token: tok });
+  }catch(e){ console.error('webauthn login-verify:', e.message); res.status(500).json({ error:'Vérification échouée' }); }
+});
+
+app.get('/api/penc/webauthn/status', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ enabled:false, available: !!_webauthn });
+    const cr = await _pgPool.query('SELECT id, device_label, created_at FROM penc_webauthn_credentials WHERE user_id=$1',[req.pencUser.userId]);
+    res.json({ enabled: cr.rows.length>0, available: !!_webauthn, devices: cr.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.delete('/api/penc/webauthn/:credId', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    await _pgPool.query('DELETE FROM penc_webauthn_credentials WHERE id=$1 AND user_id=$2',[req.params.credId, req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/referral/mine', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ code:null, count:0 });
+    const r=await _pgPool.query('SELECT referral_code FROM penc_users WHERE id=$1',[req.pencUser.userId]);
+    const code=r.rows[0]&&r.rows[0].referral_code;
+    let count=0;
+    if(code){ const cr=await _pgPool.query('SELECT COUNT(*) FROM penc_users WHERE referred_by=$1',[req.pencUser.userId]); count=parseInt(cr.rows[0].count,10)||0; }
+    res.json({ code, count, bonus_per_filleul:200 });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.post('/api/penc/settings/privacy', pencAuth, async (req, res) => {
   try{
     const uid=req.pencUser.userId;

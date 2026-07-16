@@ -1,10 +1,14 @@
 /* Penc Service Worker — notifications push + mise à jour automatique de l'app.
-   Pas de cache de pages : ne sert jamais une version périmée.
-   À l'activation, purge tous les anciens caches.
-   SW_VERSION change à chaque release => le navigateur détecte la mise à jour,
-   le SW s'active (skipWaiting+claim) et l'app ouverte se recharge (controllerchange). */
+   v367 : RÉSEAU D'ABORD pour le document HTML — chaque ouverture de l'app récupère la
+   dernière version en ligne ; le cache ne sert qu'en mode hors-ligne. Les autres ressources
+   de la coquille (icônes, etc.) restent en cache-first avec revalidation (ouverture instantanée).
+   Jamais de cache pour les appels /api/ (toujours frais) ni le contenu externe (Cloudinary, polices...).
+   À l'activation, purge tous les caches d'anciennes versions.
+   NOTE : grâce au réseau-d'abord, les mises à jour de messager.html arrivent SEULES, sans toucher
+   à ce fichier. Incrémenter SW_VERSION reste une bonne hygiène à chaque release (purge du cache). */
 
-var SW_VERSION = 'v230';
+var SW_VERSION = 'v431';
+var SHELL_CACHE = 'penc-shell-' + SW_VERSION;
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -13,10 +17,59 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys()
-      .then(function (keys) { return Promise.all(keys.map(function (k) { return caches.delete(k); })); })
+      .then(function (keys) { return Promise.all(keys.map(function (k) { return (k===SHELL_CACHE) ? null : caches.delete(k); })); })
       .then(function () { return self.clients.claim(); })
   );
   console.log('[SW] Penc', SW_VERSION, 'actif');
+});
+
+self.addEventListener('fetch', function (e) {
+  var req = e.request;
+  if (req.method !== 'GET') return;
+  var url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  if (url.origin !== self.location.origin) return; // laisse le navigateur gerer Cloudinary, polices, etc.
+  if (url.pathname.indexOf('/api/') === 0) return; // jamais en cache : toujours frais
+
+  // ── v367 : RESEAU D'ABORD pour le document HTML ──
+  // Chaque ouverture recupere la derniere version publiee sur Cloudflare.
+  // Hors-ligne : on retombe sur la derniere version en cache.
+  var isHTML = (req.mode === 'navigate') || ((req.headers.get('accept') || '').indexOf('text/html') > -1);
+  if (isHTML) {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        if (res && res.status === 200) {
+          var copy = res.clone();
+          caches.open(SHELL_CACHE).then(function (c) { try { c.put(req, copy); } catch (_) {} });
+        }
+        return res;
+      }).catch(function () {
+        return caches.open(SHELL_CACHE).then(function (c) {
+          return c.match(req).then(function (m) {
+            if (m) return m;
+            return c.match('/messager').then(function (m2) {
+              if (m2) return m2;
+              return c.match('/').then(function (m3) { return m3 || Response.error(); });
+            });
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  // ── Autres ressources de la coquille : cache-first avec revalidation ──
+  e.respondWith(
+    caches.open(SHELL_CACHE).then(function (cache) {
+      return cache.match(req).then(function (cached) {
+        var network = fetch(req).then(function (res) {
+          if (res && res.status === 200) { try { cache.put(req, res.clone()); } catch (_) {} }
+          return res;
+        }).catch(function () { return cached || Response.error(); });
+        return cached || network;
+      });
+    })
+  );
 });
 
 // ── Badge compteur (Badging API) ──

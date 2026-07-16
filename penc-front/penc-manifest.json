@@ -1,0 +1,67 @@
+{
+  "name": "Penc — La messagerie panafricaine",
+  "short_name": "Penc",
+  "description": "Penc, la messagerie panafricaine : messages, statuts, canaux, appels, réunions vidéo Penc Meet et radio africaine en direct avec DeglouFM.",
+  "id": "/messager",
+  "start_url": "/messager?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#12388C",
+  "theme_color": "#1877F2",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "/penc-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/penc-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/penc-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Penc Meet",
+      "short_name": "Meet",
+      "description": "Démarrer ou rejoindre une réunion vidéo",
+      "url": "/messager?open=meet",
+      "icons": [{ "src": "/penc-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Statuts",
+      "short_name": "Statuts",
+      "description": "Voir et publier des statuts",
+      "url": "/messager?open=status",
+      "icons": [{ "src": "/penc-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Canaux",
+      "short_name": "Canaux",
+      "description": "Suivre les canaux",
+      "url": "/messager?open=channels",
+      "icons": [{ "src": "/penc-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Appels",
+      "short_name": "Appels",
+      "description": "Historique et appels audio/vidéo",
+      "url": "/messager?open=calls",
+      "icons": [{ "src": "/penc-icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

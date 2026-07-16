@@ -1,0 +1,24 @@
+<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+<rect width="240" height="240" rx="53" fill="#0160F8"/>
+<path d="M95 210 L95 140 C95 108 95 88 60 88 C25 88 24 128 52 136" fill="none" stroke="#FFFFFF" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M118 136 L165 83" fill="none" stroke="#FFFFFF" stroke-width="17" stroke-linecap="round"/>
+<polygon points="175,71 168,108 152,93" fill="#FFFFFF"/>
+<polygon points="175,71 137,80 152,93" fill="#FFFFFF"/>
+<circle cx="62" cy="106" r="16" fill="#0160F8"/>
+<g transform="translate(50,94) scale(0.95)">
+<path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c0.27-0.27 0.67-0.36 1.02-0.24c1.12 0.37 2.33 0.57 3.57 0.57c0.55 0 1 0.45 1 1V20c0 0.55-0.45 1-1 1c-9.39 0-17-7.61-17-17c0-0.55 0.45-1 1-1h3.5c0.55 0 1 0.45 1 1c0 1.25 0.2 2.45 0.57 3.57c0.11 0.35 0.03 0.74-0.25 1.02L6.62 10.79z" fill="#FFFFFF"/>
+</g>
+<rect x="52" y="142" width="20" height="16" rx="3" fill="#0160F8"/>
+<rect x="54" y="144" width="13" height="12" rx="2" fill="#FFFFFF"/>
+<path d="M68 148 l7 -4.5 v11 l-7 -4.5 Z" fill="#FFFFFF"/>
+<rect x="55" y="165" width="14" height="22" rx="7" fill="#0160F8"/>
+<rect x="57" y="167" width="10" height="15" rx="5" fill="#FFFFFF"/>
+<path d="M48 178 C48 187 55 193 62 193 C69 193 76 187 76 178" fill="none" stroke="#0160F8" stroke-width="3.2" stroke-linecap="round"/>
+<line x1="62" y1="193" x2="62" y2="199" stroke="#0160F8" stroke-width="3.2" stroke-linecap="round"/>
+<rect x="47" y="190" width="30" height="20" rx="10" fill="#0160F8"/>
+<path d="M53 209 L49 218 L60 211 Z" fill="#0160F8"/>
+<circle cx="56" cy="200" r="2.3" fill="#FFFFFF"/>
+<circle cx="62" cy="200" r="2.3" fill="#FFFFFF"/>
+<circle cx="68" cy="200" r="2.3" fill="#FFFFFF"/>
+<text x="118" y="166" font-family="Arial, sans-serif" font-weight="700" font-size="46" fill="#FFFFFF">Penc</text>
+</svg>
