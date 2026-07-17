@@ -4439,6 +4439,15 @@ let _pgPool = null;
       );
       CREATE INDEX IF NOT EXISTS idx_rlisten_station ON penc_radio_listens(station_id);
       CREATE INDEX IF NOT EXISTS idx_rlisten_user ON penc_radio_listens(user_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_fans (
+        station_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (station_id, user_id)
+      );
+      CREATE TABLE IF NOT EXISTS penc_radio_comments (
+        id TEXT PRIMARY KEY, station_id TEXT NOT NULL, user_id TEXT NOT NULL,
+        content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7610,6 +7619,63 @@ app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => 
     );
     res.json({ total_seconds: parseInt(tot.rows[0].s,10)||0, unique_listeners: parseInt(tot.rows[0].u,10)||0, by_station: byStation.rows });
   }catch(e){ console.error('radio stats:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/radio/favorites', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ stations:[] });
+    const r = await _pgPool.query(
+      `SELECT s.* FROM penc_radio_stations s JOIN penc_radio_fans f ON f.station_id=s.id WHERE f.user_id=$1 AND s.active=true ORDER BY f.created_at DESC`,
+      [req.pencUser.userId]
+    );
+    res.json({ stations: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/radio/stations/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(404).json({ error:'Introuvable' });
+    const r = await _pgPool.query('SELECT * FROM penc_radio_stations WHERE id=$1',[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({ error:'Station introuvable' });
+    const fc = await _pgPool.query('SELECT COUNT(*) FROM penc_radio_fans WHERE station_id=$1',[req.params.id]);
+    const myFan = await _pgPool.query('SELECT 1 FROM penc_radio_fans WHERE station_id=$1 AND user_id=$2',[req.params.id, req.pencUser.userId]);
+    // Auditeurs "en direct" : sessions actives commencées il y a moins de 3 minutes sans fin enregistrée
+    const live = await _pgPool.query("SELECT COUNT(DISTINCT user_id) FROM penc_radio_listens WHERE station_id=$1 AND ended_at IS NULL AND started_at > NOW() - INTERVAL '3 minutes'",[req.params.id]);
+    const cc = await _pgPool.query('SELECT COUNT(*) FROM penc_radio_comments WHERE station_id=$1',[req.params.id]);
+    res.json({ station: { ...r.rows[0], fans_count: parseInt(fc.rows[0].count,10)||0, is_fan: myFan.rows.length>0, live_listeners: parseInt(live.rows[0].count,10)||0, comments_count: parseInt(cc.rows[0].count,10)||0 } });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/radio/stations/:id/fan', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const existing = await _pgPool.query('SELECT 1 FROM penc_radio_fans WHERE station_id=$1 AND user_id=$2',[req.params.id, uid]);
+    let fan;
+    if(existing.rows.length){ await _pgPool.query('DELETE FROM penc_radio_fans WHERE station_id=$1 AND user_id=$2',[req.params.id, uid]); fan=false; }
+    else { await _pgPool.query('INSERT INTO penc_radio_fans(station_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.params.id, uid]); fan=true; }
+    const fc = await _pgPool.query('SELECT COUNT(*) FROM penc_radio_fans WHERE station_id=$1',[req.params.id]);
+    res.json({ success:true, fan, fans_count: parseInt(fc.rows[0].count,10)||0 });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ comments:[] });
+    const r = await _pgPool.query(
+      `SELECT c.*, u.full_name, u.username, u.avatar_url FROM penc_radio_comments c JOIN penc_users u ON u.id=c.user_id WHERE c.station_id=$1 ORDER BY c.created_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({ comments: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const content = String(req.body.content||'').trim().slice(0,500);
+    if(!content) return res.status(400).json({ error:'Message vide' });
+    const id = 'rcm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_radio_comments(id,station_id,user_id,content) VALUES($1,$2,$3,$4)',[id, req.params.id, req.pencUser.userId, content]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
 app.post('/api/penc/listings/:id/like', pencAuth, async (req, res) => {
