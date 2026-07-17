@@ -4416,6 +4416,12 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_lreports_status ON penc_listing_reports(status);
+      CREATE TABLE IF NOT EXISTS penc_listing_likes (
+        listing_id TEXT NOT NULL,
+        user_id    TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (listing_id, user_id)
+      );
       CREATE TABLE IF NOT EXISTS penc_legal_pages (
         key         TEXT PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -7225,7 +7231,10 @@ app.get('/api/penc/listings/:id', pencAuth, async (req, res) => {
     if(String(r.rows[0].seller_id)!==String(req.pencUser.userId)){
       await _pgPool.query('UPDATE penc_listings SET views_count=views_count+1 WHERE id=$1',[req.params.id]);
     }
-    res.json({ listing: r.rows[0] });
+    const lc = await _pgPool.query('SELECT COUNT(*) FROM penc_listing_likes WHERE listing_id=$1',[req.params.id]);
+    const myLike = await _pgPool.query('SELECT 1 FROM penc_listing_likes WHERE listing_id=$1 AND user_id=$2',[req.params.id, req.pencUser.userId]);
+    const listing = { ...r.rows[0], likes_count: parseInt(lc.rows[0].count,10)||0, liked_by_me: myLike.rows.length>0 };
+    res.json({ listing });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
@@ -7491,6 +7500,19 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
     res.json({ listings: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+app.post('/api/penc/listings/:id/like', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const existing = await _pgPool.query('SELECT 1 FROM penc_listing_likes WHERE listing_id=$1 AND user_id=$2',[req.params.id, uid]);
+    let liked;
+    if(existing.rows.length){ await _pgPool.query('DELETE FROM penc_listing_likes WHERE listing_id=$1 AND user_id=$2',[req.params.id, uid]); liked=false; }
+    else { await _pgPool.query('INSERT INTO penc_listing_likes(listing_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.params.id, uid]); liked=true; }
+    const cr = await _pgPool.query('SELECT COUNT(*) FROM penc_listing_likes WHERE listing_id=$1',[req.params.id]);
+    res.json({ success:true, liked, likes_count: parseInt(cr.rows[0].count,10)||0 });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.post('/api/penc/listings/:id/report', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
