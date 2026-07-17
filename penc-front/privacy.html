@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Politique de confidentialité — Penc</title>
+<meta name="description" content="Politique de confidentialité de Penc, la messagerie panafricaine. Données collectées, usage, sécurité et droits des utilisateurs.">
+<link rel="icon" href="https://penc-messagerie.com/penc-icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B1424;
+    --ink-soft:#4A5568;
+    --surface:#FFFFFF;
+    --surface-alt:#F4F8FF;
+    --line:#E4EAF5;
+    --primary:#1877F2;
+    --primary-deep:#0E5FD1;
+    --amber:#F2A71B;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--surface);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.eyebrow,.brand-name{font-family:'Sora',system-ui,sans-serif;}
+
+  header.top{
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:12px;
+    padding:18px 6vw;
+    background:rgba(255,255,255,0.88);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  header.top img{width:34px;height:34px;border-radius:9px;}
+  header.top .brand-name{font-weight:700; font-size:1.05rem; color:var(--ink);}
+  header.top .brand-tag{color:var(--ink-soft); font-size:0.85rem; margin-left:2px;}
+
+  .hero{
+    padding:64px 6vw 40px;
+    max-width:960px; margin:0 auto;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    color:var(--primary-deep); font-weight:600; font-size:0.82rem;
+    letter-spacing:0.04em; text-transform:uppercase;
+    background:var(--surface-alt); border:1px solid var(--line);
+    padding:6px 12px; border-radius:999px; margin-bottom:22px;
+  }
+  .eyebrow svg{width:14px;height:14px;flex:none;}
+  h1{
+    font-size:clamp(2rem,4.5vw,2.9rem);
+    line-height:1.12; font-weight:800; margin:0 0 16px;
+    letter-spacing:-0.01em;
+  }
+  .lede{
+    color:var(--ink-soft); font-size:1.08rem; max-width:640px; margin:0 0 8px;
+  }
+  .meta-line{
+    color:var(--ink-soft); font-size:0.88rem; margin-top:22px;
+    display:flex; gap:18px; flex-wrap:wrap;
+  }
+  .meta-line strong{color:var(--ink); font-weight:600;}
+
+  .layout{
+    max-width:960px; margin:0 auto; padding:0 6vw 100px;
+    display:grid; grid-template-columns:220px 1fr; gap:56px;
+  }
+  nav.toc{
+    align-self:start; position:sticky; top:92px;
+  }
+  nav.toc ol{
+    list-style:none; margin:0; padding:0;
+    border-left:2px solid var(--line);
+  }
+  nav.toc li{margin:0;}
+  nav.toc a{
+    display:flex; gap:10px; align-items:baseline;
+    padding:9px 0 9px 16px; margin-left:-2px;
+    border-left:2px solid transparent;
+    color:var(--ink-soft); text-decoration:none;
+    font-size:0.88rem; font-weight:500;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  nav.toc a:hover{color:var(--primary-deep); border-left-color:var(--primary);}
+  nav.toc .num{
+    font-family:'Sora',sans-serif; font-weight:700; font-size:0.78rem;
+    color:var(--primary); flex:none;
+  }
+
+  main section{
+    padding-top:8px; margin-bottom:52px; scroll-margin-top:100px;
+  }
+  main section h2{
+    font-size:1.3rem; font-weight:700; margin:0 0 14px;
+    display:flex; align-items:center; gap:12px;
+  }
+  main section h2 .idx{
+    font-size:0.8rem; color:var(--primary); background:var(--surface-alt);
+    border:1px solid var(--line); border-radius:8px;
+    width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    flex:none;
+  }
+  main section p, main section li{color:var(--ink-soft); font-size:0.98rem;}
+  main section ul{padding-left:20px; margin:10px 0;}
+  main section li{margin-bottom:6px;}
+  main section strong{color:var(--ink); font-weight:600;}
+
+  .callout{
+    display:flex; gap:14px;
+    background:var(--surface-alt); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin-top:16px;
+  }
+  .callout svg{width:20px;height:20px;flex:none; margin-top:2px; color:var(--primary);}
+  .callout p{margin:0; color:var(--ink); font-size:0.92rem;}
+
+  .contact-card{
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-deep) 100%);
+    border-radius:18px; padding:28px 30px; color:#fff;
+    display:flex; flex-wrap:wrap; gap:22px; align-items:center; justify-content:space-between;
+  }
+  .contact-card h3{margin:0 0 6px; font-family:'Sora',sans-serif; font-size:1.15rem;}
+  .contact-card p{margin:0; color:rgba(255,255,255,0.85); font-size:0.92rem;}
+  .contact-card a{
+    background:#fff; color:var(--primary-deep); text-decoration:none;
+    font-weight:700; font-size:0.9rem; padding:11px 20px; border-radius:10px;
+    white-space:nowrap;
+  }
+
+  footer{
+    border-top:1px solid var(--line); padding:26px 6vw;
+    color:var(--ink-soft); font-size:0.82rem;
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  }
+
+  @media (max-width:760px){
+    .layout{grid-template-columns:1fr; gap:0;}
+    nav.toc{position:static; margin-bottom:36px;}
+    nav.toc ol{display:flex; flex-wrap:wrap; gap:0; border-left:none;}
+    nav.toc li{width:50%;}
+    nav.toc a{border-left:none; padding-left:0;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img src="https://penc-messagerie.com/penc-icon-192.png" alt="Penc">
+  <span class="brand-name">Penc</span>
+  <span class="brand-tag">— La messagerie panafricaine</span>
+</header>
+
+<div class="hero">
+  <span class="eyebrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3Z"/></svg>
+    Politique de confidentialité
+  </span>
+  <h1>Vos données, entre de bonnes mains</h1>
+  <p class="lede">Penc collecte le strict nécessaire au fonctionnement du service, ne vend jamais vos données et vous laisse le contrôle total de votre compte. Voici comment, en détail.</p>
+  <div class="meta-line">
+    <span><strong>Éditeur</strong> · PST Telecom</span>
+    <span><strong>Dernière mise à jour</strong> · 17 juillet 2026</span>
+    <span><strong>Contact</strong> · privacy@penc-messagerie.com</span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <ol>
+      <li><a href="#collecte"><span class="num">01</span> Données collectées</a></li>
+      <li><a href="#usage"><span class="num">02</span> Usage des données</a></li>
+      <li><a href="#messages"><span class="num">03</span> Messages & sécurité</a></li>
+      <li><a href="#geoloc"><span class="num">04</span> Géolocalisation</a></li>
+      <li><a href="#partage"><span class="num">05</span> Partage des données</a></li>
+      <li><a href="#conservation"><span class="num">06</span> Conservation</a></li>
+      <li><a href="#droits"><span class="num">07</span> Vos droits</a></li>
+      <li><a href="#mineurs"><span class="num">08</span> Mineurs</a></li>
+      <li><a href="#modifications"><span class="num">09</span> Modifications</a></li>
+      <li><a href="#contact"><span class="num">10</span> Contact</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="collecte">
+      <h2><span class="idx">01</span> Données collectées</h2>
+      <p>Nous appliquons une politique de collecte minimale. Penc recueille uniquement :</p>
+      <ul>
+        <li><strong>Informations de compte</strong> — nom, nom d'utilisateur, numéro de téléphone, adresse e-mail (optionnelle), mot de passe (stocké de façon chiffrée).</li>
+        <li><strong>Contenu échangé</strong> — messages, messages vocaux, photos, vidéos, statuts et fichiers que vous choisissez d'envoyer.</li>
+        <li><strong>Données techniques</strong> — type d'appareil, version de l'application, identifiants de session, journaux de connexion nécessaires à la sécurité du compte.</li>
+        <li><strong>Informations de paiement</strong> — pour les transferts d'argent et dons, traités par nos partenaires (Wave, Orange Money, Free Money) ; Penc ne stocke aucune coordonnée bancaire.</li>
+      </ul>
+    </section>
+
+    <section id="usage">
+      <h2><span class="idx">02</span> Usage des données</h2>
+      <p>Les données collectées servent exclusivement à :</p>
+      <ul>
+        <li>Fournir et maintenir le service de messagerie, d'appels et de statuts ;</li>
+        <li>Sécuriser votre compte (authentification, détection d'activité suspecte, verrouillage d'appareil) ;</li>
+        <li>Améliorer la fiabilité et la performance de l'application ;</li>
+        <li>Vous contacter en cas de problème lié à votre compte.</li>
+      </ul>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+        <p>Penc n'exploite jamais vos données à des fins publicitaires et ne pratique aucun profilage commercial.</p>
+      </div>
+    </section>
+
+    <section id="messages">
+      <h2><span class="idx">03</span> Messages & sécurité</h2>
+      <p>Vos messages, statuts et médias sont stockés de manière sécurisée sur nos serveurs. Les transmissions entre votre appareil et nos serveurs sont chiffrées (HTTPS/TLS). Ils ne sont jamais vendus à des tiers ni exploités à des fins publicitaires.</p>
+      <p>L'accès à votre compte peut être protégé par un code PIN et/ou une authentification biométrique (empreinte, Face ID) selon les appareils compatibles.</p>
+    </section>
+
+    <section id="geoloc">
+      <h2><span class="idx">04</span> Géolocalisation</h2>
+      <p>La position géographique est déterminée uniquement par adresse IP (précision ville/pays) à des fins statistiques internes — par exemple pour améliorer la pertinence des radios et contenus régionaux. Penc ne collecte pas votre position GPS précise.</p>
+    </section>
+
+    <section id="partage">
+      <h2><span class="idx">05</span> Partage des données</h2>
+      <p>Penc ne vend, ne loue et ne partage vos données personnelles avec aucun tiers à des fins commerciales. Un partage limité peut avoir lieu uniquement dans les cas suivants :</p>
+      <ul>
+        <li>Avec des prestataires techniques strictement nécessaires au fonctionnement du service (hébergement, envoi d'e-mails transactionnels), sous obligation de confidentialité ;</li>
+        <li>Avec des partenaires de paiement mobile (Wave, Orange Money, Free Money) pour les transactions que vous initiez ;</li>
+        <li>Si la loi sénégalaise ou une autorité judiciaire compétente l'exige.</li>
+      </ul>
+    </section>
+
+    <section id="conservation">
+      <h2><span class="idx">06</span> Conservation des données</h2>
+      <p>Vos données sont conservées tant que votre compte est actif. En cas de suppression de compte, vos informations personnelles et votre contenu sont effacés de nos systèmes, sous réserve des obligations légales de conservation.</p>
+    </section>
+
+    <section id="droits">
+      <h2><span class="idx">07</span> Vos droits</h2>
+      <p>Vous pouvez à tout moment :</p>
+      <ul>
+        <li>Consulter et modifier vos informations de profil depuis l'application ;</li>
+        <li>Demander l'export de vos données ;</li>
+        <li>Demander la suppression de votre compte et de vos données associées, en écrivant à <strong>privacy@penc-messagerie.com</strong>.</li>
+      </ul>
+    </section>
+
+    <section id="mineurs">
+      <h2><span class="idx">08</span> Mineurs</h2>
+      <p>Penc n'est pas destiné aux enfants de moins de 13 ans. Nous ne collectons pas sciemment de données concernant des utilisateurs en dessous de cet âge. Si vous pensez qu'un compte a été créé par un mineur non autorisé, contactez-nous pour suppression.</p>
+    </section>
+
+    <section id="modifications">
+      <h2><span class="idx">09</span> Modifications de cette politique</h2>
+      <p>Cette politique peut être mise à jour pour refléter l'évolution du service ou de la réglementation. Toute modification substantielle sera annoncée dans l'application. La date de dernière mise à jour figure en haut de cette page.</p>
+    </section>
+
+    <section id="contact">
+      <h2><span class="idx">10</span> Contact</h2>
+      <div class="contact-card">
+        <div>
+          <h3>Une question sur vos données ?</h3>
+          <p>Notre équipe répond à toute demande liée à la confidentialité.</p>
+        </div>
+        <a href="mailto:privacy@penc-messagerie.com">privacy@penc-messagerie.com</a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <span>© 2026 PST Telecom · Penc — La messagerie panafricaine</span>
+  <span>contact@penc-messagerie.com</span>
+</footer>
+
+</body>
+</html>
