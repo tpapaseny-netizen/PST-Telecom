@@ -4416,6 +4416,19 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_lreports_status ON penc_listing_reports(status);
+      CREATE TABLE IF NOT EXISTS penc_radio_stations (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        stream_url    TEXT NOT NULL,
+        logo_url      TEXT,
+        country       TEXT DEFAULT '',
+        category      TEXT DEFAULT '',
+        sort_order    INTEGER DEFAULT 0,
+        active        BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_radio_country ON penc_radio_stations(country);
+      CREATE INDEX IF NOT EXISTS idx_radio_active ON penc_radio_stations(active);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7500,6 +7513,66 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
     res.json({ listings: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ══════════════ RADIO PENC (auto-hébergée, remplace progressivement DeglouFM/Base44) ══════════════
+// Accès en lecture réservé aux admins tant que le catalogue de stations n'est pas complet.
+app.get('/api/penc/radio/stations', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ stations:[] });
+    let u = null; try{ u = await pgFindUser('id', req.pencUser.userId); }catch(_pu){}
+    const isAdmin = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()));
+    if(!isAdmin) return res.json({ stations:[], admin_only:true });
+    const r = await _pgPool.query('SELECT * FROM penc_radio_stations WHERE active=true ORDER BY country, sort_order, name');
+    res.json({ stations: r.rows });
+  }catch(e){ console.error('radio stations:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ stations:[] });
+    const r = await _pgPool.query('SELECT * FROM penc_radio_stations ORDER BY country, sort_order, name');
+    res.json({ stations: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    let { name, stream_url, logo_url, country, category } = req.body;
+    name = String(name||'').trim().slice(0,80);
+    stream_url = String(stream_url||'').trim().slice(0,500);
+    if(!name || !stream_url) return res.status(400).json({ error:'Nom et URL du flux requis' });
+    const id = 'rad_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60)]
+    );
+    res.json({ success:true, id });
+  }catch(e){ console.error('radio add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { name, stream_url, logo_url, country, category, active, sort_order } = req.body;
+    const fields=[]; const vals=[]; let n=1;
+    if(name!==undefined){ fields.push('name=$'+(n++)); vals.push(String(name).trim().slice(0,80)); }
+    if(stream_url!==undefined){ fields.push('stream_url=$'+(n++)); vals.push(String(stream_url).trim().slice(0,500)); }
+    if(logo_url!==undefined){ fields.push('logo_url=$'+(n++)); vals.push(logo_url||null); }
+    if(country!==undefined){ fields.push('country=$'+(n++)); vals.push(String(country).trim().slice(0,60)); }
+    if(category!==undefined){ fields.push('category=$'+(n++)); vals.push(String(category).trim().slice(0,60)); }
+    if(active!==undefined){ fields.push('active=$'+(n++)); vals.push(!!active); }
+    if(sort_order!==undefined){ fields.push('sort_order=$'+(n++)); vals.push(parseInt(sort_order,10)||0); }
+    if(!fields.length) return res.json({ success:true });
+    vals.push(req.params.id);
+    await _pgPool.query('UPDATE penc_radio_stations SET '+fields.join(', ')+' WHERE id=$'+n, vals);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    await _pgPool.query('DELETE FROM penc_radio_stations WHERE id=$1',[req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.post('/api/penc/listings/:id/like', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
