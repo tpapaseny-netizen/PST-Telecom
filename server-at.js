@@ -4406,6 +4406,16 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_listings_category ON penc_listings(category);
       CREATE INDEX IF NOT EXISTS idx_listings_status ON penc_listings(status);
       CREATE INDEX IF NOT EXISTS idx_listings_created ON penc_listings(created_at DESC);
+      CREATE TABLE IF NOT EXISTS penc_listing_reports (
+        id            TEXT PRIMARY KEY,
+        listing_id    TEXT NOT NULL,
+        reporter_id   TEXT NOT NULL,
+        reason        TEXT NOT NULL,
+        description   TEXT DEFAULT '',
+        status        TEXT DEFAULT 'open',
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_lreports_status ON penc_listing_reports(status);
       CREATE TABLE IF NOT EXISTS penc_legal_pages (
         key         TEXT PRIMARY KEY,
         title       TEXT NOT NULL,
@@ -7481,6 +7491,46 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
     res.json({ listings: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+app.post('/api/penc/listings/:id/report', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { reason, description } = req.body;
+    if(!reason) return res.status(400).json({ error:'Motif requis' });
+    const id = 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_listing_reports(id,listing_id,reporter_id,reason,description) VALUES($1,$2,$3,$4,$5)',
+      [id, req.params.id, req.pencUser.userId, String(reason).slice(0,100), String(description||'').slice(0,1000)]
+    );
+    res.json({ success:true });
+  }catch(e){ console.error('listing report:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.get('/api/penc/admin/listing-reports', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ reports:[] });
+    const r = await _pgPool.query(
+      `SELECT rp.*, l.title as listing_title, l.price, l.currency, l.status as listing_status, l.seller_id,
+              us.full_name as seller_name, us.phone as seller_phone,
+              ur.full_name as reporter_name, ur.phone as reporter_phone
+       FROM penc_listing_reports rp
+       JOIN penc_listings l ON l.id = rp.listing_id
+       JOIN penc_users us ON us.id = l.seller_id
+       JOIN penc_users ur ON ur.id = rp.reporter_id
+       ORDER BY rp.status ASC, rp.created_at DESC LIMIT 100`
+    );
+    res.json({ reports: r.rows });
+  }catch(e){ console.error('admin listing-reports:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+app.patch('/api/penc/admin/listing-reports/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const status = ['open','resolved','dismissed'].includes(req.body.status) ? req.body.status : 'resolved';
+    await _pgPool.query('UPDATE penc_listing_reports SET status=$1 WHERE id=$2',[status, req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
 app.delete('/api/penc/admin/listings/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
