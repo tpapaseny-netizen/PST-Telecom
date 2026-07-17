@@ -3418,7 +3418,7 @@ body.penc-blue-emojis img.emoji[src*="2763"]{ filter:none; }
   <div class="penc-logo-img" style="width:84px;height:84px;filter:drop-shadow(0 0 30px rgba(24,119,242,.5));"></div>
   <div class="spinner"></div>
   <div id="authLoaderMsg" style="color:rgba(255,255,255,.75);font-weight:600;font-size:14.5px;">Connexion&#8230;</div>
-  <div style="color:rgba(255,255,255,.35);font-size:11px;font-weight:600;letter-spacing:.05em;">Penc &#183; build v463</div>
+  <div style="color:rgba(255,255,255,.35);font-size:11px;font-weight:600;letter-spacing:.05em;">Penc &#183; build v464</div>
 </div>
 <div class="screen hidden" id="screen-auth">
   <div class="auth-logo-watermark" aria-hidden="true"><div class="penc-logo-img" style="width:520px;height:520px;"></div></div>
@@ -3632,6 +3632,14 @@ body.penc-blue-emojis img.emoji[src*="2763"]{ filter:none; }
     <button class="rb-pp" id="rbPlayPause" onclick="radioToggle()" aria-label="Pause / Lecture"></button>
     <button class="rb-open" onclick="openRadio()">Rouvrir</button>
     <button class="rb-stop" onclick="stopRadio()" aria-label="Arreter">&#10005;</button>
+  </div>
+  <div class="radio-bar" id="pencRadioBar" style="cursor:pointer;">
+    <div class="rb-info" onclick="_radExpandNowPlaying()">
+      <span class="rb-ic" id="pencRbIc" style="background:#1877F2;overflow:hidden;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+      <span class="rb-text"><span class="rb-name" id="pencRbName">Radio Penc</span><span class="rb-sub" id="pencRbSub">En lecture</span></span>
+    </div>
+    <button class="rb-pp" id="pencRbPlayPause" onclick="event.stopPropagation();_radMiniToggle()" aria-label="Pause / Lecture">⏸</button>
+    <button class="rb-stop" onclick="event.stopPropagation();_radPlayerStop()" aria-label="Arreter">&#10005;</button>
   </div>
   <div class="radio-panel" id="radioPanel">
     <div class="radio-top">
@@ -11570,7 +11578,28 @@ function _admLstDelete(id, btn){
 }
 
 // ══════════════ RADIO PENC — auto-hébergée (remplace progressivement DeglouFM/Base44) ══════════════
-var _pencRadioAudio=null, _pencRadioStations=[], _pencRadioCur=null;
+var _pencRadioAudio=null, _pencRadioStations=[], _pencRadioCur=null, _pencRadioListenId=null, _pencRadioPlaying=false;
+var _pencCountryFlags={
+  'sénégal':'🇸🇳','senegal':'🇸🇳','côte d\'ivoire':'🇨🇮','cote d\'ivoire':'🇨🇮','ivoire':'🇨🇮',
+  'mali':'🇲🇱','burkina faso':'🇧🇫','burkina':'🇧🇫','guinée':'🇬🇳','guinee':'🇬🇳','bénin':'🇧🇯','benin':'🇧🇯',
+  'togo':'🇹🇬','niger':'🇳🇪','mauritanie':'🇲🇷','gambie':'🇬🇲','cap-vert':'🇨🇻','cap vert':'🇨🇻',
+  'ghana':'🇬🇭','nigeria':'🇳🇬','nigéria':'🇳🇬','cameroun':'🇨🇲','congo':'🇨🇬','rdc':'🇨🇩',
+  'gabon':'🇬🇦','tchad':'🇹🇩','centrafrique':'🇨🇫','maroc':'🇲🇦','algérie':'🇩🇿','algerie':'🇩🇿',
+  'tunisie':'🇹🇳','égypte':'🇪🇬','egypte':'🇪🇬','libye':'🇱🇾','soudan':'🇸🇩','éthiopie':'🇪🇹','ethiopie':'🇪🇹',
+  'kenya':'🇰🇪','tanzanie':'🇹🇿','ouganda':'🇺🇬','rwanda':'🇷🇼','burundi':'🇧🇮','zambie':'🇿🇲',
+  'zimbabwe':'🇿🇼','mozambique':'🇲🇿','angola':'🇦🇴','namibie':'🇳🇦','botswana':'🇧🇼','afrique du sud':'🇿🇦',
+  'madagascar':'🇲🇬','maurice':'🇲🇺','comores':'🇰🇲','djibouti':'🇩🇯','somalie':'🇸🇴','érythrée':'🇪🇷','erythree':'🇪🇷',
+  'sierra leone':'🇸🇱','liberia':'🇱🇷','guinée-bissau':'🇬🇼','guinee-bissau':'🇬🇼','malawi':'🇲🇼','lesotho':'🇱🇸',
+  'eswatini':'🇸🇿','sao tomé':'🇸🇹','sao tome':'🇸🇹','guinée équatoriale':'🇬🇶','guinee equatoriale':'🇬🇶',
+  'france':'🇫🇷','états-unis':'🇺🇸','etats-unis':'🇺🇸','usa':'🇺🇸','royaume-uni':'🇬🇧','angleterre':'🇬🇧',
+  'belgique':'🇧🇪','canada':'🇨🇦','allemagne':'🇩🇪','espagne':'🇪🇸','italie':'🇮🇹','portugal':'🇵🇹',
+  'brésil':'🇧🇷','bresil':'🇧🇷','liban':'🇱🇧','arabie saoudite':'🇸🇦','émirats':'🇦🇪','emirats':'🇦🇪'
+};
+function _pencFlagFor(country){
+  if(!country) return '🌍';
+  var k=country.trim().toLowerCase();
+  return _pencCountryFlags[k]||'🌍';
+}
 
 // ── Panneau admin : gestion des stations ──
 function openPencRadioAdmin(){
@@ -11581,6 +11610,7 @@ function openPencRadioAdmin(){
       +'<button onclick="document.getElementById(\'radAdminOv\').classList.remove(\'show\')" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.18);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>'
       +'<div style="font-weight:700;font-size:17px;flex:1;">🎙️ Radio Penc — Stations</div>'
       +'<button onclick="openPencRadioPlayer()" title="Aperçu lecteur" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;">▶️ Aperçu</button>'
+      +'<button onclick="openRadioStats()" title="Statistiques" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;">📊 Stats</button>'
     +'</div>'
     +'<div style="padding:14px;background:var(--card);border-bottom:1px solid var(--border);">'
       +'<button onclick="_radAdminOpenForm()" style="width:100%;padding:12px;border:none;border-radius:12px;background:#1DBF73;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">➕ Ajouter une station</button>'
@@ -11599,7 +11629,7 @@ async function _radAdminLoad(){
     var byCountry={};
     stations.forEach(function(s){ var c=s.country||'Sans pays'; (byCountry[c]=byCountry[c]||[]).push(s); });
     host.innerHTML=Object.keys(byCountry).sort().map(function(country){
-      return '<div style="font-weight:800;font-size:12px;color:var(--muted);text-transform:uppercase;margin:14px 0 8px;">'+esc(country)+'</div>'
+      return '<div style="font-weight:800;font-size:12px;color:var(--muted);text-transform:uppercase;margin:14px 0 8px;">'+_pencFlagFor(country)+' '+esc(country)+'</div>'
         +byCountry[country].map(function(s){
           var logo=s.logo_url?('<img src="'+s.logo_url+'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;"/>'):('<div style="width:44px;height:44px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">📻</div>');
           return '<div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card);border-radius:12px;margin-bottom:8px;border:1px solid var(--border);'+(s.active?'':'opacity:.5;')+'">'
@@ -11620,13 +11650,14 @@ function _radAdminOpenForm(stationId){
     +'<div class="form-group"><label class="form-label">Nom de la station</label><input class="form-input" id="radName" value="'+(s?esc(s.name):'')+'" placeholder="Ex : RFM Sénégal"/></div>'
     +'<div class="form-group"><label class="form-label">URL du flux audio (direct, .mp3/.aac/Icecast)</label><input class="form-input" id="radStreamUrl" value="'+(s?esc(s.stream_url):'')+'" placeholder="https://stream.exemple.com/radio.mp3"/></div>'
     +'<div class="form-group"><label class="form-label">Logo (URL, optionnel)</label><input class="form-input" id="radLogo" value="'+(s&&s.logo_url?esc(s.logo_url):'')+'" placeholder="https://…"/></div>'
-    +'<div class="form-group"><label class="form-label">Pays</label><input class="form-input" id="radCountry" value="'+(s?esc(s.country||''):'')+'" placeholder="Ex : Sénégal"/></div>'
+    +'<div class="form-group"><label class="form-label">Pays</label><div style="display:flex;gap:8px;align-items:center;"><input class="form-input" id="radCountry" value="'+(s?esc(s.country||''):'')+'" oninput="_radUpdateFlagPreview()" placeholder="Ex : Sénégal" style="flex:1;"/><span id="radFlagPreview" style="font-size:26px;width:40px;text-align:center;">'+(s?_pencFlagFor(s.country):'🌍')+'</span></div></div>'
     +'<div class="form-group"><label class="form-label">Catégorie</label><input class="form-input" id="radCategory" value="'+(s?esc(s.category||''):'')+'" placeholder="Ex : Musique, Info, Religieux…"/></div>'
     +(s?('<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card2);border-radius:11px;margin-bottom:14px;"><span style="font-weight:600;font-size:14px;">Station active</span><div onclick="_radToggleActiveField()" id="radActiveToggle" data-active="'+(s.active?'1':'0')+'" style="width:44px;height:26px;border-radius:13px;background:'+(s.active?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;flex-shrink:0;"><div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:'+(s.active?'21px':'3px')+';transition:left .15s;"></div></div></div>'):'')
     +'<button onclick="_radAdminSave(\''+(s?s.id:'')+'\')" id="radSaveBtn" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;">'+(s?'Enregistrer':'Ajouter')+'</button>'
     +'<button onclick="document.getElementById(\'radFormOv\').classList.remove(\'show\')" style="width:100%;padding:11px;border:none;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer;margin-top:6px;">Annuler</button></div>';
   ov.classList.add('show');
 }
+function _radUpdateFlagPreview(){ var el=document.getElementById('radFlagPreview'); var inp=document.getElementById('radCountry'); if(el&&inp) el.textContent=_pencFlagFor(inp.value); }
 function _radToggleActiveField(){
   var el=document.getElementById('radActiveToggle');
   var on=el.dataset.active==='1';
@@ -11685,7 +11716,7 @@ async function openPencRadioPlayer(){
     var byCountry={};
     stations.forEach(function(s){ var c=s.country||'Autres'; (byCountry[c]=byCountry[c]||[]).push(s); });
     host.innerHTML=Object.keys(byCountry).sort().map(function(country){
-      return '<div style="font-weight:800;font-size:12px;color:var(--muted);text-transform:uppercase;margin:14px 0 8px;">'+esc(country)+'</div>'
+      return '<div style="font-weight:800;font-size:12px;color:var(--muted);text-transform:uppercase;margin:14px 0 8px;">'+_pencFlagFor(country)+' '+esc(country)+'</div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'
         +byCountry[country].map(function(s){
           var logo=s.logo_url?('<img src="'+s.logo_url+'" style="width:100%;aspect-ratio:1;border-radius:12px;object-fit:cover;"/>'):('<div style="width:100%;aspect-ratio:1;border-radius:12px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:26px;">📻</div>');
@@ -11697,10 +11728,16 @@ async function openPencRadioPlayer(){
 }
 function _radPlayerPlay(id){
   var s=_pencRadioStations.find(function(x){return x.id===id;}); if(!s) return;
-  try{ if(_pencRadioAudio){ _pencRadioAudio.pause(); _pencRadioAudio.src=''; } }catch(_){}
+  _radPlayerStop(); // ferme/termine une éventuelle session précédente proprement
   _pencRadioAudio=new Audio(s.stream_url);
-  _pencRadioAudio.play().catch(function(){ showNotif('❌','Erreur','Impossible de lire ce flux','red',null); });
+  _pencRadioAudio.play().then(function(){
+    _pencRadioPlaying=true;
+    try{ _pencRadioAudio.onpause=function(){ _pencRadioPlaying=false; _radSyncPlayPauseIcons(); }; _pencRadioAudio.onplay=function(){ _pencRadioPlaying=true; _radSyncPlayPauseIcons(); }; }catch(_ae){}
+  }).catch(function(){ showNotif('❌','Erreur','Impossible de lire ce flux','red',null); });
   _pencRadioCur=s;
+  try{ api('/radio/listen/start','POST',{station_id:s.id}).then(function(r){ _pencRadioListenId=r&&r.id; }); }catch(_ls){}
+  _radShowMiniBar(s);
+  _radUpdateNowPlayingUI();
   var np=document.getElementById('radNowPlaying');
   if(np){
     np.style.display='flex';
@@ -11709,8 +11746,95 @@ function _radPlayerPlay(id){
       +'<button onclick="_radPlayerStop()" style="background:rgba(224,71,62,.1);border:none;color:#E0473E;border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer;">■ Stop</button>';
   }
 }
-function _radPlayerStop(){ try{ if(_pencRadioAudio){ _pencRadioAudio.pause(); _pencRadioAudio.src=''; } }catch(_){} var np=document.getElementById('radNowPlaying'); if(np) np.style.display='none'; }
-function _radPlayerClose(){ _radPlayerStop(); var o=document.getElementById('radPlayerOv'); if(o) o.classList.remove('show'); }
+function _radShowMiniBar(s){
+  var bar=document.getElementById('pencRadioBar'); if(!bar) return;
+  bar.style.display='flex';
+  var ic=document.getElementById('pencRbIc');
+  if(ic) ic.innerHTML = s.logo_url ? ('<img src="'+s.logo_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>') : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+  var nm=document.getElementById('pencRbName'); if(nm) nm.textContent=s.name;
+  var sub=document.getElementById('pencRbSub'); if(sub) sub.textContent=(s.country?(_pencFlagFor(s.country)+' '):'')+'En direct';
+  _radSyncPlayPauseIcons();
+}
+function _radSyncPlayPauseIcons(){
+  var btn=document.getElementById('pencRbPlayPause'); if(btn) btn.textContent=_pencRadioPlaying?'⏸':'▶';
+  var fp=document.getElementById('radFullPP'); if(fp) fp.innerHTML=_pencRadioPlaying?'<svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>':'<svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><polygon points="6,4 20,12 6,20"/></svg>';
+}
+function _radMiniToggle(){
+  if(!_pencRadioAudio) return;
+  if(_pencRadioPlaying){ _pencRadioAudio.pause(); } else { _pencRadioAudio.play().catch(function(){}); }
+}
+function _radPlayerStop(){
+  try{
+    if(_pencRadioAudio){ _pencRadioAudio.pause(); _pencRadioAudio.src=''; }
+    if(_pencRadioListenId){ api('/radio/listen/end','POST',{id:_pencRadioListenId}); _pencRadioListenId=null; }
+  }catch(_){}
+  _pencRadioPlaying=false; _pencRadioCur=null;
+  var np=document.getElementById('radNowPlaying'); if(np) np.style.display='none';
+  var bar=document.getElementById('pencRadioBar'); if(bar) bar.style.display='none';
+  var full=document.getElementById('radFullPlayerOv'); if(full) full.classList.remove('show');
+}
+function _radPlayerClose(){ var o=document.getElementById('radPlayerOv'); if(o) o.classList.remove('show'); } // ne stoppe pas la lecture, comme Spotify
+if(!document.getElementById('radWaveKeyframes')){ var _rwk=document.createElement('style'); _rwk.id='radWaveKeyframes'; _rwk.textContent='@keyframes radWave{0%,100%{transform:scaleY(.4);}50%{transform:scaleY(1);}}'; document.head.appendChild(_rwk); }
+// ── Écran "En cours de lecture" plein écran, façon Spotify ──
+function _radExpandNowPlaying(){
+  if(!_pencRadioCur) return;
+  var ov=document.getElementById('radFullPlayerOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='radFullPlayerOv'; ov.className='overlay'; ov.style.zIndex='9999999'; document.body.appendChild(ov); }
+  _radUpdateNowPlayingUI(ov);
+  ov.classList.add('show');
+}
+function _radUpdateNowPlayingUI(ov){
+  ov=ov||document.getElementById('radFullPlayerOv'); if(!ov || !_pencRadioCur) return;
+  var s=_pencRadioCur;
+  var logo=s.logo_url?('<img src="'+s.logo_url+'" style="width:100%;height:100%;object-fit:cover;"/>'):('<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:90px;">📻</div>');
+  ov.innerHTML='<div style="position:fixed;inset:0;background:linear-gradient(160deg,#0B1B3A,#12388C);display:flex;flex-direction:column;align-items:center;padding:24px;padding-top:calc(24px + env(safe-area-inset-top));">'
+    +'<div style="width:100%;display:flex;align-items:center;margin-bottom:30px;"><button onclick="document.getElementById(\'radFullPlayerOv\').classList.remove(\'show\')" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><div style="flex:1;text-align:center;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Radio Penc</div><div style="width:38px;"></div></div>'
+    +'<div style="width:min(280px,70vw);aspect-ratio:1;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.4);margin-bottom:36px;background:rgba(255,255,255,.08);">'+logo+'</div>'
+    +'<div style="color:#fff;font-size:22px;font-weight:800;text-align:center;margin-bottom:6px;">'+esc(s.name)+'</div>'
+    +'<div style="color:rgba(255,255,255,.6);font-size:14px;text-align:center;margin-bottom:40px;">'+(s.country?(_pencFlagFor(s.country)+' '+esc(s.country)+' · '):'')+esc(s.category||'En direct')+'</div>'
+    +'<div style="display:flex;align-items:center;gap:2px;margin-bottom:36px;"><span style="width:5px;height:16px;background:#fff;border-radius:2px;animation:radWave 1s ease-in-out infinite;"></span><span style="width:5px;height:26px;background:#fff;border-radius:2px;animation:radWave 1s ease-in-out .15s infinite;"></span><span style="width:5px;height:12px;background:#fff;border-radius:2px;animation:radWave 1s ease-in-out .3s infinite;"></span><span style="width:5px;height:22px;background:#fff;border-radius:2px;animation:radWave 1s ease-in-out .45s infinite;"></span><span style="width:5px;height:9px;background:#fff;border-radius:2px;animation:radWave 1s ease-in-out .6s infinite;"></span><span style="color:rgba(255,255,255,.7);font-size:12px;font-weight:700;margin-left:10px;">EN DIRECT</span></div>'
+    +'<button id="radFullPP" onclick="_radMiniToggle()" style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:24px;"></button>'
+    +'<button onclick="_radPlayerStop()" style="background:rgba(224,71,62,.2);border:1px solid rgba(224,71,62,.4);color:#ff6b61;border-radius:20px;padding:10px 22px;font-weight:700;font-size:13px;cursor:pointer;">■ Arrêter la lecture</button>'
+    +'</div>';
+  _radSyncPlayPauseIcons();
+}
+
+// ── Statistiques d'écoute (admin) ──
+function _radFmtDuration(sec){
+  sec=sec||0;
+  var h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60);
+  if(h>0) return h+'h '+m+'min';
+  if(m>0) return m+' min';
+  return sec+' s';
+}
+async function openRadioStats(){
+  var ov=document.getElementById('radStatsOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='radStatsOv'; ov.className='overlay'; ov.style.zIndex='999999'; document.body.appendChild(ov); }
+  ov.innerHTML='<div style="position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));background:#1877F2;color:#fff;flex-shrink:0;">'
+      +'<button onclick="document.getElementById(\'radStatsOv\').classList.remove(\'show\')" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.18);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>'
+      +'<div style="font-weight:700;font-size:17px;">📊 Statistiques d\'écoute</div></div>'
+    +'<div id="radStatsBody" style="flex:1;overflow-y:auto;padding:14px;">Chargement…</div></div>';
+  ov.classList.add('show');
+  try{
+    var r=await api('/admin/radio/stats','GET');
+    var host=document.getElementById('radStatsBody');
+    var byStation=(r&&r.by_station)||[];
+    host.innerHTML='<div style="display:flex;gap:10px;margin-bottom:16px;">'
+      +'<div style="flex:1;background:var(--card);border-radius:14px;padding:16px;text-align:center;border:1px solid var(--border);"><div style="font-size:22px;font-weight:800;color:var(--accent);">'+_radFmtDuration(r.total_seconds)+'</div><div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Temps d\'écoute total</div></div>'
+      +'<div style="flex:1;background:var(--card);border-radius:14px;padding:16px;text-align:center;border:1px solid var(--border);"><div style="font-size:22px;font-weight:800;color:#1DBF73;">'+(r.unique_listeners||0)+'</div><div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Auditeurs uniques</div></div>'
+      +'</div>'
+      +'<div style="font-weight:800;font-size:12px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Par station</div>'
+      +(byStation.length?byStation.map(function(s){
+        var logo=s.logo_url?('<img src="'+s.logo_url+'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;"/>'):('<div style="width:44px;height:44px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;">📻</div>');
+        return '<div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card);border-radius:12px;margin-bottom:8px;border:1px solid var(--border);">'
+          +logo+'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_pencFlagFor(s.country)+' '+esc(s.name)+'</div>'
+          +'<div style="color:var(--muted);font-size:11.5px;">'+(s.unique_listeners||0)+' auditeur(s) · '+(s.sessions||0)+' session(s)</div></div>'
+          +'<div style="text-align:right;flex-shrink:0;"><div style="font-weight:800;color:var(--accent);font-size:14px;">'+_radFmtDuration(s.total_seconds)+'</div></div>'
+          +'</div>';
+      }).join(''):'<div style="text-align:center;color:var(--muted);padding:30px 0;">Aucune écoute enregistrée pour le moment.</div>');
+  }catch(e){ var host2=document.getElementById('radStatsBody'); if(host2) host2.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px 0;">Erreur de chargement</div>'; }
+}
 
 function openAdmin(){
   var ov=document.getElementById('adminOverlay');
@@ -14473,7 +14597,7 @@ function _sttIco(){ return '<svg width="13" height="13" viewBox="0 0 24 24" fill
 window.PENC_WAVE_LOGO='data:image/png;base64,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';
 function _pencApplyWaveLogo(){ try{ document.querySelectorAll('.penc-wave-logo').forEach(function(im){ if(im.src!==window.PENC_WAVE_LOGO) im.src=window.PENC_WAVE_LOGO; }); }catch(_){} }
 setTimeout(_pencApplyWaveLogo, 500); // logo Wave -> pingouin sur les elements statiques (selecteur de paiement) des le demarrage
-window.PENC_BUILD='v463';
+window.PENC_BUILD='v464';
 setTimeout(_i18nApply, 900);
 setTimeout(function(){ try{ _pencEnsureKeys(); }catch(_ek){} }, 2600); // v369 : cles E2E pretes en avance
 /* ══ MISE A JOUR AUTOMATIQUE (v367) — l'app se surveille elle-meme ══ */
@@ -14529,7 +14653,7 @@ setTimeout(_pencCheckUpdate, 3500);
 try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ var _n=Date.now(); if(!window._pencLastUpChk||(_n-window._pencLastUpChk)>1800000){ window._pencLastUpChk=_n; _pencCheckUpdate(); } try{ if(typeof loadConvs==='function') loadConvs(); _pencResyncOpenConv(); }catch(_r){} } }); }catch(_v){}
 // Rattrapage réseau : quand la connexion internet revient après une coupure
 try{ window.addEventListener('online', function(){ try{ if(typeof loadConvs==='function') loadConvs(); _pencResyncOpenConv(); }catch(_r2){} }); }catch(_o){}
-console.log('PENC build v463 (Radio Penc auto-hebergee : gestion admin des stations, lecteur natif, remplace progressivement DeglouFM/Base44)');
+console.log('PENC build v464 (Radio Penc : mini-lecteur persistant style Spotify, ecran plein ecran anime, drapeaux auto, statistiques d ecoute)');
 try{ if(localStorage.getItem('penc_last_build')!=='v407'){ localStorage.setItem('penc_last_build','v407'); setTimeout(function(){ try{ if(typeof showNotif==='function'&&TOKEN) showNotif('\uD83D\uDD27','Penc mis \u00e0 jour','Corrections et am\u00e9liorations diverses','green',null); }catch(_n){} },1400); } }catch(_b){}
 (function(){ document.addEventListener('contextmenu', function(e){ try{ var t=e.target; if(t&&t.closest&&t.closest('input,textarea,select,[contenteditable=\"true\"]')) return; e.preventDefault(); }catch(_){} }, false); })();
 /* === Flèche "aller en bas" === */

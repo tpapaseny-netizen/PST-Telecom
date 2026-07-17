@@ -4429,6 +4429,16 @@ let _pgPool = null;
       );
       CREATE INDEX IF NOT EXISTS idx_radio_country ON penc_radio_stations(country);
       CREATE INDEX IF NOT EXISTS idx_radio_active ON penc_radio_stations(active);
+      CREATE TABLE IF NOT EXISTS penc_radio_listens (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL,
+        station_id    TEXT NOT NULL,
+        started_at    TIMESTAMPTZ DEFAULT NOW(),
+        ended_at      TIMESTAMPTZ,
+        duration_seconds INTEGER DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_rlisten_station ON penc_radio_listens(station_id);
+      CREATE INDEX IF NOT EXISTS idx_rlisten_user ON penc_radio_listens(user_id);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7571,6 +7581,35 @@ app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req
     await _pgPool.query('DELETE FROM penc_radio_stations WHERE id=$1',[req.params.id]);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+// ── Suivi des sessions d'écoute (pour les statistiques) ──
+app.post('/api/penc/radio/listen/start', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ id:null });
+    const id = 'lsn_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_radio_listens(id,user_id,station_id) VALUES($1,$2,$3)',[id, req.pencUser.userId, req.body.station_id]);
+    res.json({ id });
+  }catch(e){ res.json({ id:null }); }
+});
+app.post('/api/penc/radio/listen/end', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool || !req.body.id) return res.json({ success:true });
+    await _pgPool.query("UPDATE penc_radio_listens SET ended_at=NOW(), duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int) WHERE id=$1 AND user_id=$2",[req.body.id, req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.json({ success:true }); }
+});
+app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ total_seconds:0, by_station:[], unique_listeners:0 });
+    const tot = await _pgPool.query('SELECT COALESCE(SUM(duration_seconds),0) as s, COUNT(DISTINCT user_id) as u FROM penc_radio_listens');
+    const byStation = await _pgPool.query(
+      `SELECT s.id, s.name, s.logo_url, s.country, COALESCE(SUM(l.duration_seconds),0) as total_seconds, COUNT(DISTINCT l.user_id) as unique_listeners, COUNT(l.id) as sessions
+       FROM penc_radio_stations s LEFT JOIN penc_radio_listens l ON l.station_id=s.id
+       GROUP BY s.id ORDER BY total_seconds DESC`
+    );
+    res.json({ total_seconds: parseInt(tot.rows[0].s,10)||0, unique_listeners: parseInt(tot.rows[0].u,10)||0, by_station: byStation.rows });
+  }catch(e){ console.error('radio stats:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 
 app.post('/api/penc/listings/:id/like', pencAuth, async (req, res) => {
