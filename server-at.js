@@ -9486,6 +9486,18 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         }
       } catch(_e){ _blocked = false; msg.pending = false; }
       if (_blocked) { if (typeof cb === 'function') cb({ error: 'Vous ne pouvez pas écrire à cet utilisateur.' }); return; }
+      // ── Anti-doublon (retry) : si ce client_id a déjà été inséré (relance de la file
+      // hors-ligne pendant qu'un envoi lent — ex. vocal — était encore en cours), on ne
+      // rediffuse pas un 2e message. Miroir de la vérification déjà faite sur /api/penc/send.
+      if (client_id && _pgPool) {
+        try {
+          const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
+          if (_dup.rows[0]) {
+            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: _dup.rows[0].id, sender } });
+            return;
+          }
+        } catch (_e) {}
+      }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
