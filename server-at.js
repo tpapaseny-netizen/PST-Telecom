@@ -4377,6 +4377,7 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referral_code TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referred_by TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup_at TIMESTAMPTZ;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
       CREATE TABLE IF NOT EXISTS penc_webauthn_credentials (
         id            TEXT PRIMARY KEY,
