@@ -4107,13 +4107,18 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
         '[0:v][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[v1]',
         "[v1]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[v2]"
       ];
-      cmd = cmd.complexFilter(filters, ['v2', '0:a?']);
+      cmd = cmd.complexFilter(filters, 'v2');
     } else {
       cmd = cmd.videoFilters(["drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th"]);
     }
   }
   return new Promise((resolve, reject) => {
-    cmd.outputOptions(['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'])
+    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'];
+    // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
+    // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
+    // Le '?' rend l'audio optionnel : aucune erreur si la vidéo source n'a pas de piste audio.
+    if (withWatermark && logoTmpPath) { _outOpts.unshift('-map', '0:a?'); }
+    cmd.outputOptions(_outOpts)
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
       .save(outputPath);
