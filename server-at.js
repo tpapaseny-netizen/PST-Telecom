@@ -4431,10 +4431,19 @@ let _pgPool = null;
         category      TEXT DEFAULT '',
         sort_order    INTEGER DEFAULT 0,
         active        BOOLEAN DEFAULT TRUE,
+        featured      BOOLEAN DEFAULT FALSE,
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_radio_country ON penc_radio_stations(country);
       CREATE INDEX IF NOT EXISTS idx_radio_active ON penc_radio_stations(active);
+      CREATE TABLE IF NOT EXISTS penc_radio_reports (
+        id            TEXT PRIMARY KEY,
+        station_id    TEXT NOT NULL,
+        user_id       TEXT NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rreport_station ON penc_radio_reports(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_listens (
         id            TEXT PRIMARY KEY,
         user_id       TEXT NOT NULL,
@@ -7590,14 +7599,14 @@ app.get('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) 
 app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    let { name, stream_url, logo_url, country, category } = req.body;
+    let { name, stream_url, logo_url, country, category, featured } = req.body;
     name = String(name||'').trim().slice(0,80);
     stream_url = String(stream_url||'').trim().slice(0,500);
     if(!name || !stream_url) return res.status(400).json({ error:'Nom et URL du flux requis' });
     const id = 'rad_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     await _pgPool.query(
-      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60)]
+      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60), !!featured]
     );
     res.json({ success:true, id });
   }catch(e){ console.error('radio add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
@@ -7605,7 +7614,7 @@ app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res)
 app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const { name, stream_url, logo_url, country, category, active, sort_order } = req.body;
+    const { name, stream_url, logo_url, country, category, active, sort_order, featured } = req.body;
     const fields=[]; const vals=[]; let n=1;
     if(name!==undefined){ fields.push('name=$'+(n++)); vals.push(String(name).trim().slice(0,80)); }
     if(stream_url!==undefined){ fields.push('stream_url=$'+(n++)); vals.push(String(stream_url).trim().slice(0,500)); }
@@ -7614,6 +7623,7 @@ app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req,
     if(category!==undefined){ fields.push('category=$'+(n++)); vals.push(String(category).trim().slice(0,60)); }
     if(active!==undefined){ fields.push('active=$'+(n++)); vals.push(!!active); }
     if(sort_order!==undefined){ fields.push('sort_order=$'+(n++)); vals.push(parseInt(sort_order,10)||0); }
+    if(featured!==undefined){ fields.push('featured=$'+(n++)); vals.push(!!featured); }
     if(!fields.length) return res.json({ success:true });
     vals.push(req.params.id);
     await _pgPool.query('UPDATE penc_radio_stations SET '+fields.join(', ')+' WHERE id=$'+n, vals);
@@ -7643,6 +7653,33 @@ app.post('/api/penc/radio/listen/end', pencAuth, async (req, res) => {
     await _pgPool.query("UPDATE penc_radio_listens SET ended_at=NOW(), duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int) WHERE id=$1 AND user_id=$2",[req.body.id, req.pencUser.userId]);
     res.json({ success:true });
   }catch(e){ res.json({ success:true }); }
+});
+// Signalement d'une station qui ne démarre pas — notifie directement les admins Penc.
+app.post('/api/penc/radio/report', pencAuth, async (req, res) => {
+  try{
+    const station_id = String(req.body.station_id||'').trim();
+    if(!station_id) return res.status(400).json({ error:'station_id requis' });
+    let stationName = station_id;
+    try{
+      if(_pgPool){
+        const id = 'rrep_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+        await _pgPool.query('INSERT INTO penc_radio_reports(id,station_id,user_id) VALUES($1,$2,$3)',[id, station_id, req.pencUser.userId]);
+        const sr = await _pgPool.query('SELECT name FROM penc_radio_stations WHERE id=$1',[station_id]);
+        if(sr.rows[0]) stationName = sr.rows[0].name;
+      }
+    }catch(_dbr){}
+    try{
+      let reporter='Un utilisateur';
+      try{ const u=await pgFindUser('id', req.pencUser.userId); if(u) reporter=pencStrip(u).full_name||reporter; }catch(_ru){}
+      for(const adminEmail of PENC_ADMIN_EMAILS){
+        try{
+          const au = await pgFindUser('email', adminEmail);
+          if(au) await sendPencPush(au.id, { title:'📻 Signalement radio', body: reporter+' signale que "'+stationName+'" ne démarre pas.', tag:'penc-radio-report' });
+        }catch(_pu){}
+      }
+    }catch(_notif){}
+    res.json({ success:true });
+  }catch(e){ console.error('radio report:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => {
   try{
