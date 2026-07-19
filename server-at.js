@@ -4107,13 +4107,13 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
         '[0:v][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[v1]',
         "[v1]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[v2]"
       ];
-      cmd = cmd.complexFilter(filters, 'v2');
+      cmd = cmd.complexFilter(filters, ['v2', '0:a?']);
     } else {
       cmd = cmd.videoFilters(["drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th"]);
     }
   }
   return new Promise((resolve, reject) => {
-    cmd.outputOptions(['-c:v libx264', '-preset ultrafast', '-crf 25', '-c:a aac', '-movflags +faststart'])
+    cmd.outputOptions(['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'])
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
       .save(outputPath);
