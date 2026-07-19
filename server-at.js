@@ -7567,10 +7567,16 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
 app.get('/api/penc/radio/stations', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ stations:[] });
-    let u = null; try{ u = await pgFindUser('id', req.pencUser.userId); }catch(_pu){}
-    const isAdmin = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()));
-    if(!isAdmin) return res.json({ stations:[], admin_only:true });
     const r = await _pgPool.query('SELECT * FROM penc_radio_stations WHERE active=true ORDER BY country, sort_order, name');
+    // Le catalogue s'ouvre à tous dès qu'il contient au moins une station — plus besoin de
+    // débloquer manuellement un flag admin une fois les radios ajoutées. S'il redevenait
+    // vide (toutes désactivées), l'écran retombe proprement en mode "réservé aux admins"
+    // plutôt que de montrer une liste vide aux utilisateurs.
+    if(!r.rows.length){
+      let u = null; try{ u = await pgFindUser('id', req.pencUser.userId); }catch(_pu){}
+      const isAdmin = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()));
+      if(!isAdmin) return res.json({ stations:[], admin_only:true });
+    }
     res.json({ stations: r.rows });
   }catch(e){ console.error('radio stations:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
