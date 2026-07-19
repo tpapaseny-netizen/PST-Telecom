@@ -4740,6 +4740,22 @@ async function pgSaveMessage(msg){
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
   return r.rows[0];
 }
+// Réservation ATOMIQUE d'un client_id avant toute diffusion socket — sans ça, deux envois
+// concurrents (ex: l'émission directe + la relance de la file hors-ligne pendant qu'un
+// vocal/média lent est encore en cours) peuvent chacun passer la vérification "existe déjà ?"
+// avant que l'autre n'ait fini d'insérer, et diffuser chacun sa propre copie du message
+// (doublon visible côté client, un seul des deux survit en base — d'où le doublon qui
+// "disparaît" seulement après rechargement complet). ON CONFLICT rend cette course impossible :
+// une seule des deux requêtes peut gagner la ligne, l'autre reçoit `null` (= doublon avéré).
+async function pgClaimMessage(msg){
+  if(!_pgPool) return null;
+  const r=await _pgPool.query(
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13) ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false]
+  );
+  if(r.rows[0]){ await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]); return r.rows[0]; }
+  return null; // conflit = un autre envoi avec le même client_id a déjà gagné la course
+}
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
   return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Ta messagerie mondiale gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDCB8 transferts d'argent. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
@@ -6373,9 +6389,6 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     const { conversation_id, type, content, media_url, media_duration, reply_to, client_id } = req.body || {};
     if(!conversation_id) return res.status(400).json({ error:'conversation_id requis' });
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    if(client_id){
-      try{ const ex=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); if(ex.rows[0]) return res.json({ success:true, duplicate:true, id:ex.rows[0].id }); }catch(_e){}
-    }
     const msg = {
       id: 'msg_'+Date.now()+Math.random().toString(36).slice(2),
       conversation_id, sender_id: uid, reply_to: reply_to||null,
@@ -6385,6 +6398,17 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     };
     let sender = { id: uid };
     try{ const u=await pgFindUser('id',uid); if(u) sender=pencStrip(u); }catch(_){}
+    // Réservation atomique (voir pgClaimMessage) : évite qu'un envoi concurrent avec le même
+    // client_id (ex: l'émission socket directe pendant que cette relance REST arrive aussi)
+    // diffuse chacun sa propre copie du message.
+    let _claimed=null;
+    if(client_id){
+      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(_e){}
+      if(!_claimed){
+        try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
+        catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
+      }
+    }
     const fullMsg = { ...msg, sender };
     try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
     try{
@@ -6392,7 +6416,7 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       let parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
-    try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); }
+    if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); } }
     try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
@@ -9491,17 +9515,34 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         }
       } catch(_e){ _blocked = false; msg.pending = false; }
       if (_blocked) { if (typeof cb === 'function') cb({ error: 'Vous ne pouvez pas écrire à cet utilisateur.' }); return; }
-      // ── Anti-doublon (retry) : si ce client_id a déjà été inséré (relance de la file
-      // hors-ligne pendant qu'un envoi lent — ex. vocal — était encore en cours), on ne
-      // rediffuse pas un 2e message. Miroir de la vérification déjà faite sur /api/penc/send.
+      // ── Anti-doublon ATOMIQUE : si un client_id est fourni (cas des vocaux/médias envoyés
+      // via sendMsgSocket, retentables par la file hors-ligne), on réserve la ligne en base
+      // AVANT toute diffusion. Deux envois concurrents avec le même client_id ne peuvent plus
+      // jamais diffuser chacun leur propre copie : un seul gagne la course, l'autre est détecté
+      // comme doublon avant même d'émettre quoi que ce soit. (Avant ce correctif, la vérification
+      // "existe déjà ?" et l'insertion étaient deux étapes séparées : deux envois quasi simultanés
+      // pouvaient toutes les deux passer la vérification avant que l'une des deux n'ait fini
+      // d'insérer, diffusant chacune leur propre copie — doublon visible côté client jusqu'au
+      // rechargement complet de l'app, moment où un seul des deux survivait réellement en base.)
+      let _claimed = null;
       if (client_id && _pgPool) {
         try {
-          const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
-          if (_dup.rows[0]) {
-            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: _dup.rows[0].id, sender } });
-            return;
-          }
+          _claimed = await pgClaimMessage({
+            id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
+            content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
+            reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
+            client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false
+          });
         } catch (_e) {}
+        if (!_claimed) {
+          try {
+            const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
+            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: (_dup.rows[0] && _dup.rows[0].id) || msg.id, sender } });
+          } catch (_e) {
+            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, sender } });
+          }
+          return;
+        }
       }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
@@ -9521,8 +9562,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
-      // 2) Persistance best-effort
-      // ── Sauvegarder le message (PostgreSQL prioritaire) ──
+      // 2) Persistance best-effort — déjà faite ci-dessus (réservation atomique) quand un
+      // client_id était fourni ; sinon on persiste ici comme avant.
+      if (!_claimed) {
       try {
         if (_pgPool) {
           await pgSaveMessage({
@@ -9536,6 +9578,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
         }
       } catch (e) { console.error('penc persist msg:', e.message); }
+      }
       try {
         const convs = await pencConvs();
         const c = convs.find(x => x.id === conversation_id);
