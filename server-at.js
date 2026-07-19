@@ -4113,7 +4113,7 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
     }
   }
   return new Promise((resolve, reject) => {
-    cmd.outputOptions(['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'])
+    cmd.outputOptions(['-c:v libx264', '-preset ultrafast', '-crf 25', '-c:a aac', '-movflags +faststart'])
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
       .save(outputPath);
