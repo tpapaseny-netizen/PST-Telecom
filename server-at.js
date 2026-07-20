@@ -4566,6 +4566,8 @@ let _pgPool = null;
       );
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS replay_enabled BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS coming_soon BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_radio_stations ALTER COLUMN stream_url DROP NOT NULL;
       CREATE TABLE IF NOT EXISTS penc_radio_recordings (
         id TEXT PRIMARY KEY, station_id TEXT NOT NULL, started_at TIMESTAMPTZ NOT NULL,
         duration_seconds INTEGER DEFAULT 0, file_url TEXT NOT NULL, file_key TEXT NOT NULL,
@@ -4774,6 +4776,17 @@ let _pgPool = null;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     try{ await _pgPool.query("INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,created_at) VALUES('penc_official','Penc','penc_officiel','+00000000000',NULL,'-','https://penc-messagerie.com/penc-icon-192.png','Compte officiel Penc',NOW()) ON CONFLICT(id) DO UPDATE SET full_name='Penc', avatar_url='https://penc-messagerie.com/penc-icon-192.png', bio='Compte officiel Penc'"); console.log('✅ Compte officiel Penc pret'); }catch(eOff){ console.error('Penc official:', eOff.message); }
+    // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
+    // (pas de flux en direct pour l'instant). Id fixe + ON CONFLICT DO NOTHING : n'écrase jamais
+    // une modification faite depuis l'admin par la suite (nom, logo, flux une fois prêt, etc.).
+    try{
+      await _pgPool.query(
+        `INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured,replay_enabled,coming_soon)
+         VALUES('rad_sonko_archives_fm','Sonko Archives FM','','','Sénégal','Archives',false,false,true)
+         ON CONFLICT (id) DO NOTHING`
+      );
+      console.log('✅ Station Sonko Archives FM prête (Bientôt disponible)');
+    }catch(eSAF){ console.error('Sonko Archives FM seed:', eSAF.message); }
     // v11 : reparation GLOBALE des noms au demarrage (comptes Google restes 'Utilisateur' —
     // ils ne repassent jamais par /auth/google tant que leur jeton est valide, donc on repare ici).
     try{
@@ -7767,14 +7780,14 @@ app.get('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) 
 app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    let { name, stream_url, logo_url, country, category, featured, replay_enabled } = req.body;
+    let { name, stream_url, logo_url, country, category, featured, replay_enabled, coming_soon } = req.body;
     name = String(name||'').trim().slice(0,80);
     stream_url = String(stream_url||'').trim().slice(0,500);
-    if(!name || !stream_url) return res.status(400).json({ error:'Nom et URL du flux requis' });
+    if(!name || (!stream_url && !coming_soon)) return res.status(400).json({ error:'Nom et URL du flux requis (sauf si "Bientôt disponible" est coché)' });
     const id = 'rad_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     await _pgPool.query(
-      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured,replay_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60), !!featured, !!replay_enabled]
+      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured,replay_enabled,coming_soon) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, name, stream_url||'', logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60), !!featured, !!replay_enabled, !!coming_soon]
     );
     res.json({ success:true, id });
   }catch(e){ console.error('radio add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
@@ -7782,7 +7795,7 @@ app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res)
 app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const { name, stream_url, logo_url, country, category, active, sort_order, featured, replay_enabled } = req.body;
+    const { name, stream_url, logo_url, country, category, active, sort_order, featured, replay_enabled, coming_soon } = req.body;
     const fields=[]; const vals=[]; let n=1;
     if(name!==undefined){ fields.push('name=$'+(n++)); vals.push(String(name).trim().slice(0,80)); }
     if(stream_url!==undefined){ fields.push('stream_url=$'+(n++)); vals.push(String(stream_url).trim().slice(0,500)); }
@@ -7793,6 +7806,7 @@ app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req,
     if(sort_order!==undefined){ fields.push('sort_order=$'+(n++)); vals.push(parseInt(sort_order,10)||0); }
     if(featured!==undefined){ fields.push('featured=$'+(n++)); vals.push(!!featured); }
     if(replay_enabled!==undefined){ fields.push('replay_enabled=$'+(n++)); vals.push(!!replay_enabled); }
+    if(coming_soon!==undefined){ fields.push('coming_soon=$'+(n++)); vals.push(!!coming_soon); }
     if(!fields.length) return res.json({ success:true });
     vals.push(req.params.id);
     await _pgPool.query('UPDATE penc_radio_stations SET '+fields.join(', ')+' WHERE id=$'+n, vals);
