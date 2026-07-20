@@ -4460,9 +4460,15 @@ let _pgPool = null;
       );
       CREATE TABLE IF NOT EXISTS penc_radio_comments (
         id TEXT PRIMARY KEY, station_id TEXT NOT NULL, user_id TEXT NOT NULL,
-        content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+        content TEXT NOT NULL, reply_to TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE penc_radio_comments ADD COLUMN IF NOT EXISTS reply_to TEXT;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
+        comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (comment_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_rcomlike_comment ON penc_radio_comment_likes(comment_id);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7733,9 +7739,18 @@ app.post('/api/penc/radio/stations/:id/fan', pencAuth, async (req, res) => {
 app.get('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ comments:[] });
+    const uid = req.pencUser.userId;
     const r = await _pgPool.query(
-      `SELECT c.*, u.full_name, u.username, u.avatar_url FROM penc_radio_comments c JOIN penc_users u ON u.id=c.user_id WHERE c.station_id=$1 ORDER BY c.created_at DESC LIMIT 50`,
-      [req.params.id]
+      `SELECT c.*, u.full_name, u.username, u.avatar_url, u.verified,
+              (SELECT COUNT(*) FROM penc_radio_comment_likes l WHERE l.comment_id=c.id) AS likes_count,
+              EXISTS(SELECT 1 FROM penc_radio_comment_likes l2 WHERE l2.comment_id=c.id AND l2.user_id=$2) AS liked_by_me,
+              rc.content AS reply_content, ru.full_name AS reply_name
+       FROM penc_radio_comments c
+       JOIN penc_users u ON u.id=c.user_id
+       LEFT JOIN penc_radio_comments rc ON rc.id=c.reply_to
+       LEFT JOIN penc_users ru ON ru.id=rc.user_id
+       WHERE c.station_id=$1 ORDER BY c.created_at DESC LIMIT 50`,
+      [req.params.id, uid]
     );
     res.json({ comments: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
@@ -7745,9 +7760,72 @@ app.post('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => 
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     const content = String(req.body.content||'').trim().slice(0,500);
     if(!content) return res.status(400).json({ error:'Message vide' });
+    const replyTo = req.body.reply_to ? String(req.body.reply_to) : null;
     const id = 'rcm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    await _pgPool.query('INSERT INTO penc_radio_comments(id,station_id,user_id,content) VALUES($1,$2,$3,$4)',[id, req.params.id, req.pencUser.userId, content]);
-    res.json({ success:true });
+    const uid = req.pencUser.userId;
+    const stationId = req.params.id;
+    await _pgPool.query('INSERT INTO penc_radio_comments(id,station_id,user_id,content,reply_to) VALUES($1,$2,$3,$4,$5)',[id, stationId, uid, content, replyTo]);
+
+    // Construire la charge diffusée en direct à tous les auditeurs de la station + réponse à l'appelant
+    let author = null;
+    try { author = await pgFindUser('id', uid); } catch(_a){}
+    let replyPreview = null;
+    if (replyTo) {
+      try {
+        const rc = await _pgPool.query('SELECT c.content, u.full_name FROM penc_radio_comments c JOIN penc_users u ON u.id=c.user_id WHERE c.id=$1',[replyTo]);
+        if (rc.rows.length) replyPreview = { content: rc.rows[0].content, name: rc.rows[0].full_name };
+      } catch(_r){}
+    }
+    const payload = {
+      id, station_id: stationId, user_id: uid, content,
+      created_at: new Date().toISOString(),
+      full_name: author && author.full_name, username: author && author.username,
+      avatar_url: author && author.avatar_url, verified: !!(author && author.verified),
+      likes_count: 0, liked_by_me: false,
+      reply_to: replyTo, reply_content: replyPreview && replyPreview.content, reply_name: replyPreview && replyPreview.name
+    };
+    try { io.to('radio:' + stationId).emit('radio:comment', payload); } catch(_e1){}
+
+    // Notifier les fans + participants déjà présents dans la discussion (hors l'auteur)
+    try {
+      const stationRow = await _pgPool.query('SELECT name FROM penc_radio_stations WHERE id=$1',[stationId]);
+      const stationName = (stationRow.rows[0] && stationRow.rows[0].name) || 'DeglouFM';
+      const notifyRows = await _pgPool.query(
+        `SELECT user_id FROM penc_radio_fans WHERE station_id=$1
+         UNION SELECT DISTINCT user_id FROM penc_radio_comments WHERE station_id=$1`,
+        [stationId]
+      );
+      const notifBody = (author && author.full_name || 'Quelqu\u2019un') + ' a comment\u00e9 sur ' + stationName;
+      const targets = notifyRows.rows.map(function(row){ return row.user_id; }).filter(function(t){ return t !== uid; });
+      targets.forEach(function(t){
+        sendPencPush(t, { title: 'DeglouFM', body: notifBody, tag: 'radio-comment-' + stationId, url: '/messager?radio=' + stationId }).catch(function(){});
+      });
+    } catch(_n){}
+
+    res.json({ success:true, comment: payload });
+  }catch(e){ console.error('radio comment post:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/radio/comments/:id/like', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const commentId = req.params.id;
+    const existing = await _pgPool.query('SELECT 1 FROM penc_radio_comment_likes WHERE comment_id=$1 AND user_id=$2', [commentId, uid]);
+    let liked;
+    if (existing.rowCount > 0) {
+      await _pgPool.query('DELETE FROM penc_radio_comment_likes WHERE comment_id=$1 AND user_id=$2', [commentId, uid]);
+      liked = false;
+    } else {
+      await _pgPool.query('INSERT INTO penc_radio_comment_likes(comment_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [commentId, uid]);
+      liked = true;
+    }
+    const cnt = await _pgPool.query('SELECT COUNT(*) FROM penc_radio_comment_likes WHERE comment_id=$1', [commentId]);
+    const likes_count = parseInt(cnt.rows[0].count, 10) || 0;
+    try {
+      const cm = await _pgPool.query('SELECT station_id FROM penc_radio_comments WHERE id=$1', [commentId]);
+      if (cm.rows.length) io.to('radio:' + cm.rows[0].station_id).emit('radio:comment-like', { comment_id: commentId, likes_count });
+    } catch(_e2){}
+    res.json({ success:true, liked, likes_count });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
@@ -9275,6 +9353,11 @@ io.on('connection', async (socket) => {
     console.log('✅ Socket connecté:', pencUserId.slice(0,12)+'... → room user:'+pencUserId.slice(0,8));
   } catch(e){console.error('autojoin:',e.message);}
   io.emit('user:online', { userId: pencUserId, isOnline: true });
+
+  // Salon par station DeglouFM : diffuse les nouveaux commentaires/likes en direct
+  // à tous les auditeurs qui ont l'écran de la station ouvert au même moment.
+  socket.on('radio:join', function(stationId){ try{ if(stationId) socket.join('radio:'+String(stationId)); }catch(_){} });
+  socket.on('radio:leave', function(stationId){ try{ if(stationId) socket.leave('radio:'+String(stationId)); }catch(_){} });
 
   // Permet de rejoindre une conv créée pendant la session
 
