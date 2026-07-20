@@ -4615,6 +4615,12 @@ let _pgPool = null;
         id TEXT PRIMARY KEY, station_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rshare_station ON penc_radio_shares(station_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_programs (
+        id TEXT PRIMARY KEY, station_id TEXT NOT NULL, name TEXT NOT NULL,
+        kind TEXT DEFAULT 'emission', days TEXT, start_hour INTEGER NOT NULL, start_minute INTEGER NOT NULL DEFAULT 0,
+        end_hour INTEGER NOT NULL, end_minute INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rprog_station ON penc_radio_programs(station_id);
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -7816,6 +7822,53 @@ app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req,
     await _pgPool.query('UPDATE penc_radio_stations SET '+fields.join(', ')+' WHERE id=$'+n, vals);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Grille des programmes (admin) : nom de l'émission, créneau horaire, jours concernés.
+// "kind" distingue un journal ('journal') d'une émission classique, pour un affichage adapté
+// ("🗞️ Journal en cours" vs "🎙️ [Nom de l'émission]"). ──
+app.get('/api/penc/admin/radio/stations/:id/programs', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ programs: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_radio_programs WHERE station_id=$1 ORDER BY start_hour, start_minute',[req.params.id]);
+    res.json({ programs: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/stations/:id/programs', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { name, kind, days, start_hour, start_minute, end_hour, end_minute } = req.body || {};
+    const sh=parseInt(start_hour,10), sm=parseInt(start_minute,10)||0, eh=parseInt(end_hour,10), em=parseInt(end_minute,10)||0;
+    if(!name || isNaN(sh) || isNaN(eh)) return res.status(400).json({ error:'Nom et horaires requis' });
+    const id = 'rprog_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_radio_programs(id,station_id,name,kind,days,start_hour,start_minute,end_hour,end_minute) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, req.params.id, String(name).trim().slice(0,80), (kind==='journal'?'journal':'emission'), (days?String(days):null), sh, sm, eh, em]
+    );
+    res.json({ success:true, id });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/radio/programs/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_radio_programs WHERE id=$1',[req.params.id]); res.json({ success:true }); }
+  catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Programme en cours pour une station (public) — heure serveur = heure Sénégal (GMT+0), pas de
+// conversion de fuseau nécessaire, comme pour les rappels.
+app.get('/api/penc/radio/stations/:id/current-program', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ program: null });
+    const now = new Date();
+    const nowMinutes = now.getUTCHours()*60 + now.getUTCMinutes();
+    const wd = now.getUTCDay();
+    const r = await _pgPool.query('SELECT * FROM penc_radio_programs WHERE station_id=$1',[req.params.id]);
+    let current = null;
+    for(const p of r.rows){
+      if(p.days){ const list=String(p.days).split(',').map(x=>parseInt(x,10)); if(!list.includes(wd)) continue; }
+      const startM = p.start_hour*60+p.start_minute, endM = p.end_hour*60+p.end_minute;
+      const inRange = startM <= endM ? (nowMinutes>=startM && nowMinutes<endM) : (nowMinutes>=startM || nowMinutes<endM); // gere les creneaux qui passent minuit
+      if(inRange){ current = p; break; }
+    }
+    res.json({ program: current });
+  }catch(e){ res.json({ program: null }); }
 });
 app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
