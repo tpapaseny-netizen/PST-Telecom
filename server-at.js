@@ -7949,19 +7949,26 @@ app.delete('/api/penc/radio/reminders/:id', pencAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Vérifie chaque minute les rappels dus et envoie une notification push.
+// Fenêtre de rattrapage de 2h : si le serveur dormait (Render Free) pile à l'heure prévue,
+// le rappel n'est pas perdu — il part dès le réveil du serveur, tant qu'on est encore proche
+// de l'heure demandée le même jour.
 setInterval(async function(){
   try{
     if(!_pgPool) return;
     const now = new Date();
     const h = now.getUTCHours(), m = now.getUTCMinutes(), wd = now.getUTCDay();
     const today = now.toISOString().slice(0,10);
+    const nowMinutes = h * 60 + m;
     const due = await _pgPool.query(
       `SELECT r.*, s.name AS station_name FROM penc_radio_reminders r JOIN penc_radio_stations s ON s.id=r.station_id
-       WHERE r.active=true AND r.hour=$1 AND r.minute=$2 AND (r.last_sent_date IS NULL OR r.last_sent_date<>$3)`,
-      [h, m, today]
+       WHERE r.active=true AND (r.last_sent_date IS NULL OR r.last_sent_date<>$1)`,
+      [today]
     );
     for(const rem of due.rows){
       if(rem.days){ const list=String(rem.days).split(',').map(x=>parseInt(x,10)); if(!list.includes(wd)) continue; }
+      const remMinutes = rem.hour * 60 + rem.minute;
+      const delta = nowMinutes - remMinutes;
+      if(delta < 0 || delta > 120) continue; // pas encore l'heure, ou trop tard pour rattraper aujourd'hui
       try{ await sendPencPush(rem.user_id, { title:'🔔 Rappel DeglouFM', body:'C\u2019est l\u2019heure d\u2019écouter '+rem.station_name+' !', tag:'radio-reminder-'+rem.id, url:'/messager?radio='+rem.station_id }); }catch(_sp){}
       try{ await _pgPool.query('UPDATE penc_radio_reminders SET last_sent_date=$1 WHERE id=$2',[today, rem.id]); }catch(_up){}
     }
@@ -9932,6 +9939,10 @@ io.on('connection', async (socket) => {
   // Salon par station DeglouFM : diffuse les nouveaux commentaires/likes en direct
   // à tous les auditeurs qui ont l'écran de la station ouvert au même moment.
   socket.on('radio:join', function(stationId){ try{ if(stationId) socket.join('radio:'+String(stationId)); }catch(_){} });
+  // Coordination multi-appareils : quand une radio démarre sur un appareil, on prévient les
+  // AUTRES appareils connectés du même compte (via la room personnelle user:<id>) pour qu'ils
+  // arrêtent la leur — évite deux stations qui jouent en même temps (téléphone + ordinateur…).
+  socket.on('radio:now-playing', function(data){ try{ socket.to('user:'+pencUserId).emit('radio:stop-for-sync', data||{}); }catch(_){} });
   socket.on('radio:leave', function(stationId){ try{ if(stationId) socket.leave('radio:'+String(stationId)); }catch(_){} });
 
   // Permet de rejoindre une conv créée pendant la session
