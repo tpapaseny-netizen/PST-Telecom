@@ -3660,6 +3660,41 @@ async function sendPencPush(userId, payload) {
     }
   } catch (e) { console.error('sendPencPush:', e.message); }
 }
+// ── Notifications DeglouFM en digest : plutôt qu'une push par commentaire (spam garanti sur
+// une station active), on regroupe tous les commentaires arrivés dans une fenêtre de 45s en
+// UNE SEULE notification ("3 nouveaux commentaires sur RFM Dakar"). État en mémoire (perdu au
+// redémarrage du serveur — acceptable, ce n'est qu'un délai de notification, pas une perte de donnée). ──
+const _radNotifDebounce = {};
+const RAD_NOTIF_DEBOUNCE_MS = 45000;
+function _radQueueCommentNotif(stationId, authorId, authorName, stationName) {
+  let entry = _radNotifDebounce[stationId];
+  if (!entry) entry = _radNotifDebounce[stationId] = { count: 0, lastAuthorName: authorName, stationName, excludeIds: new Set() };
+  entry.count += 1;
+  entry.lastAuthorName = authorName;
+  entry.stationName = stationName;
+  entry.excludeIds.add(authorId);
+  if (!entry.timer) {
+    entry.timer = setTimeout(async function () {
+      const e = _radNotifDebounce[stationId];
+      delete _radNotifDebounce[stationId];
+      if (!e || !_pgPool) return;
+      try {
+        const notifyRows = await _pgPool.query(
+          `SELECT user_id FROM penc_radio_fans WHERE station_id=$1
+           UNION SELECT DISTINCT user_id FROM penc_radio_comments WHERE station_id=$1`,
+          [stationId]
+        );
+        const body = e.count === 1
+          ? (e.lastAuthorName || 'Quelqu\u2019un') + ' a comment\u00e9 sur ' + e.stationName
+          : e.count + ' nouveaux commentaires sur ' + e.stationName;
+        const targets = notifyRows.rows.map(function (r) { return r.user_id; }).filter(function (t) { return !e.excludeIds.has(t); });
+        targets.forEach(function (t) {
+          sendPencPush(t, { title: 'DeglouFM', body: body, tag: 'radio-comment-' + stationId, url: '/messager?radio=' + stationId }).catch(function () {});
+        });
+      } catch (err) {}
+    }, RAD_NOTIF_DEBOUNCE_MS);
+  }
+}
 function _pencDur(sec){ sec=Math.max(0,Math.round(sec||0)); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
 function pencMsgBody(type, content, duration){
   if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' '+_pencDur(duration):'');
@@ -4469,6 +4504,10 @@ let _pgPool = null;
         PRIMARY KEY (comment_id, user_id)
       );
       CREATE INDEX IF NOT EXISTS idx_rcomlike_comment ON penc_radio_comment_likes(comment_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_comment_reports (
+        id TEXT PRIMARY KEY, comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rcomreport_comment ON penc_radio_comment_reports(comment_id);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7661,6 +7700,28 @@ app.post('/api/penc/radio/listen/end', pencAuth, async (req, res) => {
   }catch(e){ res.json({ success:true }); }
 });
 // Signalement d'une station qui ne démarre pas — notifie directement les admins Penc.
+app.post('/api/penc/radio/comments/:id/report', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const commentId = req.params.id;
+    const uid = req.pencUser.userId;
+    const cm = await _pgPool.query('SELECT content, user_id FROM penc_radio_comments WHERE id=$1',[commentId]);
+    if(!cm.rows.length) return res.status(404).json({ error:'Commentaire introuvable' });
+    const id = 'rcrep_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_radio_comment_reports(id,comment_id,user_id) VALUES($1,$2,$3)',[id, commentId, uid]);
+    try{
+      let reporter='Un utilisateur';
+      try{ const u=await pgFindUser('id', uid); if(u) reporter=pencStrip(u).full_name||reporter; }catch(_ru){}
+      for(const adminEmail of PENC_ADMIN_EMAILS){
+        try{
+          const au = await pgFindUser('email', adminEmail);
+          if(au) await sendPencPush(au.id, { title:'💬 Signalement commentaire', body: reporter+' signale un commentaire : "'+String(cm.rows[0].content).slice(0,80)+'"', tag:'penc-comment-report' });
+        }catch(_pu){}
+      }
+    }catch(_notif){}
+    res.json({ success:true });
+  }catch(e){ console.error('radio comment report:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.post('/api/penc/radio/report', pencAuth, async (req, res) => {
   try{
     const station_id = String(req.body.station_id||'').trim();
@@ -7706,6 +7767,51 @@ app.get('/api/penc/radio/favorites', pencAuth, async (req, res) => {
     const r = await _pgPool.query(
       `SELECT s.* FROM penc_radio_stations s JOIN penc_radio_fans f ON f.station_id=s.id WHERE f.user_id=$1 AND s.active=true ORDER BY f.created_at DESC`,
       [req.pencUser.userId]
+    );
+    res.json({ stations: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Historique d'écoute personnel : dernières stations écoutées, une seule entrée par station
+// (la plus récente), pour l'onglet "Récemment écoutées".
+app.get('/api/penc/radio/recent', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ stations:[] });
+    const r = await _pgPool.query(
+      `SELECT s.*, MAX(l.started_at) AS last_listened
+       FROM penc_radio_listens l JOIN penc_radio_stations s ON s.id=l.station_id
+       WHERE l.user_id=$1 AND s.active=true
+       GROUP BY s.id ORDER BY last_listened DESC LIMIT 20`,
+      [req.pencUser.userId]
+    );
+    res.json({ stations: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Classement des auditeurs les plus fidèles d'une station (30 derniers jours, par temps d'écoute cumulé).
+app.get('/api/penc/radio/stations/:id/top-listeners', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ listeners: [] });
+    const r = await _pgPool.query(
+      `SELECT u.id, u.full_name, u.username, u.avatar_url, u.verified, SUM(l.duration_seconds) AS total_seconds
+       FROM penc_radio_listens l JOIN penc_users u ON u.id=l.user_id
+       WHERE l.station_id=$1 AND l.started_at > NOW() - INTERVAL '30 days'
+       GROUP BY u.id ORDER BY total_seconds DESC LIMIT 10`,
+      [req.params.id]
+    );
+    res.json({ listeners: r.rows.map(x => ({ ...x, total_seconds: parseInt(x.total_seconds,10)||0 })) });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Recommandations par co-écoute : stations écoutées par les mêmes auditeurs que la station courante.
+app.get('/api/penc/radio/stations/:id/similar', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ stations: [] });
+    const r = await _pgPool.query(
+      `SELECT s.*, COUNT(DISTINCT l2.user_id) AS shared_listeners
+       FROM penc_radio_listens l1
+       JOIN penc_radio_listens l2 ON l2.user_id=l1.user_id AND l2.station_id<>l1.station_id
+       JOIN penc_radio_stations s ON s.id=l2.station_id
+       WHERE l1.station_id=$1 AND s.active=true
+       GROUP BY s.id ORDER BY shared_listeners DESC LIMIT 8`,
+      [req.params.id]
     );
     res.json({ stations: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
@@ -7786,20 +7892,12 @@ app.post('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => 
     };
     try { io.to('radio:' + stationId).emit('radio:comment', payload); } catch(_e1){}
 
-    // Notifier les fans + participants déjà présents dans la discussion (hors l'auteur)
+    // Notifier les fans + participants déjà présents dans la discussion (hors l'auteur) —
+    // en digest groupé (voir _radQueueCommentNotif) plutôt qu'une push immédiate par commentaire.
     try {
       const stationRow = await _pgPool.query('SELECT name FROM penc_radio_stations WHERE id=$1',[stationId]);
       const stationName = (stationRow.rows[0] && stationRow.rows[0].name) || 'DeglouFM';
-      const notifyRows = await _pgPool.query(
-        `SELECT user_id FROM penc_radio_fans WHERE station_id=$1
-         UNION SELECT DISTINCT user_id FROM penc_radio_comments WHERE station_id=$1`,
-        [stationId]
-      );
-      const notifBody = (author && author.full_name || 'Quelqu\u2019un') + ' a comment\u00e9 sur ' + stationName;
-      const targets = notifyRows.rows.map(function(row){ return row.user_id; }).filter(function(t){ return t !== uid; });
-      targets.forEach(function(t){
-        sendPencPush(t, { title: 'DeglouFM', body: notifBody, tag: 'radio-comment-' + stationId, url: '/messager?radio=' + stationId }).catch(function(){});
-      });
+      _radQueueCommentNotif(stationId, uid, (author && author.full_name) || null, stationName);
     } catch(_n){}
 
     res.json({ success:true, comment: payload });
