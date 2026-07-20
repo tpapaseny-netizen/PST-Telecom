@@ -8381,12 +8381,12 @@ app.get('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
     const before = req.query.before ? String(req.query.before) : null;
     const params = before ? [req.params.id, uid, before] : [req.params.id, uid];
     const r = await _pgPool.query(
-      `SELECT c.*, u.full_name, u.username, u.avatar_url, u.verified,
+      `SELECT c.*, COALESCE(u.full_name,'Utilisateur') AS full_name, u.username, u.avatar_url, u.verified,
               (SELECT COUNT(*) FROM penc_radio_comment_likes l WHERE l.comment_id=c.id) AS likes_count,
               EXISTS(SELECT 1 FROM penc_radio_comment_likes l2 WHERE l2.comment_id=c.id AND l2.user_id=$2) AS liked_by_me,
               rc.content AS reply_content, ru.full_name AS reply_name
        FROM penc_radio_comments c
-       JOIN penc_users u ON u.id=c.user_id
+       LEFT JOIN penc_users u ON u.id=c.user_id
        LEFT JOIN penc_radio_comments rc ON rc.id=c.reply_to
        LEFT JOIN penc_users ru ON ru.id=rc.user_id
        WHERE c.station_id=$1` + (before ? ' AND c.created_at < (SELECT created_at FROM penc_radio_comments WHERE id=$3)' : '') + `
