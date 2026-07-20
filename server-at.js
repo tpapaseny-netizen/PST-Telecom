@@ -4058,6 +4058,33 @@ async function r2DeleteObject(key) {
   const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
   await _r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
 }
+// ── Synthèse vocale (texte → audio) via l'endpoint TTS non-officiel de Google Translate.
+// Gratuit, aucune clé API à configurer, mais NON garanti (service non-officiel, pourrait
+// changer ou se faire limiter). Limite ~200 caractères par appel — largement suffisant pour
+// une annonce de titre. Retourne le buffer MP3 généré. ──
+async function _generateTTS(text, lang) {
+  const https = require('https');
+  const q = encodeURIComponent(String(text).slice(0, 200));
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${lang || 'fr'}`;
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (resp) => {
+      if (resp.statusCode !== 200) { reject(new Error('TTS HTTP ' + resp.statusCode)); return; }
+      const chunks = [];
+      resp.on('data', (c) => chunks.push(c));
+      resp.on('end', () => resolve(Buffer.concat(chunks)));
+      resp.on('error', reject);
+    }).on('error', reject);
+  });
+}
+async function _generateAndStoreTTS(text, keyPrefix) {
+  const buffer = await _generateTTS(text);
+  const key = keyPrefix + '_' + Date.now() + '.mp3';
+  const url = await r2PutBuffer(key, buffer, 'audio/mpeg');
+  // Durée exacte via ffprobe sur le buffer fraîchement uploadé (plus fiable que d'estimer).
+  let duration = 0;
+  try { const meta = await _ffprobeMeta(url); duration = Math.round((meta && meta.format && meta.format.duration) || 0); } catch (_d) {}
+  return { url, duration_seconds: duration || 3 };
+}
 
 // ── Logo du filigrane : préchargé une fois, mis en cache mémoire ──
 let _wmLogoBuf = null, _wmLogoTried = false;
@@ -4629,6 +4656,8 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_rplaylist_station ON penc_radio_playlist_tracks(station_id, sort_order);
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS jingle_url TEXT;
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS jingle_duration_seconds INTEGER DEFAULT 0;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS announcement_url TEXT;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS announcement_duration_seconds INTEGER DEFAULT 0;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -7907,17 +7936,32 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
     try{ const meta = await _ffprobeMeta(fileUrl); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
     catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct (finit par .mp3/.m4a/.wav) et accessible publiquement, pas un lien de lecteur intégré.' }); }
     if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
+    // Annonce vocale automatique du titre ("Vous écoutez maintenant : <titre>") — générée une
+    // seule fois à l'ajout, puis réutilisée en boucle (pas régénérée à chaque diffusion).
+    let announcementUrl = null, announcementDuration = 0;
+    try{
+      const ann = await _generateAndStoreTTS('Vous écoutez maintenant : ' + title, 'penc/radio-tts/' + req.params.id);
+      announcementUrl = ann.url; announcementDuration = ann.duration_seconds;
+    }catch(_tts){ console.error('TTS annonce (non bloquant):', _tts.message); }
     const maxOrder = await _pgPool.query('SELECT COALESCE(MAX(sort_order),0) AS m FROM penc_radio_playlist_tracks WHERE station_id=$1',[req.params.id]);
     const id = 'rtrk_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     await _pgPool.query(
-      'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, req.params.id, title, fileUrl, duration, (parseInt(maxOrder.rows[0].m,10)||0)+1]
+      'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order,announcement_url,announcement_duration_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, req.params.id, title, fileUrl, duration, (parseInt(maxOrder.rows[0].m,10)||0)+1, announcementUrl, announcementDuration]
     );
-    res.json({ success:true, id, duration_seconds: duration });
+    res.json({ success:true, id, duration_seconds: duration, announcement_generated: !!announcementUrl });
   }catch(e){ console.error('playlist add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req, res) => {
-  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]); res.json({ success:true }); }
+  try{
+    if(!_pgPool) return res.json({ success:true });
+    const t = await _pgPool.query('SELECT announcement_url FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]);
+    await _pgPool.query('DELETE FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]);
+    if(t.rows[0] && t.rows[0].announcement_url && t.rows[0].announcement_url.indexOf(R2_PUBLIC) === 0){
+      try{ await r2DeleteObject(t.rows[0].announcement_url.slice(R2_PUBLIC.length + 1)); }catch(_rd){}
+    }
+    res.json({ success:true });
+  }
   catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Jingle de la station ("Vous écoutez X sur DeglouFM de Penc...") — inséré automatiquement
@@ -7955,11 +7999,13 @@ app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
     if(!rawTracks.length) return res.status(404).end();
     // Habillage radio : le jingle de la station est intercalé avant CHAQUE piste, comme un
     // vrai passage à l'antenne ("Vous écoutez X sur DeglouFM de Penc...") puis le contenu.
-    let tracks = rawTracks;
-    if(station && station.jingle_url && station.jingle_duration_seconds > 0){
-      tracks = [];
-      rawTracks.forEach(t => { tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds }); tracks.push(t); });
-    }
+    // Habillage complet : jingle station (si defini) + annonce vocale du titre (si generee) + piste.
+    let tracks = [];
+    rawTracks.forEach(t => {
+      if(station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds });
+      if(t.announcement_url && t.announcement_duration_seconds > 0) tracks.push({ file_url: t.announcement_url, duration_seconds: t.announcement_duration_seconds });
+      tracks.push(t);
+    });
     const totalDuration = tracks.reduce((s,t) => s + (t.duration_seconds||0), 0);
     if(totalDuration <= 0) return res.status(404).end();
     const epochMs = Date.UTC(2026,0,1,0,0,0);
