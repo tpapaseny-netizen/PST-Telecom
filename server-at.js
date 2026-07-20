@@ -4789,12 +4789,17 @@ let _pgPool = null;
     // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
     // (pas de flux en direct pour l'instant). Id fixe + ON CONFLICT DO NOTHING : n'écrase jamais
     // une modification faite depuis l'admin par la suite (nom, logo, flux une fois prêt, etc.).
+    // "country" = 'Penc Originals' (pas un vrai pays) : c'est une station propre à Penc, elle a
+    // donc sa propre case dans "Radios par pays" au lieu d'être noyée dans la liste du Sénégal.
     try{
       await _pgPool.query(
         `INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured,replay_enabled,coming_soon)
-         VALUES('rad_sonko_archives_fm','Sonko Archives FM','','','Sénégal','Archives',false,false,true)
+         VALUES('rad_sonko_archives_fm','Sonko Archives FM','','','Penc Originals','Archives',false,false,true)
          ON CONFLICT (id) DO NOTHING`
       );
+      // Si la station existait déjà avec l'ancien pays 'Sénégal' (déploiement précédent), on la
+      // fait basculer — sans écraser un nom/logo/flux que l'admin aurait déjà personnalisé.
+      await _pgPool.query(`UPDATE penc_radio_stations SET country='Penc Originals' WHERE id='rad_sonko_archives_fm' AND country='Sénégal'`);
       console.log('✅ Station Sonko Archives FM prête (Bientôt disponible)');
     }catch(eSAF){ console.error('Sonko Archives FM seed:', eSAF.message); }
     // v11 : reparation GLOBALE des noms au demarrage (comptes Google restes 'Utilisateur' —
