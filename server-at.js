@@ -4508,6 +4508,17 @@ let _pgPool = null;
         id TEXT PRIMARY KEY, comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rcomreport_comment ON penc_radio_comment_reports(comment_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_station_reactions (
+        station_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (station_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_rreact_station ON penc_radio_station_reactions(station_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_reminders (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, station_id TEXT NOT NULL,
+        hour INTEGER NOT NULL, minute INTEGER NOT NULL, days TEXT, active BOOLEAN DEFAULT true,
+        last_sent_date DATE, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rrem_user ON penc_radio_reminders(user_id);
       CREATE TABLE IF NOT EXISTS penc_listing_likes (
         listing_id TEXT NOT NULL,
         user_id    TEXT NOT NULL,
@@ -7722,6 +7733,113 @@ app.post('/api/penc/radio/comments/:id/report', pencAuth, async (req, res) => {
     res.json({ success:true });
   }catch(e){ console.error('radio comment report:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ── Réactions rapides (façon story) : une seule réaction active par utilisateur et par station,
+// remplacée si on retape une autre émoji. ──
+const RAD_REACTION_EMOJIS = ['🔥','😂','❤️','👏','😮'];
+app.get('/api/penc/radio/stations/:id/reactions', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ counts:{}, my_reaction:null });
+    const r = await _pgPool.query('SELECT emoji, COUNT(*) AS n FROM penc_radio_station_reactions WHERE station_id=$1 GROUP BY emoji',[req.params.id]);
+    const counts = {}; r.rows.forEach(row => { counts[row.emoji] = parseInt(row.n,10)||0; });
+    const mine = await _pgPool.query('SELECT emoji FROM penc_radio_station_reactions WHERE station_id=$1 AND user_id=$2',[req.params.id, req.pencUser.userId]);
+    res.json({ counts, my_reaction: mine.rows[0] ? mine.rows[0].emoji : null });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/radio/stations/:id/reaction', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const emoji = String((req.body && req.body.emoji) || '');
+    if(!RAD_REACTION_EMOJIS.includes(emoji)) return res.status(400).json({ error:'Émoji invalide' });
+    const uid = req.pencUser.userId, stationId = req.params.id;
+    const mine = await _pgPool.query('SELECT emoji FROM penc_radio_station_reactions WHERE station_id=$1 AND user_id=$2',[stationId, uid]);
+    let myReaction;
+    if (mine.rows.length && mine.rows[0].emoji === emoji) {
+      await _pgPool.query('DELETE FROM penc_radio_station_reactions WHERE station_id=$1 AND user_id=$2',[stationId, uid]);
+      myReaction = null;
+    } else {
+      await _pgPool.query(
+        `INSERT INTO penc_radio_station_reactions(station_id,user_id,emoji) VALUES($1,$2,$3)
+         ON CONFLICT (station_id,user_id) DO UPDATE SET emoji=$3, created_at=NOW()`,
+        [stationId, uid, emoji]
+      );
+      myReaction = emoji;
+    }
+    const r = await _pgPool.query('SELECT emoji, COUNT(*) AS n FROM penc_radio_station_reactions WHERE station_id=$1 GROUP BY emoji',[stationId]);
+    const counts = {}; r.rows.forEach(row => { counts[row.emoji] = parseInt(row.n,10)||0; });
+    try{ io.to('radio:'+stationId).emit('radio:reactions', { station_id: stationId, counts }); }catch(_e3){}
+    res.json({ success:true, counts, my_reaction: myReaction });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Statistiques d'écoute personnelles. ──
+app.get('/api/penc/radio/my-stats', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ total_seconds:0, month_seconds:0, distinct_stations:0, favorite:null });
+    const uid = req.pencUser.userId;
+    const tot = await _pgPool.query('SELECT COALESCE(SUM(duration_seconds),0) AS s, COUNT(DISTINCT station_id) AS n FROM penc_radio_listens WHERE user_id=$1',[uid]);
+    const month = await _pgPool.query("SELECT COALESCE(SUM(duration_seconds),0) AS s FROM penc_radio_listens WHERE user_id=$1 AND started_at > date_trunc('month', NOW())",[uid]);
+    const fav = await _pgPool.query(
+      `SELECT s.name, SUM(l.duration_seconds) AS sec FROM penc_radio_listens l JOIN penc_radio_stations s ON s.id=l.station_id
+       WHERE l.user_id=$1 GROUP BY s.id, s.name ORDER BY sec DESC LIMIT 1`, [uid]
+    );
+    res.json({
+      total_seconds: parseInt(tot.rows[0].s,10)||0,
+      distinct_stations: parseInt(tot.rows[0].n,10)||0,
+      month_seconds: parseInt(month.rows[0].s,10)||0,
+      favorite: fav.rows[0] ? fav.rows[0].name : null
+    });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Rappels programmés ("me rappeler d'écouter X à HH:MM"). L'heure serveur (UTC) coïncide
+// avec l'heure du Sénégal (GMT+0), donc pas de conversion de fuseau nécessaire. ──
+app.get('/api/penc/radio/reminders', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ reminders:[] });
+    const r = await _pgPool.query(
+      `SELECT r.*, s.name AS station_name, s.logo_url FROM penc_radio_reminders r
+       JOIN penc_radio_stations s ON s.id=r.station_id WHERE r.user_id=$1 AND r.active=true ORDER BY r.hour, r.minute`,
+      [req.pencUser.userId]
+    );
+    res.json({ reminders: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/radio/reminders', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { station_id, hour, minute, days } = req.body || {};
+    const h = parseInt(hour,10), m = parseInt(minute,10);
+    if(!station_id || isNaN(h) || h<0 || h>23 || isNaN(m) || m<0 || m>59) return res.status(400).json({ error:'Paramètres invalides' });
+    const id = 'rrem_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_radio_reminders(id,user_id,station_id,hour,minute,days) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, req.pencUser.userId, station_id, h, m, (days ? String(days) : null)]);
+    res.json({ success:true, id });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/radio/reminders/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    await _pgPool.query('DELETE FROM penc_radio_reminders WHERE id=$1 AND user_id=$2',[req.params.id, req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Vérifie chaque minute les rappels dus et envoie une notification push.
+setInterval(async function(){
+  try{
+    if(!_pgPool) return;
+    const now = new Date();
+    const h = now.getUTCHours(), m = now.getUTCMinutes(), wd = now.getUTCDay();
+    const today = now.toISOString().slice(0,10);
+    const due = await _pgPool.query(
+      `SELECT r.*, s.name AS station_name FROM penc_radio_reminders r JOIN penc_radio_stations s ON s.id=r.station_id
+       WHERE r.active=true AND r.hour=$1 AND r.minute=$2 AND (r.last_sent_date IS NULL OR r.last_sent_date<>$3)`,
+      [h, m, today]
+    );
+    for(const rem of due.rows){
+      if(rem.days){ const list=String(rem.days).split(',').map(x=>parseInt(x,10)); if(!list.includes(wd)) continue; }
+      try{ await sendPencPush(rem.user_id, { title:'🔔 Rappel DeglouFM', body:'C\u2019est l\u2019heure d\u2019écouter '+rem.station_name+' !', tag:'radio-reminder-'+rem.id, url:'/messager?radio='+rem.station_id }); }catch(_sp){}
+      try{ await _pgPool.query('UPDATE penc_radio_reminders SET last_sent_date=$1 WHERE id=$2',[today, rem.id]); }catch(_up){}
+    }
+  }catch(e){}
+}, 60000);
 app.post('/api/penc/radio/report', pencAuth, async (req, res) => {
   try{
     const station_id = String(req.body.station_id||'').trim();
@@ -7759,6 +7877,44 @@ app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => 
     );
     res.json({ total_seconds: parseInt(tot.rows[0].s,10)||0, unique_listeners: parseInt(tot.rows[0].u,10)||0, by_station: byStation.rows });
   }catch(e){ console.error('radio stats:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Suivi détaillé par auditeur (demandé par l'admin) : pour chaque personne ayant écouté
+// DeglouFM au moins une fois — nombre de radios différentes écoutées et temps total cumulé.
+// Triable, sert de point d'entrée vers le détail par station (endpoint suivant). ──
+app.get('/api/penc/admin/radio/listeners', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ listeners: [] });
+    const r = await _pgPool.query(
+      `SELECT u.id, u.full_name, u.username, u.avatar_url,
+              COUNT(DISTINCT l.station_id) AS stations_count,
+              COALESCE(SUM(l.duration_seconds),0) AS total_seconds,
+              MAX(l.started_at) AS last_listened
+       FROM penc_radio_listens l JOIN penc_users u ON u.id=l.user_id
+       GROUP BY u.id ORDER BY total_seconds DESC LIMIT 300`
+    );
+    res.json({ listeners: r.rows.map(x => ({ ...x, stations_count: parseInt(x.stations_count,10)||0, total_seconds: parseInt(x.total_seconds,10)||0 })) });
+  }catch(e){ console.error('admin radio listeners:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Détail d'un auditeur : temps passé sur CHAQUE radio écoutée, plus le total global (redondant
+// avec la liste ci-dessus mais utile en vue détail sans tout recharger).
+app.get('/api/penc/admin/radio/listeners/:userId', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ user:null, total_seconds:0, by_station:[] });
+    const uid = req.params.userId;
+    const u = await pgFindUser('id', uid);
+    const byStation = await _pgPool.query(
+      `SELECT s.id, s.name, s.logo_url, s.country, SUM(l.duration_seconds) AS total_seconds, COUNT(l.id) AS sessions, MAX(l.started_at) AS last_listened
+       FROM penc_radio_listens l JOIN penc_radio_stations s ON s.id=l.station_id
+       WHERE l.user_id=$1 GROUP BY s.id ORDER BY total_seconds DESC`,
+      [uid]
+    );
+    const totalSeconds = byStation.rows.reduce((sum,row) => sum + (parseInt(row.total_seconds,10)||0), 0);
+    res.json({
+      user: u ? { id:u.id, full_name:u.full_name, username:u.username, avatar_url:u.avatar_url } : null,
+      total_seconds: totalSeconds,
+      by_station: byStation.rows.map(x => ({ ...x, total_seconds: parseInt(x.total_seconds,10)||0, sessions: parseInt(x.sessions,10)||0 }))
+    });
+  }catch(e){ console.error('admin radio listener detail:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 
 app.get('/api/penc/radio/favorites', pencAuth, async (req, res) => {
