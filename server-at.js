@@ -4479,6 +4479,7 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rreport_station ON penc_radio_reports(station_id);
+      ALTER TABLE penc_radio_reports ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT false;
       CREATE TABLE IF NOT EXISTS penc_radio_listens (
         id            TEXT PRIMARY KEY,
         user_id       TEXT NOT NULL,
@@ -4498,6 +4499,8 @@ let _pgPool = null;
         content TEXT NOT NULL, reply_to TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       ALTER TABLE penc_radio_comments ADD COLUMN IF NOT EXISTS reply_to TEXT;
+      ALTER TABLE penc_radio_comments ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS radio_banned BOOLEAN DEFAULT false;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -4508,6 +4511,7 @@ let _pgPool = null;
         id TEXT PRIMARY KEY, comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rcomreport_comment ON penc_radio_comment_reports(comment_id);
+      ALTER TABLE penc_radio_comment_reports ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT false;
       CREATE TABLE IF NOT EXISTS penc_radio_station_reactions (
         station_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (station_id, user_id)
@@ -7868,14 +7872,25 @@ app.post('/api/penc/radio/report', pencAuth, async (req, res) => {
 });
 app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => {
   try{
-    if(!_pgPool) return res.json({ total_seconds:0, by_station:[], unique_listeners:0 });
+    if(!_pgPool) return res.json({ total_seconds:0, by_station:[], unique_listeners:0, daily:[] });
     const tot = await _pgPool.query('SELECT COALESCE(SUM(duration_seconds),0) as s, COUNT(DISTINCT user_id) as u FROM penc_radio_listens');
     const byStation = await _pgPool.query(
       `SELECT s.id, s.name, s.logo_url, s.country, COALESCE(SUM(l.duration_seconds),0) as total_seconds, COUNT(DISTINCT l.user_id) as unique_listeners, COUNT(l.id) as sessions
        FROM penc_radio_stations s LEFT JOIN penc_radio_listens l ON l.station_id=s.id
        GROUP BY s.id ORDER BY total_seconds DESC`
     );
-    res.json({ total_seconds: parseInt(tot.rows[0].s,10)||0, unique_listeners: parseInt(tot.rows[0].u,10)||0, by_station: byStation.rows });
+    // Croissance : temps d'écoute cumulé et auditeurs uniques par jour, 30 derniers jours.
+    const daily = await _pgPool.query(
+      `SELECT date_trunc('day', started_at) AS day, COALESCE(SUM(duration_seconds),0) AS seconds, COUNT(DISTINCT user_id) AS listeners
+       FROM penc_radio_listens WHERE started_at > NOW() - INTERVAL '30 days'
+       GROUP BY day ORDER BY day ASC`
+    );
+    res.json({
+      total_seconds: parseInt(tot.rows[0].s,10)||0,
+      unique_listeners: parseInt(tot.rows[0].u,10)||0,
+      by_station: byStation.rows,
+      daily: daily.rows.map(x => ({ day: x.day, seconds: parseInt(x.seconds,10)||0, listeners: parseInt(x.listeners,10)||0 }))
+    });
   }catch(e){ console.error('radio stats:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // ── Suivi détaillé par auditeur (demandé par l'admin) : pour chaque personne ayant écouté
@@ -7884,15 +7899,36 @@ app.get('/api/penc/admin/radio/stats', pencAuth, pencAdmin, async (req, res) => 
 app.get('/api/penc/admin/radio/listeners', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ listeners: [] });
+    // Liste EXHAUSTIVE de tous les utilisateurs DeglouFM : union de ceux qui ont une session
+    // d'écoute enregistrée, ceux qui ont mis "J'aime" (fan) sur une station, et ceux qui ont
+    // commenté — un utilisateur peut apparaître dans l'un sans forcément avoir de temps
+    // d'écoute mesuré (ex: like sans lecture complète, bug de tracking, etc.).
     const r = await _pgPool.query(
-      `SELECT u.id, u.full_name, u.username, u.avatar_url,
-              COUNT(DISTINCT l.station_id) AS stations_count,
-              COALESCE(SUM(l.duration_seconds),0) AS total_seconds,
-              MAX(l.started_at) AS last_listened
-       FROM penc_radio_listens l JOIN penc_users u ON u.id=l.user_id
-       GROUP BY u.id ORDER BY total_seconds DESC LIMIT 300`
+      `WITH all_users AS (
+         SELECT user_id FROM penc_radio_listens
+         UNION SELECT user_id FROM penc_radio_fans
+         UNION SELECT user_id FROM penc_radio_comments
+       )
+       SELECT u.id, u.full_name, u.username, u.avatar_url, u.verified, u.radio_banned,
+              COALESCE(l.stations_count,0) AS stations_count,
+              COALESCE(l.total_seconds,0) AS total_seconds,
+              COALESCE(f.fans_count,0) AS fans_count,
+              COALESCE(c.comments_count,0) AS comments_count,
+              GREATEST(l.last_listened, c.last_commented) AS last_activity
+       FROM all_users au
+       JOIN penc_users u ON u.id=au.user_id
+       LEFT JOIN (SELECT user_id, COUNT(DISTINCT station_id) AS stations_count, SUM(duration_seconds) AS total_seconds, MAX(started_at) AS last_listened FROM penc_radio_listens GROUP BY user_id) l ON l.user_id=au.user_id
+       LEFT JOIN (SELECT user_id, COUNT(*) AS fans_count FROM penc_radio_fans GROUP BY user_id) f ON f.user_id=au.user_id
+       LEFT JOIN (SELECT user_id, COUNT(*) AS comments_count, MAX(created_at) AS last_commented FROM penc_radio_comments GROUP BY user_id) c ON c.user_id=au.user_id
+       ORDER BY total_seconds DESC NULLS LAST, last_activity DESC NULLS LAST LIMIT 500`
     );
-    res.json({ listeners: r.rows.map(x => ({ ...x, stations_count: parseInt(x.stations_count,10)||0, total_seconds: parseInt(x.total_seconds,10)||0 })) });
+    res.json({ listeners: r.rows.map(x => ({
+      ...x,
+      stations_count: parseInt(x.stations_count,10)||0,
+      total_seconds: parseInt(x.total_seconds,10)||0,
+      fans_count: parseInt(x.fans_count,10)||0,
+      comments_count: parseInt(x.comments_count,10)||0
+    })) });
   }catch(e){ console.error('admin radio listeners:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Détail d'un auditeur : temps passé sur CHAQUE radio écoutée, plus le total global (redondant
@@ -7910,11 +7946,63 @@ app.get('/api/penc/admin/radio/listeners/:userId', pencAuth, pencAdmin, async (r
     );
     const totalSeconds = byStation.rows.reduce((sum,row) => sum + (parseInt(row.total_seconds,10)||0), 0);
     res.json({
-      user: u ? { id:u.id, full_name:u.full_name, username:u.username, avatar_url:u.avatar_url } : null,
+      user: u ? { id:u.id, full_name:u.full_name, username:u.username, avatar_url:u.avatar_url, radio_banned:!!u.radio_banned } : null,
       total_seconds: totalSeconds,
       by_station: byStation.rows.map(x => ({ ...x, total_seconds: parseInt(x.total_seconds,10)||0, sessions: parseInt(x.sessions,10)||0 }))
     });
   }catch(e){ console.error('admin radio listener detail:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+// ── Modération : file d'attente des signalements (stations + commentaires) en un seul écran. ──
+app.get('/api/penc/admin/radio/reports', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ station_reports:[], comment_reports:[] });
+    const stationReports = await _pgPool.query(
+      `SELECT r.id, r.station_id, r.user_id, r.created_at, s.name AS station_name, s.logo_url, u.full_name AS reporter_name
+       FROM penc_radio_reports r JOIN penc_radio_stations s ON s.id=r.station_id LEFT JOIN penc_users u ON u.id=r.user_id
+       WHERE r.resolved=false OR r.resolved IS NULL ORDER BY r.created_at DESC LIMIT 100`
+    );
+    const commentReports = await _pgPool.query(
+      `SELECT r.id, r.comment_id, r.user_id, r.created_at, c.content, c.station_id, s.name AS station_name,
+              cu.full_name AS comment_author, u.full_name AS reporter_name
+       FROM penc_radio_comment_reports r
+       LEFT JOIN penc_radio_comments c ON c.id=r.comment_id
+       LEFT JOIN penc_radio_stations s ON s.id=c.station_id
+       LEFT JOIN penc_users cu ON cu.id=c.user_id
+       LEFT JOIN penc_users u ON u.id=r.user_id
+       WHERE r.resolved=false OR r.resolved IS NULL ORDER BY r.created_at DESC LIMIT 100`
+    );
+    res.json({ station_reports: stationReports.rows, comment_reports: commentReports.rows });
+  }catch(e){ console.error('admin radio reports:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/reports/station/:id/resolve', pencAuth, pencAdmin, async (req, res) => {
+  try{ if(_pgPool) await _pgPool.query('UPDATE penc_radio_reports SET resolved=true WHERE id=$1',[req.params.id]); res.json({ success:true }); }
+  catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/reports/comment/:id/resolve', pencAuth, pencAdmin, async (req, res) => {
+  try{ if(_pgPool) await _pgPool.query('UPDATE penc_radio_comment_reports SET resolved=true WHERE id=$1',[req.params.id]); res.json({ success:true }); }
+  catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Supprime le commentaire signalé ET marque tous ses signalements comme traités.
+app.post('/api/penc/admin/radio/comments/:id/delete', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const commentId = req.params.id;
+    const cm = await _pgPool.query('SELECT station_id FROM penc_radio_comments WHERE id=$1',[commentId]);
+    await _pgPool.query('DELETE FROM penc_radio_comments WHERE id=$1',[commentId]);
+    await _pgPool.query('UPDATE penc_radio_comment_reports SET resolved=true WHERE comment_id=$1',[commentId]);
+    if(cm.rows.length){ try{ io.to('radio:'+cm.rows[0].station_id).emit('radio:comment-deleted', { id: commentId }); }catch(_e4){} }
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Bloque/débloque un utilisateur des commentaires DeglouFM (pas du compte Penc entier).
+app.post('/api/penc/admin/radio/users/:userId/ban', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const banned = !!(req.body && req.body.banned);
+    await _pgPool.query('UPDATE penc_users SET radio_banned=$1 WHERE id=$2',[banned, req.params.userId]);
+    res.json({ success:true, banned });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
 app.get('/api/penc/radio/favorites', pencAuth, async (req, res) => {
@@ -8002,6 +8090,8 @@ app.get('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ comments:[] });
     const uid = req.pencUser.userId;
+    const before = req.query.before ? String(req.query.before) : null;
+    const params = before ? [req.params.id, uid, before] : [req.params.id, uid];
     const r = await _pgPool.query(
       `SELECT c.*, u.full_name, u.username, u.avatar_url, u.verified,
               (SELECT COUNT(*) FROM penc_radio_comment_likes l WHERE l.comment_id=c.id) AS likes_count,
@@ -8011,10 +8101,36 @@ app.get('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
        JOIN penc_users u ON u.id=c.user_id
        LEFT JOIN penc_radio_comments rc ON rc.id=c.reply_to
        LEFT JOIN penc_users ru ON ru.id=rc.user_id
-       WHERE c.station_id=$1 ORDER BY c.created_at DESC LIMIT 50`,
-      [req.params.id, uid]
+       WHERE c.station_id=$1` + (before ? ' AND c.created_at < (SELECT created_at FROM penc_radio_comments WHERE id=$3)' : '') + `
+       ORDER BY c.created_at DESC LIMIT 30`,
+      params
     );
-    res.json({ comments: r.rows });
+    res.json({ comments: r.rows, has_more: r.rows.length===30 });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Modifier son propre commentaire.
+app.patch('/api/penc/radio/comments/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const content = String((req.body && req.body.content) || '').trim().slice(0,500);
+    if(!content) return res.status(400).json({ error:'Message vide' });
+    const cm = await _pgPool.query('SELECT user_id FROM penc_radio_comments WHERE id=$1',[req.params.id]);
+    if(!cm.rows.length) return res.status(404).json({ error:'Commentaire introuvable' });
+    if(cm.rows[0].user_id !== req.pencUser.userId) return res.status(403).json({ error:'Tu ne peux modifier que tes propres commentaires' });
+    await _pgPool.query('UPDATE penc_radio_comments SET content=$1, edited=true WHERE id=$2',[content, req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Supprimer son propre commentaire.
+app.delete('/api/penc/radio/comments/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const cm = await _pgPool.query('SELECT user_id, station_id FROM penc_radio_comments WHERE id=$1',[req.params.id]);
+    if(!cm.rows.length) return res.status(404).json({ error:'Commentaire introuvable' });
+    if(cm.rows[0].user_id !== req.pencUser.userId) return res.status(403).json({ error:'Tu ne peux supprimer que tes propres commentaires' });
+    await _pgPool.query('DELETE FROM penc_radio_comments WHERE id=$1',[req.params.id]);
+    try{ io.to('radio:'+cm.rows[0].station_id).emit('radio:comment-deleted', { id: req.params.id }); }catch(_e5){}
+    res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.post('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => {
@@ -8022,9 +8138,10 @@ app.post('/api/penc/radio/stations/:id/comments', pencAuth, async (req, res) => 
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     const content = String(req.body.content||'').trim().slice(0,500);
     if(!content) return res.status(400).json({ error:'Message vide' });
+    const uid = req.pencUser.userId;
+    try{ const banCheck = await _pgPool.query('SELECT radio_banned FROM penc_users WHERE id=$1',[uid]); if(banCheck.rows[0] && banCheck.rows[0].radio_banned) return res.status(403).json({ error:'Tu ne peux plus commenter sur DeglouFM.' }); }catch(_bc){}
     const replyTo = req.body.reply_to ? String(req.body.reply_to) : null;
     const id = 'rcm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    const uid = req.pencUser.userId;
     const stationId = req.params.id;
     await _pgPool.query('INSERT INTO penc_radio_comments(id,station_id,user_id,content,reply_to) VALUES($1,$2,$3,$4,$5)',[id, stationId, uid, content, replyTo]);
 
