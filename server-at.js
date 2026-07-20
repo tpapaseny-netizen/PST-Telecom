@@ -4627,6 +4627,8 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rplaylist_station ON penc_radio_playlist_tracks(station_id, sort_order);
+      ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS jingle_url TEXT;
+      ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS jingle_duration_seconds INTEGER DEFAULT 0;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -7896,10 +7898,14 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
     const title = String((req.body && req.body.title) || '').trim().slice(0,120);
     const fileUrl = String((req.body && req.body.file_url) || '').trim();
     if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
+    // Piège fréquent : coller le lien du LECTEUR intégré (embed) au lieu du fichier direct.
+    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com|youtube\.com\/watch|youtu\.be\//.test(fileUrl)){
+      return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct. Sur Cloudinary : ouvre le fichier dans la médiathèque puis "Copy URL" (le lien doit finir par .mp3, .m4a ou .wav).' });
+    }
     // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
     let duration = 0;
     try{ const meta = await _ffprobeMeta(fileUrl); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
-    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct et accessible publiquement' }); }
+    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct (finit par .mp3/.m4a/.wav) et accessible publiquement, pas un lien de lecteur intégré.' }); }
     if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
     const maxOrder = await _pgPool.query('SELECT COALESCE(MAX(sort_order),0) AS m FROM penc_radio_playlist_tracks WHERE station_id=$1',[req.params.id]);
     const id = 'rtrk_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -7914,6 +7920,27 @@ app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req
   try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]); res.json({ success:true }); }
   catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// Jingle de la station ("Vous écoutez X sur DeglouFM de Penc...") — inséré automatiquement
+// avant CHAQUE piste par le flux en boucle, comme un vrai habillage radio.
+app.post('/api/penc/admin/radio/stations/:id/jingle', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const url = String((req.body && req.body.jingle_url) || '').trim();
+    if(!url){
+      await _pgPool.query('UPDATE penc_radio_stations SET jingle_url=NULL, jingle_duration_seconds=0 WHERE id=$1',[req.params.id]);
+      return res.json({ success:true, removed:true });
+    }
+    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com|youtube\.com\/watch|youtu\.be\//.test(url)){
+      return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
+    }
+    let duration = 0;
+    try{ const meta = await _ffprobeMeta(url); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie le lien direct.' }); }
+    if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
+    await _pgPool.query('UPDATE penc_radio_stations SET jingle_url=$1, jingle_duration_seconds=$2 WHERE id=$3',[url, duration, req.params.id]);
+    res.json({ success:true, duration_seconds: duration });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 // ── Flux audio public en boucle infinie — c'est CETTE url qu'on colle comme "URL du flux" de
 // la station. Pas de pencAuth : un lecteur <audio> ne peut pas envoyer de jeton, exactement
 // comme n'importe quel flux radio classique (public par nature). La position dans la boucle est
@@ -7923,8 +7950,16 @@ app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
   let cmd = null;
   try{
     if(!_pgPool) return res.status(503).end();
-    const tracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at',[req.params.stationId])).rows;
-    if(!tracks.length) return res.status(404).end();
+    const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1',[req.params.stationId])).rows[0];
+    const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at',[req.params.stationId])).rows;
+    if(!rawTracks.length) return res.status(404).end();
+    // Habillage radio : le jingle de la station est intercalé avant CHAQUE piste, comme un
+    // vrai passage à l'antenne ("Vous écoutez X sur DeglouFM de Penc...") puis le contenu.
+    let tracks = rawTracks;
+    if(station && station.jingle_url && station.jingle_duration_seconds > 0){
+      tracks = [];
+      rawTracks.forEach(t => { tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds }); tracks.push(t); });
+    }
     const totalDuration = tracks.reduce((s,t) => s + (t.duration_seconds||0), 0);
     if(totalDuration <= 0) return res.status(404).end();
     const epochMs = Date.UTC(2026,0,1,0,0,0);
