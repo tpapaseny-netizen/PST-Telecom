@@ -4054,6 +4054,10 @@ async function r2PutBuffer(key, buffer, contentType) {
   await _r2Client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, Body: buffer, ContentType: contentType }));
   return R2_PUBLIC + '/' + key;
 }
+async function r2DeleteObject(key) {
+  const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  await _r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+}
 
 // ── Logo du filigrane : préchargé une fois, mis en cache mémoire ──
 let _wmLogoBuf = null, _wmLogoTried = false;
@@ -4168,6 +4172,97 @@ async function _voiceToMp3(inputPath, outputPath) {
       .on('end', resolve).on('error', reject).save(outputPath);
   });
 }
+
+// ══════════════ REPLAY DEGLOUFM (PREMIUM) ══════════════
+// Enregistre en continu, par tranches d'1h, les stations marquées replay_enabled=true.
+// Chaque tranche est uploadée sur R2 puis référencée en base ; une purge horaire supprime
+// tout ce qui dépasse 48h (rétention volontairement courte pour maîtriser le stockage).
+// LIMITE CONNUE : si le serveur redémarre/s'endort (Render Free), l'enregistrement en cours
+// s'arrête et laisse un trou — pas de solution miracle sans un serveur qui tourne 24/7.
+const RAD_REPLAY_RETENTION_HOURS = 48;
+let _radRecordingLoops = {}; // station_id -> true pendant que la boucle tourne
+
+async function _radRecordOneHour(station) {
+  const os = require('os'), pathMod = require('path'), fs = require('fs');
+  const startedAt = new Date();
+  const tmpFile = pathMod.join(os.tmpdir(), 'radrec_' + station.id + '_' + Date.now() + '.mp3');
+  const ffmpeg = _ffmpegBin();
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    try {
+      ffmpeg(station.stream_url)
+        .inputOptions(['-re'])
+        .audioCodec('libmp3lame').audioBitrate('64k').noVideo()
+        .duration(3600)
+        .on('error', (err) => { console.error('[radio-replay] ffmpeg', station.name, ':', err.message); finish(); })
+        .on('end', finish)
+        .save(tmpFile);
+    } catch (e) { console.error('[radio-replay] exception', e.message); finish(); }
+    setTimeout(finish, 3700 * 1000); // filet de sécurité si ffmpeg ne se termine jamais
+  });
+  try {
+    if (fs.existsSync(tmpFile)) {
+      const stat = fs.statSync(tmpFile);
+      if (stat.size > 200000) { // ignore les tranches quasi-vides (flux tombé dès le départ)
+        const buffer = fs.readFileSync(tmpFile);
+        const durationSec = Math.round((Date.now() - startedAt.getTime()) / 1000);
+        const key = 'penc/radio-replay/' + station.id + '/' + startedAt.getTime() + '.mp3';
+        const url = await r2PutBuffer(key, buffer, 'audio/mpeg');
+        const id = 'rrec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        if (_pgPool) {
+          await _pgPool.query(
+            'INSERT INTO penc_radio_recordings(id,station_id,started_at,duration_seconds,file_url,file_key) VALUES($1,$2,$3,$4,$5,$6)',
+            [id, station.id, startedAt, durationSec, url, key]
+          );
+        }
+        console.log('[radio-replay]', station.name, '- tranche enregistrée (' + durationSec + 's)');
+      }
+    }
+  } catch (e) { console.error('[radio-replay] upload:', e.message); }
+  try { fs.unlinkSync(tmpFile); } catch (_e) {}
+}
+
+async function _radRecordingLoop(station) {
+  if (_radRecordingLoops[station.id]) return;
+  _radRecordingLoops[station.id] = true;
+  while (true) {
+    try {
+      // Revérifie à chaque tour que le replay est toujours activé pour cette station (admin peut désactiver)
+      const chk = _pgPool ? await _pgPool.query('SELECT replay_enabled, active, stream_url, name FROM penc_radio_stations WHERE id=$1', [station.id]) : { rows: [] };
+      if (!chk.rows.length || !chk.rows[0].replay_enabled || !chk.rows[0].active) { delete _radRecordingLoops[station.id]; return; }
+      station.stream_url = chk.rows[0].stream_url; station.name = chk.rows[0].name;
+      await _radRecordOneHour(station);
+    } catch (e) {
+      console.error('[radio-replay] boucle', station.name, ':', e.message);
+      await new Promise(r => setTimeout(r, 30000));
+    }
+  }
+}
+
+async function _radStartReplayRecordings() {
+  try {
+    if (!_pgPool || !_r2Ready) return;
+    const r = await _pgPool.query('SELECT id, name, stream_url FROM penc_radio_stations WHERE replay_enabled=true AND active=true');
+    r.rows.forEach(st => { if (!_radRecordingLoops[st.id]) _radRecordingLoop(st); });
+  } catch (e) { console.error('[radio-replay] démarrage:', e.message); }
+}
+// Vérifie toutes les 5 minutes si de nouvelles stations ont été activées pour le replay.
+setInterval(_radStartReplayRecordings, 5 * 60000);
+setTimeout(_radStartReplayRecordings, 15000);
+
+// Purge horaire : supprime les tranches de plus de 48h (base + fichiers R2).
+setInterval(async () => {
+  try {
+    if (!_pgPool) return;
+    const old = await _pgPool.query("SELECT id, file_key FROM penc_radio_recordings WHERE started_at < NOW() - INTERVAL '" + RAD_REPLAY_RETENTION_HOURS + " hours'");
+    for (const rec of old.rows) {
+      try { await r2DeleteObject(rec.file_key); } catch (_d) {}
+      try { await _pgPool.query('DELETE FROM penc_radio_recordings WHERE id=$1', [rec.id]); } catch (_dd) {}
+    }
+    if (old.rows.length) console.log('[radio-replay] purge :', old.rows.length, 'tranche(s) supprimée(s)');
+  } catch (e) {}
+}, 3600000);
 
 // ── Récupère le pseudo pour le filigrane (depuis PostgreSQL) ──
 async function _pencUsernameFor(userId) {
@@ -4470,6 +4565,19 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS replay_enabled BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_radio_recordings (
+        id TEXT PRIMARY KEY, station_id TEXT NOT NULL, started_at TIMESTAMPTZ NOT NULL,
+        duration_seconds INTEGER DEFAULT 0, file_url TEXT NOT NULL, file_key TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rrecording_station ON penc_radio_recordings(station_id, started_at);
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS radio_premium BOOLEAN DEFAULT false;
+      CREATE TABLE IF NOT EXISTS penc_radio_premium_requests (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, reference TEXT, proof_url TEXT,
+        status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rprem_user ON penc_radio_premium_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_radio_country ON penc_radio_stations(country);
       CREATE INDEX IF NOT EXISTS idx_radio_active ON penc_radio_stations(active);
       CREATE TABLE IF NOT EXISTS penc_radio_reports (
@@ -7659,14 +7767,14 @@ app.get('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) 
 app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    let { name, stream_url, logo_url, country, category, featured } = req.body;
+    let { name, stream_url, logo_url, country, category, featured, replay_enabled } = req.body;
     name = String(name||'').trim().slice(0,80);
     stream_url = String(stream_url||'').trim().slice(0,500);
     if(!name || !stream_url) return res.status(400).json({ error:'Nom et URL du flux requis' });
     const id = 'rad_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     await _pgPool.query(
-      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured) VALUES($1,$2,$3,$4,$5,$6,$7)',
-      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60), !!featured]
+      'INSERT INTO penc_radio_stations(id,name,stream_url,logo_url,country,category,featured,replay_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, name, stream_url, logo_url||null, String(country||'').trim().slice(0,60), String(category||'').trim().slice(0,60), !!featured, !!replay_enabled]
     );
     res.json({ success:true, id });
   }catch(e){ console.error('radio add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
@@ -7674,7 +7782,7 @@ app.post('/api/penc/admin/radio/stations', pencAuth, pencAdmin, async (req, res)
 app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const { name, stream_url, logo_url, country, category, active, sort_order, featured } = req.body;
+    const { name, stream_url, logo_url, country, category, active, sort_order, featured, replay_enabled } = req.body;
     const fields=[]; const vals=[]; let n=1;
     if(name!==undefined){ fields.push('name=$'+(n++)); vals.push(String(name).trim().slice(0,80)); }
     if(stream_url!==undefined){ fields.push('stream_url=$'+(n++)); vals.push(String(stream_url).trim().slice(0,500)); }
@@ -7684,6 +7792,7 @@ app.patch('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req,
     if(active!==undefined){ fields.push('active=$'+(n++)); vals.push(!!active); }
     if(sort_order!==undefined){ fields.push('sort_order=$'+(n++)); vals.push(parseInt(sort_order,10)||0); }
     if(featured!==undefined){ fields.push('featured=$'+(n++)); vals.push(!!featured); }
+    if(replay_enabled!==undefined){ fields.push('replay_enabled=$'+(n++)); vals.push(!!replay_enabled); }
     if(!fields.length) return res.json({ success:true });
     vals.push(req.params.id);
     await _pgPool.query('UPDATE penc_radio_stations SET '+fields.join(', ')+' WHERE id=$'+n, vals);
@@ -7909,7 +8018,7 @@ app.get('/api/penc/admin/radio/listeners', pencAuth, pencAdmin, async (req, res)
          UNION SELECT user_id FROM penc_radio_fans
          UNION SELECT user_id FROM penc_radio_comments
        )
-       SELECT u.id, u.full_name, u.username, u.avatar_url, u.verified, u.radio_banned,
+       SELECT u.id, u.full_name, u.username, u.avatar_url, u.verified, u.radio_banned, u.radio_premium,
               COALESCE(l.stations_count,0) AS stations_count,
               COALESCE(l.total_seconds,0) AS total_seconds,
               COALESCE(f.fans_count,0) AS fans_count,
@@ -7946,7 +8055,7 @@ app.get('/api/penc/admin/radio/listeners/:userId', pencAuth, pencAdmin, async (r
     );
     const totalSeconds = byStation.rows.reduce((sum,row) => sum + (parseInt(row.total_seconds,10)||0), 0);
     res.json({
-      user: u ? { id:u.id, full_name:u.full_name, username:u.username, avatar_url:u.avatar_url, radio_banned:!!u.radio_banned } : null,
+      user: u ? { id:u.id, full_name:u.full_name, username:u.username, avatar_url:u.avatar_url, radio_banned:!!u.radio_banned, radio_premium:!!u.radio_premium } : null,
       total_seconds: totalSeconds,
       by_station: byStation.rows.map(x => ({ ...x, total_seconds: parseInt(x.total_seconds,10)||0, sessions: parseInt(x.sessions,10)||0 }))
     });
@@ -8013,6 +8122,87 @@ app.get('/api/penc/radio/favorites', pencAuth, async (req, res) => {
       [req.pencUser.userId]
     );
     res.json({ stations: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Replay premium : liste des tranches disponibles pour une station (48h glissantes). ──
+app.get('/api/penc/radio/stations/:id/replay', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ recordings:[], premium:false });
+    const u = await pgFindUser('id', req.pencUser.userId);
+    const isPremium = !!(u && u.radio_premium);
+    if(!isPremium) return res.json({ recordings:[], premium:false });
+    const r = await _pgPool.query(
+      'SELECT id, started_at, duration_seconds, file_url FROM penc_radio_recordings WHERE station_id=$1 ORDER BY started_at DESC LIMIT 60',
+      [req.params.id]
+    );
+    res.json({ recordings: r.rows, premium:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Statut premium de l'utilisateur courant (pour afficher le bon écran côté client).
+app.get('/api/penc/radio/premium/status', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ premium:false, pending:false });
+    const u = await pgFindUser('id', req.pencUser.userId);
+    let pending = false;
+    try{ const p = await _pgPool.query("SELECT 1 FROM penc_radio_premium_requests WHERE user_id=$1 AND status='pending' LIMIT 1",[req.pencUser.userId]); pending = p.rows.length>0; }catch(_p){}
+    res.json({ premium: !!(u && u.radio_premium), pending });
+  }catch(e){ res.json({ premium:false, pending:false }); }
+});
+// Soumission d'une preuve de paiement Wave — validée manuellement par l'admin (pas de webhook
+// automatique pour l'instant ; Paydunya/crypto viendront remplacer ce flux plus tard).
+app.post('/api/penc/radio/premium/request', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const reference = String((req.body && req.body.reference) || '').trim().slice(0,200);
+    const proofUrl = (req.body && req.body.proof_url) ? String(req.body.proof_url).slice(0,500) : null;
+    if(!reference && !proofUrl) return res.status(400).json({ error:'Indique la référence du paiement Wave ou une capture d\u2019écran' });
+    const uid = req.pencUser.userId;
+    await _pgPool.query("UPDATE penc_radio_premium_requests SET status='cancelled' WHERE user_id=$1 AND status='pending'",[uid]);
+    const id = 'rprem_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_radio_premium_requests(id,user_id,reference,proof_url) VALUES($1,$2,$3,$4)',[id, uid, reference||null, proofUrl]);
+    try{
+      let name='Un utilisateur';
+      try{ const u=await pgFindUser('id', uid); if(u) name=u.full_name||name; }catch(_ru){}
+      for(const adminEmail of PENC_ADMIN_EMAILS){
+        try{ const au=await pgFindUser('email', adminEmail); if(au) await sendPencPush(au.id, { title:'💎 Demande Premium DeglouFM', body: name+' a envoyé une preuve de paiement Wave', tag:'radio-premium-request' }); }catch(_pu){}
+      }
+    }catch(_notif){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/radio/premium-requests', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ requests:[] });
+    const r = await _pgPool.query(
+      `SELECT pr.*, u.full_name, u.username, u.avatar_url FROM penc_radio_premium_requests pr
+       LEFT JOIN penc_users u ON u.id=pr.user_id WHERE pr.status='pending' ORDER BY pr.created_at DESC LIMIT 100`
+    );
+    res.json({ requests: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/premium-requests/:id/approve', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const rq = await _pgPool.query('SELECT user_id FROM penc_radio_premium_requests WHERE id=$1',[req.params.id]);
+    if(!rq.rows.length) return res.status(404).json({ error:'Introuvable' });
+    await _pgPool.query("UPDATE penc_radio_premium_requests SET status='approved' WHERE id=$1",[req.params.id]);
+    await _pgPool.query('UPDATE penc_users SET radio_premium=true WHERE id=$1',[rq.rows[0].user_id]);
+    try{ await sendPencPush(rq.rows[0].user_id, { title:'💎 Premium DeglouFM activé', body:'Tu peux maintenant réécouter les émissions passées.', tag:'radio-premium-activated' }); }catch(_sp){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/premium-requests/:id/reject', pencAuth, pencAdmin, async (req, res) => {
+  try{ if(_pgPool) await _pgPool.query("UPDATE penc_radio_premium_requests SET status='rejected' WHERE id=$1",[req.params.id]); res.json({ success:true }); }
+  catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Activation/retrait manuel direct (sans passer par une demande) — pratique pour un abonné payé hors app.
+app.post('/api/penc/admin/radio/users/:userId/premium', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const premium = !!(req.body && req.body.premium);
+    await _pgPool.query('UPDATE penc_users SET radio_premium=$1 WHERE id=$2',[premium, req.params.userId]);
+    if(premium){ try{ await sendPencPush(req.params.userId, { title:'💎 Premium DeglouFM activé', body:'Tu peux maintenant réécouter les émissions passées.', tag:'radio-premium-activated' }); }catch(_sp2){} }
+    res.json({ success:true, premium });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Historique d'écoute personnel : dernières stations écoutées, une seule entrée par station
