@@ -4621,6 +4621,12 @@ let _pgPool = null;
         end_hour INTEGER NOT NULL, end_minute INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rprog_station ON penc_radio_programs(station_id);
+      CREATE TABLE IF NOT EXISTS penc_radio_playlist_tracks (
+        id TEXT PRIMARY KEY, station_id TEXT NOT NULL, title TEXT NOT NULL,
+        file_url TEXT NOT NULL, duration_seconds INTEGER NOT NULL DEFAULT 0, sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rplaylist_station ON penc_radio_playlist_tracks(station_id, sort_order);
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -7874,6 +7880,77 @@ app.get('/api/penc/radio/stations/:id/current-program', pencAuth, async (req, re
     }
     res.json({ program: current });
   }catch(e){ res.json({ program: null }); }
+});
+// ── Playlist en boucle (radio "maison") : liste de pistes jouées les unes après les autres,
+// indéfiniment, comme une vraie station. ──
+app.get('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ tracks: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at',[req.params.id]);
+    res.json({ tracks: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const title = String((req.body && req.body.title) || '').trim().slice(0,120);
+    const fileUrl = String((req.body && req.body.file_url) || '').trim();
+    if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
+    // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
+    let duration = 0;
+    try{ const meta = await _ffprobeMeta(fileUrl); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct et accessible publiquement' }); }
+    if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
+    const maxOrder = await _pgPool.query('SELECT COALESCE(MAX(sort_order),0) AS m FROM penc_radio_playlist_tracks WHERE station_id=$1',[req.params.id]);
+    const id = 'rtrk_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, req.params.id, title, fileUrl, duration, (parseInt(maxOrder.rows[0].m,10)||0)+1]
+    );
+    res.json({ success:true, id, duration_seconds: duration });
+  }catch(e){ console.error('playlist add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]); res.json({ success:true }); }
+  catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Flux audio public en boucle infinie — c'est CETTE url qu'on colle comme "URL du flux" de
+// la station. Pas de pencAuth : un lecteur <audio> ne peut pas envoyer de jeton, exactement
+// comme n'importe quel flux radio classique (public par nature). La position dans la boucle est
+// calculée à partir de l'heure serveur, pour que quiconque se connecte tombe "en direct" au bon
+// endroit de la playlist, comme une vraie radio. ──
+app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
+  let cmd = null;
+  try{
+    if(!_pgPool) return res.status(503).end();
+    const tracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at',[req.params.stationId])).rows;
+    if(!tracks.length) return res.status(404).end();
+    const totalDuration = tracks.reduce((s,t) => s + (t.duration_seconds||0), 0);
+    if(totalDuration <= 0) return res.status(404).end();
+    const epochMs = Date.UTC(2026,0,1,0,0,0);
+    const elapsed = Math.floor((Date.now() - epochMs)/1000) % totalDuration;
+
+    const fs = require('fs'), os = require('os'), pathMod = require('path');
+    const listFile = pathMod.join(os.tmpdir(), 'radlist_' + req.params.stationId + '.txt');
+    const listContent = tracks.map(t => "file '" + String(t.file_url).replace(/'/g, "'\\''") + "'").join('\n');
+    fs.writeFileSync(listFile, listContent);
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'no-cache, no-store');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const ffmpeg = _ffmpegBin();
+    cmd = ffmpeg()
+      .inputOptions(['-stream_loop', '-1', '-f', 'concat', '-safe', '0'])
+      .input(listFile)
+      .seekInput(elapsed)
+      .audioCodec('libmp3lame').audioBitrate('128k').noVideo()
+      .format('mp3')
+      .on('error', function(){ try{ res.end(); }catch(_e1){} })
+      .on('end', function(){ try{ res.end(); }catch(_e2){} });
+    cmd.pipe(res, { end: true });
+    req.on('close', function(){ try{ cmd.kill('SIGKILL'); }catch(_k){} });
+  }catch(e){ console.error('radio live stream:', e.message); try{ res.status(500).end(); }catch(_e3){} }
 });
 app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
