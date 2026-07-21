@@ -8043,10 +8043,34 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     const title = String((req.body && req.body.title) || '').trim().slice(0,120);
-    const fileUrl = String((req.body && req.body.file_url) || '').trim();
+    let fileUrl = String((req.body && req.body.file_url) || '').trim();
     if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
+    // Lien YouTube : on extrait l'audio et on l'héberge nous-mêmes sur R2 — un lien de flux
+    // YouTube brut expire au bout de quelques heures, ce qui casserait la radio en boucle.
+    if(/youtube\.com\/watch|youtu\.be\//.test(fileUrl)){
+      try{
+        const ytdl = require('@distube/ytdl-core');
+        if(!ytdl.validateURL(fileUrl)) return res.status(400).json({ error:'Lien YouTube invalide' });
+        console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
+        const info = await ytdl.getInfo(fileUrl);
+        const audioStream = ytdl.downloadFromInfo(info, { filter:'audioonly', quality:'highestaudio' });
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+          audioStream.on('data', c => chunks.push(c));
+          audioStream.on('end', resolve);
+          audioStream.on('error', reject);
+        });
+        const buf = Buffer.concat(chunks);
+        const key = 'penc/radio-yt/' + req.params.id + '_' + Date.now() + '.m4a';
+        fileUrl = await r2PutBuffer(key, buf, 'audio/mp4');
+        console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', fileUrl);
+      }catch(_yt){
+        console.error('[radio-playlist] extraction YouTube échouée:', _yt.message);
+        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). Réessaie, ou utilise un lien direct.' });
+      }
+    }
     // Piège fréquent : coller le lien du LECTEUR intégré (embed) au lieu du fichier direct.
-    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com|youtube\.com\/watch|youtu\.be\//.test(fileUrl)){
+    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
       return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct. Sur Cloudinary : ouvre le fichier dans la médiathèque puis "Copy URL" (le lien doit finir par .mp3, .m4a ou .wav).' });
     }
     // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
