@@ -4339,10 +4339,28 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
 });
 
 // ── Route 2 : traitement post-upload (filigrane / rognage / conversion mp3) ──
+// ── Garde-fou mémoire : chaque vidéo traitée charge son buffer entier en RAM (30-40 Mo) + lance
+// un processus ffmpeg. Deux vidéos traitées EN MÊME TEMPS (ex: deux envois rapprochés) peuvent
+// suffire à dépasser les 512 Mo du plan Render gratuit et faire planter TOUT le serveur (messagerie
+// comprise). On limite à 1 traitement vidéo à la fois ; les suivants attendent leur tour au lieu
+// de s'exécuter en parallèle. Coût : un léger délai supplémentaire si deux vidéos arrivent en
+// même temps, largement préférable à un plantage complet du service.
+let _videoProcessingActive = false;
+const _videoProcessingQueue = [];
+async function _acquireVideoSlot(){
+  if(!_videoProcessingActive){ _videoProcessingActive = true; return; }
+  await new Promise(resolve => _videoProcessingQueue.push(resolve));
+}
+function _releaseVideoSlot(){
+  if(_videoProcessingQueue.length){ const next = _videoProcessingQueue.shift(); next(); }
+  else { _videoProcessingActive = false; }
+}
 app.post('/api/penc/media/process', pencAuth, async (req, res) => {
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   let tmpFiles = [];
   const _t0 = Date.now();
+  const _isVideo = (req.body && (req.body.type === 'video' || req.body.type === 'status_video'));
+  if(_isVideo) await _acquireVideoSlot();
   try {
     console.log('[media/process] reçu type=' + req.body.type + ' key=' + req.body.key + ' user=' + req.pencUser.userId);
     if (!_r2Ready) { console.error('[media/process] R2 non configuré'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
@@ -4404,6 +4422,8 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
     console.error('[media/process] ERREUR après ' + (Date.now() - _t0) + 'ms:', e.message, e.stack);
     tmpFiles.forEach(p => { try { require('fs').unlinkSync(p); } catch (_e) {} });
     res.status(500).json({ error: e.message });
+  } finally {
+    if(_isVideo) _releaseVideoSlot();
   }
 });
 
@@ -4936,6 +4956,11 @@ async function pgFindUser(field, value){
           :field==='username'?'SELECT * FROM penc_users WHERE LOWER(username)=LOWER($1)'
           :'SELECT * FROM penc_users WHERE '+field+'=$1';
   const r=await _pgPool.query(q,[value]); return pgRow(r.rows[0]||null);
+}
+async function pgFindUsersByIds(ids){
+  if(!_pgPool || !ids || !ids.length) return [];
+  const r=await _pgPool.query('SELECT * FROM penc_users WHERE id = ANY($1)',[ids]);
+  return r.rows.map(pgRow);
 }
 async function pgCreateUser(u){
   const r=await _pgPool.query(
@@ -5906,10 +5931,17 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
     if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
     let contacts_count = 0;
     try {
-      const convs = await pencConvs();
-      const set = new Set();
-      convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
-      contacts_count = set.size;
+      if (_pgPool) {
+        const cr = await _pgPool.query('SELECT participants FROM penc_conversations');
+        const set = new Set();
+        cr.rows.forEach(row => { const parts = Array.isArray(row.participants) ? row.participants : JSON.parse(row.participants||'[]'); if (parts.includes(uid)) parts.forEach(m => { if (m !== uid) set.add(m); }); });
+        contacts_count = set.size;
+      } else {
+        const convs = await pencConvs();
+        const set = new Set();
+        convs.forEach(c => { if (Array.isArray(c.members) && c.members.includes(uid)) c.members.forEach(m => { if (m !== uid) set.add(m); }); });
+        contacts_count = set.size;
+      }
     } catch (e) {}
     const valid_views = user.valid_views || 0;
     const own_views = user.own_views || 0;
@@ -7195,22 +7227,31 @@ app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
 // GET /api/penc/conversations/:id/messages
 app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
   try {
-    // pencMsgs() masque un échec JSONBin (timeout/rate-limit/indisponible) en tableau vide —
-    // indiscernable d'une conversation réellement vide. On vérifie ici directement si le bin a
-    // pu être lu, pour ne JAMAIS répondre "200 OK, aucun message" quand c'est en réalité un
-    // échec de lecture. C'était la cause des conversations qui semblaient "perdre" leurs
-    // messages jusqu'à un rafraîchissement/redémarrage de l'app.
-    const rawMsgsBin = await jbGet(BINS.penc_msgs);
-    if (rawMsgsBin === null) {
-      return res.status(503).json({ error: 'Lecture des messages indisponible, réessaie dans un instant' });
-    }
-    const msgs = Array.isArray(rawMsgsBin) ? rawMsgsBin : (Array.isArray(rawMsgsBin.msgs) ? rawMsgsBin.msgs : []);
-    const users = await pencUsers();
-    const convMsgs = msgs
-      .filter(m => m.conversation_id === req.params.id)
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      .slice(-100);
-    const enriched = convMsgs.map(m => ({ ...m, sender: pencStrip(users.find(u => u.id === m.sender_id)) }));
+    // Corrige un décalage critique : l'envoi (/api/penc/send) écrit déjà les messages dans
+    // PostgreSQL (table penc_messages), mais cette lecture allait encore chercher dans JSONBin
+    // (bin séparé, jamais mis à jour par les nouveaux envois) — les messages semblaient donc
+    // "disparaître" à chaque réouverture de conversation. On lit maintenant directement dans
+    // PostgreSQL, là où les messages sont réellement stockés.
+    if (!_pgPool) return res.status(503).json({ error: 'Base de données indisponible, réessaie dans quelques secondes' });
+    const r = await _pgPool.query(
+      `SELECT * FROM penc_messages WHERE conversation_id=$1 AND (deleted_for_all IS NOT TRUE)
+       ORDER BY created_at DESC LIMIT 100`, [req.params.id]
+    );
+    let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
+    // Filet de sécurité TEMPORAIRE pendant l'instabilité mémoire du serveur : si _pgPool était
+    // indisponible au moment précis d'un envoi, le message a pu atterrir dans l'ancien JSONBin
+    // (repli existant dans le code d'envoi). On fusionne ici pour ne perdre aucun message tant
+    // que les plantages serveur ne sont pas résolus — à retirer une fois le serveur stabilisé.
+    try {
+      const existingIds = new Set(rows.map(m => m.id));
+      const jbMsgs = await pencMsgs();
+      const strayMsgs = jbMsgs.filter(m => m.conversation_id === req.params.id && !existingIds.has(m.id));
+      if (strayMsgs.length) rows = rows.concat(strayMsgs).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    } catch (_jbe) {}
+    const senderIds = [...new Set(rows.map(m => m.sender_id))];
+    const users = await pgFindUsersByIds(senderIds);
+    const byId = new Map(users.map(u => [String(u.id), pencStrip(u)]));
+    const enriched = rows.map(m => ({ ...m, sender: byId.get(String(m.sender_id)) || { id: m.sender_id } }));
     res.json({ messages: enriched });
   } catch (e) { console.error('penc msgs:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -9060,9 +9101,16 @@ setTimeout(_purgeTrash, 20000); setInterval(_purgeTrash, 6*3600*1000);
 app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
   try {
     const users = await pgAllUsersMerged();
-    const convs = await pencConvs();
-    const statuses = await pencStatuses();
-    let msgsCount = 0; try { msgsCount = (await pencMsgs()).length; } catch (e) {}
+    let convs = [], statuses = [], msgsCount = 0;
+    if (_pgPool) {
+      try { const cr = await _pgPool.query('SELECT participants FROM penc_conversations'); convs = cr.rows.map(r => ({ members: Array.isArray(r.participants)?r.participants:JSON.parse(r.participants||'[]') })); } catch (e) {}
+      try { const sr = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_statuses'); statuses = new Array(sr.rows[0].n); } catch (e) {}
+      try { const mr = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_messages'); msgsCount = mr.rows[0].n; } catch (e) {}
+    } else {
+      try { convs = await pencConvs(); } catch (e) {}
+      try { statuses = await pencStatuses(); } catch (e) {}
+      try { msgsCount = (await pencMsgs()).length; } catch (e) {}
+    }
     const enrich = (u) => { const vv = u.valid_views || 0; const earned = Math.floor(vv / 1000) * 75; const withdrawn = u.withdrawn || 0; return {
       id: u.id, full_name: (u.full_name && String(u.full_name).trim() && String(u.full_name).trim().toLowerCase()!=='utilisateur') ? u.full_name : (u.username || 'Utilisateur'), username: u.username, phone: u.phone, email: u.email || '', avatar_url: u.avatar_url || null,
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
@@ -10698,9 +10746,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       } catch (e) { console.error('penc persist msg:', e.message); }
       }
       try {
-        const convs = await pencConvs();
-        const c = convs.find(x => x.id === conversation_id);
-        if (c) { c.updated_at = new Date().toISOString(); await pencSaveConvs(convs); }
+        if (_pgPool) {
+          await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1', [conversation_id]);
+        } else {
+          const convs = await pencConvs();
+          const c = convs.find(x => x.id === conversation_id);
+          if (c) { c.updated_at = new Date().toISOString(); await pencSaveConvs(convs); }
+        }
       } catch {}
 
       // 3) Notifications push aux destinataires
@@ -10802,9 +10854,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('message:read', async ({ conversation_id }) => {
     try {
-      const convs = await pencConvs();
-      const c = convs.find(x => x.id === conversation_id);
-      if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
+      if (!_pgPool) {
+        // Repli JSONBin uniquement si PostgreSQL est indisponible — le compteur non-lu vit
+        // côté client sinon, pas besoin de toucher au bin conversations à chaque lecture.
+        const convs = await pencConvs();
+        const c = convs.find(x => x.id === conversation_id);
+        if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
+      }
     } catch {}
     socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
   });
