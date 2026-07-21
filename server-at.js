@@ -4219,16 +4219,14 @@ const RAD_REPLAY_RETENTION_HOURS = 48;
 // Réactivé le 21/07/2026 après upgrade Render vers Standard (2 Go de RAM, contre 512 Mo avant)
 // — largement assez de marge maintenant pour ce que ce flux consomme.
 const RAD_LIVE_STREAM_DISABLED = false;
-// Garde-fou mémoire pour le flux en boucle (radio-live) : le plan Render gratuit a 512 Mo de RAM
-// au total, partagés avec le reste de l'app (API, sockets, enregistrement replay...). Chaque
-// processus ffmpeg de streaming consomme une part non négligeable — on limite le nombre de
-// diffusions simultanées pour ne jamais faire planter tout le serveur.
-let _radLiveStreamCount = 0;
+// Architecture "un seul ffmpeg par station, partagé entre tous les auditeurs" — voir
+// _radBroadcasts plus bas. RAD_MAX_CONCURRENT_STREAMS plafonne maintenant le nombre TOTAL
+// d'auditeurs simultanés (toutes stations confondues), pas le nombre de processus ffmpeg.
 // Relevé le 21/07/2026 après upgrade RAM (2 Go) — assez généreux pour ne jamais gêner de vrais
 // auditeurs, tout en gardant un plafond au cas où, vu l'historique de plantages de la nuit.
 const RAD_MAX_CONCURRENT_STREAMS = 20;
 setInterval(() => {
-  try{ const mu=process.memoryUsage(); console.log('[memoire] base — RAM: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), flux radio actifs: '+_radLiveStreamCount); }catch(_e){}
+  try{ const mu=process.memoryUsage(); var _nbBroadcasts=Object.keys(_radBroadcasts||{}).length; var _nbListeners=Object.values(_radBroadcasts||{}).reduce(function(s,x){return s+x.listenerCount;},0); console.log('[memoire] base — RAM: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), diffusions radio actives: '+_nbBroadcasts+', auditeurs: '+_nbListeners); }catch(_e){}
 }, 5*60000);
 let _radRecordingLoops = {}; // station_id -> true pendant que la boucle tourne
 
@@ -8110,69 +8108,104 @@ app.post('/api/penc/admin/radio/stations/:id/jingle', pencAuth, pencAdmin, async
 // comme n'importe quel flux radio classique (public par nature). La position dans la boucle est
 // calculée à partir de l'heure serveur, pour que quiconque se connecte tombe "en direct" au bon
 // endroit de la playlist, comme une vraie radio. ──
+// ═══ Diffusion partagée : UN SEUL processus ffmpeg par station, peu importe le nombre
+// d'auditeurs — leurs connexions se branchent toutes sur le même flux (comme une vraie radio
+// Icecast), au lieu d'un processus ffmpeg par personne qui saturait le CPU (un seul cœur sur
+// le plan Standard) dès que plusieurs personnes écoutaient en même temps. ═══
+const { PassThrough } = require('stream');
+const _radBroadcasts = {}; // stationId -> { hub: PassThrough, cmd, listenerCount, stopTimer }
+
+function _radStopBroadcast(stationId) {
+  const b = _radBroadcasts[stationId];
+  if (!b) return;
+  try { clearTimeout(b.stopTimer); } catch (_t) {}
+  try { b.cmd.kill('SIGKILL'); } catch (_k) {}
+  try { b.hub.end(); } catch (_h) {}
+  delete _radBroadcasts[stationId];
+  console.log('[radio-live] diffusion arrêtée (plus aucun auditeur) — station=' + stationId);
+}
+
+async function _radStartBroadcast(stationId) {
+  const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
+  const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at', [stationId])).rows;
+  if (!rawTracks.length) return null;
+  // Habillage radio : jingle station (si défini) + annonce vocale du titre (si générée) + piste,
+  // pour chaque piste — comme un vrai passage à l'antenne.
+  let tracks = [];
+  rawTracks.forEach(t => {
+    if (station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds });
+    if (t.announcement_url && t.announcement_duration_seconds > 0) tracks.push({ file_url: t.announcement_url, duration_seconds: t.announcement_duration_seconds });
+    tracks.push(t);
+  });
+  const totalDuration = tracks.reduce((s, t) => s + (t.duration_seconds || 0), 0);
+  if (totalDuration <= 0) return null;
+  const epochMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+  const elapsed = Math.floor((Date.now() - epochMs) / 1000) % totalDuration;
+
+  const fs = require('fs'), os = require('os'), pathMod = require('path');
+  const listFile = pathMod.join(os.tmpdir(), 'radlist_' + stationId + '.txt');
+  const listContent = tracks.map(t => "file '" + String(t.file_url).replace(/'/g, "'\\''") + "'").join('\n');
+  fs.writeFileSync(listFile, listContent);
+
+  const hub = new PassThrough();
+  const ffmpeg = _ffmpegBin();
+  const cmd = ffmpeg()
+    .inputOptions(['-stream_loop', '-1', '-f', 'concat', '-safe', '0'])
+    .input(listFile)
+    .seekInput(elapsed)
+    .audioCodec('libmp3lame').audioBitrate('96k').noVideo()
+    .format('mp3')
+    .on('error', () => { _radStopBroadcast(stationId); })
+    .on('end', () => { _radStopBroadcast(stationId); });
+  cmd.pipe(hub, { end: true });
+
+  const b = { hub, cmd, listenerCount: 0, stopTimer: null };
+  _radBroadcasts[stationId] = b;
+  try { const mu = process.memoryUsage(); console.log('[radio-live] nouvelle diffusion démarrée — station=' + stationId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml) {}
+  return b;
+}
+
 app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
-  // ═══ COUPE-CIRCUIT TEMPORAIRE ═══
-  // Désactivé à la demande de Papa Seny le 21/07/2026 : le plan Render Free (512 Mo) a fait
-  // planter TOUT le service (messagerie comprise) à cause de la mémoire consommée par ce flux.
-  // Protège la messagerie Penc en attendant l'upgrade du plan Render.
-  // POUR RÉACTIVER une fois l'upgrade payé : repasser RAD_LIVE_STREAM_DISABLED à false.
+  // ═══ COUPE-CIRCUIT TEMPORAIRE ═══ (repasser à true en cas de nouvel incident mémoire)
   if (RAD_LIVE_STREAM_DISABLED) {
     res.status(503).setHeader('Retry-After', '3600');
     return res.end();
   }
-  let cmd = null;
-  let _radStreamCounted = false;
-  const _radReleaseStream = () => { if(_radStreamCounted){ _radStreamCounted = false; _radLiveStreamCount = Math.max(0, _radLiveStreamCount - 1); } };
-  try{
-    if(!_pgPool) return res.status(503).end();
-    // Garde-fou mémoire (plan Render gratuit = 512 Mo) : chaque processus ffmpeg consomme de la
-    // RAM. Au-delà de ce plafond, on refuse poliment plutôt que de risquer un plantage du serveur
-    // qui coupe TOUT (radios, commentaires, etc.) pour tout le monde.
-    if(_radLiveStreamCount >= RAD_MAX_CONCURRENT_STREAMS){
-      res.status(503).setHeader('Retry-After','30');
+  try {
+    if (!_pgPool) return res.status(503).end();
+    const stationId = req.params.stationId;
+    let b = _radBroadcasts[stationId];
+    if (!b) {
+      b = await _radStartBroadcast(stationId);
+      if (!b) return res.status(404).end();
+    } else if (b.stopTimer) {
+      // Un auditeur revient juste après le départ du dernier — on annule l'arrêt programmé.
+      clearTimeout(b.stopTimer); b.stopTimer = null;
+    }
+    // Garde-fou global sur le nombre total d'auditeurs (toutes stations confondues), pour
+    // éviter un afflux massif imprévu — n'affecte PAS le nombre de processus ffmpeg (toujours 1
+    // par station), seulement la bande passante/connexions ouvertes.
+    const totalListeners = Object.values(_radBroadcasts).reduce((s, x) => s + x.listenerCount, 0);
+    if (totalListeners >= RAD_MAX_CONCURRENT_STREAMS) {
+      res.status(503).setHeader('Retry-After', '15');
       return res.end();
     }
-    _radLiveStreamCount++;
-    _radStreamCounted = true;
-    try{ const mu=process.memoryUsage(); console.log('[radio-live] démarrage flux — RAM utilisée: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), flux actifs: '+_radLiveStreamCount); }catch(_ml){}
-    const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1',[req.params.stationId])).rows[0];
-    const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at',[req.params.stationId])).rows;
-    if(!rawTracks.length){ _radReleaseStream(); return res.status(404).end(); }
-    // Habillage radio : le jingle de la station est intercalé avant CHAQUE piste, comme un
-    // vrai passage à l'antenne ("Vous écoutez X sur DeglouFM de Penc...") puis le contenu.
-    // Habillage complet : jingle station (si defini) + annonce vocale du titre (si generee) + piste.
-    let tracks = [];
-    rawTracks.forEach(t => {
-      if(station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds });
-      if(t.announcement_url && t.announcement_duration_seconds > 0) tracks.push({ file_url: t.announcement_url, duration_seconds: t.announcement_duration_seconds });
-      tracks.push(t);
-    });
-    const totalDuration = tracks.reduce((s,t) => s + (t.duration_seconds||0), 0);
-    if(totalDuration <= 0){ _radReleaseStream(); return res.status(404).end(); }
-    const epochMs = Date.UTC(2026,0,1,0,0,0);
-    const elapsed = Math.floor((Date.now() - epochMs)/1000) % totalDuration;
-
-    const fs = require('fs'), os = require('os'), pathMod = require('path');
-    const listFile = pathMod.join(os.tmpdir(), 'radlist_' + req.params.stationId + '.txt');
-    const listContent = tracks.map(t => "file '" + String(t.file_url).replace(/'/g, "'\\''") + "'").join('\n');
-    fs.writeFileSync(listFile, listContent);
-
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'no-cache, no-store');
     res.setHeader('Transfer-Encoding', 'chunked');
-
-    const ffmpeg = _ffmpegBin();
-    cmd = ffmpeg()
-      .inputOptions(['-stream_loop', '-1', '-f', 'concat', '-safe', '0'])
-      .input(listFile)
-      .seekInput(elapsed)
-      .audioCodec('libmp3lame').audioBitrate('96k').noVideo()
-      .format('mp3')
-      .on('error', function(){ _radReleaseStream(); try{ res.end(); }catch(_e1){} })
-      .on('end', function(){ _radReleaseStream(); try{ res.end(); }catch(_e2){} });
-    cmd.pipe(res, { end: true });
-    req.on('close', function(){ _radReleaseStream(); try{ cmd.kill('SIGKILL'); }catch(_k){} });
-  }catch(e){ _radReleaseStream(); console.error('radio live stream:', e.message); try{ res.status(500).end(); }catch(_e3){} }
+    b.hub.pipe(res, { end: false });
+    b.listenerCount++;
+    req.on('close', () => {
+      try { b.hub.unpipe(res); } catch (_u) {}
+      b.listenerCount = Math.max(0, b.listenerCount - 1);
+      if (b.listenerCount === 0 && !b.stopTimer) {
+        // Petit délai de grâce (30s) avant d'arrêter réellement ffmpeg, pour absorber les
+        // reconnexions rapides (changement d'écran, coupure réseau brève) sans redémarrer le
+        // flux à chaque fois.
+        b.stopTimer = setTimeout(() => { if (b.listenerCount === 0) _radStopBroadcast(stationId); }, 30000);
+      }
+    });
+  } catch (e) { console.error('radio live stream:', e.message); try { res.status(500).end(); } catch (_e3) {} }
 });
 app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
