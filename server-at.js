@@ -96,7 +96,7 @@ app.get('/health', function(req,res){
     });
   }catch(e){ res.status(500).json({ status:'error', error:e.message }); }
 });
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
 app.get('/penc-manifest.json',(req,res)=>{ res.set({'Cache-Control':'no-cache','Content-Type':'application/manifest+json'}); res.sendFile(require('path').join(__dirname,'penc-manifest.json')); });
@@ -4700,6 +4700,17 @@ let _pgPool = null;
         status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_stickerpurch_user ON penc_sticker_purchases(user_id);
+      -- ── Penc Pay : intégration IzichangePay (paiements crypto -> monnaie locale).
+      -- Admin-only pour l'instant (phase de test) — pas encore exposé aux utilisateurs. ──
+      CREATE TABLE IF NOT EXISTS penc_pay_transactions (
+        id TEXT PRIMARY KEY, intent_id TEXT UNIQUE, merchant_reference TEXT,
+        created_by TEXT, currency TEXT DEFAULT 'XOF', amount_requested TEXT,
+        accepted_coins JSONB DEFAULT '[]', status TEXT DEFAULT 'created',
+        payment_url TEXT, metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_izipay_intent ON penc_pay_transactions(intent_id);
+      CREATE INDEX IF NOT EXISTS idx_izipay_ref ON penc_pay_transactions(merchant_reference);
       CREATE TABLE IF NOT EXISTS penc_radio_playlist_tracks (
         id TEXT PRIMARY KEY, station_id TEXT NOT NULL, title TEXT NOT NULL,
         file_url TEXT NOT NULL, duration_seconds INTEGER NOT NULL DEFAULT 0, sort_order INTEGER DEFAULT 0,
@@ -8917,6 +8928,90 @@ app.post('/api/penc/admin/sticker-purchases/:id/reject', pencAuth, pencAdmin, as
     await _pgPool.query("UPDATE penc_sticker_purchases SET status='rejected' WHERE id=$1",[req.params.id]);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── PENC PAY — Intégration IzichangePay (paiements crypto → monnaie locale) ──
+// Phase de test : visible et pilotable UNIQUEMENT par les admins pour l'instant.
+// Nécessite les variables d'environnement Render : IZIPAY_API_KEY, IZIPAY_WEBHOOK_SECRET
+// (obtenues depuis le dashboard sandbox : https://dashboard.sandbox-pay.izichange.com)
+// Nécessite aussi : npm install izichangepay-sdk
+// ═══════════════════════════════════════════════════════════════════════════
+let _izipay = null;
+function _getIzipay() {
+  if (_izipay) return _izipay;
+  if (!process.env.IZIPAY_API_KEY) return null;
+  try {
+    const { IziPayClient } = require('izichangepay-sdk');
+    _izipay = new IziPayClient({ apiKey: process.env.IZIPAY_API_KEY });
+    return _izipay;
+  } catch (e) { console.error('[penc-pay] SDK izichangepay-sdk non installé (npm install izichangepay-sdk):', e.message); return null; }
+}
+// Créer un paiement de test (admin uniquement pour l'instant)
+app.post('/api/penc/admin/pay/create', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    const client = _getIzipay();
+    if (!client) return res.status(503).json({ error: 'IZIPAY_API_KEY manquante dans les variables Render, ou SDK non installé' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const { amount, label, coins } = req.body || {};
+    const amt = String(amount || '').trim();
+    if (!amt || isNaN(Number(amt)) || Number(amt) <= 0) return res.status(400).json({ error: 'Montant invalide' });
+    const merchantRef = 'pencpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const intent = await client.paymentIntents.create({
+      requestedCurrencyType: 'fiat',
+      currencyRequested: 'XOF',
+      amountRequested: amt, // chaîne décimale en unité majeure, jamais un nombre JSON
+      acceptedCoins: (Array.isArray(coins) && coins.length) ? coins : ['USDT.TRC20', 'USDT.BEP20'],
+      merchantReference: merchantRef,
+      returnUrl: 'https://penc-messagerie.com/messager?open=pencpay',
+      metadata: { label: String(label || '').slice(0, 100), createdBy: req.pencUser.userId },
+    });
+    const id = 'ppt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query(
+      `INSERT INTO penc_pay_transactions(id, intent_id, merchant_reference, created_by, currency, amount_requested, accepted_coins, status, payment_url, metadata)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, intent.id, merchantRef, req.pencUser.userId, 'XOF', amt, JSON.stringify(intent.acceptedCoins || []), intent.status || 'created', intent.paymentUrl, JSON.stringify({ label: label || '' })]
+    );
+    res.json({ success: true, intent_id: intent.id, payment_url: intent.paymentUrl, merchant_reference: merchantRef });
+  } catch (e) { console.error('[penc-pay] create:', e.message); res.status(500).json({ error: e.message || 'Erreur serveur' }); }
+});
+// Historique des transactions (admin)
+app.get('/api/penc/admin/pay/transactions', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ transactions: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_pay_transactions ORDER BY created_at DESC LIMIT 100');
+    res.json({ transactions: r.rows });
+  } catch (e) { res.json({ transactions: [] }); }
+});
+// Webhook IzichangePay — reçoit la confirmation de paiement (payment_intent.completed / expired / irregular)
+// Utilise req.rawBody (capturé globalement au niveau de express.json(), voir plus haut dans le
+// fichier) car le parseur JSON global consomme déjà le corps avant qu'un express.raw() posé ici
+// n'ait la moindre chance de s'exécuter — sans ça la vérification de signature échouerait toujours.
+app.post('/api/penc/pay/webhook', async (req, res) => {
+  try {
+    const client = _getIzipay();
+    if (!client) return res.status(503).json({ error: 'IZIPAY non configuré' });
+    let event;
+    try {
+      event = client.constructor.validateWebhook(
+        req.rawBody,
+        req.headers['x-izipay-signature'],
+        process.env.IZIPAY_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error('[penc-pay] webhook signature invalide:', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    const data = event.data || {};
+    if (_pgPool && data.intentId) {
+      await _pgPool.query(
+        "UPDATE penc_pay_transactions SET status=$1, updated_at=NOW() WHERE intent_id=$2",
+        [event.type === 'payment_intent.completed' ? 'completed' : (event.type === 'payment_intent.expired' ? 'expired' : 'irregular'), data.intentId]
+      );
+      console.log('[penc-pay] webhook reçu:', event.type, 'intent=' + data.intentId, 'ref=' + (data.merchantReference || ''));
+    }
+    res.json({ received: true }); // accusé rapide, requis par IzichangePay
+  } catch (e) { console.error('[penc-pay] webhook erreur:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function pencAdmin(req, res, next) {
