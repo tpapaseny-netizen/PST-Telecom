@@ -4224,7 +4224,9 @@ const RAD_LIVE_STREAM_DISABLED = false;
 // processus ffmpeg de streaming consomme une part non négligeable — on limite le nombre de
 // diffusions simultanées pour ne jamais faire planter tout le serveur.
 let _radLiveStreamCount = 0;
-const RAD_MAX_CONCURRENT_STREAMS = 1;
+// Relevé le 21/07/2026 après upgrade RAM (2 Go) — assez généreux pour ne jamais gêner de vrais
+// auditeurs, tout en gardant un plafond au cas où, vu l'historique de plantages de la nuit.
+const RAD_MAX_CONCURRENT_STREAMS = 20;
 setInterval(() => {
   try{ const mu=process.memoryUsage(); console.log('[memoire] base — RAM: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), flux radio actifs: '+_radLiveStreamCount); }catch(_e){}
 }, 5*60000);
