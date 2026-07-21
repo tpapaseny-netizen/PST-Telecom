@@ -7195,7 +7195,16 @@ app.post('/api/penc/conversations/direct', pencAuth, async (req, res) => {
 // GET /api/penc/conversations/:id/messages
 app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
   try {
-    const msgs = await pencMsgs();
+    // pencMsgs() masque un échec JSONBin (timeout/rate-limit/indisponible) en tableau vide —
+    // indiscernable d'une conversation réellement vide. On vérifie ici directement si le bin a
+    // pu être lu, pour ne JAMAIS répondre "200 OK, aucun message" quand c'est en réalité un
+    // échec de lecture. C'était la cause des conversations qui semblaient "perdre" leurs
+    // messages jusqu'à un rafraîchissement/redémarrage de l'app.
+    const rawMsgsBin = await jbGet(BINS.penc_msgs);
+    if (rawMsgsBin === null) {
+      return res.status(503).json({ error: 'Lecture des messages indisponible, réessaie dans un instant' });
+    }
+    const msgs = Array.isArray(rawMsgsBin) ? rawMsgsBin : (Array.isArray(rawMsgsBin.msgs) ? rawMsgsBin.msgs : []);
     const users = await pencUsers();
     const convMsgs = msgs
       .filter(m => m.conversation_id === req.params.id)
