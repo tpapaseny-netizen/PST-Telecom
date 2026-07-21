@@ -7243,11 +7243,13 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
     // (bin séparé, jamais mis à jour par les nouveaux envois) — les messages semblaient donc
     // "disparaître" à chaque réouverture de conversation. On lit maintenant directement dans
     // PostgreSQL, là où les messages sont réellement stockés.
-    if (!_pgPool) return res.status(503).json({ error: 'Base de données indisponible, réessaie dans quelques secondes' });
+    if (!_pgPool) { console.log('[msgs-read] _pgPool indisponible pour conv=' + req.params.id); return res.status(503).json({ error: 'Base de données indisponible, réessaie dans quelques secondes' }); }
+    console.log('[msgs-read] requête pour conv=' + req.params.id + ' par user=' + req.pencUser.userId);
     const r = await _pgPool.query(
       `SELECT * FROM penc_messages WHERE conversation_id=$1 AND (deleted_for_all IS NOT TRUE)
        ORDER BY created_at DESC LIMIT 100`, [req.params.id]
     );
+    console.log('[msgs-read] conv=' + req.params.id + ' -> ' + r.rows.length + ' message(s) trouvé(s) en PostgreSQL');
     let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
     // Filet de sécurité TEMPORAIRE pendant l'instabilité mémoire du serveur : si _pgPool était
     // indisponible au moment précis d'un envoi, le message a pu atterrir dans l'ancien JSONBin
@@ -7257,8 +7259,8 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
       const existingIds = new Set(rows.map(m => m.id));
       const jbMsgs = await pencMsgs();
       const strayMsgs = jbMsgs.filter(m => m.conversation_id === req.params.id && !existingIds.has(m.id));
-      if (strayMsgs.length) rows = rows.concat(strayMsgs).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-    } catch (_jbe) {}
+      if (strayMsgs.length) { console.log('[msgs-read] conv=' + req.params.id + ' -> ' + strayMsgs.length + ' message(s) retrouvé(s) dans JSONBin (absents de PostgreSQL !)'); rows = rows.concat(strayMsgs).sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); }
+    } catch (_jbe) { console.log('[msgs-read] échec lecture JSONBin de secours:', _jbe.message); }
     const senderIds = [...new Set(rows.map(m => m.sender_id))];
     const users = await pgFindUsersByIds(senderIds);
     const byId = new Map(users.map(u => [String(u.id), pencStrip(u)]));
