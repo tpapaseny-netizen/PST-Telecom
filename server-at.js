@@ -8205,7 +8205,7 @@ app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
         b.stopTimer = setTimeout(() => { if (b.listenerCount === 0) _radStopBroadcast(stationId); }, 30000);
       }
     });
-  } catch (e) { console.error('radio live stream:', e.message); try { res.status(500).end(); } catch (_e3) {} }
+  } catch (e) { console.error('radio live stream ERREUR:', e.message, '\n', e.stack); try { res.status(500).end(); } catch (_e3) {} }
 });
 app.delete('/api/penc/admin/radio/stations/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
