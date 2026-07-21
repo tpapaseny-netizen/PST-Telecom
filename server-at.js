@@ -4667,6 +4667,19 @@ let _pgPool = null;
         end_hour INTEGER NOT NULL, end_minute INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_rprog_station ON penc_radio_programs(station_id);
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS is_business BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_name TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_description TEXT;
+      ALTER TABLE penc_listings ADD COLUMN IF NOT EXISTS is_catalog_item BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_sticker_packs (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, price_fcfa INTEGER DEFAULT 0, preview_url TEXT,
+        sticker_urls JSONB DEFAULT '[]', active BOOLEAN DEFAULT TRUE, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_sticker_purchases (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, pack_id TEXT NOT NULL, reference TEXT,
+        status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_stickerpurch_user ON penc_sticker_purchases(user_id);
       CREATE TABLE IF NOT EXISTS penc_radio_playlist_tracks (
         id TEXT PRIMARY KEY, station_id TEXT NOT NULL, title TEXT NOT NULL,
         file_url TEXT NOT NULL, duration_seconds INTEGER NOT NULL DEFAULT 0, sort_order INTEGER DEFAULT 0,
@@ -8751,6 +8764,107 @@ app.delete('/api/penc/admin/listings/:id', pencAuth, pencAdmin, async (req, res)
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     await _pgPool.query('DELETE FROM penc_listings WHERE id=$1',[req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Compte Business : libre-service, pas de validation admin requise (contrairement au badge
+// vérifié) — un simple nom + description de boutique, activable/désactivable par l'utilisateur. ──
+app.post('/api/penc/business/toggle', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { enabled, business_name, business_description } = req.body || {};
+    const uid = req.pencUser.userId;
+    if(enabled){
+      const name = String(business_name||'').trim().slice(0,80);
+      if(!name) return res.status(400).json({ error:'Nom de la boutique requis' });
+      await _pgPool.query('UPDATE penc_users SET is_business=TRUE, business_name=$1, business_description=$2 WHERE id=$3',
+        [name, String(business_description||'').trim().slice(0,300), uid]);
+    } else {
+      await _pgPool.query('UPDATE penc_users SET is_business=FALSE WHERE id=$1',[uid]);
+    }
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/business/status', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ is_business:false });
+    const u = await pgFindUser('id', req.pencUser.userId);
+    res.json({ is_business: !!(u && u.is_business), business_name: u && u.business_name, business_description: u && u.business_description });
+  }catch(e){ res.json({ is_business:false }); }
+});
+// Catalogue public d'une boutique : ses annonces actives, marquées comme "articles de catalogue"
+// (une distinction volontaire — un vendeur particulier peut aussi publier des annonces normales
+// sur Market sans que ça pollue sa vitrine boutique si elle existe).
+app.get('/api/penc/business/:userId/catalog', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ catalog:null, listings:[] });
+    const u = await pgFindUser('id', req.params.userId);
+    if(!u || !u.is_business) return res.json({ catalog:null, listings:[] });
+    const r = await _pgPool.query("SELECT * FROM penc_listings WHERE seller_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 100",[req.params.userId]);
+    res.json({ catalog:{ business_name:u.business_name, business_description:u.business_description, avatar_url:u.avatar_url }, listings:r.rows });
+  }catch(e){ res.json({ catalog:null, listings:[] }); }
+});
+// ── Stickers premium : packs vendus via Wave, débloqués après validation admin (même schéma que
+// le Premium DeglouFM). Le sticker picker vérifie les packs achetés côté client. ──
+app.get('/api/penc/sticker-packs', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ packs: [] });
+    const uid = req.pencUser.userId;
+    const packs = await _pgPool.query('SELECT * FROM penc_sticker_packs WHERE active=TRUE ORDER BY created_at DESC');
+    const owned = await _pgPool.query("SELECT pack_id FROM penc_sticker_purchases WHERE user_id=$1 AND status='approved'",[uid]);
+    const ownedIds = new Set(owned.rows.map(function(r){ return r.pack_id; }));
+    res.json({ packs: packs.rows.map(function(p){ return { id:p.id, name:p.name, price_fcfa:p.price_fcfa, preview_url:p.preview_url, sticker_urls:(ownedIds.has(p.id)?p.sticker_urls:[]), owned: ownedIds.has(p.id) }; }) });
+  }catch(e){ res.json({ packs: [] }); }
+});
+app.post('/api/penc/sticker-packs/:id/purchase', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const reference = String((req.body && req.body.reference) || '').trim();
+    if(!reference) return res.status(400).json({ error:'Référence de paiement Wave requise' });
+    const id = 'stkp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_sticker_purchases(id,user_id,pack_id,reference,status) VALUES($1,$2,$3,$4,$5)',
+      [id, req.pencUser.userId, req.params.id, reference, 'pending']);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/sticker-packs', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ packs: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_sticker_packs ORDER BY created_at DESC');
+    res.json({ packs: r.rows });
+  }catch(e){ res.json({ packs: [] }); }
+});
+app.post('/api/penc/admin/sticker-packs', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const { name, price_fcfa, preview_url, sticker_urls } = req.body || {};
+    if(!name || !Array.isArray(sticker_urls) || !sticker_urls.length) return res.status(400).json({ error:'Nom et au moins un sticker requis' });
+    const id = 'pack_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query('INSERT INTO penc_sticker_packs(id,name,price_fcfa,preview_url,sticker_urls) VALUES($1,$2,$3,$4,$5)',
+      [id, String(name).trim().slice(0,80), parseInt(price_fcfa,10)||0, preview_url||null, JSON.stringify(sticker_urls)]);
+    res.json({ success:true, id });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/sticker-purchases', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ purchases: [] });
+    const r = await _pgPool.query(`SELECT sp.*, u.full_name AS _name, u.username AS _un, pk.name AS _pack_name
+       FROM penc_sticker_purchases sp LEFT JOIN penc_users u ON u.id=sp.user_id LEFT JOIN penc_sticker_packs pk ON pk.id=sp.pack_id
+       WHERE sp.status='pending' ORDER BY sp.created_at DESC LIMIT 200`);
+    res.json({ purchases: r.rows.map(function(x){ return { id:x.id, user_name:(x._name||x._un||'Utilisateur'), pack_name:x._pack_name||'', reference:x.reference, created_at:x.created_at }; }) });
+  }catch(e){ res.json({ purchases: [] }); }
+});
+app.post('/api/penc/admin/sticker-purchases/:id/approve', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success:true });
+    await _pgPool.query("UPDATE penc_sticker_purchases SET status='approved' WHERE id=$1",[req.params.id]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/sticker-purchases/:id/reject', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success:true });
+    await _pgPool.query("UPDATE penc_sticker_purchases SET status='rejected' WHERE id=$1",[req.params.id]);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
