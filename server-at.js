@@ -8167,9 +8167,10 @@ async function _radStartBroadcast(stationId) {
   ];
   const cmd = spawn(ffmpegPath, args);
   cmd.stdout.pipe(hub);
-  cmd.stderr.on('data', d => { const s = d.toString(); if (/error|Error/.test(s)) console.error('[radio-live ffmpeg]', s.trim().slice(0, 300)); });
+  let _lastStderr = '';
+  cmd.stderr.on('data', d => { const s = d.toString(); _lastStderr = (_lastStderr + s).slice(-2000); if (/error|Error|Invalid|No such|Unsupported|Unable/.test(s)) console.error('[radio-live ffmpeg]', s.trim().slice(0, 300)); });
   cmd.on('error', (err) => { console.error('[radio-live] ffmpeg spawn erreur:', err.message); _radStopBroadcast(stationId); });
-  cmd.on('exit', () => { _radStopBroadcast(stationId); });
+  cmd.on('exit', (code, signal) => { console.log('[radio-live] ffmpeg terminé — station=' + stationId + ' code=' + code + ' signal=' + signal + ' | dernières lignes stderr:\n' + _lastStderr.split('\n').slice(-10).join('\n')); _radStopBroadcast(stationId); });
 
   const b = { hub, cmd, listenerCount: 0, stopTimer: null };
   _radBroadcasts[stationId] = b;
