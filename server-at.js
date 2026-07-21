@@ -7320,9 +7320,19 @@ app.get('/api/penc/debug/online', async (req,res)=>{
 // GET /api/penc/health — diagnostic public
 app.get('/api/penc/health', async (req,res)=>{
   try{
-    const u=await pencUsers(); const c=await pencConvs();
-    const ch=await pencChannels();
-    res.json({status:'ok',users:u.length,convs:c.length,channels:ch.length,
+    // Corrige un appel inconditionnel à JSONBin (probablement appelé très souvent si c'est
+    // l'endpoint de health-check de Render) qui martelait un bin en erreur 403 en continu.
+    let userCount = 0, convCount = 0, channelCount = 0;
+    if (_pgPool) {
+      try { const ur = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_users'); userCount = ur.rows[0].n; } catch (e) {}
+      try { const cr = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_conversations'); convCount = cr.rows[0].n; } catch (e) {}
+      try { channelCount = (await pencChannels()).length; } catch (e) {}
+    } else {
+      try { userCount = (await pencUsers()).length; } catch (e) {}
+      try { convCount = (await pencConvs()).length; } catch (e) {}
+      try { channelCount = (await pencChannels()).length; } catch (e) {}
+    }
+    res.json({status:'ok',users:userCount,convs:convCount,channels:channelCount,
       bins:{penc_users:!!BINS.penc_users,penc_convs:!!BINS.penc_convs,penc_channels:!!JSONBIN_PENC_CHANNELS_BIN}});
   }catch(e){res.json({status:'error',msg:e.message});}
 });
