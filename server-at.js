@@ -4442,7 +4442,15 @@ async function pencSaveUsers(a){
   }
   return jbSet(BINS.penc_users,{users:a});
 }
-async function pencConvs(){const d=await jbGet(BINS.penc_convs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.convs)?d.convs:[];}
+async function pencConvs(){
+  // Filet de sécurité global : peu importe l'appelant, ne JAMAIS taper sur JSONBin tant que
+  // PostgreSQL fonctionne — le bin penc_convs est en erreur 403 permanente et martelait les
+  // logs (et consommait du temps réseau) à chaque appel, même depuis un endroit de secours
+  // censé ne s'exécuter que si PostgreSQL est indisponible.
+  if(_pgPool) return [];
+  try{ const _st=new Error().stack.split('\n')[2]||''; console.log('[pencConvs-appelant]', _st.trim()); }catch(_se){}
+  const d=await jbGet(BINS.penc_convs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.convs)?d.convs:[];
+}
 async function pencSaveConvs(a)   { return jbSet(BINS.penc_convs,  { convs: a }); }
 async function pencMsgs(){const d=await jbGet(BINS.penc_msgs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.msgs)?d.msgs:[];}
 async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
