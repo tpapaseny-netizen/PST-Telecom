@@ -8148,16 +8148,28 @@ async function _radStartBroadcast(stationId) {
   fs.writeFileSync(listFile, listContent);
 
   const hub = new PassThrough();
-  const ffmpeg = _ffmpegBin();
-  const cmd = ffmpeg()
-    .inputOptions(['-stream_loop', '-1', '-f', 'concat', '-safe', '0'])
-    .input(listFile)
-    .seekInput(elapsed)
-    .audioCodec('libmp3lame').audioBitrate('96k').noVideo()
-    .format('mp3')
-    .on('error', () => { _radStopBroadcast(stationId); })
-    .on('end', () => { _radStopBroadcast(stationId); });
-  cmd.pipe(hub, { end: true });
+  let ffmpegPath = 'ffmpeg';
+  try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
+  const { spawn } = require('child_process');
+  // Appel ffmpeg direct (spawn) plutôt que via fluent-ffmpeg : la bibliothèque fluent-ffmpeg
+  // exigeait un ordre d'appels précis et fragile (.input()/.inputOptions()) qui provoquait une
+  // erreur "No input specified" de façon intermittente. En construisant la commande nous-mêmes,
+  // l'ordre des arguments est garanti et sans ambiguïté.
+  const args = [
+    '-stream_loop', '-1',
+    '-f', 'concat', '-safe', '0',
+    '-i', listFile,
+    '-ss', String(elapsed),
+    '-acodec', 'libmp3lame', '-b:a', '96k',
+    '-vn',
+    '-f', 'mp3',
+    'pipe:1'
+  ];
+  const cmd = spawn(ffmpegPath, args);
+  cmd.stdout.pipe(hub);
+  cmd.stderr.on('data', d => { const s = d.toString(); if (/error|Error/.test(s)) console.error('[radio-live ffmpeg]', s.trim().slice(0, 300)); });
+  cmd.on('error', (err) => { console.error('[radio-live] ffmpeg spawn erreur:', err.message); _radStopBroadcast(stationId); });
+  cmd.on('exit', () => { _radStopBroadcast(stationId); });
 
   const b = { hub, cmd, listenerCount: 0, stopTimer: null };
   _radBroadcasts[stationId] = b;
