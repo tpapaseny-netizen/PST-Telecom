@@ -7524,7 +7524,10 @@ app.post('/api/penc/listings', pencAuth, async (req, res) => {
 
 app.get('/api/penc/listings', pencAuth, async (req, res) => {
   try{
-    if(!_pgPool) return res.json({ listings:[] });
+    // Ne JAMAIS renvoyer "reussi mais vide" quand la base n'est pas prete (ex: juste apres un
+    // redemarrage/plantage) — sinon le client ne peut pas distinguer "vraiment aucune annonce"
+    // d'un echec de connexion temporaire, et affiche "Aucune annonce" a tort.
+    if(!_pgPool) return res.status(503).json({ error:'Base de données indisponible, réessaie dans quelques secondes' });
     const { category, q, min_price, max_price, cursor } = req.query;
     const conds = ["status='active'"]; const vals = []; let n=1;
     if(category && LISTING_CATEGORIES.includes(category)){ conds.push('category=$'+(n++)); vals.push(category); }
