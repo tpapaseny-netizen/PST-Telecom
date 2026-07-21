@@ -4214,6 +4214,9 @@ async function _voiceToMp3(inputPath, outputPath) {
 // LIMITE CONNUE : si le serveur redémarre/s'endort (Render Free), l'enregistrement en cours
 // s'arrête et laisse un trou — pas de solution miracle sans un serveur qui tourne 24/7.
 const RAD_REPLAY_RETENTION_HOURS = 48;
+// ⚠️ Flux radio en boucle coupé le 21/07/2026 pour protéger la messagerie Penc pendant que le
+// plan Render reste sur Free (512 Mo) — repasser à false une fois l'upgrade payé.
+const RAD_LIVE_STREAM_DISABLED = true;
 // Garde-fou mémoire pour le flux en boucle (radio-live) : le plan Render gratuit a 512 Mo de RAM
 // au total, partagés avec le reste de l'app (API, sockets, enregistrement replay...). Chaque
 // processus ffmpeg de streaming consomme une part non négligeable — on limite le nombre de
@@ -8007,6 +8010,15 @@ app.post('/api/penc/admin/radio/stations/:id/jingle', pencAuth, pencAdmin, async
 // calculée à partir de l'heure serveur, pour que quiconque se connecte tombe "en direct" au bon
 // endroit de la playlist, comme une vraie radio. ──
 app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
+  // ═══ COUPE-CIRCUIT TEMPORAIRE ═══
+  // Désactivé à la demande de Papa Seny le 21/07/2026 : le plan Render Free (512 Mo) a fait
+  // planter TOUT le service (messagerie comprise) à cause de la mémoire consommée par ce flux.
+  // Protège la messagerie Penc en attendant l'upgrade du plan Render.
+  // POUR RÉACTIVER une fois l'upgrade payé : repasser RAD_LIVE_STREAM_DISABLED à false.
+  if (RAD_LIVE_STREAM_DISABLED) {
+    res.status(503).setHeader('Retry-After', '3600');
+    return res.end();
+  }
   let cmd = null;
   let _radStreamCounted = false;
   const _radReleaseStream = () => { if(_radStreamCounted){ _radStreamCounted = false; _radLiveStreamCount = Math.max(0, _radLiveStreamCount - 1); } };
