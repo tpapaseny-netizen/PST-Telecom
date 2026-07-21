@@ -4082,7 +4082,7 @@ async function _generateAndStoreTTS(text, keyPrefix) {
   const url = await r2PutBuffer(key, buffer, 'audio/mpeg');
   // Durée exacte via ffprobe sur le buffer fraîchement uploadé (plus fiable que d'estimer).
   let duration = 0;
-  try { const meta = await _ffprobeMeta(url); duration = Math.round((meta && meta.format && meta.format.duration) || 0); } catch (_d) {}
+  try { const meta = await _ffprobeMeta(url, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); } catch (_d) {}
   return { url, duration_seconds: duration || 3 };
 }
 
@@ -4140,10 +4140,17 @@ function _ffmpegBin() {
   try { ffmpeg.setFfmpegPath(require('@ffmpeg-installer/ffmpeg').path); } catch (e) {}
   return ffmpeg;
 }
-async function _ffprobeMeta(inputPath) {
+async function _ffprobeMeta(inputPath, timeoutMs) {
   const ffmpeg = _ffmpegBin();
   return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(inputPath, (err, data) => err ? reject(err) : resolve(data));
+    let done = false;
+    const timer = timeoutMs ? setTimeout(() => { if (!done) { done = true; reject(new Error('ffprobe timeout après ' + Math.round(timeoutMs/1000) + 's — ce lien ne pointe probablement pas vers un fichier audio direct')); } }, timeoutMs) : null;
+    ffmpeg.ffprobe(inputPath, (err, data) => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      err ? reject(err) : resolve(data);
+    });
   });
 }
 async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark) {
@@ -7933,7 +7940,7 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
     }
     // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
     let duration = 0;
-    try{ const meta = await _ffprobeMeta(fileUrl); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    try{ const meta = await _ffprobeMeta(fileUrl, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
     catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct (finit par .mp3/.m4a/.wav) et accessible publiquement, pas un lien de lecteur intégré.' }); }
     if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
     // Annonce vocale automatique du titre ("Vous écoutez maintenant : <titre>") — générée une
@@ -7978,8 +7985,8 @@ app.post('/api/penc/admin/radio/stations/:id/jingle', pencAuth, pencAdmin, async
       return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
     }
     let duration = 0;
-    try{ const meta = await _ffprobeMeta(url); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
-    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie le lien direct.' }); }
+    try{ const meta = await _ffprobeMeta(url, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio (' + _pf.message + ') — vérifie le lien direct.' }); }
     if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
     await _pgPool.query('UPDATE penc_radio_stations SET jingle_url=$1, jingle_duration_seconds=$2 WHERE id=$3',[url, duration, req.params.id]);
     res.json({ success:true, duration_seconds: duration });
