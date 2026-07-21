@@ -4216,7 +4216,9 @@ async function _voiceToMp3(inputPath, outputPath) {
 const RAD_REPLAY_RETENTION_HOURS = 48;
 // ⚠️ Flux radio en boucle coupé le 21/07/2026 pour protéger la messagerie Penc pendant que le
 // plan Render reste sur Free (512 Mo) — repasser à false une fois l'upgrade payé.
-const RAD_LIVE_STREAM_DISABLED = true;
+// Réactivé le 21/07/2026 après upgrade Render vers Standard (2 Go de RAM, contre 512 Mo avant)
+// — largement assez de marge maintenant pour ce que ce flux consomme.
+const RAD_LIVE_STREAM_DISABLED = false;
 // Garde-fou mémoire pour le flux en boucle (radio-live) : le plan Render gratuit a 512 Mo de RAM
 // au total, partagés avec le reste de l'app (API, sockets, enregistrement replay...). Chaque
 // processus ffmpeg de streaming consomme une part non négligeable — on limite le nombre de
