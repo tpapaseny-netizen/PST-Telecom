@@ -8181,7 +8181,7 @@ async function _radStartBroadcast(stationId) {
   // l'ordre des arguments est garanti et sans ambiguïté.
   const args = [
     '-stream_loop', '-1',
-    '-f', 'concat', '-safe', '0',
+    '-f', 'concat', '-safe', '0', '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
     '-i', listFile,
     '-ss', String(elapsed),
     '-acodec', 'libmp3lame', '-b:a', '96k',
