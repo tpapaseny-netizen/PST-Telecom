@@ -8200,7 +8200,7 @@ async function _radStartBroadcast(stationId) {
   // enchaîner ; ça élimine aussi les fichiers réellement corrompus (l'étape échoue proprement).
   async function _radNormalizeTrack(srcPath, outPath) {
     return new Promise((resolve, reject) => {
-      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 20000 }, (err) => {
+      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 180000, maxBuffer: 1024 * 1024 * 10 }, (err) => {
         if (err) return reject(err);
         resolve(outPath);
       });
@@ -8219,7 +8219,7 @@ async function _radStartBroadcast(stationId) {
       await _radNormalizeTrack(dest, normDest);
       try { fs.unlinkSync(dest); } catch (_ud) {}
       localTracks.push(normDest);
-    } catch (_dl) { console.error('[radio-live] piste ignorée (téléchargement ou format invalide):', t.file_url, '—', _dl.message); }
+    } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', t.file_url, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
 
