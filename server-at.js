@@ -4731,6 +4731,9 @@ let _pgPool = null;
       ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS jingle_duration_seconds INTEGER DEFAULT 0;
       ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS announcement_url TEXT;
       ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS announcement_duration_seconds INTEGER DEFAULT 0;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalized_url TEXT;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalize_status TEXT DEFAULT 'pending';
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalize_error TEXT;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -8104,6 +8107,10 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
       'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order,announcement_url,announcement_duration_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, req.params.id, title, fileUrl, duration, (parseInt(maxOrder.rows[0].m,10)||0)+1, announcementUrl, announcementDuration]
     );
+    // Pré-traitement en arrière-plan : télécharge + normalise le fichier UNE FOIS ici, hors du
+    // chemin critique d'écoute — pour qu'un auditeur en direct n'ait jamais à attendre le
+    // transcodage d'un gros fichier (discours de plusieurs heures). Ne bloque pas cette réponse.
+    _radPrenormalizeTrack(id, fileUrl, req.params.id).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + id + '):', _pn.message));
     res.json({ success:true, id, duration_seconds: duration, announcement_generated: !!announcementUrl });
   }catch(e){ console.error('playlist add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
@@ -8162,23 +8169,120 @@ function _radStopBroadcast(stationId) {
   console.log('[radio-live] diffusion arrêtée (plus aucun auditeur) — station=' + stationId);
 }
 
-async function _radDownloadToFile(url, destPath) {
+async function _radDownloadToFile(url, destPath, stallTimeoutMs) {
   const https = require('https');
   const fs = require('fs');
+  // Timeout de BLOCAGE (pas de durée totale) : réinitialisé à chaque paquet reçu. Un discours
+  // de plusieurs heures peut légitimement prendre du temps sur une connexion modeste — seule
+  // une vraie connexion morte (aucune donnée pendant stallTimeoutMs) doit faire échouer.
+  stallTimeoutMs = stallTimeoutMs || 30000;
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(destPath);
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (resp) => {
+    let settled = false;
+    let stallTimer = null;
+    function onStall() {
+      if (settled) return;
+      settled = true;
+      try { req.destroy(); } catch (_d) {}
+      file.close(() => {}); fs.unlink(destPath, () => {});
+      reject(new Error('téléchargement bloqué (aucune donnée reçue depuis ' + Math.round(stallTimeoutMs / 1000) + 's) — connexion probablement morte'));
+    }
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (resp) => {
       if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
         // Suivre une redirection simple (R2/CDN en font parfois une).
+        if (settled) return;
+        settled = true; clearTimeout(stallTimer);
         file.close(); fs.unlink(destPath, () => {});
-        return _radDownloadToFile(resp.headers.location, destPath).then(resolve).catch(reject);
+        return _radDownloadToFile(resp.headers.location, destPath, stallTimeoutMs).then(resolve).catch(reject);
       }
-      if (resp.statusCode !== 200) { file.close(); fs.unlink(destPath, () => {}); return reject(new Error('HTTP ' + resp.statusCode)); }
+      if (resp.statusCode !== 200) {
+        if (settled) return;
+        settled = true; clearTimeout(stallTimer);
+        file.close(); fs.unlink(destPath, () => {}); return reject(new Error('HTTP ' + resp.statusCode));
+      }
+      resp.on('data', () => { clearTimeout(stallTimer); stallTimer = setTimeout(onStall, stallTimeoutMs); });
       resp.pipe(file);
-      file.on('finish', () => file.close(() => resolve(destPath)));
-    }).on('error', (err) => { file.close(); fs.unlink(destPath, () => {}); reject(err); });
+      file.on('finish', () => { if (settled) return; settled = true; clearTimeout(stallTimer); file.close(() => resolve(destPath)); });
+    });
+    stallTimer = setTimeout(onStall, stallTimeoutMs);
+    req.on('error', (err) => { if (settled) return; settled = true; clearTimeout(stallTimer); file.close(); fs.unlink(destPath, () => {}); reject(err); });
   });
 }
+let _radFfmpegPath = 'ffmpeg';
+try { _radFfmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fpn) {}
+// Normalise une piste locale vers un MP3 standard (même codec/débit/fréquence pour toutes les
+// pistes — indispensable pour le démuxeur concat). timeoutMs généreux par défaut : un discours
+// de plusieurs heures peut prendre du temps à réencoder.
+async function _radNormalizeTrack(srcPath, outPath, timeoutMs) {
+  const { execFile } = require('child_process');
+  return new Promise((resolve, reject) => {
+    execFile(_radFfmpegPath, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: timeoutMs || 600000, maxBuffer: 1024 * 1024 * 20 }, (err) => {
+      if (err) return reject(err);
+      resolve(outPath);
+    });
+  });
+}
+// ── Cache disque local des pistes déjà téléchargées/normalisées : évite de tout refaire à
+// CHAQUE redémarrage de diffusion (dernier auditeur parti puis quelqu'un revient). Survit tant
+// que le processus Render tourne (perdu uniquement à un redéploiement/redémarrage du service). ──
+function _radCacheDir() {
+  const os = require('os'), pathMod = require('path'), fs = require('fs');
+  const d = pathMod.join(os.tmpdir(), 'radcache');
+  try { fs.mkdirSync(d, { recursive: true }); } catch (_c) {}
+  return d;
+}
+function _radCacheKey(url) { return require('crypto').createHash('md5').update(String(url)).digest('hex'); }
+// ── Pré-normalisation en arrière-plan : appelée juste après l'ajout d'une piste à la playlist
+// (ou au rattrapage démarrage serveur). Télécharge + encode UNE FOIS, hors du chemin d'écoute,
+// et publie le résultat sur R2 — le direct n'a plus qu'à télécharger un fichier déjà prêt. ──
+async function _radPrenormalizeTrack(trackId, fileUrl, stationId) {
+  const fs = require('fs'), os = require('os'), pathMod = require('path');
+  const workDir = pathMod.join(os.tmpdir(), 'radprenorm_' + trackId);
+  try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
+  fs.mkdirSync(workDir, { recursive: true });
+  try {
+    if (_pgPool) { try { await _pgPool.query("UPDATE penc_radio_playlist_tracks SET normalize_status='running' WHERE id=$1", [trackId]); } catch (_us) {} }
+    const ext = (String(fileUrl).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [, 'mp3'])[1].toLowerCase();
+    const rawPath = pathMod.join(workDir, 'raw.' + ext);
+    const normPath = pathMod.join(workDir, 'norm.mp3');
+    console.log('[radio-playlist] pré-normalisation démarrée — piste=' + trackId + ' station=' + stationId);
+    await _radDownloadToFile(fileUrl, rawPath, 60000);
+    const sizeMo = Math.round((fs.statSync(rawPath).size || 0) / 1024 / 1024);
+    console.log('[radio-playlist] téléchargement terminé (' + sizeMo + ' Mo) — encodage en cours — piste=' + trackId);
+    // Timeout d'encodage généreux (jusqu'à 45 min) pour les très longs discours (2h+).
+    await _radNormalizeTrack(rawPath, normPath, 2700000);
+    const buf = fs.readFileSync(normPath);
+    const key = 'penc/radio-normalized/' + trackId + '.mp3';
+    const url = await r2PutBuffer(key, buf, 'audio/mpeg');
+    if (_pgPool) await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalized_url=$1, normalize_status=$2, normalize_error=NULL WHERE id=$3', [url, 'ready', trackId]);
+    // Alimente aussi le cache disque local tout de suite : le tout premier auditeur n'aura même
+    // pas besoin de retélécharger la version normalisée depuis R2.
+    try { fs.copyFileSync(normPath, pathMod.join(_radCacheDir(), _radCacheKey(url) + '.mp3')); } catch (_cc) {}
+    console.log('[radio-playlist] pré-normalisation terminée — piste=' + trackId);
+  } catch (e) {
+    console.error('[radio-playlist] pré-normalisation ÉCHEC — piste=' + trackId + ':', e.message);
+    if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
+    throw e;
+  } finally {
+    try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rmf) {}
+  }
+}
+// ── Rattrapage au démarrage serveur : traite toute piste jamais pré-normalisée (ancienne piste,
+// ou tentative précédente échouée/interrompue par un redéploiement). Séquentiel, pas en
+// parallèle, pour ne pas saturer le seul cœur CPU disponible. ──
+async function _radBackfillNormalization() {
+  try {
+    if (!_pgPool) return;
+    const r = await _pgPool.query("SELECT id, file_url, station_id FROM penc_radio_playlist_tracks WHERE normalized_url IS NULL AND (normalize_status IS NULL OR normalize_status <> 'running') ORDER BY created_at");
+    if (!r.rows.length) return;
+    console.log('[radio-playlist] rattrapage pré-normalisation : ' + r.rows.length + ' piste(s) à traiter');
+    for (const t of r.rows) {
+      try { await _radPrenormalizeTrack(t.id, t.file_url, t.station_id); }
+      catch (_bf) { console.error('[radio-playlist] rattrapage échec — piste=' + t.id + ':', _bf.message); }
+    }
+  } catch (e) { console.error('[radio-playlist] rattrapage erreur:', e.message); }
+}
+setTimeout(_radBackfillNormalization, 20000);
 
 async function _radStartBroadcast(stationId) {
   const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
@@ -8198,41 +8302,43 @@ async function _radStartBroadcast(stationId) {
   const fs = require('fs'), os = require('os'), pathMod = require('path');
   // Correctif SIGSEGV : passer des URLs HTTPS directement dans la liste du démuxeur concat
   // fait planter cette version de ffmpeg (bug bas niveau, reproductible à chaque fois, avec ou
-  // sans -ss). On télécharge maintenant chaque piste EN LOCAL une bonne fois avant de démarrer
-  // ffmpeg, qui ne voit alors plus que des chemins de fichiers locaux — un usage standard et
-  // stable du démuxeur concat, sans avoir besoin d'élargir sa liste de protocoles autorisés.
+  // sans -ss). On travaille donc uniquement avec des chemins de fichiers locaux.
   const workDir = pathMod.join(os.tmpdir(), 'radwork_' + stationId);
   try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
   fs.mkdirSync(workDir, { recursive: true });
-  let ffmpegPathForNorm = 'ffmpeg';
-  try { ffmpegPathForNorm = require('@ffmpeg-installer/ffmpeg').path; } catch (_fpn) {}
-  const { execFile } = require('child_process');
-  // Chaque fichier source vient d'une origine différente (Cloudinary, synthèse vocale, YouTube)
-  // et peut avoir un codec/débit/fréquence différent — les concaténer bruts casse le décodage
-  // ("Header missing"). On normalise chacun vers le MÊME format MP3 standard avant de les
-  // enchaîner ; ça élimine aussi les fichiers réellement corrompus (l'étape échoue proprement).
-  async function _radNormalizeTrack(srcPath, outPath) {
-    return new Promise((resolve, reject) => {
-      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 600000, maxBuffer: 1024 * 1024 * 20 }, (err) => {
-        if (err) return reject(err);
-        resolve(outPath);
-      });
-    });
-  }
   const localTracks = [];
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
-    const ext = (String(t.file_url).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [,'mp3'])[1].toLowerCase();
-    const dest = pathMod.join(workDir, 'track_' + i + '_raw.' + ext);
-    const normDest = pathMod.join(workDir, 'track_' + i + '.mp3');
+    // Priorité à la version déjà normalisée (encodée une fois à l'ajout, stockée sur R2) — le
+    // direct n'a alors qu'à la télécharger, sans jamais relancer ffmpeg dessus.
+    const sourceUrl = t.normalized_url || t.file_url;
+    const cachePath = pathMod.join(_radCacheDir(), _radCacheKey(sourceUrl) + '.mp3');
     try {
-      await _radDownloadToFile(t.file_url, dest);
+      if (fs.existsSync(cachePath) && (fs.statSync(cachePath).size || 0) > 2048) {
+        // Déjà téléchargée/normalisée lors d'une diffusion précédente sur cette instance — pas
+        // besoin de tout refaire à chaque redémarrage (dernier auditeur parti puis quelqu'un
+        // revient) : c'est ÇA qui bloquait le direct plusieurs minutes sur les longs discours.
+        localTracks.push(cachePath);
+        continue;
+      }
+      const ext = (String(sourceUrl).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [, 'mp3'])[1].toLowerCase();
+      const dest = pathMod.join(workDir, 'track_' + i + '_raw.' + ext);
+      // Timeout de BLOCAGE (60s sans donnée), pas de plafond sur la durée totale — un discours
+      // de 2h+ peut légitimement prendre du temps sur une connexion modeste.
+      await _radDownloadToFile(sourceUrl, dest, 60000);
       const sizeKo = Math.round((fs.statSync(dest).size || 0) / 1024);
       if (sizeKo < 2) throw new Error('fichier suspicieusement petit (' + sizeKo + ' Ko), probablement une erreur au téléchargement');
-      await _radNormalizeTrack(dest, normDest);
-      try { fs.unlinkSync(dest); } catch (_ud) {}
-      localTracks.push(normDest);
-    } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', t.file_url, '—', _dl.message); }
+      if (t.normalized_url) {
+        // Déjà au bon format (encodé lors de l'ajout) — pas besoin de repasser par ffmpeg ici.
+        fs.renameSync(dest, cachePath);
+      } else {
+        // Piste jamais pré-normalisée (ancienne piste, ou pré-traitement encore en cours/échoué) :
+        // on retombe sur l'ancien chemin — transcodage à la volée, timeout généreux (20 min).
+        await _radNormalizeTrack(dest, cachePath, 1200000);
+        try { fs.unlinkSync(dest); } catch (_ud) {}
+      }
+      localTracks.push(cachePath);
+    } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', sourceUrl, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
 
