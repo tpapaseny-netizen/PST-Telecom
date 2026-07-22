@@ -8051,9 +8051,22 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
       try{
         const ytdl = require('@distube/ytdl-core');
         if(!ytdl.validateURL(fileUrl)) return res.status(400).json({ error:'Lien YouTube invalide' });
+        // En-têtes proches d'un vrai navigateur — sans ça YouTube bloque très vite les requêtes
+        // du serveur avec une erreur 429 (trop de requêtes), les identifiant comme un robot.
+        const ytdlOpts = { requestOptions: { headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
+        } } };
+        let info = null, lastErr = null;
+        // Jusqu'à 3 tentatives avec un léger délai — YouTube répond parfois 429 de façon
+        // ponctuelle (limite de débit passagère), pas systématiquement bloquante.
+        for(let attempt = 1; attempt <= 3; attempt++){
+          try{ info = await ytdl.getInfo(fileUrl, ytdlOpts); break; }
+          catch(_gi){ lastErr = _gi; console.error('[radio-playlist] tentative ' + attempt + '/3 échouée:', _gi.message); if(attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt)); }
+        }
+        if(!info) throw lastErr || new Error('extraction impossible après 3 tentatives');
         console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
-        const info = await ytdl.getInfo(fileUrl);
-        const audioStream = ytdl.downloadFromInfo(info, { filter:'audioonly', quality:'highestaudio' });
+        const audioStream = ytdl.downloadFromInfo(info, Object.assign({ filter:'audioonly', quality:'highestaudio' }, ytdlOpts));
         const chunks = [];
         await new Promise((resolve, reject) => {
           audioStream.on('data', c => chunks.push(c));
@@ -8066,7 +8079,7 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
         console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', fileUrl);
       }catch(_yt){
         console.error('[radio-playlist] extraction YouTube échouée:', _yt.message);
-        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). Réessaie, ou utilise un lien direct.' });
+        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). YouTube limite parfois les requêtes automatiques — réessaie dans quelques minutes, ou utilise un lien direct.' });
       }
     }
     // Piège fréquent : coller le lien du LECTEUR intégré (embed) au lieu du fichier direct.
@@ -8075,7 +8088,7 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
     }
     // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
     let duration = 0;
-    try{ const meta = await _ffprobeMeta(fileUrl, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    try{ const meta = await _ffprobeMeta(fileUrl, 30000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
     catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct (finit par .mp3/.m4a/.wav) et accessible publiquement, pas un lien de lecteur intégré.' }); }
     if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
     // Annonce vocale automatique du titre ("Vous écoutez maintenant : <titre>") — générée une
@@ -8200,7 +8213,7 @@ async function _radStartBroadcast(stationId) {
   // enchaîner ; ça élimine aussi les fichiers réellement corrompus (l'étape échoue proprement).
   async function _radNormalizeTrack(srcPath, outPath) {
     return new Promise((resolve, reject) => {
-      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 180000, maxBuffer: 1024 * 1024 * 10 }, (err) => {
+      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 600000, maxBuffer: 1024 * 1024 * 20 }, (err) => {
         if (err) return reject(err);
         resolve(outPath);
       });
@@ -8254,6 +8267,16 @@ async function _radStartBroadcast(stationId) {
 }
 
 app.get('/api/penc/radio/live/:stationId.mp3', async (req, res) => {
+  // Si quelqu'un ouvre CE lien directement dans son navigateur (au lieu que ce soit l'app Penc
+  // qui le charge en arrière-plan pour jouer le son), on le redirige vers la page de la station
+  // dans Penc plutôt que de lui montrer un lecteur audio brut. Un vrai navigateur qui NAVIGUE
+  // vers une URL envoie "text/html" en tête de son en-tête Accept ; un élément <audio> qui
+  // charge juste un fichier ne le fait presque jamais — c'est ce qui permet de distinguer les
+  // deux cas sans casser la lecture réelle dans l'app.
+  const acceptHeader = String(req.headers['accept'] || '');
+  if (acceptHeader.split(',')[0].trim() === 'text/html') {
+    return res.redirect(302, 'https://penc-messagerie.com/messager?radio=' + encodeURIComponent(req.params.stationId));
+  }
   // ═══ COUPE-CIRCUIT TEMPORAIRE ═══ (repasser à true en cas de nouvel incident mémoire)
   if (RAD_LIVE_STREAM_DISABLED) {
     res.status(503).setHeader('Retry-After', '3600');
