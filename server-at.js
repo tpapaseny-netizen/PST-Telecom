@@ -8179,11 +8179,15 @@ async function _radStartBroadcast(stationId) {
   // exigeait un ordre d'appels précis et fragile (.input()/.inputOptions()) qui provoquait une
   // erreur "No input specified" de façon intermittente. En construisant la commande nous-mêmes,
   // l'ordre des arguments est garanti et sans ambiguïté.
+  // Correctif SIGSEGV : combiner -stream_loop avec -ss (recherche temporelle) sur un
+  // démuxeur concat fait planter cette version de ffmpeg (bug bas niveau connu de cette
+  // combinaison précise). On sacrifice la synchronisation "pile où en est la radio en ce
+  // moment" au profit de la stabilité — chaque nouvel auditeur démarre au début de la boucle
+  // au lieu de rejoindre en position réelle.
   const args = [
     '-stream_loop', '-1',
     '-f', 'concat', '-safe', '0', '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
     '-i', listFile,
-    '-ss', String(elapsed),
     '-acodec', 'libmp3lame', '-b:a', '96k',
     '-vn',
     '-f', 'mp3',
