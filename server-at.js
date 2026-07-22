@@ -8191,15 +8191,35 @@ async function _radStartBroadcast(stationId) {
   const workDir = pathMod.join(os.tmpdir(), 'radwork_' + stationId);
   try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
   fs.mkdirSync(workDir, { recursive: true });
+  let ffmpegPathForNorm = 'ffmpeg';
+  try { ffmpegPathForNorm = require('@ffmpeg-installer/ffmpeg').path; } catch (_fpn) {}
+  const { execFile } = require('child_process');
+  // Chaque fichier source vient d'une origine différente (Cloudinary, synthèse vocale, YouTube)
+  // et peut avoir un codec/débit/fréquence différent — les concaténer bruts casse le décodage
+  // ("Header missing"). On normalise chacun vers le MÊME format MP3 standard avant de les
+  // enchaîner ; ça élimine aussi les fichiers réellement corrompus (l'étape échoue proprement).
+  async function _radNormalizeTrack(srcPath, outPath) {
+    return new Promise((resolve, reject) => {
+      execFile(ffmpegPathForNorm, ['-y', '-i', srcPath, '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '96k', outPath], { timeout: 20000 }, (err) => {
+        if (err) return reject(err);
+        resolve(outPath);
+      });
+    });
+  }
   const localTracks = [];
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
     const ext = (String(t.file_url).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [,'mp3'])[1].toLowerCase();
-    const dest = pathMod.join(workDir, 'track_' + i + '.' + ext);
+    const dest = pathMod.join(workDir, 'track_' + i + '_raw.' + ext);
+    const normDest = pathMod.join(workDir, 'track_' + i + '.mp3');
     try {
       await _radDownloadToFile(t.file_url, dest);
-      localTracks.push(dest);
-    } catch (_dl) { console.error('[radio-live] échec téléchargement piste (ignorée):', t.file_url, _dl.message); }
+      const sizeKo = Math.round((fs.statSync(dest).size || 0) / 1024);
+      if (sizeKo < 2) throw new Error('fichier suspicieusement petit (' + sizeKo + ' Ko), probablement une erreur au téléchargement');
+      await _radNormalizeTrack(dest, normDest);
+      try { fs.unlinkSync(dest); } catch (_ud) {}
+      localTracks.push(normDest);
+    } catch (_dl) { console.error('[radio-live] piste ignorée (téléchargement ou format invalide):', t.file_url, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
 
