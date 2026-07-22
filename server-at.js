@@ -8149,6 +8149,24 @@ function _radStopBroadcast(stationId) {
   console.log('[radio-live] diffusion arrêtée (plus aucun auditeur) — station=' + stationId);
 }
 
+async function _radDownloadToFile(url, destPath) {
+  const https = require('https');
+  const fs = require('fs');
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (resp) => {
+      if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+        // Suivre une redirection simple (R2/CDN en font parfois une).
+        file.close(); fs.unlink(destPath, () => {});
+        return _radDownloadToFile(resp.headers.location, destPath).then(resolve).catch(reject);
+      }
+      if (resp.statusCode !== 200) { file.close(); fs.unlink(destPath, () => {}); return reject(new Error('HTTP ' + resp.statusCode)); }
+      resp.pipe(file);
+      file.on('finish', () => file.close(() => resolve(destPath)));
+    }).on('error', (err) => { file.close(); fs.unlink(destPath, () => {}); reject(err); });
+  });
+}
+
 async function _radStartBroadcast(stationId) {
   const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
   const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at', [stationId])).rows;
@@ -8163,30 +8181,39 @@ async function _radStartBroadcast(stationId) {
   });
   const totalDuration = tracks.reduce((s, t) => s + (t.duration_seconds || 0), 0);
   if (totalDuration <= 0) return null;
-  const epochMs = Date.UTC(2026, 0, 1, 0, 0, 0);
-  const elapsed = Math.floor((Date.now() - epochMs) / 1000) % totalDuration;
 
   const fs = require('fs'), os = require('os'), pathMod = require('path');
-  const listFile = pathMod.join(os.tmpdir(), 'radlist_' + stationId + '.txt');
-  const listContent = tracks.map(t => "file '" + String(t.file_url).replace(/'/g, "'\\''") + "'").join('\n');
+  // Correctif SIGSEGV : passer des URLs HTTPS directement dans la liste du démuxeur concat
+  // fait planter cette version de ffmpeg (bug bas niveau, reproductible à chaque fois, avec ou
+  // sans -ss). On télécharge maintenant chaque piste EN LOCAL une bonne fois avant de démarrer
+  // ffmpeg, qui ne voit alors plus que des chemins de fichiers locaux — un usage standard et
+  // stable du démuxeur concat, sans avoir besoin d'élargir sa liste de protocoles autorisés.
+  const workDir = pathMod.join(os.tmpdir(), 'radwork_' + stationId);
+  try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
+  fs.mkdirSync(workDir, { recursive: true });
+  const localTracks = [];
+  for (let i = 0; i < tracks.length; i++) {
+    const t = tracks[i];
+    const ext = (String(t.file_url).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [,'mp3'])[1].toLowerCase();
+    const dest = pathMod.join(workDir, 'track_' + i + '.' + ext);
+    try {
+      await _radDownloadToFile(t.file_url, dest);
+      localTracks.push(dest);
+    } catch (_dl) { console.error('[radio-live] échec téléchargement piste (ignorée):', t.file_url, _dl.message); }
+  }
+  if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
+
+  const listFile = pathMod.join(workDir, 'playlist.txt');
+  const listContent = localTracks.map(p => "file '" + p.replace(/'/g, "'\\''") + "'").join('\n');
   fs.writeFileSync(listFile, listContent);
 
   const hub = new PassThrough();
   let ffmpegPath = 'ffmpeg';
   try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
   const { spawn } = require('child_process');
-  // Appel ffmpeg direct (spawn) plutôt que via fluent-ffmpeg : la bibliothèque fluent-ffmpeg
-  // exigeait un ordre d'appels précis et fragile (.input()/.inputOptions()) qui provoquait une
-  // erreur "No input specified" de façon intermittente. En construisant la commande nous-mêmes,
-  // l'ordre des arguments est garanti et sans ambiguïté.
-  // Correctif SIGSEGV : combiner -stream_loop avec -ss (recherche temporelle) sur un
-  // démuxeur concat fait planter cette version de ffmpeg (bug bas niveau connu de cette
-  // combinaison précise). On sacrifice la synchronisation "pile où en est la radio en ce
-  // moment" au profit de la stabilité — chaque nouvel auditeur démarre au début de la boucle
-  // au lieu de rejoindre en position réelle.
   const args = [
     '-stream_loop', '-1',
-    '-f', 'concat', '-safe', '0', '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
+    '-f', 'concat', '-safe', '0',
     '-i', listFile,
     '-acodec', 'libmp3lame', '-b:a', '96k',
     '-vn',
@@ -8198,11 +8225,11 @@ async function _radStartBroadcast(stationId) {
   let _lastStderr = '';
   cmd.stderr.on('data', d => { const s = d.toString(); _lastStderr = (_lastStderr + s).slice(-2000); if (/error|Error|Invalid|No such|Unsupported|Unable/.test(s)) console.error('[radio-live ffmpeg]', s.trim().slice(0, 300)); });
   cmd.on('error', (err) => { console.error('[radio-live] ffmpeg spawn erreur:', err.message); _radStopBroadcast(stationId); });
-  cmd.on('exit', (code, signal) => { console.log('[radio-live] ffmpeg terminé — station=' + stationId + ' code=' + code + ' signal=' + signal + ' | dernières lignes stderr:\n' + _lastStderr.split('\n').slice(-10).join('\n')); _radStopBroadcast(stationId); });
+  cmd.on('exit', (code, signal) => { console.log('[radio-live] ffmpeg terminé — station=' + stationId + ' code=' + code + ' signal=' + signal + ' | dernières lignes stderr:\n' + _lastStderr.split('\n').slice(-10).join('\n')); try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm2) {} _radStopBroadcast(stationId); });
 
   const b = { hub, cmd, listenerCount: 0, stopTimer: null };
   _radBroadcasts[stationId] = b;
-  try { const mu = process.memoryUsage(); console.log('[radio-live] nouvelle diffusion démarrée — station=' + stationId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml) {}
+  try { const mu = process.memoryUsage(); console.log('[radio-live] nouvelle diffusion démarrée (pistes locales: ' + localTracks.length + '/' + tracks.length + ') — station=' + stationId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml) {}
   return b;
 }
 
