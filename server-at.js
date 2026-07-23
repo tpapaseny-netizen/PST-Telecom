@@ -4734,6 +4734,9 @@ let _pgPool = null;
       ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalized_url TEXT;
       ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalize_status TEXT DEFAULT 'pending';
       ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS normalize_error TEXT;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS event_date DATE;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS location TEXT;
+      ALTER TABLE penc_radio_playlist_tracks ADD COLUMN IF NOT EXISTS context_note TEXT;
       CREATE INDEX IF NOT EXISTS idx_rcom_station ON penc_radio_comments(station_id);
       CREATE TABLE IF NOT EXISTS penc_radio_comment_likes (
         comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -8033,6 +8036,70 @@ app.get('/api/penc/radio/stations/:id/current-program', pencAuth, async (req, re
     res.json({ program: current });
   }catch(e){ res.json({ program: null }); }
 });
+// ── Construction de la liste "habillée" (jingle + annonce + piste, pour chaque piste) — partagée
+// entre le direct (ffmpeg) et le calcul "en ce moment" ci-dessous, pour ne jamais désynchroniser
+// les deux. ──
+async function _radBuildTrackList(stationId) {
+  const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
+  const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at', [stationId])).rows;
+  const tracks = [];
+  rawTracks.forEach(t => {
+    if (station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds, kind: 'jingle' });
+    if (t.announcement_url && t.announcement_duration_seconds > 0) tracks.push({ file_url: t.announcement_url, duration_seconds: t.announcement_duration_seconds, kind: 'announcement', track: t });
+    tracks.push(Object.assign({ kind: 'track' }, t));
+  });
+  const totalDuration = tracks.reduce((s, t) => s + (t.duration_seconds || 0), 0);
+  return { station, rawTracks, tracks, totalDuration };
+}
+// ── Calcule ce qui devrait être "en ce moment" sur une station, à partir de l'horloge serveur —
+// sans jamais démarrer ffmpeg (léger, appelable souvent par les auditeurs pour la barre de
+// progression). Utilise exactement le même calcul que le direct, donc toujours cohérent avec lui. ──
+async function _radComputeNowPlaying(stationId) {
+  const { tracks, totalDuration } = await _radBuildTrackList(stationId);
+  if (!tracks.length || totalDuration <= 0) return null;
+  const elapsed = (Date.now() / 1000) % totalDuration;
+  let acc = 0, current = null, offset = 0;
+  for (let i = 0; i < tracks.length; i++) {
+    const d = tracks[i].duration_seconds || 0;
+    if (elapsed < acc + d) { current = tracks[i]; offset = elapsed - acc; break; }
+    acc += d;
+  }
+  if (!current) return null;
+  let track = current.kind === 'track' ? current : current.track;
+  if (!track) {
+    // Jingle générique (pas rattaché à une piste précise) : on annonce la piste qui arrive.
+    const idx = tracks.indexOf(current);
+    for (let i = idx; i < tracks.length; i++) { if (tracks[i].kind === 'track') { track = tracks[i]; break; } }
+  }
+  if (!track) return null;
+  return {
+    track_id: track.id, title: track.title, event_date: track.event_date, location: track.location, context_note: track.context_note,
+    duration_seconds: track.duration_seconds,
+    elapsed_seconds: current.kind === 'track' ? Math.round(offset) : 0,
+    is_intro: current.kind !== 'track'
+  };
+}
+app.get('/api/penc/radio/stations/:id/now-playing', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ now_playing: null });
+    const np = await _radComputeNowPlaying(req.params.id);
+    res.json({ now_playing: np });
+  }catch(e){ res.json({ now_playing: null }); }
+});
+// ── Catalogue consultable d'une station (façon bibliothèque de podcasts) : uniquement les pistes
+// prêtes (normalisées), avec un lien de lecture direct (pas via le flux /live) — permet à
+// l'auditeur de choisir précisément un discours plutôt que d'attendre qu'il repasse. ──
+app.get('/api/penc/radio/stations/:id/catalogue', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ tracks: [] });
+    const r = await _pgPool.query(
+      "SELECT id, title, duration_seconds, event_date, location, context_note, normalized_url, file_url FROM penc_radio_playlist_tracks WHERE station_id=$1 AND normalize_status='ready' ORDER BY event_date NULLS LAST, sort_order, created_at",
+      [req.params.id]
+    );
+    const tracks = r.rows.map(t => ({ id:t.id, title:t.title, duration_seconds:t.duration_seconds, event_date:t.event_date, location:t.location, context_note:t.context_note, play_url:t.normalized_url || t.file_url }));
+    res.json({ tracks });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 // ── Playlist en boucle (radio "maison") : liste de pistes jouées les unes après les autres,
 // indéfiniment, comme une vraie station. ──
 app.get('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, async (req, res) => {
@@ -8083,40 +8150,27 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     const title = String((req.body && req.body.title) || '').trim().slice(0,120);
-    let fileUrl = String((req.body && req.body.file_url) || '').trim();
-    if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
-    try{ fileUrl = await _radResolveYouTube(fileUrl, req.params.id); }
-    catch(_yt){
-      console.error('[radio-playlist] extraction YouTube échouée:', _yt.message);
-      return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). YouTube limite parfois les requêtes automatiques — réessaie dans quelques minutes, ou utilise un lien direct.' });
-    }
-    // Piège fréquent : coller le lien du LECTEUR intégré (embed) au lieu du fichier direct.
-    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
+    const rawUrl = String((req.body && req.body.file_url) || '').trim();
+    if(!title || !rawUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
+    // Piège fréquent détecté tout de suite (rapide, pas besoin d'attendre le traitement complet).
+    if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(rawUrl)){
       return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct. Sur Cloudinary : ouvre le fichier dans la médiathèque puis "Copy URL" (le lien doit finir par .mp3, .m4a ou .wav).' });
     }
-    // Détection automatique de la durée via ffprobe (fonctionne aussi sur une URL distante).
-    let duration = 0;
-    try{ const meta = await _ffprobeMeta(fileUrl, 30000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
-    catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct (finit par .mp3/.m4a/.wav) et accessible publiquement, pas un lien de lecteur intégré.' }); }
-    if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
-    // Annonce vocale automatique du titre ("Vous écoutez maintenant : <titre>") — générée une
-    // seule fois à l'ajout, puis réutilisée en boucle (pas régénérée à chaque diffusion).
-    let announcementUrl = null, announcementDuration = 0;
-    try{
-      const ann = await _generateAndStoreTTS('Vous écoutez maintenant : ' + title, 'penc/radio-tts/' + req.params.id);
-      announcementUrl = ann.url; announcementDuration = ann.duration_seconds;
-    }catch(_tts){ console.error('TTS annonce (non bloquant):', _tts.message); }
+    const eventDate = (req.body && req.body.event_date) ? String(req.body.event_date).slice(0,10) : null;
+    const location = (req.body && req.body.location) ? String(req.body.location).trim().slice(0,120) : null;
+    const contextNote = (req.body && req.body.context_note) ? String(req.body.context_note).trim().slice(0,500) : null;
     const maxOrder = await _pgPool.query('SELECT COALESCE(MAX(sort_order),0) AS m FROM penc_radio_playlist_tracks WHERE station_id=$1',[req.params.id]);
     const id = 'rtrk_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    // Insertion IMMÉDIATE avec durée=0 et statut 'pending' — l'admin n'attend plus l'extraction
+    // YouTube (jusqu'à ~50s de retries), la détection de durée, ni la génération de l'annonce
+    // vocale : tout ça part en arrière-plan juste après. Avant, ces 3 étapes bloquaient la
+    // réponse HTTP l'une après l'autre, d'où la lenteur ressentie à l'ajout.
     await _pgPool.query(
-      'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order,announcement_url,announcement_duration_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, req.params.id, title, fileUrl, duration, (parseInt(maxOrder.rows[0].m,10)||0)+1, announcementUrl, announcementDuration]
+      'INSERT INTO penc_radio_playlist_tracks(id,station_id,title,file_url,duration_seconds,sort_order,normalize_status,event_date,location,context_note) VALUES($1,$2,$3,$4,0,$5,\'pending\',$6,$7,$8)',
+      [id, req.params.id, title, rawUrl, (parseInt(maxOrder.rows[0].m,10)||0)+1, eventDate, location, contextNote]
     );
-    // Pré-traitement en arrière-plan : télécharge + normalise le fichier UNE FOIS ici, hors du
-    // chemin critique d'écoute — pour qu'un auditeur en direct n'ait jamais à attendre le
-    // transcodage d'un gros fichier (discours de plusieurs heures). Ne bloque pas cette réponse.
-    _radPrenormalizeTrack(id, fileUrl, req.params.id).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + id + '):', _pn.message));
-    res.json({ success:true, id, duration_seconds: duration, announcement_generated: !!announcementUrl });
+    res.json({ success:true, id, processing:true });
+    _radProcessNewTrackFull(id, req.params.id, title, rawUrl).catch(_pn => console.error('[radio-playlist] traitement complet échoué (' + id + '):', _pn.message));
   }catch(e){ console.error('playlist add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req, res) => {
@@ -8140,33 +8194,26 @@ app.patch('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req,
     if(!cur.rows.length) return res.status(404).json({ error:'Piste introuvable' });
     const track = cur.rows[0];
     const title = String((req.body && req.body.title) || track.title).trim().slice(0,120);
-    let fileUrl = String((req.body && req.body.file_url) || track.file_url).trim();
+    const fileUrl = String((req.body && req.body.file_url) || track.file_url).trim();
     if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
     const urlChanged = fileUrl !== track.file_url;
-    let duration = track.duration_seconds;
-    if(urlChanged){
-      try{ fileUrl = await _radResolveYouTube(fileUrl, req.params.id); }
-      catch(_yt){
-        console.error('[radio-playlist] extraction YouTube échouée (modif):', _yt.message);
-        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). Réessaie dans quelques minutes, ou utilise un lien direct.' });
-      }
-      if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
-        return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
-      }
-      try{ const meta = await _ffprobeMeta(fileUrl, 30000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
-      catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct et accessible publiquement.' }); }
-      if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
-    }
+    const eventDate = (req.body && 'event_date' in req.body) ? (req.body.event_date ? String(req.body.event_date).slice(0,10) : null) : track.event_date;
+    const location = (req.body && 'location' in req.body) ? (req.body.location ? String(req.body.location).trim().slice(0,120) : null) : track.location;
+    const contextNote = (req.body && 'context_note' in req.body) ? (req.body.context_note ? String(req.body.context_note).trim().slice(0,500) : null) : track.context_note;
+    // Métadonnées + titre appliqués tout de suite (rapide). Si le lien change, on repart sur le
+    // même pipeline complet en arrière-plan que pour un ajout — pas d'attente ici non plus.
     await _pgPool.query(
-      'UPDATE penc_radio_playlist_tracks SET title=$1, file_url=$2, duration_seconds=$3'
-      + (urlChanged ? ", normalized_url=NULL, normalize_status='pending', normalize_error=NULL" : '')
-      + ' WHERE id=$4',
-      [title, fileUrl, duration, req.params.id]
+      'UPDATE penc_radio_playlist_tracks SET title=$1, file_url=$2, event_date=$3, location=$4, context_note=$5'
+      + (urlChanged ? ", duration_seconds=0, normalized_url=NULL, normalize_status='pending', normalize_error=NULL" : '')
+      + ' WHERE id=$6',
+      [title, fileUrl, eventDate, location, contextNote, req.params.id]
     );
     if(urlChanged){
-      _radPrenormalizeTrack(req.params.id, fileUrl, track.station_id).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + req.params.id + '):', _pn.message));
+      res.json({ success:true, renormalizing:true });
+      _radProcessNewTrackFull(req.params.id, track.station_id, title, fileUrl).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + req.params.id + '):', _pn.message));
+      return;
     }
-    res.json({ success:true, duration_seconds: duration, renormalizing: urlChanged });
+    res.json({ success:true, renormalizing:false });
   }catch(e){ console.error('playlist patch:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Réordonner les pistes d'une station : reçoit la liste complète des IDs dans le nouvel ordre
@@ -8292,7 +8339,10 @@ function _radCacheKey(url) { return require('crypto').createHash('md5').update(S
 // ── Pré-normalisation en arrière-plan : appelée juste après l'ajout d'une piste à la playlist
 // (ou au rattrapage démarrage serveur). Télécharge + encode UNE FOIS, hors du chemin d'écoute,
 // et publie le résultat sur R2 — le direct n'a plus qu'à télécharger un fichier déjà prêt. ──
-async function _radPrenormalizeTrack(trackId, fileUrl, stationId) {
+// ── Téléchargement + normalisation UNE FOIS (piste déjà résolue : file_url direct connu, durée
+// déjà en base) — publie sur R2 et marque normalize_status='ready'. Utilisée en interne par
+// _radProcessNewTrackFull, et par le rattrapage pour les anciennes pistes déjà résolues. ──
+async function _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId) {
   const fs = require('fs'), os = require('os'), pathMod = require('path');
   const workDir = pathMod.join(os.tmpdir(), 'radprenorm_' + trackId);
   try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
@@ -8302,7 +8352,7 @@ async function _radPrenormalizeTrack(trackId, fileUrl, stationId) {
     const ext = (String(fileUrl).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [, 'mp3'])[1].toLowerCase();
     const rawPath = pathMod.join(workDir, 'raw.' + ext);
     const normPath = pathMod.join(workDir, 'norm.mp3');
-    console.log('[radio-playlist] pré-normalisation démarrée — piste=' + trackId + ' station=' + stationId);
+    console.log('[radio-playlist] traitement démarré — piste=' + trackId + ' station=' + stationId);
     await _radDownloadToFile(fileUrl, rawPath, 60000);
     const sizeMo = Math.round((fs.statSync(rawPath).size || 0) / 1024 / 1024);
     console.log('[radio-playlist] téléchargement terminé (' + sizeMo + ' Mo) — encodage en cours — piste=' + trackId);
@@ -8315,26 +8365,64 @@ async function _radPrenormalizeTrack(trackId, fileUrl, stationId) {
     // Alimente aussi le cache disque local tout de suite : le tout premier auditeur n'aura même
     // pas besoin de retélécharger la version normalisée depuis R2.
     try { fs.copyFileSync(normPath, pathMod.join(_radCacheDir(), _radCacheKey(url) + '.mp3')); } catch (_cc) {}
-    console.log('[radio-playlist] pré-normalisation terminée — piste=' + trackId);
+    console.log('[radio-playlist] traitement terminé — piste=' + trackId);
   } catch (e) {
-    console.error('[radio-playlist] pré-normalisation ÉCHEC — piste=' + trackId + ':', e.message);
+    console.error('[radio-playlist] traitement ÉCHEC — piste=' + trackId + ':', e.message);
     if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
     throw e;
   } finally {
     try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rmf) {}
   }
 }
-// ── Rattrapage au démarrage serveur : traite toute piste jamais pré-normalisée (ancienne piste,
-// ou tentative précédente échouée/interrompue par un redéploiement). Séquentiel, pas en
-// parallèle, pour ne pas saturer le seul cœur CPU disponible. ──
+// ── Pipeline complet pour une piste TOUT JUSTE ajoutée : la réponse HTTP à l'admin est déjà
+// partie (ajout quasi-instantané) — ceci tourne entièrement en arrière-plan. Résout YouTube si
+// besoin, détecte la durée, génère l'annonce vocale, PUIS télécharge+normalise. Tout échec est
+// enregistré sur la piste (normalize_status='failed' + message) plutôt que silencieusement perdu. ──
+async function _radProcessNewTrackFull(trackId, stationId, title, rawUrl) {
+  try {
+    if (_pgPool) { try { await _pgPool.query("UPDATE penc_radio_playlist_tracks SET normalize_status='running' WHERE id=$1", [trackId]); } catch (_us) {} }
+    let fileUrl = rawUrl;
+    try { fileUrl = await _radResolveYouTube(fileUrl, trackId); }
+    catch (_yt) { throw new Error('YouTube : ' + _yt.message + ' — réessaie dans quelques minutes, ou utilise un lien direct.'); }
+    if (/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)) {
+      throw new Error('Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.');
+    }
+    let duration = 0;
+    try { const meta = await _ffprobeMeta(fileUrl, 30000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    catch (_pf) { throw new Error('Impossible de lire ce fichier audio — vérifie que le lien est direct et accessible publiquement.'); }
+    if (!duration || duration < 1) throw new Error('Durée introuvable pour ce fichier');
+    // Annonce vocale automatique du titre ("Vous écoutez maintenant : <titre>") — générée une
+    // seule fois à l'ajout, puis réutilisée en boucle (pas régénérée à chaque diffusion).
+    let announcementUrl = null, announcementDuration = 0;
+    try {
+      const ann = await _generateAndStoreTTS('Vous écoutez maintenant : ' + title, 'penc/radio-tts/' + stationId);
+      announcementUrl = ann.url; announcementDuration = ann.duration_seconds;
+    } catch (_tts) { console.error('TTS annonce (non bloquant):', _tts.message); }
+    if (_pgPool) await _pgPool.query(
+      'UPDATE penc_radio_playlist_tracks SET file_url=$1, duration_seconds=$2, announcement_url=$3, announcement_duration_seconds=$4 WHERE id=$5',
+      [fileUrl, duration, announcementUrl, announcementDuration, trackId]
+    );
+    await _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId);
+  } catch (e) {
+    console.error('[radio-playlist] traitement complet ÉCHEC — piste=' + trackId + ':', e.message);
+    if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
+  }
+}
+// ── Rattrapage au démarrage serveur : traite toute piste jamais finalisée (ancienne piste, ou
+// tentative précédente échouée/interrompue par un redéploiement). Séquentiel, pas en parallèle,
+// pour ne pas saturer le seul cœur CPU disponible. Une piste avec durée déjà connue n'a besoin
+// que du téléchargement+normalisation ; une piste neuve (durée=0) repart sur le pipeline complet. ──
 async function _radBackfillNormalization() {
   try {
     if (!_pgPool) return;
-    const r = await _pgPool.query("SELECT id, file_url, station_id FROM penc_radio_playlist_tracks WHERE normalized_url IS NULL AND (normalize_status IS NULL OR normalize_status <> 'running') ORDER BY created_at");
+    const r = await _pgPool.query("SELECT id, file_url, station_id, title, duration_seconds FROM penc_radio_playlist_tracks WHERE normalized_url IS NULL AND (normalize_status IS NULL OR normalize_status <> 'running') ORDER BY created_at");
     if (!r.rows.length) return;
-    console.log('[radio-playlist] rattrapage pré-normalisation : ' + r.rows.length + ' piste(s) à traiter');
+    console.log('[radio-playlist] rattrapage : ' + r.rows.length + ' piste(s) à traiter');
     for (const t of r.rows) {
-      try { await _radPrenormalizeTrack(t.id, t.file_url, t.station_id); }
+      try {
+        if (t.duration_seconds > 0) await _radDownloadAndNormalizeOnly(t.id, t.file_url, t.station_id);
+        else await _radProcessNewTrackFull(t.id, t.station_id, t.title, t.file_url);
+      }
       catch (_bf) { console.error('[radio-playlist] rattrapage échec — piste=' + t.id + ':', _bf.message); }
     }
   } catch (e) { console.error('[radio-playlist] rattrapage erreur:', e.message); }
@@ -8342,19 +8430,8 @@ async function _radBackfillNormalization() {
 setTimeout(_radBackfillNormalization, 20000);
 
 async function _radStartBroadcast(stationId) {
-  const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
-  const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at', [stationId])).rows;
-  if (!rawTracks.length) return null;
-  // Habillage radio : jingle station (si défini) + annonce vocale du titre (si générée) + piste,
-  // pour chaque piste — comme un vrai passage à l'antenne.
-  let tracks = [];
-  rawTracks.forEach(t => {
-    if (station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds });
-    if (t.announcement_url && t.announcement_duration_seconds > 0) tracks.push({ file_url: t.announcement_url, duration_seconds: t.announcement_duration_seconds });
-    tracks.push(t);
-  });
-  const totalDuration = tracks.reduce((s, t) => s + (t.duration_seconds || 0), 0);
-  if (totalDuration <= 0) return null;
+  const { rawTracks, tracks, totalDuration } = await _radBuildTrackList(stationId);
+  if (!rawTracks.length || totalDuration <= 0) return null;
 
   const fs = require('fs'), os = require('os'), pathMod = require('path');
   // Correctif SIGSEGV : passer des URLs HTTPS directement dans la liste du démuxeur concat
