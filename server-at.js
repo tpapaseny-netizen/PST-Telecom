@@ -8061,13 +8061,14 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
           'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
         } } };
         let info = null, lastErr = null;
-        // Jusqu'à 3 tentatives avec un léger délai — YouTube répond parfois 429 de façon
-        // ponctuelle (limite de débit passagère), pas systématiquement bloquante.
-        for(let attempt = 1; attempt <= 3; attempt++){
+        // Jusqu'à 4 tentatives avec des délais croissants — un 429 YouTube est un vrai cooldown
+        // de rate-limit (pas juste un raté ponctuel), 2-4s ne suffisent presque jamais à passer.
+        const _ytDelays = [5000, 15000, 30000];
+        for(let attempt = 1; attempt <= 4; attempt++){
           try{ info = await ytdl.getInfo(fileUrl, ytdlOpts); break; }
-          catch(_gi){ lastErr = _gi; console.error('[radio-playlist] tentative ' + attempt + '/3 échouée:', _gi.message); if(attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt)); }
+          catch(_gi){ lastErr = _gi; console.error('[radio-playlist] tentative ' + attempt + '/4 échouée:', _gi.message); if(attempt < 4) await new Promise(r => setTimeout(r, _ytDelays[attempt - 1])); }
         }
-        if(!info) throw lastErr || new Error('extraction impossible après 3 tentatives');
+        if(!info) throw lastErr || new Error('extraction impossible après 4 tentatives');
         console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
         const audioStream = ytdl.downloadFromInfo(info, Object.assign({ filter:'audioonly', quality:'highestaudio' }, ytdlOpts));
         const chunks = [];
@@ -8125,6 +8126,39 @@ app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req
     res.json({ success:true });
   }
   catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Modifier une piste existante (titre et/ou lien). Si le lien change, on réinitialise le statut
+// de normalisation et on relance le pré-traitement en arrière-plan (nouvelle durée détectée).
+app.patch('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const cur = await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE id=$1',[req.params.id]);
+    if(!cur.rows.length) return res.status(404).json({ error:'Piste introuvable' });
+    const track = cur.rows[0];
+    const title = String((req.body && req.body.title) || track.title).trim().slice(0,120);
+    let fileUrl = String((req.body && req.body.file_url) || track.file_url).trim();
+    if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
+    const urlChanged = fileUrl !== track.file_url;
+    let duration = track.duration_seconds;
+    if(urlChanged){
+      if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
+        return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
+      }
+      try{ const meta = await _ffprobeMeta(fileUrl, 30000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+      catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio — vérifie que le lien est direct et accessible publiquement.' }); }
+      if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
+    }
+    await _pgPool.query(
+      'UPDATE penc_radio_playlist_tracks SET title=$1, file_url=$2, duration_seconds=$3'
+      + (urlChanged ? ", normalized_url=NULL, normalize_status='pending', normalize_error=NULL" : '')
+      + ' WHERE id=$4',
+      [title, fileUrl, duration, req.params.id]
+    );
+    if(urlChanged){
+      _radPrenormalizeTrack(req.params.id, fileUrl, track.station_id).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + req.params.id + '):', _pn.message));
+    }
+    res.json({ success:true, duration_seconds: duration, renormalizing: urlChanged });
+  }catch(e){ console.error('playlist patch:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Jingle de la station ("Vous écoutez X sur DeglouFM de Penc...") — inséré automatiquement
 // avant CHAQUE piste par le flux en boucle, comme un vrai habillage radio.
