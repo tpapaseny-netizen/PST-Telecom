@@ -4054,6 +4054,17 @@ async function r2PutBuffer(key, buffer, contentType) {
   await _r2Client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, Body: buffer, ContentType: contentType }));
   return R2_PUBLIC + '/' + key;
 }
+// Upload en flux depuis un fichier disque — jamais chargé entièrement en RAM (contrairement à
+// r2PutBuffer). Indispensable pour les gros fichiers (discours de plusieurs heures, parfois
+// plusieurs centaines de Mo) sur un serveur à mémoire partagée avec la messagerie Penc.
+async function r2PutFile(key, filePath, contentType) {
+  const { PutObjectCommand } = require('@aws-sdk/client-s3');
+  const fs = require('fs');
+  const size = fs.statSync(filePath).size;
+  const stream = fs.createReadStream(filePath);
+  await _r2Client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, Body: stream, ContentType: contentType, ContentLength: size }));
+  return R2_PUBLIC + '/' + key;
+}
 async function r2DeleteObject(key) {
   const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
   await _r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
@@ -4676,6 +4687,7 @@ let _pgPool = null;
       );
       CREATE INDEX IF NOT EXISTS idx_rlisten_station ON penc_radio_listens(station_id);
       CREATE INDEX IF NOT EXISTS idx_rlisten_user ON penc_radio_listens(user_id);
+      ALTER TABLE penc_radio_listens ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMPTZ DEFAULT NOW();
       CREATE TABLE IF NOT EXISTS penc_radio_fans (
         station_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (station_id, user_id)
@@ -8133,18 +8145,28 @@ async function _radResolveYouTube(fileUrl, trackIdForKey){
   }
   if(!info) throw lastErr || new Error('extraction impossible après 4 tentatives');
   console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
+  // Écrit directement sur disque au fil de l'eau — JAMAIS tout en mémoire. Un discours de
+  // plusieurs heures peut peser plusieurs centaines de Mo ; les accumuler entièrement en RAM
+  // avant l'upload (comme avant) risquait de faire déborder la mémoire du serveur — partagée
+  // avec la messagerie Penc — et provoquer exactement le genre de plantage déjà vécu par le passé.
+  const fs = require('fs'), os = require('os'), pathMod = require('path');
+  const tmpPath = pathMod.join(os.tmpdir(), 'radyt_' + trackIdForKey + '_' + Date.now() + '.m4a');
   const audioStream = ytdl.downloadFromInfo(info, Object.assign({ filter:'audioonly', quality:'highestaudio' }, ytdlOpts));
-  const chunks = [];
-  await new Promise((resolve, reject) => {
-    audioStream.on('data', c => chunks.push(c));
-    audioStream.on('end', resolve);
-    audioStream.on('error', reject);
-  });
-  const buf = Buffer.concat(chunks);
-  const key = 'penc/radio-yt/' + trackIdForKey + '_' + Date.now() + '.m4a';
-  const url = await r2PutBuffer(key, buf, 'audio/mp4');
-  console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', url);
-  return url;
+  try{
+    await new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(tmpPath);
+      audioStream.pipe(file);
+      audioStream.on('error', (e) => { file.close(); reject(e); });
+      file.on('error', reject);
+      file.on('finish', () => file.close(resolve));
+    });
+    const key = 'penc/radio-yt/' + trackIdForKey + '_' + Date.now() + '.m4a';
+    const url = await r2PutFile(key, tmpPath, 'audio/mp4'); // upload en flux, toujours pas de RAM
+    console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', url);
+    return url;
+  } finally {
+    try{ fs.unlinkSync(tmpPath); }catch(_ul){}
+  }
 }
 app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, async (req, res) => {
   try{
@@ -8170,7 +8192,7 @@ app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asy
       [id, req.params.id, title, rawUrl, (parseInt(maxOrder.rows[0].m,10)||0)+1, eventDate, location, contextNote]
     );
     res.json({ success:true, id, processing:true });
-    _radProcessNewTrackFull(id, req.params.id, title, rawUrl).catch(_pn => console.error('[radio-playlist] traitement complet échoué (' + id + '):', _pn.message));
+    _radEnqueueProcess(() => _radProcessNewTrackFull(id, req.params.id, title, rawUrl));
   }catch(e){ console.error('playlist add:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.delete('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req, res) => {
@@ -8210,7 +8232,7 @@ app.patch('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req,
     );
     if(urlChanged){
       res.json({ success:true, renormalizing:true });
-      _radProcessNewTrackFull(req.params.id, track.station_id, title, fileUrl).catch(_pn => console.error('[radio-playlist] pré-normalisation échouée (' + req.params.id + '):', _pn.message));
+      _radEnqueueProcess(() => _radProcessNewTrackFull(req.params.id, track.station_id, title, fileUrl));
       return;
     }
     res.json({ success:true, renormalizing:false });
@@ -8358,14 +8380,13 @@ async function _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId) {
     console.log('[radio-playlist] téléchargement terminé (' + sizeMo + ' Mo) — encodage en cours — piste=' + trackId);
     // Timeout d'encodage généreux (jusqu'à 45 min) pour les très longs discours (2h+).
     await _radNormalizeTrack(rawPath, normPath, 2700000);
-    const buf = fs.readFileSync(normPath);
     const key = 'penc/radio-normalized/' + trackId + '.mp3';
-    const url = await r2PutBuffer(key, buf, 'audio/mpeg');
+    const url = await r2PutFile(key, normPath, 'audio/mpeg');
     if (_pgPool) await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalized_url=$1, normalize_status=$2, normalize_error=NULL WHERE id=$3', [url, 'ready', trackId]);
     // Alimente aussi le cache disque local tout de suite : le tout premier auditeur n'aura même
     // pas besoin de retélécharger la version normalisée depuis R2.
     try { fs.copyFileSync(normPath, pathMod.join(_radCacheDir(), _radCacheKey(url) + '.mp3')); } catch (_cc) {}
-    console.log('[radio-playlist] traitement terminé — piste=' + trackId);
+    try { const mu = process.memoryUsage(); console.log('[radio-playlist] traitement terminé — piste=' + trackId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml2) { console.log('[radio-playlist] traitement terminé — piste=' + trackId); }
   } catch (e) {
     console.error('[radio-playlist] traitement ÉCHEC — piste=' + trackId + ':', e.message);
     if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
@@ -8378,6 +8399,17 @@ async function _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId) {
 // partie (ajout quasi-instantané) — ceci tourne entièrement en arrière-plan. Résout YouTube si
 // besoin, détecte la durée, génère l'annonce vocale, PUIS télécharge+normalise. Tout échec est
 // enregistré sur la piste (normalize_status='failed' + message) plutôt que silencieusement perdu. ──
+// ── File d'attente séquentielle pour tout traitement lourd de piste radio (téléchargement +
+// encodage, extraction YouTube) : une seule tâche à la fois, jamais en parallèle. Avant ça,
+// ajouter plusieurs discours coup sur coup lançait autant de traitements simultanés — chacun
+// pouvant consommer beaucoup de RAM (extraction YouTube, ffmpeg) — sur un serveur qui partage sa
+// mémoire avec la messagerie Penc. Une tâche qui échoue n'empêche pas les suivantes de tourner. ──
+let _radProcessQueue = Promise.resolve();
+function _radEnqueueProcess(taskFn) {
+  const run = () => taskFn().catch(e => console.error('[radio-playlist] tâche en file échouée:', e.message));
+  _radProcessQueue = _radProcessQueue.then(run, run); // continue même si la tâche précédente a levé une erreur
+  return _radProcessQueue;
+}
 async function _radProcessNewTrackFull(trackId, stationId, title, rawUrl) {
   try {
     if (_pgPool) { try { await _pgPool.query("UPDATE penc_radio_playlist_tracks SET normalize_status='running' WHERE id=$1", [trackId]); } catch (_us) {} }
@@ -8420,8 +8452,8 @@ async function _radBackfillNormalization() {
     console.log('[radio-playlist] rattrapage : ' + r.rows.length + ' piste(s) à traiter');
     for (const t of r.rows) {
       try {
-        if (t.duration_seconds > 0) await _radDownloadAndNormalizeOnly(t.id, t.file_url, t.station_id);
-        else await _radProcessNewTrackFull(t.id, t.station_id, t.title, t.file_url);
+        if (t.duration_seconds > 0) await _radEnqueueProcess(() => _radDownloadAndNormalizeOnly(t.id, t.file_url, t.station_id));
+        else await _radEnqueueProcess(() => _radProcessNewTrackFull(t.id, t.station_id, t.title, t.file_url));
       }
       catch (_bf) { console.error('[radio-playlist] rattrapage échec — piste=' + t.id + ':', _bf.message); }
     }
@@ -8603,6 +8635,59 @@ app.post('/api/penc/radio/listen/end', pencAuth, async (req, res) => {
     await _pgPool.query("UPDATE penc_radio_listens SET ended_at=NOW(), duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int) WHERE id=$1 AND user_id=$2",[req.body.id, req.pencUser.userId]);
     res.json({ success:true });
   }catch(e){ res.json({ success:true }); }
+});
+// ── Pouls régulier envoyé par le client tant qu'il écoute : sert à fermer proprement une session
+// si l'auditeur ferme l'app/le téléphone brutalement sans jamais appeler /listen/end (ce qui
+// laissait des sessions "ouvertes" indéfiniment, sans heure de sortie — c'est ce que Papa Seny
+// avait remarqué). ──
+app.post('/api/penc/radio/listen/heartbeat', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool || !req.body.id) return res.json({ success:true });
+    await _pgPool.query("UPDATE penc_radio_listens SET last_heartbeat=NOW() WHERE id=$1 AND user_id=$2 AND ended_at IS NULL",[req.body.id, req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.json({ success:true }); }
+});
+// ── Variante pour navigator.sendBeacon (fermeture d'onglet/app) : sendBeacon ne peut pas fixer
+// d'en-tête Authorization, donc pas de pencAuth ici — le token est vérifié manuellement depuis
+// le corps de la requête. Best-effort uniquement ; le pouls régulier + la fermeture automatique
+// après 90s d'inactivité couvrent déjà le cas où ce beacon n'arrive jamais. ──
+app.post('/api/penc/radio/listen/beacon', async (req, res) => {
+  try{
+    if(!_pgPool || !req.body || !req.body.id || !req.body.token) return res.json({ success:true });
+    let userId;
+    try{ userId = jwt_penc.verify(req.body.token, PENC_SECRET).userId; }catch(_jv){ return res.json({ success:true }); }
+    await _pgPool.query("UPDATE penc_radio_listens SET last_heartbeat=NOW() WHERE id=$1 AND user_id=$2 AND ended_at IS NULL",[req.body.id, userId]);
+    res.json({ success:true });
+  }catch(e){ res.json({ success:true }); }
+});
+// ── Fermeture automatique des sessions abandonnées : si aucun pouls depuis 90s, on considère
+// l'écoute terminée au moment du dernier pouls reçu (heure de sortie réelle, pas le moment de
+// ce nettoyage). Tourne toutes les 60s. ──
+async function _radCloseStaleListenSessions(){
+  try{
+    if(!_pgPool) return;
+    await _pgPool.query(
+      "UPDATE penc_radio_listens SET ended_at=last_heartbeat, duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (last_heartbeat-started_at))::int) WHERE ended_at IS NULL AND last_heartbeat < NOW() - INTERVAL '90 seconds'"
+    );
+  }catch(e){ console.error('[radio-listen] nettoyage sessions échoué:', e.message); }
+}
+setInterval(_radCloseStaleListenSessions, 60000);
+// ── Vue admin : sessions d'écoute récentes d'une station, avec heure d'entrée ET de sortie —
+// pour vérifier concrètement le suivi des auditeurs. ──
+app.get('/api/penc/admin/radio/stations/:id/sessions', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ sessions: [] });
+    const limit = Math.min(200, parseInt(req.query.limit,10) || 100);
+    const r = await _pgPool.query(
+      `SELECT l.id, l.user_id, u.full_name, u.username, l.started_at, l.ended_at, l.last_heartbeat,
+              COALESCE(l.duration_seconds, GREATEST(0,EXTRACT(EPOCH FROM (COALESCE(l.ended_at, l.last_heartbeat, NOW())-l.started_at))::int)) AS duration_seconds,
+              (l.ended_at IS NULL) AS still_open
+       FROM penc_radio_listens l LEFT JOIN penc_users u ON u.id=l.user_id
+       WHERE l.station_id=$1 ORDER BY l.started_at DESC LIMIT $2`,
+      [req.params.id, limit]
+    );
+    res.json({ sessions: r.rows });
+  }catch(e){ console.error('radio sessions:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Signalement d'une station qui ne démarre pas — notifie directement les admins Penc.
 app.post('/api/penc/radio/comments/:id/report', pencAuth, async (req, res) => {
