@@ -8042,49 +8042,53 @@ app.get('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, asyn
     res.json({ tracks: r.rows });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// Lien YouTube : on extrait l'audio et on l'héberge nous-mêmes sur R2 — un lien de flux
+// YouTube brut expire au bout de quelques heures, ce qui casserait la radio en boucle.
+// Partagée entre l'ajout ET la modification d'une piste (avant, seule la modification n'avait
+// pas cette étape, donc coller un nouveau lien YouTube en "Modifier" échouait systématiquement).
+async function _radResolveYouTube(fileUrl, trackIdForKey){
+  if(!/youtube\.com\/watch|youtu\.be\//.test(fileUrl)) return fileUrl;
+  const ytdl = require('@distube/ytdl-core');
+  if(!ytdl.validateURL(fileUrl)) throw new Error('Lien YouTube invalide');
+  // En-têtes proches d'un vrai navigateur — sans ça YouTube bloque très vite les requêtes
+  // du serveur avec une erreur 429 (trop de requêtes), les identifiant comme un robot.
+  const ytdlOpts = { requestOptions: { headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
+  } } };
+  let info = null, lastErr = null;
+  // Jusqu'à 4 tentatives avec des délais croissants — un 429 YouTube est un vrai cooldown
+  // de rate-limit (pas juste un raté ponctuel), 2-4s ne suffisent presque jamais à passer.
+  const _ytDelays = [5000, 15000, 30000];
+  for(let attempt = 1; attempt <= 4; attempt++){
+    try{ info = await ytdl.getInfo(fileUrl, ytdlOpts); break; }
+    catch(_gi){ lastErr = _gi; console.error('[radio-playlist] tentative ' + attempt + '/4 échouée:', _gi.message); if(attempt < 4) await new Promise(r => setTimeout(r, _ytDelays[attempt - 1])); }
+  }
+  if(!info) throw lastErr || new Error('extraction impossible après 4 tentatives');
+  console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
+  const audioStream = ytdl.downloadFromInfo(info, Object.assign({ filter:'audioonly', quality:'highestaudio' }, ytdlOpts));
+  const chunks = [];
+  await new Promise((resolve, reject) => {
+    audioStream.on('data', c => chunks.push(c));
+    audioStream.on('end', resolve);
+    audioStream.on('error', reject);
+  });
+  const buf = Buffer.concat(chunks);
+  const key = 'penc/radio-yt/' + trackIdForKey + '_' + Date.now() + '.m4a';
+  const url = await r2PutBuffer(key, buf, 'audio/mp4');
+  console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', url);
+  return url;
+}
 app.post('/api/penc/admin/radio/stations/:id/playlist', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
     const title = String((req.body && req.body.title) || '').trim().slice(0,120);
     let fileUrl = String((req.body && req.body.file_url) || '').trim();
     if(!title || !fileUrl) return res.status(400).json({ error:'Titre et URL du fichier requis' });
-    // Lien YouTube : on extrait l'audio et on l'héberge nous-mêmes sur R2 — un lien de flux
-    // YouTube brut expire au bout de quelques heures, ce qui casserait la radio en boucle.
-    if(/youtube\.com\/watch|youtu\.be\//.test(fileUrl)){
-      try{
-        const ytdl = require('@distube/ytdl-core');
-        if(!ytdl.validateURL(fileUrl)) return res.status(400).json({ error:'Lien YouTube invalide' });
-        // En-têtes proches d'un vrai navigateur — sans ça YouTube bloque très vite les requêtes
-        // du serveur avec une erreur 429 (trop de requêtes), les identifiant comme un robot.
-        const ytdlOpts = { requestOptions: { headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
-        } } };
-        let info = null, lastErr = null;
-        // Jusqu'à 4 tentatives avec des délais croissants — un 429 YouTube est un vrai cooldown
-        // de rate-limit (pas juste un raté ponctuel), 2-4s ne suffisent presque jamais à passer.
-        const _ytDelays = [5000, 15000, 30000];
-        for(let attempt = 1; attempt <= 4; attempt++){
-          try{ info = await ytdl.getInfo(fileUrl, ytdlOpts); break; }
-          catch(_gi){ lastErr = _gi; console.error('[radio-playlist] tentative ' + attempt + '/4 échouée:', _gi.message); if(attempt < 4) await new Promise(r => setTimeout(r, _ytDelays[attempt - 1])); }
-        }
-        if(!info) throw lastErr || new Error('extraction impossible après 4 tentatives');
-        console.log('[radio-playlist] extraction audio YouTube en cours:', fileUrl);
-        const audioStream = ytdl.downloadFromInfo(info, Object.assign({ filter:'audioonly', quality:'highestaudio' }, ytdlOpts));
-        const chunks = [];
-        await new Promise((resolve, reject) => {
-          audioStream.on('data', c => chunks.push(c));
-          audioStream.on('end', resolve);
-          audioStream.on('error', reject);
-        });
-        const buf = Buffer.concat(chunks);
-        const key = 'penc/radio-yt/' + req.params.id + '_' + Date.now() + '.m4a';
-        fileUrl = await r2PutBuffer(key, buf, 'audio/mp4');
-        console.log('[radio-playlist] audio YouTube extrait et hébergé sur R2:', fileUrl);
-      }catch(_yt){
-        console.error('[radio-playlist] extraction YouTube échouée:', _yt.message);
-        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). YouTube limite parfois les requêtes automatiques — réessaie dans quelques minutes, ou utilise un lien direct.' });
-      }
+    try{ fileUrl = await _radResolveYouTube(fileUrl, req.params.id); }
+    catch(_yt){
+      console.error('[radio-playlist] extraction YouTube échouée:', _yt.message);
+      return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). YouTube limite parfois les requêtes automatiques — réessaie dans quelques minutes, ou utilise un lien direct.' });
     }
     // Piège fréquent : coller le lien du LECTEUR intégré (embed) au lieu du fichier direct.
     if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
@@ -8141,6 +8145,11 @@ app.patch('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req,
     const urlChanged = fileUrl !== track.file_url;
     let duration = track.duration_seconds;
     if(urlChanged){
+      try{ fileUrl = await _radResolveYouTube(fileUrl, req.params.id); }
+      catch(_yt){
+        console.error('[radio-playlist] extraction YouTube échouée (modif):', _yt.message);
+        return res.status(400).json({ error:'Impossible d\u2019extraire l\u2019audio de cette vidéo YouTube (' + _yt.message + '). Réessaie dans quelques minutes, ou utilise un lien direct.' });
+      }
       if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com/.test(fileUrl)){
         return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
       }
@@ -8159,6 +8168,20 @@ app.patch('/api/penc/admin/radio/playlist/:id', pencAuth, pencAdmin, async (req,
     }
     res.json({ success:true, duration_seconds: duration, renormalizing: urlChanged });
   }catch(e){ console.error('playlist patch:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Réordonner les pistes d'une station : reçoit la liste complète des IDs dans le nouvel ordre
+// souhaité et réécrit sort_order en conséquence (façon "glisser-déposer" côté client, même si
+// l'UI utilise de simples flèches haut/bas plutôt qu'un vrai drag pour rester simple et fiable).
+app.patch('/api/penc/admin/radio/stations/:id/playlist/reorder', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const order = Array.isArray(req.body && req.body.track_ids) ? req.body.track_ids : null;
+    if(!order || !order.length) return res.status(400).json({ error:'Liste d\u2019ordre requise' });
+    await Promise.all(order.map((trackId, i) =>
+      _pgPool.query('UPDATE penc_radio_playlist_tracks SET sort_order=$1 WHERE id=$2 AND station_id=$3', [i, trackId, req.params.id])
+    ));
+    res.json({ success:true });
+  }catch(e){ console.error('playlist reorder:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Jingle de la station ("Vous écoutez X sur DeglouFM de Penc...") — inséré automatiquement
 // avant CHAQUE piste par le flux en boucle, comme un vrai habillage radio.
@@ -8340,7 +8363,7 @@ async function _radStartBroadcast(stationId) {
   const workDir = pathMod.join(os.tmpdir(), 'radwork_' + stationId);
   try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_rm) {}
   fs.mkdirSync(workDir, { recursive: true });
-  const localTracks = [];
+  const localTracks = []; // { path, duration } — duration de la piste réellement mise en cache
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
     // Priorité à la version déjà normalisée (encodée une fois à l'ajout, stockée sur R2) — le
@@ -8352,7 +8375,7 @@ async function _radStartBroadcast(stationId) {
         // Déjà téléchargée/normalisée lors d'une diffusion précédente sur cette instance — pas
         // besoin de tout refaire à chaque redémarrage (dernier auditeur parti puis quelqu'un
         // revient) : c'est ÇA qui bloquait le direct plusieurs minutes sur les longs discours.
-        localTracks.push(cachePath);
+        localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
         continue;
       }
       const ext = (String(sourceUrl).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [, 'mp3'])[1].toLowerCase();
@@ -8371,20 +8394,42 @@ async function _radStartBroadcast(stationId) {
         await _radNormalizeTrack(dest, cachePath, 1200000);
         try { fs.unlinkSync(dest); } catch (_ud) {}
       }
-      localTracks.push(cachePath);
+      localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
     } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', sourceUrl, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
 
+  // ── Synchronisation horloge serveur : calcule où la diffusion "devrait en être" en ce moment,
+  // comme une vraie radio 24h/24 — pour que tout le monde tombe au même endroit en se connectant,
+  // qu'il soit le premier auditeur depuis des heures ou le dixième. On fait tourner ffmpeg
+  // UNIQUEMENT quand il y a au moins un auditeur (pas de processus 24/7 permanent, qui avait
+  // causé l'incident mémoire du 21/07) ; la rotation ci-dessous donne exactement le même résultat
+  // perçu par l'auditeur — une infinité de cette liste réordonnée équivaut à la vraie playlist qui
+  // aurait tourné sans interruption depuis toujours. ──
+  const loopDuration = localTracks.reduce((s, x) => s + (x.duration || 0), 0);
+  let startIdx = 0, seekOffset = 0;
+  if (loopDuration > 0) {
+    const elapsed = (Date.now() / 1000) % loopDuration;
+    let acc = 0;
+    for (let i = 0; i < localTracks.length; i++) {
+      const d = localTracks[i].duration || 0;
+      if (elapsed < acc + d) { startIdx = i; seekOffset = Math.max(0, elapsed - acc); break; }
+      acc += d;
+    }
+  }
+  const rotated = localTracks.slice(startIdx).concat(localTracks.slice(0, startIdx));
+
   const listFile = pathMod.join(workDir, 'playlist.txt');
-  const listContent = localTracks.map(p => "file '" + p.replace(/'/g, "'\\''") + "'").join('\n');
+  const listContent = rotated.map(x => "file '" + x.path.replace(/'/g, "'\\''") + "'").join('\n');
   fs.writeFileSync(listFile, listContent);
 
   const hub = new PassThrough();
   let ffmpegPath = 'ffmpeg';
   try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
   const { spawn } = require('child_process');
-  const args = [
+  const args = [];
+  if (seekOffset > 0.5) args.push('-ss', seekOffset.toFixed(2));
+  args.push(
     '-stream_loop', '-1',
     '-f', 'concat', '-safe', '0',
     '-i', listFile,
@@ -8392,7 +8437,7 @@ async function _radStartBroadcast(stationId) {
     '-vn',
     '-f', 'mp3',
     'pipe:1'
-  ];
+  );
   const cmd = spawn(ffmpegPath, args);
   cmd.stdout.pipe(hub);
   let _lastStderr = '';
@@ -8402,7 +8447,7 @@ async function _radStartBroadcast(stationId) {
 
   const b = { hub, cmd, listenerCount: 0, stopTimer: null };
   _radBroadcasts[stationId] = b;
-  try { const mu = process.memoryUsage(); console.log('[radio-live] nouvelle diffusion démarrée (pistes locales: ' + localTracks.length + '/' + tracks.length + ') — station=' + stationId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml) {}
+  try { const mu = process.memoryUsage(); console.log('[radio-live] nouvelle diffusion démarrée (pistes locales: ' + localTracks.length + '/' + tracks.length + ', position synchronisée à la piste #' + (startIdx + 1) + ' +' + Math.round(seekOffset) + 's) — station=' + stationId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml) {}
   return b;
 }
 
