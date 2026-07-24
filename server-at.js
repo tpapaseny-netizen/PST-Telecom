@@ -4236,8 +4236,16 @@ const RAD_LIVE_STREAM_DISABLED = false;
 // Relevé le 21/07/2026 après upgrade RAM (2 Go) — assez généreux pour ne jamais gêner de vrais
 // auditeurs, tout en gardant un plafond au cas où, vu l'historique de plantages de la nuit.
 const RAD_MAX_CONCURRENT_STREAMS = 20;
+let _radMemLogCounter = 0;
 setInterval(() => {
-  try{ const mu=process.memoryUsage(); var _nbBroadcasts=Object.keys(_radBroadcasts||{}).length; var _nbListeners=Object.values(_radBroadcasts||{}).reduce(function(s,x){return s+x.listenerCount;},0); console.log('[memoire] base — RAM: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), diffusions radio actives: '+_nbBroadcasts+', auditeurs: '+_nbListeners); }catch(_e){}
+  try{
+    const mu=process.memoryUsage(); var _nbBroadcasts=Object.keys(_radBroadcasts||{}).length; var _nbListeners=Object.values(_radBroadcasts||{}).reduce(function(s,x){return s+x.listenerCount;},0);
+    const rssMb = Math.round(mu.rss/1024/1024);
+    console.log('[memoire] base — RAM: '+rssMb+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), diffusions radio actives: '+_nbBroadcasts+', auditeurs: '+_nbListeners);
+    // Une entrée sur trois seulement (~15 min) dans le journal persistant, pour garder une
+    // tendance mémoire dans le temps sans faire grossir la table pour rien.
+    if(++_radMemLogCounter % 3 === 0){ _pencLog('info', 'memory', 'RAM: ' + rssMb + ' Mo, diffusions: ' + _nbBroadcasts + ', auditeurs: ' + _nbListeners, { rssMb, heapMb: Math.round(mu.heapUsed/1024/1024), broadcasts: _nbBroadcasts, listeners: _nbListeners }); }
+  }catch(_e){}
 }, 5*60000);
 // ── Coupe-circuit mémoire : la messagerie Penc (appels, chat, statuts) est PRIORITAIRE sur la
 // radio — si la RAM totale du processus approche la limite du plan Render, on coupe d'abord
@@ -4255,6 +4263,7 @@ setInterval(() => {
       const stationIds = Object.keys(_radBroadcasts || {});
       if (stationIds.length) {
         console.error('[coupe-circuit] RAM à ' + rssMb + ' Mo (seuil ' + RAD_MEMORY_CIRCUIT_BREAKER_MB + ' Mo) — arrêt forcé de ' + stationIds.length + ' diffusion(s) radio pour protéger la messagerie.');
+        _pencLog('error', 'coupe-circuit', 'RAM à ' + rssMb + ' Mo — arrêt forcé de ' + stationIds.length + ' diffusion(s) radio', { rssMb, stationIds });
         stationIds.forEach(id => { try { _radStopBroadcast(id); } catch (_sb) {} });
         _radCircuitBreakerTripped = true;
       }
@@ -4713,6 +4722,16 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_rlisten_station ON penc_radio_listens(station_id);
       CREATE INDEX IF NOT EXISTS idx_rlisten_user ON penc_radio_listens(user_id);
       ALTER TABLE penc_radio_listens ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMPTZ DEFAULT NOW();
+      CREATE TABLE IF NOT EXISTS penc_system_logs (
+        id            BIGSERIAL PRIMARY KEY,
+        level         TEXT NOT NULL,
+        source        TEXT NOT NULL,
+        message       TEXT NOT NULL,
+        meta          JSONB,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_syslog_created ON penc_system_logs(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_syslog_level ON penc_system_logs(level);
       CREATE TABLE IF NOT EXISTS penc_radio_fans (
         station_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(),
         PRIMARY KEY (station_id, user_id)
@@ -5005,6 +5024,35 @@ let _pgPool = null;
     }
   }catch(e){ console.error('❌ PostgreSQL Penc erreur:', e.message); _pgPool=null; }
 })();
+// ── Journal système persistant : contrairement aux logs Render (qui disparaissent au redémarrage
+// et sont pénibles à parcourir après un crash), ce journal survit dans la base et reste
+// consultable depuis l'admin de l'app — pour vérifier soi-même ce qui a précédé une panne, sans
+// dépendre du dashboard Render. Toujours en plus de console.log/error (pas à la place). ──
+async function _pencLog(level, source, message, meta){
+  try{ console[level === 'error' ? 'error' : (level === 'warn' ? 'warn' : 'log')]('[' + source + '] ' + message); }catch(_c){}
+  try{
+    if(!_pgPool) return;
+    await _pgPool.query(
+      'INSERT INTO penc_system_logs(level, source, message, meta) VALUES($1,$2,$3,$4)',
+      [level, source, String(message).slice(0, 2000), meta ? JSON.stringify(meta).slice(0, 4000) : null]
+    );
+  }catch(_l){ /* ne jamais faire planter l'appelant à cause d'un souci de log */ }
+}
+// Capture les crashs les plus graves — ceux qui, avant, ne laissaient qu'un message perdu dans
+// les logs Render éphémères. On journalise puis on laisse Node quitter normalement (ne PAS
+// avaler l'erreur : un uncaughtException laisse le process dans un état incertain, mieux vaut
+// que Render le redémarre proprement que de continuer à tourner cassé).
+process.on('uncaughtException', function(err){
+  console.error('[process] uncaughtException:', err && err.stack || err);
+  _pencLog('error', 'process', 'uncaughtException: ' + (err && err.message || String(err)), { stack: err && err.stack });
+  setTimeout(function(){ process.exit(1); }, 400); // laisse le temps à l'écriture DB de partir
+});
+process.on('unhandledRejection', function(reason){
+  console.error('[process] unhandledRejection:', reason);
+  _pencLog('error', 'process', 'unhandledRejection: ' + (reason && reason.message || String(reason)), { stack: reason && reason.stack });
+});
+// Nettoyage : ne garde que 14 jours d'historique, pour ne jamais laisser la table grossir sans fin.
+setInterval(() => { if(_pgPool) _pgPool.query("DELETE FROM penc_system_logs WHERE created_at < NOW() - INTERVAL '14 days'").catch(()=>{}); }, 6*3600000);
 
 // ── Helpers PostgreSQL ──────────────────────────────────────
 function pgRow(row){ if(!row) return null;
@@ -8414,6 +8462,7 @@ async function _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId) {
     try { const mu = process.memoryUsage(); console.log('[radio-playlist] traitement terminé — piste=' + trackId + ' RAM: ' + Math.round(mu.rss / 1024 / 1024) + ' Mo'); } catch (_ml2) { console.log('[radio-playlist] traitement terminé — piste=' + trackId); }
   } catch (e) {
     console.error('[radio-playlist] traitement ÉCHEC — piste=' + trackId + ':', e.message);
+    _pencLog('warn', 'radio-playlist', 'Échec traitement piste ' + trackId + ': ' + e.message, { trackId, stationId });
     if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
     throw e;
   } finally {
@@ -8462,6 +8511,7 @@ async function _radProcessNewTrackFull(trackId, stationId, title, rawUrl) {
     await _radDownloadAndNormalizeOnly(trackId, fileUrl, stationId);
   } catch (e) {
     console.error('[radio-playlist] traitement complet ÉCHEC — piste=' + trackId + ':', e.message);
+    _pencLog('warn', 'radio-playlist', 'Échec pipeline complet piste ' + trackId + ': ' + e.message, { trackId, stationId });
     if (_pgPool) { try { await _pgPool.query('UPDATE penc_radio_playlist_tracks SET normalize_status=$1, normalize_error=$2 WHERE id=$3', ['failed', String(e.message).slice(0, 300), trackId]); } catch (_ue) {} }
   }
 }
@@ -8714,7 +8764,23 @@ app.get('/api/penc/admin/radio/stations/:id/sessions', pencAuth, pencAdmin, asyn
     res.json({ sessions: r.rows });
   }catch(e){ console.error('radio sessions:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
-// Signalement d'une station qui ne démarre pas — notifie directement les admins Penc.
+// ── Journal système admin : pour détecter les pannes directement depuis l'app, sans dépendre du
+// dashboard Render (dont les logs disparaissent au redémarrage). Couvre toute l'application —
+// crashs process, coupe-circuit mémoire, échecs radio, etc. — pas seulement la radio. ──
+app.get('/api/penc/admin/system-logs', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ logs: [] });
+    const limit = Math.min(300, parseInt(req.query.limit,10) || 150);
+    const level = req.query.level && ['error','warn','info'].includes(req.query.level) ? req.query.level : null;
+    const r = await _pgPool.query(
+      'SELECT id, level, source, message, meta, created_at FROM penc_system_logs'
+      + (level ? ' WHERE level=$1' : '')
+      + ' ORDER BY created_at DESC LIMIT ' + (level ? '$2' : '$1'),
+      level ? [level, limit] : [limit]
+    );
+    res.json({ logs: r.rows });
+  }catch(e){ console.error('system-logs:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.post('/api/penc/radio/comments/:id/report', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
