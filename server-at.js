@@ -4239,6 +4239,31 @@ const RAD_MAX_CONCURRENT_STREAMS = 20;
 setInterval(() => {
   try{ const mu=process.memoryUsage(); var _nbBroadcasts=Object.keys(_radBroadcasts||{}).length; var _nbListeners=Object.values(_radBroadcasts||{}).reduce(function(s,x){return s+x.listenerCount;},0); console.log('[memoire] base — RAM: '+Math.round(mu.rss/1024/1024)+' Mo (heap: '+Math.round(mu.heapUsed/1024/1024)+' Mo), diffusions radio actives: '+_nbBroadcasts+', auditeurs: '+_nbListeners); }catch(_e){}
 }, 5*60000);
+// ── Coupe-circuit mémoire : la messagerie Penc (appels, chat, statuts) est PRIORITAIRE sur la
+// radio — si la RAM totale du processus approche la limite du plan Render, on coupe d'abord
+// TOUTES les diffusions radio en direct (le poste le plus gourmand et le plus "sacrifiable")
+// avant qu'un vrai plantage (OOM kill) ne coupe TOUT, y compris la messagerie. Vérifié toutes les
+// 30s ; se redéclenche automatiquement si la RAM redescend puis remonte. Seuil à 1,6 Go, en
+// dessous des 2 Go du plan Standard, pour réagir avant que Render ne tue le processus lui-même.
+const RAD_MEMORY_CIRCUIT_BREAKER_MB = 1600;
+let _radCircuitBreakerTripped = false;
+setInterval(() => {
+  try{
+    const mu = process.memoryUsage();
+    const rssMb = Math.round(mu.rss / 1024 / 1024);
+    if (rssMb >= RAD_MEMORY_CIRCUIT_BREAKER_MB) {
+      const stationIds = Object.keys(_radBroadcasts || {});
+      if (stationIds.length) {
+        console.error('[coupe-circuit] RAM à ' + rssMb + ' Mo (seuil ' + RAD_MEMORY_CIRCUIT_BREAKER_MB + ' Mo) — arrêt forcé de ' + stationIds.length + ' diffusion(s) radio pour protéger la messagerie.');
+        stationIds.forEach(id => { try { _radStopBroadcast(id); } catch (_sb) {} });
+        _radCircuitBreakerTripped = true;
+      }
+    } else if (_radCircuitBreakerTripped && rssMb < RAD_MEMORY_CIRCUIT_BREAKER_MB - 200) {
+      console.log('[coupe-circuit] RAM redescendue à ' + rssMb + ' Mo — radio de nouveau autorisée.');
+      _radCircuitBreakerTripped = false;
+    }
+  }catch(_cb){}
+}, 30000);
 let _radRecordingLoops = {}; // station_id -> true pendant que la boucle tourne
 
 async function _radRecordOneHour(station) {
