@@ -11078,6 +11078,8 @@ io.on('connection', async (socket) => {
     }catch(e){}
   });
   socket.on('meet:chat', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; const rep=(d&&d.reply&&d.reply.name)?{name:String(d.reply.name).slice(0,40),text:String(d.reply.text||'').slice(0,120)}:null; io.to('meet_'+code).emit('meet:chat',{ from:socket.id, name:nm, text:String((d&&d.text)||'').slice(0,500), reply:rep, ts:Date.now() }); }catch(e){} });
+  // Sous-titres en direct : avant, ce relais n'existait pas du tout -- chacun ne voyait que ses PROPRES sous-titres, jamais ceux des autres. Corrige.
+  socket.on('meet:caption', (d)=>{ try{ const code=socket._meetCode; if(!code) return; const room=_meetRooms[code]; const nm=(room&&room.peers[socket.id]&&room.peers[socket.id].name)||'Participant'; socket.to('meet_'+code).emit('meet:caption',{ name:nm, text:String((d&&d.text)||'').slice(0,500), lang:(d&&d.lang)||'' }); }catch(e){} });
   socket.on('meet:state', (d)=>{ try{ const code=socket._meetCode; if(!code) return; socket.to('meet_'+code).emit('meet:state',{ sid:socket.id, audio:!!(d&&d.audio), video:!!(d&&d.video), hand:!!(d&&d.hand), screen:!!(d&&d.screen) }); }catch(e){} });
   const _meetLeave=()=>{ try{ if(socket._meetPend){ const rp=_meetRooms[socket._meetPend]; if(rp&&rp.pending) delete rp.pending[socket.id]; socket._meetPend=null; } const code=socket._meetCode; if(!code) return; socket._meetCode=null; const room=_meetRooms[code]; let nm=''; if(room){ nm=(room.peers[socket.id]&&room.peers[socket.id].name)||''; delete room.peers[socket.id]; if(room.hostSid===socket.id) room.hostSid=null; if(!Object.keys(room.peers).length&&!Object.keys(room.pending||{}).length) delete _meetRooms[code]; } socket.leave('meet_'+code); socket.to('meet_'+code).emit('meet:peer-left',{ sid:socket.id, name:nm }); try{ if(_pgPool&&socket._meetHistId){ _pgPool.query('UPDATE penc_meet_history SET left_at=NOW() WHERE id=$1',[socket._meetHistId]).catch(()=>{}); socket._meetHistId=null; } }catch(_lh){} }catch(e){} };
   socket.on('meet:leave', _meetLeave);
@@ -11310,6 +11312,12 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('call:busy', ({target_id}) => {
     emitToUser(target_id,'call:busy',{by:pencUserId});
+  });
+  // Sous-titres en direct (1-à-1) : transcription faite localement chez chacun (Web Speech API,
+  // gratuit, aucun coût serveur) — le serveur se contente de relayer le texte à l'autre personne.
+  socket.on('call:caption', ({target_id, text, lang}) => {
+    if(!target_id || !text) return;
+    emitToUser(target_id, 'call:caption', { from: pencUserId, text: String(text).slice(0,500), lang: lang || null });
   });
   socket.on('conversation:join', ({ conversation_id }) => {
     if (conversation_id) socket.join('penc:' + conversation_id);
