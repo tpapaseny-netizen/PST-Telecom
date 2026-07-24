@@ -4297,9 +4297,15 @@ async function _radRecordOneHour(station) {
   try {
     if (fs.existsSync(tmpFile)) {
       const stat = fs.statSync(tmpFile);
-      if (stat.size > 200000) { // ignore les tranches quasi-vides (flux tombé dès le départ)
+      const durationSec = Math.round((Date.now() - startedAt.getTime()) / 1000);
+      // Seuil relevé : avant, un segment de seulement ~25s (200 Ko à 64kbps) suffisait pour être
+      // publié comme "tranche" de replay — un simple accroc réseau côté radio source (ou un
+      // redémarrage serveur en cours d'enregistrement) suffisait alors à créer une tranche
+      // minuscule que l'auditeur découvrait en pleine lecture, donnant l'impression que "ça se
+      // coupe en plein milieu". Sous 5 minutes, on considère le segment raté et on l'ignore.
+      const MIN_VIABLE_SECONDS = 300;
+      if (stat.size > 200000 && durationSec >= MIN_VIABLE_SECONDS) {
         const buffer = fs.readFileSync(tmpFile);
-        const durationSec = Math.round((Date.now() - startedAt.getTime()) / 1000);
         const key = 'penc/radio-replay/' + station.id + '/' + startedAt.getTime() + '.mp3';
         const url = await r2PutBuffer(key, buffer, 'audio/mpeg');
         const id = 'rrec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -4310,6 +4316,9 @@ async function _radRecordOneHour(station) {
           );
         }
         console.log('[radio-replay]', station.name, '- tranche enregistrée (' + durationSec + 's)');
+      } else if (stat.size > 0) {
+        console.error('[radio-replay] ' + station.name + ' — segment trop court ignoré (' + durationSec + 's, ' + Math.round(stat.size / 1024) + ' Ko) — accroc réseau ou interruption pendant l\u2019enregistrement.');
+        _pencLog('warn', 'radio-replay', station.name + ' — segment ignoré (trop court : ' + durationSec + 's)', { stationId: station.id, durationSec, sizeBytes: stat.size });
       }
     }
   } catch (e) { console.error('[radio-replay] upload:', e.message); }
