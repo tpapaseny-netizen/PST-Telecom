@@ -8362,6 +8362,11 @@ function _radStopBroadcast(stationId) {
   const b = _radBroadcasts[stationId];
   if (!b) return;
   try { clearTimeout(b.stopTimer); } catch (_t) {}
+  // Détache d'abord le flux ffmpeg du hub — avant de tuer le processus — pour qu'aucune donnée
+  // encore en vol ne tente d'atteindre un hub sur le point d'être fermé (source du "write after
+  // end" qui plantait tout le process). Le gestionnaire d'erreur sur le hub reste en filet de
+  // sécurité en plus de ça.
+  try { if (b.cmd && b.cmd.stdout) b.cmd.stdout.unpipe(b.hub); } catch (_up) {}
   try { b.cmd.kill('SIGKILL'); } catch (_k) {}
   try { b.hub.end(); } catch (_h) {}
   delete _radBroadcasts[stationId];
@@ -8608,6 +8613,12 @@ async function _radStartBroadcast(stationId) {
   fs.writeFileSync(listFile, listContent);
 
   const hub = new PassThrough();
+  // Filet de sécurité critique : sans ce gestionnaire, une écriture sur le hub après sa fermeture
+  // (SIGKILL vs fin de flux ffmpeg — ordre non garanti) émet une erreur non interceptée qui, sans
+  // ça, FAIT PLANTER TOUT LE PROCESSUS Node — coupant net toutes les connexions en cours (dont
+  // les messages vocaux en cours de lecture ailleurs dans l'app). C'est très probablement la
+  // cause des crashs "write after end" vus dans le journal système.
+  hub.on('error', (err) => { console.error('[radio-live] erreur hub (absorbée, pas de crash) — station=' + stationId + ':', err.message); });
   let ffmpegPath = 'ffmpeg';
   try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
   const { spawn } = require('child_process');
