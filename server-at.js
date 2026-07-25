@@ -7174,7 +7174,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           other_user_id: otherId,
           name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null,
-          last_message: last ? { content: last.content, type: last.type, created_at: last.created_at } : null,
+          last_message: last ? { content: last.content, type: last.type, created_at: last.created_at, delivered_at: last.delivered_at, read_at: last.read_at, sender_id: last.sender_id } : null,
           updated_at: c.updated_at,
           pinned: _pinnedIds.has(c.id),
           muted: _mutedIds.has(c.id),
