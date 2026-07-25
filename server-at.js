@@ -4765,6 +4765,8 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS is_business BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_name TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_description TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_autoreply_enabled BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_autoreply_message TEXT;
       ALTER TABLE penc_listings ADD COLUMN IF NOT EXISTS is_catalog_item BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_sticker_packs (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, price_fcfa INTEGER DEFAULT 0, preview_url TEXT,
@@ -4846,6 +4848,11 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
       CREATE INDEX IF NOT EXISTS idx_ps_expires ON penc_statuses(expires_at);
       CREATE TABLE IF NOT EXISTS penc_channels (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_communities (
         id TEXT PRIMARY KEY,
         data JSONB NOT NULL,
         updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -8876,6 +8883,43 @@ app.post('/api/penc/radio/stations/:id/reaction', pencAuth, async (req, res) => 
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // ── Statistiques d'écoute personnelles. ──
+// -- Badges de fidelite : calcules a la volee a partir des donnees existantes (messages, anciennete
+// du compte, ecoute radio, contacts, creation de contenu) -- pas de nouvelle table d'evenements a
+// maintenir, juste une lecture ponctuelle quand l'utilisateur consulte ses badges. --
+const PENC_BADGE_DEFS = [
+  { id:'first_msg', label:'Premier message', icon:'\ud83d\udcac', check: s => s.msg_count >= 1 },
+  { id:'chatty', label:'Bavard(e)', icon:'\ud83d\udde3\ufe0f', check: s => s.msg_count >= 100 },
+  { id:'veteran', label:'V\u00e9t\u00e9ran', icon:'\ud83c\udf96\ufe0f', check: s => s.account_days >= 90 },
+  { id:'pioneer', label:'Pionnier(\u00e8re)', icon:'\ud83d\ude80', check: s => s.account_days >= 180 },
+  { id:'melomane', label:'M\u00e9lomane', icon:'\ud83c\udfb6', check: s => s.radio_hours >= 10 },
+  { id:'radio_fan', label:'Fan absolu de radio', icon:'\ud83d\udcfb', check: s => s.radio_hours >= 50 },
+  { id:'social', label:'Social(e)', icon:'\ud83e\udd1d', check: s => s.friend_count >= 10 },
+  { id:'creator', label:'Cr\u00e9ateur(rice)', icon:'\u2728', check: s => s.created_channels >= 1 },
+  { id:'entrepreneur', label:'Entrepreneur(e)', icon:'\ud83d\udcbc', check: s => s.is_business },
+];
+app.get('/api/penc/my-badges', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ badges: [] });
+    const uid = req.pencUser.userId;
+    const u = await pgFindUser('id', uid);
+    const msgCount = await _pgPool.query('SELECT COUNT(*) AS n FROM penc_messages WHERE sender_id=$1',[uid]);
+    const radio = await _pgPool.query('SELECT COALESCE(SUM(duration_seconds),0) AS s FROM penc_radio_listens WHERE user_id=$1',[uid]);
+    const friends = await _pgPool.query("SELECT COUNT(*) AS n FROM penc_friendships WHERE (requester=$1 OR recipient=$1) AND status='accepted'",[uid]);
+    const channels = await pencChannels();
+    const createdChannels = channels.filter(ch => String(ch.creator_id)===String(uid)).length;
+    const accountDays = u && u.created_at ? Math.floor((Date.now() - new Date(u.created_at).getTime())/86400000) : 0;
+    const stats = {
+      msg_count: parseInt(msgCount.rows[0].n,10)||0,
+      radio_hours: (parseInt(radio.rows[0].s,10)||0)/3600,
+      account_days: accountDays,
+      friend_count: parseInt(friends.rows[0].n,10)||0,
+      created_channels: createdChannels,
+      is_business: !!(u && u.is_business),
+    };
+    const badges = PENC_BADGE_DEFS.map(b => ({ id:b.id, label:b.label, icon:b.icon, earned: !!b.check(stats) }));
+    res.json({ badges, earned_count: badges.filter(b=>b.earned).length, total_count: badges.length });
+  }catch(e){ console.error('my-badges:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.get('/api/penc/radio/my-stats', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ total_seconds:0, month_seconds:0, distinct_stations:0, favorite:null });
@@ -9491,8 +9535,22 @@ app.get('/api/penc/business/status', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ is_business:false });
     const u = await pgFindUser('id', req.pencUser.userId);
-    res.json({ is_business: !!(u && u.is_business), business_name: u && u.business_name, business_description: u && u.business_description });
+    res.json({ is_business: !!(u && u.is_business), business_name: u && u.business_name, business_description: u && u.business_description, autoreply_enabled: !!(u && u.business_autoreply_enabled), autoreply_message: u && u.business_autoreply_message });
   }catch(e){ res.json({ is_business:false }); }
+});
+// ── Réponses automatiques : complète le Compte Business existant. Libre-service, comme le reste. ──
+app.post('/api/penc/business/autoreply', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const u = await pgFindUser('id', uid);
+    if(!u || !u.is_business) return res.status(400).json({ error:'Active d\u2019abord ton Compte Business' });
+    const enabled = !!(req.body && req.body.enabled);
+    const message = String((req.body && req.body.message) || '').trim().slice(0,500);
+    if(enabled && !message) return res.status(400).json({ error:'Écris un message de réponse automatique' });
+    await _pgPool.query('UPDATE penc_users SET business_autoreply_enabled=$1, business_autoreply_message=$2 WHERE id=$3',[enabled, message||null, uid]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // Catalogue public d'une boutique : ses annonces actives, marquées comme "articles de catalogue"
 // (une distinction volontaire — un vendeur particulier peut aussi publier des annonces normales
@@ -10635,6 +10693,108 @@ async function pgSaveChannels(arr){
   if(ids.length) await _pgPool.query("DELETE FROM penc_channels WHERE NOT (id = ANY($1))",[ids]);
   else await _pgPool.query("DELETE FROM penc_channels");
 }
+// -- Communautes : regroupent plusieurs canaux existants sous un meme espace (ex: un espace
+// "SOCOCIM" avec un canal par site). Meme schema leger que les canaux (JSONB), pas de nouvelle
+// table de membres -- l'appartenance se deduit d'etre abonne a au moins un canal lie. --
+async function pencCommunities(){
+  if(!_pgPool) return [];
+  const r = await _pgPool.query("SELECT data FROM penc_communities ORDER BY (data->>'created_at') ASC NULLS LAST");
+  return r.rows.map(row => row.data);
+}
+async function pencSaveCommunity(c){
+  if(!_pgPool) return;
+  await _pgPool.query("INSERT INTO penc_communities(id,data,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(id) DO UPDATE SET data=$2, updated_at=NOW()",[c.id, JSON.stringify(c)]);
+}
+app.get('/api/penc/communities', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const communities=await pencCommunities();
+    const channels=await pencChannels();
+    const mine = communities.filter(c => {
+      if(String(c.creator_id)===String(uid) || (c.admins||[]).map(String).includes(String(uid))) return true;
+      const linked = channels.filter(ch => (c.channel_ids||[]).includes(ch.id));
+      return linked.some(ch => (ch.followers||[]).map(String).includes(String(uid)));
+    }).map(c => ({...c, channel_count:(c.channel_ids||[]).length, is_admin:String(c.creator_id)===String(uid)||(c.admins||[]).map(String).includes(String(uid))}));
+    res.json({communities:mine});
+  }catch(e){ console.error('communities list:',e.message); res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/communities', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const {name,description,icon_url}=req.body;
+    if(!name||name.trim().length<2) return res.status(400).json({error:'Nom requis (2 car. min)'});
+    const c={id:'cty_'+Date.now(),name:name.trim().slice(0,80),description:(description||'').trim().slice(0,300),icon_url:icon_url||null,creator_id:uid,admins:[],channel_ids:[],created_at:new Date().toISOString()};
+    await pencSaveCommunity(c);
+    res.json({success:true,community:c});
+  }catch(e){ console.error('community create:',e.message); res.status(500).json({error:'Erreur serveur'}); }
+});
+app.get('/api/penc/communities/:id', pencAuth, async (req,res) => {
+  try{
+    const communities=await pencCommunities();
+    const c=communities.find(x=>x.id===req.params.id);
+    if(!c) return res.status(404).json({error:'Communaute introuvable'});
+    const channels=await pencChannels();
+    const linked=channels.filter(ch=>(c.channel_ids||[]).includes(ch.id)).map(ch=>({id:ch.id,name:ch.name,icon_url:ch.icon_url,follower_count:(ch.followers||[]).length,type:ch.type||'broadcast'}));
+    res.json({community:c, channels:linked});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/communities/:id/channels', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const communities=await pencCommunities();
+    const c=communities.find(x=>x.id===req.params.id);
+    if(!c) return res.status(404).json({error:'Communaute introuvable'});
+    const _isCtyAdmin=String(c.creator_id)===String(uid)||(c.admins||[]).map(String).includes(String(uid));
+    if(!_isCtyAdmin) return res.status(403).json({error:'Reserve aux administrateurs de la communaute'});
+    const channels=await pencChannels();
+    const ch=channels.find(x=>x.id===req.body.channel_id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    const _isChAdmin=String(ch.creator_id)===String(uid)||(ch.admins||[]).map(String).includes(String(uid));
+    if(!_isChAdmin) return res.status(403).json({error:'Tu dois etre administrateur de ce canal pour le rattacher'});
+    if(!c.channel_ids) c.channel_ids=[];
+    if(!c.channel_ids.includes(ch.id)) c.channel_ids.push(ch.id);
+    await pencSaveCommunity(c);
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.delete('/api/penc/communities/:id/channels/:chId', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const communities=await pencCommunities();
+    const c=communities.find(x=>x.id===req.params.id);
+    if(!c) return res.status(404).json({error:'Communaute introuvable'});
+    const _isCtyAdmin=String(c.creator_id)===String(uid)||(c.admins||[]).map(String).includes(String(uid));
+    if(!_isCtyAdmin) return res.status(403).json({error:'Reserve aux administrateurs de la communaute'});
+    c.channel_ids=(c.channel_ids||[]).filter(id=>id!==req.params.chId);
+    await pencSaveCommunity(c);
+    res.json({success:true});
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+app.post('/api/penc/communities/:id/announce', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const {content}=req.body;
+    if(!content||!content.trim()) return res.status(400).json({error:'Message vide'});
+    const communities=await pencCommunities();
+    const c=communities.find(x=>x.id===req.params.id);
+    if(!c) return res.status(404).json({error:'Communaute introuvable'});
+    const _isCtyAdmin=String(c.creator_id)===String(uid)||(c.admins||[]).map(String).includes(String(uid));
+    if(!_isCtyAdmin) return res.status(403).json({error:'Reserve aux administrateurs de la communaute'});
+    const channels=await pencChannels();
+    let count=0;
+    for(const ch of channels){
+      if(!(c.channel_ids||[]).includes(ch.id)) continue;
+      const post={id:'p_'+Date.now()+'_'+count,sender_id:uid,content:'\ud83d\udce2 '+content.trim(),type:'text',media_url:null,created_at:new Date().toISOString(),reactions:{}};
+      if(!ch.posts) ch.posts=[];
+      ch.posts.push(post);
+      if(global._pencIo){ (ch.followers||[]).forEach(fid => global._pencIo.to('user:'+fid).emit('channel:post',{channel_id:ch.id,post})); }
+      count++;
+    }
+    await pencSaveChannels(channels);
+    res.json({success:true, channels_reached:count});
+  }catch(e){ console.error('community announce:',e.message); res.status(500).json({error:'Erreur serveur'}); }
+});
+
 async function pencChannels(){
   if(_pgPool){ try{ const c=await pgGetChannels(); if(c){ _chCache=[...c]; return c; } }catch(e){ console.error('pgGetChannels:', e.message); } }
   if(!JSONBIN_PENC_CHANNELS_BIN) return [..._chCache];
@@ -11518,6 +11678,42 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id }); }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
+      // ── Réponses automatiques (Compte Business) : si le destinataire est un compte Business
+      // avec réponse auto activée, et qu'aucune réponse auto n'a déjà été envoyée récemment dans
+      // cette conversation (anti-spam, 6h), on répond automatiquement en son nom. Uniquement sur
+      // les conversations 1-à-1 — jamais dans les groupes. ──
+      try {
+        if (_pgPool) {
+          const _cr2 = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [conversation_id]);
+          const _parts2 = _cr2.rows[0] ? (Array.isArray(_cr2.rows[0].participants) ? _cr2.rows[0].participants : JSON.parse(_cr2.rows[0].participants || '[]')) : [];
+          if (_parts2.length === 2) {
+            const _recipientId = _parts2.find(p => p !== pencUserId);
+            if (_recipientId) {
+              const _recipient = await pgFindUser('id', _recipientId);
+              if (_recipient && _recipient.is_business && _recipient.business_autoreply_enabled && _recipient.business_autoreply_message) {
+                const _lastAuto = await _pgPool.query(
+                  "SELECT id FROM penc_messages WHERE conversation_id=$1 AND sender_id=$2 AND content LIKE '🤖%' AND created_at > NOW() - INTERVAL '6 hours' LIMIT 1",
+                  [conversation_id, _recipientId]
+                );
+                if (!_lastAuto.rows.length) {
+                  const _autoMsg = {
+                    id: 'msg_' + Date.now() + Math.random().toString(36).slice(2),
+                    conversation_id, sender_id: _recipientId, reply_to: null,
+                    type: 'text', content: '🤖 Réponse automatique : ' + String(_recipient.business_autoreply_message).slice(0, 500),
+                    media_url: null, media_duration: null, poll_question: null, poll_options: null,
+                    poll_duration: null, poll_votes: 0, poll_results: null,
+                    radio_name: null, radio_url: null, money_amount: null, money_op: null,
+                    client_id: null, expires_at: null, view_once: false,
+                    created_at: new Date().toISOString(), read_at: null
+                  };
+                  await pgSaveMessage(_autoMsg);
+                  io.to('penc:' + conversation_id).emit('message:new', _autoMsg);
+                }
+              }
+            }
+          }
+        }
+      } catch (_ar) { console.error('business autoreply:', _ar.message); }
     } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }
   });
 
