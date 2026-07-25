@@ -8727,7 +8727,7 @@ app.post('/api/penc/radio/listen/start', pencAuth, async (req, res) => {
 app.post('/api/penc/radio/listen/end', pencAuth, async (req, res) => {
   try{
     if(!_pgPool || !req.body.id) return res.json({ success:true });
-    await _pgPool.query("UPDATE penc_radio_listens SET ended_at=NOW(), duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int) WHERE id=$1 AND user_id=$2",[req.body.id, req.pencUser.userId]);
+    await _pgPool.query("UPDATE penc_radio_listens SET ended_at=NOW(), duration_seconds=LEAST(14400,GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int)) WHERE id=$1 AND user_id=$2",[req.body.id, req.pencUser.userId]);
     res.json({ success:true });
   }catch(e){ res.json({ success:true }); }
 });
@@ -8761,12 +8761,27 @@ app.post('/api/penc/radio/listen/beacon', async (req, res) => {
 async function _radCloseStaleListenSessions(){
   try{
     if(!_pgPool) return;
+    // Plafonné à 4h (14400s) par session : au-delà, ce n'est plus un signal fiable d'écoute
+    // réelle mais très probablement une session jamais fermée proprement (onglet resté ouvert,
+    // ou — comme ça a été le cas une fois — un last_heartbeat rétroactif après ajout de colonne).
+    // Sans ce plafond, une seule session corrompue peut fausser des mois de statistiques.
     await _pgPool.query(
-      "UPDATE penc_radio_listens SET ended_at=last_heartbeat, duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (last_heartbeat-started_at))::int) WHERE ended_at IS NULL AND last_heartbeat < NOW() - INTERVAL '90 seconds'"
+      "UPDATE penc_radio_listens SET ended_at=last_heartbeat, duration_seconds=LEAST(14400,GREATEST(0,EXTRACT(EPOCH FROM (last_heartbeat-started_at))::int)) WHERE ended_at IS NULL AND last_heartbeat < NOW() - INTERVAL '90 seconds'"
     );
   }catch(e){ console.error('[radio-listen] nettoyage sessions échoué:', e.message); }
 }
 setInterval(_radCloseStaleListenSessions, 60000);
+// ── Correctif ponctuel (exécuté une seule fois au démarrage) : plafonne rétroactivement toute
+// durée déjà enregistrée en base qui dépasse le plafond raisonnable — répare les statistiques
+// faussées par le bug de rétro-datation de last_heartbeat lors de l'ajout de cette colonne. ──
+async function _radFixInflatedDurations(){
+  try{
+    if(!_pgPool) return;
+    const r = await _pgPool.query("UPDATE penc_radio_listens SET duration_seconds=14400 WHERE duration_seconds>14400 RETURNING id");
+    if(r.rowCount) console.log('[radio-listen] correction : ' + r.rowCount + ' session(s) avec une durée aberrante plafonnée à 4h.');
+  }catch(e){ console.error('[radio-listen] correction durées échouée:', e.message); }
+}
+setTimeout(_radFixInflatedDurations, 15000);
 // ── Vue admin : sessions d'écoute récentes d'une station, avec heure d'entrée ET de sortie —
 // pour vérifier concrètement le suivi des auditeurs. ──
 app.get('/api/penc/admin/radio/stations/:id/sessions', pencAuth, pencAdmin, async (req, res) => {
