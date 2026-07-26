@@ -10964,10 +10964,11 @@ app.get('/api/penc/channels/:id/members', pencAuth, async (req,res) => {
   try{ const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
     const users=await pgAllUsers()||[]; const admins=(ch.admins||[]).map(String);
+    const postCounts={}; (ch.posts||[]).forEach(function(p){ const k=String(p.sender_id); postCounts[k]=(postCounts[k]||0)+1; });
     const out=(ch.followers||[]).map(function(fid){ const u=users.find(function(x){return String(x.id)===String(fid);})||{};
       const role=String(ch.creator_id)===String(fid)?'creator':(admins.includes(String(fid))?'admin':'member');
-      return {id:fid, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, role:role}; });
-    out.sort(function(a,b){ var o={creator:0,admin:1,member:2}; return o[a.role]-o[b.role]; });
+      return {id:fid, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, role:role, post_count:postCounts[String(fid)]||0}; });
+    out.sort(function(a,b){ var o={creator:0,admin:1,member:2}; if(o[a.role]!==o[b.role]) return o[a.role]-o[b.role]; return b.post_count-a.post_count; });
     res.json({members:out}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/channels/:id/members/:userId', pencAuth, async (req,res) => {
