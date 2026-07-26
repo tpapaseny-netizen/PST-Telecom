@@ -4282,7 +4282,8 @@ async function _radRecordOneHour(station) {
   const ffmpeg = _ffmpegBin();
   await new Promise((resolve) => {
     let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
+    var _safety = null;
+    const finish = () => { if (!done) { done = true; try{ clearTimeout(_safety); }catch(_ct){} resolve(); } };
     try {
       ffmpeg(station.stream_url)
         .inputOptions(['-re'])
@@ -4292,7 +4293,7 @@ async function _radRecordOneHour(station) {
         .on('end', finish)
         .save(tmpFile);
     } catch (e) { console.error('[radio-replay] exception', e.message); finish(); }
-    setTimeout(finish, 3700 * 1000); // filet de sécurité si ffmpeg ne se termine jamais
+    _safety = setTimeout(finish, 3700 * 1000); // filet de sécurité si ffmpeg ne se termine jamais
   });
   try {
     if (fs.existsSync(tmpFile)) {
@@ -8683,9 +8684,23 @@ async function _radStartBroadcast(stationId) {
   }
   const rotated = localTracks.slice(startIdx).concat(localTracks.slice(0, startIdx));
 
-  const listFile = pathMod.join(workDir, 'playlist.txt');
-  const listContent = rotated.map(x => "file '" + x.path.replace(/'/g, "'\\''") + "'").join('\n');
-  fs.writeFileSync(listFile, listContent);
+  // ── Playlist en 2 segments pour éviter le bug ffmpeg "-ss + -stream_loop réappliqué à
+  // chaque boucle" (qui faisait repartir une piste au milieu à CHAQUE tour de boucle, pas
+  // juste au premier auditeur — cause des pistes qui \"ne se terminent jamais\" / repartent
+  // toujours au milieu). Segment 1 = joué UNE SEULE FOIS, avec un inpoint sur la 1re piste
+  // seulement (termine la piste en cours depuis là où l'auditeur tombe). Segment 2 = bouclé
+  // à l'infini, SANS aucun seek -> chaque piste s'y joue toujours intégralement, comme une
+  // vraie radio. Les deux segments sont recollés via le filtre concat.
+  const listFileOnce = pathMod.join(workDir, 'playlist_once.txt');
+  const listFileLoop = pathMod.join(workDir, 'playlist_loop.txt');
+  const onceContent = rotated.map((x, i) => {
+    var line = "file '" + x.path.replace(/'/g, "'\\''") + "'";
+    if (i === 0 && seekOffset > 0.5) line += "\ninpoint " + seekOffset.toFixed(2);
+    return line;
+  }).join('\n');
+  const loopContent = rotated.map(x => "file '" + x.path.replace(/'/g, "'\\''") + "'").join('\n');
+  fs.writeFileSync(listFileOnce, onceContent);
+  fs.writeFileSync(listFileLoop, loopContent);
 
   const hub = new PassThrough();
   // Filet de sécurité critique : sans ce gestionnaire, une écriture sur le hub après sa fermeture
@@ -8697,17 +8712,16 @@ async function _radStartBroadcast(stationId) {
   let ffmpegPath = 'ffmpeg';
   try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
   const { spawn } = require('child_process');
-  const args = [];
-  if (seekOffset > 0.5) args.push('-ss', seekOffset.toFixed(2));
-  args.push(
-    '-stream_loop', '-1',
-    '-f', 'concat', '-safe', '0',
-    '-i', listFile,
+  const args = [
+    '-f', 'concat', '-safe', '0', '-i', listFileOnce,
+    '-stream_loop', '-1', '-f', 'concat', '-safe', '0', '-i', listFileLoop,
+    '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[outa]',
+    '-map', '[outa]',
     '-acodec', 'libmp3lame', '-b:a', '96k',
     '-vn',
     '-f', 'mp3',
     'pipe:1'
-  );
+  ];
   const cmd = spawn(ffmpegPath, args);
   cmd.stdout.pipe(hub);
   let _lastStderr = '';
