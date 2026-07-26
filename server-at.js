@@ -4607,6 +4607,7 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once_consumed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS poll_id TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
@@ -5160,8 +5161,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,poll_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.poll_id||null]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -6619,6 +6620,47 @@ app.get("/api/penc/polls/:id/voters", pencAuth, pencAdmin, async (req,res)=>{
     if(!pr.rows[0]) return res.status(404).json({error:"Introuvable"});
     if(pr.rows[0].is_anonymous) return res.json({anonymous:true,voters:[]});
     const r=await _pgPool.query("SELECT v.user_id, u.full_name, u.username, o.option_text, v.voted_at FROM penc_poll_votes v LEFT JOIN penc_users u ON u.id=v.user_id LEFT JOIN penc_poll_options o ON o.id=v.option_id WHERE v.poll_id=$1 ORDER BY v.voted_at DESC",[req.params.id]);
+    res.json({voters:r.rows});
+  }catch(e){ res.json({voters:[]}); }
+});
+// ── Sondages DANS une conversation (pas de diffusion générale, pas besoin d'être admin) ──
+// Réutilise exactement le même système que les sondages admin (mêmes tables, même vote, mêmes
+// règles anti-double-vote) — juste une création allégée réservée aux participants de la conv,
+// et une consultation des votants ouverte à eux (pas seulement aux admins).
+app.post("/api/penc/conversations/:id/poll", pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.status(503).json({error:"BD indisponible"});
+    const uid=req.pencUser.userId, convId=req.params.id;
+    const cr=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[convId]);
+    if(!cr.rows[0]) return res.status(404).json({error:"Conversation introuvable"});
+    const parts=Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]');
+    if(!parts.map(String).includes(String(uid))) return res.status(403).json({error:"Tu ne fais pas partie de cette conversation"});
+    const b=req.body||{};
+    const title=(b.question||"").trim(); if(!title) return res.status(400).json({error:"Question requise"});
+    let opts=Array.isArray(b.options)?b.options.map(function(o){return String(o||"").trim();}).filter(Boolean):[];
+    if(opts.length<2) return res.status(400).json({error:"Au moins 2 options"});
+    if(opts.length>10) opts=opts.slice(0,10);
+    const type=b.multi?"multiple":"single";
+    const id=_pollGenId("poll");
+    await _pgPool.query("INSERT INTO penc_polls(id,title,created_by,conversation_id,type,status,is_anonymous,show_results_before_vote) VALUES($1,$2,$3,$4,$5,'active',$6,$7)",
+      [id,title,uid,convId,type,!!b.is_anonymous,typeof b.show_results_before_vote==='boolean'?b.show_results_before_vote:false]);
+    for(let i=0;i<opts.length;i++){ await _pgPool.query("INSERT INTO penc_poll_options(id,poll_id,option_text,position) VALUES($1,$2,$3,$4)",[_pollGenId("opt"),id,opts[i],i]); }
+    res.json({success:true,id:id});
+  }catch(e){ console.error("conv poll create:",e.message); res.status(500).json({error:"Erreur création"}); }
+});
+// Votants d'un sondage de conversation, visibles par tout participant (pas seulement l'admin) —
+// c'est le comportement attendu dans une conversation normale (comme Telegram "Voir les votes").
+app.get("/api/penc/conversations/poll/:id/voters", pencAuth, async (req,res)=>{
+  try{ if(!_pgPool) return res.json({voters:[]});
+    const uid=req.pencUser.userId;
+    const pr=await _pgPool.query("SELECT is_anonymous, conversation_id FROM penc_polls WHERE id=$1",[req.params.id]);
+    if(!pr.rows[0]) return res.status(404).json({error:"Introuvable"});
+    if(pr.rows[0].conversation_id){
+      const cr=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[pr.rows[0].conversation_id]);
+      const parts=cr.rows[0]?(Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')):[];
+      if(!parts.map(String).includes(String(uid))) return res.status(403).json({error:"Accès refusé"});
+    }
+    if(pr.rows[0].is_anonymous) return res.json({anonymous:true,voters:[]});
+    const r=await _pgPool.query("SELECT v.user_id, v.option_id, u.full_name, u.username, u.avatar_url, o.option_text, v.voted_at FROM penc_poll_votes v LEFT JOIN penc_users u ON u.id=v.user_id LEFT JOIN penc_poll_options o ON o.id=v.option_id WHERE v.poll_id=$1 ORDER BY v.voted_at DESC",[req.params.id]);
     res.json({voters:r.rows});
   }catch(e){ res.json({voters:[]}); }
 });
@@ -11529,7 +11571,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 
   // Envoyer message
   socket.on('message:send', async (data, cb) => {
-    const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, radio_name, radio_url, money_amount, money_op, client_id } = data;
+    const { conversation_id, type, content, media_url, media_duration, poll_question, poll_options, poll_duration, poll_id, radio_name, radio_url, money_amount, money_op, client_id } = data;
     // ── Anti-flood : max 20 messages / 10s par utilisateur (evite le spam/bots, sans genner un usage normal) ──
     if (_pencMsgFlood(pencUserId)) {
       if (typeof cb === 'function') cb({ error: 'Trop de messages envoyes trop vite, patiente quelques secondes.' });
@@ -11553,6 +11595,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         poll_question: poll_question || null, poll_options: poll_options || null,
         poll_duration: poll_duration || null, poll_votes: 0,
         poll_results: poll_options ? poll_options.map(() => 0) : null,
+        poll_id: poll_id || null,
         radio_name: radio_name || null, radio_url: radio_url || null,
         money_amount: money_amount || null, money_op: money_op || null,
         client_id: client_id || null,
