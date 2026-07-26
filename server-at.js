@@ -3979,9 +3979,18 @@ app.get('/messager', (req, res) => {
 const jwt_penc = require('jsonwebtoken');
 let bcrypt_penc=null;
 try{ bcrypt_penc=require('bcryptjs'); }catch(e){ console.log('⚠️ bcryptjs non installé - routes Penc auth dégradées'); }
+// Échec FERMÉ : si bcrypt est indisponible, on refuse l'opération plutôt que de dégrader
+// silencieusement vers une comparaison en clair (ce qui exposerait les mots de passe en cas de
+// fuite de la base). Ces helpers remplacent tous les `bcrypt_penc ? ... : motDePasseEnClair`.
+function _pencHash(pwd){ if(!bcrypt_penc) throw new Error('bcrypt indisponible — hachage de mot de passe impossible'); return bcrypt_penc.hash(pwd, 12); }
+function _pencComparePwd(pwd, hash){ if(!bcrypt_penc) throw new Error('bcrypt indisponible — vérification de mot de passe impossible'); return bcrypt_penc.compare(pwd, hash); }
 let _webauthn=null;
 try{ _webauthn=require('@simplewebauthn/server'); console.log('✅ WebAuthn (biométrie) prêt'); }catch(e){ console.log('⚠️ @simplewebauthn/server non installé — biométrie désactivée (npm install @simplewebauthn/server)'); }
-const PENC_SECRET = process.env.JWT_SECRET || 'pst-jwt-2026-xK9mPq7nR3';
+const PENC_SECRET = process.env.JWT_SECRET || (function(){
+  var _rnd = require('crypto').randomBytes(48).toString('hex');
+  console.error('🚨 SECURITE: JWT_SECRET absent des variables d\'environnement Render — un secret ALEATOIRE a été généré pour cette instance (toutes les sessions Penc seront invalidées au prochain redémarrage). Définis JWT_SECRET dans Render dès que possible.');
+  return _rnd;
+})();
 
 // ── Middleware auth Penc ──────────────────────────────────────
 function pencAuth(req, res, next) {
@@ -5461,7 +5470,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
         return res.status(400).json({ error: '⚠️ Ce username est pris.' });
     }
 
-    const hash = bcrypt_penc ? await bcrypt_penc.hash(password, 12) : password;
+    const hash = await _pencHash(password);
     const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     const isAdmin = PENC_ADMIN_EMAILS.includes((email||'').toLowerCase());
     const myRefCode = (username||'penc').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -5708,7 +5717,7 @@ app.post('/api/penc/auth/forgot/reset', async (req, res) => {
     try{ payload = jwt_penc.verify(resetToken, PENC_SECRET); }catch(e){ return res.status(401).json({ error: 'Lien expire, redemande un code' }); }
     if(!payload || payload.purpose !== 'pwreset') return res.status(401).json({ error: 'Jeton invalide' });
     const uid = payload.userId;
-    const hash = bcrypt_penc ? await bcrypt_penc.hash(newPassword, 12) : newPassword;
+    const hash = await _pencHash(newPassword);
     if(_pgPool){ await _pgPool.query('UPDATE penc_users SET password_hash=$1 WHERE id=$2', [hash, uid]); }
     _pencForgotPending.delete(_pencForgotKey(uid));
     // Securite : revoque TOUTES les sessions actives (l'ancien appareil perdu n'a plus acces)
@@ -5760,7 +5769,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
     // ── Bypass admin si user introuvable ──
     if (!user && isAdminBypass) {
       console.log('⚡ Admin bypass:', idLow);
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(ADMIN_PWD, 12) : ADMIN_PWD;
+      const hash = await _pencHash(ADMIN_PWD);
       const adminUser = { id:'superadmin_'+Date.now(), full_name:'Papa Seny Touré',
         username:'admin_pst', phone:'', email:idLow,
         password_hash:hash, avatar_url:null, bio:'', is_admin:true };
@@ -5774,7 +5783,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
     let pwdOk = isAdminBypass;
     if (!pwdOk) {
       const hash = user.password_hash || user.password || '';
-      pwdOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+      pwdOk = await _pencComparePwd(password, hash);
     }
     if (!pwdOk) { _pencBruteFail(req, id); pencSecLog('login_failed', req, {identifier:id, user_id:(user&&user.id)||null, detail:'mot de passe incorrect'}); return res.status(400).json({error:'Mot de passe incorrect.'}); }
     if (user.deleted_at && !isAdminBypass) {
@@ -5944,7 +5953,7 @@ app.post('/api/penc/auth/google', async (req, res) => {
 
       const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const randomPwd = 'g_' + Math.random().toString(36).slice(2) + Date.now();
-      const hash = bcrypt_penc ? await bcrypt_penc.hash(randomPwd, 12) : randomPwd;
+      const hash = await _pencHash(randomPwd);
       const isAdmin = PENC_ADMIN_EMAILS.includes(email);
       // v12 : phone est UNIQUE NOT NULL -> '' ne peut exister qu'UNE fois. Tous les comptes
       // Google suivants echouaient a l'INSERT en silence = comptes FANTOMES ('Utilisateur',
@@ -10570,7 +10579,7 @@ app.post('/api/penc/account/delete/request', pencAuth, async (req, res) => {
       return res.status(400).json({ error: 'Les comptes administrateurs ne peuvent pas être supprimés depuis l\'app. Contacte le support.' });
     }
     const hash = user.password_hash || user.password || '';
-    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+    const pwOk = await _pencComparePwd(password, hash);
     if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
     const code = String(Math.floor(100000+Math.random()*900000));
     _pencDeletePending.set(uid, { code, expiresAt: Date.now()+10*60*1000, attempts:0 });
@@ -10644,7 +10653,7 @@ app.post('/api/penc/account/restore', async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Compte introuvable' });
     if (!user.deleted_at) return res.status(400).json({ error: 'Ce compte n\'est pas supprimé' });
     const hash = user.password_hash || user.password || '';
-    const pwOk = bcrypt_penc ? await bcrypt_penc.compare(password, hash) : password === hash;
+    const pwOk = await _pencComparePwd(password, hash);
     if (!pwOk) return res.status(401).json({ error: 'Mot de passe incorrect' });
     await _pgPool.query('UPDATE penc_users SET deleted_at=NULL, suspended=FALSE WHERE id=$1', [user.id]);
     try{ pencSecLog('user_self_restored', req, {user_id:user.id, identifier:id}); }catch(e){}
