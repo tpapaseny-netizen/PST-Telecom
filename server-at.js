@@ -5136,9 +5136,27 @@ async function pgGetConvs(userId){
 }
 async function pgGetOrCreateConv(uid1,uid2){
   if(!_pgPool) return null;
+  if(uid1===uid2){
+    // Notes personnelles (conversation avec soi-même) : doit être strictement isolée de toute
+    // autre conversation. Avant, la recherche "participants contient X ET contient X" matchait
+    // en réalité N'IMPORTE QUELLE conversation existante avec quelqu'un d'autre — puisque toute
+    // conversation de l'utilisateur "contient" forcément son propre id — et renvoyait la
+    // première trouvée. Résultat : "Ouvrir mes notes personnelles" menait vers un contact au
+    // hasard. Un identifiant déterministe (conv_self_<id>) règle ça définitivement.
+    const selfId='conv_self_'+uid1;
+    const existing=await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1',[selfId]);
+    if(existing.rows.length) return existing.rows[0];
+    const ins=await _pgPool.query(
+      'INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(id) DO NOTHING RETURNING *',
+      [selfId,JSON.stringify([uid1])]
+    );
+    if(ins.rows.length) return ins.rows[0];
+    const retry=await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1',[selfId]);
+    return retry.rows[0];
+  }
   // Chercher conv existante
   const r=await _pgPool.query(
-    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2',
+    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2 AND jsonb_array_length(participants)=2',
     [JSON.stringify([uid1]),JSON.stringify([uid2])]
   );
   if(r.rows.length) return r.rows[0];
