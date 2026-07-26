@@ -5430,6 +5430,41 @@ app.post('/api/penc/auth/register/email/verify', async (req, res) => {
     res.json({ success:true, email_verify_token: token });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// Un utilisateur qui ne met jamais de photo garde avatar_url=null indéfiniment, ce qui oblige
+// CHAQUE écran de l'app (appels, notifications, listes...) à savoir gérer ce cas séparément —
+// source d'incohérences. On génère plutôt un avatar par défaut (initiales sur fond coloré,
+// couleur stable pour un même utilisateur) au moment de l'inscription, en SVG donc net à
+// n'importe quelle taille d'affichage, sans dépendance supplémentaire.
+const _PENC_AVATAR_COLORS = ['#1877F2','#22c55e','#F5B014','#E0473E','#7B2FF7','#F72798','#0E9F8B','#FF7A00'];
+function _pencDefaultAvatar(fullName, seed){
+  const initials = String(fullName||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
+  let h = 0; const s = String(seed||fullName||'x');
+  for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) & 0xffffff;
+  const color = _PENC_AVATAR_COLORS[h % _PENC_AVATAR_COLORS.length];
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">'
+    + '<rect width="256" height="256" rx="0" fill="'+color+'"/>'
+    + '<text x="128" y="128" text-anchor="middle" dominant-baseline="central" font-family="Helvetica,Arial,sans-serif" font-size="104" font-weight="700" fill="#ffffff">'+initials+'</text>'
+    + '</svg>';
+  return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+}
+// ── Rattrapage au démarrage serveur : les comptes créés avant l'ajout de l'avatar par défaut
+// sont restés à avatar_url=NULL. On leur assigne le même avatar généré (initiales + couleur)
+// qu'à l'inscription, une seule fois, sans jamais toucher aux comptes qui ont déjà une vraie photo. ──
+async function _pencBackfillDefaultAvatars() {
+  try {
+    if (!_pgPool) return;
+    const r = await _pgPool.query("SELECT id, full_name FROM penc_users WHERE avatar_url IS NULL");
+    if (!r.rows.length) return;
+    console.log('[avatars] rattrapage : ' + r.rows.length + ' compte(s) sans photo à traiter');
+    for (const u of r.rows) {
+      try { await _pgPool.query('UPDATE penc_users SET avatar_url=$1 WHERE id=$2', [_pencDefaultAvatar(u.full_name, u.id), u.id]); }
+      catch (_bf) { console.error('[avatars] rattrapage échec — user=' + u.id + ':', _bf.message); }
+    }
+    console.log('[avatars] rattrapage terminé');
+  } catch (e) { console.error('[avatars] rattrapage erreur:', e.message); }
+}
+setTimeout(_pencBackfillDefaultAvatars, 25000);
+
 app.post('/api/penc/auth/register', async (req, res) => {
   try {
     const { full_name, username, phone, email, password, email_verify_token } = req.body;
@@ -5482,7 +5517,7 @@ app.post('/api/penc/auth/register', async (req, res) => {
     }
     const REFERRAL_BONUS = 200; // FCFA, pour le filleul ET le parrain
     const newUser = { id:uid, full_name, username, phone, email:email||null,
-      password_hash:hash, avatar_url:null, bio:'', is_admin:isAdmin,
+      password_hash:hash, avatar_url:_pencDefaultAvatar(full_name, uid), bio:'', is_admin:isAdmin,
       referral_code: myRefCode, referred_by: referrerUser ? referrerUser.id : null,
       balance: referrerUser ? REFERRAL_BONUS : 0 };
 
