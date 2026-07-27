@@ -10112,6 +10112,74 @@ app.post('/api/penc/admin/withdraw/reject', pencAuth, pencAdmin, async (req, res
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+// ── Aperçu de lien enrichi : récupère titre/description/image (Open Graph) d'une URL partagée
+// dans un message, côté serveur pour éviter les soucis CORS et ne jamais exposer l'IP réelle du
+// téléphone de l'utilisateur au site distant. Cache mémoire simple (1h) pour ne pas re-télécharger
+// la même page à chaque fois que le lien est affiché. ──
+const _linkPreviewCache = new Map(); // url -> { data, at }
+const LINK_PREVIEW_TTL_MS = 60 * 60 * 1000;
+function _lpExtract(html, url) {
+  function meta(prop) {
+    var re1 = new RegExp('<meta[^>]+(?:property|name)=["\']' + prop + '["\'][^>]+content=["\']([^"\']*)["\']', 'i');
+    var re2 = new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']' + prop + '["\']', 'i');
+    var m = html.match(re1) || html.match(re2);
+    return m ? m[1] : null;
+  }
+  var title = meta('og:title') || (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || null;
+  var description = meta('og:description') || meta('description');
+  var image = meta('og:image');
+  if (image && !/^https?:\/\//i.test(image)) {
+    try { image = new URL(image, url).href; } catch (_u) { image = null; }
+  }
+  var siteName = meta('og:site_name');
+  return {
+    title: title ? title.trim().slice(0, 200) : null,
+    description: description ? description.trim().slice(0, 300) : null,
+    image: image || null,
+    site_name: siteName ? siteName.trim().slice(0, 80) : null,
+    url: url
+  };
+}
+app.get('/api/penc/link-preview', pencAuth, async (req, res) => {
+  try {
+    var url = String(req.query.url || '').trim();
+    if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'URL invalide' });
+    var parsed;
+    try { parsed = new URL(url); } catch (_pe) { return res.status(400).json({ error: 'URL invalide' }); }
+    var host = parsed.hostname.toLowerCase();
+    // Filet anti-SSRF minimal : jamais aller chercher une adresse interne/privee depuis le serveur.
+    if (host === 'localhost' || host === '127.0.0.1' || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.)/.test(host) || host.endsWith('.local')) {
+      return res.status(400).json({ error: 'URL non autorisée' });
+    }
+    var cached = _linkPreviewCache.get(url);
+    if (cached && (Date.now() - cached.at) < LINK_PREVIEW_TTL_MS) return res.json(cached.data);
+    var ac = new AbortController(); var timeout = setTimeout(function () { ac.abort(); }, 6000);
+    var r;
+    try {
+      r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PencBot/1.0; +https://penc-messagerie.com)' } });
+    } finally { clearTimeout(timeout); }
+    if (!r.ok) return res.status(200).json({ title: null, description: null, image: null, site_name: null, url: url });
+    var ct = r.headers.get('content-type') || '';
+    if (ct.indexOf('text/html') === -1) return res.status(200).json({ title: null, description: null, image: null, site_name: null, url: url });
+    var html = (await r.text()).slice(0, 200000); // pas besoin de tout lire pour trouver les balises <head>
+    var data = _lpExtract(html, url);
+    _linkPreviewCache.set(url, { data: data, at: Date.now() });
+    if (_linkPreviewCache.size > 500) { var firstKey = _linkPreviewCache.keys().next().value; _linkPreviewCache.delete(firstKey); }
+    res.json(data);
+  } catch (e) { res.status(200).json({ title: null, description: null, image: null, site_name: null, url: String(req.query.url || '') }); }
+});
+// ── Badge "Membre fondateur" : tous les comptes créés avant le lancement de cette fonctionnalité
+// (date figée ci-dessous) gardent le badge à vie — un vrai geste envers les tout premiers membres
+// qui ont rejoint Penc pendant sa construction. Même mécanisme que /verified (liste d'ids), pour
+// rester cohérent avec l'existant côté client. ──
+const PENC_FOUNDER_CUTOFF = '2026-07-27T23:59:59Z';
+app.get('/api/penc/founders', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ ids: [] });
+    const r = await _pgPool.query('SELECT id FROM penc_users WHERE created_at <= $1', [PENC_FOUNDER_CUTOFF]);
+    res.json({ ids: r.rows.map(x => String(x.id)) });
+  } catch (e) { res.json({ ids: [] }); }
+});
 app.get('/api/penc/verified', pencAuth, async (req, res) => {
   try {
     if (!_pgPool) return res.json({ ids: [] });
