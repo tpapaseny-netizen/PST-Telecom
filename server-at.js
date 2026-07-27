@@ -11640,6 +11640,16 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       console.log('[call:invite:declined] host', String(pencUserId).slice(0,8), '-> ', String(requester_id).slice(0,8));
     }catch(e){ console.error('call:invite:declined err', e.message); }
   });
+  socket.on('call:record-request', ({target_user_id, room_name}) => {
+    emitToUser(target_user_id, 'call:record-request', { from: pencUserId, room_name });
+  });
+  socket.on('call:record-response', ({target_user_id, room_name, approved}) => {
+    emitToUser(target_user_id, 'call:record-response', { from: pencUserId, room_name, approved: !!approved });
+    if (approved) emitToUser(target_user_id, 'call:recording-started', { room_name });
+  });
+  socket.on('call:record-stopped', ({target_user_id, room_name}) => {
+    emitToUser(target_user_id, 'call:recording-stopped', { room_name });
+  });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
