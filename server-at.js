@@ -11342,6 +11342,16 @@ app.post('/api/penc/transcribe', pencAuth, async (req,res)=>{
   try{
     const url=String((req.body&&req.body.url)||'').trim();
     if(!url||!/^https?:\/\//.test(url)) return res.status(400).json({error:'URL audio invalide'});
+    // v456 : refus catégorique de transcrire un message vocal à vue unique — même en contournant
+    // le bouton (appel direct à cette route), impossible d'en extraire un texte. Une transcription
+    // laisserait une trace écrite permanente, ce qui va exactement à l'encontre du but d'un
+    // message éphémère.
+    if(_pgPool){
+      try{
+        const _vo=await _pgPool.query('SELECT 1 FROM penc_messages WHERE media_url=$1 AND view_once=true LIMIT 1',[url]);
+        if(_vo.rowCount>0) return res.status(403).json({error:'Transcription indisponible pour un message à vue unique.'});
+      }catch(_voe){}
+    }
     const hash=crypto.createHash('sha256').update(url).digest('hex');
     if(_pgPool){
       try{ const c=await _pgPool.query('SELECT text FROM penc_transcripts WHERE url_hash=$1',[hash]); if(c.rows[0]) return res.json({success:true,text:c.rows[0].text,cached:true}); }catch(eC){}
