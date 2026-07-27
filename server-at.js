@@ -4617,6 +4617,8 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS view_once_consumed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS file_name TEXT;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS file_size BIGINT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS poll_id TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
@@ -5189,8 +5191,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,poll_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.poll_id||null]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,poll_id,file_name,file_size) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15,$16) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.poll_id||null,msg.file_name||null,msg.file_size||null]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -5206,8 +5208,8 @@ async function pgSaveMessage(msg){
 async function pgClaimMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13) ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,file_name,file_size) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15) ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.file_name||null,msg.file_size||null]
   );
   if(r.rows[0]){ await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]); return r.rows[0]; }
   return null; // conflit = un autre envoi avec le même client_id a déjà gagné la course
@@ -6933,7 +6935,8 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       conversation_id, sender_id: uid, reply_to: reply_to||null,
       type: type||'text', content: content||null,
       media_url: media_url||null, media_duration: media_duration||null,
-      client_id: client_id||null, created_at: new Date().toISOString(), read_at:null
+      client_id: client_id||null, created_at: new Date().toISOString(), read_at:null,
+      file_name: (req.body&&req.body.file_name)||null, file_size: (req.body&&req.body.file_size)||null
     };
     let sender = { id: uid };
     try{ const u=await pgFindUser('id',uid); if(u) sender=pencStrip(u); }catch(_){}
@@ -6942,7 +6945,7 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     // diffuse chacun sa propre copie du message.
     let _claimed=null;
     if(client_id){
-      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(_e){}
+      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(_e){}
       if(!_claimed){
         try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
         catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
@@ -6955,7 +6958,7 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       let parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
-    if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id }); }catch(e){ console.error('penc /send persist:', e.message); } }
+    if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(e){ console.error('penc /send persist:', e.message); } }
     try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
@@ -7171,7 +7174,11 @@ app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
     if(!msg) return res.status(404).json({error:'Message introuvable'});
     if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Non autorisé'});
     const age=Date.now()-new Date(msg.created_at).getTime();
-    if(age>1800000) return res.status(403).json({error:'30 minutes dépassées'});
+    // v457 : le partage de position EN DIRECT réutilise cette route pour mettre à jour la même
+    // bulle pendant 15 min / 1h / 8h — sans cette exception, la limite de 30 min casserait le
+    // partage dès qu'il dépasse cette durée.
+    const isLiveLocationUpdate = msg.type==='location';
+    if(!isLiveLocationUpdate && age>1800000) return res.status(403).json({error:'30 minutes dépassées'});
     // Ajouter colonne edited_at si besoin
     await _pgPool.query('ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ');
     const _editedAt = new Date().toISOString();
@@ -11789,6 +11796,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         radio_name: radio_name || null, radio_url: radio_url || null,
         money_amount: money_amount || null, money_op: money_op || null,
         client_id: client_id || null,
+        file_name: data.file_name || null, file_size: data.file_size || null,
         expires_at: _expiresAt,
         view_once: !!data.view_once,
         created_at: new Date().toISOString(), read_at: null
@@ -11834,7 +11842,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
             reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
-            client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false
+            client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+            file_name: msg.file_name || null, file_size: msg.file_size || null
           });
         } catch (_e) {}
         if (!_claimed) {
@@ -11875,7 +11884,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             sender_id: msg.sender_id, type: msg.type,
             content: msg.content || '', media_url: msg.media_url || null,
             duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
-            expires_at: msg.expires_at || null, view_once: msg.view_once || false
+            expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+            file_name: msg.file_name || null, file_size: msg.file_size || null
           });
         } else {
           const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
