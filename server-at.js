@@ -6403,7 +6403,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           id: m.id, conversation_id: m.conversation_id,
           sender_id: m.sender_id,
           is_mine: _isMine,
-          type: m.type, content: m.content,
+          type: m.type, content: _voHidden ? (m.type==='text'?null:m.content) : m.content,
           media_url: _voHidden ? null : m.media_url, media_duration: m.duration,
           reply_to: m.reply_to?(function(){
             if(typeof m.reply_to==='object') return m.reply_to;
@@ -7174,13 +7174,14 @@ app.patch('/api/penc/messages/:id', pencAuth, async (req, res) => {
     if(age>1800000) return res.status(403).json({error:'30 minutes dépassées'});
     // Ajouter colonne edited_at si besoin
     await _pgPool.query('ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ');
-    await _pgPool.query('UPDATE penc_messages SET content=$1,edited_at=NOW() WHERE id=$2',[content.trim(),req.params.id]);
+    const _editedAt = new Date().toISOString();
+    await _pgPool.query('UPDATE penc_messages SET content=$1,edited_at=$2 WHERE id=$3',[content.trim(),_editedAt,req.params.id]);
     // Notifier via socket
     const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
     const parts=convParts.rows[0]?convParts.rows[0].participants:[];
     const arr=(Array.isArray(parts)?parts:JSON.parse(JSON.stringify(parts))).filter(function(p){return String(p)!==String(uid);});
-    await emitToUsers(arr,'message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id});
-    res.json({success:true});
+    await emitToUsers(arr,'message:edited',{id:req.params.id,content:content.trim(),conv_id:msg.conversation_id,edited_at:_editedAt});
+    res.json({success:true,edited_at:_editedAt});
   }catch(e){console.error('edit msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 // DELETE /api/penc/messages/:id — supprimer un message
@@ -11941,13 +11942,13 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   // Vue unique : le destinataire consomme le media (photo/video/audio) — plus jamais revisible ensuite
   socket.on('message:view_once_consume', async (data, cb) => {
     try{
-      const messageId = data && data.message_id;
+      const messageId = data && (data.messageId || data.message_id);
       if(!messageId || !_pgPool){ if(cb) cb({error:'invalide'}); return; }
-      const r = await _pgPool.query('SELECT id, sender_id, conversation_id, media_url, view_once, view_once_consumed FROM penc_messages WHERE id=$1', [messageId]);
+      const r = await _pgPool.query('SELECT id, sender_id, conversation_id, media_url, content, type, view_once, view_once_consumed FROM penc_messages WHERE id=$1', [messageId]);
       if(!r.rows.length){ if(cb) cb({error:'introuvable'}); return; }
       const m = r.rows[0];
-      if(String(m.sender_id) === String(pencUserId)){ if(cb) cb({ success:true, media_url:m.media_url }); return; } // l'expediteur garde toujours acces
-      if(!m.view_once){ if(cb) cb({ success:true, media_url:m.media_url }); return; }
+      if(String(m.sender_id) === String(pencUserId)){ if(cb) cb({ success:true, media_url:m.media_url, content:m.content }); return; } // l'expediteur garde toujours acces
+      if(!m.view_once){ if(cb) cb({ success:true, media_url:m.media_url, content:m.content }); return; }
       if(m.view_once_consumed){ if(cb) cb({error:'deja_vu'}); return; }
       await _pgPool.query('UPDATE penc_messages SET view_once_consumed=TRUE WHERE id=$1', [messageId]);
       // Informe tous les participants (dont l'expediteur) que le media a ete consomme
@@ -11956,7 +11957,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         const parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]')) : [];
         emitToUsers(parts, 'message:view_once_consumed', { message_id: messageId, conv_id: m.conversation_id });
       }catch(_e){}
-      if(cb) cb({ success:true, media_url:m.media_url }); // renvoie l'URL UNE fois pour l'affichage immediat
+      if(cb) cb({ success:true, media_url:m.media_url, content:m.content }); // renvoie UNE fois pour l'affichage immediat
     }catch(e){ if(cb) cb({error:'Erreur serveur'}); }
   });
   // ══ Vue unique d'un media (photo/video/audio/document) — declenchee quand l'utilisateur l'ouvre reellement ══
