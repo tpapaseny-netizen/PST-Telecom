@@ -8136,7 +8136,7 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
 });
 // ══════════════ RADIO PENC (auto-hébergée, remplace progressivement DeglouFM/Base44) ══════════════
 // Accès en lecture réservé aux admins tant que le catalogue de stations n'est pas complet.
-app.get('/api/penc/radio/stations', pencAuth, async (req, res) => {
+app.get('/api/penc/radio/stations', async (req, res) => {
   try{
     if(!_pgPool) return res.json({ stations:[] });
     const r = await _pgPool.query('SELECT * FROM penc_radio_stations WHERE active=true ORDER BY country, sort_order, name');
@@ -8144,9 +8144,16 @@ app.get('/api/penc/radio/stations', pencAuth, async (req, res) => {
     // débloquer manuellement un flag admin une fois les radios ajoutées. S'il redevenait
     // vide (toutes désactivées), l'écran retombe proprement en mode "réservé aux admins"
     // plutôt que de montrer une liste vide aux utilisateurs.
+    // v454 : endpoint rendu PUBLIC (plus de pencAuth) — un catalogue de radios n'a aucune
+    // raison de dépendre d'un jeton de session valide ; un souci d'authentification ne doit
+    // jamais empêcher quelqu'un de simplement voir/écouter la liste des stations.
     if(!r.rows.length){
-      let u = null; try{ u = await pgFindUser('id', req.pencUser.userId); }catch(_pu){}
-      const isAdmin = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()));
+      let isAdmin = false;
+      try{
+        const authH = req.headers.authorization || '';
+        const tok = authH.startsWith('Bearer ') ? authH.slice(7) : null;
+        if(tok){ const dec = jwt_penc.verify(tok, PENC_SECRET); const u = await pgFindUser('id', dec.userId); isAdmin = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase())); }
+      }catch(_pu){}
       if(!isAdmin) return res.json({ stations:[], admin_only:true });
     }
     res.json({ stations: r.rows });
