@@ -8728,23 +8728,27 @@ async function _radStartBroadcast(stationId) {
   }
   const rotated = localTracks.slice(startIdx).concat(localTracks.slice(0, startIdx));
 
-  // ── Playlist en 2 segments pour éviter le bug ffmpeg "-ss + -stream_loop réappliqué à
-  // chaque boucle" (qui faisait repartir une piste au milieu à CHAQUE tour de boucle, pas
-  // juste au premier auditeur — cause des pistes qui \"ne se terminent jamais\" / repartent
-  // toujours au milieu). Segment 1 = joué UNE SEULE FOIS, avec un inpoint sur la 1re piste
-  // seulement (termine la piste en cours depuis là où l'auditeur tombe). Segment 2 = bouclé
-  // à l'infini, SANS aucun seek -> chaque piste s'y joue toujours intégralement, comme une
-  // vraie radio. Les deux segments sont recollés via le filtre concat.
-  const listFileOnce = pathMod.join(workDir, 'playlist_once.txt');
-  const listFileLoop = pathMod.join(workDir, 'playlist_loop.txt');
-  const onceContent = rotated.map((x, i) => {
-    var line = "file '" + x.path.replace(/'/g, "'\\''") + "'";
-    if (i === 0 && seekOffset > 0.5) line += "\ninpoint " + seekOffset.toFixed(2);
-    return line;
-  }).join('\n');
-  const loopContent = rotated.map(x => "file '" + x.path.replace(/'/g, "'\\''") + "'").join('\n');
-  fs.writeFileSync(listFileOnce, onceContent);
-  fs.writeFileSync(listFileLoop, loopContent);
+  // ── Playlist à répétitions PRÉ-CALCULÉES (pas de -stream_loop, pas de -filter_complex) : la
+  // combinaison "-ss ou inpoint + -stream_loop" avait causé deux bugs successifs (pistes qui
+  // repartaient au milieu à chaque boucle, puis un flux qui démarre mais reste silencieux avec
+  // le montage à deux entrées + filtre concat). On revient à un montage à UNE SEULE entrée,
+  // le plus simple et le plus robuste possible : la liste de pistes est répétée des centaines de
+  // fois directement dans le fichier playlist (des centaines d'heures de contenu, largement
+  // suffisant pour n'importe quelle session d'écoute), avec le point de reprise (inpoint) placé
+  // UNE SEULE FOIS sur la toute première piste de la toute première occurrence — jamais réappliqué
+  // ensuite puisqu'il n'y a plus de boucle ffmpeg, juste un fichier statique qui se lit du début
+  // à la fin normalement.
+  const REPEAT_COUNT = 300; // largement suffisant : des centaines d'heures de contenu
+  const listFile = pathMod.join(workDir, 'playlist.txt');
+  const listLines = [];
+  for (let rep = 0; rep < REPEAT_COUNT; rep++) {
+    rotated.forEach((x, i) => {
+      var line = "file '" + x.path.replace(/'/g, "'\\''") + "'";
+      if (rep === 0 && i === 0 && seekOffset > 0.5) line += "\ninpoint " + seekOffset.toFixed(2);
+      listLines.push(line);
+    });
+  }
+  fs.writeFileSync(listFile, listLines.join('\n'));
 
   const hub = new PassThrough();
   // Filet de sécurité critique : sans ce gestionnaire, une écriture sur le hub après sa fermeture
@@ -8757,10 +8761,7 @@ async function _radStartBroadcast(stationId) {
   try { ffmpegPath = require('@ffmpeg-installer/ffmpeg').path; } catch (_fp) {}
   const { spawn } = require('child_process');
   const args = [
-    '-f', 'concat', '-safe', '0', '-i', listFileOnce,
-    '-stream_loop', '-1', '-f', 'concat', '-safe', '0', '-i', listFileLoop,
-    '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[outa]',
-    '-map', '[outa]',
+    '-f', 'concat', '-safe', '0', '-i', listFile,
     '-acodec', 'libmp3lame', '-b:a', '96k',
     '-vn',
     '-f', 'mp3',
