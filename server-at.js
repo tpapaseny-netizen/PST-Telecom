@@ -10134,14 +10134,27 @@ app.post('/api/penc/admin/withdraw/reject', pencAuth, pencAdmin, async (req, res
 // la même page à chaque fois que le lien est affiché. ──
 const _linkPreviewCache = new Map(); // url -> { data, at }
 const LINK_PREVIEW_TTL_MS = 60 * 60 * 1000;
+function _lpDecodeEntities(s) {
+  if (!s) return s;
+  var named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return s.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, function (m, code) {
+    try {
+      if (code[0] === '#') {
+        var cp = (code[1] === 'x' || code[1] === 'X') ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+        return isNaN(cp) ? m : String.fromCodePoint(cp);
+      }
+      return named.hasOwnProperty(code) ? named[code] : m;
+    } catch (_d) { return m; }
+  });
+}
 function _lpExtract(html, url) {
   function meta(prop) {
     var re1 = new RegExp('<meta[^>]+(?:property|name)=["\']' + prop + '["\'][^>]+content=["\']([^"\']*)["\']', 'i');
     var re2 = new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']' + prop + '["\']', 'i');
     var m = html.match(re1) || html.match(re2);
-    return m ? m[1] : null;
+    return m ? _lpDecodeEntities(m[1]) : null;
   }
-  var title = meta('og:title') || (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || null;
+  var title = meta('og:title') || _lpDecodeEntities((html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]) || null;
   var description = meta('og:description') || meta('description');
   var image = meta('og:image');
   if (image && !/^https?:\/\//i.test(image)) {
