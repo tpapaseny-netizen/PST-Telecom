@@ -8314,7 +8314,7 @@ app.get('/api/penc/radio/stations/:id/current-program', pencAuth, async (req, re
 // les deux. ──
 async function _radBuildTrackList(stationId) {
   const station = (await _pgPool.query('SELECT jingle_url, jingle_duration_seconds FROM penc_radio_stations WHERE id=$1', [stationId])).rows[0];
-  const rawTracks = (await _pgPool.query('SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 ORDER BY sort_order, created_at', [stationId])).rows;
+  const rawTracks = (await _pgPool.query("SELECT * FROM penc_radio_playlist_tracks WHERE station_id=$1 AND normalize_status='ready' ORDER BY sort_order, created_at", [stationId])).rows;
   const tracks = [];
   rawTracks.forEach(t => {
     if (station && station.jingle_url && station.jingle_duration_seconds > 0) tracks.push({ file_url: station.jingle_url, duration_seconds: station.jingle_duration_seconds, kind: 'jingle' });
