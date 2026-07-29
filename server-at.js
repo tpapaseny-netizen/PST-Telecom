@@ -4654,6 +4654,8 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS profile_hide_info BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referral_code TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS referred_by TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS birthdate DATE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS birthdate_public BOOLEAN DEFAULT TRUE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup_at TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
@@ -4902,6 +4904,7 @@ let _pgPool = null;
       CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_saved_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, saved_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_todo_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, added_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_conv_folders (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, PRIMARY KEY (user_id, folder_name));
       CREATE TABLE IF NOT EXISTS penc_conv_folder_items (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, conv_id TEXT NOT NULL, PRIMARY KEY (user_id, folder_name, conv_id));
       CREATE TABLE IF NOT EXISTS penc_conv_ephemeral (conv_id TEXT PRIMARY KEY, duration_seconds INTEGER NOT NULL, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
@@ -6215,6 +6218,33 @@ app.delete('/api/penc/saved/:id', pencAuth, async (req, res) => {
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ══════════════ MESSAGES "À TRAITER" (liste dédiée, différente des enregistrés) ══════════════
+app.post('/api/penc/todo', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const { message_id, conv_id, sender_name, type, content, media_url } = req.body || {};
+    if(!_pgPool) return res.status(500).json({ error: 'Base de données indisponible' });
+    const id = 'td_'+Date.now()+Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_todo_messages(id,user_id,message_id,conv_id,sender_name,type,content,media_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, uid, message_id||null, conv_id||null, sender_name||null, type||'text', content||null, media_url||null]
+    );
+    res.json({ success:true, id });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/todo', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ items:[] });
+    const r = await _pgPool.query('SELECT * FROM penc_todo_messages WHERE user_id=$1 ORDER BY added_at DESC LIMIT 300', [req.pencUser.userId]);
+    res.json({ items: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/todo/:id', pencAuth, async (req, res) => {
+  try{
+    if(_pgPool) await _pgPool.query('DELETE FROM penc_todo_messages WHERE id=$1 AND user_id=$2', [req.params.id, req.pencUser.userId]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 app.get('/api/penc/me/stats', pencAuth, async (req, res) => {
   try{
     const uid = req.pencUser.userId;
@@ -6263,8 +6293,18 @@ app.get('/api/penc/me/stats', pencAuth, async (req, res) => {
 });
 app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
   try {
-    const { full_name, bio, avatar_url, email } = req.body;
+    const { full_name, bio, avatar_url, email, birthdate } = req.body;
     const uid = req.pencUser.userId;
+    // Validation basique de la date de naissance : format AAAA-MM-JJ, pas dans le futur.
+    let cleanBirthdate;
+    if (birthdate !== undefined) {
+      const b = String(birthdate||'').trim();
+      if (b === '') { cleanBirthdate = null; }
+      else {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(b) || new Date(b) > new Date()) return res.status(400).json({ error: 'Date de naissance invalide' });
+        cleanBirthdate = b;
+      }
+    }
     // Validation email si fourni (permet d'ajouter/changer l'email, notamment pour le
     // filet de securite "mot de passe oublie" — necessaire pour les comptes crees au telephone seul)
     let cleanEmail;
@@ -6286,6 +6326,7 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
       if (bio !== undefined) fields.bio = bio;
       if (avatar_url !== undefined) fields.avatar_url = avatar_url;
       if (cleanEmail !== undefined) fields.email = cleanEmail;
+      if (cleanBirthdate !== undefined) fields.birthdate = cleanBirthdate;
       if (Object.keys(fields).length) await pgUpdateUser(uid, fields);
       const pu = await pgFindUser('id', uid);
       if (pu) return res.json({ success: true, user: pencStrip(pu) });
@@ -6297,6 +6338,7 @@ app.put('/api/penc/auth/profile', pencAuth, async (req, res) => {
     if (bio !== undefined) user.bio = bio;
     if (avatar_url !== undefined) user.avatar_url = avatar_url;
     if (cleanEmail !== undefined) user.email = cleanEmail;
+    if (cleanBirthdate !== undefined) user.birthdate = cleanBirthdate;
     user.updated_at = new Date().toISOString();
     await pencSaveUsers(users);
     res.json({ success: true, user: pencStrip(user) });
@@ -7281,11 +7323,22 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
         // Dernier message
         const _lr = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT 1',[c.id]);
         const last = _lr.rows[0] || null;
+        // v460 : anniversaires — on ne renvoie jamais la date de naissance brute à quelqu'un
+        // d'autre (respect de birthdate_public), juste un simple "c'est son anniversaire
+        // aujourd'hui" calculé côté serveur.
+        let _birthdayToday = false;
+        try{
+          if (other.birthdate && other.birthdate_public !== false) {
+            const bd = new Date(other.birthdate), now = new Date();
+            _birthdayToday = bd.getUTCMonth() === now.getUTCMonth() && bd.getUTCDate() === now.getUTCDate();
+          }
+        }catch(_bde){}
         return {
           id: c.id, participants: parts,
           other_user_id: otherId,
           name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null,
+          birthday_today: _birthdayToday,
           last_message: last ? { content: last.content, type: last.type, created_at: last.created_at, delivered_at: last.delivered_at, read_at: last.read_at, sender_id: last.sender_id } : null,
           updated_at: c.updated_at,
           pinned: _pinnedIds.has(c.id),
