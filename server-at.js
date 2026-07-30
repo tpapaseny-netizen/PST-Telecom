@@ -9868,6 +9868,46 @@ app.get('/api/penc/admin/pay/transactions', pencAuth, pencAdmin, async (req, res
     res.json({ transactions: r.rows });
   } catch (e) { res.json({ transactions: [] }); }
 });
+// ── Penc Pay grand public : la même mécanique que ci-dessus, ouverte à tout utilisateur
+// connecté, avec un plafond raisonnable par demande (500 000 XOF) pour limiter les abus tant
+// que le compte IzichangePay tourne en jeune usage. Chaque utilisateur ne voit que SES propres
+// demandes de paiement (jamais celles des autres). ──
+const PENC_PAY_USER_MAX_XOF = 500000;
+app.post('/api/penc/pay/create', pencAuth, async (req, res) => {
+  try {
+    const client = _getIzipay();
+    if (!client) return res.status(503).json({ error: 'Penc Pay indisponible pour le moment.' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const { amount, label, coins } = req.body || {};
+    const amt = String(amount || '').trim();
+    if (!amt || isNaN(Number(amt)) || Number(amt) <= 0) return res.status(400).json({ error: 'Montant invalide' });
+    if (Number(amt) > PENC_PAY_USER_MAX_XOF) return res.status(400).json({ error: 'Montant maximum : ' + PENC_PAY_USER_MAX_XOF.toLocaleString('fr-FR') + ' XOF par demande.' });
+    const merchantRef = 'pencpay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const intent = await client.paymentIntents.create({
+      requestedCurrencyType: 'fiat',
+      currencyRequested: 'XOF',
+      amountRequested: amt,
+      acceptedCoins: (Array.isArray(coins) && coins.length) ? coins : ['USDT.TRC20', 'USDT.BEP20'],
+      merchantReference: merchantRef,
+      returnUrl: 'https://penc-messagerie.com/messager?open=pencpay',
+      metadata: { label: String(label || '').slice(0, 100), createdBy: req.pencUser.userId },
+    });
+    const id = 'ppt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query(
+      `INSERT INTO penc_pay_transactions(id, intent_id, merchant_reference, created_by, currency, amount_requested, accepted_coins, status, payment_url, metadata)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, intent.id, merchantRef, req.pencUser.userId, 'XOF', amt, JSON.stringify(intent.acceptedCoins || []), intent.status || 'created', intent.paymentUrl, JSON.stringify({ label: label || '' })]
+    );
+    res.json({ success: true, intent_id: intent.id, payment_url: intent.paymentUrl, merchant_reference: merchantRef });
+  } catch (e) { console.error('[penc-pay] create (user):', e.message); res.status(500).json({ error: 'Impossible de créer le paiement pour le moment.' }); }
+});
+app.get('/api/penc/pay/mine', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ transactions: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_pay_transactions WHERE created_by=$1 ORDER BY created_at DESC LIMIT 50', [req.pencUser.userId]);
+    res.json({ transactions: r.rows });
+  } catch (e) { res.json({ transactions: [] }); }
+});
 // Webhook IzichangePay — reçoit la confirmation de paiement (payment_intent.completed / expired / irregular)
 // Utilise req.rawBody (capturé globalement au niveau de express.json(), voir plus haut dans le
 // fichier) car le parseur JSON global consomme déjà le corps avant qu'un express.raw() posé ici
