@@ -3637,6 +3637,22 @@ async function pencSecLog(type, req, extra) {
     await _pgPool.query('INSERT INTO penc_security_logs(id, type, user_id, identifier, ip, user_agent, detail, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())', [id, type, (extra.user_id||null), (extra.identifier||null), ip, String(ua).slice(0,300), (extra.detail||null)]);
   } catch(e) {}
 }
+// ── Alerte de nouvelle connexion : prévient la personne qu'un appareil vient de se connecter
+// à son compte — à la fois en direct (si une autre session est déjà ouverte) ET en push (pour
+// atteindre les appareils où l'app n'est pas ouverte en ce moment, le cas le plus important
+// pour ce type d'alerte de sécurité). ──
+function _pencNotifyNewDevice(userId, req) {
+  try {
+    const ip = _rlIp(req);
+    const ua = String(req.headers['user-agent'] || '');
+    emitToUsers(String(userId), 'penc:newdevice', { ip, ua });
+    sendPencPush(String(userId), {
+      title: '🔐 Nouvelle connexion',
+      body: "Ton compte Penc vient d'être utilisé sur un nouvel appareil. Si ce n'est pas toi, vérifie tes sessions actives.",
+      data: { type: 'security', url: '/messager?open=sessions' }
+    });
+  } catch (_e) {}
+}
 async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
@@ -5847,7 +5863,7 @@ app.post('/api/penc/auth/login', async (req, res) => {
     pencSecLog('login_ok', req, {identifier:id, user_id:user.id});
     const _sid = _pencNewSid();
     const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ _pencNotifyNewDevice(user.id, req); } }).catch(function(){});
     const isAdmin = isAdminEmail || user.is_admin || false;
     _pencBruteOk(req, id);
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
@@ -5930,7 +5946,7 @@ app.post('/api/penc/auth/2fa/login', async (req,res)=>{
     if(_lock2.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     var _sid=_pencNewSid();
     var tok=jwt_penc.sign({ userId:user.id, sid:_sid }, PENC_SECRET, { expiresIn:'7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ _pencNotifyNewDevice(user.id, req); } }).catch(function(){});
     var isAdmin = PENC_ADMIN_EMAILS.includes(String(user.email||'').toLowerCase()) || user.is_admin || false;
     try{ pencSecLog('login_ok', req, {user_id:user.id, detail:'2fa'}); }catch(_){}
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin:isAdmin }), token: tok });
@@ -6042,7 +6058,7 @@ app.post('/api/penc/auth/google', async (req, res) => {
     if(_lock3.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     const _sid = _pencNewSid();
     const tok = jwt_penc.sign({ userId: user.id, sid: _sid }, PENC_SECRET, { expiresIn: '7d' });
-    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ try{ emitToUsers(String(user.id),'penc:newdevice',{ip:_rlIp(req),ua:String(req.headers['user-agent']||'')}); }catch(_){} } }).catch(function(){});
+    _pencCreateSession(user.id, _sid, req).then(function(_s){ if(_s&&_s.isNew){ _pencNotifyNewDevice(user.id, req); } }).catch(function(){});
     const isAdmin = PENC_ADMIN_EMAILS.includes(email) || user.is_admin || false;
     res.json({ user: Object.assign({}, pencStrip(user), { is_admin: isAdmin }), token: tok });
   } catch (e) {
@@ -9832,6 +9848,28 @@ function _getIzipay() {
     return _izipay;
   } catch (e) { console.error('[penc-pay] SDK izichangepay-sdk non installé (npm install izichangepay-sdk):', e.message); return null; }
 }
+// ── Tout marquer comme lu : vide tous les badges de non-lus d'un coup, utile après une absence.
+app.post('/api/penc/conversations/mark-all-read', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    if (!_pgPool) return res.json({ success: true, updated: 0 });
+    const r = await _pgPool.query(
+      `UPDATE penc_messages SET read_at=NOW()
+       WHERE sender_id!=$1 AND read_at IS NULL
+       AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)
+       RETURNING id, conversation_id, sender_id`,
+      [uid, JSON.stringify([uid])]
+    );
+    // Prévenir les expéditeurs que leurs messages ont été lus (mêmes accusés que d'habitude)
+    const byConv = {};
+    r.rows.forEach(row => { (byConv[row.conversation_id] = byConv[row.conversation_id] || []).push(row); });
+    for (const convId in byConv) {
+      const senders = [...new Set(byConv[convId].map(x => x.sender_id))];
+      try { emitToUsers(senders, 'message:read', { conv_id: convId, message_ids: byConv[convId].map(x => x.id) }); } catch (_e) {}
+    }
+    res.json({ success: true, updated: r.rows.length });
+  } catch (e) { console.error('mark-all-read:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 // Créer un paiement de test (admin uniquement pour l'instant)
 app.post('/api/penc/admin/pay/create', pencAuth, pencAdmin, async (req, res) => {
   try {
