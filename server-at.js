@@ -4658,6 +4658,7 @@ let _pgPool = null;
       );
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS poll_data JSONB;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
@@ -6388,15 +6389,16 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
      st.created_at||new Date().toISOString(),
      st.expires_at||new Date(Date.now()+86400000).toISOString(),
      st.duration||10,
-     (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null]
+     (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null,
+     st.poll_data?JSON.stringify(st.poll_data):null]
   );
   return r.rows[0];
 }
@@ -8053,9 +8055,46 @@ app.get('/api/penc/settings/privacy', pencAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
+// ── Sondage/question dans un statut : réponses privées visibles uniquement par l'auteur
+// (comme le sticker "Question" d'Instagram). ──
+app.post('/api/penc/statuses/:id/poll-respond', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { response } = req.body || {};
+    if (!response || !String(response).trim()) return res.status(400).json({ error: 'Réponse vide' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const sr = await _pgPool.query('SELECT user_id, poll_data FROM penc_statuses WHERE id=$1', [req.params.id]);
+    if (!sr.rows.length) return res.status(404).json({ error: 'Statut introuvable' });
+    const st = sr.rows[0];
+    if (String(st.user_id) === String(uid)) return res.status(403).json({ error: 'Tu ne peux pas répondre à ta propre question' });
+    let pd = st.poll_data || { question: '', responses: [] };
+    if (pd.responses.some(r => String(r.user_id) === String(uid))) return res.status(403).json({ error: 'Tu as déjà répondu' });
+    pd.responses.push({ user_id: uid, response: String(response).trim().slice(0, 300), created_at: new Date().toISOString() });
+    await _pgPool.query('UPDATE penc_statuses SET poll_data=$1 WHERE id=$2', [JSON.stringify(pd), req.params.id]);
+    try { emitToUsers(st.user_id, 'status:poll-response', { status_id: req.params.id }); } catch (_e) {}
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/statuses/:id/poll-responses', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const sr = await _pgPool.query('SELECT user_id, poll_data FROM penc_statuses WHERE id=$1', [req.params.id]);
+    if (!sr.rows.length) return res.status(404).json({ error: 'Statut introuvable' });
+    if (String(sr.rows[0].user_id) !== String(req.pencUser.userId)) return res.status(403).json({ error: 'Réservé à l\'auteur du statut' });
+    const pd = sr.rows[0].poll_data || { question: '', responses: [] };
+    const uids = pd.responses.map(r => r.user_id);
+    let profiles = {};
+    if (uids.length) {
+      const ur = await _pgPool.query('SELECT id, full_name, username, avatar_url FROM penc_users WHERE id = ANY($1)', [uids]);
+      ur.rows.forEach(u => { profiles[u.id] = u; });
+    }
+    const responses = pd.responses.map(r => ({ ...r, user: profiles[r.user_id] || null }));
+    res.json({ question: pd.question, responses });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, media_urls } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question } = req.body;
     const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
@@ -8064,6 +8103,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
       bg_color: bg_color||'#050D18', caption: caption||null,
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
+      poll_data: (poll_question && String(poll_question).trim()) ? { question: String(poll_question).trim().slice(0,150), responses: [] } : null,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now()+86400000).toISOString()
     };
