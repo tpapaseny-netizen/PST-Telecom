@@ -11184,6 +11184,32 @@ app.get('/api/penc/channels/:id', pencAuth, async (req,res) => {
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
     res.json({...ch,type:ch.type||'broadcast',read_only:!!ch.read_only,open:!!ch.open,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid)),can_post:_chCanPost(ch,uid)}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
+app.get('/api/penc/channels/:id/stats', pencAuth, async (req,res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const channels=await pencChannels();
+    const ch=channels.find(x=>x.id===req.params.id);
+    if(!ch) return res.status(404).json({error:'Canal introuvable'});
+    const isCreator=String(ch.creator_id)===String(uid);
+    const isAdmin=(ch.admins||[]).map(String).includes(String(uid));
+    if(!isCreator && !isAdmin) return res.status(403).json({error:'Réservé aux administrateurs du canal'});
+    const posts=ch.posts||[];
+    let totalReactions=0;
+    const postsWithCounts=posts.map(function(p){
+      var c=0; Object.keys(p.reactions||{}).forEach(function(e){ c+=(p.reactions[e]||[]).length; });
+      totalReactions+=c;
+      return { id:p.id, content:(p.content||'').slice(0,80), created_at:p.created_at, reaction_count:c };
+    });
+    postsWithCounts.sort(function(a,b){ return b.reaction_count-a.reaction_count; });
+    res.json({
+      follower_count: (ch.followers||[]).length,
+      total_posts: posts.length,
+      total_reactions: totalReactions,
+      avg_reactions_per_post: posts.length ? +(totalReactions/posts.length).toFixed(1) : 0,
+      top_posts: postsWithCounts.slice(0,5)
+    });
+  }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
 app.post('/api/penc/channels/:id/follow', pencAuth, async (req,res) => {
   try{ const uid=req.pencUser.userId; const channels=await pencChannels(); const ch=channels.find(x=>x.id===req.params.id);
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
