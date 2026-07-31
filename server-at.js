@@ -4159,12 +4159,12 @@ async function _wmPhoto(buffer, username) {
   }
   const uname = _wmCleanUsername(username);
   const text = '@' + uname + '_Penc';
-  const fontSize = Math.max(14, Math.round(H * 0.035));
+  const fontSize = Math.max(12, Math.round(H * 0.026));
   const svgW = Math.min(W - 20, Math.ceil(fontSize * text.length * 0.62) + 20);
   const svgH = Math.ceil(fontSize * 1.6);
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const svg = `<svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">
-    <text x="2" y="${Math.round(fontSize * 1.05)}" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" stroke="black" stroke-width="${Math.max(1, Math.round(fontSize * 0.05))}" paint-order="stroke" style="text-shadow:0 0 6px rgba(0,0,0,.9)">${escaped}</text>
+    <text x="2" y="${Math.round(fontSize * 1.05)}" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="600" fill="white" fill-opacity="0.55" stroke="black" stroke-opacity="0.4" stroke-width="${Math.max(0.5, Math.round(fontSize * 0.03))}" paint-order="stroke">${escaped}</text>
   </svg>`;
   composites.push({ input: Buffer.from(svg), left: Math.round(W * 0.03), top: Math.max(0, H - Math.round(H * 0.04) - svgH) });
   return await img.composite(composites).jpeg({ quality: 90 }).toBuffer();
