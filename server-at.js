@@ -11222,7 +11222,7 @@ app.post('/api/penc/share-target', async (req, res) => {
           files,
           expiresAt: Date.now() + 10 * 60000
         };
-        res.redirect(303, '/messager?share_token=' + token);
+        res.redirect(303, 'https://penc-messagerie.com/messager?share_token=' + token);
       } catch (e2) { console.error('share-target:', e2.message); res.status(500).send('Erreur lors de la réception du partage.'); }
     });
   } catch (e) { console.error('share-target outer:', e.message); res.status(500).send('Erreur serveur'); }
