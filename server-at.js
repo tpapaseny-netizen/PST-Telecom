@@ -4950,6 +4950,17 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      CREATE TABLE IF NOT EXISTS penc_cagnottes (
+        id TEXT PRIMARY KEY, conv_id TEXT NOT NULL, created_by TEXT NOT NULL,
+        title TEXT NOT NULL, target_amount NUMERIC, currency TEXT DEFAULT 'XOF',
+        closed BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_cagnotte_contributions (
+        id TEXT PRIMARY KEY, cagnotte_id TEXT NOT NULL, user_id TEXT NOT NULL,
+        amount NUMERIC NOT NULL, note TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_cagnotte_conv ON penc_cagnottes(conv_id);
+      CREATE INDEX IF NOT EXISTS idx_cagnotte_contrib ON penc_cagnotte_contributions(cagnotte_id);
       CREATE TABLE IF NOT EXISTS penc_polls (
         id TEXT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -9869,6 +9880,66 @@ app.post('/api/penc/conversations/mark-all-read', pencAuth, async (req, res) => 
     }
     res.json({ success: true, updated: r.rows.length });
   } catch (e) { console.error('mark-all-read:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ══════════════ CAGNOTTE DE GROUPE ══════════════
+// Suivi visuel d'une collecte commune (mariage, urgence, objectif du groupe) — déclaratif pour
+// l'instant (chacun indique ce qu'il a contribué), pas encore relié à un vrai paiement puisque
+// Penc Pay attend sa vérification. Facile à brancher dessus plus tard sans tout refaire.
+app.post('/api/penc/cagnottes', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { conv_id, title, target_amount, currency } = req.body || {};
+    if (!conv_id || !title || !String(title).trim()) return res.status(400).json({ error: 'Titre et conversation requis' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const id = 'cag_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query(
+      'INSERT INTO penc_cagnottes(id,conv_id,created_by,title,target_amount,currency) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, conv_id, uid, String(title).trim().slice(0, 150), target_amount || null, currency || 'XOF']
+    );
+    res.json({ success: true, id });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/cagnottes/:id', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const cr = await _pgPool.query('SELECT * FROM penc_cagnottes WHERE id=$1', [req.params.id]);
+    if (!cr.rows.length) return res.status(404).json({ error: 'Cagnotte introuvable' });
+    const cag = cr.rows[0];
+    const contribR = await _pgPool.query(
+      `SELECT c.*, u.full_name, u.username, u.avatar_url FROM penc_cagnotte_contributions c
+       LEFT JOIN penc_users u ON u.id=c.user_id WHERE c.cagnotte_id=$1 ORDER BY c.created_at DESC`,
+      [req.params.id]
+    );
+    const total = contribR.rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    res.json({ ...cag, total, contributions: contribR.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/cagnottes/:id/contribute', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { amount, note } = req.body || {};
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'Montant invalide' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const cr = await _pgPool.query('SELECT closed FROM penc_cagnottes WHERE id=$1', [req.params.id]);
+    if (!cr.rows.length) return res.status(404).json({ error: 'Cagnotte introuvable' });
+    if (cr.rows[0].closed) return res.status(403).json({ error: 'Cette cagnotte est clôturée' });
+    const id = 'cgc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query(
+      'INSERT INTO penc_cagnotte_contributions(id,cagnotte_id,user_id,amount,note) VALUES($1,$2,$3,$4,$5)',
+      [id, req.params.id, uid, Number(amount), String(note || '').slice(0, 200)]
+    );
+    res.json({ success: true, id });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/cagnottes/:id/close', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const cr = await _pgPool.query('SELECT created_by FROM penc_cagnottes WHERE id=$1', [req.params.id]);
+    if (!cr.rows.length) return res.status(404).json({ error: 'Cagnotte introuvable' });
+    if (String(cr.rows[0].created_by) !== String(req.pencUser.userId)) return res.status(403).json({ error: 'Seul le créateur peut clôturer' });
+    await _pgPool.query('UPDATE penc_cagnottes SET closed=TRUE WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 // Créer un paiement de test (admin uniquement pour l'instant)
 app.post('/api/penc/admin/pay/create', pencAuth, pencAdmin, async (req, res) => {
