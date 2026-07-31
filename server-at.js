@@ -11184,6 +11184,56 @@ app.get('/api/penc/channels/:id', pencAuth, async (req,res) => {
     if(!ch) return res.status(404).json({error:'Canal introuvable'});
     res.json({...ch,type:ch.type||'broadcast',read_only:!!ch.read_only,open:!!ch.open,is_following:(ch.followers||[]).includes(uid),is_creator:String(ch.creator_id)===String(uid),is_admin:(ch.admins||[]).map(String).includes(String(uid)),can_post:_chCanPost(ch,uid)}); }catch(e){res.status(500).json({error:'Erreur serveur'});}
 });
+// ═══════════════════════════════════════════════════════════════════════════
+// ── PARTAGE DEPUIS D'AUTRES APPS (Web Share Target) : reçoit ce que le téléphone envoie
+// quand on choisit "Penc" dans le menu de partage natif (comme WhatsApp). Cette route ARRIVE
+// SANS authentification (le navigateur poste directement depuis le système, pas depuis notre
+// JS) — on stocke donc le contenu quelques minutes, le temps de rediriger vers l'app déjà
+// connectée, qui viendra le récupérer avec son propre jeton via /share-target/:token. ──
+// Nécessite : npm install multer (à faire sur Render)
+// ═══════════════════════════════════════════════════════════════════════════
+const _pencPendingShares = {}; // token -> { title, text, url, files:[{url,type,name}], expiresAt }
+setInterval(() => {
+  const now = Date.now();
+  for (const t in _pencPendingShares) { if (_pencPendingShares[t].expiresAt < now) delete _pencPendingShares[t]; }
+}, 60000);
+app.post('/api/penc/share-target', async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).send('Partage indisponible : dépendance manquante côté serveur (multer).');
+    }
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } }).any();
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).send('Fichier trop volumineux ou invalide.');
+      try {
+        const token = 'shr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+        const files = [];
+        for (const f of (req.files || [])) {
+          const ext = (f.originalname && f.originalname.includes('.')) ? f.originalname.split('.').pop() : 'bin';
+          const key = 'shared/' + token + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+          const url = await r2PutBuffer(key, f.buffer, f.mimetype || 'application/octet-stream');
+          files.push({ url, type: f.mimetype || '', name: f.originalname || 'fichier' });
+        }
+        _pencPendingShares[token] = {
+          title: String((req.body && req.body.title) || '').slice(0, 300),
+          text: String((req.body && req.body.text) || '').slice(0, 2000),
+          url: String((req.body && req.body.url) || '').slice(0, 2000),
+          files,
+          expiresAt: Date.now() + 10 * 60000
+        };
+        res.redirect(303, '/messager?share_token=' + token);
+      } catch (e2) { console.error('share-target:', e2.message); res.status(500).send('Erreur lors de la réception du partage.'); }
+    });
+  } catch (e) { console.error('share-target outer:', e.message); res.status(500).send('Erreur serveur'); }
+});
+// Récupération authentifiée du contenu partagé, une seule fois (consommé puis supprimé).
+app.get('/api/penc/share-target/:token', pencAuth, async (req, res) => {
+  const pend = _pencPendingShares[req.params.token];
+  if (!pend) return res.status(404).json({ error: 'Partage introuvable ou expiré.' });
+  delete _pencPendingShares[req.params.token];
+  res.json({ success: true, ...pend });
+});
 app.get('/api/penc/channels/:id/stats', pencAuth, async (req,res) => {
   try{
     const uid=req.pencUser.userId;
