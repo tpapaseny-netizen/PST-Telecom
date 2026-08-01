@@ -4715,6 +4715,20 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_lreports_status ON penc_listing_reports(status);
+      CREATE TABLE IF NOT EXISTS penc_miniprograms (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        description   TEXT DEFAULT '',
+        icon          TEXT DEFAULT '🧩',
+        category      TEXT DEFAULT 'utilitaire',
+        html          TEXT NOT NULL,
+        author_id     TEXT,
+        active        BOOLEAN DEFAULT TRUE,
+        featured      BOOLEAN DEFAULT FALSE,
+        open_count    INTEGER DEFAULT 0,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_miniprograms_active ON penc_miniprograms(active);
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -5040,6 +5054,102 @@ let _pgPool = null;
     `);
     console.log('✅ PostgreSQL Penc connecté — tables users/convs/messages prêtes');
     try{ await _pgPool.query("INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,created_at) VALUES('penc_official','Penc','penc_officiel','+00000000000',NULL,'-','https://penc-messagerie.com/penc-icon-192.png','Compte officiel Penc',NOW()) ON CONFLICT(id) DO UPDATE SET full_name='Penc', avatar_url='https://penc-messagerie.com/penc-icon-192.png', bio='Compte officiel Penc'"); console.log('✅ Compte officiel Penc pret'); }catch(eOff){ console.error('Penc official:', eOff.message); }
+    try{
+      var _demoMpHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); min-height:100vh; padding:24px 18px; color:#fff; }
+  h1 { font-size:19px; font-weight:800; margin:0 0 4px; }
+  .sub { font-size:12.5px; opacity:.8; margin-bottom:22px; }
+  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:16px; margin-bottom:14px; }
+  label { font-size:11px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+  .row { display:flex; align-items:center; gap:10px; margin-top:6px; }
+  input[type=number] { flex:1; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:12px; color:#fff; font-size:20px; font-weight:700; outline:none; }
+  select { background:rgba(255,255,255,.2); border:none; border-radius:10px; padding:12px 10px; color:#fff; font-weight:700; font-size:14px; }
+  .swap { text-align:center; margin:6px 0; font-size:20px; opacity:.85; cursor:pointer; user-select:none; }
+  .result { font-size:26px; font-weight:800; text-align:center; margin-top:4px; }
+  .note { text-align:center; font-size:10.5px; opacity:.65; margin-top:18px; }
+  button.act { width:100%; margin-top:10px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <h1>💱 Convertisseur FCFA</h1>
+  <div class="sub">Taux fixes de référence — à titre indicatif</div>
+  <div class="card">
+    <label>Montant</label>
+    <div class="row">
+      <input type="number" id="amount" value="10000" oninput="convert()">
+      <select id="from" onchange="convert()">
+        <option value="XOF">FCFA</option>
+        <option value="EUR">EUR</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+  </div>
+  <div class="swap" onclick="swap()">⇅</div>
+  <div class="card">
+    <label>Converti en</label>
+    <div class="row">
+      <select id="to" onchange="convert()">
+        <option value="EUR">EUR</option>
+        <option value="XOF">FCFA</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+    <div class="result" id="result">—</div>
+  </div>
+  <button class="act" onclick="shareResult()">📤 Partager le résultat</button>
+  <div class="note">Mini-programme Penc — exécuté en bac à sable, sans accès à vos conversations.</div>
+
+<script>
+  // Taux fixes simples (base FCFA), volontairement approximatifs — mini-programme de démonstration.
+  var RATES = { XOF: 1, EUR: 1/655.96, USD: 1/605 };
+  function toXOF(v, cur){ return v / RATES[cur]; }
+  function fromXOF(v, cur){ return v * RATES[cur]; }
+  function convert(){
+    var amount = parseFloat(document.getElementById('amount').value) || 0;
+    var from = document.getElementById('from').value;
+    var to = document.getElementById('to').value;
+    var xof = toXOF(amount, from);
+    var out = fromXOF(xof, to);
+    var fmt = out.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    document.getElementById('result').textContent = fmt + ' ' + to;
+  }
+  function swap(){
+    var f = document.getElementById('from'), t = document.getElementById('to');
+    var tmp = f.value; f.value = t.value; t.value = tmp;
+    convert();
+  }
+  function shareResult(){
+    var amount = document.getElementById('amount').value;
+    var from = document.getElementById('from').value;
+    var result = document.getElementById('result').textContent;
+    if (window.PencSDK) {
+      PencSDK.share(amount + ' ' + from + ' = ' + result + ' (via Penc)').then(function(){
+        PencSDK.showToast('Résultat partagé', 'green');
+      }).catch(function(){});
+    }
+  }
+  if (window.PencSDK) {
+    PencSDK.getUserInfo().then(function(u){
+      if (u && u.full_name) {
+        var sub = document.querySelector('.sub');
+        sub.textContent = 'Bonjour ' + u.full_name.split(' ')[0] + ' — taux fixes de référence';
+      }
+    }).catch(function(){});
+  }
+  convert();
+</script>
+</body>
+</html>
+`;
+      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_demo_convertisseur',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO NOTHING", ['Convertisseur FCFA','Convertit FCFA, Euro et Dollar a taux fixe (mini-programme de demonstration).','💱','utilitaire', _demoMpHtml]);
+      console.log('✅ Mini-programme de demo (Convertisseur FCFA) pret');
+    }catch(eMp){ console.error('Mini-programme demo:', eMp.message); }
     // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
     // (pas de flux en direct pour l'instant). Id fixe + ON CONFLICT DO NOTHING : n'écrase jamais
     // une modification faite depuis l'admin par la suite (nom, logo, flux une fois prêt, etc.).
@@ -8302,6 +8412,69 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
     if(!_pgPool) return res.json({ listings:[] });
     const r = await _pgPool.query('SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.phone as seller_phone FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id ORDER BY l.created_at DESC LIMIT 200');
     res.json({ listings: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ══════════════ MINI-PROGRAMMES PENC ══════════════
+// Mini-applications HTML/CSS/JS autonomes, exécutées côté client dans un
+// <iframe sandbox>. Le serveur ne fait que stocker/servir le bundle HTML
+// complet — aucune exécution de code côté serveur, aucune donnée sensible
+// exposée au-delà de ce que l'admin choisit d'y mettre.
+app.get('/api/penc/miniprograms', async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ programs:[] });
+    const r = await _pgPool.query('SELECT id, name, description, icon, category, featured FROM penc_miniprograms WHERE active=true ORDER BY featured DESC, created_at DESC');
+    res.json({ programs: r.rows });
+  }catch(e){ console.error('miniprograms list:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/miniprograms/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(404).json({ error:'Indisponible' });
+    const r = await _pgPool.query('SELECT id, name, icon, html FROM penc_miniprograms WHERE id=$1 AND active=true', [req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error:'Mini-programme introuvable' });
+    _pgPool.query('UPDATE penc_miniprograms SET open_count = open_count + 1 WHERE id=$1', [req.params.id]).catch(()=>{});
+    res.json({ program: r.rows[0] });
+  }catch(e){ console.error('miniprograms get:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/miniprograms', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ programs:[] });
+    const r = await _pgPool.query('SELECT * FROM penc_miniprograms ORDER BY created_at DESC');
+    res.json({ programs: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/miniprograms', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const b = req.body||{};
+    if(!b.name || !String(b.name).trim()) return res.status(400).json({ error:'Nom requis' });
+    if(!b.html || !String(b.html).trim()) return res.status(400).json({ error:'Code HTML requis' });
+    const id = 'mp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      'INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,true,NOW())',
+      [id, String(b.name).trim().slice(0,80), String(b.description||'').slice(0,300), String(b.icon||'🧩').slice(0,8), String(b.category||'utilitaire').slice(0,40), String(b.html), req.pencUser.userId]
+    );
+    res.json({ success:true, id: id });
+  }catch(e){ console.error('miniprograms create:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.put('/api/penc/admin/miniprograms/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const b = req.body||{};
+    const sets=[]; const vals=[]; let n=1;
+    ['name','description','icon','category','html'].forEach(function(k){ if(b[k]!==undefined){ sets.push(k+'=$'+(n++)); vals.push(b[k]); } });
+    if(b.active!==undefined){ sets.push('active=$'+(n++)); vals.push(!!b.active); }
+    if(b.featured!==undefined){ sets.push('featured=$'+(n++)); vals.push(!!b.featured); }
+    if(!sets.length) return res.status(400).json({ error:'Rien à modifier' });
+    vals.push(req.params.id);
+    await _pgPool.query('UPDATE penc_miniprograms SET '+sets.join(',')+' WHERE id=$'+n, vals);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/miniprograms/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    await _pgPool.query('DELETE FROM penc_miniprograms WHERE id=$1', [req.params.id]);
+    res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // ══════════════ RADIO PENC (auto-hébergée, remplace progressivement DeglouFM/Base44) ══════════════
