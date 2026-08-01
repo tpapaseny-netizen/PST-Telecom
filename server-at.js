@@ -4733,6 +4733,7 @@ let _pgPool = null;
       ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
       ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS submitter_contact TEXT;
       CREATE INDEX IF NOT EXISTS idx_miniprograms_status ON penc_miniprograms(status);
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_verified BOOLEAN DEFAULT false;
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -5203,6 +5204,263 @@ let _pgPool = null;
 `;
       await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_demo_convertisseur',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Convertisseur FCFA','Convertit FCFA, Euro et Dollar a taux fixe (mini-programme de demonstration).','💱','utilitaire', _demoMpHtml]);
       console.log('✅ Mini-programme de demo (Convertisseur FCFA) pret');
+      var _zakatMpHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); min-height:100vh; padding:22px 16px; color:#fff; width:100%; }
+  h1 { font-size:18px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .sub { font-size:12px; opacity:.8; margin-bottom:18px; line-height:1.5; }
+  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:14px; margin-bottom:12px; width:100%; }
+  label { font-size:10.5px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; display:block; margin-bottom:6px; }
+  input[type=number] { width:100%; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:11px; color:#fff; font-size:17px; font-weight:700; outline:none; min-width:0; }
+  .field { margin-bottom:12px; }
+  .field:last-child { margin-bottom:0; }
+  .result-card { background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); border-radius:16px; padding:18px; text-align:center; margin-bottom:12px; }
+  .result-label { font-size:11px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+  .result-amount { font-size:28px; font-weight:800; margin-top:6px; }
+  .nisab-note { font-size:11.5px; opacity:.8; margin-top:8px; line-height:1.5; }
+  button.act { width:100%; margin-top:4px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13px; cursor:pointer; }
+  .note { text-align:center; font-size:10px; opacity:.6; margin-top:16px; padding:0 4px; line-height:1.5; }
+</style>
+</head>
+<body>
+  <h1>🕌 Calculatrice de Zakat</h1>
+  <div class="sub">Estimation indicative de la Zakat sur l'épargne (2,5%). Ceci ne remplace pas l'avis d'un imam ou d'un savant pour ta situation précise.</div>
+
+  <div class="card">
+    <div class="field">
+      <label>Épargne / liquidités (FCFA)</label>
+      <input type="number" id="cash" value="0" oninput="convert()" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Or/argent détenus, valeur estimée (FCFA)</label>
+      <input type="number" id="gold" value="0" oninput="convert()" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Stock marchand / créances récupérables (FCFA)</label>
+      <input type="number" id="goods" value="0" oninput="convert()" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Dettes à court terme à déduire (FCFA)</label>
+      <input type="number" id="debts" value="0" oninput="convert()" placeholder="0">
+    </div>
+  </div>
+
+  <div class="result-card">
+    <div class="result-label">Zakat due (2,5%)</div>
+    <div class="result-amount" id="zakatResult">0 FCFA</div>
+    <div class="nisab-note" id="nisabNote">Renseigne tes montants ci-dessus.</div>
+  </div>
+
+  <button class="act" onclick="shareResult()">📤 Partager le résultat</button>
+  <div class="note">Nisab de référence : ≈ 595 g d'argent. Le seuil exact varie selon le cours du marché — vérifie une source à jour avant de finaliser ton calcul. Mini-programme Penc, sans accès à tes conversations.</div>
+
+<script>
+  // Seuil du nisab (référence argent ≈ 595g) — valeur FCFA approximative, à titre indicatif
+  // uniquement. Le cours réel de l'argent varie ; ce mini-programme ne le récupère pas en direct.
+  var NISAB_ESTIMATE_FCFA = 350000;
+
+  function fmt(n) {
+    return Math.round(n).toLocaleString('fr-FR') + ' FCFA';
+  }
+
+  function convert() {
+    var cash = parseFloat(document.getElementById('cash').value) || 0;
+    var gold = parseFloat(document.getElementById('gold').value) || 0;
+    var goods = parseFloat(document.getElementById('goods').value) || 0;
+    var debts = parseFloat(document.getElementById('debts').value) || 0;
+
+    var net = Math.max(0, cash + gold + goods - debts);
+    var resultEl = document.getElementById('zakatResult');
+    var noteEl = document.getElementById('nisabNote');
+
+    if (net <= 0) {
+      resultEl.textContent = '0 FCFA';
+      noteEl.textContent = 'Renseigne tes montants ci-dessus.';
+      return;
+    }
+
+    if (net < NISAB_ESTIMATE_FCFA) {
+      resultEl.textContent = '0 FCFA';
+      noteEl.textContent = 'Ton patrimoine net (' + fmt(net) + ') est en dessous du nisab estimé (' + fmt(NISAB_ESTIMATE_FCFA) + ') — la Zakat n\\'est pas obligatoire sur ce montant, sous réserve de vérification du seuil exact du jour.';
+      return;
+    }
+
+    var zakat = net * 0.025;
+    resultEl.textContent = fmt(zakat);
+    noteEl.textContent = 'Patrimoine net retenu : ' + fmt(net) + ' — au-dessus du nisab estimé, la Zakat est due si cette épargne a été détenue une année lunaire complète (hawl).';
+  }
+
+  function shareResult() {
+    var net = (parseFloat(document.getElementById('cash').value) || 0)
+      + (parseFloat(document.getElementById('gold').value) || 0)
+      + (parseFloat(document.getElementById('goods').value) || 0)
+      - (parseFloat(document.getElementById('debts').value) || 0);
+    var zakat = Math.max(0, net) >= NISAB_ESTIMATE_FCFA ? Math.max(0, net) * 0.025 : 0;
+    if (window.PencSDK) {
+      PencSDK.share('Zakat estimée sur ' + fmt(Math.max(0, net)) + ' de patrimoine net : ' + fmt(zakat));
+    }
+  }
+
+  convert();
+</script>
+</body>
+</html>
+`;
+      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_zakat',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Calculatrice de Zakat','Estimation indicative de la Zakat sur l\'epargne (2,5%).','🕌','utilitaire', _zakatMpHtml]);
+      console.log('✅ Mini-programme Calculatrice de Zakat pret');
+      var _coranMpHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; height: 100%; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); color:#fff; width:100%; min-height:100vh; display:flex; flex-direction:column; }
+  .hd { padding:20px 16px 12px; flex-shrink:0; }
+  h1 { font-size:18px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .sub { font-size:12px; opacity:.8; }
+  .search { margin:12px 0 4px; }
+  .search input { width:100%; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:10px 12px; color:#fff; font-size:14px; outline:none; min-width:0; }
+  .search input::placeholder { color:rgba(255,255,255,.6); }
+  .list { flex:1; overflow-y:auto; padding:4px 16px 100px; -webkit-overflow-scrolling:touch; }
+  .surah-row { display:flex; align-items:center; gap:12px; padding:11px 8px; border-radius:12px; cursor:pointer; }
+  .surah-row:active { background:rgba(255,255,255,.1); }
+  .surah-num { width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+  .surah-info { flex:1; min-width:0; }
+  .surah-name-fr { font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .surah-meta { font-size:11px; opacity:.7; margin-top:1px; }
+  .surah-ar { font-size:16px; opacity:.85; flex-shrink:0; }
+  .loading, .err { text-align:center; padding:40px 20px; opacity:.75; font-size:13px; line-height:1.6; }
+  .player { position:fixed; left:0; right:0; bottom:0; background:rgba(0,25,70,.92); backdrop-filter:blur(10px); padding:12px 16px calc(12px + env(safe-area-inset-bottom)); display:none; align-items:center; gap:12px; border-top:1px solid rgba(255,255,255,.15); }
+  .player.show { display:flex; }
+  .player-info { flex:1; min-width:0; }
+  .player-title { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .player-sub { font-size:10.5px; opacity:.7; }
+  .player-btn { width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.18); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+</style>
+</head>
+<body>
+  <div class="hd">
+    <h1>📖 Coran — Lecture audio</h1>
+    <div class="sub">Récitation par Mishary Alafasy · 114 sourates</div>
+    <div class="search"><input type="text" id="searchInput" placeholder="Rechercher une sourate…" oninput="filterList()"></div>
+  </div>
+  <div class="list" id="list"><div class="loading">Chargement des sourates…</div></div>
+
+  <div class="player" id="player">
+    <button class="player-btn" onclick="togglePlay()" id="playBtn">▶️</button>
+    <div class="player-info">
+      <div class="player-title" id="playerTitle">—</div>
+      <div class="player-sub" id="playerSub">—</div>
+    </div>
+    <button class="player-btn" onclick="closePlayer()">✕</button>
+  </div>
+  <audio id="audioEl" preload="none"></audio>
+
+<script>
+  var SURAHS = [];
+  var current = null;
+
+  // Liste de secours (sourates courtes les plus lues) si l'API de métadonnées est indisponible —
+  // le fichier audio lui-même reste accessible via le CDN quel que soit le résultat de l'API.
+  var FALLBACK = [
+    {number:1,englishName:'Al-Fatiha',englishNameTranslation:"L'Ouverture",name:'الفاتحة',numberOfAyahs:7},
+    {number:36,englishName:'Ya-Sin',englishNameTranslation:'Ya-Sin',name:'يس',numberOfAyahs:83},
+    {number:55,englishName:'Ar-Rahman',englishNameTranslation:'Le Tout Miséricordieux',name:'الرحمن',numberOfAyahs:78},
+    {number:67,englishName:'Al-Mulk',englishNameTranslation:'La Royauté',name:'الملك',numberOfAyahs:30},
+    {number:112,englishName:'Al-Ikhlas',englishNameTranslation:'Le Monothéisme Pur',name:'الإخلاص',numberOfAyahs:4},
+    {number:113,englishName:'Al-Falaq',englishNameTranslation:"L'Aube Naissante",name:'الفلق',numberOfAyahs:5},
+    {number:114,englishName:'An-Nas',englishNameTranslation:'Les Hommes',name:'الناس',numberOfAyahs:6}
+  ];
+
+  function audioUrl(n) {
+    return 'https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/' + n + '.mp3';
+  }
+
+  function renderList(items) {
+    var box = document.getElementById('list');
+    if (!items.length) { box.innerHTML = '<div class="err">Aucun résultat.</div>'; return; }
+    box.innerHTML = items.map(function(s) {
+      return '<div class="surah-row" onclick="playSurah(' + s.number + ')">'
+        + '<div class="surah-num">' + s.number + '</div>'
+        + '<div class="surah-info"><div class="surah-name-fr">' + s.englishName + '</div>'
+        + '<div class="surah-meta">' + (s.englishNameTranslation || '') + ' · ' + s.numberOfAyahs + ' versets</div></div>'
+        + '<div class="surah-ar">' + s.name + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function filterList() {
+    var q = document.getElementById('searchInput').value.trim().toLowerCase();
+    if (!q) { renderList(SURAHS); return; }
+    var filtered = SURAHS.filter(function(s) {
+      return s.englishName.toLowerCase().indexOf(q) !== -1
+        || (s.englishNameTranslation || '').toLowerCase().indexOf(q) !== -1
+        || String(s.number) === q;
+    });
+    renderList(filtered);
+  }
+
+  function playSurah(n) {
+    var s = SURAHS.find(function(x) { return x.number === n; }) || FALLBACK.find(function(x) { return x.number === n; });
+    current = s || { number: n, englishName: 'Sourate ' + n, englishNameTranslation: '' };
+    var audio = document.getElementById('audioEl');
+    audio.src = audioUrl(n);
+    audio.play().catch(function() {});
+    document.getElementById('playerTitle').textContent = current.number + '. ' + current.englishName;
+    document.getElementById('playerSub').textContent = current.englishNameTranslation || 'Mishary Alafasy';
+    document.getElementById('player').classList.add('show');
+    document.getElementById('playBtn').textContent = '⏸️';
+  }
+
+  function togglePlay() {
+    var audio = document.getElementById('audioEl');
+    if (audio.paused) { audio.play().catch(function(){}); document.getElementById('playBtn').textContent = '⏸️'; }
+    else { audio.pause(); document.getElementById('playBtn').textContent = '▶️'; }
+  }
+
+  function closePlayer() {
+    var audio = document.getElementById('audioEl');
+    audio.pause();
+    audio.src = '';
+    document.getElementById('player').classList.remove('show');
+  }
+
+  document.getElementById('audioEl').addEventListener('ended', function() {
+    document.getElementById('playBtn').textContent = '▶️';
+  });
+
+  fetch('https://api.alquran.cloud/v1/surah')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.data && d.data.length) {
+        SURAHS = d.data.map(function(s) {
+          return { number: s.number, englishName: s.englishName, englishNameTranslation: s.englishNameTranslation, name: s.name, numberOfAyahs: s.numberOfAyahs };
+        });
+      } else {
+        SURAHS = FALLBACK;
+      }
+      renderList(SURAHS);
+    })
+    .catch(function() {
+      SURAHS = FALLBACK;
+      renderList(SURAHS);
+      var box = document.getElementById('list');
+      box.innerHTML = '<div class="err">Liste complète indisponible pour le moment — voici quelques sourates populaires :</div>' + box.innerHTML;
+    });
+</script>
+</body>
+</html>
+`;
+      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_coran',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Coran — Lecture audio','Ecoute les 114 sourates du Coran, recitation Mishary Alafasy.','📖','utilitaire', _coranMpHtml]);
+      console.log('✅ Mini-programme Coran (lecture audio) pret');
     }catch(eMp){ console.error('Mini-programme demo:', eMp.message); }
     // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
     // (pas de flux en direct pour l'instant). Id fixe + ON CONFLICT DO NOTHING : n'écrase jamais
@@ -5306,7 +5564,8 @@ function pgRow(row){ if(!row) return null;
            email:row.email, password:row.password_hash, avatar_url:row.avatar_url,
            bio:row.bio||'', is_admin:row.is_admin||false,
            is_online:row.is_online, last_seen:row.last_seen, geo:row.geo||{},
-           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, totp_enabled:row.totp_enabled||false, created_at:row.created_at };
+           total_time_seconds:row.total_time_seconds||0, valid_views:row.valid_views||0, totp_enabled:row.totp_enabled||false, created_at:row.created_at,
+           verified:!!row.verified, business_verified:!!row.business_verified };
 }
 async function pgFindUser(field, value){
   if(!_pgPool) return null;
@@ -8139,7 +8398,7 @@ app.get('/api/penc/listings', pencAuth, async (req, res) => {
     if(min_price){ conds.push('price >= $'+(n++)); vals.push(parseInt(min_price,10)||0); }
     if(max_price){ conds.push('price <= $'+(n++)); vals.push(parseInt(max_price,10)||0); }
     if(cursor){ conds.push('created_at < $'+(n++)); vals.push(new Date(cursor)); }
-    const sql = 'SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE '+conds.join(' AND ')+' ORDER BY created_at DESC LIMIT 30';
+    const sql = 'SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar, u.business_verified as seller_business_verified FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE '+conds.join(' AND ')+' ORDER BY created_at DESC LIMIT 30';
     const r = await _pgPool.query(sql, vals);
     res.json({ listings: r.rows, categories: LISTING_CATEGORIES });
   }catch(e){ console.error('listings list:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
@@ -8156,7 +8415,7 @@ app.get('/api/penc/listings/mine', pencAuth, async (req, res) => {
 app.get('/api/penc/listings/:id', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(404).json({ error:'Introuvable' });
-    const r = await _pgPool.query('SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar, u.phone as seller_phone FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE l.id=$1',[req.params.id]);
+    const r = await _pgPool.query('SELECT l.*, u.full_name as seller_name, u.username as seller_username, u.avatar_url as seller_avatar, u.phone as seller_phone, u.business_verified as seller_business_verified FROM penc_listings l JOIN penc_users u ON u.id=l.seller_id WHERE l.id=$1',[req.params.id]);
     if(!r.rows[0]) return res.status(404).json({ error:'Annonce introuvable' });
     if(String(r.rows[0].seller_id)!==String(req.pencUser.userId)){
       await _pgPool.query('UPDATE penc_listings SET views_count=views_count+1 WHERE id=$1',[req.params.id]);
@@ -10717,7 +10976,7 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
       valid_views: vv, own_views: u.own_views || 0, earned, withdrawn, balance: Math.max(0, earned - withdrawn),
       contacts: pencContactsCount(convs, u.id), reward_pending: !!u.reward_pending, withdraw_request: u.withdraw_request || null, created_at: u.created_at,
       geo: u.geo || null, total_time_seconds: u.total_time_seconds || 0, last_seen: u.last_seen || null,
-      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, blocked:!!(_modMap[String(u.id)]||{}).blocked, verified:!!u.verified };
+      msgs_sent:(_msgMap[String(u.id)]||0), is_moderator:!!(_modMap[String(u.id)]||{}).moderator, muted_until:(_modMap[String(u.id)]||{}).muted_until||null, suspended:!!(_modMap[String(u.id)]||{}).suspended, blocked:!!(_modMap[String(u.id)]||{}).blocked, verified:!!u.verified, business_verified:!!u.business_verified };
     };
     const _modMap={}; try{ if(_pgPool){ const _mq=await _pgPool.query('SELECT id, muted_until, suspended, moderator, blocked FROM penc_users'); _mq.rows.forEach(function(r){ _modMap[String(r.id)]={muted_until:r.muted_until||null, suspended:!!r.suspended, moderator:!!r.moderator, blocked:!!r.blocked}; }); } }catch(_e){}
     const _msgMap={}; try{ if(_pgPool){ const _qq=await _pgPool.query('SELECT sender_id, COUNT(*)::int c FROM penc_messages GROUP BY sender_id'); _qq.rows.forEach(function(r){ _msgMap[String(r.sender_id)]=r.c; }); } }catch(_e){}
@@ -10897,6 +11156,17 @@ app.post('/api/penc/admin/verify/:userId', pencAuth, pencAdmin, async (req, res)
     const type = (req.body && req.body.type) || (v ? 'admin' : null);
     await _pgPool.query('UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END WHERE id=$3', [v, type, req.params.userId]);
     try { emitToUsers(String(req.params.userId), 'penc:verified', { verified: v }); } catch(e){}
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ── Badge "Commerce vérifié" — distinct du badge bleu personnel, réservé aux vendeurs Penc
+// Market dont l'identité/activité a été vérifiée par un admin. ──
+app.post('/api/penc/admin/business-verify/:userId', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const v = !!(req.body && req.body.verified);
+    await _pgPool.query('UPDATE penc_users SET business_verified=$1 WHERE id=$2', [v, req.params.userId]);
+    try { emitToUsers(String(req.params.userId), 'penc:business_verified', { business_verified: v }); } catch(e){}
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
