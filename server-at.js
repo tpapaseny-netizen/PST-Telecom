@@ -4951,6 +4951,10 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      CREATE TABLE IF NOT EXISTS penc_channel_drafts (
+        channel_id TEXT PRIMARY KEY, content TEXT DEFAULT '', version INTEGER DEFAULT 0,
+        updated_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS penc_tontines (
         id TEXT PRIMARY KEY, conv_id TEXT NOT NULL, created_by TEXT NOT NULL,
         title TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT DEFAULT 'XOF',
@@ -11430,6 +11434,61 @@ app.get('/api/penc/share-target/:token', pencAuth, async (req, res) => {
   if (!pend) return res.status(404).json({ error: 'Partage introuvable ou expiré.' });
   delete _pencPendingShares[req.params.token];
   res.json({ success: true, ...pend });
+});
+// ══════════════ BROUILLON PARTAGÉ ENTRE ADMINS DE CANAL ══════════════
+// Plusieurs administrateurs préparent un post ensemble avant publication. Pas de fusion
+// automatique en temps réel (trop risqué de tout casser) — un simple numéro de version
+// détecte si quelqu'un d'autre a sauvegardé entre-temps, pour ne JAMAIS écraser son travail
+// sans prévenir.
+async function _chCanManageDraft(chId, uid){
+  const channels = await pencChannels();
+  const ch = channels.find(x => x.id === chId);
+  if (!ch) return null;
+  const isCreator = String(ch.creator_id) === String(uid);
+  const isAdmin = (ch.admins || []).map(String).includes(String(uid));
+  return (isCreator || isAdmin) ? ch : false;
+}
+app.get('/api/penc/channels/:id/draft', pencAuth, async (req, res) => {
+  try {
+    const ch = await _chCanManageDraft(req.params.id, req.pencUser.userId);
+    if (ch === null) return res.status(404).json({ error: 'Canal introuvable' });
+    if (!ch) return res.status(403).json({ error: 'Réservé aux administrateurs du canal' });
+    if (!_pgPool) return res.json({ content: '', version: 0 });
+    const r = await _pgPool.query('SELECT content, version, updated_by, updated_at FROM penc_channel_drafts WHERE channel_id=$1', [req.params.id]);
+    if (!r.rows.length) return res.json({ content: '', version: 0, updated_by: null, updated_at: null });
+    let updaterName = null;
+    if (r.rows[0].updated_by) { try { const u = await pgFindUser('id', r.rows[0].updated_by); updaterName = u ? (u.full_name || u.username) : null; } catch (_e) {} }
+    res.json({ ...r.rows[0], updater_name: updaterName });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.put('/api/penc/channels/:id/draft', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const ch = await _chCanManageDraft(req.params.id, uid);
+    if (ch === null) return res.status(404).json({ error: 'Canal introuvable' });
+    if (!ch) return res.status(403).json({ error: 'Réservé aux administrateurs du canal' });
+    const { content, base_version } = req.body || {};
+    if (typeof content !== 'string') return res.status(400).json({ error: 'Contenu invalide' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const existing = await _pgPool.query('SELECT version, content, updated_by FROM penc_channel_drafts WHERE channel_id=$1', [req.params.id]);
+    const currentVersion = existing.rows.length ? existing.rows[0].version : 0;
+    // Quelqu'un d'autre a sauvegardé depuis que cette personne a chargé le brouillon : on
+    // refuse d'écraser, on renvoie la version actuelle pour qu'elle décide quoi faire.
+    if (existing.rows.length && Number(base_version) !== currentVersion && String(existing.rows[0].updated_by) !== String(uid)) {
+      return res.status(409).json({ error: 'Quelqu\'un d\'autre a modifié le brouillon entre-temps.', current_content: existing.rows[0].content, current_version: currentVersion });
+    }
+    const newVersion = currentVersion + 1;
+    await _pgPool.query(
+      `INSERT INTO penc_channel_drafts(channel_id, content, version, updated_by, updated_at) VALUES($1,$2,$3,$4,NOW())
+       ON CONFLICT (channel_id) DO UPDATE SET content=$2, version=$3, updated_by=$4, updated_at=NOW()`,
+      [req.params.id, content, newVersion, uid]
+    );
+    try {
+      const admins = [...(ch.admins || []).map(String), String(ch.creator_id)].filter(a => a !== String(uid));
+      if (admins.length) emitToUsers(admins, 'channel:draft-updated', { channel_id: req.params.id, version: newVersion });
+    } catch (_e) {}
+    res.json({ success: true, version: newVersion });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.get('/api/penc/channels/:id/stats', pencAuth, async (req,res) => {
   try{
