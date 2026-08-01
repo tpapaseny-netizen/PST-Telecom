@@ -4941,6 +4941,7 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_psl_created ON penc_security_logs(created_at);
       CREATE TABLE IF NOT EXISTS penc_sessions (sid TEXT PRIMARY KEY, user_id TEXT, ua TEXT, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), revoked BOOLEAN DEFAULT FALSE);
       CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
+      CREATE TABLE IF NOT EXISTS penc_chat_locks (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_saved_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, saved_at TIMESTAMPTZ DEFAULT NOW());
@@ -7782,6 +7783,8 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
       let _mutedIds = new Set();
       try{ const _mr = await _pgPool.query('SELECT conv_id FROM penc_muted_convs WHERE user_id=$1',[uid]); _mutedIds = new Set(_mr.rows.map(r=>r.conv_id)); }catch(_me){}
+      let _lockedIds = new Set();
+      try{ const _lkr = await _pgPool.query('SELECT conv_id FROM penc_chat_locks WHERE user_id=$1',[uid]); _lockedIds = new Set(_lkr.rows.map(r=>r.conv_id)); }catch(_lke){}
       let _ephemeralMap = {};
       try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral'); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
       // Messages en attente : demandes d'ami RECUES (quelqu'un d'autre a écrit en premier, pas encore acceptées)
@@ -7817,6 +7820,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           updated_at: c.updated_at,
           pinned: _pinnedIds.has(c.id),
           muted: _mutedIds.has(c.id),
+          locked: _lockedIds.has(c.id),
           ephemeral_seconds: _ephemeralMap[c.id] || 0,
           is_request: _pendingFrom.has(otherId)
         };
@@ -7958,6 +7962,30 @@ app.post('/api/penc/conversations/:id/pin-toggle', pencAuth, async (req, res) =>
     if((cnt.rows[0]&&cnt.rows[0].n||0)>=5) return res.status(400).json({ error:'Maximum 5 conversations épinglées.' });
     await _pgPool.query('INSERT INTO penc_pinned_convs(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
     res.json({ success:true, pinned:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// Verrouillage par discussion individuelle (façon "Chat Lock" WhatsApp) : la discussion
+// disparaît de la liste principale et n'est accessible qu'après ré-authentification (PIN/
+// biométrie déjà configurés côté client). Stocké côté serveur (comme pin/mute) pour rester
+// cohérent entre appareils liés au même compte, plutôt qu'en localStorage seul.
+app.post('/api/penc/conversations/:id/lock-toggle', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const convId = req.params.id;
+    if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const ex = await _pgPool.query('SELECT 1 FROM penc_chat_locks WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+    if(ex.rowCount>0){
+      await _pgPool.query('DELETE FROM penc_chat_locks WHERE user_id=$1 AND conv_id=$2',[uid,convId]);
+      return res.json({ success:true, locked:false });
+    }
+    await _pgPool.query('INSERT INTO penc_chat_locks(user_id,conv_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[uid,convId]);
+    res.json({ success:true, locked:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/chat-locks', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ids: [] });
+    const r = await _pgPool.query('SELECT conv_id FROM penc_chat_locks WHERE user_id=$1',[req.pencUser.userId]);
+    res.json({ ids: r.rows.map(x=>x.conv_id) });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // POST /api/penc/conversations/direct
