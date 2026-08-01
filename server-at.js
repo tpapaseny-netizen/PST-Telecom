@@ -5063,21 +5063,22 @@ let _pgPool = null;
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); min-height:100vh; padding:24px 18px; color:#fff; }
-  h1 { font-size:19px; font-weight:800; margin:0 0 4px; }
-  .sub { font-size:12.5px; opacity:.8; margin-bottom:22px; }
-  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:16px; margin-bottom:14px; }
-  label { font-size:11px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
-  .row { display:flex; align-items:center; gap:10px; margin-top:6px; }
-  input[type=number] { flex:1; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:12px; color:#fff; font-size:20px; font-weight:700; outline:none; }
-  select { background:rgba(255,255,255,.2); border:none; border-radius:10px; padding:12px 10px; color:#fff; font-weight:700; font-size:14px; }
-  .swap { text-align:center; margin:6px 0; font-size:20px; opacity:.85; cursor:pointer; user-select:none; }
-  .result { font-size:26px; font-weight:800; text-align:center; margin-top:4px; }
-  .note { text-align:center; font-size:10.5px; opacity:.65; margin-top:18px; }
-  button.act { width:100%; margin-top:10px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); min-height:100vh; padding:22px 16px; color:#fff; width:100%; }
+  h1 { font-size:18px; font-weight:800; margin:0 0 4px; }
+  .sub { font-size:12px; opacity:.8; margin-bottom:20px; word-break:break-word; }
+  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:14px; margin-bottom:12px; width:100%; }
+  label { font-size:10.5px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; display:block; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:6px; width:100%; }
+  input[type=number] { flex:1 1 auto; min-width:0; width:100%; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:11px; color:#fff; font-size:18px; font-weight:700; outline:none; }
+  select { flex:0 0 auto; max-width:38%; min-width:0; background:rgba(255,255,255,.2); border:none; border-radius:10px; padding:11px 8px; color:#fff; font-weight:700; font-size:13px; }
+  .swap { text-align:center; margin:4px 0; font-size:18px; opacity:.85; cursor:pointer; user-select:none; }
+  .result { font-size:22px; font-weight:800; text-align:center; margin-top:4px; word-break:break-word; }
+  .note { text-align:center; font-size:10px; opacity:.65; margin-top:16px; padding:0 4px; }
+  button.act { width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -5098,7 +5099,7 @@ let _pgPool = null;
   <div class="card">
     <label>Converti en</label>
     <div class="row">
-      <select id="to" onchange="convert()">
+      <select id="to" onchange="convert()" style="max-width:100%;">
         <option value="EUR">EUR</option>
         <option value="XOF">FCFA</option>
         <option value="USD">USD</option>
@@ -5134,7 +5135,7 @@ let _pgPool = null;
     var result = document.getElementById('result').textContent;
     if (window.PencSDK) {
       PencSDK.share(amount + ' ' + from + ' = ' + result + ' (via Penc)').then(function(){
-        PencSDK.showToast('Résultat partagé', 'green');
+        // Le partage ouvre le sélecteur de contact Penc — pas d'action supplémentaire ici.
       }).catch(function(){});
     }
   }
@@ -5151,7 +5152,7 @@ let _pgPool = null;
 </body>
 </html>
 `;
-      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_demo_convertisseur',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO NOTHING", ['Convertisseur FCFA','Convertit FCFA, Euro et Dollar a taux fixe (mini-programme de demonstration).','💱','utilitaire', _demoMpHtml]);
+      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_demo_convertisseur',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Convertisseur FCFA','Convertit FCFA, Euro et Dollar a taux fixe (mini-programme de demonstration).','💱','utilitaire', _demoMpHtml]);
       console.log('✅ Mini-programme de demo (Convertisseur FCFA) pret');
     }catch(eMp){ console.error('Mini-programme demo:', eMp.message); }
     // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
