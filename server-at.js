@@ -4951,6 +4951,20 @@ let _pgPool = null;
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      CREATE TABLE IF NOT EXISTS penc_tontines (
+        id TEXT PRIMARY KEY, conv_id TEXT NOT NULL, created_by TEXT NOT NULL,
+        title TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT DEFAULT 'XOF',
+        frequency TEXT DEFAULT 'monthly', members JSONB NOT NULL,
+        current_round INTEGER DEFAULT 0, closed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS penc_tontine_payments (
+        id TEXT PRIMARY KEY, tontine_id TEXT NOT NULL, round INTEGER NOT NULL,
+        user_id TEXT NOT NULL, paid_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(tontine_id, round, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_tontine_conv ON penc_tontines(conv_id);
+      CREATE INDEX IF NOT EXISTS idx_tontine_pay ON penc_tontine_payments(tontine_id, round);
       CREATE TABLE IF NOT EXISTS penc_cagnottes (
         id TEXT PRIMARY KEY, conv_id TEXT NOT NULL, created_by TEXT NOT NULL,
         title TEXT NOT NULL, target_amount NUMERIC, currency TEXT DEFAULT 'XOF',
@@ -9925,6 +9939,78 @@ app.post('/api/penc/conversations/mark-all-read', pencAuth, async (req, res) => 
 // Suivi visuel d'une collecte commune (mariage, urgence, objectif du groupe) — déclaratif pour
 // l'instant (chacun indique ce qu'il a contribué), pas encore relié à un vrai paiement puisque
 // Penc Pay attend sa vérification. Facile à brancher dessus plus tard sans tout refaire.
+// ══════════════ TONTINE ══════════════
+// Épargne rotative de groupe : chacun cotise le même montant à chaque tour, une personne
+// différente reçoit la cagnotte du tour à chaque fois, dans l'ordre des membres du groupe.
+// Déclaratif pour l'instant (chacun signale qu'il a payé) — prêt à se brancher sur Penc Pay
+// plus tard.
+app.post('/api/penc/tontines', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const { conv_id, title, amount, currency, frequency } = req.body || {};
+    if (!conv_id || !title || !String(title).trim()) return res.status(400).json({ error: 'Titre et conversation requis' });
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'Montant invalide' });
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [conv_id]);
+    if (!cr.rows.length) return res.status(404).json({ error: 'Groupe introuvable' });
+    const parts = Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants || '[]');
+    if (parts.length < 2) return res.status(400).json({ error: 'Il faut au moins 2 membres dans le groupe' });
+    const id = 'ton_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query(
+      'INSERT INTO penc_tontines(id,conv_id,created_by,title,amount,currency,frequency,members) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, conv_id, uid, String(title).trim().slice(0, 150), Number(amount), currency || 'XOF', frequency || 'monthly', JSON.stringify(parts)]
+    );
+    res.json({ success: true, id });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/tontines/:id', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const tr = await _pgPool.query('SELECT * FROM penc_tontines WHERE id=$1', [req.params.id]);
+    if (!tr.rows.length) return res.status(404).json({ error: 'Tontine introuvable' });
+    const t = tr.rows[0];
+    const members = Array.isArray(t.members) ? t.members : JSON.parse(t.members || '[]');
+    const recipientId = members[t.current_round % members.length];
+    const payR = await _pgPool.query('SELECT user_id FROM penc_tontine_payments WHERE tontine_id=$1 AND round=$2', [req.params.id, t.current_round]);
+    const paidIds = payR.rows.map(r => r.user_id);
+    const ur = await _pgPool.query('SELECT id, full_name, username, avatar_url FROM penc_users WHERE id = ANY($1)', [members]);
+    let profiles = {}; ur.rows.forEach(u => { profiles[u.id] = u; });
+    res.json({
+      ...t, members: members.map(m => ({ id: m, ...(profiles[m] || {}), paid: paidIds.includes(m) })),
+      recipient: { id: recipientId, ...(profiles[recipientId] || {}) },
+      pot_total: Number(t.amount) * members.length,
+      round_display: t.current_round + 1, total_rounds: members.length
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/tontines/:id/pay', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const tr = await _pgPool.query('SELECT members, current_round, closed FROM penc_tontines WHERE id=$1', [req.params.id]);
+    if (!tr.rows.length) return res.status(404).json({ error: 'Tontine introuvable' });
+    const t = tr.rows[0];
+    if (t.closed) return res.status(403).json({ error: 'Cette tontine est clôturée' });
+    const members = Array.isArray(t.members) ? t.members : JSON.parse(t.members || '[]');
+    if (!members.includes(uid)) return res.status(403).json({ error: 'Tu ne fais pas partie de cette tontine' });
+    const id = 'tpy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query('INSERT INTO penc_tontine_payments(id,tontine_id,round,user_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [id, req.params.id, t.current_round, uid]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/tontines/:id/next-round', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const tr = await _pgPool.query('SELECT created_by, current_round, members FROM penc_tontines WHERE id=$1', [req.params.id]);
+    if (!tr.rows.length) return res.status(404).json({ error: 'Tontine introuvable' });
+    if (String(tr.rows[0].created_by) !== String(req.pencUser.userId)) return res.status(403).json({ error: 'Seul le créateur peut faire avancer le tour' });
+    const members = Array.isArray(tr.rows[0].members) ? tr.rows[0].members : JSON.parse(tr.rows[0].members || '[]');
+    const newRound = tr.rows[0].current_round + 1;
+    const closed = newRound >= members.length;
+    await _pgPool.query('UPDATE penc_tontines SET current_round=$1, closed=$2 WHERE id=$3', [newRound, closed, req.params.id]);
+    res.json({ success: true, closed });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.post('/api/penc/cagnottes', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
