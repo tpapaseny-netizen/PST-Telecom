@@ -5068,17 +5068,38 @@ let _pgPool = null;
   *, *::before, *::after { box-sizing: border-box; }
   html, body { max-width: 100%; overflow-x: hidden; }
   body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); min-height:100vh; padding:22px 16px; color:#fff; width:100%; }
-  h1 { font-size:18px; font-weight:800; margin:0 0 4px; }
+  h1 { font-size:18px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
   .sub { font-size:12px; opacity:.8; margin-bottom:20px; word-break:break-word; }
-  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:14px; margin-bottom:12px; width:100%; }
+  .card { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:14px; margin-bottom:12px; width:100%; backdrop-filter:blur(6px); }
   label { font-size:10.5px; opacity:.75; font-weight:700; text-transform:uppercase; letter-spacing:.03em; display:block; }
   .row { display:flex; align-items:center; gap:8px; margin-top:6px; width:100%; }
   input[type=number] { flex:1 1 auto; min-width:0; width:100%; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:11px; color:#fff; font-size:18px; font-weight:700; outline:none; }
-  select { flex:0 0 auto; max-width:38%; min-width:0; background:rgba(255,255,255,.2); border:none; border-radius:10px; padding:11px 8px; color:#fff; font-weight:700; font-size:13px; }
+  .curr-btn { flex:0 0 auto; min-width:0; max-width:42%; background:rgba(255,255,255,.22); border:1px solid rgba(255,255,255,.28); border-radius:10px; padding:11px 10px; color:#fff; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; white-space:nowrap; transition:background .15s; }
+  .curr-btn:active { background:rgba(255,255,255,.32); }
+  .curr-btn.full { max-width:100%; width:100%; justify-content:space-between; }
+  .curr-chevron { font-size:10px; opacity:.8; }
   .swap { text-align:center; margin:4px 0; font-size:18px; opacity:.85; cursor:pointer; user-select:none; }
   .result { font-size:22px; font-weight:800; text-align:center; margin-top:4px; word-break:break-word; }
   .note { text-align:center; font-size:10px; opacity:.65; margin-top:16px; padding:0 4px; }
-  button.act { width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13px; cursor:pointer; }
+  button.act { width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.18); color:#fff; font-weight:700; font-size:13px; cursor:pointer; transition:background .15s; }
+  button.act:active { background:rgba(255,255,255,.28); }
+
+  /* ── Sélecteur de devise premium (remplace le <select> natif du navigateur) ── */
+  .picker-ov { position:fixed; inset:0; z-index:999; background:rgba(0,20,60,.55); display:none; align-items:flex-end; justify-content:center; backdrop-filter:blur(2px); }
+  .picker-ov.show { display:flex; }
+  .picker-sheet { width:100%; max-width:420px; background:#fff; border-radius:20px 20px 0 0; padding:8px 0 max(18px, env(safe-area-inset-bottom)); color:#0B1B3A; transform:translateY(100%); transition:transform .25s cubic-bezier(.2,.9,.3,1); }
+  .picker-ov.show .picker-sheet { transform:translateY(0); }
+  .picker-handle { width:36px; height:4px; background:#D8DEEA; border-radius:99px; margin:8px auto 12px; }
+  .picker-title { font-size:13px; font-weight:800; color:#8A9BB0; text-transform:uppercase; letter-spacing:.04em; padding:0 18px 10px; }
+  .picker-opt { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; cursor:pointer; }
+  .picker-opt:active { background:#F2F6FF; }
+  .picker-opt-left { display:flex; align-items:center; gap:12px; }
+  .picker-flag { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,#0160F8,#003C9E); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; color:#fff; flex-shrink:0; }
+  .picker-name { font-weight:700; font-size:14.5px; }
+  .picker-code { font-size:11.5px; color:#8A9BB0; font-weight:600; }
+  .picker-check { width:20px; height:20px; border-radius:50%; border:2px solid #D8DEEA; flex-shrink:0; position:relative; }
+  .picker-opt.sel .picker-check { border-color:#0160F8; }
+  .picker-opt.sel .picker-check::after { content:''; position:absolute; inset:3px; border-radius:50%; background:#0160F8; }
 </style>
 </head>
 <body>
@@ -5088,55 +5109,83 @@ let _pgPool = null;
     <label>Montant</label>
     <div class="row">
       <input type="number" id="amount" value="10000" oninput="convert()">
-      <select id="from" onchange="convert()">
-        <option value="XOF">FCFA</option>
-        <option value="EUR">EUR</option>
-        <option value="USD">USD</option>
-      </select>
+      <div class="curr-btn" id="fromBtn" onclick="openPicker('from')"><span id="fromLabel">FCFA</span><span class="curr-chevron">▾</span></div>
     </div>
   </div>
   <div class="swap" onclick="swap()">⇅</div>
   <div class="card">
     <label>Converti en</label>
     <div class="row">
-      <select id="to" onchange="convert()" style="max-width:100%;">
-        <option value="EUR">EUR</option>
-        <option value="XOF">FCFA</option>
-        <option value="USD">USD</option>
-      </select>
+      <div class="curr-btn full" id="toBtn" onclick="openPicker('to')"><span id="toLabel">EUR</span><span class="curr-chevron">▾</span></div>
     </div>
     <div class="result" id="result">—</div>
   </div>
   <button class="act" onclick="shareResult()">📤 Partager le résultat</button>
   <div class="note">Mini-programme Penc — exécuté en bac à sable, sans accès à vos conversations.</div>
 
+  <!-- Feuille de sélection de devise, remplace le menu déroulant natif du navigateur -->
+  <div class="picker-ov" id="pickerOv" onclick="if(event.target===this) closePicker()">
+    <div class="picker-sheet">
+      <div class="picker-handle"></div>
+      <div class="picker-title">Choisir une devise</div>
+      <div id="pickerList"></div>
+    </div>
+  </div>
+
 <script>
-  // Taux fixes simples (base FCFA), volontairement approximatifs — mini-programme de démonstration.
+  var CURR = [
+    { code:'XOF', label:'FCFA', short:'F' },
+    { code:'EUR', label:'EUR', short:'€' },
+    { code:'USD', label:'USD', short:'$' }
+  ];
   var RATES = { XOF: 1, EUR: 1/655.96, USD: 1/605 };
+  var state = { from:'XOF', to:'EUR', target:null };
+
   function toXOF(v, cur){ return v / RATES[cur]; }
   function fromXOF(v, cur){ return v * RATES[cur]; }
+  function currLabel(code){ var c=CURR.find(function(x){return x.code===code;}); return c?c.label:code; }
+
   function convert(){
     var amount = parseFloat(document.getElementById('amount').value) || 0;
-    var from = document.getElementById('from').value;
-    var to = document.getElementById('to').value;
-    var xof = toXOF(amount, from);
-    var out = fromXOF(xof, to);
+    var xof = toXOF(amount, state.from);
+    var out = fromXOF(xof, state.to);
     var fmt = out.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
-    document.getElementById('result').textContent = fmt + ' ' + to;
+    document.getElementById('result').textContent = fmt + ' ' + currLabel(state.to);
   }
   function swap(){
-    var f = document.getElementById('from'), t = document.getElementById('to');
-    var tmp = f.value; f.value = t.value; t.value = tmp;
+    var tmp = state.from; state.from = state.to; state.to = tmp;
+    document.getElementById('fromLabel').textContent = currLabel(state.from);
+    document.getElementById('toLabel').textContent = currLabel(state.to);
     convert();
   }
+
+  function openPicker(which){
+    state.target = which;
+    var current = state[which];
+    var list = document.getElementById('pickerList');
+    list.innerHTML = CURR.map(function(c){
+      var sel = c.code === current;
+      return '<div class="picker-opt' + (sel ? ' sel' : '') + '" onclick="pickCurrency(\\'' + c.code + '\\')">'
+        + '<div class="picker-opt-left"><div class="picker-flag">' + c.short + '</div>'
+        + '<div><div class="picker-name">' + c.label + '</div><div class="picker-code">' + c.code + '</div></div></div>'
+        + '<div class="picker-check"></div>'
+        + '</div>';
+    }).join('');
+    document.getElementById('pickerOv').classList.add('show');
+  }
+  function closePicker(){ document.getElementById('pickerOv').classList.remove('show'); }
+  function pickCurrency(code){
+    if (state.target === 'from') { state.from = code; document.getElementById('fromLabel').textContent = currLabel(code); }
+    else { state.to = code; document.getElementById('toLabel').textContent = currLabel(code); }
+    closePicker();
+    convert();
+  }
+
   function shareResult(){
     var amount = document.getElementById('amount').value;
-    var from = document.getElementById('from').value;
     var result = document.getElementById('result').textContent;
     if (window.PencSDK) {
-      PencSDK.share(amount + ' ' + from + ' = ' + result + ' (via Penc)').then(function(){
-        // Le partage ouvre le sélecteur de contact Penc — pas d'action supplémentaire ici.
-      }).catch(function(){});
+      PencSDK.share(amount + ' ' + currLabel(state.from) + ' = ' + result);
     }
   }
   if (window.PencSDK) {
