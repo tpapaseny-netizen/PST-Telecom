@@ -4659,6 +4659,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS view_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 10;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS poll_data JSONB;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS is_highlight BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
@@ -4799,6 +4800,9 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_description TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_autoreply_enabled BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_autoreply_message TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS away_enabled BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS away_message TEXT;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS away_until TIMESTAMPTZ;
       ALTER TABLE penc_listings ADD COLUMN IF NOT EXISTS is_catalog_item BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_sticker_packs (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, price_fcfa INTEGER DEFAULT 0, preview_url TEXT,
@@ -7732,6 +7736,27 @@ app.get('/api/penc/statuses/of/:userId', pencAuth, async (req, res) => {
     res.json({statuses});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
+// ── Highlights de statuts : épingler ses meilleurs statuts en permanence sur son profil,
+// au lieu qu'ils disparaissent après 24h — ils restent déjà en base au-delà de l'expiration,
+// on ajoute juste un indicateur pour les retrouver sans passer par la limite habituelle. ──
+app.post('/api/penc/statuses/:id/highlight', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const sr = await _pgPool.query('SELECT user_id, is_highlight FROM penc_statuses WHERE id=$1', [req.params.id]);
+    if (!sr.rows.length) return res.status(404).json({ error: 'Statut introuvable' });
+    if (String(sr.rows[0].user_id) !== String(req.pencUser.userId)) return res.status(403).json({ error: 'Seul l\'auteur peut mettre en avant son statut' });
+    const newVal = !sr.rows[0].is_highlight;
+    await _pgPool.query('UPDATE penc_statuses SET is_highlight=$1 WHERE id=$2', [newVal, req.params.id]);
+    res.json({ success: true, is_highlight: newVal });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/penc/users/:id/highlights', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ highlights: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_statuses WHERE user_id=$1 AND is_highlight=TRUE ORDER BY created_at DESC', [req.params.id]);
+    res.json({ highlights: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.get('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
@@ -9820,6 +9845,27 @@ app.post('/api/penc/business/autoreply', pencAuth, async (req, res) => {
     const message = String((req.body && req.body.message) || '').trim().slice(0,500);
     if(enabled && !message) return res.status(400).json({ error:'Écris un message de réponse automatique' });
     await _pgPool.query('UPDATE penc_users SET business_autoreply_enabled=$1, business_autoreply_message=$2 WHERE id=$3',[enabled, message||null, uid]);
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Message d'absence personnel : ouvert à tout le monde (pas réservé au Compte Business),
+// avec une date de fin optionnelle pour qu'il s'arrête tout seul. ──
+app.get('/api/penc/away', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ enabled:false, message:null, until:null });
+    const u = await pgFindUser('id', req.pencUser.userId);
+    res.json({ enabled: !!(u && u.away_enabled), message: u && u.away_message, until: u && u.away_until });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/away', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const uid = req.pencUser.userId;
+    const enabled = !!(req.body && req.body.enabled);
+    const message = String((req.body && req.body.message) || '').trim().slice(0,500);
+    const until = (req.body && req.body.until) ? new Date(req.body.until) : null;
+    if(enabled && !message) return res.status(400).json({ error:'Écris un message d\\u2019absence' });
+    await _pgPool.query('UPDATE penc_users SET away_enabled=$1, away_message=$2, away_until=$3 WHERE id=$4',[enabled, message||null, until, uid]);
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
@@ -12409,7 +12455,10 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             const _recipientId = _parts2.find(p => p !== pencUserId);
             if (_recipientId) {
               const _recipient = await pgFindUser('id', _recipientId);
-              if (_recipient && _recipient.is_business && _recipient.business_autoreply_enabled && _recipient.business_autoreply_message) {
+              const _bizAuto = _recipient && _recipient.is_business && _recipient.business_autoreply_enabled && _recipient.business_autoreply_message;
+              const _awayActive = _recipient && _recipient.away_enabled && _recipient.away_message && (!_recipient.away_until || new Date(_recipient.away_until) > new Date());
+              const _autoText = _bizAuto ? _recipient.business_autoreply_message : (_awayActive ? _recipient.away_message : null);
+              if (_autoText) {
                 const _lastAuto = await _pgPool.query(
                   "SELECT id FROM penc_messages WHERE conversation_id=$1 AND sender_id=$2 AND content LIKE '🤖%' AND created_at > NOW() - INTERVAL '6 hours' LIMIT 1",
                   [conversation_id, _recipientId]
@@ -12418,7 +12467,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
                   const _autoMsg = {
                     id: 'msg_' + Date.now() + Math.random().toString(36).slice(2),
                     conversation_id, sender_id: _recipientId, reply_to: null,
-                    type: 'text', content: '🤖 Réponse automatique : ' + String(_recipient.business_autoreply_message).slice(0, 500),
+                    type: 'text', content: '🤖 Réponse automatique : ' + String(_autoText).slice(0, 500),
                     media_url: null, media_duration: null, poll_question: null, poll_options: null,
                     poll_duration: null, poll_votes: 0, poll_results: null,
                     radio_name: null, radio_url: null, money_amount: null, money_op: null,
