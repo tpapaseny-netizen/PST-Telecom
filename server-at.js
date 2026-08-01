@@ -4729,6 +4729,10 @@ let _pgPool = null;
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_miniprograms_active ON penc_miniprograms(active);
+      ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved';
+      ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+      ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS submitter_contact TEXT;
+      CREATE INDEX IF NOT EXISTS idx_miniprograms_status ON penc_miniprograms(status);
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -8419,27 +8423,77 @@ app.get('/api/penc/admin/listings', pencAuth, pencAdmin, async (req, res) => {
 // <iframe sandbox>. Le serveur ne fait que stocker/servir le bundle HTML
 // complet — aucune exécution de code côté serveur, aucune donnée sensible
 // exposée au-delà de ce que l'admin choisit d'y mettre.
+// Workflow : un mini-programme créé par un admin est publié immédiatement
+// (status='approved'). Un mini-programme SOUMIS par un utilisateur (via
+// /miniprograms/submit) passe par status='pending' et n'apparaît dans le
+// catalogue public qu'après validation manuelle d'un admin.
 app.get('/api/penc/miniprograms', async (req, res) => {
   try{
     if(!_pgPool) return res.json({ programs:[] });
-    const r = await _pgPool.query('SELECT id, name, description, icon, category, featured FROM penc_miniprograms WHERE active=true ORDER BY featured DESC, created_at DESC');
+    const r = await _pgPool.query("SELECT id, name, description, icon, category, featured FROM penc_miniprograms WHERE active=true AND status='approved' ORDER BY featured DESC, created_at DESC");
     res.json({ programs: r.rows });
   }catch(e){ console.error('miniprograms list:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/miniprograms/:id', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(404).json({ error:'Indisponible' });
-    const r = await _pgPool.query('SELECT id, name, icon, html FROM penc_miniprograms WHERE id=$1 AND active=true', [req.params.id]);
+    const r = await _pgPool.query("SELECT id, name, icon, html FROM penc_miniprograms WHERE id=$1 AND active=true AND status='approved'", [req.params.id]);
     if(!r.rows.length) return res.status(404).json({ error:'Mini-programme introuvable' });
     _pgPool.query('UPDATE penc_miniprograms SET open_count = open_count + 1 WHERE id=$1', [req.params.id]).catch(()=>{});
     res.json({ program: r.rows[0] });
   }catch(e){ console.error('miniprograms get:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ── Soumission par un utilisateur/développeur (n'importe quel compte Penc connecté) ──
+app.post('/api/penc/miniprograms/submit', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const b = req.body||{};
+    if(!b.name || !String(b.name).trim()) return res.status(400).json({ error:'Nom requis' });
+    if(!b.html || !String(b.html).trim()) return res.status(400).json({ error:'Code HTML requis' });
+    if(String(b.html).length > 500000) return res.status(400).json({ error:'Le code dépasse la taille maximale autorisée (500 Ko)' });
+    const id = 'mp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+    await _pgPool.query(
+      "INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,status,submitter_contact,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,true,'pending',$8,NOW())",
+      [id, String(b.name).trim().slice(0,80), String(b.description||'').slice(0,300), String(b.icon||'🧩').slice(0,8), String(b.category||'utilitaire').slice(0,40), String(b.html), req.pencUser.userId, String(b.submitter_contact||'').slice(0,200)]
+    );
+    try{
+      let submitter='Un utilisateur';
+      try{ const su=await pgFindUser('id', req.pencUser.userId); if(su) submitter=pencStrip(su).full_name||submitter; }catch(_su){}
+      for(const adminEmail of PENC_ADMIN_EMAILS){
+        try{
+          const au = await pgFindUser('email', adminEmail);
+          if(au) await sendPencPush(au.id, { title:'🧩 Nouveau mini-programme à valider', body: submitter+' a soumis "'+String(b.name).trim().slice(0,60)+'"', tag:'penc-mp-submit' });
+        }catch(_pu){}
+      }
+    }catch(_notif){}
+    res.json({ success:true, id: id, status:'pending' });
+  }catch(e){ console.error('miniprograms submit:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Mes soumissions (pour qu'un développeur suive le statut de ce qu'il a envoyé) ──
+app.get('/api/penc/miniprograms/mine', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ programs:[] });
+    const r = await _pgPool.query('SELECT id, name, icon, description, status, rejection_reason, created_at FROM penc_miniprograms WHERE author_id=$1 ORDER BY created_at DESC', [req.pencUser.userId]);
+    res.json({ programs: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Administration : file d'attente + gestion complète ──
 app.get('/api/penc/admin/miniprograms', pencAuth, pencAdmin, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ programs:[] });
-    const r = await _pgPool.query('SELECT * FROM penc_miniprograms ORDER BY created_at DESC');
+    const status = req.query.status;
+    const r = status
+      ? await _pgPool.query('SELECT m.*, u.full_name as author_name, u.username as author_username FROM penc_miniprograms m LEFT JOIN penc_users u ON u.id=m.author_id WHERE m.status=$1 ORDER BY m.created_at DESC', [status])
+      : await _pgPool.query('SELECT m.*, u.full_name as author_name, u.username as author_username FROM penc_miniprograms m LEFT JOIN penc_users u ON u.id=m.author_id ORDER BY m.created_at DESC');
     res.json({ programs: r.rows });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/admin/miniprograms/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query('SELECT * FROM penc_miniprograms WHERE id=$1', [req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error:'Introuvable' });
+    res.json({ program: r.rows[0] });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.post('/api/penc/admin/miniprograms', pencAuth, pencAdmin, async (req, res) => {
@@ -8450,11 +8504,30 @@ app.post('/api/penc/admin/miniprograms', pencAuth, pencAdmin, async (req, res) =
     if(!b.html || !String(b.html).trim()) return res.status(400).json({ error:'Code HTML requis' });
     const id = 'mp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
     await _pgPool.query(
-      'INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,true,NOW())',
+      "INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,status,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,true,'approved',NOW())",
       [id, String(b.name).trim().slice(0,80), String(b.description||'').slice(0,300), String(b.icon||'🧩').slice(0,8), String(b.category||'utilitaire').slice(0,40), String(b.html), req.pencUser.userId]
     );
     res.json({ success:true, id: id });
   }catch(e){ console.error('miniprograms create:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/miniprograms/:id/approve', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const r = await _pgPool.query("UPDATE penc_miniprograms SET status='approved', active=true, rejection_reason=NULL WHERE id=$1 RETURNING author_id, name", [req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error:'Introuvable' });
+    try{ if(r.rows[0].author_id) await sendPencPush(r.rows[0].author_id, { title:'✅ Mini-programme approuvé', body:'"'+r.rows[0].name+'" est maintenant visible dans les Mini-apps Penc.', tag:'penc-mp-status' }); }catch(_pu){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/miniprograms/:id/reject', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const reason = String((req.body&&req.body.reason)||'').slice(0,500);
+    const r = await _pgPool.query("UPDATE penc_miniprograms SET status='rejected', rejection_reason=$1 WHERE id=$2 RETURNING author_id, name", [reason, req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error:'Introuvable' });
+    try{ if(r.rows[0].author_id) await sendPencPush(r.rows[0].author_id, { title:'❌ Mini-programme refusé', body:'"'+r.rows[0].name+'" n\'a pas été approuvé.'+(reason?(' Motif : '+reason):''), tag:'penc-mp-status' }); }catch(_pu){}
+    res.json({ success:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.put('/api/penc/admin/miniprograms/:id', pencAuth, pencAdmin, async (req, res) => {
   try{
