@@ -8684,7 +8684,7 @@ app.get('/api/penc/admin/quran/stats', pencAuth, pencAdmin, async (req, res) => 
 // (agrégées, tous utilisateurs confondus) mais alimenté par la même table. ──
 app.get('/api/penc/quran/my-stats', pencAuth, async (req, res) => {
   try{
-    if(!_pgPool) return res.json({ total_plays:0, distinct_surahs:0, distinct_hadiths:0, surahs_read:[], hadiths_read:[], first_play:null });
+    if(!_pgPool) return res.json({ total_plays:0, distinct_surahs:0, distinct_hadiths:0, surahs_read:[], hadiths_read:[], first_play:null, streak:0, best_streak:0, active_days:[] });
     const uid=req.pencUser.userId;
     const total=await _pgPool.query('SELECT COUNT(*)::int n FROM penc_quran_plays WHERE user_id=$1',[uid]);
     const distSurahs=await _pgPool.query("SELECT COUNT(DISTINCT track_id)::int n FROM penc_quran_plays WHERE user_id=$1 AND track_type='surah'",[uid]);
@@ -8692,9 +8692,29 @@ app.get('/api/penc/quran/my-stats', pencAuth, async (req, res) => {
     const surahs=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays, MAX(created_at) AS last_play FROM penc_quran_plays WHERE user_id=$1 AND track_type='surah' GROUP BY track_id ORDER BY last_play DESC LIMIT 20",[uid]);
     const hadiths=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays, MAX(created_at) AS last_play FROM penc_quran_plays WHERE user_id=$1 AND track_type='hadith' GROUP BY track_id ORDER BY last_play DESC LIMIT 20",[uid]);
     const first=await _pgPool.query('SELECT MIN(created_at) AS d FROM penc_quran_plays WHERE user_id=$1',[uid]);
+    // ── Streak (jours consécutifs) : calculé côté serveur pour éviter tout souci de fuseau
+    // horaire côté client — un jour = une date calendaire (TO_CHAR), pas un timestamp exact. ──
+    const daysRes=await _pgPool.query("SELECT DISTINCT TO_CHAR(created_at,'YYYY-MM-DD') AS d FROM penc_quran_plays WHERE user_id=$1 ORDER BY d DESC",[uid]);
+    const daySet=new Set(daysRes.rows.map(r=>r.d));
+    function fmtDate(dt){ return dt.toISOString().slice(0,10); }
+    let streak=0, cursor=new Date();
+    const todayStr=fmtDate(cursor);
+    if(!daySet.has(todayStr)){ cursor.setDate(cursor.getDate()-1); } // pas encore lu aujourd'hui : le streak reste "en vie" jusqu'à la fin de la journée
+    while(daySet.has(fmtDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
+    // Meilleur streak jamais atteint (calcul simple sur la liste triée des jours actifs)
+    const sortedDays=daysRes.rows.map(r=>r.d).sort();
+    let bestStreak=0, cur=0, prevDate=null;
+    sortedDays.forEach(function(ds){
+      const d=new Date(ds+'T00:00:00Z');
+      if(prevDate){ const diffDays=Math.round((d-prevDate)/86400000); cur=(diffDays===1)?(cur+1):1; }
+      else cur=1;
+      if(cur>bestStreak) bestStreak=cur;
+      prevDate=d;
+    });
     res.json({
       total_plays: total.rows[0].n, distinct_surahs: distSurahs.rows[0].n, distinct_hadiths: distHadiths.rows[0].n,
-      surahs_read: surahs.rows, hadiths_read: hadiths.rows, first_play: (first.rows[0]&&first.rows[0].d)||null
+      surahs_read: surahs.rows, hadiths_read: hadiths.rows, first_play: (first.rows[0]&&first.rows[0].d)||null,
+      streak: streak, best_streak: bestStreak, active_days: daysRes.rows.map(r=>r.d).slice(0,60)
     });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
