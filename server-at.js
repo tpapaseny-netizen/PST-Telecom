@@ -8698,6 +8698,28 @@ app.get('/api/penc/quran/my-stats', pencAuth, async (req, res) => {
     });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ══════════════ SOUVENIRS ("ce jour-là") — resurgit les photos/vidéos envoyées ou reçues
+// exactement à cette date, les années précédentes. ══════════════
+app.get('/api/penc/memories', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ memories: [] });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query(
+      `SELECT m.id, m.conversation_id, m.type, m.media_url, m.content, m.created_at, m.sender_id
+       FROM penc_messages m
+       JOIN penc_conversations c ON c.id = m.conversation_id
+       WHERE c.participants @> $1::jsonb
+         AND m.type IN ('image','video')
+         AND m.deleted_for_all = false
+         AND EXTRACT(MONTH FROM m.created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+         AND EXTRACT(DAY FROM m.created_at) = EXTRACT(DAY FROM CURRENT_DATE)
+         AND EXTRACT(YEAR FROM m.created_at) < EXTRACT(YEAR FROM CURRENT_DATE)
+       ORDER BY m.created_at DESC LIMIT 40`,
+      [JSON.stringify([uid])]
+    );
+    res.json({ memories: r.rows });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 // ── Soumission par un utilisateur/développeur (n'importe quel compte Penc connecté) ──
 app.post('/api/penc/miniprograms/submit', pencAuth, async (req, res) => {
   try{
