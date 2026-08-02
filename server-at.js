@@ -8679,6 +8679,25 @@ app.get('/api/penc/admin/quran/stats', pencAuth, pencAdmin, async (req, res) => 
     });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
+// ── Statistiques PERSONNELLES (façon "Mes statistiques DeglouFM") : chaque utilisateur voit
+// ce qu'il a lui-même lu/écouté dans le Coran et les Hadiths — distinct des stats admin
+// (agrégées, tous utilisateurs confondus) mais alimenté par la même table. ──
+app.get('/api/penc/quran/my-stats', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ total_plays:0, distinct_surahs:0, distinct_hadiths:0, surahs_read:[], hadiths_read:[], first_play:null });
+    const uid=req.pencUser.userId;
+    const total=await _pgPool.query('SELECT COUNT(*)::int n FROM penc_quran_plays WHERE user_id=$1',[uid]);
+    const distSurahs=await _pgPool.query("SELECT COUNT(DISTINCT track_id)::int n FROM penc_quran_plays WHERE user_id=$1 AND track_type='surah'",[uid]);
+    const distHadiths=await _pgPool.query("SELECT COUNT(DISTINCT track_id)::int n FROM penc_quran_plays WHERE user_id=$1 AND track_type='hadith'",[uid]);
+    const surahs=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays, MAX(created_at) AS last_play FROM penc_quran_plays WHERE user_id=$1 AND track_type='surah' GROUP BY track_id ORDER BY last_play DESC LIMIT 20",[uid]);
+    const hadiths=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays, MAX(created_at) AS last_play FROM penc_quran_plays WHERE user_id=$1 AND track_type='hadith' GROUP BY track_id ORDER BY last_play DESC LIMIT 20",[uid]);
+    const first=await _pgPool.query('SELECT MIN(created_at) AS d FROM penc_quran_plays WHERE user_id=$1',[uid]);
+    res.json({
+      total_plays: total.rows[0].n, distinct_surahs: distSurahs.rows[0].n, distinct_hadiths: distHadiths.rows[0].n,
+      surahs_read: surahs.rows, hadiths_read: hadiths.rows, first_play: (first.rows[0]&&first.rows[0].d)||null
+    });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
 // ── Soumission par un utilisateur/développeur (n'importe quel compte Penc connecté) ──
 app.post('/api/penc/miniprograms/submit', pencAuth, async (req, res) => {
   try{
