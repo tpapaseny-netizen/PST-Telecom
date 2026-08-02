@@ -4734,8 +4734,9 @@ let _pgPool = null;
       ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS submitter_contact TEXT;
       CREATE INDEX IF NOT EXISTS idx_miniprograms_status ON penc_miniprograms(status);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_verified BOOLEAN DEFAULT false;
-      -- Mini-programme Coran & Qassaïdes de Touba : lecture continue façon DeglouFM (auto-avance,
-      -- ne s'arrête que si l'utilisateur le décide) + statistiques d'écoute connectées à l'admin.
+      -- Coran (natif, façon DeglouFM — plus un mini-programme sandbox) : lecture continue qui ne
+      -- s'arrête ni au changement de sourate ni en sortant de l'écran, statistiques connectées à
+      -- l'admin. Les Qassaïdes de Touba ont été retirées (aucune API libre trouvée).
       CREATE TABLE IF NOT EXISTS penc_quran_plays (
         id            TEXT PRIMARY KEY,
         user_id       TEXT NOT NULL,
@@ -4747,18 +4748,6 @@ let _pgPool = null;
       CREATE INDEX IF NOT EXISTS idx_qplay_track ON penc_quran_plays(track_type, track_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_user ON penc_quran_plays(user_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_created ON penc_quran_plays(created_at);
-      -- Qassaïdes de Touba : playlist gérée par l'admin (upload/URL audio hébergé, ex: R2), pas
-      -- d'API publique fiable pour ce contenu religieux mouride, donc catalogue maison.
-      CREATE TABLE IF NOT EXISTS penc_qasidas (
-        id            TEXT PRIMARY KEY,
-        title         TEXT NOT NULL,
-        reciter       TEXT DEFAULT '',
-        audio_url     TEXT NOT NULL,
-        order_index   INTEGER DEFAULT 0,
-        active        BOOLEAN DEFAULT TRUE,
-        created_at    TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_qasidas_active ON penc_qasidas(active);
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -5340,242 +5329,9 @@ let _pgPool = null;
 `;
       await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_zakat',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Calculatrice de Zakat','Estimation indicative de la Zakat sur l\'epargne (2,5%).','🕌','utilitaire', _zakatMpHtml]);
       console.log('✅ Mini-programme Calculatrice de Zakat pret');
-      var _coranMpHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<style>
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { max-width: 100%; overflow-x: hidden; height: 100%; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(135deg,#0160F8,#003C9E); color:#fff; width:100%; min-height:100vh; display:flex; flex-direction:column; }
-  .hd { padding:20px 16px 10px; flex-shrink:0; }
-  h1 { font-size:18px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
-  .sub { font-size:12px; opacity:.8; }
-  .tabs { display:flex; gap:8px; margin:14px 0 4px; }
-  .tab-btn { flex:1; text-align:center; padding:9px 6px; border-radius:10px; background:rgba(255,255,255,.12); font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid transparent; }
-  .tab-btn.active { background:#fff; color:#003C9E; }
-  .search { margin:10px 0 4px; }
-  .search input { width:100%; background:rgba(255,255,255,.15); border:none; border-radius:10px; padding:10px 12px; color:#fff; font-size:14px; outline:none; min-width:0; }
-  .search input::placeholder { color:rgba(255,255,255,.6); }
-  .list { flex:1; overflow-y:auto; padding:4px 16px 110px; -webkit-overflow-scrolling:touch; }
-  .surah-row { display:flex; align-items:center; gap:12px; padding:11px 8px; border-radius:12px; cursor:pointer; }
-  .surah-row.playing { background:rgba(255,255,255,.14); }
-  .surah-row:active { background:rgba(255,255,255,.1); }
-  .surah-num { width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
-  .surah-row.playing .surah-num { background:#fff; color:#003C9E; }
-  .surah-info { flex:1; min-width:0; }
-  .surah-name-fr { font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .surah-meta { font-size:11px; opacity:.7; margin-top:1px; }
-  .surah-ar { font-size:16px; opacity:.85; flex-shrink:0; }
-  .eq { display:flex; gap:2px; align-items:flex-end; height:14px; flex-shrink:0; }
-  .eq span { width:3px; background:#fff; border-radius:2px; animation:eqbar .8s ease-in-out infinite; }
-  .eq span:nth-child(1){height:6px;animation-delay:0s;} .eq span:nth-child(2){height:14px;animation-delay:.15s;} .eq span:nth-child(3){height:9px;animation-delay:.3s;}
-  @keyframes eqbar { 0%,100%{transform:scaleY(.4);} 50%{transform:scaleY(1);} }
-  .loading, .err { text-align:center; padding:40px 20px; opacity:.75; font-size:13px; line-height:1.6; }
-  .player { position:fixed; left:0; right:0; bottom:0; background:rgba(0,25,70,.94); backdrop-filter:blur(10px); padding:10px 14px calc(10px + env(safe-area-inset-bottom)); display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,.15); }
-  .player.show { display:flex; }
-  .player-row { display:flex; align-items:center; gap:12px; }
-  .player-info { flex:1; min-width:0; }
-  .player-title { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .player-sub { font-size:10.5px; opacity:.7; display:flex; align-items:center; gap:5px; }
-  .live-dot { width:6px; height:6px; border-radius:50%; background:#FF4D4D; display:inline-block; animation:pulse 1.3s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  .player-btn { width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.18); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:15px; }
-  .player-btn.big { width:44px; height:44px; background:#fff; color:#003C9E; font-size:17px; }
-</style>
-</head>
-<body>
-  <div class="hd">
-    <h1>📖 Coran & Qassaïdes</h1>
-    <div class="sub" id="subLabel">Récitation Mishary Alafasy · lecture continue</div>
-    <div class="tabs">
-      <div class="tab-btn active" id="tabQuran" onclick="switchTab('quran')">🕌 Le Coran</div>
-      <div class="tab-btn" id="tabQasida" onclick="switchTab('qasida')">🎙️ Qassaïdes de Touba</div>
-    </div>
-    <div class="search" id="searchWrap"><input type="text" id="searchInput" placeholder="Rechercher une sourate…" oninput="filterList()"></div>
-  </div>
-  <div class="list" id="list"><div class="loading">Chargement…</div></div>
-
-  <div class="player" id="player">
-    <div class="player-row">
-      <button class="player-btn" onclick="prevTrack()">⏮</button>
-      <button class="player-btn big" onclick="togglePlay()" id="playBtn">⏸</button>
-      <button class="player-btn" onclick="nextTrack()">⏭</button>
-      <div class="player-info">
-        <div class="player-title" id="playerTitle">—</div>
-        <div class="player-sub"><span class="live-dot"></span><span id="playerSub">Lecture continue — passe à la suite automatiquement</span></div>
-      </div>
-      <button class="player-btn" onclick="closePlayer()">✕</button>
-    </div>
-  </div>
-  <audio id="audioEl" preload="none"></audio>
-
-<script>
-  var SURAHS = [];
-  var QASIDAS = [];
-  var CUR_TAB = 'quran';
-  var CUR_LIST = []; // liste active (playlist en cours pour l'auto-avance)
-  var CUR_IDX = -1;
-
-  var FALLBACK = [
-    {number:1,englishName:'Al-Fatiha',englishNameTranslation:"L'Ouverture",name:'الفاتحة',numberOfAyahs:7},
-    {number:36,englishName:'Ya-Sin',englishNameTranslation:'Ya-Sin',name:'يس',numberOfAyahs:83},
-    {number:55,englishName:'Ar-Rahman',englishNameTranslation:'Le Tout Miséricordieux',name:'الرحمن',numberOfAyahs:78},
-    {number:67,englishName:'Al-Mulk',englishNameTranslation:'La Royauté',name:'الملك',numberOfAyahs:30},
-    {number:112,englishName:'Al-Ikhlas',englishNameTranslation:'Le Monothéisme Pur',name:'الإخلاص',numberOfAyahs:4},
-    {number:113,englishName:'Al-Falaq',englishNameTranslation:"L'Aube Naissante",name:'الفلق',numberOfAyahs:5},
-    {number:114,englishName:'An-Nas',englishNameTranslation:'Les Hommes',name:'الناس',numberOfAyahs:6}
-  ];
-
-  function audioUrl(n) { return 'https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/' + n + '.mp3'; }
-
-  function switchTab(tab){
-    CUR_TAB = tab;
-    document.getElementById('tabQuran').classList.toggle('active', tab==='quran');
-    document.getElementById('tabQasida').classList.toggle('active', tab==='qasida');
-    document.getElementById('searchWrap').style.display = tab==='quran' ? 'block' : 'none';
-    document.getElementById('subLabel').textContent = tab==='quran' ? 'Récitation Mishary Alafasy · lecture continue' : 'Qassaïdes mourides de Touba · lecture continue';
-    renderList(tab==='quran' ? SURAHS : QASIDAS);
-  }
-
-  function renderList(items){
-    var box = document.getElementById('list');
-    if (!items.length) {
-      box.innerHTML = CUR_TAB==='qasida'
-        ? '<div class="err">Aucune qassaïde disponible pour le moment. L\\'administrateur peut en ajouter depuis le panneau admin Penc.</div>'
-        : '<div class="err">Aucun résultat.</div>';
-      return;
-    }
-    if (CUR_TAB === 'quran') {
-      box.innerHTML = items.map(function(s){
-        var playing = (CUR_TAB===playingTab && CUR_TRACK && CUR_TRACK.type==='surah' && CUR_TRACK.id==s.number);
-        return '<div class="surah-row'+(playing?' playing':'')+'" onclick="playFromList(\\'quran\\','+s.number+')">'
-          +'<div class="surah-num">'+s.number+'</div>'
-          +'<div class="surah-info"><div class="surah-name-fr">'+s.englishName+'</div>'
-          +'<div class="surah-meta">'+(s.englishNameTranslation||'')+' · '+s.numberOfAyahs+' versets</div></div>'
-          +(playing?'<div class="eq"><span></span><span></span><span></span></div>':'<div class="surah-ar">'+s.name+'</div>')
-        +'</div>';
-      }).join('');
-    } else {
-      box.innerHTML = items.map(function(q,i){
-        var playing = (CUR_TAB===playingTab && CUR_TRACK && CUR_TRACK.type==='qasida' && CUR_TRACK.id===q.id);
-        return '<div class="surah-row'+(playing?' playing':'')+'" onclick="playFromList(\\'qasida\\',\\''+q.id+'\\')">'
-          +'<div class="surah-num">'+(i+1)+'</div>'
-          +'<div class="surah-info"><div class="surah-name-fr">'+q.title+'</div>'
-          +'<div class="surah-meta">'+(q.reciter||'Récitant inconnu')+'</div></div>'
-          +(playing?'<div class="eq"><span></span><span></span><span></span></div>':'<div class="surah-ar">🎙️</div>')
-        +'</div>';
-      }).join('');
-    }
-  }
-
-  function filterList(){
-    var q = document.getElementById('searchInput').value.trim().toLowerCase();
-    if (!q) { renderList(SURAHS); return; }
-    renderList(SURAHS.filter(function(s){
-      return s.englishName.toLowerCase().indexOf(q) !== -1
-        || (s.englishNameTranslation||'').toLowerCase().indexOf(q) !== -1
-        || String(s.number) === q;
-    }));
-  }
-
-  // ── Lecture continue façon DeglouFM : ne s'arrête QUE si l'utilisateur ferme le lecteur ou
-  // met en pause — sinon elle enchaîne automatiquement sur la piste suivante de la playlist
-  // active (sourate suivante, ou qassaïde suivante), en boucle sur la liste. ──
-  var CUR_TRACK = null; // {type:'surah'|'qasida', id, title}
-  var playingTab = null;
-  var userPaused = false;
-
-  function playFromList(tab, id){
-    CUR_LIST = (tab==='quran') ? SURAHS : QASIDAS;
-    CUR_IDX = CUR_LIST.findIndex(function(x){ return (tab==='quran' ? x.number==id : x.id===id); });
-    playingTab = tab;
-    userPaused = false;
-    _playCurrentIdx();
-  }
-
-  function _playCurrentIdx(){
-    if (CUR_IDX < 0 || CUR_IDX >= CUR_LIST.length) return;
-    var audio = document.getElementById('audioEl');
-    if (playingTab === 'quran') {
-      var s = CUR_LIST[CUR_IDX];
-      CUR_TRACK = { type:'surah', id:s.number, title:s.number+'. '+s.englishName };
-      audio.src = audioUrl(s.number);
-      document.getElementById('playerTitle').textContent = CUR_TRACK.title;
-    } else {
-      var q = CUR_LIST[CUR_IDX];
-      CUR_TRACK = { type:'qasida', id:q.id, title:q.title };
-      audio.src = q.audio_url;
-      document.getElementById('playerTitle').textContent = q.title + (q.reciter?(' — '+q.reciter):'');
-    }
-    audio.play().catch(function(){});
-    document.getElementById('player').classList.add('show');
-    document.getElementById('playBtn').textContent = '⏸';
-    renderList(playingTab==='quran' ? SURAHS : QASIDAS);
-    // Remonte l'écoute au serveur (connecté à l'admin, comme les stats DeglouFM).
-    if (window.PencSDK && PencSDK.logPlay) {
-      PencSDK.logPlay(CUR_TRACK.type, String(CUR_TRACK.id), CUR_TRACK.title).catch(function(){});
-    }
-  }
-
-  function nextTrack(){
-    if (!CUR_LIST.length) return;
-    CUR_IDX = (CUR_IDX + 1) % CUR_LIST.length; // boucle : reprend au début, ne s'arrête jamais toute seule
-    userPaused = false;
-    _playCurrentIdx();
-  }
-  function prevTrack(){
-    if (!CUR_LIST.length) return;
-    CUR_IDX = (CUR_IDX - 1 + CUR_LIST.length) % CUR_LIST.length;
-    userPaused = false;
-    _playCurrentIdx();
-  }
-  function togglePlay(){
-    var audio = document.getElementById('audioEl');
-    if (audio.paused) { userPaused=false; audio.play().catch(function(){}); document.getElementById('playBtn').textContent = '⏸'; }
-    else { userPaused=true; audio.pause(); document.getElementById('playBtn').textContent = '▶️'; }
-  }
-  function closePlayer(){
-    var audio = document.getElementById('audioEl');
-    userPaused = true;
-    audio.pause(); audio.src = '';
-    CUR_TRACK = null; playingTab = null;
-    document.getElementById('player').classList.remove('show');
-    renderList(CUR_TAB==='quran' ? SURAHS : QASIDAS);
-  }
-
-  // Coeur de la lecture continue : à la fin d'une piste, si l'utilisateur n'a pas mis en pause
-  // lui-même, on enchaîne automatiquement — exactement comme une radio DeglouFM qui ne s'arrête
-  // jamais toute seule.
-  document.getElementById('audioEl').addEventListener('ended', function(){
-    if (!userPaused) nextTrack();
-  });
-
-  // ── Chargement Coran (API publique, gratuite, sans clé) ──
-  fetch('https://api.alquran.cloud/v1/surah')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      SURAHS = (d && d.data && d.data.length) ? d.data.map(function(s){
-        return { number:s.number, englishName:s.englishName, englishNameTranslation:s.englishNameTranslation, name:s.name, numberOfAyahs:s.numberOfAyahs };
-      }) : FALLBACK;
-      if (CUR_TAB==='quran') renderList(SURAHS);
-    })
-    .catch(function(){ SURAHS = FALLBACK; if (CUR_TAB==='quran') renderList(SURAHS); });
-
-  // ── Chargement Qassaïdes de Touba (playlist gérée par l'admin Penc, relayée via le pont SDK) ──
-  if (window.PencSDK && PencSDK.getQasidas) {
-    PencSDK.getQasidas().then(function(list){
-      QASIDAS = list || [];
-      if (CUR_TAB==='qasida') renderList(QASIDAS);
-    }).catch(function(){ QASIDAS = []; });
-  }
-</script>
-</body>
-</html>
-`;
-      await _pgPool.query("INSERT INTO penc_miniprograms(id,name,description,icon,category,html,author_id,active,featured,created_at) VALUES('mp_coran',$1,$2,$3,$4,$5,'penc_official',true,true,NOW()) ON CONFLICT(id) DO UPDATE SET description=EXCLUDED.description, icon=EXCLUDED.icon, category=EXCLUDED.category, html=EXCLUDED.html", ['Coran & Qassaïdes','Ecoute continue des 114 sourates (Mishary Alafasy) et des Qassaides de Touba, façon radio.','📖','utilitaire', _coranMpHtml]);
-      console.log('✅ Mini-programme Coran (lecture audio) pret');
+      // Coran & Hadiths deplaces en fonctionnalite native (plus un mini-programme sandbox) -
+      // on desactive l'ancienne entree mini-programme pour qu'elle disparaisse de la liste Apps.
+      await _pgPool.query("UPDATE penc_miniprograms SET active=false WHERE id='mp_coran'");
     }catch(eMp){ console.error('Mini-programme demo:', eMp.message); }
     // Station "Sonko Archives FM" — créée automatiquement au démarrage, en état "Bientôt disponible"
     // (pas de flux en direct pour l'instant). Id fixe + ON CONFLICT DO NOTHING : n'écrase jamais
@@ -8894,15 +8650,12 @@ app.get('/api/penc/miniprograms/:id', pencAuth, async (req, res) => {
     res.json({ program: r.rows[0] });
   }catch(e){ console.error('miniprograms get:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
 });
-// ══════════════ CORAN & QASSAÏDES — écoutes + playlist Qassaïdes de Touba ══════════════
-// Appelé par le mini-programme Coran via le pont PencSDK (le mini-programme, en bac à sable,
-// n'a pas accès au token d'authentification Penc — c'est messager.html qui relaie cet appel
-// avec la session de l'utilisateur, exactement comme pour 'share').
+// ══════════════ CORAN & HADITHS (natif) — écoutes/lectures connectées à l'admin ══════════════
 app.post('/api/penc/quran/log-play', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ success:true });
     const b=req.body||{};
-    const trackType=(b.track_type==='qasida')?'qasida':'surah';
+    const trackType=(b.track_type==='hadith')?'hadith':'surah';
     const trackId=String(b.track_id||'').slice(0,64);
     if(!trackId) return res.status(400).json({ error:'track_id requis' });
     const id='qp_'+Date.now()+Math.random().toString(36).slice(2);
@@ -8911,70 +8664,18 @@ app.post('/api/penc/quran/log-play', pencAuth, async (req, res) => {
     res.json({ success:true });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
-// Playlist publique des Qassaïdes de Touba (actives uniquement), triée par ordre admin.
-app.get('/api/penc/qasidas', pencAuth, async (req, res) => {
-  try{
-    if(!_pgPool) return res.json({ qasidas:[] });
-    const r=await _pgPool.query('SELECT id,title,reciter,audio_url FROM penc_qasidas WHERE active=true ORDER BY order_index ASC, created_at ASC');
-    res.json({ qasidas:r.rows });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// ── Admin : gestion des Qassaïdes (CRUD) ──
-app.get('/api/penc/admin/qasidas', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.json({ qasidas:[] });
-    const r=await _pgPool.query('SELECT * FROM penc_qasidas ORDER BY order_index ASC, created_at ASC');
-    res.json({ qasidas:r.rows });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.post('/api/penc/admin/qasidas', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const b=req.body||{};
-    if(!b.title || !String(b.title).trim()) return res.status(400).json({ error:'Titre requis' });
-    if(!b.audio_url || !String(b.audio_url).trim()) return res.status(400).json({ error:'URL audio requise' });
-    const id='qsd_'+Date.now()+Math.random().toString(36).slice(2);
-    const cnt=await _pgPool.query('SELECT COUNT(*)::int n FROM penc_qasidas');
-    await _pgPool.query('INSERT INTO penc_qasidas(id,title,reciter,audio_url,order_index,active) VALUES($1,$2,$3,$4,$5,true)',
-      [id, String(b.title).trim().slice(0,150), String(b.reciter||'').trim().slice(0,150), String(b.audio_url).trim(), (cnt.rows[0]&&cnt.rows[0].n)||0]);
-    res.json({ success:true, id });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.put('/api/penc/admin/qasidas/:id', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    const b=req.body||{};
-    const fields=[]; const vals=[]; let n=1;
-    if(b.title!==undefined){ fields.push('title=$'+(n++)); vals.push(String(b.title).trim().slice(0,150)); }
-    if(b.reciter!==undefined){ fields.push('reciter=$'+(n++)); vals.push(String(b.reciter).trim().slice(0,150)); }
-    if(b.audio_url!==undefined){ fields.push('audio_url=$'+(n++)); vals.push(String(b.audio_url).trim()); }
-    if(b.active!==undefined){ fields.push('active=$'+(n++)); vals.push(!!b.active); }
-    if(b.order_index!==undefined){ fields.push('order_index=$'+(n++)); vals.push(parseInt(b.order_index,10)||0); }
-    if(!fields.length) return res.status(400).json({ error:'Rien à modifier' });
-    vals.push(req.params.id);
-    await _pgPool.query('UPDATE penc_qasidas SET '+fields.join(', ')+' WHERE id=$'+n, vals);
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-app.delete('/api/penc/admin/qasidas/:id', pencAuth, pencAdmin, async (req, res) => {
-  try{
-    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
-    await _pgPool.query('DELETE FROM penc_qasidas WHERE id=$1',[req.params.id]);
-    res.json({ success:true });
-  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
-});
-// ── Admin : statistiques Coran & Qassaïdes (façon DeglouFM) ──
+// ── Admin : statistiques Coran & Hadiths (façon DeglouFM) ──
 app.get('/api/penc/admin/quran/stats', pencAuth, pencAdmin, async (req, res) => {
   try{
-    if(!_pgPool) return res.json({ total_plays:0, unique_listeners:0, top_surahs:[], top_qasidas:[] });
+    if(!_pgPool) return res.json({ total_plays:0, unique_listeners:0, top_surahs:[], top_hadiths:[] });
     const total=await _pgPool.query('SELECT COUNT(*)::int n FROM penc_quran_plays');
     const uniq=await _pgPool.query('SELECT COUNT(DISTINCT user_id)::int n FROM penc_quran_plays');
     const topSurahs=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays FROM penc_quran_plays WHERE track_type='surah' GROUP BY track_id ORDER BY plays DESC LIMIT 15");
-    const topQasidas=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays FROM penc_quran_plays WHERE track_type='qasida' GROUP BY track_id ORDER BY plays DESC LIMIT 15");
+    const topHadiths=await _pgPool.query("SELECT track_id, MAX(track_title) AS track_title, COUNT(*)::int plays FROM penc_quran_plays WHERE track_type='hadith' GROUP BY track_id ORDER BY plays DESC LIMIT 15");
     const recent=await _pgPool.query("SELECT track_type, track_id, track_title, created_at FROM penc_quran_plays ORDER BY created_at DESC LIMIT 20");
     res.json({
       total_plays: total.rows[0].n, unique_listeners: uniq.rows[0].n,
-      top_surahs: topSurahs.rows, top_qasidas: topQasidas.rows, recent: recent.rows
+      top_surahs: topSurahs.rows, top_hadiths: topHadiths.rows, recent: recent.rows
     });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
