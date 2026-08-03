@@ -4734,6 +4734,7 @@ let _pgPool = null;
       ALTER TABLE penc_miniprograms ADD COLUMN IF NOT EXISTS submitter_contact TEXT;
       CREATE INDEX IF NOT EXISTS idx_miniprograms_status ON penc_miniprograms(status);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS business_verified BOOLEAN DEFAULT false;
+      ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS khatma_circle BOOLEAN DEFAULT false;
       -- Coran (natif, façon DeglouFM — plus un mini-programme sandbox) : lecture continue qui ne
       -- s'arrête ni au changement de sourate ni en sortant de l'écran, statistiques connectées à
       -- l'admin. Les Qassaïdes de Touba ont été retirées (aucune API libre trouvée).
@@ -8716,6 +8717,42 @@ app.get('/api/penc/quran/my-stats', pencAuth, async (req, res) => {
       surahs_read: surahs.rows, hadiths_read: hadiths.rows, first_play: (first.rows[0]&&first.rows[0].d)||null,
       streak: streak, best_streak: bestStreak, active_days: daysRes.rows.map(r=>r.d).slice(0,60)
     });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ── Cercle de lecture — Khatma partagée avec les participants d'une conversation existante :
+// pas de nouveau système d'invitation à construire, on réutilise directement les conversations
+// (souvent déjà familiales ou amicales) comme "cercles" de suivi. ──
+app.post('/api/penc/quran/circle/:convId/toggle', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'Indisponible' });
+    const uid=req.pencUser.userId, convId=req.params.convId;
+    const cr=await _pgPool.query('SELECT participants, khatma_circle FROM penc_conversations WHERE id=$1',[convId]);
+    if(!cr.rows[0]) return res.status(404).json({ error:'Conversation introuvable' });
+    const participants=Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]');
+    if(!participants.map(String).includes(String(uid))) return res.status(403).json({ error:'Accès refusé' });
+    const newVal=!cr.rows[0].khatma_circle;
+    await _pgPool.query('UPDATE penc_conversations SET khatma_circle=$1 WHERE id=$2',[newVal, convId]);
+    res.json({ success:true, enabled:newVal });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/quran/circle/:convId', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ enabled:false, members:[] });
+    const uid=req.pencUser.userId, convId=req.params.convId;
+    const cr=await _pgPool.query('SELECT participants, khatma_circle FROM penc_conversations WHERE id=$1',[convId]);
+    if(!cr.rows[0]) return res.status(404).json({ error:'Conversation introuvable' });
+    const participants=Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]');
+    if(!participants.map(String).includes(String(uid))) return res.status(403).json({ error:'Accès refusé' });
+    if(!cr.rows[0].khatma_circle) return res.json({ enabled:false, members:[] });
+    const members=[];
+    for(const pid of participants){
+      let u=null;
+      try{ u=await pgFindUser('id', pid); }catch(_e){}
+      const pr=await _pgPool.query("SELECT COUNT(DISTINCT track_id)::int n FROM penc_quran_plays WHERE user_id=$1 AND track_type='surah'",[pid]);
+      members.push({ id:pid, full_name:(u&&(u.full_name||u.username))||'Utilisateur', avatar_url:(u&&u.avatar_url)||null, distinct_surahs: pr.rows[0].n, pct: Math.min(100, Math.round((pr.rows[0].n/114)*100)) });
+    }
+    members.sort((a,b)=>b.distinct_surahs-a.distinct_surahs);
+    res.json({ enabled:true, members });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 // ══════════════ SOUVENIRS ("ce jour-là") — resurgit les photos/vidéos envoyées ou reçues
