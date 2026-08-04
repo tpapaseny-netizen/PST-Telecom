@@ -4117,9 +4117,21 @@ async function _generateAndStoreTTS(text, keyPrefix) {
   const key = keyPrefix + '_' + Date.now() + '.mp3';
   const url = await r2PutBuffer(key, buffer, 'audio/mpeg');
   // Durée exacte via ffprobe sur le buffer fraîchement uploadé (plus fiable que d'estimer).
-  let duration = 0;
-  try { const meta = await _ffprobeMeta(url, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); } catch (_d) {}
-  return { url, duration_seconds: duration || 3 };
+  // CRITIQUE : si ffprobe échoue à lire un flux audio (l'API TTS non-officielle renvoie parfois
+  // une page d'erreur HTML au lieu d'un vrai MP3, silencieusement, avec un code 200), on NE DOIT
+  // PAS enregistrer ce résultat avec une durée par défaut — un fichier invalide glissé dans la
+  // playlist radio peut couper le son de TOUT le flux en direct qui le suit. On rejette
+  // explicitement plutôt que de deviner une durée.
+  let duration = 0, hasAudio = false;
+  try {
+    const meta = await _ffprobeMeta(url, 10000);
+    hasAudio = !!(meta && Array.isArray(meta.streams) && meta.streams.some(s => s.codec_type === 'audio'));
+    duration = Math.round((meta && meta.format && parseFloat(meta.format.duration)) || 0);
+  } catch (_d) {}
+  if (!hasAudio || duration < 1) {
+    throw new Error('TTS invalide ou silencieux (pas de flux audio détecté) — annonce ignorée pour éviter de couper le son du direct');
+  }
+  return { url, duration_seconds: duration };
 }
 
 // ── Logo du filigrane : préchargé une fois, mis en cache mémoire ──
@@ -9213,10 +9225,14 @@ app.post('/api/penc/admin/radio/stations/:id/jingle', pencAuth, pencAdmin, async
     if(/\/embed\/|player\.cloudinary\.com|player\.vimeo\.com|youtube\.com\/watch|youtu\.be\//.test(url)){
       return res.status(400).json({ error:'Ce lien pointe vers un lecteur intégré, pas vers le fichier audio direct.' });
     }
-    let duration = 0;
-    try{ const meta = await _ffprobeMeta(url, 10000); duration = Math.round((meta && meta.format && meta.format.duration) || 0); }
+    let duration = 0, hasAudio = false;
+    try{
+      const meta = await _ffprobeMeta(url, 10000);
+      hasAudio = !!(meta && Array.isArray(meta.streams) && meta.streams.some(s => s.codec_type === 'audio'));
+      duration = Math.round((meta && meta.format && parseFloat(meta.format.duration)) || 0);
+    }
     catch(_pf){ return res.status(400).json({ error:'Impossible de lire ce fichier audio (' + _pf.message + ') — vérifie le lien direct.' }); }
-    if(!duration || duration < 1) return res.status(400).json({ error:'Durée introuvable pour ce fichier' });
+    if(!hasAudio || !duration || duration < 1) return res.status(400).json({ error:'Aucun flux audio valide détecté dans ce fichier — vérifie le lien direct.' });
     await _pgPool.query('UPDATE penc_radio_stations SET jingle_url=$1, jingle_duration_seconds=$2 WHERE id=$3',[url, duration, req.params.id]);
     res.json({ success:true, duration_seconds: duration });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
@@ -9416,6 +9432,21 @@ async function _radBackfillNormalization() {
 }
 setTimeout(_radBackfillNormalization, 20000);
 
+// ── Validation audio AVANT mise en playlist : un fichier corrompu ou silencieux (annonce TTS
+// ratée — l'API Google Translate non-officielle renvoie parfois une page d'erreur au lieu d'un
+// vrai MP3 — ou jingle mal encodé) glissé dans le démuxeur concat peut désynchroniser le décodeur
+// pour TOUT le reste du flux ffmpeg : l'audio continue d'avancer (barre de lecture, durée) côté
+// auditeur mais ne produit plus aucun son audible, parfois jusqu'à la fin de la diffusion. On
+// vérifie donc systématiquement, via ffprobe, qu'un flux audio réel et non trivial (>0.3s) est
+// bien présent avant d'accepter le fichier dans la playlist locale. ──
+async function _radValidateAudioFile(path) {
+  try {
+    const meta = await _ffprobeMeta(path, 15000);
+    const hasAudio = !!(meta && Array.isArray(meta.streams) && meta.streams.some(s => s.codec_type === 'audio'));
+    const dur = (meta && meta.format && parseFloat(meta.format.duration)) || 0;
+    return hasAudio && dur > 0.3;
+  } catch (_v) { return false; }
+}
 async function _radStartBroadcast(stationId) {
   const { rawTracks, tracks, totalDuration } = await _radBuildTrackList(stationId);
   if (!rawTracks.length || totalDuration <= 0) return null;
@@ -9439,8 +9470,15 @@ async function _radStartBroadcast(stationId) {
         // Déjà téléchargée/normalisée lors d'une diffusion précédente sur cette instance — pas
         // besoin de tout refaire à chaque redémarrage (dernier auditeur parti puis quelqu'un
         // revient) : c'est ÇA qui bloquait le direct plusieurs minutes sur les longs discours.
-        localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
-        continue;
+        // On revalide quand même rapidement (ffprobe) : un fichier mis en cache une fois corrompu
+        // resterait sinon silencieux indéfiniment, à chaque redémarrage de diffusion, jusqu'au
+        // prochain redéploiement du serveur.
+        if (await _radValidateAudioFile(cachePath)) {
+          localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
+          continue;
+        }
+        console.error('[radio-live] cache invalide/silencieux détecté, purge et retéléchargement — ' + (t.title || t.kind || 'sans titre'));
+        try { fs.unlinkSync(cachePath); } catch (_pu) {}
       }
       const ext = (String(sourceUrl).match(/\.(mp3|m4a|wav|webm|mp4)(\?|$)/i) || [, 'mp3'])[1].toLowerCase();
       const dest = pathMod.join(workDir, 'track_' + i + '_raw.' + ext);
@@ -9457,6 +9495,10 @@ async function _radStartBroadcast(stationId) {
         // on retombe sur l'ancien chemin — transcodage à la volée, timeout généreux (20 min).
         await _radNormalizeTrack(dest, cachePath, 1200000);
         try { fs.unlinkSync(dest); } catch (_ud) {}
+      }
+      if (!(await _radValidateAudioFile(cachePath))) {
+        try { fs.unlinkSync(cachePath); } catch (_puf) {}
+        throw new Error('fichier audio invalide ou silencieux après normalisation (source probablement corrompue, ex. annonce TTS en échec)');
       }
       localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
     } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', sourceUrl, '—', _dl.message); }
