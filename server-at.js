@@ -4188,6 +4188,9 @@ function _ffmpegBin() {
   try { ffmpeg.setFfmpegPath(require('@ffmpeg-installer/ffmpeg').path); } catch (e) {}
   return ffmpeg;
 }
+function _ffmpegPath() {
+  try { return require('@ffmpeg-installer/ffmpeg').path; } catch (e) { return 'ffmpeg'; }
+}
 async function _ffprobeMeta(inputPath, timeoutMs) {
   const ffmpeg = _ffmpegBin();
   return new Promise((resolve, reject) => {
@@ -4476,7 +4479,8 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       console.log('[media/process] video: ' + buf.length + ' octets récupérés');
       const tmpIn = pathMod.join(os.tmpdir(), 'vin_' + Date.now() + '.mp4');
       const tmpOut = pathMod.join(os.tmpdir(), 'vout_' + Date.now() + '.mp4');
-      tmpFiles = [tmpIn, tmpOut];
+      const tmpPoster = pathMod.join(os.tmpdir(), 'vposter_' + Date.now() + '.jpg');
+      tmpFiles = [tmpIn, tmpOut, tmpPoster];
       fs.writeFileSync(tmpIn, buf);
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
@@ -4485,9 +4489,25 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const url = await r2PutBuffer(key, outBuf, 'video/mp4');
+      // Vignette (poster) réelle générée UNE FOIS côté serveur, à partir de la vidéo finale déjà
+      // traitée (donc avec le filigrane si présent) — bien plus fiable qu'une astuce de lecture
+      // côté navigateur (currentTime, autoplay…) pour éviter le rectangle noir en attendant la
+      // lecture : une vraie image JPG s'affiche instantanément et systématiquement, sur tous les
+      // navigateurs/appareils, exactement comme WhatsApp.
+      let posterUrl = null;
+      try {
+        await new Promise((resolve, reject) => {
+          const { execFile } = require('child_process');
+          execFile(_ffmpegPath(), ['-y', '-i', tmpOut, '-ss', '00:00:00.3', '-vframes', '1', '-vf', 'scale=480:-1', '-q:v', '4', tmpPoster], { timeout: 30000 }, (err) => err ? reject(err) : resolve());
+        });
+        if (fs.existsSync(tmpPoster) && (fs.statSync(tmpPoster).size || 0) > 500) {
+          const posterBuf = fs.readFileSync(tmpPoster);
+          posterUrl = await r2PutBuffer(key.replace(/\.[^.]+$/, '') + '_poster.jpg', posterBuf, 'image/jpeg');
+        }
+      } catch (_pv) { console.error('[media/process] vignette vidéo échouée (non bloquant):', _pv.message); }
       tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
-      console.log('[media/process] video: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url);
-      return res.json({ success: true, url });
+      console.log('[media/process] video: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url + (posterUrl ? (' (vignette: ' + posterUrl + ')') : ' (sans vignette)'));
+      return res.json({ success: true, url, posterUrl });
     }
 
     if (type === 'voice') {
@@ -4645,6 +4665,7 @@ let _pgPool = null;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS file_name TEXT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS file_size BIGINT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS poll_id TEXT;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS media_thumb_url TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
@@ -5548,8 +5569,8 @@ async function pgGetMessages(convId, limit=100){
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,poll_id,file_name,file_size) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15,$16) RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.poll_id||null,msg.file_name||null,msg.file_size||null]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,poll_id,file_name,file_size,media_thumb_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.poll_id||null,msg.file_name||null,msg.file_size||null,msg.media_thumb_url||null]
   );
   // Mettre à jour updated_at de la conv
   await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]);
@@ -5565,8 +5586,8 @@ async function pgSaveMessage(msg){
 async function pgClaimMessage(msg){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,file_name,file_size) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15) ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING RETURNING *',
-    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.file_name||null,msg.file_size||null]
+    'INSERT INTO penc_messages(id,conversation_id,sender_id,type,content,media_url,duration,reply_to,created_at,deleted_for_all,pending,client_id,expires_at,view_once,file_name,file_size,media_thumb_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING RETURNING *',
+    [msg.id,msg.conversation_id,msg.sender_id,msg.type||'text',msg.content||'',msg.media_url||null,msg.duration||null,msg.reply_to?JSON.stringify(msg.reply_to):null,msg.created_at||new Date().toISOString(),msg.pending||false,msg.client_id||null,msg.expires_at||null,msg.view_once||false,msg.file_name||null,msg.file_size||null,msg.media_thumb_url||null]
   );
   if(r.rows[0]){ await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]); return r.rows[0]; }
   return null; // conflit = un autre envoi avec le même client_id a déjà gagné la course
@@ -12991,6 +13012,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         reply_to: reply_to || null,
         type: type || 'text', content: content || null,
         media_url: media_url || null, media_duration: media_duration || null,
+        media_thumb_url: data.media_thumb_url || null,
         poll_question: poll_question || null, poll_options: poll_options || null,
         poll_duration: poll_duration || null, poll_votes: 0,
         poll_results: poll_options ? poll_options.map(() => 0) : null,
