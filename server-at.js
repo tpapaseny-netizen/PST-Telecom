@@ -4452,11 +4452,8 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
     if (type === 'photo') {
       console.log('[media/process] photo: téléchargement depuis R2...');
       const buf = await r2GetBuffer(key);
-      console.log('[media/process] photo: ' + buf.length + ' octets récupérés, filigrane en cours...');
-      const username = await _pencUsernameFor(req.pencUser.userId);
-      const out = await _wmPhoto(buf, username);
-      console.log('[media/process] photo: filigrane OK, ré-upload...');
-      const url = await r2PutBuffer(key, out, 'image/jpeg');
+      console.log('[media/process] photo: ' + buf.length + ' octets récupérés, filigrane désactivé — ré-upload direct...');
+      const url = await r2PutBuffer(key, buf, 'image/jpeg');
       console.log('[media/process] photo: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url);
       return res.json({ success: true, url });
     }
