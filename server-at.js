@@ -9463,6 +9463,11 @@ function _radWavCachePathFor(mp3Path) {
 }
 async function _radEnsureWavCache(mp3Path) {
   const fs = require('fs');
+  // Garde-fou disque : un jingle/annonce ne devrait jamais dépasser quelques Mo — si c'est le cas
+  // (mauvaise configuration admin, fichier jingle anormalement long), on refuse le décodage WAV
+  // plutôt que de risquer de saturer le disque temporaire (2 Go max sur Render).
+  const srcSize = (fs.statSync(mp3Path).size || 0);
+  if (srcSize > 4 * 1024 * 1024) throw new Error('fichier trop volumineux pour un décodage WAV sûr (' + Math.round(srcSize / 1024 / 1024) + ' Mo)');
   const wavPath = _radWavCachePathFor(mp3Path);
   if (fs.existsSync(wavPath) && (fs.statSync(wavPath).size || 0) > 4096 && await _radValidateAudioFile(wavPath)) {
     return wavPath;
@@ -9507,8 +9512,16 @@ async function _radStartBroadcast(stationId) {
         // resterait sinon silencieux indéfiniment, à chaque redémarrage de diffusion, jusqu'au
         // prochain redéploiement du serveur.
         if (await _radValidateAudioFile(cachePath)) {
-          const wavPath = await _radEnsureWavCache(cachePath);
-          localTracks.push({ path: wavPath, duration: t.duration_seconds || 0 });
+          // Décodage PCM (WAV) réservé aux segments COURTS (jingle/annonce) qui reviennent avant
+          // CHAQUE piste — donc les jonctions les plus fréquentes et les plus probables à casser le
+          // son. Les pistes longues (discours de plusieurs heures) restent en MP3 : les décoder en
+          // WAV ferait exploser le disque temporaire (2 Go max sur Render — un discours de 2h en
+          // WAV pèse ~1,2 Go à lui seul), pour un gain minime puisqu'une piste longue n'a qu'UNE
+          // seule jonction (son propre début), pas des dizaines comme le jingle/l'annonce.
+          const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement');
+          let finalPath = cachePath;
+          if (wantsWav) { try { finalPath = await _radEnsureWavCache(cachePath); } catch (_wc) { console.error('[radio-live] décodage WAV impossible, repli sur MP3 — ' + (t.title || t.kind) + ':', _wc.message); } }
+          localTracks.push({ path: finalPath, duration: t.duration_seconds || 0 });
           continue;
         }
         console.error('[radio-live] cache invalide/silencieux détecté, purge et retéléchargement — ' + (t.title || t.kind || 'sans titre'));
@@ -9534,8 +9547,10 @@ async function _radStartBroadcast(stationId) {
         try { fs.unlinkSync(cachePath); } catch (_puf) {}
         throw new Error('fichier audio invalide ou silencieux après normalisation (source probablement corrompue, ex. annonce TTS en échec)');
       }
-      const wavPath = await _radEnsureWavCache(cachePath);
-      localTracks.push({ path: wavPath, duration: t.duration_seconds || 0 });
+      const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement');
+      let finalPath = cachePath;
+      if (wantsWav) { try { finalPath = await _radEnsureWavCache(cachePath); } catch (_wc) { console.error('[radio-live] décodage WAV impossible, repli sur MP3 — ' + (t.title || t.kind) + ':', _wc.message); } }
+      localTracks.push({ path: finalPath, duration: t.duration_seconds || 0 });
     } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', sourceUrl, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
