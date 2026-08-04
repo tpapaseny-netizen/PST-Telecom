@@ -9447,6 +9447,39 @@ async function _radValidateAudioFile(path) {
     return hasAudio && dur > 0.3;
   } catch (_v) { return false; }
 }
+// ── Décodage en PCM brut (WAV) AVANT collage — fix définitif du "joue mais pas de son" ──
+// Recoller des fichiers MP3 déjà compressés bout à bout via le démuxeur concat peut faire perdre
+// pied au décodeur à chaque jonction (chaque piste normalisée séparément peut porter son propre
+// en-tête/état d'encodeur) : le flux continue d'avancer côté auditeur (durée, barre de lecture)
+// mais ne produit plus de son audible, parfois pour le reste de la diffusion. Le fond du problème
+// est la compression aux jonctions — pas le contenu de chaque piste individuellement (qui passe
+// pourtant la validation ci-dessus). Solution éprouvée : décoder chaque piste en PCM brut (WAV)
+// UNE FOIS, mettre ce WAV en cache, puis ne coller que du WAV au démuxeur concat — un format brut
+// n'a aucun état d'encodeur à transporter d'un fichier à l'autre, donc aucune jonction possible à
+// casser. Le ré-encodage en MP3 n'a lieu qu'UNE SEULE FOIS, sur le flux déjà propre, à la sortie.
+function _radWavCachePathFor(mp3Path) {
+  const pathMod = require('path');
+  return pathMod.join(_radCacheDir(), pathMod.basename(mp3Path, '.mp3') + '.wav');
+}
+async function _radEnsureWavCache(mp3Path) {
+  const fs = require('fs');
+  const wavPath = _radWavCachePathFor(mp3Path);
+  if (fs.existsSync(wavPath) && (fs.statSync(wavPath).size || 0) > 4096 && await _radValidateAudioFile(wavPath)) {
+    return wavPath;
+  }
+  const { execFile } = require('child_process');
+  await new Promise((resolve, reject) => {
+    execFile(_radFfmpegPath, ['-y', '-i', mp3Path, '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2', '-f', 'wav', wavPath], { timeout: 1200000, maxBuffer: 1024 * 1024 * 20 }, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+  if (!(await _radValidateAudioFile(wavPath))) {
+    try { fs.unlinkSync(wavPath); } catch (_wuf) {}
+    throw new Error('échec du décodage PCM (WAV) — fichier source probablement corrompu');
+  }
+  return wavPath;
+}
 async function _radStartBroadcast(stationId) {
   const { rawTracks, tracks, totalDuration } = await _radBuildTrackList(stationId);
   if (!rawTracks.length || totalDuration <= 0) return null;
@@ -9474,7 +9507,8 @@ async function _radStartBroadcast(stationId) {
         // resterait sinon silencieux indéfiniment, à chaque redémarrage de diffusion, jusqu'au
         // prochain redéploiement du serveur.
         if (await _radValidateAudioFile(cachePath)) {
-          localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
+          const wavPath = await _radEnsureWavCache(cachePath);
+          localTracks.push({ path: wavPath, duration: t.duration_seconds || 0 });
           continue;
         }
         console.error('[radio-live] cache invalide/silencieux détecté, purge et retéléchargement — ' + (t.title || t.kind || 'sans titre'));
@@ -9500,7 +9534,8 @@ async function _radStartBroadcast(stationId) {
         try { fs.unlinkSync(cachePath); } catch (_puf) {}
         throw new Error('fichier audio invalide ou silencieux après normalisation (source probablement corrompue, ex. annonce TTS en échec)');
       }
-      localTracks.push({ path: cachePath, duration: t.duration_seconds || 0 });
+      const wavPath = await _radEnsureWavCache(cachePath);
+      localTracks.push({ path: wavPath, duration: t.duration_seconds || 0 });
     } catch (_dl) { console.error('[radio-live] piste ignorée (' + (t.title || 'sans titre') + '):', sourceUrl, '—', _dl.message); }
   }
   if (!localTracks.length) { console.error('[radio-live] aucune piste téléchargeable pour station=' + stationId); return null; }
