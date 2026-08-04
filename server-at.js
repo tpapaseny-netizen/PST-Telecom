@@ -5573,10 +5573,10 @@ async function pgClaimMessage(msg){
 }
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
-  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Ta messagerie mondiale gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDCB8 transferts d'argent. R\u00e9ponds \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
+  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Votre messagerie panafricaine gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o et Penc Meet, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDD4C Coran & outils spirituels, \uD83D\uDCB8 transferts d'argent. R\u00e9pondez \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
 }
 function _pencWelcomeBackText(fullName){
-  return "Contente\u2026 non, content de te revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant ton absence, tes messages, tes appels, tes statuts et la radio DeglouFM en direct t'attendent. Jette un \u0153il \u00e0 tes conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
+  return "Ravis de vous revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant votre absence, vos messages, vos appels, vos statuts et la radio DeglouFM en direct vous attendent. Jetez un \u0153il \u00e0 vos conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
 }
 async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
   try{
@@ -11888,7 +11888,7 @@ app.post('/api/penc/session/ping', pencAuth, async (req, res) => {
         if (_prevSeen && _prevSeen.last_seen) {
           const _gapMs = Date.now() - new Date(_prevSeen.last_seen).getTime();
           if (_gapMs >= 24*60*60*1000) {
-            _sendPencOfficialDM(uid, _pencWelcomeBackText(_prevSeen.full_name||''), 'Penc', 'Content de te revoir sur Penc ! \ud83d\udc4b', 'penc-welcomeback').catch(function(){});
+            _sendPencOfficialDM(uid, _pencWelcomeBackText(_prevSeen.full_name||''), 'Penc', 'Ravi de vous revoir sur Penc ! \ud83d\udc4b', 'penc-welcomeback').catch(function(){});
           }
         }
       } catch(e){}
