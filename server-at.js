@@ -4424,7 +4424,40 @@ async function _radStartReplayRecordings() {
   } catch (e) { console.error('[radio-replay] démarrage:', e.message); }
 }
 // Vérifie toutes les 5 minutes si de nouvelles stations ont été activées pour le replay.
-setInterval(_radStartReplayRecordings, 5 * 60000);
+// ── Clôture automatique des sondages expirés + notification des votants — jusqu'ici l'échéance
+// (ends_at) était déjà appliquée pour bloquer les votes tardifs et afficher le compte à rebours,
+// mais rien ne clôturait réellement le sondage ni ne prévenait les votants du résultat final une
+// fois l'heure passée : il fallait rouvrir le sondage pour t'en rendre compte. ──
+async function _pollAutoCloseExpired(){
+  if(!_pgPool) return;
+  try{
+    const r=await _pgPool.query("SELECT id, conversation_id, channel_id, title FROM penc_polls WHERE status='active' AND ends_at IS NOT NULL AND ends_at < NOW()");
+    for(const poll of r.rows){
+      try{
+        await _pgPool.query("UPDATE penc_polls SET status='closed' WHERE id=$1",[poll.id]);
+        try{ io.emit('poll:update',{id:poll.id}); }catch(_ie){}
+        // Résultat gagnant, pour un message de notification utile plutôt que générique.
+        let winnerTxt='';
+        try{
+          const or=await _pgPool.query("SELECT option_text, votes_count FROM penc_poll_options WHERE poll_id=$1 ORDER BY votes_count DESC LIMIT 1",[poll.id]);
+          if(or.rows[0] && or.rows[0].votes_count>0) winnerTxt=' — "'+or.rows[0].option_text+'" arrive en tête';
+        }catch(_we){}
+        const vr=await _pgPool.query("SELECT DISTINCT user_id FROM penc_poll_votes WHERE poll_id=$1 AND user_id IS NOT NULL",[poll.id]);
+        for(const v of vr.rows){
+          try{
+            await sendPencPush(String(v.user_id), {
+              title:'📊 Sondage terminé',
+              body:'"'+(poll.title||'Sondage')+'" est clos'+winnerTxt+'.',
+              conv_id: poll.conversation_id||undefined,
+              data:{ type:'poll', poll_id:poll.id, conv_id:poll.conversation_id||null, channel_id:poll.channel_id||null }
+            });
+          }catch(_pe){}
+        }
+      }catch(_pce){ console.error('[poll-autoclose] échec pour', poll.id, _pce.message); }
+    }
+  }catch(e){ console.error('[poll-autoclose] erreur:', e.message); }
+}
+setInterval(_pollAutoCloseExpired, 60000);
 setTimeout(_radStartReplayRecordings, 15000);
 
 // Purge horaire : supprime les tranches de plus de 48h (base + fichiers R2).
@@ -8206,8 +8239,9 @@ app.post('/api/penc/messages/:id/pin', pencAuth, async (req, res) => {
     const parts=(convR.rows[0]?JSON.parse(JSON.stringify(convR.rows[0].participants)):[]).map(String);
     if(!parts.includes(String(uid))) return res.status(403).json({error:'Action non autorisée'});
     const pin = !msg.pinned_at;
-    // Un seul message épinglé à la fois par discussion — on désépingle l'ancien
-    if(pin) await _pgPool.query('UPDATE penc_messages SET pinned_at=NULL WHERE conversation_id=$1',[msg.conversation_id]);
+    // Plusieurs messages peuvent maintenant rester épinglés simultanément dans une même
+    // discussion (utile pour un canal actif avec plusieurs annonces en cours) — avant, épingler
+    // un nouveau message désépinglait automatiquement l'ancien.
     await _pgPool.query('UPDATE penc_messages SET pinned_at=$1 WHERE id=$2',[pin?new Date():null, req.params.id]);
     await emitToUsers(parts,'message:pinned',{conv_id:msg.conversation_id, message_id:req.params.id, pinned:pin});
     res.json({success:true, pinned:pin});
