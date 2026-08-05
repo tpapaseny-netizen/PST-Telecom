@@ -4237,7 +4237,7 @@ async function _ffprobeMeta(inputPath, timeoutMs) {
     });
   });
 }
-async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark) {
+async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark, blurRect) {
   const ffmpeg = _ffmpegBin();
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   const probe = await _ffprobeMeta(inputPath);
@@ -4249,6 +4249,21 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
     if (trim.end) cmd = cmd.setDuration(Math.max(0.5, trim.end - (trim.start || 0)));
   }
   let logoTmpPath = null;
+  // ── Filtres composés progressivement : floutage de zone (si demandé) PUIS filigrane (si actif)
+  // — dans cet ordre pour que le texte du filigrane reste net par-dessus une zone floutée. ──
+  const filters = [];
+  let curLabel = '0:v', stepN = 0;
+  function nextLabel(){ stepN++; return 'vs' + stepN; }
+  if (blurRect && blurRect.w > 0.01 && blurRect.h > 0.01) {
+    const bx = Math.max(0, Math.min(W - 2, Math.round(blurRect.x * W)));
+    const by = Math.max(0, Math.min(H - 2, Math.round(blurRect.y * H)));
+    const bw = Math.max(2, Math.min(W - bx, Math.round(blurRect.w * W)));
+    const bh = Math.max(2, Math.min(H - by, Math.round(blurRect.h * H)));
+    const blurred = nextLabel(), afterBlur = nextLabel();
+    filters.push('[' + curLabel + ']crop=' + bw + ':' + bh + ':' + bx + ':' + by + ',boxblur=20:5[' + blurred + ']');
+    filters.push('[' + curLabel + '][' + blurred + ']overlay=' + bx + ':' + by + '[' + afterBlur + ']');
+    curLabel = afterBlur;
+  }
   if (withWatermark) {
     const uname = _wmCleanUsername(username);
     const text = ('@' + uname + '_Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
@@ -4259,22 +4274,26 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
       fs.writeFileSync(logoTmpPath, logoBuf);
       cmd = cmd.input(logoTmpPath);
       const logoW = Math.max(20, Math.round(W * 0.13));
-      const filters = [
-        '[1:v]scale=' + logoW + ':-1[logo]',
-        '[0:v][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[v1]',
-        "[v1]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[v2]"
-      ];
-      cmd = cmd.complexFilter(filters, 'v2');
+      const afterLogo = nextLabel(), afterText = nextLabel();
+      filters.push('[1:v]scale=' + logoW + ':-1[logo]');
+      filters.push('[' + curLabel + '][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[' + afterLogo + ']');
+      filters.push('[' + afterLogo + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      curLabel = afterText;
     } else {
-      cmd = cmd.videoFilters(["drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th"]);
+      const afterText = nextLabel();
+      filters.push('[' + curLabel + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      curLabel = afterText;
     }
   }
+  if (filters.length) cmd = cmd.complexFilter(filters, curLabel);
   return new Promise((resolve, reject) => {
     var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'];
     // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
     // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
     // Le '?' rend l'audio optionnel : aucune erreur si la vidéo source n'a pas de piste audio.
-    if (withWatermark && logoTmpPath) { _outOpts.unshift('-map', '0:a?'); }
+    // Nécessaire dès qu'un complexFilter est utilisé (filigrane OU floutage de zone), pas
+    // seulement pour le filigrane avec logo comme avant.
+    if (filters.length) { _outOpts.unshift('-map', '0:a?'); }
     cmd.outputOptions(_outOpts)
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
@@ -4529,6 +4548,14 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
     if (!_r2Ready) { console.error('[media/process] R2 non configuré'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const { key, type, trim } = req.body;
     if (!key || !type) return res.status(400).json({ error: 'paramètres manquants' });
+    // Zone à flouter (rectangle fixe pour toute la durée) — {x,y,w,h} en fractions 0-1 de l'image,
+    // dessinée par l'utilisateur avant l'envoi (même logique que le floutage déjà présent sur les
+    // photos de statut, porté ici aux vidéos envoyées en discussion).
+    let blurRect = null;
+    if (req.body.blur && typeof req.body.blur === 'object') {
+      const b = req.body.blur;
+      if ([b.x, b.y, b.w, b.h].every(n => typeof n === 'number' && n >= 0 && n <= 1)) blurRect = b;
+    }
 
     if (type === 'photo') {
       console.log('[media/process] photo: téléchargement depuis R2...');
@@ -4550,8 +4577,8 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       fs.writeFileSync(tmpIn, buf);
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
-      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ')...');
-      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark);
+      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ', floutage=' + (blurRect ? 'oui' : 'non') + ')...');
+      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect);
       console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const url = await r2PutBuffer(key, outBuf, 'video/mp4');
