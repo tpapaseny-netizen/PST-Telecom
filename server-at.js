@@ -9605,7 +9605,11 @@ setTimeout(_radBackfillNormalization, 20000);
 function _radMeanVolumeDb(path) {
   return new Promise((resolve) => {
     const { execFile } = require('child_process');
-    execFile(_ffmpegPath(), ['-i', path, '-af', 'volumedetect', '-f', 'null', '-'], { timeout: 20000 }, (err, stdout, stderr) => {
+    // -t 12 : on ne mesure que les 12 premières secondes, peu importe la durée totale du fichier
+    // — largement suffisant pour repérer un silence total (le cas qu'on cherche à détecter),
+    // mais ça évite de décoder un discours de 30-60 min en entier juste pour ça, ce qui ralentissait
+    // fortement le démarrage de chaque diffusion (plusieurs dizaines de secondes en plus).
+    execFile(_ffmpegPath(), ['-i', path, '-t', '12', '-af', 'volumedetect', '-f', 'null', '-'], { timeout: 15000 }, (err, stdout, stderr) => {
       const out = String(stderr || '') + String(stdout || '');
       const m = out.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
       if (m) resolve(parseFloat(m[1])); else resolve(null); // null = n'a pas pu mesurer (fichier illisible) → traité comme suspect en amont
