@@ -4164,6 +4164,23 @@ async function _generateAndStoreTTS(text, keyPrefix) {
   if (!hasAudio || duration < 1) {
     throw new Error('TTS invalide ou silencieux (pas de flux audio détecté) — annonce ignorée pour éviter de couper le son du direct');
   }
+  // Vérification du VOLUME réel, pas seulement la présence technique d'un flux audio — Google
+  // peut bloquer l'API TTS non-officielle depuis une IP serveur et renvoyer un fichier "valide"
+  // (bon format, bonne durée) mais silencieux, sans jamais renvoyer d'erreur explicite. C'est
+  // exactement ce qui causait un "ça joue mais pas de son" intermittent, imprévisible d'un jour
+  // à l'autre selon que Google bloque ou non à ce moment précis.
+  let tmpPath = null;
+  try {
+    const fs = require('fs'), pathMod = require('path'), os = require('os');
+    tmpPath = pathMod.join(os.tmpdir(), 'ttscheck_' + Date.now() + '.mp3');
+    fs.writeFileSync(tmpPath, buffer);
+    const meanDb = await _radMeanVolumeDb(tmpPath);
+    if (meanDb === null || meanDb < -50) {
+      throw new Error('TTS silencieux détecté (volume moyen ' + (meanDb === null ? 'illisible' : meanDb.toFixed(1) + 'dB') + ') — probablement bloqué par Google, annonce ignorée');
+    }
+  } finally {
+    try { if (tmpPath) require('fs').unlinkSync(tmpPath); } catch (_ut) {}
+  }
   return { url, duration_seconds: duration };
 }
 
@@ -9579,12 +9596,33 @@ setTimeout(_radBackfillNormalization, 20000);
 // auditeur mais ne produit plus aucun son audible, parfois jusqu'à la fin de la diffusion. On
 // vérifie donc systématiquement, via ffprobe, qu'un flux audio réel et non trivial (>0.3s) est
 // bien présent avant d'accepter le fichier dans la playlist locale. ──
+// Mesure le volume moyen réel via le filtre ffmpeg volumedetect — contrairement à ffprobe (qui ne
+// vérifie que la PRÉSENCE technique d'un flux audio), ceci détecte un fichier réellement silencieux
+// même s'il est par ailleurs un MP3/WAV parfaitement valide. Nécessaire car l'API TTS non-officielle
+// peut, en cas de blocage par Google (IP serveur au lieu d'un navigateur), renvoyer un fichier audio
+// VALIDE mais silencieux plutôt qu'une erreur explicite — un cas que la seule validation ffprobe ne
+// pouvait pas détecter.
+function _radMeanVolumeDb(path) {
+  return new Promise((resolve) => {
+    const { execFile } = require('child_process');
+    execFile(_ffmpegPath(), ['-i', path, '-af', 'volumedetect', '-f', 'null', '-'], { timeout: 20000 }, (err, stdout, stderr) => {
+      const out = String(stderr || '') + String(stdout || '');
+      const m = out.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+      if (m) resolve(parseFloat(m[1])); else resolve(null); // null = n'a pas pu mesurer (fichier illisible) → traité comme suspect en amont
+    });
+  });
+}
 async function _radValidateAudioFile(path) {
   try {
     const meta = await _ffprobeMeta(path, 15000);
     const hasAudio = !!(meta && Array.isArray(meta.streams) && meta.streams.some(s => s.codec_type === 'audio'));
     const dur = (meta && meta.format && parseFloat(meta.format.duration)) || 0;
-    return hasAudio && dur > 0.3;
+    if (!hasAudio || dur <= 0.3) return false;
+    const meanDb = await _radMeanVolumeDb(path);
+    // -50dB : très généreux (une voix normale tourne plutôt autour de -20 à -10dB), donc aucun
+    // risque de rejeter une piste juste "un peu discrète" — seul du silence quasi-total est écarté.
+    if (meanDb === null || meanDb < -50) { console.error('[radio-live] fichier rejeté : volume moyen ' + (meanDb === null ? 'illisible' : meanDb.toFixed(1) + 'dB') + ' — ' + path); return false; }
+    return true;
   } catch (_v) { return false; }
 }
 // ── Décodage en PCM brut (WAV) AVANT collage — fix définitif du "joue mais pas de son" ──
