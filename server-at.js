@@ -13306,8 +13306,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     } catch (e) { console.error('penc msg send:', e.message); if (cb) cb({ error: 'Erreur envoi' }); }
   });
 
-  socket.on('typing:start', ({ conversation_id }) => {
-    socket.to('penc:' + conversation_id).emit('typing:start', { userId: pencUserId, conversation_id });
+  socket.on('typing:start', ({ conversation_id, kind }) => {
+    socket.to('penc:' + conversation_id).emit('typing:start', { userId: pencUserId, conversation_id, kind: kind || 'text' });
   });
   socket.on('typing:stop', ({ conversation_id }) => {
     socket.to('penc:' + conversation_id).emit('typing:stop', { userId: pencUserId, conversation_id });
