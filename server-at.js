@@ -3653,6 +3653,21 @@ function _pencNotifyNewDevice(userId, req) {
     });
   } catch (_e) {}
 }
+// Vérifie si l'heure actuelle (UTC serveur — le public visé étant très majoritairement au
+// Sénégal/Afrique de l'Ouest, en GMT, ça correspond à l'heure locale sans décalage à gérer) tombe
+// dans la plage Ne pas déranger, en gérant le passage à minuit (ex: 22:00 → 07:00).
+function _pencInDndWindow(start, end) {
+  try {
+    const now = new Date();
+    const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const [sh, sm] = String(start || '22:00').split(':').map(Number);
+    const [eh, em] = String(end || '07:00').split(':').map(Number);
+    const s = sh * 60 + sm, e = eh * 60 + em;
+    if (s === e) return false; // plage nulle = jamais actif
+    if (s < e) return cur >= s && cur < e; // plage classique dans la même journée
+    return cur >= s || cur < e; // plage qui traverse minuit
+  } catch (_e) { return false; }
+}
 async function sendPencPush(userId, payload) {
   if (!webpush) return;
   try {
@@ -3662,6 +3677,24 @@ async function sendPencPush(userId, payload) {
         const _mc = await _pgPool.query('SELECT 1 FROM penc_muted_convs WHERE user_id=$1 AND conv_id=$2', [userId, payload.conv_id]);
         if (_mc.rowCount > 0) return;
       } catch (_me) {}
+    }
+    // Respecter le mode Ne pas déranger programmé — plage horaire récurrente définie par
+    // l'utilisateur (ex: 22h-7h), avec exception pour les discussions épinglées si activée.
+    if (_pgPool) {
+      try {
+        const _du = await _pgPool.query('SELECT dnd_settings FROM penc_users WHERE id=$1', [userId]);
+        const _ds = (_du.rows[0] && _du.rows[0].dnd_settings) || null;
+        if (_ds && _ds.enabled) {
+          let _pinned = false;
+          if (_ds.allow_pinned !== false && payload && payload.conv_id) {
+            try {
+              const _pc = await _pgPool.query('SELECT pinned FROM penc_conversations WHERE id=$1', [payload.conv_id]);
+              _pinned = !!(_pc.rows[0] && _pc.rows[0].pinned);
+            } catch (_pce) {}
+          }
+          if (!_pinned && _pencInDndWindow(_ds.start, _ds.end)) return;
+        }
+      } catch (_de) {}
     }
     const subs = await pencPushSubs();
     const mine = subs.filter(x => x.user_id === userId);
@@ -5000,6 +5033,7 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS dnd_settings JSONB;
       CREATE TABLE IF NOT EXISTS penc_ads (
         id TEXT PRIMARY KEY,
         title TEXT,
@@ -8447,6 +8481,30 @@ app.get('/api/penc/settings/privacy', pencAuth, async (req, res) => {
     const r=await _pgPool.query('SELECT status_privacy, status_privacy_list, profile_hide_info FROM penc_users WHERE id=$1',[req.pencUser.userId]);
     const row=r.rows[0]||{};
     res.json({ status_privacy:row.status_privacy||'everyone', status_privacy_list:row.status_privacy_list||[], profile_hide_info:!!row.profile_hide_info });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+
+// ── Ne pas déranger programmé — plage horaire récurrente (ex: 22h-7h) où seules les notifications
+// des discussions épinglées passent, sans avoir à activer/désactiver manuellement chaque soir. ──
+app.post('/api/penc/settings/dnd', pencAuth, async (req, res) => {
+  try{
+    const uid=req.pencUser.userId;
+    const { enabled, start, end, allow_pinned } = req.body||{};
+    const timeRe=/^([01]\d|2[0-3]):[0-5]\d$/;
+    if(start!==undefined && start!==null && !timeRe.test(start)) return res.status(400).json({ error:'Heure de début invalide (format HH:MM)' });
+    if(end!==undefined && end!==null && !timeRe.test(end)) return res.status(400).json({ error:'Heure de fin invalide (format HH:MM)' });
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const settings={ enabled:!!enabled, start:start||'22:00', end:end||'07:00', allow_pinned: allow_pinned!==false };
+    await _pgPool.query('UPDATE penc_users SET dnd_settings=$1 WHERE id=$2', [JSON.stringify(settings), uid]);
+    res.json({ success:true, settings });
+  }catch(e){ console.error('settings/dnd:', e.message); res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.get('/api/penc/settings/dnd', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ enabled:false, start:'22:00', end:'07:00', allow_pinned:true });
+    const r=await _pgPool.query('SELECT dnd_settings FROM penc_users WHERE id=$1',[req.pencUser.userId]);
+    const s=(r.rows[0]&&r.rows[0].dnd_settings)||{};
+    res.json({ enabled:!!s.enabled, start:s.start||'22:00', end:s.end||'07:00', allow_pinned: s.allow_pinned!==false });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
