@@ -9645,11 +9645,23 @@ function _radWavCachePathFor(mp3Path) {
 }
 async function _radEnsureWavCache(mp3Path) {
   const fs = require('fs');
-  // Garde-fou disque : un jingle/annonce ne devrait jamais dépasser quelques Mo — si c'est le cas
-  // (mauvaise configuration admin, fichier jingle anormalement long), on refuse le décodage WAV
-  // plutôt que de risquer de saturer le disque temporaire (2 Go max sur Render).
+  // Garde-fou disque : maintenant que les pistes courtes (< 6 min, pas seulement jingle/annonce)
+  // sont éligibles au décodage WAV, la limite est relevée en conséquence (une piste de 6 min à
+  // 96 kbps pèse ~4,3 Mo en MP3, donc ~63 Mo une fois décodée en WAV — 10 Mo en entrée laisse une
+  // marge confortable) tout en continuant à protéger le disque temporaire (2 Go max sur Render)
+  // contre un fichier anormalement volumineux.
   const srcSize = (fs.statSync(mp3Path).size || 0);
-  if (srcSize > 4 * 1024 * 1024) throw new Error('fichier trop volumineux pour un décodage WAV sûr (' + Math.round(srcSize / 1024 / 1024) + ' Mo)');
+  if (srcSize > 10 * 1024 * 1024) throw new Error('fichier trop volumineux pour un décodage WAV sûr (' + Math.round(srcSize / 1024 / 1024) + ' Mo)');
+  // Plafond sur la taille CUMULÉE de tout le cache WAV (toutes stations confondues) — en plus de
+  // la limite par fichier ci-dessus, protège contre l'accumulation de nombreuses pistes courtes
+  // qui, ensemble, pourraient quand même saturer le disque temporaire (2 Go max sur Render).
+  try {
+    const pathMod = require('path');
+    const dir = _radCacheDir();
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.wav'));
+    const totalMb = files.reduce((sum, f) => { try { return sum + fs.statSync(pathMod.join(dir, f)).size; } catch (_s) { return sum; } }, 0) / 1024 / 1024;
+    if (totalMb > 1200) throw new Error('cache WAV déjà volumineux (' + Math.round(totalMb) + ' Mo cumulés) — décodage refusé par précaution');
+  } catch (_cap) { if (_cap.message && _cap.message.indexOf('cache WAV') === 0) throw _cap; }
   const wavPath = _radWavCachePathFor(mp3Path);
   if (fs.existsSync(wavPath) && (fs.statSync(wavPath).size || 0) > 4096 && await _radValidateAudioFile(wavPath)) {
     return wavPath;
@@ -9700,7 +9712,7 @@ async function _radStartBroadcast(stationId) {
           // WAV ferait exploser le disque temporaire (2 Go max sur Render — un discours de 2h en
           // WAV pèse ~1,2 Go à lui seul), pour un gain minime puisqu'une piste longue n'a qu'UNE
           // seule jonction (son propre début), pas des dizaines comme le jingle/l'annonce.
-          const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement');
+          const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement' || (t.duration_seconds && t.duration_seconds < 360));
           let finalPath = cachePath;
           if (wantsWav) { try { finalPath = await _radEnsureWavCache(cachePath); } catch (_wc) { console.error('[radio-live] décodage WAV impossible, repli sur MP3 — ' + (t.title || t.kind) + ':', _wc.message); } }
           localTracks.push({ path: finalPath, duration: t.duration_seconds || 0 });
@@ -9729,7 +9741,7 @@ async function _radStartBroadcast(stationId) {
         try { fs.unlinkSync(cachePath); } catch (_puf) {}
         throw new Error('fichier audio invalide ou silencieux après normalisation (source probablement corrompue, ex. annonce TTS en échec)');
       }
-      const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement');
+      const wantsWav = (t.kind === 'jingle' || t.kind === 'announcement' || (t.duration_seconds && t.duration_seconds < 360));
       let finalPath = cachePath;
       if (wantsWav) { try { finalPath = await _radEnsureWavCache(cachePath); } catch (_wc) { console.error('[radio-live] décodage WAV impossible, repli sur MP3 — ' + (t.title || t.kind) + ':', _wc.message); } }
       localTracks.push({ path: finalPath, duration: t.duration_seconds || 0 });
