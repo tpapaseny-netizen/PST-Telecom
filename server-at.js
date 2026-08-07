@@ -4802,6 +4802,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS is_highlight BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS reposted_from JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
@@ -6847,8 +6848,8 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data,reposted_from)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
@@ -6856,7 +6857,8 @@ async function pgSaveStatus(st){
      st.expires_at||new Date(Date.now()+86400000).toISOString(),
      st.duration||10,
      (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null,
-     st.poll_data?JSON.stringify(st.poll_data):null]
+     st.poll_data?JSON.stringify(st.poll_data):null,
+     st.reposted_from?JSON.stringify(st.reposted_from):null]
   );
   return r.rows[0];
 }
@@ -8625,8 +8627,15 @@ app.get('/api/penc/statuses/:id/poll-responses', pencAuth, async (req, res) => {
 });
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question, reposted_from } = req.body;
     const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
+    // Repost — {id, user_id, name, username} de la publication d'origine, capturés au moment du
+    // repost (donc l'attribution reste correcte même si l'original est ensuite modifié/supprimé).
+    let _repostedFrom = null;
+    if (reposted_from && typeof reposted_from === 'object' && reposted_from.id) {
+      _repostedFrom = { id: String(reposted_from.id), user_id: reposted_from.user_id ? String(reposted_from.user_id) : null, name: (reposted_from.name || '').slice(0, 100), username: (reposted_from.username || '').slice(0, 60) };
+      if (_pgPool) { try { await _pgPool.query('UPDATE penc_statuses SET shares = COALESCE(shares,0) + 1 WHERE id=$1', [_repostedFrom.id]); } catch (_rsi) {} }
+    }
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type: type||'text',
@@ -8635,6 +8644,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
       poll_data: (poll_question && String(poll_question).trim()) ? { question: String(poll_question).trim().slice(0,150), responses: [] } : null,
+      reposted_from: _repostedFrom,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now()+86400000).toISOString()
     };
