@@ -4803,6 +4803,8 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS shares INTEGER DEFAULT 0;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS media_urls JSONB DEFAULT NULL;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS reposted_from JSONB DEFAULT NULL;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS bg_audio JSONB DEFAULT NULL;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duo_with JSONB DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
@@ -6848,8 +6850,8 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data,reposted_from)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data,reposted_from,bg_audio,duo_with)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
@@ -6858,7 +6860,9 @@ async function pgSaveStatus(st){
      st.duration||10,
      (Array.isArray(st.media_urls)&&st.media_urls.length)?JSON.stringify(st.media_urls):null,
      st.poll_data?JSON.stringify(st.poll_data):null,
-     st.reposted_from?JSON.stringify(st.reposted_from):null]
+     st.reposted_from?JSON.stringify(st.reposted_from):null,
+     st.bg_audio?JSON.stringify(st.bg_audio):null,
+     st.duo_with?JSON.stringify(st.duo_with):null]
   );
   return r.rows[0];
 }
@@ -8246,6 +8250,16 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
       mine=all.filter(s=>s.user_id===uid&&new Date(s.created_at).getTime()>=cutoff).map(s=>({...s,user:vLookup(uid)}));
     }
     const meUser=vLookup(uid);
+    // Statuts en duo acceptés où je suis le CO-auteur (pas le créateur d'origine) — ajoutés à
+    // "mine" pour qu'ils apparaissent aussi sur mon propre profil, comme le veut la fonctionnalité
+    // ("visible sur les deux profils"), en plus de leur affichage normal chez le créateur.
+    try{
+      if(_pgPool){
+        const dr=await _pgPool.query("SELECT * FROM penc_statuses WHERE duo_with->>'user_id'=$1 AND duo_with->>'status'='accepted' AND expires_at > NOW() AND user_id != $1", [uid]);
+        const duoMine = dr.rows.map(pgStatusToObj).map(s => ({ ...s, user: vLookup(uid), viewed: false, viewers: [], is_duo_co_author: true, duo_creator: vLookup(s.user_id) }));
+        mine = mine.concat(duoMine);
+      }
+    }catch(_dm){}
     try{ if(_pgPool){ const _mr=await _pgPool.query("SELECT id FROM penc_users WHERE muted_until IS NOT NULL AND muted_until > NOW()"); const _muted={}; _mr.rows.forEach(function(r){ _muted[String(r.id)]=1; }); statuses=statuses.filter(function(s){ return !_muted[String(s.user_id)]; }); } }catch(_me){}
     // Confidentialité des statuts : chaque auteur choisit qui peut voir ses statuts
     // (tout le monde / amis uniquement / tous sauf certains / uniquement certains).
@@ -8625,9 +8639,39 @@ app.get('/api/penc/statuses/:id/poll-responses', pencAuth, async (req, res) => {
     res.json({ question: pd.question, responses });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+// ── Bibliothèque de musique de fond pour les statuts — construite dynamiquement à partir des
+// jingles déjà utilisés sur les stations DeglouFM, dont PST possède déjà les droits (créés/
+// uploadés par l'équipe elle-même), JAMAIS d'un fichier musical arbitraire. Évite tout risque de
+// droit d'auteur : pas de vraie bibliothèque musicale commerciale à gérer/licencier pour l'instant,
+// mais l'architecture (bg_audio, lecture en boucle sur le statut) est prête à en accueillir une
+// plus tard, dès que du contenu sous licence est disponible. ──
+async function _bgAudioLibrary() {
+  if (!_pgPool) return [];
+  try {
+    const r = await _pgPool.query("SELECT name, jingle_url FROM penc_radio_stations WHERE jingle_url IS NOT NULL AND jingle_url != ''");
+    return r.rows.map(s => ({ url: s.jingle_url, label: '🎙️ ' + (s.name || 'Jingle DeglouFM') }));
+  } catch (_e) { return []; }
+}
+app.get('/api/penc/bg-audio-library', pencAuth, async (req, res) => {
+  try { res.json({ library: await _bgAudioLibrary() }); } catch (e) { res.json({ library: [] }); }
+});
+app.post('/api/penc/statuses/:id/duo-response', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    const { accept } = req.body;
+    const r = await _pgPool.query('SELECT * FROM penc_statuses WHERE id=$1', [req.params.id]);
+    const st = r.rows[0]; if (!st) return res.status(404).json({ error: 'Statut introuvable' });
+    const duo = st.duo_with;
+    if (!duo || String(duo.user_id) !== String(req.pencUser.userId)) return res.status(403).json({ error: 'Cette invitation ne te concerne pas' });
+    duo.status = accept ? 'accepted' : 'declined';
+    await _pgPool.query('UPDATE penc_statuses SET duo_with=$1 WHERE id=$2', [JSON.stringify(duo), st.id]);
+    try { emitToUsers(String(st.user_id), 'status:duo_response', { status_id: st.id, accepted: !!accept }); } catch (_em) {}
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question, reposted_from } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question, reposted_from, bg_audio, duo_user_id } = req.body;
     const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
     // Repost — {id, user_id, name, username} de la publication d'origine, capturés au moment du
     // repost (donc l'attribution reste correcte même si l'original est ensuite modifié/supprimé).
@@ -8635,6 +8679,26 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     if (reposted_from && typeof reposted_from === 'object' && reposted_from.id) {
       _repostedFrom = { id: String(reposted_from.id), user_id: reposted_from.user_id ? String(reposted_from.user_id) : null, name: (reposted_from.name || '').slice(0, 100), username: (reposted_from.username || '').slice(0, 60) };
       if (_pgPool) { try { await _pgPool.query('UPDATE penc_statuses SET shares = COALESCE(shares,0) + 1 WHERE id=$1', [_repostedFrom.id]); } catch (_rsi) {} }
+    }
+    // Musique de fond — UNIQUEMENT depuis la bibliothèque interne de Penc (jingles DeglouFM
+    // déjà sous licence PST, extraits de récitation coranique déjà utilisés ailleurs dans
+    // l'app, ou voix générée TTS) — jamais un fichier arbitraire, pour ne jamais risquer un
+    // problème de droit d'auteur sur de la musique commerciale.
+    let _bgAudio = null;
+    if (bg_audio && typeof bg_audio === 'object' && bg_audio.url) {
+      const _lib = await _bgAudioLibrary();
+      if (_lib.some(a => a.url === bg_audio.url)) {
+        _bgAudio = { url: bg_audio.url, label: bg_audio.label || '', start: Math.max(0, Number(bg_audio.start) || 0) };
+      }
+    }
+    // Statut en duo — invitation à un co-auteur, en attente de son acceptation avant d'apparaître
+    // publiquement sur son propre profil (le statut reste visible normalement sur celui du créateur
+    // entre-temps).
+    let _duoWith = null;
+    if (duo_user_id && String(duo_user_id) !== String(req.pencUser.userId)) {
+      let coName = 'Utilisateur';
+      if (_pgPool) { try { const cu = await _pgPool.query('SELECT full_name, username FROM penc_users WHERE id=$1', [duo_user_id]); if (cu.rows[0]) coName = cu.rows[0].full_name || cu.rows[0].username || coName; } catch (_cn) {} }
+      _duoWith = { user_id: String(duo_user_id), name: coName, status: 'pending' };
     }
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
@@ -8644,6 +8708,8 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
       poll_data: (poll_question && String(poll_question).trim()) ? { question: String(poll_question).trim().slice(0,150), responses: [] } : null,
+      bg_audio: _bgAudio,
+      duo_with: _duoWith,
       reposted_from: _repostedFrom,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now()+86400000).toISOString()
