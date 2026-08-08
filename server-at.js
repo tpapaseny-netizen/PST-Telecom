@@ -4085,7 +4085,7 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings', bg_audio: 'penc/bg-audio'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
@@ -4526,7 +4526,7 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
     if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
-    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup', 'listing'];
+    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup', 'listing', 'bg_audio'];
     if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
@@ -8685,11 +8685,18 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     // l'app, ou voix générée TTS) — jamais un fichier arbitraire, pour ne jamais risquer un
     // problème de droit d'auteur sur de la musique commerciale.
     let _bgAudio = null;
-    const PENC_SYNTH_IDS = ['piano_doux', 'ambiance', 'serein', 'chaleur'];
+    const PENC_SYNTH_IDS = ['piano_doux', 'ambiance', 'serein', 'chaleur', 'mbalax', 'kora', 'joyeux', 'medit', 'club', 'guitare'];
     if (bg_audio && typeof bg_audio === 'object' && bg_audio.synth && PENC_SYNTH_IDS.includes(bg_audio.synth)) {
       // Piste générée (Web Audio, aucun fichier existant) — validée juste contre la liste des
       // presets connus, aucun risque de droit d'auteur possible puisque rien n'est "emprunté".
       _bgAudio = { synth: bg_audio.synth, label: (bg_audio.label || '').slice(0, 60) };
+    } else if (bg_audio && typeof bg_audio === 'object' && bg_audio.url && bg_audio.own) {
+      // Audio personnel importé depuis la galerie de l'utilisateur — c'est SON fichier, sous SA
+      // responsabilité (comme WhatsApp/Instagram le permettent déjà) : on vérifie juste qu'il
+      // provient bien du dossier d'upload dédié (penc/bg-audio), pas d'une URL arbitraire.
+      if (String(bg_audio.url).includes('/penc/bg-audio/')) {
+        _bgAudio = { url: bg_audio.url, label: (bg_audio.label || 'Ma musique').slice(0, 100), own: true };
+      }
     } else if (bg_audio && typeof bg_audio === 'object' && bg_audio.url) {
       const _lib = await _bgAudioLibrary();
       if (_lib.some(a => a.url === bg_audio.url)) {
