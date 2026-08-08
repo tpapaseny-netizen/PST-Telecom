@@ -8685,7 +8685,12 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     // l'app, ou voix générée TTS) — jamais un fichier arbitraire, pour ne jamais risquer un
     // problème de droit d'auteur sur de la musique commerciale.
     let _bgAudio = null;
-    if (bg_audio && typeof bg_audio === 'object' && bg_audio.url) {
+    const PENC_SYNTH_IDS = ['piano_doux', 'ambiance', 'serein', 'chaleur'];
+    if (bg_audio && typeof bg_audio === 'object' && bg_audio.synth && PENC_SYNTH_IDS.includes(bg_audio.synth)) {
+      // Piste générée (Web Audio, aucun fichier existant) — validée juste contre la liste des
+      // presets connus, aucun risque de droit d'auteur possible puisque rien n'est "emprunté".
+      _bgAudio = { synth: bg_audio.synth, label: (bg_audio.label || '').slice(0, 60) };
+    } else if (bg_audio && typeof bg_audio === 'object' && bg_audio.url) {
       const _lib = await _bgAudioLibrary();
       if (_lib.some(a => a.url === bg_audio.url)) {
         _bgAudio = { url: bg_audio.url, label: bg_audio.label || '', start: Math.max(0, Number(bg_audio.start) || 0) };
