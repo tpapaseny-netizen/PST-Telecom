@@ -4805,6 +4805,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS reposted_from JSONB DEFAULT NULL;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS bg_audio JSONB DEFAULT NULL;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duo_with JSONB DEFAULT NULL;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS font_family TEXT DEFAULT NULL;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
@@ -6850,8 +6851,8 @@ async function pgGetStatuses(activeOnly=true){
 async function pgSaveStatus(st){
   if(!_pgPool) return null;
   const r=await _pgPool.query(
-    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data,reposted_from,bg_audio,duo_with)'
-    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *',
+    'INSERT INTO penc_statuses(id,user_id,type,media_url,text_content,bg_color,caption,reactions,views,view_ips,created_at,expires_at,duration,media_urls,poll_data,reposted_from,bg_audio,duo_with,font_family)'
+    +' VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *',
     [st.id,st.user_id,st.type||'text',st.media_url||null,st.text_content||null,
      st.bg_color||'#050D18',st.caption||null,
      JSON.stringify(st.reactions||[]),JSON.stringify(st.views||[]),JSON.stringify(st.view_ips||[]),
@@ -6862,7 +6863,8 @@ async function pgSaveStatus(st){
      st.poll_data?JSON.stringify(st.poll_data):null,
      st.reposted_from?JSON.stringify(st.reposted_from):null,
      st.bg_audio?JSON.stringify(st.bg_audio):null,
-     st.duo_with?JSON.stringify(st.duo_with):null]
+     st.duo_with?JSON.stringify(st.duo_with):null,
+     st.font_family||null]
   );
   return r.rows[0];
 }
@@ -8671,7 +8673,7 @@ app.post('/api/penc/statuses/:id/duo-response', pencAuth, async (req, res) => {
 });
 app.post('/api/penc/statuses', pencAuth, async (req, res) => {
   try {
-    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question, reposted_from, bg_audio, duo_user_id } = req.body;
+    const { type, media_url, text_content, bg_color, caption, duration, media_urls, poll_question, reposted_from, bg_audio, duo_user_id, font_family } = req.body;
     const _mu = Array.isArray(media_urls)?media_urls.filter(function(u){return !!u;}).slice(0,10):null;
     // Repost — {id, user_id, name, username} de la publication d'origine, capturés au moment du
     // repost (donc l'attribution reste correcte même si l'original est ensuite modifié/supprimé).
@@ -8712,11 +8714,14 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
       if (_pgPool) { try { const cu = await _pgPool.query('SELECT full_name, username FROM penc_users WHERE id=$1', [duo_user_id]); if (cu.rows[0]) coName = cu.rows[0].full_name || cu.rows[0].username || coName; } catch (_cn) {} }
       _duoWith = { user_id: String(duo_user_id), name: coName, status: 'pending' };
     }
+    const PENC_FONT_WHITELIST = ["Georgia,serif", "'Courier New',monospace", "'Brush Script MT',cursive", "Impact,'Arial Black',sans-serif", "'Comic Sans MS',cursive"];
+    const _fontFamily = (font_family && PENC_FONT_WHITELIST.includes(font_family)) ? font_family : null;
     const status = {
       id: 'st_'+Date.now()+Math.random().toString(36).slice(2),
       user_id: req.pencUser.userId, type: type||'text',
       media_url: (_mu&&_mu.length)?_mu[0]:(media_url||null), media_urls: (_mu&&_mu.length>1)?_mu:null, text_content: text_content||null,
       bg_color: bg_color||'#050D18', caption: caption||null,
+      font_family: _fontFamily,
       duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
       reactions: [], views: [], view_ips: [],
       poll_data: (poll_question && String(poll_question).trim()) ? { question: String(poll_question).trim().slice(0,150), responses: [] } : null,
