@@ -4806,6 +4806,7 @@ let _pgPool = null;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS bg_audio JSONB DEFAULT NULL;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS duo_with JSONB DEFAULT NULL;
       ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS font_family TEXT DEFAULT NULL;
+      ALTER TABLE penc_statuses ADD COLUMN IF NOT EXISTS share_log JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS suspended BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS blocked BOOLEAN DEFAULT FALSE;
@@ -7022,8 +7023,21 @@ app.get('/api/penc/statuses/mine/archive', pencAuth, async (req,res)=>{
 // POST /api/penc/statuses/:id/share — incremente le compteur de partages
 app.post('/api/penc/statuses/:id/share', pencAuth, async (req,res)=>{
   try{ if(!_pgPool) return res.json({success:true,shares:0});
-    const r=await _pgPool.query("UPDATE penc_statuses SET shares=COALESCE(shares,0)+1 WHERE id=$1 RETURNING shares",[req.params.id]);
-    res.json({success:true, shares:(r.rows[0]&&r.rows[0].shares)||0}); }catch(e){ res.json({success:true}); }
+    const uid=req.pencUser.userId;
+    const r=await _pgPool.query('SELECT user_id, share_log FROM penc_statuses WHERE id=$1',[req.params.id]);
+    const st=r.rows[0]; if(!st) return res.json({success:true,shares:0});
+    let log=st.share_log||[];
+    let sharerName='Quelqu\'un';
+    try{ const u=await pgFindUser('id',uid); if(u) sharerName=u.full_name||u.username||sharerName; }catch(_pf){}
+    // On journalise CHAQUE partage (comme une réaction) — visible à l'auteur du statut, avec
+    // qui l'a fait, exactement comme pour un cœur ou une réaction.
+    log.push({ user_id: String(uid), name: sharerName, at: new Date().toISOString() });
+    if(log.length>200) log=log.slice(log.length-200);
+    const r2=await _pgPool.query('UPDATE penc_statuses SET shares=COALESCE(shares,0)+1, share_log=$1 WHERE id=$2 RETURNING shares',[JSON.stringify(log),req.params.id]);
+    if(String(st.user_id)!==String(uid)){
+      try{ await sendPencPush(String(st.user_id), { title:'🔁 '+sharerName, body:'a partagé ton statut', data:{ type:'status', status_id:req.params.id } }); }catch(_sp){}
+    }
+    res.json({success:true, shares:(r2.rows[0]&&r2.rows[0].shares)||0}); }catch(e){ res.json({success:true}); }
 });
 
 
@@ -8688,21 +8702,22 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
     // problème de droit d'auteur sur de la musique commerciale.
     let _bgAudio = null;
     const PENC_SYNTH_IDS = ['piano_doux', 'ambiance', 'serein', 'chaleur', 'mbalax', 'kora', 'joyeux', 'medit', 'club', 'guitare'];
+    const _title = (bg_audio && bg_audio.title) ? String(bg_audio.title).slice(0, 60) : null;
     if (bg_audio && typeof bg_audio === 'object' && bg_audio.synth && PENC_SYNTH_IDS.includes(bg_audio.synth)) {
       // Piste générée (Web Audio, aucun fichier existant) — validée juste contre la liste des
       // presets connus, aucun risque de droit d'auteur possible puisque rien n'est "emprunté".
-      _bgAudio = { synth: bg_audio.synth, label: (bg_audio.label || '').slice(0, 60) };
+      _bgAudio = { synth: bg_audio.synth, label: (bg_audio.label || '').slice(0, 60), title: _title };
     } else if (bg_audio && typeof bg_audio === 'object' && bg_audio.url && bg_audio.own) {
       // Audio personnel importé depuis la galerie de l'utilisateur — c'est SON fichier, sous SA
       // responsabilité (comme WhatsApp/Instagram le permettent déjà) : on vérifie juste qu'il
       // provient bien du dossier d'upload dédié (penc/bg-audio), pas d'une URL arbitraire.
       if (String(bg_audio.url).includes('/penc/bg-audio/')) {
-        _bgAudio = { url: bg_audio.url, label: (bg_audio.label || 'Ma musique').slice(0, 100), own: true };
+        _bgAudio = { url: bg_audio.url, label: (bg_audio.label || 'Ma musique').slice(0, 100), own: true, title: _title };
       }
     } else if (bg_audio && typeof bg_audio === 'object' && bg_audio.url) {
       const _lib = await _bgAudioLibrary();
       if (_lib.some(a => a.url === bg_audio.url)) {
-        _bgAudio = { url: bg_audio.url, label: bg_audio.label || '', start: Math.max(0, Number(bg_audio.start) || 0) };
+        _bgAudio = { url: bg_audio.url, label: bg_audio.label || '', start: Math.max(0, Number(bg_audio.start) || 0), title: _title };
       }
     }
     // Statut en duo — invitation à un co-auteur, en attente de son acceptation avant d'apparaître
