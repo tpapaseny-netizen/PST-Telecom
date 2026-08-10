@@ -5754,7 +5754,8 @@ async function _firePencScheduledMessage(row){
       if(typeof webpush!=='undefined' && webpush){
         const pbody = (typeof msg.content==='string' && msg.content.indexOf('PENC_E2E_v1:')===0) ? '\uD83D\uDD12 Nouveau message' : pencMsgBody(msg.type, msg.content, msg.media_duration);
         const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
-        for(const rid of parts){ if(String(rid)!==String(row.sender_id)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+row.conversation_id,url:'/messager?conv='+row.conversation_id,conv_id:row.conversation_id}); }catch(_pp){} } }
+        const picon2 = (sender && sender.avatar_url) ? sender.avatar_url : undefined;
+        for(const rid of parts){ if(String(rid)!==String(row.sender_id)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+row.conversation_id,url:'/messager?conv='+row.conversation_id,conv_id:row.conversation_id,icon:picon2}); }catch(_pp){} } }
       }
     }catch(_){}
     await _pgPool.query("UPDATE penc_scheduled_messages SET status='sent', sent_at=NOW() WHERE id=$1", [row.id]);
@@ -13423,7 +13424,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           }
           let pbody = pencMsgBody(type, content, msg.media_duration);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
-          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id }); }
+          const picon = (sender && sender.avatar_url) ? sender.avatar_url : undefined;
+          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id, icon: picon }); }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
       // ── Réponses automatiques (Compte Business) : si le destinataire est un compte Business
