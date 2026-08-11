@@ -9725,16 +9725,30 @@ function _radMeanVolumeDb(path) {
     });
   });
 }
+// Cache mémoire (durée de vie du processus serveur) des fichiers déjà validés avec succès —
+// évite de relancer ffprobe + volumedetect à CHAQUE redémarrage de diffusion sur un contenu qui
+// n'a pas changé depuis la dernière fois (clé = chemin + taille + date de modification, donc si
+// le fichier change réellement, la validation se refait automatiquement). C'est cette
+// revalidation systématique et coûteuse qui ralentissait le démarrage, surtout depuis que la
+// vérification approfondie couvre désormais bien plus de pistes qu'avant (pas seulement le
+// jingle/l'annonce).
+const _radValidationCache = new Map();
 async function _radValidateAudioFile(path) {
   try {
+    const fs = require('fs');
+    let cacheKey = path;
+    try { const st = fs.statSync(path); cacheKey = path + ':' + st.size + ':' + st.mtimeMs; } catch (_st) {}
+    if (_radValidationCache.has(cacheKey)) return _radValidationCache.get(cacheKey);
     const meta = await _ffprobeMeta(path, 15000);
     const hasAudio = !!(meta && Array.isArray(meta.streams) && meta.streams.some(s => s.codec_type === 'audio'));
     const dur = (meta && meta.format && parseFloat(meta.format.duration)) || 0;
-    if (!hasAudio || dur <= 0.3) return false;
+    if (!hasAudio || dur <= 0.3) { _radValidationCache.set(cacheKey, false); return false; }
     const meanDb = await _radMeanVolumeDb(path);
     // -50dB : très généreux (une voix normale tourne plutôt autour de -20 à -10dB), donc aucun
     // risque de rejeter une piste juste "un peu discrète" — seul du silence quasi-total est écarté.
-    if (meanDb === null || meanDb < -50) { console.error('[radio-live] fichier rejeté : volume moyen ' + (meanDb === null ? 'illisible' : meanDb.toFixed(1) + 'dB') + ' — ' + path); return false; }
+    if (meanDb === null || meanDb < -50) { console.error('[radio-live] fichier rejeté : volume moyen ' + (meanDb === null ? 'illisible' : meanDb.toFixed(1) + 'dB') + ' — ' + path); _radValidationCache.set(cacheKey, false); return false; }
+    if (_radValidationCache.size > 500) _radValidationCache.clear(); // garde-fou mémoire, peu probable en pratique
+    _radValidationCache.set(cacheKey, true);
     return true;
   } catch (_v) { return false; }
 }
