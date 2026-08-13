@@ -8066,7 +8066,7 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
     console.log('[msgs-read] requête pour conv=' + req.params.id + ' par user=' + req.pencUser.userId);
     const r = await _pgPool.query(
       `SELECT * FROM penc_messages WHERE conversation_id=$1 AND (deleted_for_all IS NOT TRUE)
-       ORDER BY created_at DESC LIMIT 100`, [req.params.id]
+       ORDER BY created_at DESC LIMIT 400`, [req.params.id]
     );
     console.log('[msgs-read] conv=' + req.params.id + ' -> ' + r.rows.length + ' message(s) trouvé(s) en PostgreSQL');
     let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
