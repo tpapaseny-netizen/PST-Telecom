@@ -5674,7 +5674,7 @@ async function pgGetOrCreateConv(uid1,uid2){
   );
   return ins.rows[0];
 }
-async function pgGetMessages(convId, limit=100){
+async function pgGetMessages(convId, limit=400){
   if(!_pgPool) return [];
   const r=await _pgPool.query(
     'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT $2',
@@ -6894,7 +6894,7 @@ app.get('/api/penc/messages/:convId', pencAuth, async (req, res) => {
     const { convId } = req.params;
     let messages = [];
     if (_pgPool) {
-      messages = await pgGetMessages(convId, 200);
+      messages = await pgGetMessages(convId, 400);
       // Formater comme le frontend l'attend
       messages = messages.map(m => ({
         id: m.id, conversation_id: m.conversation_id,
@@ -6917,7 +6917,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     let messages = [];
     const uid = req.pencUser.userId;
     if (_pgPool) {
-      const rows = await pgGetMessages(convId, 200);
+      const rows = await pgGetMessages(convId, 400);
       // Reactions groupees par message pour cette conversation (une seule requete)
       let _reactByMsg = {};
       try{
