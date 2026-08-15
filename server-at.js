@@ -4494,6 +4494,22 @@ async function _pollAutoCloseExpired(){
   }catch(e){ console.error('[poll-autoclose] erreur:', e.message); }
 }
 setInterval(_pollAutoCloseExpired, 60000);
+// ── #4 Envoi des rappels sur message arrivés à échéance (toutes les minutes) ──
+async function _msgRemindersCheck(){
+  if(!_pgPool) return;
+  try{
+    const r = await _pgPool.query(`SELECT * FROM penc_msg_reminders WHERE sent=FALSE AND remind_at <= NOW() LIMIT 50`);
+    for(const rem of r.rows){
+      try{
+        const m = await _pgPool.query('SELECT content, type, conversation_id FROM penc_messages WHERE id=$1', [rem.message_id]);
+        const msg = m.rows[0];
+        await sendPencPush(rem.user_id, { title:'⏰ Rappel', body: msg?pencMsgBody(msg.type,msg.content,null):'Un message que tu voulais te rappeler', url: msg?('/messager?conv='+msg.conversation_id):'/messager', conv_id: msg?msg.conversation_id:null });
+      }catch(_re){}
+      await _pgPool.query('UPDATE penc_msg_reminders SET sent=TRUE WHERE id=$1', [rem.id]);
+    }
+  }catch(_e){}
+}
+setInterval(_msgRemindersCheck, 60000);
 setTimeout(_radStartReplayRecordings, 15000);
 
 // Purge horaire : supprime les tranches de plus de 48h (base + fichiers R2).
@@ -4822,6 +4838,7 @@ let _pgPool = null;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS key_backup_at TIMESTAMPTZ;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS reveal_at TIMESTAMPTZ;
       CREATE TABLE IF NOT EXISTS penc_webauthn_credentials (
         id            TEXT PRIMARY KEY,
         user_id       TEXT NOT NULL,
@@ -6940,12 +6957,16 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
         const _isMine = String(m.sender_id) === String(uid);
         // Vue unique : si deja consommee, le destinataire ne recoit plus jamais le media (l'expediteur si)
         const _voHidden = m.view_once && m.view_once_consumed && !_isMine;
+        // Capsule temporelle : le destinataire ne voit pas le contenu tant que la date choisie
+        // n'est pas atteinte (l'expéditeur, lui, voit toujours ce qu'il a écrit).
+        const _capsuleLocked = m.reveal_at && new Date(m.reveal_at) > new Date() && !_isMine;
         return {
           id: m.id, conversation_id: m.conversation_id,
           sender_id: m.sender_id,
           is_mine: _isMine,
-          type: m.type, content: _voHidden ? (m.type==='text'?null:m.content) : m.content,
-          media_url: _voHidden ? null : m.media_url, media_duration: m.duration,
+          type: m.type, content: _capsuleLocked ? null : (_voHidden ? (m.type==='text'?null:m.content) : m.content),
+          media_url: (_capsuleLocked || _voHidden) ? null : m.media_url, media_duration: m.duration,
+          reveal_at: m.reveal_at || null,
           reply_to: m.reply_to?(function(){
             if(typeof m.reply_to==='object') return m.reply_to;
             try{return JSON.parse(m.reply_to);}catch(e){return null;}
@@ -8671,6 +8692,66 @@ async function _bgAudioLibrary() {
 }
 app.get('/api/penc/bg-audio-library', pencAuth, async (req, res) => {
   try { res.json({ library: await _bgAudioLibrary() }); } catch (e) { res.json({ library: [] }); }
+});
+// ── #2 Recherche dans les vocaux transcrits — cherche le mot-clé dans les transcriptions déjà
+// générées (pas de nouvel appel AssemblyAI, juste sur ce qui existe déjà en cache). ──
+app.get('/api/penc/conversations/:id/voice-search', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ results: [] });
+    const q = String((req.query && req.query.q) || '').trim();
+    if (!q || q.length < 2) return res.json({ results: [] });
+    const r = await _pgPool.query(
+      `SELECT m.id, m.media_url, m.created_at, m.sender_id, t.text
+       FROM penc_messages m JOIN penc_transcripts t ON t.url_hash = encode(digest(m.media_url,'sha256'),'hex')
+       WHERE m.conversation_id=$1 AND m.type='voice' AND t.text ILIKE '%'||$2||'%'
+       ORDER BY m.created_at DESC LIMIT 30`, [req.params.id, q]
+    );
+    res.json({ results: r.rows });
+  } catch (e) { res.json({ results: [] }); }
+});
+// ── #3 Capsule temporelle — un message écrit maintenant mais révélé seulement à une date future
+// précise (différent du simple envoi programmé, qui part immédiatement à l'heure dite : ici le
+// message ARRIVE tout de suite mais reste verrouillé/flouté jusqu'à la date choisie). ──
+app.post('/api/penc/messages/:id/time-capsule', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
+    const { reveal_at } = req.body;
+    if (!reveal_at || new Date(reveal_at) <= new Date()) return res.status(400).json({ error: 'Date future requise' });
+    await _pgPool.query('UPDATE penc_messages SET reveal_at=$1 WHERE id=$2 AND sender_id=$3', [reveal_at, req.params.id, req.pencUser.userId]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ── #4 Rappel sur un message épinglé — notifie l'utilisateur au moment choisi, sans avoir à
+// créer une tâche ailleurs. ──
+app.post('/api/penc/messages/:id/remind-me', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
+    const { remind_at } = req.body;
+    if (!remind_at || new Date(remind_at) <= new Date()) return res.status(400).json({ error: 'Date future requise' });
+    await _pgPool.query(
+      `CREATE TABLE IF NOT EXISTS penc_msg_reminders (id TEXT PRIMARY KEY, message_id TEXT, user_id TEXT, remind_at TIMESTAMPTZ, sent BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`
+    );
+    const rid = 'rem_' + Date.now() + Math.random().toString(36).slice(2);
+    await _pgPool.query('INSERT INTO penc_msg_reminders(id,message_id,user_id,remind_at) VALUES($1,$2,$3,$4)', [rid, req.params.id, req.pencUser.userId, remind_at]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ── #8 Silence sélectif avec mot-clé prioritaire — coupe les notifications d'une personne/
+// discussion, SAUF si le message contient un mot-clé précis (ex: "urgent"). ──
+app.post('/api/penc/conversations/:id/mute-except-keyword', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'BD indisponible' });
+    const { keyword } = req.body;
+    await _pgPool.query(
+      `CREATE TABLE IF NOT EXISTS penc_mute_keywords (user_id TEXT, conversation_id TEXT, keyword TEXT, PRIMARY KEY(user_id, conversation_id))`
+    );
+    if (keyword && String(keyword).trim()) {
+      await _pgPool.query('INSERT INTO penc_mute_keywords(user_id,conversation_id,keyword) VALUES($1,$2,$3) ON CONFLICT (user_id,conversation_id) DO UPDATE SET keyword=$3', [req.pencUser.userId, req.params.id, String(keyword).trim().slice(0, 40)]);
+    } else {
+      await _pgPool.query('DELETE FROM penc_mute_keywords WHERE user_id=$1 AND conversation_id=$2', [req.pencUser.userId, req.params.id]);
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/statuses/:id/duo-response', pencAuth, async (req, res) => {
   try {
@@ -13439,7 +13520,21 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           let pbody = pencMsgBody(type, content, msg.media_duration);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
           const picon = (sender && sender.avatar_url) ? sender.avatar_url : undefined;
-          for (const rid of recipients) { await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id, icon: picon }); }
+          for (const rid of recipients) {
+            // #8 Silence sélectif avec mot-clé prioritaire — si ce destinataire a mis cette
+            // discussion en "silence sauf mot-clé", on ne notifie QUE si le message contient ce
+            // mot précis (comparaison insensible à la casse, jamais sur un message vocal/média
+            // sans texte lisible — dans ce cas on notifie quand même par prudence).
+            try {
+              const _mk = await _pgPool.query('SELECT keyword FROM penc_mute_keywords WHERE user_id=$1 AND conversation_id=$2', [rid, conversation_id]);
+              if (_mk.rows[0] && _mk.rows[0].keyword) {
+                const _kw = _mk.rows[0].keyword.toLowerCase();
+                const _txt = (typeof content === 'string') ? content.toLowerCase() : '';
+                if (_txt && _txt.indexOf(_kw) === -1) continue; // pas le mot-clé -> silence pour ce destinataire précis
+              }
+            } catch (_mke) {}
+            await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id, icon: picon });
+          }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
       // ── Réponses automatiques (Compte Business) : si le destinataire est un compte Business
