@@ -4679,20 +4679,17 @@ async function pencSaveUsers(a){
   }
   return jbSet(BINS.penc_users,{users:a});
 }
-async function pencConvs(){
-  // Filet de sécurité global : peu importe l'appelant, ne JAMAIS taper sur JSONBin tant que
-  // PostgreSQL fonctionne — le bin penc_convs est en erreur 403 permanente et martelait les
-  // logs (et consommait du temps réseau) à chaque appel, même depuis un endroit de secours
-  // censé ne s'exécuter que si PostgreSQL est indisponible.
-  if(_pgPool) return [];
-  try{ const _st=new Error().stack.split('\n')[2]||''; console.log('[pencConvs-appelant]', _st.trim()); }catch(_se){}
-  const d=await jbGet(BINS.penc_convs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.convs)?d.convs:[];
-}
-async function pencSaveConvs(a)   { return jbSet(BINS.penc_convs,  { convs: a }); }
-async function pencMsgs(){const d=await jbGet(BINS.penc_msgs);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.msgs)?d.msgs:[];}
-async function pencSaveMsgs(a)    { return jbSet(BINS.penc_msgs,   { msgs: a }); }
-async function pencStatuses(){const d=await jbGet(BINS.penc_status);if(!d)return[];if(Array.isArray(d))return d;return Array.isArray(d.statuses)?d.statuses:[];}
-async function pencSaveStatuses(a){ return jbSet(BINS.penc_status, { statuses: a }); }
+// JSONBin définitivement retiré pour conversations/messages/statuts (demande explicite : plus
+// de JSONBin sur ces données). PostgreSQL est la seule source désormais — ces fonctions ne
+// tapent plus jamais sur JSONBin, même comme "fallback" : elles renvoient juste un tableau
+// vide si jamais elles sont appelées alors que PostgreSQL est indisponible (au lieu de dépendre
+// d'un service tiers cassé qui ne faisait qu'ajouter une source de panne en plus).
+async function pencConvs(){ return []; }
+async function pencSaveConvs(a){ return null; }
+async function pencMsgs(){ return []; }
+async function pencSaveMsgs(a){ return null; }
+async function pencStatuses(){ return []; }
+async function pencSaveStatuses(a){ return null; }
 const pencStrip = u => { if (!u) return null; const { password, password_hash, totp_secret, ...s } = u; return s; };
 
 // ════════════════════════════════════════════════════════════
@@ -4711,7 +4708,7 @@ app.get('/api/penc/admin/diagnostic',async(req,res)=>{
 // ══  PENC — AUTH POSTGRESQL (persistance garantie)  ════════
 // ════════════════════════════════════════════════════════════
 let _pgPool = null;
-(async function initPgPenc(){
+async function initPgPenc(){
   if(!process.env.DATABASE_URL){ console.log('⚠️ DATABASE_URL non défini — auth Penc sur JSONBin seulement'); return; }
   try{
     const { Pool } = require('pg');
@@ -4731,6 +4728,22 @@ let _pgPool = null;
     });
     _pgPool.on('error', function(err){ console.error('[pgPool] erreur inattendue sur une connexion inactive:', err.message); });
     console.log('[pgPool] initialise avec max='+PG_POOL_MAX+' connexions simultanees');
+    // Ping de connexion avec retry : juste après une reprise (ex. sortie de suspension Render),
+    // le service web peut démarrer une poignée de secondes avant que la base soit vraiment
+    // prête à accepter des connexions. Avant, le tout premier échec ici (timeout, connexion
+    // refusée...) était fatal : il remontait au catch global et coupait PostgreSQL pour le
+    // reste de la vie du process, sans aucune nouvelle tentative — l'app entière retombait
+    // alors sur JSONBin (souvent lui-même indisponible) jusqu'au prochain redéploiement manuel.
+    let _pgReady = false, _pgLastErr = null;
+    for (let _try = 1; _try <= 6 && !_pgReady; _try++) {
+      try { await _pgPool.query('SELECT 1'); _pgReady = true; }
+      catch (eTry) {
+        _pgLastErr = eTry;
+        console.error('[pgPool] tentative de connexion '+_try+'/6 échouée: '+eTry.message+' — nouvel essai dans 5s');
+        if (_try < 6) await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+    if (!_pgReady) throw _pgLastErr || new Error('Connexion PostgreSQL impossible après 6 tentatives');
     await _pgPool.query(`
       CREATE TABLE IF NOT EXISTS penc_users (
         id          TEXT PRIMARY KEY,
@@ -5544,25 +5557,24 @@ let _pgPool = null;
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_ratings ( id TEXT PRIMARY KEY, code TEXT, user_id TEXT, stars INTEGER, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM2){}
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_meet_history ( id TEXT PRIMARY KEY, code TEXT, title TEXT, host TEXT, participant TEXT, joined_at TIMESTAMPTZ DEFAULT NOW(), left_at TIMESTAMPTZ )`); }catch(eM3){}
     try{ await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_transcripts ( url_hash TEXT PRIMARY KEY, text TEXT, created_at TIMESTAMPTZ DEFAULT NOW() )`); }catch(eM4){}
-    // Migrer les users JSONBin existants vers PostgreSQL (une seule fois)
-    const r=await _pgPool.query('SELECT COUNT(*) FROM penc_users');
-    if(parseInt(r.rows[0].count)===0){
-      const jbUsers=await pencUsers();
-      if(jbUsers.length>0){
-        console.log('🔄 Migration '+jbUsers.length+' users JSONBin → PostgreSQL...');
-        for(const u of jbUsers){
-          try{
-            await _pgPool.query(
-              'INSERT INTO penc_users(id,full_name,username,phone,email,password_hash,avatar_url,bio,is_admin,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING',
-              [u.id||'u_'+Date.now(),u.full_name||'',u.username||'',u.phone||'',u.email||null,u.password||'',u.avatar_url||null,u.bio||'',PENC_ADMIN_EMAILS.includes((u.email||'').toLowerCase()),u.created_at||new Date().toISOString()]
-            );
-          }catch(e){ /* doublon ignoré */ }
-        }
-        console.log('✅ Migration terminée');
-      }
-    }
-  }catch(e){ console.error('❌ PostgreSQL Penc erreur:', e.message); _pgPool=null; }
-})();
+    // Migration JSONBin→PostgreSQL supprimée (obsolète) : elle appelait pencUsers() (JSONBin)
+    // SANS filet de sécurité local. Si cet appel JSONBin échouait (clé invalide, bin
+    // inaccessible, service JSONBin en panne...), l'exception remontait jusqu'au catch
+    // englobant ci-dessous et mettait _pgPool à null pour TOUJOURS — plantant tout PostgreSQL
+    // (donc toute l'app : conversations, messages, comptes) à cause d'un service tiers qu'on
+    // n'utilise plus. Les users sont déjà dans PostgreSQL depuis longtemps ; cette migration
+    // "une seule fois" n'a plus de raison d'exister.
+  }catch(e){
+    console.error('❌ PostgreSQL Penc erreur:', e.message);
+    _pgPool=null;
+    // Auto-guérison : avant, un échec ici désactivait PostgreSQL pour toujours et exigeait un
+    // redémarrage manuel sur Render pour revenir à la normale (c'est ce qui vient de se produire).
+    // Désormais on retente tout seul en arrière-plan toutes les 2 minutes jusqu'à ce que ça marche.
+    console.error('[pgPool] nouvelle tentative complète dans 2 minutes...');
+    setTimeout(initPgPenc, 120000);
+  }
+}
+initPgPenc();
 // ── Journal système persistant : contrairement aux logs Render (qui disparaissent au redémarrage
 // et sont pénibles à parcourir après un crash), ce journal survit dans la base et reste
 // consultable depuis l'admin de l'app — pour vérifier soi-même ce qui a précédé une panne, sans
