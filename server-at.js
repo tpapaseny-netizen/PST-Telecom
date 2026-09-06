@@ -13443,7 +13443,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // pouvaient toutes les deux passer la vérification avant que l'une des deux n'ait fini
       // d'insérer, diffusant chacune leur propre copie — doublon visible côté client jusqu'au
       // rechargement complet de l'app, moment où un seul des deux survivait réellement en base.)
-      let _claimed = null;
+      let _claimed = null, _claimFailed = false;
       if (client_id && _pgPool) {
         try {
           _claimed = await pgClaimMessage({
@@ -13453,7 +13453,19 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
             file_name: msg.file_name || null, file_size: msg.file_size || null
           });
-        } catch (_e) {}
+        } catch (_e) {
+          // Sept 2026 : avant, TOUTE erreur ici (pas seulement un vrai doublon) était avalée en
+          // silence et traitée comme "quelqu'un d'autre a déjà envoyé ce message" — le message
+          // (souvent un vocal/média, qui passe par ce chemin) n'était alors JAMAIS enregistré nulle
+          // part, tout en répondant "succès" au client. On distingue maintenant une vraie erreur
+          // technique d'un vrai doublon : une erreur technique renvoie un échec explicite.
+          console.error('penc claim msg:', _e.message);
+          _claimFailed = true;
+        }
+        if (_claimFailed) {
+          if (typeof cb === 'function') cb({ error: 'Échec de l\'enregistrement du message, réessaie.' });
+          return;
+        }
         if (!_claimed) {
           try {
             const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
