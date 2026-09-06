@@ -13684,7 +13684,11 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
       }
     } catch {}
-    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
+    // Sept 2026 : on inclut l'horodatage serveur du moment de la lecture. Avant, un signal "lu"
+    // arrivé en retard (reconnexion, etc.) marquait TOUS les messages de la conversation comme lus
+    // côté expéditeur — y compris un message envoyé juste après, jamais vu par le destinataire.
+    // Le client compare maintenant chaque message à cet horodatage avant de le marquer lu.
+    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id, at: new Date().toISOString() });
   });
 
   socket.on('disconnect', async () => {
