@@ -13465,6 +13465,37 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         }
       }
       const fullMsg = { ...msg, sender };
+      // ── CORRECTIF DÉFINITIF (Sept 2026) — c'était LE vrai bug des "messages qui disparaissent" ──
+      // Avant : le message était diffusé (io.emit) et le succès confirmé à l'expéditeur (cb success:true)
+      // AVANT même d'avoir tenté de le sauvegarder en base ("Persistance best-effort", juste un
+      // console.error si ça échouait, personne prévenu). Si cette sauvegarde échouait pour une raison
+      // quelconque — un aléa réseau, une reconnexion, une brève indisponibilité de la base — le message
+      // s'affichait comme envoyé partout, mais n'avait jamais vraiment existé en base. À la prochaine
+      // ouverture de la discussion (qui recharge depuis la base), il disparaissait. C'est ce chemin de
+      // code (Socket.IO, 'message:send') que le client utilise réellement pour les messages texte —
+      // la route REST /api/penc/send corrigée précédemment n'est pas celle qui est appelée ici.
+      // Désormais : on sauvegarde D'ABORD, on ne diffuse et on ne confirme QUE si c'est bien enregistré.
+      let _persistOk = true;
+      if (!_claimed) {
+      try {
+        if (_pgPool) {
+          await pgSaveMessage({
+            id: msg.id, conversation_id: msg.conversation_id,
+            sender_id: msg.sender_id, type: msg.type,
+            content: msg.content || '', media_url: msg.media_url || null,
+            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
+            expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+            file_name: msg.file_name || null, file_size: msg.file_size || null
+          });
+        } else {
+          const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
+        }
+      } catch (e) { console.error('penc persist msg:', e.message); _persistOk = false; }
+      }
+      if (!_persistOk) {
+        if (typeof cb === 'function') cb({ error: 'Échec de l\'enregistrement du message, réessaie.' });
+        return;
+      }
       // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
       // Fallback: émettre directement aux participants via leur room user:
@@ -13482,24 +13513,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
-      // 2) Persistance best-effort — déjà faite ci-dessus (réservation atomique) quand un
-      // client_id était fourni ; sinon on persiste ici comme avant.
-      if (!_claimed) {
-      try {
-        if (_pgPool) {
-          await pgSaveMessage({
-            id: msg.id, conversation_id: msg.conversation_id,
-            sender_id: msg.sender_id, type: msg.type,
-            content: msg.content || '', media_url: msg.media_url || null,
-            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
-            expires_at: msg.expires_at || null, view_once: msg.view_once || false,
-            file_name: msg.file_name || null, file_size: msg.file_size || null
-          });
-        } else {
-          const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
-        }
-      } catch (e) { console.error('penc persist msg:', e.message); }
-      }
       try {
         if (_pgPool) {
           await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1', [conversation_id]);
