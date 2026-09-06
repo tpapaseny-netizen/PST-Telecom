@@ -6117,15 +6117,11 @@ function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).sl
 // ═══ Verrou d'appareil : un compte déjà connecté sur un appareil ne peut en ajouter un nouveau
 // que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
 async function _pencDeviceLockCheck(userId, req){
-  try{
-    if(!_pgPool) return {blocked:false};
-    const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
-    const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
-    if(!r.rows.length) return {blocked:false}; // aucun appareil actif -> première connexion, toujours autorisée
-    const sameDevice = r.rows.some(function(row){ return String(row.ua||'')===ua; });
-    if(sameDevice) return {blocked:false}; // reconnexion sur un appareil déjà connu -> autorisée
-    return {blocked:true};
-  }catch(e){ return {blocked:false}; } // en cas de doute technique, ne jamais bloquer l'accès par erreur
+  // Verrou d'appareil DÉSACTIVÉ (demande explicite, 6 sept 2026) : bloquait la connexion après
+  // que l'ordinateur du fondateur ait été réinitialisé (nouvel appareil = nouveau user-agent =
+  // aucune session active reconnue = connexion refusée). Pour réactiver plus tard, il suffit de
+  // remettre le corps original de cette fonction (voir historique git).
+  return {blocked:false};
 }
 async function _pencCreateSession(uid, sid, req){
   try{
