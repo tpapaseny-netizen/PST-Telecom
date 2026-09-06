@@ -7521,17 +7521,27 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     };
     let sender = { id: uid };
     try{ const u=await pgFindUser('id',uid); if(u) sender=pencStrip(u); }catch(_){}
-    // Réservation atomique (voir pgClaimMessage) : évite qu'un envoi concurrent avec le même
-    // client_id (ex: l'émission socket directe pendant que cette relance REST arrive aussi)
-    // diffuse chacun sa propre copie du message.
-    let _claimed=null;
+    // CORRECTIF (Sept 2026) : le message était diffusé par socket AVANT d'être réellement
+    // enregistré en base — si l'écriture PostgreSQL échouait ensuite (juste une erreur loguée,
+    // personne prévenu), tout le monde voyait le message apparaître en direct, mais il n'avait
+    // jamais vraiment existé en base. À la prochaine ouverture de la conversation, comme la
+    // liste est rechargée entièrement depuis la base, ce message "disparaissait" — c'est ça
+    // que les utilisateurs signalaient. Corrigé : on enregistre D'ABORD, on ne diffuse QUE si
+    // c'est confirmé enregistré, et un échec réel renvoie une erreur explicite au lieu de
+    // laisser croire que l'envoi a marché.
+    let _claimed=null, _saveFailed=false;
     if(client_id){
-      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(_e){}
-      if(!_claimed){
+      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }
+      catch(e){ console.error('penc /send persist (claim):', e.message); _saveFailed=true; }
+      if(!_saveFailed && !_claimed){
         try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
         catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
       }
+    } else {
+      try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }
+      catch(e){ console.error('penc /send persist:', e.message); _saveFailed=true; }
     }
+    if(_saveFailed) return res.status(500).json({ error:'Échec de l\'enregistrement du message, réessaie.' });
     const fullMsg = { ...msg, sender };
     try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
     try{
@@ -7539,7 +7549,6 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       let parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
-    if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(e){ console.error('penc /send persist:', e.message); } }
     try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
@@ -8099,16 +8108,6 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
     );
     console.log('[msgs-read] conv=' + req.params.id + ' -> ' + r.rows.length + ' message(s) trouvé(s) en PostgreSQL');
     let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
-    // Filet de sécurité TEMPORAIRE pendant l'instabilité mémoire du serveur : si _pgPool était
-    // indisponible au moment précis d'un envoi, le message a pu atterrir dans l'ancien JSONBin
-    // (repli existant dans le code d'envoi). On fusionne ici pour ne perdre aucun message tant
-    // que les plantages serveur ne sont pas résolus — à retirer une fois le serveur stabilisé.
-    try {
-      const existingIds = new Set(rows.map(m => m.id));
-      const jbMsgs = await pencMsgs();
-      const strayMsgs = jbMsgs.filter(m => m.conversation_id === req.params.id && !existingIds.has(m.id));
-      if (strayMsgs.length) { console.log('[msgs-read] conv=' + req.params.id + ' -> ' + strayMsgs.length + ' message(s) retrouvé(s) dans JSONBin (absents de PostgreSQL !)'); rows = rows.concat(strayMsgs).sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); }
-    } catch (_jbe) { console.log('[msgs-read] échec lecture JSONBin de secours:', _jbe.message); }
     const senderIds = [...new Set(rows.map(m => m.sender_id))];
     const users = await pgFindUsersByIds(senderIds);
     const byId = new Map(users.map(u => [String(u.id), pencStrip(u)]));
