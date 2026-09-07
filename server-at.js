@@ -4805,6 +4805,15 @@ async function initPgPenc(){
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS file_size BIGINT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS poll_id TEXT;
       ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS media_thumb_url TEXT;
+      -- server_seq (Sept 2026) : ordre d'arrivée RÉEL au serveur, indépendant de l'horloge du
+      -- téléphone émetteur. Cause structurelle du bug "on revient dans le temps / les nouveaux
+      -- messages disparaissent" : le tri se faisait sur created_at, un horodatage fabriqué par le
+      -- téléphone de l'expéditeur. Si son horloge est en retard/mauvais fuseau, ses messages
+      -- s'inséraient dans le passé (parfois hors de la fenêtre LIMIT 400 = invisibles). BIGSERIAL
+      -- est attribué par PostgreSQL à l'insertion : strictement croissant, jamais manipulable par
+      -- un client. On trie désormais là-dessus.
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGSERIAL;
+      CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC);
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
@@ -6117,15 +6126,11 @@ function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).sl
 // ═══ Verrou d'appareil : un compte déjà connecté sur un appareil ne peut en ajouter un nouveau
 // que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
 async function _pencDeviceLockCheck(userId, req){
-  try{
-    if(!_pgPool) return {blocked:false};
-    const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
-    const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
-    if(!r.rows.length) return {blocked:false}; // aucun appareil actif -> première connexion, toujours autorisée
-    const sameDevice = r.rows.some(function(row){ return String(row.ua||'')===ua; });
-    if(sameDevice) return {blocked:false}; // reconnexion sur un appareil déjà connu -> autorisée
-    return {blocked:true};
-  }catch(e){ return {blocked:false}; } // en cas de doute technique, ne jamais bloquer l'accès par erreur
+  // Verrou d'appareil DÉSACTIVÉ (demande explicite, 6 sept 2026) : bloquait la connexion après
+  // que l'ordinateur du fondateur ait été réinitialisé (nouvel appareil = nouveau user-agent =
+  // aucune session active reconnue = connexion refusée). Pour réactiver plus tard, il suffit de
+  // remettre le corps original de cette fonction (voir historique git).
+  return {blocked:false};
 }
 async function _pencCreateSession(uid, sid, req){
   try{
@@ -7525,17 +7530,27 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     };
     let sender = { id: uid };
     try{ const u=await pgFindUser('id',uid); if(u) sender=pencStrip(u); }catch(_){}
-    // Réservation atomique (voir pgClaimMessage) : évite qu'un envoi concurrent avec le même
-    // client_id (ex: l'émission socket directe pendant que cette relance REST arrive aussi)
-    // diffuse chacun sa propre copie du message.
-    let _claimed=null;
+    // CORRECTIF (Sept 2026) : le message était diffusé par socket AVANT d'être réellement
+    // enregistré en base — si l'écriture PostgreSQL échouait ensuite (juste une erreur loguée,
+    // personne prévenu), tout le monde voyait le message apparaître en direct, mais il n'avait
+    // jamais vraiment existé en base. À la prochaine ouverture de la conversation, comme la
+    // liste est rechargée entièrement depuis la base, ce message "disparaissait" — c'est ça
+    // que les utilisateurs signalaient. Corrigé : on enregistre D'ABORD, on ne diffuse QUE si
+    // c'est confirmé enregistré, et un échec réel renvoie une erreur explicite au lieu de
+    // laisser croire que l'envoi a marché.
+    let _claimed=null, _saveFailed=false;
     if(client_id){
-      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(_e){}
-      if(!_claimed){
+      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }
+      catch(e){ console.error('penc /send persist (claim):', e.message); _saveFailed=true; }
+      if(!_saveFailed && !_claimed){
         try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
         catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
       }
+    } else {
+      try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }
+      catch(e){ console.error('penc /send persist:', e.message); _saveFailed=true; }
     }
+    if(_saveFailed) return res.status(500).json({ error:'Échec de l\'enregistrement du message, réessaie.' });
     const fullMsg = { ...msg, sender };
     try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
     try{
@@ -7543,7 +7558,6 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       let parts = cr.rows[0] ? (Array.isArray(cr.rows[0].participants)?cr.rows[0].participants:JSON.parse(cr.rows[0].participants||'[]')) : [];
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
-    if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(e){ console.error('penc /send persist:', e.message); } }
     try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
@@ -8099,20 +8113,10 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
     console.log('[msgs-read] requête pour conv=' + req.params.id + ' par user=' + req.pencUser.userId);
     const r = await _pgPool.query(
       `SELECT * FROM penc_messages WHERE conversation_id=$1 AND (deleted_for_all IS NOT TRUE)
-       ORDER BY created_at DESC LIMIT 400`, [req.params.id]
+       ORDER BY server_seq DESC LIMIT 400`, [req.params.id]
     );
     console.log('[msgs-read] conv=' + req.params.id + ' -> ' + r.rows.length + ' message(s) trouvé(s) en PostgreSQL');
-    let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
-    // Filet de sécurité TEMPORAIRE pendant l'instabilité mémoire du serveur : si _pgPool était
-    // indisponible au moment précis d'un envoi, le message a pu atterrir dans l'ancien JSONBin
-    // (repli existant dans le code d'envoi). On fusionne ici pour ne perdre aucun message tant
-    // que les plantages serveur ne sont pas résolus — à retirer une fois le serveur stabilisé.
-    try {
-      const existingIds = new Set(rows.map(m => m.id));
-      const jbMsgs = await pencMsgs();
-      const strayMsgs = jbMsgs.filter(m => m.conversation_id === req.params.id && !existingIds.has(m.id));
-      if (strayMsgs.length) { console.log('[msgs-read] conv=' + req.params.id + ' -> ' + strayMsgs.length + ' message(s) retrouvé(s) dans JSONBin (absents de PostgreSQL !)'); rows = rows.concat(strayMsgs).sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); }
-    } catch (_jbe) { console.log('[msgs-read] échec lecture JSONBin de secours:', _jbe.message); }
+    let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent), fondé sur l'ordre d'arrivée serveur
     const senderIds = [...new Set(rows.map(m => m.sender_id))];
     const users = await pgFindUsersByIds(senderIds);
     const byId = new Map(users.map(u => [String(u.id), pencStrip(u)]));
@@ -13448,7 +13452,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // pouvaient toutes les deux passer la vérification avant que l'une des deux n'ait fini
       // d'insérer, diffusant chacune leur propre copie — doublon visible côté client jusqu'au
       // rechargement complet de l'app, moment où un seul des deux survivait réellement en base.)
-      let _claimed = null;
+      let _claimed = null, _claimFailed = false;
       if (client_id && _pgPool) {
         try {
           _claimed = await pgClaimMessage({
@@ -13458,7 +13462,19 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
             file_name: msg.file_name || null, file_size: msg.file_size || null
           });
-        } catch (_e) {}
+        } catch (_e) {
+          // Sept 2026 : avant, TOUTE erreur ici (pas seulement un vrai doublon) était avalée en
+          // silence et traitée comme "quelqu'un d'autre a déjà envoyé ce message" — le message
+          // (souvent un vocal/média, qui passe par ce chemin) n'était alors JAMAIS enregistré nulle
+          // part, tout en répondant "succès" au client. On distingue maintenant une vraie erreur
+          // technique d'un vrai doublon : une erreur technique renvoie un échec explicite.
+          console.error('penc claim msg:', _e.message);
+          _claimFailed = true;
+        }
+        if (_claimFailed) {
+          if (typeof cb === 'function') cb({ error: 'Échec de l\'enregistrement du message, réessaie.' });
+          return;
+        }
         if (!_claimed) {
           try {
             const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
@@ -13470,6 +13486,41 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         }
       }
       const fullMsg = { ...msg, sender };
+      // ── CORRECTIF DÉFINITIF (Sept 2026) — c'était LE vrai bug des "messages qui disparaissent" ──
+      // Avant : le message était diffusé (io.emit) et le succès confirmé à l'expéditeur (cb success:true)
+      // AVANT même d'avoir tenté de le sauvegarder en base ("Persistance best-effort", juste un
+      // console.error si ça échouait, personne prévenu). Si cette sauvegarde échouait pour une raison
+      // quelconque — un aléa réseau, une reconnexion, une brève indisponibilité de la base — le message
+      // s'affichait comme envoyé partout, mais n'avait jamais vraiment existé en base. À la prochaine
+      // ouverture de la discussion (qui recharge depuis la base), il disparaissait. C'est ce chemin de
+      // code (Socket.IO, 'message:send') que le client utilise réellement pour les messages texte —
+      // la route REST /api/penc/send corrigée précédemment n'est pas celle qui est appelée ici.
+      // Désormais : on sauvegarde D'ABORD, on ne diffuse et on ne confirme QUE si c'est bien enregistré.
+      let _persistOk = true, _savedRow = _claimed || null;
+      if (!_claimed) {
+      try {
+        if (_pgPool) {
+          _savedRow = await pgSaveMessage({
+            id: msg.id, conversation_id: msg.conversation_id,
+            sender_id: msg.sender_id, type: msg.type,
+            content: msg.content || '', media_url: msg.media_url || null,
+            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
+            expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+            file_name: msg.file_name || null, file_size: msg.file_size || null
+          });
+        } else {
+          const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
+        }
+      } catch (e) { console.error('penc persist msg:', e.message); _persistOk = false; }
+      }
+      if (!_persistOk) {
+        if (typeof cb === 'function') cb({ error: 'Échec de l\'enregistrement du message, réessaie.' });
+        return;
+      }
+      // server_seq (Sept 2026) : on propage le numéro d'ordre serveur généré à l'insertion, pour que
+      // le client trie sur l'ordre d'arrivée réel et non sur l'horloge (potentiellement fausse) de
+      // l'émetteur — c'est ce qui empêche les nouveaux messages de « remonter dans le passé ».
+      if (_savedRow && _savedRow.server_seq != null) fullMsg.server_seq = _savedRow.server_seq;
       // Livraison: room de la conv + rooms personnelles des participants
       io.to('penc:' + conversation_id).emit('message:new', fullMsg);
       // Fallback: émettre directement aux participants via leur room user:
@@ -13487,24 +13538,6 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
-      // 2) Persistance best-effort — déjà faite ci-dessus (réservation atomique) quand un
-      // client_id était fourni ; sinon on persiste ici comme avant.
-      if (!_claimed) {
-      try {
-        if (_pgPool) {
-          await pgSaveMessage({
-            id: msg.id, conversation_id: msg.conversation_id,
-            sender_id: msg.sender_id, type: msg.type,
-            content: msg.content || '', media_url: msg.media_url || null,
-            duration: msg.media_duration || null, reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at, client_id: msg.client_id||null,
-            expires_at: msg.expires_at || null, view_once: msg.view_once || false,
-            file_name: msg.file_name || null, file_size: msg.file_size || null
-          });
-        } else {
-          const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs);
-        }
-      } catch (e) { console.error('penc persist msg:', e.message); }
-      }
       try {
         if (_pgPool) {
           await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1', [conversation_id]);
@@ -13676,7 +13709,11 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
       }
     } catch {}
-    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
+    // Sept 2026 : on inclut l'horodatage serveur du moment de la lecture. Avant, un signal "lu"
+    // arrivé en retard (reconnexion, etc.) marquait TOUS les messages de la conversation comme lus
+    // côté expéditeur — y compris un message envoyé juste après, jamais vu par le destinataire.
+    // Le client compare maintenant chaque message à cet horodatage avant de le marquer lu.
+    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id, at: new Date().toISOString() });
   });
 
   socket.on('disconnect', async () => {
