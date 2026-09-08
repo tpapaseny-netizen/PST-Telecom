@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
@@ -5715,10 +5715,10 @@ async function pgGetOrCreateConv(uid1,uid2){
 async function pgGetMessages(convId, limit=400){
   if(!_pgPool) return [];
   const r=await _pgPool.query(
-    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT $2',
+    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC LIMIT $2',
     [convId, limit]
   );
-  return r.rows;
+  return r.rows.slice().reverse();
 }
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
