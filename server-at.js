@@ -3680,7 +3680,7 @@ async function sendPencPush(userId, payload) {
     }
     // Respecter le mode Ne pas déranger programmé — plage horaire récurrente définie par
     // l'utilisateur (ex: 22h-7h), avec exception pour les discussions épinglées si activée.
-    if (_pgPool) {
+    if (typeof _pgPool !== 'undefined' && _pgPool) {
       try {
         const _du = await _pgPool.query('SELECT dnd_settings FROM penc_users WHERE id=$1', [userId]);
         const _ds = (_du.rows[0] && _du.rows[0].dnd_settings) || null;
