@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sonko Archive TV — Actualités</title>
+<meta name="description" content="Sonko Archive TV — actualités, archives et analyses.">
+<style>
+:root{
+  --bg:#F5F0E8; --bg2:#EFE9DD; --card:#FBF8F2; --card2:#EFE7DA;
+  --accent:#1877F2; --accent2:#166FE5;
+  --text:#1C1917; --muted:#57524A; --border:rgba(28,25,23,0.12);
+  --shadow:0 4px 20px rgba(28,25,23,0.08);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',Arial,sans-serif;}
+a{color:inherit;text-decoration:none;}
+header{position:sticky;top:0;z-index:50;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
+header .logo{width:34px;height:34px;border-radius:10px;background:#fff;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0;}
+header h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.2px;}
+header .tag{font-size:11px;opacity:.85;margin-top:1px;}
+main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
+
+/* ---- Accueil : liste d'articles ---- */
+.art-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .15s;}
+.art-card:hover{transform:translateY(-2px);}
+.art-card img{width:100%;height:180px;object-fit:cover;display:block;background:var(--card2);}
+.art-card .body{padding:14px 16px;}
+.art-card h2{font-size:18px;margin:0 0 6px;font-weight:800;line-height:1.3;}
+.art-card p{font-size:14px;color:var(--muted);margin:0 0 8px;line-height:1.5;}
+.art-meta{display:flex;gap:12px;font-size:12px;color:var(--muted);align-items:center;}
+.art-meta svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;}
+
+/* ---- Article ---- */
+.back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:700;font-size:14px;margin-bottom:14px;cursor:pointer;background:none;border:none;padding:0;}
+.art-hero{width:100%;border-radius:16px;max-height:360px;object-fit:cover;margin-bottom:16px;background:var(--card2);}
+.art-title{font-size:26px;font-weight:900;line-height:1.25;margin:0 0 10px;}
+.art-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 20px;}
+.tb-btn{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);}
+.tb-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tb-btn svg{width:15px;height:15px;}
+.art-content{font-size:16.5px;line-height:1.75;white-space:pre-wrap;}
+.art-content.translated{border-left:3px solid var(--accent);padding-left:12px;}
+
+.reactions{display:flex;gap:8px;margin:26px 0 10px;flex-wrap:wrap;}
+.react-btn{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;display:flex;gap:6px;align-items:center;}
+.react-btn .n{font-size:12px;color:var(--muted);font-weight:700;}
+
+.comments{margin-top:30px;border-top:1px solid var(--border);padding-top:18px;}
+.comments h3{font-size:16px;margin:0 0 12px;}
+.c-item{background:var(--card);border-radius:12px;padding:10px 14px;margin-bottom:8px;}
+.c-item .name{font-weight:800;font-size:13px;color:var(--accent);}
+.c-item .txt{font-size:14px;margin-top:2px;}
+.c-form{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.c-form input,.c-form textarea{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);resize:vertical;}
+.c-form button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;cursor:pointer;font-size:14px;}
+
+.ad-slot{margin:22px 0;text-align:center;min-height:90px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;border:1px dashed var(--border);border-radius:10px;}
+
+.empty{text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;}
+.loader{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">S</div>
+  <div>
+    <h1>Sonko Archive TV</h1>
+    <div class="tag">Actualités &amp; archives</div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="loader">Chargement…</div>
+</main>
+
+<!-- Emplacement publicité Google AdSense — remplacer data-ad-client par ton vrai identifiant
+     éditeur une fois ton compte AdSense approuvé (pub.google.com), et coller le script de
+     chargement AdSense officiel dans le <head> à ce moment-là. -->
+
+<script>
+const API = ''; // même domaine que le site (Render sert aussi le site) — laisser vide
+const main = document.getElementById('main');
+
+function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtDate(d){ return new Date(d).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'}); }
+
+async function loadHome(){
+  main.innerHTML = '<div class="loader">Chargement des articles…</div>';
+  try{
+    const r = await fetch(API + '/api/sonko/articles');
+    const j = await r.json();
+    if(!j.articles || !j.articles.length){
+      main.innerHTML = '<div class="empty">Aucun article publié pour le moment.</div>';
+      return;
+    }
+    main.innerHTML = j.articles.map(a => `
+      <div class="art-card" onclick="location.hash='#a/${a.id}'">
+        ${a.image_url ? `<img src="${esc(a.image_url)}" alt="">` : ''}
+        <div class="body">
+          <h2>${esc(a.title)}</h2>
+          ${a.excerpt ? `<p>${esc(a.excerpt)}</p>` : ''}
+          <div class="art-meta">
+            <span>${fmtDate(a.created_at)}</span>
+            <span>·</span>
+            <span>${a.reading_minutes} min de lecture</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){
+    main.innerHTML = '<div class="empty">Impossible de charger les articles. Réessaie plus tard.</div>';
+  }
+}
+
+// ---- Lecture audio : découpe le texte en morceaux <200 caractères (limite du moteur
+// gratuit), et les joue les uns après les autres pour lire tout l'article. ----
+let ttsQueue = [], ttsIdx = 0, ttsAudio = null, ttsPlaying = false;
+function splitForTTS(text){
+  const sentences = text.replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+/);
+  const chunks = []; let cur = '';
+  for(const s of sentences){
+    if((cur + ' ' + s).trim().length > 190){
+      if(cur) chunks.push(cur.trim());
+      cur = s.length > 190 ? s.slice(0,190) : s;
+    } else { cur = (cur + ' ' + s).trim(); }
+  }
+  if(cur) chunks.push(cur.trim());
+  return chunks;
+}
+function playNextChunk(){
+  if(ttsIdx >= ttsQueue.length){ ttsPlaying = false; updateTTSBtn(); return; }
+  const lang = document.getElementById('artContent').classList.contains('translated') ? window._ttsLang || 'fr' : 'fr';
+  ttsAudio = new Audio(API + '/api/sonko/tts?lang=' + lang + '&text=' + encodeURIComponent(ttsQueue[ttsIdx]));
+  ttsAudio.onended = () => { ttsIdx++; playNextChunk(); };
+  ttsAudio.onerror = () => { ttsIdx++; playNextChunk(); };
+  ttsAudio.play().catch(()=>{});
+}
+function toggleTTS(text){
+  if(ttsPlaying){
+    if(ttsAudio) ttsAudio.pause();
+    ttsPlaying = false; updateTTSBtn(); return;
+  }
+  if(ttsQueue.length === 0){ ttsQueue = splitForTTS(text); ttsIdx = 0; }
+  ttsPlaying = true; updateTTSBtn();
+  playNextChunk();
+}
+function updateTTSBtn(){
+  const b = document.getElementById('ttsBtn');
+  if(!b) return;
+  b.classList.toggle('active', ttsPlaying);
+  b.querySelector('.lbl').textContent = ttsPlaying ? 'Pause' : 'Écouter';
+}
+
+async function toggleTranslate(articleId, originalText){
+  const el = document.getElementById('artContent');
+  const btn = document.getElementById('trBtn');
+  if(el.classList.contains('translated')){
+    el.textContent = originalText;
+    el.classList.remove('translated');
+    btn.classList.remove('active');
+    ttsQueue = []; // relire depuis le texte original la prochaine fois
+    return;
+  }
+  btn.querySelector('.lbl').textContent = 'Traduction…';
+  try{
+    const r = await fetch(API + '/api/sonko/translate?target=en&text=' + encodeURIComponent(originalText));
+    const j = await r.json();
+    el.textContent = j.translated || originalText;
+    el.classList.add('translated');
+    btn.classList.add('active');
+    window._ttsLang = 'en';
+    ttsQueue = [];
+  }catch(e){ /* laisse le texte original si la traduction échoue */ }
+  btn.querySelector('.lbl').textContent = 'Traduit';
+}
+
+async function react(articleId, emoji){
+  try{ await fetch(API + '/api/sonko/articles/' + articleId + '/react', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji})}); }catch(e){}
+  loadArticle(articleId);
+}
+
+async function submitComment(e, articleId){
+  e.preventDefault();
+  const name = document.getElementById('cName').value.trim();
+  const content = document.getElementById('cText').value.trim();
+  if(!name || !content) return;
+  try{
+    await fetch(API + '/api/sonko/articles/' + articleId + '/comments', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, content})});
+    document.getElementById('cText').value = '';
+    loadArticle(articleId);
+  }catch(e){}
+}
+
+async function loadArticle(id){
+  main.innerHTML = '<div class="loader">Chargement de l\u2019article…</div>';
+  try{
+    const r = await fetch(API + '/api/sonko/articles/' + id);
+    const j = await r.json();
+    if(!j.article){ main.innerHTML = '<div class="empty">Article introuvable.</div>'; return; }
+    const a = j.article;
+    ttsQueue = []; ttsIdx = 0; ttsPlaying = false;
+    const reactionEmojis = ['👍','❤️','😮','😢'];
+    const reactMap = {}; (j.reactions||[]).forEach(rr => reactMap[rr.emoji] = rr.count);
+
+    main.innerHTML = `
+      <button class="back-btn" onclick="location.hash=''">← Retour</button>
+      ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
+      <h1 class="art-title">${esc(a.title)}</h1>
+      <div class="art-meta">
+        <span>${esc(a.author)}</span><span>·</span><span>${fmtDate(a.created_at)}</span>
+        <span>·</span><span>${a.reading_minutes} min de lecture</span>
+        <span>·</span><span>${a.views} vues</span>
+      </div>
+      <div class="art-toolbar">
+        <button class="tb-btn" id="ttsBtn" onclick="toggleTTS(document.getElementById('artContent').textContent)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 5a11 11 0 0 1 0 14M15.5 8.5a6 6 0 0 1 0 7"/></svg>
+          <span class="lbl">Écouter</span>
+        </button>
+        <button class="tb-btn" id="trBtn" onclick="toggleTranslate('${a.id}', ${JSON.stringify(a.content)})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h9M9 5v3M11 18l4-8 4 8M12.5 15h5"/><path d="M13 8c-1 3-3 5.5-6 7"/></svg>
+          <span class="lbl">Traduire (EN)</span>
+        </button>
+      </div>
+      <div class="art-content" id="artContent">${esc(a.content)}</div>
+
+      <div class="ad-slot">Emplacement publicité (AdSense)</div>
+
+      <div class="reactions">
+        ${reactionEmojis.map(em => `<button class="react-btn" onclick="react('${a.id}','${em}')">${em} <span class="n">${reactMap[em]||0}</span></button>`).join('')}
+      </div>
+
+      <div class="comments">
+        <h3>Commentaires (${(j.comments||[]).length})</h3>
+        ${(j.comments||[]).map(c => `<div class="c-item"><div class="name">${esc(c.name)}</div><div class="txt">${esc(c.content)}</div></div>`).join('') || '<div style="color:var(--muted);font-size:14px;">Sois le premier à commenter.</div>'}
+        <form class="c-form" onsubmit="submitComment(event,'${a.id}')">
+          <input id="cName" placeholder="Ton nom" maxlength="80" required>
+          <textarea id="cText" placeholder="Ton commentaire" rows="3" maxlength="2000" required></textarea>
+          <button type="submit">Publier</button>
+        </form>
+      </div>
+    `;
+  }catch(e){
+    main.innerHTML = '<div class="empty">Impossible de charger cet article.</div>';
+  }
+}
+
+function route(){
+  const h = location.hash;
+  if(h.startsWith('#a/')) loadArticle(h.slice(3));
+  else loadHome();
+}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
