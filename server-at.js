@@ -4019,6 +4019,12 @@ app.get('/api/sen-sms/me', senSmsAuth, async (req, res) => {
 app.get('/messager', (req, res) => {
   res.sendFile(__dirname + '/messager.html');
 });
+app.get('/sonko', (req, res) => {
+  res.sendFile(__dirname + '/sonko.html');
+});
+app.get('/sonko-admin', (req, res) => {
+  res.sendFile(__dirname + '/sonko-admin.html');
+});
 
 
 // ════════════════════════════════════════════════════════════
@@ -4933,6 +4939,32 @@ async function initPgPenc(){
       CREATE INDEX IF NOT EXISTS idx_qplay_track ON penc_quran_plays(track_type, track_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_user ON penc_quran_plays(user_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_created ON penc_quran_plays(created_at);
+      CREATE TABLE IF NOT EXISTS sonko_articles (
+        id            TEXT PRIMARY KEY,
+        title         TEXT NOT NULL,
+        excerpt       TEXT DEFAULT '',
+        content       TEXT NOT NULL,
+        image_url     TEXT,
+        author        TEXT DEFAULT 'Redaction',
+        reading_minutes INTEGER DEFAULT 1,
+        views         INTEGER DEFAULT 0,
+        published     BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS sonko_comments (
+        id            TEXT PRIMARY KEY,
+        article_id    TEXT NOT NULL,
+        name          TEXT NOT NULL,
+        content       TEXT NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
+      CREATE TABLE IF NOT EXISTS sonko_reactions (
+        article_id    TEXT NOT NULL,
+        emoji         TEXT NOT NULL,
+        count         INTEGER DEFAULT 0,
+        PRIMARY KEY (article_id, emoji)
+      );
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -13776,6 +13808,108 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
 });
 
+
+// ==== Sonko Archive TV -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
+// Reutilise les MEMES endpoints gratuits Google (traduction, synthese vocale) que Penc,
+// aucune nouvelle cle API ni cout supplementaire.
+const SONKO_ADMIN_KEY = process.env.SONKO_ADMIN_KEY || 'change-moi-dans-render';
+function sonkoAdmin(req, res, next) {
+  if ((req.headers['x-sonko-admin-key'] || '') !== SONKO_ADMIN_KEY) return res.status(401).json({ error: 'Cle admin invalide' });
+  next();
+}
+
+app.get('/api/sonko/articles', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ articles: [] });
+    const r = await _pgPool.query("SELECT id,title,excerpt,image_url,author,reading_minutes,views,created_at FROM sonko_articles WHERE published=TRUE ORDER BY created_at DESC LIMIT 100");
+    res.json({ articles: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/sonko/articles/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    await _pgPool.query('UPDATE sonko_articles SET views=views+1 WHERE id=$1', [req.params.id]);
+    const comments = await _pgPool.query('SELECT id,name,content,created_at FROM sonko_comments WHERE article_id=$1 ORDER BY created_at ASC LIMIT 300', [req.params.id]);
+    const reactions = await _pgPool.query('SELECT emoji,count FROM sonko_reactions WHERE article_id=$1', [req.params.id]);
+    res.json({ article: a.rows[0], comments: comments.rows, reactions: reactions.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, author } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    await _pgPool.query(
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', readingMinutes]
+    );
+    res.json({ success: true, id, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.delete('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_articles WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/comments', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { name, content } = req.body || {};
+    if (!name || !content) return res.status(400).json({ error: 'Nom et commentaire requis' });
+    const id = 'cm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query('INSERT INTO sonko_comments(id,article_id,name,content) VALUES($1,$2,$3,$4)', [id, req.params.id, String(name).slice(0, 80), String(content).slice(0, 2000)]);
+    res.json({ success: true, id });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/react', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const emoji = (req.body && req.body.emoji) || '👍';
+    await _pgPool.query('INSERT INTO sonko_reactions(article_id,emoji,count) VALUES($1,$2,1) ON CONFLICT (article_id,emoji) DO UPDATE SET count=sonko_reactions.count+1', [req.params.id, emoji]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Traduction -- meme endpoint Google gratuit non-officiel que Penc (translate_a/single)
+app.get('/api/sonko/translate', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 5000);
+    const target = String(req.query.target || 'en');
+    if (!text) return res.json({ translated: '' });
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(target) + '&dt=t&q=' + encodeURIComponent(text);
+    const r = await fetch(url);
+    const j = await r.json();
+    const translated = (j[0] || []).map(p => p[0]).join('');
+    res.json({ translated });
+  } catch (e) { res.status(500).json({ error: 'Traduction indisponible' }); }
+});
+
+// Lecture audio -- meme moteur gratuit que Penc (_generateTTS), limite ~200 caracteres par
+// appel cote Google : le texte est donc lu par le CLIENT en plusieurs morceaux successifs
+// (voir sonko.html), cet endpoint ne traite qu'un seul morceau a la fois.
+app.get('/api/sonko/tts', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 200);
+    const lang = String(req.query.lang || 'fr');
+    if (!text) return res.status(400).end();
+    const buf = await _generateTTS(text, lang);
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(buf);
+  } catch (e) { res.status(500).json({ error: 'Lecture audio indisponible' }); }
+});
 
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
