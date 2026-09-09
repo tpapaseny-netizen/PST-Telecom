@@ -5097,6 +5097,8 @@ async function initPgPenc(){
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT;
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_until TIMESTAMPTZ;
+      ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verif_last_reminder_date DATE;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS owner_id TEXT;
       ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_ps_user    ON penc_statuses(user_id);
@@ -5753,6 +5755,42 @@ function _pencWelcomeText(fullName){
 function _pencWelcomeBackText(fullName){
   return "Ravis de vous revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant votre absence, vos messages, vos appels, vos statuts et la radio DeglouFM en direct vous attendent. Jetez un \u0153il \u00e0 vos conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
 }
+// ==== Abonnement badge bleu : bienvenue + rappels J-5..J-1 + retrait automatique a echeance ====
+// L'admin garde toujours la main (certifier/retirer manuellement a tout moment via le panneau
+// admin) -- cette automatisation ne fait qu'ajouter les rappels et le retrait par defaut si
+// personne n'intervient, elle ne retire jamais ce pouvoir manuel.
+const VERIF_WAVE_LINK = 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=5000';
+async function _sendPencBadgeWelcome(uid){
+  const text = "Felicitations, ton badge bleu Penc est actif pour 30 jours ! \uD83C\uDF89\uD83D\uDD35 Merci pour ta confiance. Un rappel te sera envoye avant l'echeance pour renouveler sans interruption. -- L'equipe Penc";
+  await _sendPencOfficialDM(uid, text, '🎉 Badge bleu actif', 'Ton badge bleu Penc est actif pour 30 jours.', 'badge-welcome');
+}
+async function _pencVerifBillingCheck(){
+  if(!_pgPool) return;
+  try{
+    // Rappels quotidiens J-5 a J-1 (au plus un rappel par jour et par utilisateur)
+    const soon = await _pgPool.query("SELECT id, verified_until FROM penc_users WHERE verified=TRUE AND verified_until IS NOT NULL AND verified_until > NOW() AND verified_until <= NOW() + INTERVAL '5 days' AND (verif_last_reminder_date IS NULL OR verif_last_reminder_date <> CURRENT_DATE)");
+    for(const u of soon.rows){
+      try{
+        const joursRestants = Math.max(1, Math.ceil((new Date(u.verified_until) - Date.now()) / 86400000));
+        const text = "⏰ Ton badge bleu Penc expire dans "+joursRestants+" jour"+(joursRestants>1?'s':'')+". Paie "+ "5000 FCFA via Wave pour renouveler sans interruption : "+VERIF_WAVE_LINK+" -- L'equipe Penc";
+        await _sendPencOfficialDM(u.id, text, '⏰ Badge bleu — renouvellement', 'Ton badge bleu expire dans '+joursRestants+' jour(s).', 'badge-reminder');
+        await _pgPool.query('UPDATE penc_users SET verif_last_reminder_date=CURRENT_DATE WHERE id=$1', [u.id]);
+      }catch(_re){ console.error('[verif-billing] rappel echec pour', u.id, _re.message); }
+    }
+    // Retrait automatique le jour meme si l'echeance est depassee et jamais renouvelee
+    const expired = await _pgPool.query("SELECT id FROM penc_users WHERE verified=TRUE AND verified_until IS NOT NULL AND verified_until <= NOW()");
+    for(const u of expired.rows){
+      try{
+        await _pgPool.query("UPDATE penc_users SET verified=FALSE, verified_type=NULL, verified_until=NULL, verif_last_reminder_date=NULL WHERE id=$1", [u.id]);
+        try{ emitToUsers(String(u.id), 'penc:verified', { verified: false }); }catch(_ee){}
+        const text = "Ton badge bleu Penc a ete retire faute de renouvellement. Tu peux le redemander a tout moment depuis Recompenses. -- L'equipe Penc";
+        await _sendPencOfficialDM(u.id, text, 'Badge bleu retire', 'Ton badge bleu a ete retire.', 'badge-removed');
+      }catch(_xe){ console.error('[verif-billing] retrait echec pour', u.id, _xe.message); }
+    }
+  }catch(_e){ console.error('[verif-billing] erreur:', _e.message); }
+}
+setInterval(_pencVerifBillingCheck, 3600000);
+setTimeout(_pencVerifBillingCheck, 20000);
 async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
   try{
     if(!_pgPool || !uid || String(uid)==='penc_official') return;
@@ -11682,8 +11720,11 @@ app.post('/api/penc/admin/verify/:userId', pencAuth, pencAdmin, async (req, res)
     if (!_pgPool) return res.json({ success: true });
     const v = !!(req.body && req.body.verified);
     const type = (req.body && req.body.type) || (v ? 'admin' : null);
-    await _pgPool.query('UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END WHERE id=$3', [v, type, req.params.userId]);
+    // v: abonnement badge bleu = 30 jours a partir d'AUJOURD'HUI a chaque certification manuelle
+    // (renouvellement inclus si deja certifie) ; retrait manuel efface aussi l'echeance et le suivi de rappel.
+    await _pgPool.query("UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END, verified_until=CASE WHEN $1 THEN NOW() + INTERVAL '30 days' ELSE NULL END, verif_last_reminder_date=NULL WHERE id=$3", [v, type, req.params.userId]);
     try { emitToUsers(String(req.params.userId), 'penc:verified', { verified: v }); } catch(e){}
+    if (v) { try { await _sendPencBadgeWelcome(req.params.userId); } catch(e){} }
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -11736,8 +11777,9 @@ app.post('/api/penc/admin/verify-requests/:id/approve', pencAuth, pencAdmin, asy
     if (!rq.rows.length) return res.status(404).json({ error: 'Introuvable' });
     const uid = rq.rows[0].user_id;
     await _pgPool.query("UPDATE penc_verif_requests SET status='approved' WHERE id=$1", [req.params.id]);
-    await _pgPool.query("UPDATE penc_users SET verified=TRUE, verified_type='id', verified_at=NOW() WHERE id=$1", [uid]);
+    await _pgPool.query("UPDATE penc_users SET verified=TRUE, verified_type='id', verified_at=NOW(), verified_until=NOW() + INTERVAL '30 days', verif_last_reminder_date=NULL WHERE id=$1", [uid]);
     try { emitToUsers(String(uid), 'penc:verified', { verified: true }); } catch(e){}
+    try { await _sendPencBadgeWelcome(uid); } catch(e){}
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
