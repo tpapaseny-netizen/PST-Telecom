@@ -4022,6 +4022,32 @@ app.get('/messager', (req, res) => {
 app.get('/sonko', (req, res) => {
   res.sendFile(__dirname + '/sonko.html');
 });
+// Route dynamique pour un article : injecte le vrai titre/image/résumé dans les balises
+// Open Graph avant d'envoyer la page, pour que Facebook (qui n'exécute pas le JavaScript)
+// affiche un aperçu correct du lien partagé, au lieu du titre générique du site.
+app.get('/sonko/a/:id', async (req, res) => {
+  try {
+    const fs = require('fs');
+    let html = fs.readFileSync(__dirname + '/sonko.html', 'utf8');
+    if (_pgPool) {
+      const r = await _pgPool.query('SELECT title,excerpt,content,image_url FROM sonko_articles WHERE id=$1', [req.params.id]);
+      if (r.rows.length) {
+        const a = r.rows[0];
+        const esc = (s) => String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const title = esc(a.title);
+        const desc = esc((a.excerpt && a.excerpt.trim()) || String(a.content).slice(0, 160));
+        const image = esc(a.image_url || '');
+        const url = esc('https://' + req.get('host') + req.originalUrl);
+        html = html
+          .split('<!--OG_TITLE-->Sonko Archive TV — Actualités').join('<!--OG_TITLE-->' + title)
+          .split('<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
+          .replace('content="<!--OG_IMAGE-->"', 'content="' + image + '"')
+          .replace('content="<!--OG_URL-->"', 'content="' + url + '"');
+      }
+    }
+    res.send(html);
+  } catch (e) { res.sendFile(__dirname + '/sonko.html'); }
+});
 app.get('/sonko-admin', (req, res) => {
   res.sendFile(__dirname + '/sonko-admin.html');
 });

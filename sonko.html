@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sonko Archive TV — Actualités</title>
-<meta name="description" content="Sonko Archive TV — actualités, archives et analyses.">
+<title><!--OG_TITLE-->Sonko Archive TV — Actualités</title>
+<meta name="description" content="<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Sonko Archive TV">
+<meta property="og:title" content="<!--OG_TITLE-->Sonko Archive TV — Actualités">
+<meta property="og:description" content="<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.">
+<meta property="og:image" content="<!--OG_IMAGE-->">
+<meta property="og:url" content="<!--OG_URL-->">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --bg:#F5F0E8; --bg2:#EFE9DD; --card:#FBF8F2; --card2:#EFE7DA;
@@ -96,7 +103,7 @@ async function loadHome(){
       return;
     }
     main.innerHTML = j.articles.map(a => `
-      <div class="art-card" onclick="location.hash='#a/${a.id}'">
+      <div class="art-card" onclick="navigateTo('/sonko/a/${a.id}')">
         ${a.image_url ? `<img src="${esc(a.image_url)}" alt="">` : ''}
         <div class="body">
           <h2>${esc(a.title)}</h2>
@@ -205,7 +212,7 @@ async function loadArticle(id){
     const reactMap = {}; (j.reactions||[]).forEach(rr => reactMap[rr.emoji] = rr.count);
 
     main.innerHTML = `
-      <button class="back-btn" onclick="location.hash=''">← Retour</button>
+      <button class="back-btn" onclick="navigateTo('/sonko')">← Retour</button>
       ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
       <h1 class="art-title">${esc(a.title)}</h1>
       <div class="art-meta">
@@ -246,12 +253,18 @@ async function loadArticle(id){
   }
 }
 
+function navigateTo(path){
+  history.pushState({}, '', path);
+  route();
+  window.scrollTo(0,0);
+}
 function route(){
-  const h = location.hash;
-  if(h.startsWith('#a/')) loadArticle(h.slice(3));
+  const p = location.pathname;
+  const m = p.match(/\/sonko\/a\/([^/]+)/);
+  if(m) loadArticle(m[1]);
   else loadHome();
 }
-window.addEventListener('hashchange', route);
+window.addEventListener('popstate', route);
 route();
 </script>
 </body>
