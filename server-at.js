@@ -13884,6 +13884,24 @@ app.get('/api/sonko/articles', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Modération admin des commentaires -- équivalent "gestion des utilisateurs" pour ce site
+// qui n'a pas de comptes : voir tous les commentaires de tous les articles, en supprimer
+// n'importe lequel (contrairement au visiteur qui ne peut modifier QUE le sien via son jeton).
+app.get('/api/sonko/admin/comments', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ comments: [] });
+    const r = await _pgPool.query('SELECT c.id,c.article_id,c.name,c.content,c.created_at,a.title AS article_title FROM sonko_comments c LEFT JOIN sonko_articles a ON a.id=c.article_id ORDER BY c.created_at DESC LIMIT 200');
+    res.json({ comments: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.delete('/api/sonko/admin/comments/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_comments WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/sonko/articles/:id', async (req, res) => {
   try {
     if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });

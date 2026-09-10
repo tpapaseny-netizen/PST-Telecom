@@ -74,11 +74,17 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
   <div id="artList"></div>
 </div>
 
+<div class="card" id="commentsCard" style="display:none;">
+  <h2 style="font-size:16px;margin-top:0;">Commentaires (tous articles)</h2>
+  <div id="commentsList"></div>
+</div>
+
 <script>
 function changeKey(){
   localStorage.removeItem('sonko_admin_key');
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('listCard').style.display = 'none';
+  document.getElementById('commentsCard').style.display = 'none';
   document.getElementById('keyCard').style.display = 'block';
   document.getElementById('adminKey').value = '';
 }
@@ -91,12 +97,16 @@ function saveKey(){
   document.getElementById('keyCard').style.display = 'none';
   document.getElementById('formCard').style.display = 'block';
   document.getElementById('listCard').style.display = 'block';
+  document.getElementById('commentsCard').style.display = 'block';
   loadList();
+  loadComments();
 }
 if(getKey()){
   document.getElementById('keyCard').style.display = 'none';
   document.getElementById('formCard').style.display = 'block';
   document.getElementById('listCard').style.display = 'block';
+  document.getElementById('commentsCard').style.display = 'block';
+  loadComments();
 }
 
 async function uploadImage(){
@@ -190,6 +200,7 @@ async function publish(){
       localStorage.removeItem('sonko_admin_key');
       document.getElementById('formCard').style.display = 'none';
       document.getElementById('listCard').style.display = 'none';
+      document.getElementById('commentsCard').style.display = 'none';
       document.getElementById('keyCard').style.display = 'block';
       document.getElementById('adminKey').value = '';
       msg.innerHTML = '';
@@ -211,10 +222,45 @@ async function loadList(){
         <span>${a.title}</span>
         <span>
           <button class="edit-btn" onclick="editArticle('${a.id}')">Éditer</button>
+          <button class="edit-btn" onclick="copyLink('${a.id}')">Copier le lien</button>
           <button onclick="del('${a.id}')">Supprimer</button>
         </span>
       </div>
     `).join('');
+  }catch(e){}
+}
+
+async function copyLink(id){
+  const url = location.origin + '/sonko/a/' + id;
+  try{
+    await navigator.clipboard.writeText(url);
+    alert('Lien copié : ' + url);
+  }catch(e){ prompt('Copie ce lien :', url); }
+}
+
+async function loadComments(){
+  const el = document.getElementById('commentsList');
+  try{
+    const r = await fetch('/api/sonko/admin/comments', { headers:{'x-sonko-admin-key': getKey()} });
+    const j = await r.json();
+    if(!j.comments || !j.comments.length){ el.innerHTML = '<p style="color:#57524A;font-size:13px;">Aucun commentaire pour le moment.</p>'; return; }
+    el.innerHTML = j.comments.map(c => `
+      <div class="art-row" style="align-items:flex-start;flex-direction:column;gap:4px;">
+        <div style="display:flex;justify-content:space-between;width:100%;">
+          <b style="font-size:13px;">${c.name}</b>
+          <button onclick="delComment('${c.id}')" style="width:auto;padding:4px 10px;font-size:11px;">Supprimer</button>
+        </div>
+        <div style="font-size:13px;">${c.content}</div>
+        <div style="font-size:11px;color:#57524A;">sur « ${c.article_title || 'article supprimé'} »</div>
+      </div>
+    `).join('');
+  }catch(e){ el.innerHTML = '<p style="color:#B42318;font-size:13px;">Erreur de chargement.</p>'; }
+}
+async function delComment(id){
+  if(!confirm('Supprimer ce commentaire ?')) return;
+  try{
+    await fetch('/api/sonko/admin/comments/' + id, { method:'DELETE', headers:{'x-sonko-admin-key': getKey()} });
+    loadComments();
   }catch(e){}
 }
 

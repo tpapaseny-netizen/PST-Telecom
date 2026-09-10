@@ -236,9 +236,15 @@ function toggleTTS(){
     ttsPlaying = false; updateTTSBtn(); return;
   }
   if(ttsQueue.length === 0) return;
-  if(ttsIdx >= ttsQueue.length) ttsIdx = 0;
   ttsPlaying = true; updateTTSBtn();
-  playNextChunk();
+  // Reprendre EXACTEMENT où on s'était arrêté (même fichier audio, même position) au lieu
+  // de recréer un nouveau son qui recommencerait la phrase depuis le début.
+  if(ttsAudio && ttsAudio.paused && !ttsAudio.ended){
+    ttsAudio.play().catch(()=>{});
+  } else {
+    if(ttsIdx >= ttsQueue.length) ttsIdx = 0;
+    playNextChunk();
+  }
 }
 function setTTSRate(rate){
   window._ttsRate = rate;
