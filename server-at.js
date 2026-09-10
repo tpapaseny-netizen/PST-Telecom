@@ -4971,6 +4971,7 @@ async function initPgPenc(){
         excerpt       TEXT DEFAULT '',
         content       TEXT NOT NULL,
         image_url     TEXT,
+        video_url     TEXT,
         author        TEXT DEFAULT 'Redaction',
         category      TEXT DEFAULT 'Actualité',
         tags          TEXT DEFAULT '',
@@ -4992,6 +4993,7 @@ async function initPgPenc(){
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS video_url TEXT;
       CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
       CREATE TABLE IF NOT EXISTS sonko_reactions (
         article_id    TEXT NOT NULL,
@@ -13917,7 +13919,7 @@ app.get('/api/sonko/articles/:id', async (req, res) => {
 app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
-    const { title, excerpt, content, image_url, author, category, tags } = req.body || {};
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
     const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
@@ -13925,8 +13927,8 @@ app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
     const aiSummary = _extractiveSummary(content).join('\n');
     await _pgPool.query(
-      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,tags,ai_summary,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes]
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,video_url,author,category,tags,ai_summary,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes]
     );
     res.json({ success: true, id, reading_minutes: readingMinutes });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
@@ -13946,14 +13948,14 @@ app.get('/api/sonko/admin/articles/:id', sonkoAdmin, async (req, res) => {
 app.put('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
-    const { title, excerpt, content, image_url, author, category, tags } = req.body || {};
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
     const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
     const aiSummary = _extractiveSummary(content).join('\n');
     const r = await _pgPool.query(
-      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,author=$5,category=$6,tags=$7,ai_summary=$8,reading_minutes=$9 WHERE id=$10',
-      [title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes, req.params.id]
+      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,video_url=$5,author=$6,category=$7,tags=$8,ai_summary=$9,reading_minutes=$10 WHERE id=$11',
+      [title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes, req.params.id]
     );
     if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
     res.json({ success: true, reading_minutes: readingMinutes });
@@ -14050,6 +14052,33 @@ app.post('/api/sonko/upload-image', sonkoAdmin, async (req, res) => {
         const url = await r2PutBuffer(key, req.file.buffer, req.file.mimetype || 'image/jpeg');
         res.json({ success: true, url });
       } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Upload vidéo -- fichiers plus gros que les photos, donc écriture temporaire sur disque
+// (multer.diskStorage) puis envoi vers R2 en streaming (r2PutFile), pour ne jamais charger
+// toute la vidéo en mémoire RAM sur un serveur déjà partagé avec Penc.
+app.post('/api/sonko/upload-video', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const os = require('os');
+    const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 60 * 1024 * 1024 } }).single('video');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Video trop lourde (60 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune video recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      const fs = require('fs');
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'mp4';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutFile(key, req.file.path, req.file.mimetype || 'video/mp4');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+      finally { try { fs.unlinkSync(req.file.path); } catch (_ue) {} }
     });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });

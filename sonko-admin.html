@@ -50,6 +50,12 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
     <div id="uploadStatus" style="font-size:12px;color:#57524A;"></div>
   </div>
   <input type="hidden" id="fImage" value="">
+  <label>Vidéo (optionnel)</label>
+  <input id="fVideoLink" placeholder="Lien YouTube ou Facebook (ex: https://youtube.com/watch?v=...)" oninput="document.getElementById('fVideo').value=this.value">
+  <div style="text-align:center;color:#57524A;font-size:12px;margin:4px 0;">— ou —</div>
+  <input type="file" id="fVideoFile" accept="video/*" onchange="uploadVideo()">
+  <div id="videoStatus" style="font-size:12px;color:#57524A;margin-top:4px;"></div>
+  <input type="hidden" id="fVideo" value="">
   <label>Rubrique</label>
   <select id="fCategory" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:var(--text);">
     <option>Actualité</option>
@@ -109,6 +115,31 @@ if(getKey()){
   loadComments();
 }
 
+async function uploadVideo(){
+  const fileInput = document.getElementById('fVideoFile');
+  const file = fileInput.files[0];
+  if(!file) return;
+  const status = document.getElementById('videoStatus');
+  status.textContent = 'Envoi en cours… (peut prendre un moment selon la taille)';
+  try{
+    const fd = new FormData();
+    fd.append('video', file);
+    const r = await fetch('/api/sonko/upload-video', {
+      method: 'POST',
+      headers: {'x-sonko-admin-key': getKey()},
+      body: fd
+    });
+    const j = await r.json();
+    if(j.success){
+      document.getElementById('fVideo').value = j.url;
+      document.getElementById('fVideoLink').value = '';
+      status.textContent = 'Vidéo envoyée ✓';
+    } else {
+      status.textContent = 'Erreur : ' + (j.error || 'envoi échoué');
+    }
+  }catch(e){ status.textContent = 'Erreur réseau lors de l\u2019envoi.'; }
+}
+
 async function uploadImage(){
   const fileInput = document.getElementById('fImageFile');
   const file = fileInput.files[0];
@@ -149,6 +180,8 @@ async function editArticle(id){
     document.getElementById('fTitle').value = a.title || '';
     document.getElementById('fExcerpt').value = a.excerpt || '';
     document.getElementById('fImage').value = a.image_url || '';
+    document.getElementById('fVideo').value = a.video_url || '';
+    document.getElementById('fVideoLink').value = (a.video_url && (a.video_url.includes('youtube') || a.video_url.includes('facebook'))) ? a.video_url : '';
     document.getElementById('fAuthor').value = a.author || 'Redaction';
     document.getElementById('fCategory').value = a.category || 'Actualité';
     document.getElementById('fTags').value = a.tags || '';
@@ -170,6 +203,7 @@ async function publish(){
     title: document.getElementById('fTitle').value.trim(),
     excerpt: document.getElementById('fExcerpt').value.trim(),
     image_url: document.getElementById('fImage').value.trim(),
+    video_url: document.getElementById('fVideo').value.trim(),
     author: document.getElementById('fAuthor').value.trim() || 'Redaction',
     category: document.getElementById('fCategory').value,
     tags: document.getElementById('fTags').value.trim(),
@@ -190,6 +224,9 @@ async function publish(){
       document.getElementById('fTitle').value = '';
       document.getElementById('fExcerpt').value = '';
       document.getElementById('fImage').value = '';
+      document.getElementById('fVideo').value = '';
+      document.getElementById('fVideoLink').value = '';
+      document.getElementById('videoStatus').textContent = '';
       document.getElementById('fContent').value = '';
       document.getElementById('fTags').value = '';
       document.getElementById('imgPreviewWrap').style.display = 'none';

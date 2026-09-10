@@ -47,6 +47,9 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 /* ---- Article ---- */
 .back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:700;font-size:14px;margin-bottom:14px;cursor:pointer;background:none;border:none;padding:0;}
 .art-hero{width:100%;border-radius:16px;max-height:360px;object-fit:cover;margin-bottom:16px;background:var(--card2);}
+.art-video-wrap{position:relative;width:100%;padding-top:56.25%;border-radius:16px;overflow:hidden;margin-bottom:16px;background:#000;}
+.art-video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+.art-video-file{width:100%;border-radius:16px;margin-bottom:16px;background:#000;max-height:400px;}
 .art-title{font-size:26px;font-weight:900;line-height:1.25;margin:0 0 10px;}
 .art-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 20px;}
 .tb-btn{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);}
@@ -105,6 +108,17 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 <script>
 const API = ''; // même domaine que le site (Render sert aussi le site) — laisser vide
 const main = document.getElementById('main');
+
+function renderVideo(url){
+  let embedSrc = null;
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if(yt) embedSrc = 'https://www.youtube.com/embed/' + yt[1];
+  else if(url.includes('facebook.com')) embedSrc = 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(url);
+  if(embedSrc){
+    return `<div class="art-video-wrap"><iframe src="${esc(embedSrc)}" allowfullscreen frameborder="0"></iframe></div>`;
+  }
+  return `<video class="art-video-file" src="${esc(url)}" controls></video>`;
+}
 
 function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function fmtDate(d){ return new Date(d).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'}); }
@@ -377,6 +391,7 @@ async function loadArticle(id){
         <span>·</span><span>${a.views} vues</span>
       </div>
       ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
+      ${a.video_url ? renderVideo(a.video_url) : ''}
       ${a.ai_summary ? `
       <div class="summary-box">
         <div class="sb-head">⚡ Résumé Express</div>
