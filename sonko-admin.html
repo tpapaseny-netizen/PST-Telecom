@@ -34,7 +34,10 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
 </div>
 
 <div class="card" id="formCard" style="display:none;">
-  <h2 style="font-size:16px;margin-top:0;">Publier un article</h2>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h2 style="font-size:16px;margin:0;">Publier un article</h2>
+    <button type="button" class="secondary" style="width:auto;margin:0;padding:5px 10px;font-size:11px;" onclick="changeKey()">Changer la clé</button>
+  </div>
   <label>Titre</label>
   <input id="fTitle" placeholder="Titre de l'article">
   <label>Résumé court (affiché dans la liste)</label>
@@ -60,6 +63,14 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
 </div>
 
 <script>
+function changeKey(){
+  localStorage.removeItem('sonko_admin_key');
+  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('listCard').style.display = 'none';
+  document.getElementById('keyCard').style.display = 'block';
+  document.getElementById('adminKey').value = '';
+}
+
 function getKey(){ return localStorage.getItem('sonko_admin_key') || ''; }
 function saveKey(){
   const k = document.getElementById('adminKey').value.trim();
@@ -128,8 +139,16 @@ async function publish(){
       document.getElementById('fImage').value = '';
       document.getElementById('fContent').value = '';
       loadList();
+    } else if(r.status === 401){
+      localStorage.removeItem('sonko_admin_key');
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('listCard').style.display = 'none';
+      document.getElementById('keyCard').style.display = 'block';
+      document.getElementById('adminKey').value = '';
+      msg.innerHTML = '';
+      alert('Clé admin incorrecte — retape-la ci-dessus.');
     } else {
-      msg.innerHTML = '<div class="msg err">' + (j.error || 'Clé admin invalide.') + '</div>';
+      msg.innerHTML = '<div class="msg err">' + (j.error || 'Erreur inconnue.') + '</div>';
     }
   }catch(e){ msg.innerHTML = '<div class="msg err">Erreur réseau.</div>'; }
 }
