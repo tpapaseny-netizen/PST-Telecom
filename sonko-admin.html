@@ -39,8 +39,13 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
   <input id="fTitle" placeholder="Titre de l'article">
   <label>Résumé court (affiché dans la liste)</label>
   <input id="fExcerpt" placeholder="Une ou deux phrases">
-  <label>Image (URL, optionnel)</label>
-  <input id="fImage" placeholder="https://...">
+  <label>Image</label>
+  <input type="file" id="fImageFile" accept="image/*" onchange="uploadImage()">
+  <div id="imgPreviewWrap" style="display:none;margin-top:8px;">
+    <img id="imgPreview" style="max-width:100%;border-radius:10px;display:block;margin-bottom:6px;">
+    <div id="uploadStatus" style="font-size:12px;color:#57524A;"></div>
+  </div>
+  <input type="hidden" id="fImage" value="">
   <label>Auteur</label>
   <input id="fAuthor" placeholder="Redaction" value="Redaction">
   <label>Contenu</label>
@@ -69,6 +74,34 @@ if(getKey()){
   document.getElementById('keyCard').style.display = 'none';
   document.getElementById('formCard').style.display = 'block';
   document.getElementById('listCard').style.display = 'block';
+}
+
+async function uploadImage(){
+  const fileInput = document.getElementById('fImageFile');
+  const file = fileInput.files[0];
+  if(!file) return;
+  const wrap = document.getElementById('imgPreviewWrap');
+  const status = document.getElementById('uploadStatus');
+  const preview = document.getElementById('imgPreview');
+  wrap.style.display = 'block';
+  preview.src = URL.createObjectURL(file);
+  status.textContent = 'Envoi en cours…';
+  try{
+    const fd = new FormData();
+    fd.append('image', file);
+    const r = await fetch('/api/sonko/upload-image', {
+      method: 'POST',
+      headers: {'x-sonko-admin-key': getKey()},
+      body: fd
+    });
+    const j = await r.json();
+    if(j.success){
+      document.getElementById('fImage').value = j.url;
+      status.textContent = 'Image envoyée ✓';
+    } else {
+      status.textContent = 'Erreur : ' + (j.error || 'envoi échoué');
+    }
+  }catch(e){ status.textContent = 'Erreur réseau lors de l\u2019envoi.'; }
 }
 
 async function publish(){

@@ -13937,6 +13937,28 @@ app.get('/api/sonko/tts', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Lecture audio indisponible' }); }
 });
 
+// Upload d'image depuis l'admin -- meme stockage R2 que Penc, aucune nouvelle cle/config.
+app.post('/api/sonko/upload-image', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }).single('image');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Image trop lourde (15 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune image recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'jpg';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutBuffer(key, req.file.buffer, req.file.mimetype || 'image/jpeg');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
     console.log("http://localhost:" + PORT);
