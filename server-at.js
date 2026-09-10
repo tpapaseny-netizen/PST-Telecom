@@ -4039,8 +4039,8 @@ app.get('/sonko/a/:id', async (req, res) => {
         const image = esc(a.image_url || '');
         const url = esc('https://' + req.get('host') + req.originalUrl);
         html = html
-          .split('<!--OG_TITLE-->Le Site des Patriotes — Actualités').join('<!--OG_TITLE-->' + title)
-          .split('<!--OG_DESC-->Le Site des Patriotes — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
+          .split('<!--OG_TITLE-->Sonko Archives TV — Actualités').join('<!--OG_TITLE-->' + title)
+          .split('<!--OG_DESC-->Sonko Archives TV — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
           .replace('content="<!--OG_IMAGE-->"', 'content="' + image + '"')
           .replace('content="<!--OG_URL-->"', 'content="' + url + '"');
       }
@@ -4974,6 +4974,7 @@ async function initPgPenc(){
         author        TEXT DEFAULT 'Redaction',
         category      TEXT DEFAULT 'Actualité',
         tags          TEXT DEFAULT '',
+        ai_summary    TEXT DEFAULT '',
         reading_minutes INTEGER DEFAULT 1,
         views         INTEGER DEFAULT 0,
         published     BOOLEAN DEFAULT TRUE,
@@ -4990,6 +4991,7 @@ async function initPgPenc(){
       ALTER TABLE sonko_comments ADD COLUMN IF NOT EXISTS edit_token TEXT;
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT '';
       CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
       CREATE TABLE IF NOT EXISTS sonko_reactions (
         article_id    TEXT NOT NULL,
@@ -13841,13 +13843,37 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 });
 
 
-// ==== Le Site des Patriotes -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
+// ==== Sonko Archives TV -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
 // Reutilise les MEMES endpoints gratuits Google (traduction, synthese vocale) que Penc,
 // aucune nouvelle cle API ni cout supplementaire.
 const SONKO_ADMIN_KEY = process.env.SONKO_ADMIN_KEY || 'change-moi-dans-render';
 function sonkoAdmin(req, res, next) {
   if ((req.headers['x-sonko-admin-key'] || '') !== SONKO_ADMIN_KEY) return res.status(401).json({ error: 'Cle admin invalide' });
   next();
+}
+
+// Résumé automatique gratuit (sans appel IA payant) : repère les phrases contenant les
+// mots les plus fréquents de l'article (hors mots vides), en favorisant la première phrase
+// (souvent le lede en journalisme), puis les restitue dans leur ordre d'origine.
+const _FR_STOPWORDS = new Set(['le','la','les','de','des','du','un','une','et','en','à','au','aux','ce','ces','cette','cet','pour','par','sur','dans','avec','est','sont','a','ont','que','qui','se','son','sa','ses','ne','pas','plus','ou','mais','donc','or','ni','car','il','elle','ils','elles','on','nous','vous','je','tu','y','être','avoir','fait','faire','sans','entre','comme','aussi','très','tout','tous','toute','toutes','leur','leurs','ainsi','ceux','celle','celles','celui','dont','où','après','avant','depuis','lors']);
+function _extractiveSummary(text, maxBullets){
+  maxBullets = maxBullets || 3;
+  const sentences = String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 30);
+  if (sentences.length <= maxBullets) return sentences;
+  const freq = {};
+  (String(text).toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || []).forEach(w => {
+    if (!_FR_STOPWORDS.has(w) && w.length > 2) freq[w] = (freq[w] || 0) + 1;
+  });
+  const scored = sentences.map((s, i) => {
+    const words = s.toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || [];
+    let score = 0;
+    words.forEach(w => { if (freq[w]) score += freq[w]; });
+    score = score / Math.max(words.length, 1);
+    if (i === 0) score *= 1.3;
+    return { s: s.trim(), i, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, maxBullets).sort((a, b) => a.i - b.i).map(t => t.s);
 }
 
 app.get('/api/sonko/articles', async (req, res) => {
@@ -13879,9 +13905,10 @@ app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
     // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
     const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
     await _pgPool.query(
-      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,tags,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', readingMinutes]
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,tags,ai_summary,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes]
     );
     res.json({ success: true, id, reading_minutes: readingMinutes });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
@@ -13905,9 +13932,10 @@ app.put('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
     if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
     const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
     const r = await _pgPool.query(
-      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,author=$5,category=$6,tags=$7,reading_minutes=$8 WHERE id=$9',
-      [title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', readingMinutes, req.params.id]
+      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,author=$5,category=$6,tags=$7,ai_summary=$8,reading_minutes=$9 WHERE id=$10',
+      [title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes, req.params.id]
     );
     if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
     res.json({ success: true, reading_minutes: readingMinutes });
