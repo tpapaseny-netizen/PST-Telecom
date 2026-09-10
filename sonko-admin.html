@@ -49,6 +49,15 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
     <div id="uploadStatus" style="font-size:12px;color:#57524A;"></div>
   </div>
   <input type="hidden" id="fImage" value="">
+  <label>Rubrique</label>
+  <select id="fCategory" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:var(--text);">
+    <option>Actualité</option>
+    <option>Politique</option>
+    <option>Économie</option>
+    <option>Société</option>
+    <option>International</option>
+    <option>Vidéos</option>
+  </select>
   <label>Auteur</label>
   <input id="fAuthor" placeholder="Redaction" value="Redaction">
   <label>Contenu</label>
@@ -122,6 +131,7 @@ async function publish(){
     excerpt: document.getElementById('fExcerpt').value.trim(),
     image_url: document.getElementById('fImage').value.trim(),
     author: document.getElementById('fAuthor').value.trim() || 'Redaction',
+    category: document.getElementById('fCategory').value,
     content: document.getElementById('fContent').value.trim(),
   };
   if(!body.title || !body.content){ msg.innerHTML = '<div class="msg err">Titre et contenu obligatoires.</div>'; return; }

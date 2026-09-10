@@ -28,6 +28,13 @@ header h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.2px;}
 header .tag{font-size:11px;opacity:.85;margin-top:1px;}
 main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 
+.cat-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.cat-badge{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;margin-bottom:8px;}
+.read-cta{color:var(--accent);font-weight:800;font-size:13px;margin-top:8px;display:flex;align-items:center;gap:4px;}
+
 /* ---- Accueil : liste d'articles ---- */
 .art-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .15s;}
 .art-card:hover{transform:translateY(-2px);}
@@ -46,8 +53,9 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 .tb-btn{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);}
 .tb-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .tb-btn svg{width:15px;height:15px;}
-.art-content{font-size:16.5px;line-height:1.75;white-space:pre-wrap;}
-.art-content.translated{border-left:3px solid var(--accent);padding-left:12px;}
+.art-content{font-size:16.5px;line-height:1.75;}
+.tts-chunk{transition:background .25s;border-radius:4px;}
+.tts-chunk.tts-active{background:rgba(24,119,242,0.18);box-shadow:0 0 0 3px rgba(24,119,242,0.18);}
 
 .reactions{display:flex;gap:8px;margin:26px 0 10px;flex-wrap:wrap;}
 .react-btn{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;display:flex;gap:6px;align-items:center;}
@@ -93,19 +101,26 @@ const main = document.getElementById('main');
 function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function fmtDate(d){ return new Date(d).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'}); }
 
-async function loadHome(){
-  main.innerHTML = '<div class="loader">Chargement des articles…</div>';
-  try{
-    const r = await fetch(API + '/api/sonko/articles');
-    const j = await r.json();
-    if(!j.articles || !j.articles.length){
-      main.innerHTML = '<div class="empty">Aucun article publié pour le moment.</div>';
-      return;
-    }
-    main.innerHTML = j.articles.map(a => `
+const CATEGORIES = ['Tout','Actualité','Politique','Économie','Société','International','Vidéos'];
+let currentCat = 'Tout';
+let allArticles = [];
+
+function renderCatTabs(){
+  return `<div class="cat-tabs">${CATEGORIES.map(c => `<button class="cat-tab${c===currentCat?' active':''}" onclick="filterCat('${c}')">${c}</button>`).join('')}</div>`;
+}
+function filterCat(c){
+  currentCat = c;
+  renderArticleList();
+}
+function renderArticleList(){
+  const filtered = currentCat === 'Tout' ? allArticles : allArticles.filter(a => (a.category||'Actualité') === currentCat);
+  const list = !filtered.length
+    ? '<div class="empty">Aucun article dans cette rubrique.</div>'
+    : filtered.map(a => `
       <div class="art-card" onclick="navigateTo('/sonko/a/${a.id}')">
         ${a.image_url ? `<img src="${esc(a.image_url)}" alt="">` : ''}
         <div class="body">
+          <span class="cat-badge">${esc(a.category || 'Actualité')}</span>
           <h2>${esc(a.title)}</h2>
           ${a.excerpt ? `<p>${esc(a.excerpt)}</p>` : ''}
           <div class="art-meta">
@@ -113,16 +128,41 @@ async function loadHome(){
             <span>·</span>
             <span>${a.reading_minutes} min de lecture</span>
           </div>
+          <div class="read-cta">Lire l'article →</div>
         </div>
       </div>
     `).join('');
+  main.innerHTML = renderCatTabs() + list;
+}
+
+async function loadHome(){
+  main.innerHTML = renderCatTabs() + '<div class="loader">Chargement des articles…</div>';
+  try{
+    const r = await fetch(API + '/api/sonko/articles');
+    const j = await r.json();
+    allArticles = j.articles || [];
+    if(!allArticles.length){
+      main.innerHTML = '<div class="empty">Aucun article publié pour le moment.</div>';
+      return;
+    }
+    renderArticleList();
   }catch(e){
     main.innerHTML = '<div class="empty">Impossible de charger les articles. Réessaie plus tard.</div>';
   }
 }
 
+// ---- Contenu de l'article : découpé en phrases repérables, pour synchroniser
+// la lecture audio ET la surbrillance en temps réel du texte lu. ----
+function renderContent(text){
+  const chunks = splitForTTS(text);
+  const el = document.getElementById('artContent');
+  el.innerHTML = chunks.map((c,i) => `<span class="tts-chunk" id="tts-${i}">${esc(c)}</span>`).join(' ');
+  ttsQueue = chunks; ttsIdx = 0;
+}
+
 // ---- Lecture audio : découpe le texte en morceaux <200 caractères (limite du moteur
-// gratuit), et les joue les uns après les autres pour lire tout l'article. ----
+// gratuit), et les joue les uns après les autres pour lire tout l'article, en surlignant
+// en direct la phrase en cours de lecture. ----
 let ttsQueue = [], ttsIdx = 0, ttsAudio = null, ttsPlaying = false;
 function splitForTTS(text){
   const sentences = text.replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+/);
@@ -137,19 +177,23 @@ function splitForTTS(text){
   return chunks;
 }
 function playNextChunk(){
+  document.querySelectorAll('.tts-chunk.tts-active').forEach(s => s.classList.remove('tts-active'));
   if(ttsIdx >= ttsQueue.length){ ttsPlaying = false; updateTTSBtn(); return; }
-  const lang = document.getElementById('artContent').classList.contains('translated') ? window._ttsLang || 'fr' : 'fr';
+  const span = document.getElementById('tts-' + ttsIdx);
+  if(span){ span.classList.add('tts-active'); span.scrollIntoView({block:'center', behavior:'smooth'}); }
+  const lang = window._ttsLang || 'fr';
   ttsAudio = new Audio(API + '/api/sonko/tts?lang=' + lang + '&text=' + encodeURIComponent(ttsQueue[ttsIdx]));
   ttsAudio.onended = () => { ttsIdx++; playNextChunk(); };
   ttsAudio.onerror = () => { ttsIdx++; playNextChunk(); };
   ttsAudio.play().catch(()=>{});
 }
-function toggleTTS(text){
+function toggleTTS(){
   if(ttsPlaying){
     if(ttsAudio) ttsAudio.pause();
     ttsPlaying = false; updateTTSBtn(); return;
   }
-  if(ttsQueue.length === 0){ ttsQueue = splitForTTS(text); ttsIdx = 0; }
+  if(ttsQueue.length === 0) return;
+  if(ttsIdx >= ttsQueue.length) ttsIdx = 0;
   ttsPlaying = true; updateTTSBtn();
   playNextChunk();
 }
@@ -163,24 +207,25 @@ function updateTTSBtn(){
 async function toggleTranslate(articleId, originalText){
   const el = document.getElementById('artContent');
   const btn = document.getElementById('trBtn');
-  if(el.classList.contains('translated')){
-    el.textContent = originalText;
-    el.classList.remove('translated');
+  if(el.dataset.translated === '1'){
+    renderContent(originalText);
+    el.dataset.translated = '0';
     btn.classList.remove('active');
-    ttsQueue = []; // relire depuis le texte original la prochaine fois
+    window._ttsLang = 'fr';
     return;
   }
   btn.querySelector('.lbl').textContent = 'Traduction…';
   try{
-    const r = await fetch(API + '/api/sonko/translate?target=en&text=' + encodeURIComponent(originalText));
+    const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(originalText);
+    const r = await fetch(u);
     const j = await r.json();
-    el.textContent = j.translated || originalText;
-    el.classList.add('translated');
+    const translated = (j[0] || []).map(p => p[0]).join('');
+    renderContent(translated || originalText);
+    el.dataset.translated = '1';
     btn.classList.add('active');
     window._ttsLang = 'en';
-    ttsQueue = [];
   }catch(e){ /* laisse le texte original si la traduction échoue */ }
-  btn.querySelector('.lbl').textContent = 'Traduit';
+  btn.querySelector('.lbl').textContent = el.dataset.translated === '1' ? 'Traduit' : 'Traduire (EN)';
 }
 
 async function react(articleId, emoji){
@@ -207,6 +252,7 @@ async function loadArticle(id){
     const j = await r.json();
     if(!j.article){ main.innerHTML = '<div class="empty">Article introuvable.</div>'; return; }
     const a = j.article;
+    if(ttsAudio){ try{ ttsAudio.pause(); }catch(_){} }
     ttsQueue = []; ttsIdx = 0; ttsPlaying = false;
     const reactionEmojis = ['👍','❤️','😮','😢'];
     const reactMap = {}; (j.reactions||[]).forEach(rr => reactMap[rr.emoji] = rr.count);
@@ -214,6 +260,7 @@ async function loadArticle(id){
     main.innerHTML = `
       <button class="back-btn" onclick="navigateTo('/sonko')">← Retour</button>
       ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
+      <span class="cat-badge">${esc(a.category || 'Actualité')}</span>
       <h1 class="art-title">${esc(a.title)}</h1>
       <div class="art-meta">
         <span>${esc(a.author)}</span><span>·</span><span>${fmtDate(a.created_at)}</span>
@@ -221,7 +268,7 @@ async function loadArticle(id){
         <span>·</span><span>${a.views} vues</span>
       </div>
       <div class="art-toolbar">
-        <button class="tb-btn" id="ttsBtn" onclick="toggleTTS(document.getElementById('artContent').textContent)">
+        <button class="tb-btn" id="ttsBtn" onclick="toggleTTS()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 5a11 11 0 0 1 0 14M15.5 8.5a6 6 0 0 1 0 7"/></svg>
           <span class="lbl">Écouter</span>
         </button>
@@ -230,7 +277,7 @@ async function loadArticle(id){
           <span class="lbl">Traduire (EN)</span>
         </button>
       </div>
-      <div class="art-content" id="artContent">${esc(a.content)}</div>
+      <div class="art-content" id="artContent"></div>
 
       <div class="ad-slot">Emplacement publicité (AdSense)</div>
 
@@ -248,6 +295,8 @@ async function loadArticle(id){
         </form>
       </div>
     `;
+    window._ttsLang = 'fr';
+    renderContent(a.content);
   }catch(e){
     main.innerHTML = '<div class="empty">Impossible de charger cet article.</div>';
   }

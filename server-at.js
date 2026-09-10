@@ -4972,6 +4972,7 @@ async function initPgPenc(){
         content       TEXT NOT NULL,
         image_url     TEXT,
         author        TEXT DEFAULT 'Redaction',
+        category      TEXT DEFAULT 'Actualité',
         reading_minutes INTEGER DEFAULT 1,
         views         INTEGER DEFAULT 0,
         published     BOOLEAN DEFAULT TRUE,
@@ -4984,6 +4985,7 @@ async function initPgPenc(){
         content       TEXT NOT NULL,
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
       CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
       CREATE TABLE IF NOT EXISTS sonko_reactions (
         article_id    TEXT NOT NULL,
@@ -13847,7 +13849,7 @@ function sonkoAdmin(req, res, next) {
 app.get('/api/sonko/articles', async (req, res) => {
   try {
     if (!_pgPool) return res.json({ articles: [] });
-    const r = await _pgPool.query("SELECT id,title,excerpt,image_url,author,reading_minutes,views,created_at FROM sonko_articles WHERE published=TRUE ORDER BY created_at DESC LIMIT 100");
+    const r = await _pgPool.query("SELECT id,title,excerpt,image_url,author,category,reading_minutes,views,created_at FROM sonko_articles WHERE published=TRUE ORDER BY created_at DESC LIMIT 100");
     res.json({ articles: r.rows });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -13867,15 +13869,15 @@ app.get('/api/sonko/articles/:id', async (req, res) => {
 app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
-    const { title, excerpt, content, image_url, author } = req.body || {};
+    const { title, excerpt, content, image_url, author, category } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
     const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
     const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
     await _pgPool.query(
-      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7)',
-      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', readingMinutes]
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', readingMinutes]
     );
     res.json({ success: true, id, reading_minutes: readingMinutes });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
