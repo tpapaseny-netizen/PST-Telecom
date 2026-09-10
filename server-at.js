@@ -4039,8 +4039,8 @@ app.get('/sonko/a/:id', async (req, res) => {
         const image = esc(a.image_url || '');
         const url = esc('https://' + req.get('host') + req.originalUrl);
         html = html
-          .split('<!--OG_TITLE-->Sonko Archive TV — Actualités').join('<!--OG_TITLE-->' + title)
-          .split('<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
+          .split('<!--OG_TITLE-->Le Site des Patriotes — Actualités').join('<!--OG_TITLE-->' + title)
+          .split('<!--OG_DESC-->Le Site des Patriotes — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
           .replace('content="<!--OG_IMAGE-->"', 'content="' + image + '"')
           .replace('content="<!--OG_URL-->"', 'content="' + url + '"');
       }
@@ -4973,6 +4973,7 @@ async function initPgPenc(){
         image_url     TEXT,
         author        TEXT DEFAULT 'Redaction',
         category      TEXT DEFAULT 'Actualité',
+        tags          TEXT DEFAULT '',
         reading_minutes INTEGER DEFAULT 1,
         views         INTEGER DEFAULT 0,
         published     BOOLEAN DEFAULT TRUE,
@@ -4983,9 +4984,12 @@ async function initPgPenc(){
         article_id    TEXT NOT NULL,
         name          TEXT NOT NULL,
         content       TEXT NOT NULL,
+        edit_token    TEXT,
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE sonko_comments ADD COLUMN IF NOT EXISTS edit_token TEXT;
       ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';
       CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
       CREATE TABLE IF NOT EXISTS sonko_reactions (
         article_id    TEXT NOT NULL,
@@ -13837,7 +13841,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
 });
 
 
-// ==== Sonko Archive TV -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
+// ==== Le Site des Patriotes -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
 // Reutilise les MEMES endpoints gratuits Google (traduction, synthese vocale) que Penc,
 // aucune nouvelle cle API ni cout supplementaire.
 const SONKO_ADMIN_KEY = process.env.SONKO_ADMIN_KEY || 'change-moi-dans-render';
@@ -13869,17 +13873,44 @@ app.get('/api/sonko/articles/:id', async (req, res) => {
 app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
   try {
     if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
-    const { title, excerpt, content, image_url, author, category } = req.body || {};
+    const { title, excerpt, content, image_url, author, category, tags } = req.body || {};
     if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
     const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
     const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
     await _pgPool.query(
-      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', readingMinutes]
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,author,category,tags,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', readingMinutes]
     );
     res.json({ success: true, id, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Lecture admin (pré-remplissage du formulaire d'édition) -- ne compte pas de vue,
+// contrairement à la route publique GET /api/sonko/articles/:id.
+app.get('/api/sonko/admin/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ article: a.rows[0] });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.put('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, author, category, tags } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const r = await _pgPool.query(
+      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,author=$5,category=$6,tags=$7,reading_minutes=$8 WHERE id=$9',
+      [title, excerpt || '', content, image_url || null, author || 'Redaction', category || 'Actualité', tags || '', readingMinutes, req.params.id]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ success: true, reading_minutes: readingMinutes });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -13897,8 +13928,24 @@ app.post('/api/sonko/articles/:id/comments', async (req, res) => {
     const { name, content } = req.body || {};
     if (!name || !content) return res.status(400).json({ error: 'Nom et commentaire requis' });
     const id = 'cm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    await _pgPool.query('INSERT INTO sonko_comments(id,article_id,name,content) VALUES($1,$2,$3,$4)', [id, req.params.id, String(name).slice(0, 80), String(content).slice(0, 2000)]);
-    res.json({ success: true, id });
+    const editToken = require('crypto').randomBytes(16).toString('hex');
+    await _pgPool.query('INSERT INTO sonko_comments(id,article_id,name,content,edit_token) VALUES($1,$2,$3,$4,$5)', [id, req.params.id, String(name).slice(0, 80), String(content).slice(0, 2000), editToken]);
+    res.json({ success: true, id, edit_token: editToken });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Modification d'un commentaire par son auteur -- pas de compte utilisateur sur ce site,
+// donc l'auteur prouve que le commentaire est le sien via le jeton reçu à la création
+// (stocké uniquement dans son navigateur, jamais renvoyé dans la liste publique des
+// commentaires) plutôt que par une authentification complète.
+app.put('/api/sonko/comments/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { content, edit_token } = req.body || {};
+    if (!content || !edit_token) return res.status(400).json({ error: 'Contenu et jeton requis' });
+    const r = await _pgPool.query('UPDATE sonko_comments SET content=$1 WHERE id=$2 AND edit_token=$3', [String(content).slice(0, 2000), req.params.id, edit_token]);
+    if (!r.rowCount) return res.status(403).json({ error: 'Modification non autorisée' });
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 

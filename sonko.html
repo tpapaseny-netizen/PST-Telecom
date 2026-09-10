@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title><!--OG_TITLE-->Sonko Archive TV — Actualités</title>
-<meta name="description" content="<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.">
+<title><!--OG_TITLE-->Le Site des Patriotes — Actualités</title>
+<meta name="description" content="<!--OG_DESC-->Le Site des Patriotes — actualités, archives et analyses.">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="Sonko Archive TV">
-<meta property="og:title" content="<!--OG_TITLE-->Sonko Archive TV — Actualités">
-<meta property="og:description" content="<!--OG_DESC-->Sonko Archive TV — actualités, archives et analyses.">
+<meta property="og:site_name" content="Le Site des Patriotes">
+<meta property="og:title" content="<!--OG_TITLE-->Le Site des Patriotes — Actualités">
+<meta property="og:description" content="<!--OG_DESC-->Le Site des Patriotes — actualités, archives et analyses.">
 <meta property="og:image" content="<!--OG_IMAGE-->">
 <meta property="og:url" content="<!--OG_URL-->">
 <meta name="twitter:card" content="summary_large_image">
@@ -28,9 +28,8 @@ header h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.2px;}
 header .tag{font-size:11px;opacity:.85;margin-top:1px;}
 main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 
-.cat-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
-.cat-tabs::-webkit-scrollbar{display:none;}
-.cat-tab{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.cat-tab{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .cat-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .cat-badge{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;margin-bottom:8px;}
 .read-cta{color:var(--accent);font-weight:800;font-size:13px;margin-top:8px;display:flex;align-items:center;gap:4px;}
@@ -57,6 +56,11 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 .tts-chunk{transition:background .25s;border-radius:4px;}
 .tts-chunk.tts-active{background:rgba(24,119,242,0.18);box-shadow:0 0 0 3px rgba(24,119,242,0.18);}
 
+.summary-box{background:var(--card);border-left:4px solid #F5B014;border-radius:10px;padding:14px 16px;margin:16px 0;}
+.summary-box .sb-head{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px;color:#B8790A;margin-bottom:4px;}
+.summary-box .sb-cap{font-size:11px;color:var(--muted);margin-top:8px;}
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0;}
+.tag-pill{background:var(--card2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--muted);}
 .reactions{display:flex;gap:8px;margin:26px 0 10px;flex-wrap:wrap;}
 .react-btn{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;display:flex;gap:6px;align-items:center;}
 .react-btn .n{font-size:12px;color:var(--muted);font-weight:700;}
@@ -66,6 +70,7 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 .c-item{background:var(--card);border-radius:12px;padding:10px 14px;margin-bottom:8px;}
 .c-item .name{font-weight:800;font-size:13px;color:var(--accent);}
 .c-item .txt{font-size:14px;margin-top:2px;}
+.edit-c-btn{background:none;border:none;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer;padding:6px 0 0;}
 .c-form{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
 .c-form input,.c-form textarea{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);resize:vertical;}
 .c-form button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;cursor:pointer;font-size:14px;}
@@ -81,7 +86,7 @@ main{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
 <header>
   <div class="logo">S</div>
   <div>
-    <h1>Sonko Archive TV</h1>
+    <h1>Le Site des Patriotes</h1>
     <div class="tag">Actualités &amp; archives</div>
   </div>
 </header>
@@ -167,13 +172,25 @@ let ttsQueue = [], ttsIdx = 0, ttsAudio = null, ttsPlaying = false;
 function splitForTTS(text){
   const sentences = text.replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+/);
   const chunks = []; let cur = '';
-  for(const s of sentences){
+  function flush(){ if(cur.trim()){ chunks.push(cur.trim()); } cur = ''; }
+  for(let s of sentences){
+    // Une phrase trop longue est découpée à un espace proche de 190 caractères au lieu
+    // d'être tronquée : l'ancienne version perdait silencieusement la fin de la phrase.
+    while(s.length > 190){
+      let cut = s.lastIndexOf(' ', 190);
+      if(cut < 50) cut = 190;
+      flush();
+      chunks.push(s.slice(0, cut).trim());
+      s = s.slice(cut).trim();
+    }
     if((cur + ' ' + s).trim().length > 190){
-      if(cur) chunks.push(cur.trim());
-      cur = s.length > 190 ? s.slice(0,190) : s;
-    } else { cur = (cur + ' ' + s).trim(); }
+      flush();
+      cur = s;
+    } else {
+      cur = (cur + ' ' + s).trim();
+    }
   }
-  if(cur) chunks.push(cur.trim());
+  flush();
   return chunks;
 }
 function playNextChunk(){
@@ -216,10 +233,17 @@ async function toggleTranslate(articleId, originalText){
   }
   btn.querySelector('.lbl').textContent = 'Traduction…';
   try{
-    const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(originalText);
-    const r = await fetch(u);
-    const j = await r.json();
-    const translated = (j[0] || []).map(p => p[0]).join('');
+    // Un seul gros appel échouait parfois sur les articles longs (limite de l'endpoint
+    // gratuit de Google) -- on découpe en paragraphes, chacun traduit séparément.
+    const paragraphs = originalText.split(/\n+/).filter(p => p.trim());
+    const translatedParts = [];
+    for(const p of paragraphs){
+      const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(p);
+      const r = await fetch(u);
+      const j = await r.json();
+      translatedParts.push((j[0] || []).map(x => x[0]).join(''));
+    }
+    const translated = translatedParts.join('\n\n');
     renderContent(translated || originalText);
     el.dataset.translated = '1';
     btn.classList.add('active');
@@ -228,9 +252,54 @@ async function toggleTranslate(articleId, originalText){
   btn.querySelector('.lbl').textContent = el.dataset.translated === '1' ? 'Traduit' : 'Traduire (EN)';
 }
 
+function myCommentToken(id){ return localStorage.getItem('sonko_ctok_' + id) || ''; }
+
+function renderComment(c){
+  const tok = myCommentToken(c.id);
+  return `<div class="c-item" id="c-${c.id}">
+    <div class="name">${esc(c.name)}</div>
+    <div class="txt" id="ctxt-${c.id}">${esc(c.content)}</div>
+    ${tok ? `<button class="edit-c-btn" onclick="editComment('${c.id}')">Modifier</button>` : ''}
+  </div>`;
+}
+function editComment(id){
+  const wrap = document.getElementById('c-' + id);
+  const current = document.getElementById('ctxt-' + id).textContent;
+  wrap.innerHTML = `
+    <textarea id="cEdit-${id}" rows="3" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:14px;">${esc(current)}</textarea>
+    <button class="edit-c-btn" onclick="saveComment('${id}')">Enregistrer</button>
+  `;
+}
+async function saveComment(id){
+  const content = document.getElementById('cEdit-' + id).value.trim();
+  if(!content) return;
+  try{
+    const r = await fetch(API + '/api/sonko/comments/' + id, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content, edit_token: myCommentToken(id) })
+    });
+    const j = await r.json();
+    if(j.success) loadArticle(currentArticleId);
+    else alert(j.error || 'Modification refusée.');
+  }catch(e){ alert('Erreur réseau.'); }
+}
+
 async function react(articleId, emoji){
   try{ await fetch(API + '/api/sonko/articles/' + articleId + '/react', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji})}); }catch(e){}
   loadArticle(articleId);
+}
+
+async function shareArticle(id, title){
+  const url = location.origin + '/sonko/a/' + id;
+  if(navigator.share){
+    try{ await navigator.share({ title, url }); return; }catch(e){ return; } // annulé ou échoué : rien à faire
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    alert('Lien copié : ' + url);
+  }catch(e){
+    prompt('Copie ce lien :', url);
+  }
 }
 
 async function submitComment(e, articleId){
@@ -239,13 +308,17 @@ async function submitComment(e, articleId){
   const content = document.getElementById('cText').value.trim();
   if(!name || !content) return;
   try{
-    await fetch(API + '/api/sonko/articles/' + articleId + '/comments', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, content})});
+    const r = await fetch(API + '/api/sonko/articles/' + articleId + '/comments', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, content})});
+    const j = await r.json();
+    if(j.success && j.edit_token) localStorage.setItem('sonko_ctok_' + j.id, j.edit_token);
     document.getElementById('cText').value = '';
     loadArticle(articleId);
   }catch(e){}
 }
 
+let currentArticleId = null;
 async function loadArticle(id){
+  currentArticleId = id;
   main.innerHTML = '<div class="loader">Chargement de l\u2019article…</div>';
   try{
     const r = await fetch(API + '/api/sonko/articles/' + id);
@@ -259,7 +332,6 @@ async function loadArticle(id){
 
     main.innerHTML = `
       <button class="back-btn" onclick="navigateTo('/sonko')">← Retour</button>
-      ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
       <span class="cat-badge">${esc(a.category || 'Actualité')}</span>
       <h1 class="art-title">${esc(a.title)}</h1>
       <div class="art-meta">
@@ -267,6 +339,13 @@ async function loadArticle(id){
         <span>·</span><span>${a.reading_minutes} min de lecture</span>
         <span>·</span><span>${a.views} vues</span>
       </div>
+      ${a.image_url ? `<img class="art-hero" src="${esc(a.image_url)}" alt="">` : ''}
+      ${a.excerpt ? `
+      <div class="summary-box">
+        <div class="sb-head">⚡ Résumé Express</div>
+        <div>${esc(a.excerpt)}</div>
+        <div class="sb-cap">Rédigé par la rédaction — l'article complet ci-dessous.</div>
+      </div>` : ''}
       <div class="art-toolbar">
         <button class="tb-btn" id="ttsBtn" onclick="toggleTTS()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 5a11 11 0 0 1 0 14M15.5 8.5a6 6 0 0 1 0 7"/></svg>
@@ -276,8 +355,14 @@ async function loadArticle(id){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h9M9 5v3M11 18l4-8 4 8M12.5 15h5"/><path d="M13 8c-1 3-3 5.5-6 7"/></svg>
           <span class="lbl">Traduire (EN)</span>
         </button>
+        <button class="tb-btn" onclick="shareArticle('${a.id}', ${JSON.stringify(a.title)})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+          <span class="lbl">Partager</span>
+        </button>
       </div>
       <div class="art-content" id="artContent"></div>
+
+      ${a.tags ? `<div class="tag-list">${a.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => `<span class="tag-pill">${esc(t)}</span>`).join('')}</div>` : ''}
 
       <div class="ad-slot">Emplacement publicité (AdSense)</div>
 
@@ -287,7 +372,7 @@ async function loadArticle(id){
 
       <div class="comments">
         <h3>Commentaires (${(j.comments||[]).length})</h3>
-        ${(j.comments||[]).map(c => `<div class="c-item"><div class="name">${esc(c.name)}</div><div class="txt">${esc(c.content)}</div></div>`).join('') || '<div style="color:var(--muted);font-size:14px;">Sois le premier à commenter.</div>'}
+        ${(j.comments||[]).map(renderComment).join('') || '<div style="color:var(--muted);font-size:14px;">Sois le premier à commenter.</div>'}
         <form class="c-form" onsubmit="submitComment(event,'${a.id}')">
           <input id="cName" placeholder="Ton nom" maxlength="80" required>
           <textarea id="cText" placeholder="Ton commentaire" rows="3" maxlength="2000" required></textarea>
