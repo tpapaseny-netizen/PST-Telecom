@@ -11619,8 +11619,14 @@ app.get('/api/penc/admin/overview', pencAuth, pencAdmin, async (req, res) => {
     const withdrawals = all.filter(u => u.withdraw_request && u.withdraw_request.status === 'pending');
     const rewardAlerts = all.filter(u => u.reward_pending);
     const totalValidViews = all.reduce((a, u) => a + u.valid_views, 0);
+    let planBreakdown = { free:0, bleu:0, business:0 };
+    try {
+      const pbq = await _pgPool.query("SELECT COUNT(*) FILTER (WHERE verified=TRUE) bleu, COUNT(*) FILTER (WHERE business_verified=TRUE) business, COUNT(*) FILTER (WHERE verified IS NOT TRUE AND business_verified IS NOT TRUE) free FROM penc_users WHERE deleted_at IS NULL");
+      const pb = pbq.rows[0] || {};
+      planBreakdown = { free: pb.free||0, bleu: pb.bleu||0, business: pb.business||0 };
+    } catch(e){}
     res.json({
-      stats: { users: users.length, conversations: convs.length, statuses: statuses.length, messages: msgsCount, total_valid_views: totalValidViews },
+      stats: { users: users.length, conversations: convs.length, statuses: statuses.length, messages: msgsCount, total_valid_views: totalValidViews, plan_breakdown: planBreakdown },
       withdrawals, rewardAlerts,
       users: all.sort((a, b) => new Date(b.created_at||0) - new Date(a.created_at||0))
     });
@@ -11645,7 +11651,27 @@ app.get('/api/penc/admin/analytics', pencAuth, pencAdmin, async (req, res) => {
     try { const t = await _pgPool.query("SELECT COUNT(*)::int c FROM penc_messages WHERE created_at >= date_trunc('day', NOW())"); messages_today = t.rows[0].c; } catch(e){}
     try { const m = await _pgPool.query("SELECT COALESCE(SUM(total),0)::int s FROM penc_ad_revenue WHERE created_at >= date_trunc('month', NOW())"); ad_revenue_month = m.rows[0].s; } catch(e){}
     try { online = pencOnline.size; } catch(e){}
-    res.json({ series:{signups,messages,statuses,views}, realtime:{online, messages_today, ad_revenue_month} });
+    let retention = { d1:{cohort:0,retained:0,pct:0}, d7:{cohort:0,retained:0,pct:0}, d30:{cohort:0,retained:0,pct:0} };
+    try {
+      const rq = await _pgPool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day') AS cohort_d1,
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '1 day' AND last_seen >= created_at + INTERVAL '1 day') AS retained_d1,
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days') AS cohort_d7,
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND last_seen >= created_at + INTERVAL '7 days') AS retained_d7,
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days') AS cohort_d30,
+          COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days' AND last_seen >= created_at + INTERVAL '30 days') AS retained_d30
+        FROM penc_users WHERE deleted_at IS NULL
+      `);
+      const rr = rq.rows[0] || {};
+      const pct = (r,c) => (c>0) ? Math.round((r/c)*1000)/10 : 0;
+      retention = {
+        d1:  { cohort: rr.cohort_d1||0,  retained: rr.retained_d1||0,  pct: pct(rr.retained_d1, rr.cohort_d1) },
+        d7:  { cohort: rr.cohort_d7||0,  retained: rr.retained_d7||0,  pct: pct(rr.retained_d7, rr.cohort_d7) },
+        d30: { cohort: rr.cohort_d30||0, retained: rr.retained_d30||0, pct: pct(rr.retained_d30, rr.cohort_d30) }
+      };
+    } catch(e){}
+    res.json({ series:{signups,messages,statuses,views}, realtime:{online, messages_today, ad_revenue_month}, retention });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/admin/withdraw/approve', pencAuth, pencAdmin, async (req, res) => {
@@ -11793,6 +11819,7 @@ app.post('/api/penc/admin/verify/:userId', pencAuth, pencAdmin, async (req, res)
     await _pgPool.query("UPDATE penc_users SET verified=$1, verified_type=$2, verified_at=CASE WHEN $1 THEN NOW() ELSE NULL END, verified_until=CASE WHEN $1 THEN NOW() + INTERVAL '30 days' ELSE NULL END, verif_last_reminder_date=NULL WHERE id=$3", [v, type, req.params.userId]);
     try { emitToUsers(String(req.params.userId), 'penc:verified', { verified: v }); } catch(e){}
     if (v) { try { await _sendPencBadgeWelcome(req.params.userId); } catch(e){} }
+    try{ pencSecLog(v?'user_verified':'user_unverified', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -11804,6 +11831,7 @@ app.post('/api/penc/admin/business-verify/:userId', pencAuth, pencAdmin, async (
     const v = !!(req.body && req.body.verified);
     await _pgPool.query('UPDATE penc_users SET business_verified=$1 WHERE id=$2', [v, req.params.userId]);
     try { emitToUsers(String(req.params.userId), 'penc:business_verified', { business_verified: v }); } catch(e){}
+    try{ pencSecLog(v?'user_business_verified':'user_business_unverified', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -12254,6 +12282,7 @@ app.post('/api/penc/admin/moderator/:userId', pencAuth, pencAdmin, async (req,re
   try{ if(!_pgPool) return res.json({success:true});
     const mod=!!(req.body&&req.body.moderator);
     await _pgPool.query('UPDATE penc_users SET moderator=$1 WHERE id=$2',[mod,req.params.userId]);
+    try{ pencSecLog(mod?'user_moderator_added':'user_moderator_removed', req, {user_id:req.params.userId, identifier:(req.pencAdminUser&&req.pencAdminUser.email)||null}); }catch(e){}
     res.json({success:true}); }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
 });
 app.post('/api/penc/admin/block/:userId', pencAuth, pencAdmin, async (req,res)=>{
