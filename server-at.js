@@ -4992,6 +4992,12 @@ async function initPgPenc(){
         count         INTEGER DEFAULT 0,
         PRIMARY KEY (article_id, emoji)
       );
+      CREATE TABLE IF NOT EXISTS sonko_settings (
+        key           TEXT PRIMARY KEY,
+        value         TEXT DEFAULT '',
+        enabled       BOOLEAN DEFAULT FALSE,
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -13798,6 +13804,29 @@ function _extractiveSummary(text, maxBullets){
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, maxBullets).sort((a, b) => a.i - b.i).map(t => t.s);
 }
+
+// Bannière d'annonce déroulante, administrable depuis /sonko-admin (remplace la version
+// codée en dur : le texte vit maintenant en base, modifiable sans redéploiement).
+app.get('/api/sonko/announcement', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ enabled: false, text: '' });
+    const r = await _pgPool.query("SELECT value, enabled FROM sonko_settings WHERE key='announcement'");
+    if (!r.rows.length) return res.json({ enabled: false, text: '' });
+    res.json({ enabled: !!r.rows[0].enabled, text: r.rows[0].value || '' });
+  } catch (e) { res.json({ enabled: false, text: '' }); }
+});
+app.post('/api/sonko/admin/announcement', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const text = String((req.body && req.body.text) || '').slice(0, 300);
+    const enabled = !!(req.body && req.body.enabled);
+    await _pgPool.query(
+      "INSERT INTO sonko_settings(key,value,enabled,updated_at) VALUES('announcement',$1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$1, enabled=$2, updated_at=NOW()",
+      [text, enabled]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 app.get('/api/sonko/articles', async (req, res) => {
   try {

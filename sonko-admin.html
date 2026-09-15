@@ -85,6 +85,18 @@ button.secondary{background:none;color:var(--accent);border:1px solid var(--acce
   <div id="artList"></div>
 </div>
 
+<div class="card" id="announceCard" style="display:none;">
+  <h2 style="font-size:16px;margin-top:0;">Bannière d'annonce (défilante)</h2>
+  <label style="display:flex;align-items:center;gap:8px;margin-top:0;">
+    <input type="checkbox" id="annEnabled" style="width:auto;">
+    <span>Afficher la bannière sur le site</span>
+  </label>
+  <label>Texte de l'annonce</label>
+  <input id="annText" placeholder="ex : 📢 Nouveau : suivez-nous aussi sur WhatsApp !" maxlength="300">
+  <button onclick="saveAnnouncement()">Enregistrer la bannière</button>
+  <div id="annMsg"></div>
+</div>
+
 <div class="card" id="commentsCard" style="display:none;">
   <h2 style="font-size:16px;margin-top:0;">Commentaires (tous articles)</h2>
   <div id="commentsList"></div>
@@ -95,6 +107,7 @@ function changeKey(){
   localStorage.removeItem('sonko_admin_key');
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('listCard').style.display = 'none';
+  document.getElementById('announceCard').style.display = 'none';
   document.getElementById('commentsCard').style.display = 'none';
   document.getElementById('keyCard').style.display = 'block';
   document.getElementById('adminKey').value = '';
@@ -108,15 +121,19 @@ function saveKey(){
   document.getElementById('keyCard').style.display = 'none';
   document.getElementById('formCard').style.display = 'block';
   document.getElementById('listCard').style.display = 'block';
+  document.getElementById('announceCard').style.display = 'block';
   document.getElementById('commentsCard').style.display = 'block';
   loadList();
+  loadAnnouncement();
   loadComments();
 }
 if(getKey()){
   document.getElementById('keyCard').style.display = 'none';
   document.getElementById('formCard').style.display = 'block';
   document.getElementById('listCard').style.display = 'block';
+  document.getElementById('announceCard').style.display = 'block';
   document.getElementById('commentsCard').style.display = 'block';
+  loadAnnouncement();
   loadComments();
 }
 
@@ -242,6 +259,7 @@ async function publish(){
       localStorage.removeItem('sonko_admin_key');
       document.getElementById('formCard').style.display = 'none';
       document.getElementById('listCard').style.display = 'none';
+      document.getElementById('announceCard').style.display = 'none';
       document.getElementById('commentsCard').style.display = 'none';
       document.getElementById('keyCard').style.display = 'block';
       document.getElementById('adminKey').value = '';
@@ -280,6 +298,28 @@ async function copyLink(id){
   }catch(e){ prompt('Copie ce lien :', url); }
 }
 
+async function loadAnnouncement(){
+  try{
+    const r = await fetch('/api/sonko/announcement');
+    const j = await r.json();
+    document.getElementById('annEnabled').checked = !!j.enabled;
+    document.getElementById('annText').value = j.text || '';
+  }catch(e){}
+}
+async function saveAnnouncement(){
+  const el = document.getElementById('annMsg');
+  const text = document.getElementById('annText').value.trim();
+  const enabled = document.getElementById('annEnabled').checked;
+  try{
+    const r = await fetch('/api/sonko/admin/announcement', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'x-sonko-admin-key': getKey()},
+      body: JSON.stringify({ text, enabled })
+    });
+    const j = await r.json();
+    el.innerHTML = j.success ? '<div class="msg ok">Bannière enregistrée !</div>' : '<div class="msg err">' + (j.error || 'Erreur') + '</div>';
+  }catch(e){ el.innerHTML = '<div class="msg err">Erreur réseau.</div>'; }
+}
 async function loadComments(){
   const el = document.getElementById('commentsList');
   try{

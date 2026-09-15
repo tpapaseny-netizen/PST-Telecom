@@ -40,10 +40,14 @@ header .tag{font-size:11px;opacity:.88;margin-top:1px;font-style:italic;}
 
 main{max-width:760px;margin:0 auto;padding:18px 14px 40px;}
 
-.announce-bar{background:var(--red);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;}
+.announce-bar{background:var(--red);color:#fff;padding:10px 0;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;overflow:hidden;position:relative;}
+.announce-bar .ann-track{white-space:nowrap;display:inline-block;padding-left:100%;animation:ann-scroll 22s linear infinite;}
+.announce-bar .ann-track span{padding:0 40px;}
+@keyframes ann-scroll{ from{ transform:translateX(0); } to{ transform:translateX(-100%); } }
 .announce-bar a{text-decoration:underline;font-weight:700;}
-.announce-bar .ann-x{cursor:pointer;opacity:.85;font-weight:900;font-size:15px;line-height:1;flex-shrink:0;}
+.announce-bar .ann-x{cursor:pointer;opacity:.85;font-weight:900;font-size:15px;line-height:1;flex-shrink:0;padding-right:14px;}
 .announce-bar .ann-x:hover{opacity:1;}
+@media (prefers-reduced-motion: reduce){ .announce-bar .ann-track{ animation:none; padding-left:16px; } }
 
 /* ---- Navigation par rubriques : bandeau plat, pas de pilules ---- */
 .cat-tabs{display:flex;flex-wrap:wrap;gap:0;margin-bottom:20px;border-bottom:1px solid var(--rule);}
@@ -156,8 +160,8 @@ footer .ft-copy{font-size:11.5px;opacity:.6;border-top:1px solid rgba(255,255,25
 </header>
 <div class="datebar" id="dateBar"></div>
 <div class="announce-bar" id="announceBar" style="display:none;">
-  <span id="announceTxt">📢 Sonko Archives TV — suivez toute l'actualité en temps réel.</span>
   <span class="ann-x" onclick="dismissAnnounce()">×</span>
+  <div class="ann-track"><span id="announceTxt"></span></div>
 </div>
 <div class="ad-slot" style="max-width:760px;margin:14px auto 0;">Emplacement publicité (AdSense)</div>
 
@@ -184,17 +188,22 @@ const main = document.getElementById('main');
 document.getElementById('ftYear').textContent = new Date().getFullYear();
 document.getElementById('dateBar').innerHTML = '<b>' + fmtDate(new Date()).replace(/^./, c => c.toUpperCase()) + '</b>';
 
-// ---- Bannière d'annonce : simple texte à éditer ici (ou un lien AdSense plus tard).
-// Modifiable directement en changeant ANNOUNCE_TEXT — se souvient si CETTE annonce précise
-// a déjà été fermée (par texte, donc un nouveau texte réapparaît automatiquement). ----
-const ANNOUNCE_TEXT = "📢 Sonko Archives TV — suivez toute l'actualité en temps réel.";
-(function initAnnounce(){
-  const key = 'sonko_ann_dismissed_' + btoa(unescape(encodeURIComponent(ANNOUNCE_TEXT))).slice(0,24);
-  if(localStorage.getItem(key) === '1') return;
-  document.getElementById('announceTxt').textContent = ANNOUNCE_TEXT;
-  document.getElementById('announceBar').style.display = 'flex';
-  window._annKey = key;
-})();
+// ---- Bannière d'annonce : administrée depuis /sonko-admin (texte + activation stockés en
+// base). Se souvient si CETTE annonce précise a déjà été fermée (clé par texte, donc un
+// nouveau texte réapparaît automatiquement même si une ancienne annonce avait été fermée). ----
+async function initAnnounce(){
+  try{
+    const r = await fetch(API + '/api/sonko/announcement');
+    const j = await r.json();
+    if(!j.enabled || !j.text) return;
+    const key = 'sonko_ann_dismissed_' + btoa(unescape(encodeURIComponent(j.text))).slice(0,24);
+    if(localStorage.getItem(key) === '1') return;
+    document.getElementById('announceTxt').textContent = j.text;
+    document.getElementById('announceBar').style.display = 'flex';
+    window._annKey = key;
+  }catch(e){}
+}
+initAnnounce();
 function dismissAnnounce(){
   document.getElementById('announceBar').style.display = 'none';
   try{ localStorage.setItem(window._annKey, '1'); }catch(e){}
@@ -402,7 +411,9 @@ function updateTTSBtn(){
   b.querySelector('.lbl').textContent = ttsPlaying ? 'Pause' : 'Écouter';
 }
 
-async function toggleTranslate(articleId, originalText){
+async function toggleTranslate(){
+  if(!currentArticleData) return;
+  const originalText = currentArticleData.content;
   const el = document.getElementById('artContent');
   const btn = document.getElementById('trBtn');
   if(el.dataset.translated === '1'){
@@ -510,9 +521,17 @@ async function shareArticle(id, title){
     prompt('Copie ce lien :', url);
   }
 }
-function shareTo(net, id, title){
-  const url = encodeURIComponent(location.origin + '/sonko/a/' + id);
-  const t = encodeURIComponent(title);
+// Sécurité/fiabilité (Sept 2026) : ces fonctions lisaient avant leur id/titre via des
+// paramètres injectés dans l'attribut onclick avec JSON.stringify(...) — qui produit une
+// chaîne ENTOURÉE DE GUILLEMETS DOUBLES, insérée telle quelle dans un attribut HTML lui-même
+// délimité par des guillemets doubles. Résultat : le HTML se coupait dès le premier titre
+// d'article rencontré, cassant silencieusement TOUS les boutons de partage/traduction, quel
+// que soit l'article. On lit maintenant directement `currentArticleData` (déjà en mémoire
+// depuis le chargement de l'article) — aucune donnée à faire transiter par un attribut HTML.
+function shareTo(net){
+  if(!currentArticleData) return;
+  const url = encodeURIComponent(location.origin + '/sonko/a/' + currentArticleData.id);
+  const t = encodeURIComponent(currentArticleData.title || '');
   const map = {
     fb: 'https://www.facebook.com/sharer/sharer.php?u=' + url,
     x: 'https://twitter.com/intent/tweet?url=' + url + '&text=' + t,
@@ -582,7 +601,7 @@ async function loadArticle(id){
           <button class="rate-btn" data-rate="1.5" onclick="setTTSRate(1.5)">x1,5</button>
           <button class="rate-btn" data-rate="2" onclick="setTTSRate(2)">x2</button>
         </div>
-        <button class="tb-btn" id="trBtn" onclick="toggleTranslate('${a.id}', ${JSON.stringify(a.content)})">
+        <button class="tb-btn" id="trBtn" onclick="toggleTranslate()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h9M9 5v3M11 18l4-8 4 8M12.5 15h5"/><path d="M13 8c-1 3-3 5.5-6 7"/></svg>
           <span class="lbl">Traduire (EN)</span>
         </button>
@@ -600,11 +619,11 @@ async function loadArticle(id){
       <div class="share-box">
         <h4>PARTAGEZ CET ARTICLE</h4>
         <div class="share-grid">
-          <button class="share-net sn-fb" onclick="shareTo('fb','${a.id}',${JSON.stringify(a.title)})"><svg viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg>Facebook</button>
-          <button class="share-net sn-x" onclick="shareTo('x','${a.id}',${JSON.stringify(a.title)})"><svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7.2 8.3L23 22h-6.6l-5.2-6.8L5.2 22H2l7.7-8.8L1.4 2H8.2l4.7 6.2L18.9 2z"/></svg>X</button>
-          <button class="share-net sn-wa" onclick="shareTo('wa','${a.id}',${JSON.stringify(a.title)})"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm5.8 14.3c-.2.6-1.2 1.2-1.9 1.3-.5.1-1.1.1-1.8-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2.1 1-2.4c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5.2.5.7 1.8.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5-.1.2-.3.4-.4.5-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.2.1 1.5.7 1.8.8.3.1.4.2.5.3.1.2.1.8-.1 1.3z"/></svg>WhatsApp</button>
-          <button class="share-net sn-tg" onclick="shareTo('tg','${a.id}',${JSON.stringify(a.title)})"><svg viewBox="0 0 24 24"><path d="M22 2 2 10.6l6 2.1L20 4.5 10.5 14l-.4 6 3-2.9 4.7 3.4L22 2z"/></svg>Telegram</button>
-          <button class="share-net sn-mail" onclick="shareTo('mail','${a.id}',${JSON.stringify(a.title)})"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 6 9 7 9-7"/></svg>Email</button>
+          <button class="share-net sn-fb" onclick="shareTo('fb')"><svg viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg>Facebook</button>
+          <button class="share-net sn-x" onclick="shareTo('x')"><svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7.2 8.3L23 22h-6.6l-5.2-6.8L5.2 22H2l7.7-8.8L1.4 2H8.2l4.7 6.2L18.9 2z"/></svg>X</button>
+          <button class="share-net sn-wa" onclick="shareTo('wa')"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm5.8 14.3c-.2.6-1.2 1.2-1.9 1.3-.5.1-1.1.1-1.8-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2.1 1-2.4c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5.2.5.7 1.8.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5-.1.2-.3.4-.4.5-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.2.1 1.5.7 1.8.8.3.1.4.2.5.3.1.2.1.8-.1 1.3z"/></svg>WhatsApp</button>
+          <button class="share-net sn-tg" onclick="shareTo('tg')"><svg viewBox="0 0 24 24"><path d="M22 2 2 10.6l6 2.1L20 4.5 10.5 14l-.4 6 3-2.9 4.7 3.4L22 2z"/></svg>Telegram</button>
+          <button class="share-net sn-mail" onclick="shareTo('mail')"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 6 9 7 9-7"/></svg>Email</button>
         </div>
       </div>
 
