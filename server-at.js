@@ -4019,6 +4019,38 @@ app.get('/api/sen-sms/me', senSmsAuth, async (req, res) => {
 app.get('/messager', (req, res) => {
   res.sendFile(__dirname + '/messager.html');
 });
+app.get('/sonko', (req, res) => {
+  res.sendFile(__dirname + '/sonko.html');
+});
+// Route dynamique pour un article : injecte le vrai titre/image/résumé dans les balises
+// Open Graph avant d'envoyer la page, pour que Facebook (qui n'exécute pas le JavaScript)
+// affiche un aperçu correct du lien partagé, au lieu du titre générique du site.
+app.get('/sonko/a/:id', async (req, res) => {
+  try {
+    const fs = require('fs');
+    let html = fs.readFileSync(__dirname + '/sonko.html', 'utf8');
+    if (_pgPool) {
+      const r = await _pgPool.query('SELECT title,excerpt,content,image_url FROM sonko_articles WHERE id=$1', [req.params.id]);
+      if (r.rows.length) {
+        const a = r.rows[0];
+        const esc = (s) => String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const title = esc(a.title);
+        const desc = esc((a.excerpt && a.excerpt.trim()) || String(a.content).slice(0, 160));
+        const image = esc(a.image_url || '');
+        const url = esc('https://' + req.get('host') + req.originalUrl);
+        html = html
+          .split('<!--OG_TITLE-->Sonko Archives TV — Actualités').join('<!--OG_TITLE-->' + title)
+          .split('<!--OG_DESC-->Sonko Archives TV — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
+          .replace('content="<!--OG_IMAGE-->"', 'content="' + image + '"')
+          .replace('content="<!--OG_URL-->"', 'content="' + url + '"');
+      }
+    }
+    res.send(html);
+  } catch (e) { res.sendFile(__dirname + '/sonko.html'); }
+});
+app.get('/sonko-admin', (req, res) => {
+  res.sendFile(__dirname + '/sonko-admin.html');
+});
 
 
 // ════════════════════════════════════════════════════════════
@@ -4924,6 +4956,42 @@ async function initPgPenc(){
       CREATE INDEX IF NOT EXISTS idx_qplay_track ON penc_quran_plays(track_type, track_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_user ON penc_quran_plays(user_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_created ON penc_quran_plays(created_at);
+      CREATE TABLE IF NOT EXISTS sonko_articles (
+        id            TEXT PRIMARY KEY,
+        title         TEXT NOT NULL,
+        excerpt       TEXT DEFAULT '',
+        content       TEXT NOT NULL,
+        image_url     TEXT,
+        video_url     TEXT,
+        author        TEXT DEFAULT 'Redaction',
+        category      TEXT DEFAULT 'Actualité',
+        tags          TEXT DEFAULT '',
+        ai_summary    TEXT DEFAULT '',
+        reading_minutes INTEGER DEFAULT 1,
+        views         INTEGER DEFAULT 0,
+        published     BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS sonko_comments (
+        id            TEXT PRIMARY KEY,
+        article_id    TEXT NOT NULL,
+        name          TEXT NOT NULL,
+        content       TEXT NOT NULL,
+        edit_token    TEXT,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      ALTER TABLE sonko_comments ADD COLUMN IF NOT EXISTS edit_token TEXT;
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS video_url TEXT;
+      CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
+      CREATE TABLE IF NOT EXISTS sonko_reactions (
+        article_id    TEXT NOT NULL,
+        emoji         TEXT NOT NULL,
+        count         INTEGER DEFAULT 0,
+        PRIMARY KEY (article_id, emoji)
+      );
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -13697,6 +13765,244 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
 });
 
+
+// ==== Sonko Archives TV -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
+// Reutilise les MEMES endpoints gratuits Google (traduction, synthese vocale) que Penc,
+// aucune nouvelle cle API ni cout supplementaire.
+const SONKO_ADMIN_KEY = process.env.SONKO_ADMIN_KEY || 'change-moi-dans-render';
+function sonkoAdmin(req, res, next) {
+  if ((req.headers['x-sonko-admin-key'] || '') !== SONKO_ADMIN_KEY) return res.status(401).json({ error: 'Cle admin invalide' });
+  next();
+}
+
+// Résumé automatique gratuit (sans appel IA payant) : repère les phrases contenant les
+// mots les plus fréquents de l'article (hors mots vides), en favorisant la première phrase
+// (souvent le lede en journalisme), puis les restitue dans leur ordre d'origine.
+const _FR_STOPWORDS = new Set(['le','la','les','de','des','du','un','une','et','en','à','au','aux','ce','ces','cette','cet','pour','par','sur','dans','avec','est','sont','a','ont','que','qui','se','son','sa','ses','ne','pas','plus','ou','mais','donc','or','ni','car','il','elle','ils','elles','on','nous','vous','je','tu','y','être','avoir','fait','faire','sans','entre','comme','aussi','très','tout','tous','toute','toutes','leur','leurs','ainsi','ceux','celle','celles','celui','dont','où','après','avant','depuis','lors']);
+function _extractiveSummary(text, maxBullets){
+  maxBullets = maxBullets || 3;
+  const sentences = String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 30);
+  if (sentences.length <= maxBullets) return sentences;
+  const freq = {};
+  (String(text).toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || []).forEach(w => {
+    if (!_FR_STOPWORDS.has(w) && w.length > 2) freq[w] = (freq[w] || 0) + 1;
+  });
+  const scored = sentences.map((s, i) => {
+    const words = s.toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || [];
+    let score = 0;
+    words.forEach(w => { if (freq[w]) score += freq[w]; });
+    score = score / Math.max(words.length, 1);
+    if (i === 0) score *= 1.3;
+    return { s: s.trim(), i, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, maxBullets).sort((a, b) => a.i - b.i).map(t => t.s);
+}
+
+app.get('/api/sonko/articles', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ articles: [] });
+    const r = await _pgPool.query("SELECT id,title,excerpt,image_url,author,category,reading_minutes,views,created_at FROM sonko_articles WHERE published=TRUE ORDER BY created_at DESC LIMIT 100");
+    res.json({ articles: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Modération admin des commentaires -- équivalent "gestion des utilisateurs" pour ce site
+// qui n'a pas de comptes : voir tous les commentaires de tous les articles, en supprimer
+// n'importe lequel (contrairement au visiteur qui ne peut modifier QUE le sien via son jeton).
+app.get('/api/sonko/admin/comments', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ comments: [] });
+    const r = await _pgPool.query('SELECT c.id,c.article_id,c.name,c.content,c.created_at,a.title AS article_title FROM sonko_comments c LEFT JOIN sonko_articles a ON a.id=c.article_id ORDER BY c.created_at DESC LIMIT 200');
+    res.json({ comments: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.delete('/api/sonko/admin/comments/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_comments WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/sonko/articles/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    await _pgPool.query('UPDATE sonko_articles SET views=views+1 WHERE id=$1', [req.params.id]);
+    const comments = await _pgPool.query('SELECT id,name,content,created_at FROM sonko_comments WHERE article_id=$1 ORDER BY created_at ASC LIMIT 300', [req.params.id]);
+    const reactions = await _pgPool.query('SELECT emoji,count FROM sonko_reactions WHERE article_id=$1', [req.params.id]);
+    res.json({ article: a.rows[0], comments: comments.rows, reactions: reactions.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
+    await _pgPool.query(
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,video_url,author,category,tags,ai_summary,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes]
+    );
+    res.json({ success: true, id, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Lecture admin (pré-remplissage du formulaire d'édition) -- ne compte pas de vue,
+// contrairement à la route publique GET /api/sonko/articles/:id.
+app.get('/api/sonko/admin/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ article: a.rows[0] });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.put('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
+    const r = await _pgPool.query(
+      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,video_url=$5,author=$6,category=$7,tags=$8,ai_summary=$9,reading_minutes=$10 WHERE id=$11',
+      [title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes, req.params.id]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ success: true, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.delete('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_articles WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/comments', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { name, content } = req.body || {};
+    if (!name || !content) return res.status(400).json({ error: 'Nom et commentaire requis' });
+    const id = 'cm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const editToken = require('crypto').randomBytes(16).toString('hex');
+    await _pgPool.query('INSERT INTO sonko_comments(id,article_id,name,content,edit_token) VALUES($1,$2,$3,$4,$5)', [id, req.params.id, String(name).slice(0, 80), String(content).slice(0, 2000), editToken]);
+    res.json({ success: true, id, edit_token: editToken });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Modification d'un commentaire par son auteur -- pas de compte utilisateur sur ce site,
+// donc l'auteur prouve que le commentaire est le sien via le jeton reçu à la création
+// (stocké uniquement dans son navigateur, jamais renvoyé dans la liste publique des
+// commentaires) plutôt que par une authentification complète.
+app.put('/api/sonko/comments/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { content, edit_token } = req.body || {};
+    if (!content || !edit_token) return res.status(400).json({ error: 'Contenu et jeton requis' });
+    const r = await _pgPool.query('UPDATE sonko_comments SET content=$1 WHERE id=$2 AND edit_token=$3', [String(content).slice(0, 2000), req.params.id, edit_token]);
+    if (!r.rowCount) return res.status(403).json({ error: 'Modification non autorisée' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/react', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const emoji = (req.body && req.body.emoji) || '👍';
+    await _pgPool.query('INSERT INTO sonko_reactions(article_id,emoji,count) VALUES($1,$2,1) ON CONFLICT (article_id,emoji) DO UPDATE SET count=sonko_reactions.count+1', [req.params.id, emoji]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Traduction -- meme endpoint Google gratuit non-officiel que Penc (translate_a/single)
+app.get('/api/sonko/translate', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 5000);
+    const target = String(req.query.target || 'en');
+    if (!text) return res.json({ translated: '' });
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(target) + '&dt=t&q=' + encodeURIComponent(text);
+    const r = await fetch(url);
+    const j = await r.json();
+    const translated = (j[0] || []).map(p => p[0]).join('');
+    res.json({ translated });
+  } catch (e) { res.status(500).json({ error: 'Traduction indisponible' }); }
+});
+
+// Lecture audio -- meme moteur gratuit que Penc (_generateTTS), limite ~200 caracteres par
+// appel cote Google : le texte est donc lu par le CLIENT en plusieurs morceaux successifs
+// (voir sonko.html), cet endpoint ne traite qu'un seul morceau a la fois.
+app.get('/api/sonko/tts', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 200);
+    const lang = String(req.query.lang || 'fr');
+    if (!text) return res.status(400).end();
+    const buf = await _generateTTS(text, lang);
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(buf);
+  } catch (e) { res.status(500).json({ error: 'Lecture audio indisponible' }); }
+});
+
+// Upload d'image depuis l'admin -- meme stockage R2 que Penc, aucune nouvelle cle/config.
+app.post('/api/sonko/upload-image', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }).single('image');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Image trop lourde (15 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune image recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'jpg';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutBuffer(key, req.file.buffer, req.file.mimetype || 'image/jpeg');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Upload vidéo -- fichiers plus gros que les photos, donc écriture temporaire sur disque
+// (multer.diskStorage) puis envoi vers R2 en streaming (r2PutFile), pour ne jamais charger
+// toute la vidéo en mémoire RAM sur un serveur déjà partagé avec Penc.
+app.post('/api/sonko/upload-video', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const os = require('os');
+    const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 60 * 1024 * 1024 } }).single('video');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Video trop lourde (60 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune video recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      const fs = require('fs');
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'mp4';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutFile(key, req.file.path, req.file.mimetype || 'video/mp4');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+      finally { try { fs.unlinkSync(req.file.path); } catch (_ue) {} }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
