@@ -6191,8 +6191,9 @@ async function _pencLoadRevoked(){ try{ if(!_pgPool) return; const r=await _pgPo
 function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).slice(2,10); }
 // ═══ Verrou d'appareil : un compte déjà connecté sur un appareil ne peut en ajouter un nouveau
 // que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
- try{
-      if (typeof _PENC_DISABLE_DEVICE_LOCK !== 'undefined' && _PENC_DISABLE_DEVICE_LOCK) return {blocked:false};
+async function _pencDeviceLockCheck(userId, req){
+  try{
+    if (typeof _PENC_DISABLE_DEVICE_LOCK !== 'undefined' && _PENC_DISABLE_DEVICE_LOCK) return {blocked:false};
     if(!_pgPool) return {blocked:false};
     const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
     const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
