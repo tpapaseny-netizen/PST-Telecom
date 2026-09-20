@@ -13255,7 +13255,7 @@ app.post('/api/penc/call/token', pencAuth, async (req, res) => {
       canSubscribe: true,
       canPublishData: true
     });
-    at.ttl = '1h';
+    at.ttl = '24h'; // appels illimités en pratique : le token ne peut plus expirer pendant un appel (avant : '1h', ce qui coupait tout appel dépassant 60 min)
     const token = await at.toJwt();
     res.json({ token, url: LIVEKIT_URL, room: room_name });
   }catch(e){
