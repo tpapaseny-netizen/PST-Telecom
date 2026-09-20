@@ -4317,21 +4317,21 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
   if (withWatermark) {
     const uname = _wmCleanUsername(username);
     const text = ('@' + uname + '_Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
-    const fontSize = Math.max(14, Math.round(H * 0.042));
+    const fontSize = Math.max(13, Math.round(H * 0.03));
     const logoBuf = await _loadWatermarkLogo();
     if (logoBuf) {
       logoTmpPath = pathMod.join(os.tmpdir(), 'wmlogo_' + Date.now() + '.png');
       fs.writeFileSync(logoTmpPath, logoBuf);
       cmd = cmd.input(logoTmpPath);
-      const logoW = Math.max(20, Math.round(W * 0.13));
+      const logoW = Math.max(20, Math.round(W * 0.11));
       const afterLogo = nextLabel(), afterText = nextLabel();
       filters.push('[1:v]scale=' + logoW + ':-1[logo]');
       filters.push('[' + curLabel + '][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[' + afterLogo + ']');
-      filters.push('[' + afterLogo + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      filters.push('[' + afterLogo + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=1.5:bordercolor=black@0.55:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
       curLabel = afterText;
     } else {
       const afterText = nextLabel();
-      filters.push('[' + curLabel + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      filters.push('[' + curLabel + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=1.5:bordercolor=black@0.55:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
       curLabel = afterText;
     }
   }
