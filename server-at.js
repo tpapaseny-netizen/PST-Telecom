@@ -3697,14 +3697,35 @@ async function sendPencPush(userId, payload) {
         }
       } catch (_de) {}
     }
-    const subs = await pencPushSubs();
-    const mine = subs.filter(x => x.user_id === userId);
+    // Récupérer les abonnements push de l'utilisateur — PostgreSQL en priorité (fiable, comme le
+    // reste de l'app), avec repli sur JSONBin uniquement si Postgres est indisponible. Avant, la
+    // lecture se faisait UNIQUEMENT sur JSONBin, qui a été largement abandonné et peut être vide
+    // ou défaillant → aucune notification n'était jamais envoyée (bulle interne via socket, mais
+    // rien dans la barre système). C'est la cause du bug "notifications internes seulement".
+    let mine = [];
+    if (_pgPool) {
+      try {
+        const _pr = await _pgPool.query('SELECT subscription FROM penc_push_subs WHERE user_id=$1', [userId]);
+        mine = _pr.rows.map(function (r) { return { user_id: userId, subscription: r.subscription }; });
+      } catch (_pe) {
+        // Postgres indisponible : repli JSONBin
+        try { const subs = await pencPushSubs(); mine = subs.filter(x => x.user_id === userId); } catch (_je) {}
+      }
+    } else {
+      const subs = await pencPushSubs();
+      mine = subs.filter(x => x.user_id === userId);
+    }
     for (const sb of mine) {
       try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload)); }
       catch (err) {
         if (err && (err.statusCode === 404 || err.statusCode === 410)) {
-          const all = await pencPushSubs();
-          await pencSavePushSubs(all.filter(z => !(z.subscription && sb.subscription && z.subscription.endpoint === sb.subscription.endpoint)));
+          // Abonnement expiré → le retirer des deux stockages
+          const _ep = sb.subscription && sb.subscription.endpoint;
+          if (_ep && _pgPool) { try { await _pgPool.query('DELETE FROM penc_push_subs WHERE endpoint=$1', [_ep]); } catch (_de2) {} }
+          try {
+            const all = await pencPushSubs();
+            await pencSavePushSubs(all.filter(z => !(z.subscription && _ep && z.subscription.endpoint === _ep)));
+          } catch (_je2) {}
         }
       }
     }
@@ -5208,6 +5229,8 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_chat_locks (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
+      CREATE TABLE IF NOT EXISTS penc_push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, subscription JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_penc_push_subs_user ON penc_push_subs (user_id);
       CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_saved_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, saved_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_todo_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, added_at TIMESTAMPTZ DEFAULT NOW());
@@ -8995,17 +9018,53 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// GET /api/penc/push/status — diagnostic : combien d'abonnements pour l'utilisateur connecté
+app.get('/api/penc/push/status', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    let pgCount = 0, jbCount = 0;
+    if (_pgPool) { try { const r = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_push_subs WHERE user_id=$1', [uid]); pgCount = r.rows[0].n; } catch (_) {} }
+    try { const subs = await pencPushSubs(); jbCount = subs.filter(x => x.user_id === uid).length; } catch (_) {}
+    res.json({ success: true, webpush_configured: !!webpush, pg_subscriptions: pgCount, jsonbin_subscriptions: jbCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// POST /api/penc/push/test — s'envoie une notification de test à soi-même
+app.post('/api/penc/push/test', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    await sendPencPush(uid, { title: 'Penc', body: 'Notification de test ✅', tag: 'penc-test', url: '/messager', icon: '/penc-icon-192.png', badge: '/penc-icon-192.png' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/penc/push/subscribe
 app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
   try {
     const { subscription } = req.body;
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
-    const subs = await pencPushSubs();
-    const others = subs.filter(s => !(s.subscription && s.subscription.endpoint === subscription.endpoint));
-    others.push({ user_id: uid, subscription, created_at: new Date().toISOString() });
-    await pencSavePushSubs(others);
-    res.json({ success: true });
+    // Enregistrer dans PostgreSQL en priorité (fiable). L'endpoint est unique : si le même
+    // appareil se réabonne, on met simplement à jour son user_id et sa subscription.
+    let _pgOk = false;
+    if (_pgPool) {
+      try {
+        await _pgPool.query(
+          `INSERT INTO penc_push_subs (endpoint, user_id, subscription, created_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, subscription = EXCLUDED.subscription`,
+          [subscription.endpoint, uid, JSON.stringify(subscription)]
+        );
+        _pgOk = true;
+      } catch (_pe) { console.error('push sub pg:', _pe.message); }
+    }
+    // Filet JSONBin (au cas où Postgres serait momentanément indisponible) — non bloquant.
+    try {
+      const subs = await pencPushSubs();
+      const others = subs.filter(s => !(s.subscription && s.subscription.endpoint === subscription.endpoint));
+      others.push({ user_id: uid, subscription, created_at: new Date().toISOString() });
+      await pencSavePushSubs(others);
+    } catch (_je) {}
+    res.json({ success: true, stored: _pgOk ? 'pg' : 'jsonbin' });
   } catch (e) { console.error('penc push sub:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
