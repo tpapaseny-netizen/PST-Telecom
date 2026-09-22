@@ -5217,6 +5217,33 @@ async function initPgPenc(){
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
+      -- ══ Fil social (publications permanentes façon Facebook, ne disparaissent pas comme les statuts) ══
+      CREATE TABLE IF NOT EXISTS penc_posts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        content TEXT DEFAULT '',
+        media_urls JSONB DEFAULT '[]',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        edited_at TIMESTAMPTZ,
+        deleted BOOLEAN DEFAULT FALSE
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_created ON penc_posts(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_user ON penc_posts(user_id);
+      CREATE TABLE IF NOT EXISTS penc_post_likes (
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (post_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_post_likes_post ON penc_post_likes(post_id);
+      CREATE TABLE IF NOT EXISTS penc_post_comments (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_post ON penc_post_comments(post_id);
       CREATE TABLE IF NOT EXISTS penc_reports (id TEXT PRIMARY KEY, reporter_id TEXT, target_type TEXT, target_id TEXT, target_user_id TEXT, reason TEXT, content_snapshot TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
       CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
@@ -7101,6 +7128,132 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     }
     res.json({ messages });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ════════════════ FIL SOCIAL — publications permanentes (façon Facebook) ════════════════
+// Helper : enrichit une ligne penc_posts avec les infos auteur + compteurs + état pour l'utilisateur courant
+async function _postEnrich(row, meId){
+  let author = null;
+  try{ author = await pgFindUser('id', row.user_id); }catch(_e){}
+  let likes = 0, comments = 0, liked = false;
+  try{
+    const lc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1',[row.id]); likes = lc.rows[0].n;
+    const cc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1',[row.id]); comments = cc.rows[0].n;
+    if(meId){ const lm = await _pgPool.query('SELECT 1 FROM penc_post_likes WHERE post_id=$1 AND user_id=$2 LIMIT 1',[row.id, meId]); liked = !!lm.rows.length; }
+  }catch(_e){}
+  let media = [];
+  try{ media = Array.isArray(row.media_urls) ? row.media_urls : JSON.parse(row.media_urls||'[]'); }catch(_e){ media = []; }
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    author_name: author ? (author.full_name || author.username || 'Utilisateur') : 'Utilisateur',
+    author_avatar: author ? (author.avatar_url || null) : null,
+    author_verified: author ? !!(author.business_verified || author.is_verified) : false,
+    content: row.content || '',
+    media_urls: media,
+    created_at: row.created_at,
+    edited_at: row.edited_at || null,
+    likes_count: likes,
+    comments_count: comments,
+    liked_by_me: liked,
+    is_mine: meId ? (String(row.user_id) === String(meId)) : false
+  };
+}
+// POST /api/penc/posts — créer une publication (texte illimité et/ou photos)
+app.post('/api/penc/posts', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const content = String(req.body.content || '').slice(0, 20000);
+    let media = Array.isArray(req.body.media_urls) ? req.body.media_urls.slice(0, 10) : [];
+    if(!content.trim() && !media.length) return res.status(400).json({ error: 'Publication vide' });
+    const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,created_at) VALUES($1,$2,$3,$4,NOW())',[id, uid, content, JSON.stringify(media)]);
+    const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
+    res.json({ success: true, post: await _postEnrich(row, uid) });
+  }catch(e){ console.error('create post:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// GET /api/penc/posts — le fil (toutes les publications, plus récentes en haut), paginé
+app.get('/api/penc/posts', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const before = req.query.before ? String(req.query.before) : null;
+    let q, args;
+    if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at < $1 ORDER BY created_at DESC LIMIT $2'; args = [before, limit]; }
+    else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE ORDER BY created_at DESC LIMIT $1'; args = [limit]; }
+    const r = await _pgPool.query(q, args);
+    const posts = [];
+    for(const row of r.rows){ posts.push(await _postEnrich(row, uid)); }
+    res.json({ posts });
+  }catch(e){ console.error('list posts:', e.message); res.json({ posts: [] }); }
+});
+// GET /api/penc/posts/user/:id — les publications d'un utilisateur (pour son profil)
+app.get('/api/penc/posts/user/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId; const target = req.params.id;
+    if(_areIsolated(uid, target)) return res.status(403).json({ error: 'Indisponible', posts: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE ORDER BY created_at DESC LIMIT 50',[target]);
+    const posts = [];
+    for(const row of r.rows){ posts.push(await _postEnrich(row, uid)); }
+    res.json({ posts });
+  }catch(e){ res.json({ posts: [] }); }
+});
+// POST /api/penc/posts/:id/like — aimer / ne plus aimer (toggle)
+app.post('/api/penc/posts/:id/like', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const ex = await _pgPool.query('SELECT 1 FROM penc_post_likes WHERE post_id=$1 AND user_id=$2 LIMIT 1',[pid, uid]);
+    let liked;
+    if(ex.rows.length){ await _pgPool.query('DELETE FROM penc_post_likes WHERE post_id=$1 AND user_id=$2',[pid, uid]); liked = false; }
+    else { await _pgPool.query('INSERT INTO penc_post_likes(post_id,user_id,created_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING',[pid, uid]); liked = true; }
+    const lc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1',[pid]);
+    res.json({ success: true, liked, likes_count: lc.rows[0].n });
+  }catch(e){ console.error('like post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id/comments — commentaires d'une publication
+app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ comments: [] });
+    const pid = req.params.id;
+    const r = await _pgPool.query('SELECT * FROM penc_post_comments WHERE post_id=$1 ORDER BY created_at ASC LIMIT 200',[pid]);
+    const out = [];
+    for(const c of r.rows){
+      let a = null; try{ a = await pgFindUser('id', c.user_id); }catch(_e){}
+      out.push({ id:c.id, user_id:c.user_id, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, content:c.content, created_at:c.created_at });
+    }
+    res.json({ comments: out });
+  }catch(e){ res.json({ comments: [] }); }
+});
+// POST /api/penc/posts/:id/comments — commenter
+app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const content = String(req.body.content || '').trim().slice(0, 2000);
+    if(!content) return res.status(400).json({ error: 'Commentaire vide' });
+    const id = 'pcm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query('INSERT INTO penc_post_comments(id,post_id,user_id,content,created_at) VALUES($1,$2,$3,$4,NOW())',[id, pid, uid, content]);
+    let a = null; try{ a = await pgFindUser('id', uid); }catch(_e){}
+    const cc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1',[pid]);
+    res.json({ success: true, comment: { id, user_id: uid, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, content, created_at: new Date().toISOString() }, comments_count: cc.rows[0].n });
+  }catch(e){ console.error('comment post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// DELETE /api/penc/posts/:id — supprimer sa publication (ou admin)
+app.delete('/api/penc/posts/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const isAdmin = req.pencUser.is_admin;
+    if(String(p.rows[0].user_id) !== String(uid) && !isAdmin) return res.status(403).json({ error: 'Non autorisé' });
+    await _pgPool.query('UPDATE penc_posts SET deleted=TRUE WHERE id=$1',[pid]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 
 // ════════════════ ARCHIVE PUBLICATIONS (Fonct.1) ════════════════
