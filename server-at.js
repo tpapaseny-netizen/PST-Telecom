@@ -5246,6 +5246,9 @@ async function initPgPenc(){
       CREATE INDEX IF NOT EXISTS idx_penc_post_comments_post ON penc_post_comments(post_id);
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS repost_of TEXT;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS bg TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS video JSONB;
+      CREATE TABLE IF NOT EXISTS penc_post_saves (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_penc_post_saves_user ON penc_post_saves(user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_penc_posts_repost ON penc_posts(repost_of);
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS parent_id TEXT;
       CREATE TABLE IF NOT EXISTS penc_post_comment_likes (comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (comment_id, user_id));
@@ -7144,6 +7147,12 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
 // les publications texte, réponses + j'aime sur les commentaires, abonnements, vues, profil du fil,
 // recherche, et un classement serveur (ranked=1) qui personnalise l'ordre du fil.
 const _FIL_BG_KEYS = ['blue','night','sunset','green','violet','sand','red','teal'];
+function _filCleanVideo(v){
+  if(!v || typeof v!=='object' || typeof v.url!=='string' || !/^https:\/\//.test(v.url)) return null;
+  const d = Math.min(61, Math.max(0, Number(v.duration)||0));
+  return { url: v.url, poster: (typeof v.poster==='string' && /^https:\/\//.test(v.poster)) ? v.poster : null, duration: Math.round(d*10)/10, w: Math.max(0, parseInt(v.w)||0), h: Math.max(0, parseInt(v.h)||0) };
+}
+function _filParseVideo(row){ try{ const v = row.video; if(!v) return null; return typeof v==='string' ? JSON.parse(v) : v; }catch(_e){ return null; } }
 function _filUserPub(u){
   u = u || {};
   return { id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null,
@@ -7166,8 +7175,9 @@ async function _postEnrichMany(rows, meId){
   const comments = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
   const reposts = await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[allIds]);
   const views = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
-  const likedByMe = {}, repostedByMe = {};
+  const likedByMe = {}, repostedByMe = {}, savedByMe = {};
   if(meId){
+    try{ (await _pgPool.query('SELECT post_id FROM penc_post_saves WHERE post_id = ANY($1) AND user_id=$2',[allIds, meId])).rows.forEach(function(x){ savedByMe[x.post_id]=1; }); }catch(_e){}
     try{ (await _pgPool.query('SELECT post_id FROM penc_post_likes WHERE post_id = ANY($1) AND user_id=$2',[allIds, meId])).rows.forEach(function(x){ likedByMe[x.post_id]=1; }); }catch(_e){}
     try{ (await _pgPool.query('SELECT repost_of FROM penc_posts WHERE repost_of = ANY($1) AND user_id=$2 AND deleted=FALSE',[allIds, meId])).rows.forEach(function(x){ repostedByMe[x.repost_of]=1; }); }catch(_e){}
   }
@@ -7189,6 +7199,7 @@ async function _postEnrichMany(rows, meId){
       content: row.content || '',
       media_urls: media,
       bg: row.bg || null,
+      video: _filParseVideo(row),
       created_at: row.created_at,
       edited_at: row.edited_at || null,
       likes_count: likes[row.id] || 0,
@@ -7196,6 +7207,7 @@ async function _postEnrichMany(rows, meId){
       reposts_count: reposts[row.id] || 0,
       liked_by_me: !!likedByMe[row.id],
       reposted_by_me: !!repostedByMe[row.id],
+      saved_by_me: !!savedByMe[row.id],
       is_mine: mine
     };
     if(mine) o.views_count = views[row.id] || 0;   // statistiques visibles par l'auteur uniquement
@@ -7223,10 +7235,12 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     const content = String(req.body.content || '').slice(0, 20000);
     let media = Array.isArray(req.body.media_urls) ? req.body.media_urls.filter(function(u){ return typeof u==='string' && /^https:\/\//.test(u); }).slice(0, 10) : [];
-    if(!content.trim() && !media.length) return res.status(400).json({ error: 'Publication vide' });
-    let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && content.length<=300) ? String(req.body.bg) : null;
+    const video = _filCleanVideo(req.body.video);
+    if(video) media = [];   // une vidéo se publie seule
+    if(!content.trim() && !media.length && !video) return res.status(400).json({ error: 'Publication vide' });
+    let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && content.length<=300) ? String(req.body.bg) : null;
     const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,created_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, uid, content, JSON.stringify(media), bg]);
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,created_at) VALUES($1,$2,$3,$4,$5,$6,NOW())',[id, uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null]);
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     res.json({ success: true, post: await _postEnrich(row, uid) });
   }catch(e){ console.error('create post:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -7308,7 +7322,7 @@ async function _filRankedFeed(uid, visible){
     if(chatting.has(a)) prox += 0.5;
     prox += Math.min(1.2, (inter[a]||0)/8);
     if(verified.has(a)) prox += 0.1;
-    let media = 1; try{ const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); if(m.length) media = 1.15; else if(p.bg) media = 1.08; }catch(_e){}
+    let media = 1; try{ const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); if(p.video) media = 1.2; else if(m.length) media = 1.15; else if(p.bg) media = 1.08; }catch(_e){}
     const novelty = seen.has(p.id) ? 0.3 : 1;
     const jitter = 0.92 + 0.16*h(p.id + day + uid);
     let s = interest * fresh * prox * media * novelty * jitter;
@@ -7338,6 +7352,33 @@ app.get('/api/penc/posts/user/:id', pencAuth, async (req, res) => {
     res.json({ posts: await _postEnrichMany(r.rows, uid) });
   }catch(e){ res.json({ posts: [] }); }
 });
+// GET /api/penc/posts/saved — mes publications enregistrées
+app.get('/api/penc/posts/saved', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT p.* FROM penc_post_saves s JOIN penc_posts p ON p.id=s.post_id WHERE s.user_id=$1 AND p.deleted=FALSE ORDER BY s.created_at DESC LIMIT 100',[uid]);
+    const blocked = await _filBlockedSet(uid);
+    res.json({ posts: await _postEnrichMany(r.rows.filter(_filVisible(uid, blocked)), uid) });
+  }catch(e){ res.json({ posts: [] }); }
+});
+// GET /api/penc/media/proxy?url= — relais de téléchargement (photos/vidéos du stockage Penc uniquement).
+// Permet à l'appli d'enregistrer le fichier directement dans la galerie, sans ouvrir d'onglet navigateur.
+app.get('/api/penc/media/proxy', pencAuth, async (req, res) => {
+  try{
+    const url = String(req.query.url || '');
+    if(!R2_PUBLIC || url.indexOf(R2_PUBLIC + '/') !== 0 || url.indexOf('..') > -1) return res.status(400).json({ error: 'Lien non autorisé' });
+    const r = await fetch(url);
+    if(!r.ok) return res.status(r.status).json({ error: 'Fichier introuvable' });
+    const len = parseInt(r.headers.get('content-length') || '0', 10);
+    if(len > 200 * 1024 * 1024) return res.status(413).json({ error: 'Fichier trop lourd' });
+    res.setHeader('Content-Type', r.headers.get('content-type') || 'application/octet-stream');
+    if(len) res.setHeader('Content-Length', String(len));
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    const { Readable } = require('stream');
+    Readable.fromWeb(r.body).pipe(res);
+  }catch(e){ console.error('media proxy:', e.message); if(!res.headersSent) res.status(500).json({ error: 'Erreur' }); }
+});
 // GET /api/penc/posts/:id — une publication (lien partagé, notification)
 app.get('/api/penc/posts/:id', pencAuth, async (req, res) => {
   try{
@@ -7356,13 +7397,44 @@ app.put('/api/penc/posts/:id', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId;
     const p = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE',[req.params.id]);
     if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
-    if(String(p.rows[0].user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
+    const row0 = p.rows[0];
+    if(String(row0.user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
     const content = String(req.body.content || '').slice(0, 20000);
-    let media = []; try{ media = Array.isArray(p.rows[0].media_urls)?p.rows[0].media_urls:JSON.parse(p.rows[0].media_urls||'[]'); }catch(_e){}
-    if(!content.trim() && !media.length && !p.rows[0].repost_of) return res.status(400).json({ error: 'Publication vide' });
-    await _pgPool.query('UPDATE penc_posts SET content=$1, edited_at=NOW() WHERE id=$2',[content, req.params.id]);
+    let media = []; try{ media = Array.isArray(row0.media_urls)?row0.media_urls:JSON.parse(row0.media_urls||'[]'); }catch(_e){}
+    if(Array.isArray(req.body.media_urls)) media = req.body.media_urls.filter(function(u){ return typeof u==='string' && /^https:\/\//.test(u); }).slice(0, 10);
+    let video = _filParseVideo(row0);
+    if(Object.prototype.hasOwnProperty.call(req.body, 'video')) video = _filCleanVideo(req.body.video);
+    if(video) media = [];
+    let bg = row0.bg || null;
+    if(Object.prototype.hasOwnProperty.call(req.body, 'bg')) bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1) ? String(req.body.bg) : null;
+    if(media.length || video || content.length>300) bg = null;
+    if(!content.trim() && !media.length && !video && !row0.repost_of) return res.status(400).json({ error: 'Publication vide' });
+    await _pgPool.query('UPDATE penc_posts SET content=$1, media_urls=$2, video=$3, bg=$4, edited_at=NOW() WHERE id=$5',[content, JSON.stringify(media), video ? JSON.stringify(video) : null, bg, req.params.id]);
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[req.params.id])).rows[0];
     res.json({ success: true, post: await _postEnrich(row, uid) });
+  }catch(e){ console.error('edit post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id/likers — qui a aimé (visible par tous)
+app.get('/api/penc/posts/:id/likers', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ users: [] });
+    const uid = req.pencUser.userId;
+    const lr = await _pgPool.query('SELECT user_id FROM penc_post_likes WHERE post_id=$1 ORDER BY created_at DESC LIMIT 200',[req.params.id]);
+    const users = await pgFindUsersByIds(lr.rows.map(function(x){ return x.user_id; }));
+    const byId = {}; users.forEach(function(u){ byId[u.id]=u; });
+    res.json({ users: lr.rows.map(function(x){ return byId[x.user_id]; }).filter(function(u){ return u && !_areIsolated(uid, u.id); }).map(_filUserPub) });
+  }catch(e){ res.json({ users: [] }); }
+});
+// POST /api/penc/posts/:id/save — enregistrer / retirer des enregistrements (toggle, privé)
+app.post('/api/penc/posts/:id/save', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const ex = await _pgPool.query('SELECT 1 FROM penc_post_saves WHERE post_id=$1 AND user_id=$2',[pid, uid]);
+    let saved;
+    if(ex.rows.length){ await _pgPool.query('DELETE FROM penc_post_saves WHERE post_id=$1 AND user_id=$2',[pid, uid]); saved=false; }
+    else { await _pgPool.query('INSERT INTO penc_post_saves(post_id,user_id,created_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING',[pid, uid]); saved=true; }
+    res.json({ success: true, saved });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // GET /api/penc/posts/:id/stats — statistiques de sa publication (auteur uniquement)
