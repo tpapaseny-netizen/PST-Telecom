@@ -5281,6 +5281,10 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_post_views (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_follows (follower TEXT NOT NULL, followee TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (follower, followee));
       CREATE INDEX IF NOT EXISTS idx_penc_follows_followee ON penc_follows(followee);
+      CREATE TABLE IF NOT EXISTS penc_gam (user_id TEXT PRIMARY KEY, xp INT DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_gam_prog (user_id TEXT NOT NULL, period TEXT NOT NULL, cid TEXT NOT NULL, progress INT DEFAULT 0, claimed BOOLEAN DEFAULT FALSE, PRIMARY KEY (user_id, period, cid));
+      CREATE TABLE IF NOT EXISTS penc_streaks (pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL, days INT DEFAULT 0, best INT DEFAULT 0, last_day DATE, a_day DATE, b_day DATE);
+      CREATE INDEX IF NOT EXISTS idx_penc_streaks_a ON penc_streaks(a); CREATE INDEX IF NOT EXISTS idx_penc_streaks_b ON penc_streaks(b);
       CREATE INDEX IF NOT EXISTS idx_penc_posts_live ON penc_posts(created_at DESC) WHERE deleted=FALSE;
       CREATE INDEX IF NOT EXISTS idx_penc_posts_user ON penc_posts(user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_penc_posts_video ON penc_posts(created_at DESC) WHERE deleted=FALSE AND video IS NOT NULL;
@@ -5923,6 +5927,64 @@ async function pgGetOlderMessages(convId, beforeId, limit){
   if(!a.rows.length) return [];
   const r = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3',[convId, a.rows[0].created_at, limit]);
   return r.rows.reverse();
+}
+// ══ APPELS EN ATTENTE : permet de décrocher en revenant dans l'app (notification touchée, app en arrière-plan) ══
+const _pencPendingCalls = new Map();
+setInterval(function(){ const now = Date.now(); _pencPendingCalls.forEach(function(v,k){ if(now - v.ts > 70000) _pencPendingCalls.delete(k); }); }, 30000);
+// ══ GAMIFICATION ══
+const _GAM_DAILY = [
+  { id:'d_msg', kind:'msg', title:'Envoie 10 messages', target:10, xp:20, icon:'💬' },
+  { id:'d_react', kind:'react', title:'Réagis à 5 publications du Fil', target:5, xp:15, icon:'❤️' },
+  { id:'d_comment', kind:'comment', title:'Commente 2 publications', target:2, xp:15, icon:'✍️' },
+  { id:'d_post', kind:'post', title:'Publie sur le Fil', target:1, xp:25, icon:'📰' },
+  { id:'d_call', kind:'call', title:'Passe un appel d\'au moins 1 minute', target:1, xp:20, icon:'📞' }
+];
+const _GAM_WEEKLY = [
+  { id:'w_streak', kind:'_streak', title:'Garde 3 flammes actives', target:3, xp:100, icon:'🔥' },
+  { id:'w_video', kind:'video', title:'Publie 3 vidéos', target:3, xp:80, icon:'🎬' },
+  { id:'w_invite', kind:'invite', title:'Invite 2 amis sur Penc', target:2, xp:80, icon:'🤝' },
+  { id:'w_reacts', kind:'got_react', title:'Reçois 30 réactions sur tes publications', target:30, xp:100, icon:'⭐' },
+  { id:'w_status', kind:'status', title:'Publie 3 statuts', target:3, xp:60, icon:'⭕' }
+];
+function _gamDayKey(){ return 'd:' + new Date().toISOString().slice(0,10); }
+function _gamWeekKey(){ const d = new Date(); const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y = t.getUTCFullYear(); const w = Math.ceil((((t - Date.UTC(y,0,1)) / 86400000) + 1) / 7); return 'w:' + y + '-' + w; }
+function _gamLevel(xp){ let lv = 1; while(50*lv*(lv+1) <= xp) lv++; return { level: lv, from: 50*(lv-1)*lv, to: 50*lv*(lv+1) }; }
+function _gamTitle(lv){ return lv>=20?'Légende':lv>=12?'Étoile':lv>=7?'Pilier':lv>=4?'Fidèle':lv>=2?'Actif':'Nouveau'; }
+const _GAM_STREAK_LV = [[100,'👑','Légendaires'],[30,'💎','Inséparables'],[7,'🔥🔥','Complices'],[3,'🔥','En feu'],[1,'✨','Ça commence']];
+function _gamStreakLevel(d){ for(const l of _GAM_STREAK_LV){ if(d >= l[0]) return { icon:l[1], name:l[2] }; } return { icon:'', name:'' }; }
+async function _gamAddXp(uid, xp){ try{ await _pgPool.query('INSERT INTO penc_gam(user_id,xp,updated_at) VALUES($1,$2,NOW()) ON CONFLICT (user_id) DO UPDATE SET xp=penc_gam.xp+$2, updated_at=NOW()',[uid, xp]); }catch(e){ console.error('[gam] xp:', e.message); } }
+async function _gamBump(uid, kind, n){
+  if(!_pgPool || !uid) return; n = n || 1;
+  const list = _GAM_DAILY.map(function(c){ return [c, _gamDayKey()]; }).concat(_GAM_WEEKLY.map(function(c){ return [c, _gamWeekKey()]; })).filter(function(x){ return x[0].kind === kind; });
+  for(const it of list){
+    const c = it[0], period = it[1];
+    try{
+      const r = await _pgPool.query('INSERT INTO penc_gam_prog(user_id,period,cid,progress,claimed) VALUES($1,$2,$3,LEAST($4,$5),FALSE) ON CONFLICT (user_id,period,cid) DO UPDATE SET progress=LEAST(penc_gam_prog.progress+$4,$5) RETURNING progress',[uid, period, c.id, n, c.target]);
+      const p = r.rows[0] ? r.rows[0].progress : 0;
+      if(p >= c.target && p - n < c.target){ try{ emitToUser(uid, 'gam:done', { cid:c.id, period:period, title:c.title, xp:c.xp, icon:c.icon }); }catch(_e){} }
+    }catch(e){ console.error('[gam] bump:', e.message); }
+  }
+}
+// Flamme : chacun des deux doit écrire au moins un message dans la journée ; jours consécutifs = la flamme grandit
+async function _gamStreakOnMessage(uid, convId){
+  try{
+    const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[convId]);
+    if(!cr.rows.length) return;
+    const parts = Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]');
+    if(parts.length !== 2 || String(parts[0]) === String(parts[1])) return;
+    const other = String(parts.find(function(p){ return String(p) !== String(uid); }));
+    const a = [String(uid), other].sort()[0], b = [String(uid), other].sort()[1];
+    const col = (String(uid) === a) ? 'a_day' : 'b_day';
+    await _pgPool.query('INSERT INTO penc_streaks(pair,a,b,days,best,'+col+') VALUES($1,$2,$3,0,0,CURRENT_DATE) ON CONFLICT (pair) DO UPDATE SET '+col+'=CURRENT_DATE',[a+'|'+b, a, b]);
+    const up = await _pgPool.query("UPDATE penc_streaks SET days = CASE WHEN last_day = CURRENT_DATE - 1 THEN days + 1 ELSE 1 END, last_day = CURRENT_DATE, best = GREATEST(best, CASE WHEN last_day = CURRENT_DATE - 1 THEN days + 1 ELSE 1 END) WHERE pair=$1 AND a_day = CURRENT_DATE AND b_day = CURRENT_DATE AND (last_day IS NULL OR last_day < CURRENT_DATE) RETURNING days",[a+'|'+b]);
+    if(up.rows.length){
+      const d = up.rows[0].days;
+      if([3,7,30,100].indexOf(d) > -1){
+        const bonus = d===3?20:d===7?50:d===30?200:500; const lv = _gamStreakLevel(d);
+        for(const u of [a,b]){ await _gamAddXp(u, bonus); try{ emitToUser(u, 'gam:streak', { with: (u===a?b:a), days: d, icon: lv.icon, name: lv.name, xp: bonus }); }catch(_e){} }
+      }
+    }
+  }catch(e){ console.error('[gam] streak:', e.message); }
 }
 // Enregistrement FIABLE d'un message, AVANT toute diffusion : 3 essais, et une erreur de base n'est plus
 // confondue avec un « doublon » (avant : l'envoi était confirmé au téléphone alors que rien n'était enregistré).
@@ -7409,6 +7471,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz,NOW()))',[id, uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, when]);
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
+    setImmediate(function(){ _gamBump(uid, 'post', 1); if(video) _gamBump(uid, 'video', 1); });
     res.json({ success: true, post: await _postEnrich(row, uid) });
   }catch(e){ console.error('create post:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7876,6 +7939,56 @@ app.get('/p/:code', async (req, res) => {
     +'<body style="font-family:system-ui,sans-serif;background:#F5F0E8;text-align:center;padding:40px 16px;"><p>Ouverture de la publication sur Penc…</p><p><a href="'+_filHtmlEsc(target)+'">Continuer</a></p>'
     +'<script>location.replace('+JSON.stringify(target)+');</script></body></html>');
 });
+// ── Appel en attente pour moi (retour dans l'app après avoir touché la notification) ──
+app.get('/api/penc/calls/pending', pencAuth, async (req, res) => {
+  const p = _pencPendingCalls.get(String(req.pencUser.userId));
+  if(!p || Date.now() - p.ts > 60000) return res.json({ call: null });
+  res.json({ call: Object.assign({}, p, { age_ms: Date.now() - p.ts }) });
+});
+// ── Gamification : mon niveau, mes flammes, mes défis ──
+app.get('/api/penc/gam/me', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ xp: 0 });
+    const uid = req.pencUser.userId;
+    let xp = 0; try{ const g = await _pgPool.query('SELECT xp FROM penc_gam WHERE user_id=$1',[uid]); xp = g.rows.length ? g.rows[0].xp : 0; }catch(_x){}
+    const L = _gamLevel(xp);
+    const dk = _gamDayKey(), wk = _gamWeekKey();
+    const prog = {}; try{ (await _pgPool.query('SELECT period, cid, progress, claimed FROM penc_gam_prog WHERE user_id=$1 AND period = ANY($2)',[uid, [dk, wk]])).rows.forEach(function(r){ prog[r.period+'|'+r.cid] = r; }); }catch(_p){}
+    const sr = await _pgPool.query("SELECT * FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1 AND days > 0 ORDER BY days DESC LIMIT 50",[uid]);
+    const others = sr.rows.map(function(r){ return String(r.a===uid?r.b:r.a); });
+    const users = {}; try{ (await pgFindUsersByIds(others)).forEach(function(u){ users[String(u.id)] = u; }); }catch(_u){}
+    const streaks = sr.rows.map(function(r){ const o = String(r.a===uid?r.b:r.a); const u = users[o] || {}; const mine = (r.a===uid ? r.a_day : r.b_day), theirs = (r.a===uid ? r.b_day : r.a_day); const today = new Date().toISOString().slice(0,10); const f = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; }; const lv = _gamStreakLevel(r.days);
+      return { user_id:o, name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, days:r.days, best:r.best, icon:lv.icon, level:lv.name, me_today: f(mine)===today, them_today: f(theirs)===today, at_risk: f(r.last_day)!==today }; });
+    const activeStreaks = streaks.length;
+    const mk = function(c, period){ const p = prog[period+'|'+c.id] || {}; let pr = p.progress || 0; if(c.kind === '_streak') pr = Math.min(c.target, activeStreaks); return { id:c.id, period:period, title:c.title, icon:c.icon, target:c.target, progress:pr, xp:c.xp, claimed:!!p.claimed, done: pr >= c.target }; };
+    const now = new Date(); const endDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1));
+    const wd = now.getUTCDay() || 7; const endWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + (8 - wd)));
+    res.json({ xp: xp, level: L.level, title: _gamTitle(L.level), level_from: L.from, level_to: L.to,
+      daily: _GAM_DAILY.map(function(c){ return mk(c, dk); }), weekly: _GAM_WEEKLY.map(function(c){ return mk(c, wk); }),
+      daily_ends: endDay.toISOString(), weekly_ends: endWeek.toISOString(), streaks: streaks });
+  }catch(e){ console.error('[gam] me:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gam/claim', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const cid = String(req.body.cid||''); const period = String(req.body.period||'');
+    const c = _GAM_DAILY.concat(_GAM_WEEKLY).find(function(x){ return x.id === cid; });
+    if(!c || (period !== _gamDayKey() && period !== _gamWeekKey())) return res.status(400).json({ error: 'Défi inconnu ou expiré' });
+    let progress = 0;
+    if(c.kind === '_streak'){ const r = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1 AND days > 0",[uid]); progress = r.rows[0].n; await _pgPool.query('INSERT INTO penc_gam_prog(user_id,period,cid,progress,claimed) VALUES($1,$2,$3,$4,FALSE) ON CONFLICT (user_id,period,cid) DO UPDATE SET progress=$4',[uid, period, cid, Math.min(progress, c.target)]); }
+    const u = await _pgPool.query('UPDATE penc_gam_prog SET claimed=TRUE WHERE user_id=$1 AND period=$2 AND cid=$3 AND claimed=FALSE AND progress >= $4 RETURNING cid',[uid, period, cid, c.target]);
+    if(!u.rows.length) return res.status(400).json({ error: 'Défi pas encore terminé ou déjà réclamé' });
+    await _gamAddXp(uid, c.xp);
+    const g = await _pgPool.query('SELECT xp FROM penc_gam WHERE user_id=$1',[uid]); const xp = g.rows[0].xp; const L = _gamLevel(xp);
+    res.json({ success: true, xp: xp, gained: c.xp, level: L.level, title: _gamTitle(L.level), level_from: L.from, level_to: L.to });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// Événements signalés par l'application (appel, invitation, statut) — limités pour éviter la triche
+app.post('/api/penc/gam/event', pencAuth, async (req, res) => {
+  const uid = req.pencUser.userId; const k = String(req.body.kind||'');
+  if(['call','invite','status'].indexOf(k) < 0) return res.json({ success: false });
+  if(!_filRate(uid, 'gam_'+k, k==='invite'?6:10, 86400000)) return res.json({ success: true });
+  await _gamBump(uid, k, 1); res.json({ success: true });
+});
 // GET /api/penc/posts/saved — mes publications enregistrées
 app.get('/api/penc/posts/saved', pencAuth, async (req, res) => {
   try{
@@ -8000,6 +8113,7 @@ app.post('/api/penc/posts/:id/like', pencAuth, async (req, res) => {
     if(ex.rows.length && (!want || want === ex.rows[0].r)){ await _pgPool.query('DELETE FROM penc_post_likes WHERE post_id=$1 AND user_id=$2',[pid, uid]); }
     else if(ex.rows.length){ await _pgPool.query('UPDATE penc_post_likes SET reaction=$3 WHERE post_id=$1 AND user_id=$2',[pid, uid, want]); reaction = want; }
     else { reaction = want || 'like'; await _pgPool.query('INSERT INTO penc_post_likes(post_id,user_id,reaction,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction',[pid, uid, reaction]); }
+    if(reaction && !ex.rows.length){ setImmediate(async function(){ _gamBump(uid, 'react', 1); try{ const _o = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); if(_o.rows.length && String(_o.rows[0].user_id)!==String(uid)) _gamBump(String(_o.rows[0].user_id), 'got_react', 1); }catch(_g){} }); }
     const lc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1',[pid]);
     const rc = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1 GROUP BY 1 ORDER BY 2 DESC LIMIT 3",[pid]);
     res.json({ success: true, liked: !!reaction, reaction, likes_count: lc.rows[0].n, reactions: rc.rows.map(function(x){ return x.r; }) });
@@ -8108,6 +8222,7 @@ app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
       if(po.rows.length && String(po.rows[0].user_id)!==String(parentAuthor)) notif(po.rows[0].user_id, who+' a commenté ta publication');
     }catch(_p){}
     _filNotifyMentions(content, uid, pid, 'comment');
+    setImmediate(function(){ _gamBump(uid, 'comment', 1); });
     res.json({ success: true, comment: { id, user_id: uid, parent_id: parentId, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false, content, created_at: new Date().toISOString(), likes_count: 0, liked_by_me: false, can_delete: true }, comments_count: cc.rows[0].n });
   }catch(e){ console.error('comment post:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -9102,7 +9217,12 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
     let result = [];
     if (_pgPool) {
       const convs = await pgGetConvs(uid);
-      const allUsers = await pgAllUsers() || [];
+      // Avant : pgAllUsers() chargeait TOUS les comptes de Penc à chaque ouverture de l'app (lent, et
+      // intenable à 100 000 utilisateurs). Maintenant : seulement les personnes présentes dans MES discussions.
+      let allUsers = [];
+      try{ const _pids = Array.from(new Set([].concat.apply([], convs.map(function(c){ try{ return Array.isArray(c.participants)?c.participants:JSON.parse(c.participants||'[]'); }catch(_){ return []; } })))); allUsers = await pgFindUsersByIds(_pids); }catch(_au){ allUsers = await pgAllUsers() || []; }
+      let _streakMap = {};
+      try{ const _sr = await _pgPool.query("SELECT a, b, days, last_day FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1",[uid]); _sr.rows.forEach(function(r){ _streakMap[String(r.a===uid?r.b:r.a)] = r.days; }); }catch(_se){}
       let _pinnedIds = new Set();
       try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
       let _mutedIds = new Set();
@@ -9110,7 +9230,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       let _lockedIds = new Set();
       try{ const _lkr = await _pgPool.query('SELECT conv_id FROM penc_chat_locks WHERE user_id=$1',[uid]); _lockedIds = new Set(_lkr.rows.map(r=>r.conv_id)); }catch(_lke){}
       let _ephemeralMap = {};
-      try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral'); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
+      try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral WHERE conv_id = ANY($1)',[convs.map(function(c){ return c.id; })]); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
       // Messages en attente : demandes d'ami RECUES (quelqu'un d'autre a écrit en premier, pas encore acceptées)
       let _pendingFrom = new Set();
       try{ const _pfr = await _pgPool.query("SELECT requester FROM penc_friendships WHERE recipient=$1 AND status='pending'", [uid]); _pfr.rows.forEach(function(row){ _pendingFrom.add(row.requester); }); }catch(_pfe){}
@@ -9146,6 +9266,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           muted: _mutedIds.has(c.id),
           locked: _lockedIds.has(c.id),
           ephemeral_seconds: _ephemeralMap[c.id] || 0,
+          streak: (parts.length === 2 && _streakMap[String(otherId)]) || 0,
           is_request: _pendingFrom.has(otherId)
         };
       }));
@@ -14580,6 +14701,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_user_id, 'call:recording-stopped', { room_name });
   });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
+    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now() }); }catch(_pc){}
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       room_name:room_name||('call_'+pencUserId),
@@ -14592,14 +14714,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     // (socket suspendu par le système, JS gelé) ne sonne jamais, même si "l'utilisateur"
     // est techniquement en ligne ailleurs. Un appel doit sonner sur TOUS les appareils.
     try{
-      const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-      const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
+      const callerUser = (_pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(u=>u.id===pencUserId)) || {};
       const callerName = callerUser.full_name||callerUser.username||'Inconnu';
       await sendPencPush(target_user_id, {
         title: callerName+' appelle...',
         body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
         tag: 'penc-call',
-        url: '/messager',
+        url: '/messager?call=1',
+        requireInteraction: true, renotify: true, vibrate: [400,200,400,200,400,200,400],
         conv_id: null,
         call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
       });
@@ -14607,12 +14729,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     }catch(ep){console.error('push call err:',ep.message);}
   });
   socket.on('call:accept', ({caller_id}) => {
+    _pencPendingCalls.delete(String(pencUserId));
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
     // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
     // doit arrêter de sonner dès qu'un autre appareil du même compte a répondu.
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:decline', ({caller_id}) => {
+    _pencPendingCalls.delete(String(pencUserId));
     emitToUser(caller_id,'call:declined',{by:pencUserId});
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
@@ -14626,6 +14750,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
+    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)) _pencPendingCalls.delete(String(target_id)); }catch(_pe){}
     emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
@@ -14752,6 +14877,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         if (!_p.ok) { console.error('[msg-send] NON enregistré conv=' + conversation_id + ' — le téléphone va réessayer'); if (typeof cb === 'function') cb({ error: 'Réseau instable : le message sera renvoyé automatiquement.', retry: true }); return; }
         if (_p.dup) { if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: _p.id || msg.id, sender } }); return; }
         _claimed = true;
+        setImmediate(function(){ _gamBump(pencUserId, 'msg', 1); _gamStreakOnMessage(pencUserId, conversation_id); });
       } else {
         try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); _claimed = true; } catch (_jb) {}
       }
