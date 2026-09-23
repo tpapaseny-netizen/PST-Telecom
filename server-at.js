@@ -5250,15 +5250,8 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS poll JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS short_code TEXT;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_thumbs JSONB;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS budget_fcfa INT DEFAULT 0;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS spent_fcfa NUMERIC DEFAULT 0;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_country TEXT;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_city TEXT;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'all';
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS status TEXT;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_method TEXT;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_ref TEXT;
-      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS cta TEXT;
+      ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_penc_creator_earn_user ON penc_creator_earnings(user_id, paid);
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mod_hidden BOOLEAN DEFAULT FALSE;
@@ -5275,6 +5268,7 @@ async function initPgPenc(){
       CREATE INDEX IF NOT EXISTS idx_penc_posts_repost ON penc_posts(repost_of);
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS parent_id TEXT;
       CREATE TABLE IF NOT EXISTS penc_post_comment_likes (comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (comment_id, user_id));
+      ALTER TABLE penc_post_comment_likes ADD COLUMN IF NOT EXISTS reaction TEXT DEFAULT 'like';
       CREATE TABLE IF NOT EXISTS penc_post_views (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_follows (follower TEXT NOT NULL, followee TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (follower, followee));
       CREATE INDEX IF NOT EXISTS idx_penc_follows_followee ON penc_follows(followee);
@@ -5325,6 +5319,15 @@ async function initPgPenc(){
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS budget_fcfa INT DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS spent_fcfa NUMERIC DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_country TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_city TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'all';
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS status TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_method TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_ref TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS cta TEXT;
       CREATE TABLE IF NOT EXISTS penc_channel_drafts (
         channel_id TEXT PRIMARY KEY, content TEXT DEFAULT '', version INTEGER DEFAULT 0,
         updated_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -7969,14 +7972,18 @@ app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
     const r = await _pgPool.query('SELECT * FROM penc_post_comments WHERE post_id=$1 ORDER BY created_at ASC LIMIT 400',[pid]);
     const cids = r.rows.map(function(c){ return c.id; });
     const cl = await _filCountMap('SELECT comment_id AS k, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id = ANY($1) GROUP BY comment_id',[cids]);
-    const mine = {}; try{ (await _pgPool.query('SELECT comment_id FROM penc_post_comment_likes WHERE comment_id = ANY($1) AND user_id=$2',[cids, uid])).rows.forEach(function(x){ mine[x.comment_id]=1; }); }catch(_e){}
+    const mine = {}, rx = {};
+    try{ (await _pgPool.query("SELECT comment_id, COALESCE(reaction,'like') AS r FROM penc_post_comment_likes WHERE comment_id = ANY($1) AND user_id=$2",[cids, uid])).rows.forEach(function(x){ mine[x.comment_id]=x.r; }); }catch(_e){}
+    try{ (await _pgPool.query("SELECT comment_id, COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id = ANY($1) GROUP BY 1,2",[cids])).rows.forEach(function(x){ (rx[x.comment_id]=rx[x.comment_id]||{})[x.r]=x.n; }); }catch(_e){}
     const users = {}; try{ (await pgFindUsersByIds(Array.from(new Set(r.rows.map(function(c){ return c.user_id; }))))).forEach(function(u){ users[u.id]=u; }); }catch(_e){}
     let postOwner = null; try{ const po = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); postOwner = po.rows.length ? String(po.rows[0].user_id) : null; }catch(_e){}
     const out = r.rows.map(function(c){
       const a = users[c.user_id];
       return { id:c.id, user_id:c.user_id, parent_id:c.parent_id||null,
         author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false,
-        content:c.content, created_at:c.created_at, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id],
+        content:c.content, created_at:c.created_at, edited_at:c.edited_at||null, pinned:!!c.pinned, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id], my_reaction: mine[c.id]||null,
+        reactions: Object.keys(rx[c.id]||{}).sort(function(a,b){ return rx[c.id][b]-rx[c.id][a]; }).slice(0,3),
+        is_author: postOwner!==null && String(c.user_id)===postOwner, can_edit: String(c.user_id)===String(uid), can_pin: postOwner===String(uid) && !c.parent_id,
         can_delete: String(c.user_id)===String(uid) || postOwner===String(uid) || !!req.pencUser.is_admin };
     });
     res.json({ comments: out });
@@ -8015,12 +8022,43 @@ app.post('/api/penc/posts/comments/:cid/like', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
     const uid = req.pencUser.userId; const cid = req.params.cid;
-    const ex = await _pgPool.query('SELECT 1 FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2',[cid, uid]);
-    let liked;
-    if(ex.rows.length){ await _pgPool.query('DELETE FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2',[cid, uid]); liked=false; }
-    else { await _pgPool.query('INSERT INTO penc_post_comment_likes(comment_id,user_id,created_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING',[cid, uid]); liked=true; }
+    if(!_filRate(uid, 'like', 300, 600000)) return _filTooFast(res);
+    const want = (req.body && _FIL_REACTIONS.indexOf(String(req.body.reaction)) > -1) ? String(req.body.reaction) : null;
+    const ex = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2",[cid, uid]);
+    let reaction = null;
+    if(ex.rows.length && (!want || want === ex.rows[0].r)){ await _pgPool.query('DELETE FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2',[cid, uid]); }
+    else if(ex.rows.length){ await _pgPool.query('UPDATE penc_post_comment_likes SET reaction=$3 WHERE comment_id=$1 AND user_id=$2',[cid, uid, want]); reaction = want; }
+    else { reaction = want || 'like'; await _pgPool.query('INSERT INTO penc_post_comment_likes(comment_id,user_id,reaction,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (comment_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction',[cid, uid, reaction]); }
     const n = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id=$1',[cid])).rows[0].n;
-    res.json({ success: true, liked, likes_count: n });
+    const rc = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id=$1 GROUP BY 1 ORDER BY 2 DESC LIMIT 3",[cid]);
+    res.json({ success: true, liked: !!reaction, reaction, likes_count: n, reactions: rc.rows.map(function(x){ return x.r; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// PUT /api/penc/posts/comments/:cid — modifier son commentaire
+app.put('/api/penc/posts/comments/:cid', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'comment_edit', 30, 600000)) return _filTooFast(res);
+    const content = String(req.body.content || '').trim().slice(0, 2000);
+    if(!content) return res.status(400).json({ error: 'Commentaire vide' });
+    const u = await _pgPool.query('UPDATE penc_post_comments SET content=$1, edited_at=NOW() WHERE id=$2 AND user_id=$3 RETURNING id',[content, req.params.cid, uid]);
+    if(!u.rows.length) return res.status(403).json({ error: 'Non autorisé' });
+    res.json({ success: true, content: content });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/comments/:cid/pin — l'auteur de la publication épingle un commentaire (un seul)
+app.post('/api/penc/posts/comments/:cid/pin', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const c = await _pgPool.query('SELECT c.post_id, c.pinned, c.parent_id, p.user_id AS owner FROM penc_post_comments c JOIN penc_posts p ON p.id=c.post_id WHERE c.id=$1',[req.params.cid]);
+    if(!c.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    if(String(c.rows[0].owner) !== String(uid) || c.rows[0].parent_id) return res.status(403).json({ error: 'Non autorisé' });
+    const pinned = !c.rows[0].pinned;
+    await _pgPool.query('UPDATE penc_post_comments SET pinned=FALSE WHERE post_id=$1',[c.rows[0].post_id]);
+    if(pinned) await _pgPool.query('UPDATE penc_post_comments SET pinned=TRUE WHERE id=$1',[req.params.cid]);
+    res.json({ success: true, pinned });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // DELETE /api/penc/posts/comments/:cid — supprimer un commentaire (son auteur, l'auteur de la publication, ou admin)
