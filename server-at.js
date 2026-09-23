@@ -5249,6 +5249,18 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS video JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS poll JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS short_code TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_thumbs JSONB;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS budget_fcfa INT DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS spent_fcfa NUMERIC DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_country TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_city TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'all';
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS status TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_method TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_ref TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS cta TEXT;
+      CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_penc_creator_earn_user ON penc_creator_earnings(user_id, paid);
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mod_hidden BOOLEAN DEFAULT FALSE;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_penc_posts_short ON penc_posts(short_code) WHERE short_code IS NOT NULL;
       CREATE TABLE IF NOT EXISTS penc_post_clicks (post_id TEXT NOT NULL, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id, kind));
@@ -7257,6 +7269,7 @@ async function _postEnrichMany(rows, meId){
       media_urls: media,
       bg: row.bg || null,
       video: _filParseVideo(row),
+      media_thumbs: (function(){ try{ const t = row.media_thumbs; const a = t ? (typeof t==='string' ? JSON.parse(t) : t) : null; return (Array.isArray(a) && a.length===media.length) ? a : null; }catch(_e){ return null; } })(),
       poll: (function(){ const pl = _filParsePoll(row); if(!pl) return null; const v = pollVotes[row.id]||{}; let total = 0; const opts = (pl.options||[]).map(function(o){ const n = v[o.id]||0; total += n; return { id:o.id, text:o.text, votes:n }; }); return { options: opts, total: total, ends_at: pl.ends_at, closed: pl.ends_at ? (new Date(pl.ends_at).getTime() < Date.now()) : false, my_vote: myVote[row.id] || null }; })(),
       pinned: !!row.pinned_at,
       scheduled: new Date(row.created_at).getTime() > Date.now() + 5000,
@@ -7300,6 +7313,8 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     let media = Array.isArray(req.body.media_urls) ? req.body.media_urls.filter(_filOkMedia).slice(0, 10) : [];
     const video = _filCleanVideo(req.body.video);
     if(video) media = [];   // une vidéo se publie seule
+    let thumbs = Array.isArray(req.body.media_thumbs) ? req.body.media_thumbs.slice(0, media.length).map(function(u){ return _filOkMedia(u) ? u : null; }) : [];
+    if(thumbs.length !== media.length || thumbs.some(function(x){ return !x; })) thumbs = null;
     const poll = (!video && !media.length) ? _filCleanPoll(req.body.poll) : null;
     if(poll && !content.trim()) return res.status(400).json({ error: 'Écris la question du sondage' });
     // Anti-spam : même texte republié à l'identique dans les 10 dernières minutes
@@ -7310,7 +7325,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     if(!content.trim() && !media.length && !video) return res.status(400).json({ error: 'Publication vide' });
     let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && !poll && content.length<=300) ? String(req.body.bg) : null;
     const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz,NOW()))',[id, uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, when]);
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz,NOW()))',[id, uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, when]);
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
     res.json({ success: true, post: await _postEnrich(row, uid) });
@@ -7542,11 +7557,28 @@ app.get('/api/penc/fil/ads', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ ads: [] });
     const uid = req.pencUser.userId;
-    const r = await _pgPool.query("SELECT a.id, a.title, a.type, a.media_url, a.bg_color, a.link_url, a.duration FROM penc_ads a WHERE a.active=TRUE AND a.id <> 'ad_demo' AND (SELECT COUNT(*) FROM penc_ad_events e WHERE e.ad_id=a.id AND e.user_id=$1 AND e.kind='impression' AND e.created_at > NOW() - INTERVAL '24 hours') < 3 ORDER BY RANDOM() LIMIT 5",[uid]);
-    res.json({ ads: r.rows.map(function(a){ return { id:a.id, title:a.title||'', type:a.type||'text', media_url:a.media_url||null, bg_color:a.bg_color||'#1877F2', link_url:(a.link_url && /^https?:\/\//.test(a.link_url)) ? a.link_url : null, duration: Math.max(5, Math.min(15, a.duration||8)) }; }) });
-  }catch(e){ res.json({ ads: [] }); }
+    let country = '', city = '';
+    try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; country = geo.country || ''; city = geo.city || ''; }catch(_g){}
+    const r = await _pgPool.query("SELECT a.id, a.title, a.type, a.media_url, a.bg_color, a.link_url, a.duration, a.cta, a.placement, a.owner_id FROM penc_ads a WHERE a.active=TRUE AND a.id <> 'ad_demo' AND (COALESCE(a.budget_fcfa,0)=0 OR COALESCE(a.spent_fcfa,0) < a.budget_fcfa) AND (a.target_country IS NULL OR a.target_country='' OR LOWER(a.target_country)=LOWER($2)) AND (a.target_city IS NULL OR a.target_city='' OR LOWER(a.target_city)=LOWER($3)) AND (SELECT COUNT(*) FROM penc_ad_events e WHERE e.ad_id=a.id AND e.user_id=$1 AND e.kind='impression' AND e.created_at > NOW() - INTERVAL '24 hours') < 3 ORDER BY RANDOM() LIMIT 8",[uid, country, city]);
+    res.json({ ads: r.rows.filter(function(a){ return String(a.owner_id||'') !== String(uid) || true; }).map(function(a){ return { id:a.id, title:a.title||'', type:a.type||'text', media_url:_filOkMedia(a.media_url) ? a.media_url : (a.media_url && /^https:\/\//.test(a.media_url) ? a.media_url : null), bg_color:a.bg_color||'#1877F2', link_url:(a.link_url && /^https?:\/\//.test(a.link_url)) ? a.link_url : null, duration: Math.max(5, Math.min(15, a.duration||8)), cta: a.cta || 'En savoir plus', placement: a.placement || 'all' }; }) });
+  }catch(e){ console.error('fil ads:', e.message); res.json({ ads: [] }); }
 });
-// POST /api/penc/fil/ads/event — affichage ou clic sur une publicité (taux de clic des annonceurs)
+// Tarif : 1 FCFA par affichage réel (1 000 FCFA = 1 000 affichages). 40 % reviennent au créateur dont le
+// contenu était affiché juste avant la publicité (fil ou vidéos).
+const _FIL_AD_PRICE = 1, _FIL_CREATOR_SHARE = 0.4;
+async function _filCreditCreator(authorId, adId, postId){
+  try{
+    const amt = _FIL_AD_PRICE * _FIL_CREATOR_SHARE;
+    await _pgPool.query('INSERT INTO penc_creator_earnings(user_id,ad_id,post_id,amount,created_at) VALUES($1,$2,$3,$4,NOW())',[authorId, adId, postId, amt]);
+    const sum = Number((await _pgPool.query('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND paid=FALSE',[authorId])).rows[0].s) || 0;
+    if(sum >= 10){
+      const whole = Math.floor(sum);
+      await _pgPool.query('UPDATE penc_creator_earnings SET paid=TRUE WHERE user_id=$1 AND paid=FALSE',[authorId]);
+      if(sum - whole > 0.0001) await _pgPool.query('INSERT INTO penc_creator_earnings(user_id,ad_id,post_id,amount,paid,created_at) VALUES($1,NULL,NULL,$2,FALSE,NOW())',[authorId, sum - whole]);
+      await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[whole, authorId]);
+    }
+  }catch(e){ console.error('creator credit:', e.message); }
+}
 app.post('/api/penc/fil/ads/event', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ success: true });
@@ -7555,9 +7587,197 @@ app.post('/api/penc/fil/ads/event', pencAuth, async (req, res) => {
     const kind = ['impression','click'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
     const ad = String(req.body.ad_id||'').slice(0, 80);
     const place = ['feed','reels'].indexOf(String(req.body.place)) > -1 ? String(req.body.place) : 'feed';
-    if(kind && ad) await _pgPool.query('INSERT INTO penc_ad_events(ad_id,user_id,kind,place,created_at) VALUES($1,$2,$3,$4,NOW())',[ad, uid, kind, place]);
+    if(!kind || !ad) return res.json({ success: true });
+    // Une même personne ne compte qu'un affichage par pub toutes les 30 min (pas de gonflement artificiel)
+    if(kind === 'impression'){ const rec = await _pgPool.query("SELECT 1 FROM penc_ad_events WHERE ad_id=$1 AND user_id=$2 AND kind='impression' AND created_at > NOW() - INTERVAL '30 minutes' LIMIT 1",[ad, uid]); if(rec.rows.length) return res.json({ success: true }); }
+    await _pgPool.query('INSERT INTO penc_ad_events(ad_id,user_id,kind,place,created_at) VALUES($1,$2,$3,$4,NOW())',[ad, uid, kind, place]);
+    if(kind === 'impression'){
+      const up = await _pgPool.query("UPDATE penc_ads SET spent_fcfa=COALESCE(spent_fcfa,0)+$2 WHERE id=$1 AND COALESCE(budget_fcfa,0) > 0 RETURNING spent_fcfa, budget_fcfa, owner_id",[ad, _FIL_AD_PRICE]);
+      if(up.rows.length){
+        const row = up.rows[0];
+        if(Number(row.spent_fcfa) >= Number(row.budget_fcfa)){ await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='done' WHERE id=$1",[ad]); if(row.owner_id){ try{ sendPencPush(row.owner_id, { title:'Penc Publicité', body:'Ta campagne est terminée : tout le budget a été diffusé. Consulte les résultats.', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+ad, data:{ type:'ads', url:'/messager' } }); }catch(_p){} } }
+        const pid = String(req.body.post_id||'');
+        if(/^post_/.test(pid)){ try{ const pr = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1 AND deleted=FALSE',[pid]); const author = pr.rows.length ? String(pr.rows[0].user_id) : null; if(author && author !== String(uid) && author !== String(row.owner_id||'')) await _filCreditCreator(author, ad, pid); }catch(_c){} }
+      }
+    }
     res.json({ success: true });
   }catch(e){ res.json({ success: false }); }
+});
+// ── Espace annonceur en libre-service ──
+function _filAdOut(a, ev){
+  ev = ev || {};
+  const imp = ev.imp||0, clk = ev.clk||0;
+  return { id:a.id, title:a.title, type:a.type, media_url:a.media_url, link_url:a.link_url, cta:a.cta, bg_color:a.bg_color, budget:a.budget_fcfa||0, spent:Math.round(Number(a.spent_fcfa)||0), target_country:a.target_country||'', target_city:a.target_city||'', placement:a.placement||'all', status: a.status || (a.active ? 'active' : 'review'), active:!!a.active, pay_method:a.pay_method||'', created_at:a.created_at, impressions:imp, clicks:clk, ctr: imp ? Math.round(1000*clk/imp)/10 : 0, feed_imp: ev.fi||0, reels_imp: ev.ri||0 };
+}
+app.get('/api/penc/fil/ads/mine', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ads: [] });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE owner_id=$1 ORDER BY created_at DESC LIMIT 50',[uid]);
+    const ids = r.rows.map(function(a){ return a.id; }); const ev = {};
+    if(ids.length){ (await _pgPool.query("SELECT ad_id, SUM(CASE WHEN kind='impression' THEN 1 ELSE 0 END)::int imp, SUM(CASE WHEN kind='click' THEN 1 ELSE 0 END)::int clk, SUM(CASE WHEN kind='impression' AND place='feed' THEN 1 ELSE 0 END)::int fi, SUM(CASE WHEN kind='impression' AND place='reels' THEN 1 ELSE 0 END)::int ri FROM penc_ad_events WHERE ad_id = ANY($1) GROUP BY ad_id",[ids])).rows.forEach(function(x){ ev[x.ad_id]=x; }); }
+    let balance = 0, geo = {};
+    try{ const u = (await _pgPool.query('SELECT balance, geo FROM penc_users WHERE id=$1',[uid])).rows[0] || {}; balance = u.balance || 0; geo = u.geo ? (typeof u.geo==='string' ? JSON.parse(u.geo) : u.geo) : {}; }catch(_u){}
+    res.json({ ads: r.rows.map(function(a){ return _filAdOut(a, ev[a.id]); }), balance: balance, country: geo.country || '', city: geo.city || '', price_per_view: _FIL_AD_PRICE, wave_url: 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/' });
+  }catch(e){ res.json({ ads: [] }); }
+});
+app.post('/api/penc/fil/ads/campaign', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'campaign', 10, 86400000)) return _filTooFast(res);
+    const title = String(b.title||'').trim().slice(0, 200);
+    if(title.length < 4) return res.status(400).json({ error: 'Écris le texte de ton annonce' });
+    const type = ['text','image','video'].indexOf(String(b.type)) > -1 ? String(b.type) : 'text';
+    const media = (type !== 'text') ? (_filOkMedia(b.media_url) ? b.media_url : null) : null;
+    if(type !== 'text' && !media) return res.status(400).json({ error: 'Ajoute la photo ou la vidéo de ton annonce' });
+    const link = (b.link_url && /^https?:\/\/[^\s]{3,}$/.test(String(b.link_url))) ? String(b.link_url).slice(0, 500) : null;
+    const CTAS = ['En savoir plus','Acheter','Commander','Appeler','Écrire','S\'inscrire','Réserver','Télécharger'];
+    const cta = CTAS.indexOf(String(b.cta)) > -1 ? String(b.cta) : 'En savoir plus';
+    const budget = parseInt(b.budget, 10);
+    if(!(budget >= 1000 && budget <= 5000000)) return res.status(400).json({ error: 'Budget entre 1 000 et 5 000 000 FCFA' });
+    const placement = ['all','feed','reels'].indexOf(String(b.placement)) > -1 ? String(b.placement) : 'all';
+    let tc = null, tcity = null;
+    if(b.target === 'country' || b.target === 'city'){
+      try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; tc = geo.country || null; if(b.target === 'city') tcity = geo.city || null; }catch(_g){}
+    }
+    const bg = /^#[0-9a-fA-F]{6}$/.test(String(b.bg_color||'')) ? String(b.bg_color) : '#1877F2';
+    const pay = b.pay === 'balance' ? 'balance' : 'wave';
+    const id = 'ad_' + Date.now() + Math.random().toString(36).slice(2, 8);
+    if(pay === 'balance'){
+      const deb = await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)-$1 WHERE id=$2 AND COALESCE(balance,0) >= $1 RETURNING balance',[budget, uid]);
+      if(!deb.rows.length) return res.status(402).json({ error: 'Solde Penc insuffisant. Choisis le paiement Wave ou recharge ton solde.' });
+    }
+    const waveRef = String(b.wave_ref||'').trim().slice(0, 80) || null;
+    if(pay === 'wave' && !waveRef) return res.status(400).json({ error: 'Indique la référence de ton paiement Wave' });
+    await _pgPool.query("INSERT INTO penc_ads(id,title,type,media_url,bg_color,link_url,duration,cpv_fcfa,active,owner_id,paid,budget_fcfa,spent_fcfa,target_country,target_city,placement,status,pay_method,pay_ref,cta,created_at) VALUES($1,$2,$3,$4,$5,$6,8,1,FALSE,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,$16,NOW())",
+      [id, title, type, media, bg, link, uid, pay === 'balance', budget, tc, tcity, placement, pay === 'balance' ? 'review' : 'pending_payment', pay, waveRef, cta]);
+    try{ const ar = await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newad',{ id:id, title:title }); }); }catch(_n){}
+    res.json({ success: true, id: id, status: pay === 'balance' ? 'review' : 'pending_payment' });
+  }catch(e){ console.error('campaign:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/fil/ads/:id/pause', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE id=$1 AND owner_id=$2',[req.params.id, uid]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const a = r.rows[0];
+    if(a.status === 'active'){ await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='paused' WHERE id=$1",[a.id]); return res.json({ success: true, status: 'paused' }); }
+    if(a.status === 'paused'){ await _pgPool.query("UPDATE penc_ads SET active=TRUE, status='active' WHERE id=$1",[a.id]); return res.json({ success: true, status: 'active' }); }
+    res.status(400).json({ error: 'Cette campagne ne peut pas être mise en pause maintenant' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// Revenus créateur
+app.get('/api/penc/fil/creator/earnings', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ total: 0 });
+    const uid = req.pencUser.userId;
+    const one = async function(sql){ try{ return Number((await _pgPool.query(sql,[uid])).rows[0].s)||0; }catch(_e){ return 0; } };
+    const total = await one('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND ad_id IS NOT NULL');
+    const month = await one("SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND ad_id IS NOT NULL AND created_at > NOW() - INTERVAL '30 days'");
+    const pending = await one('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND paid=FALSE');
+    let top = [];
+    try{ top = (await _pgPool.query('SELECT post_id, SUM(amount) AS s FROM penc_creator_earnings WHERE user_id=$1 AND post_id IS NOT NULL GROUP BY post_id ORDER BY 2 DESC LIMIT 5',[uid])).rows.map(function(x){ return { post_id:x.post_id, amount: Math.round(Number(x.s)*10)/10 }; }); }catch(_t){}
+    res.json({ total: Math.round(total*10)/10, month: Math.round(month*10)/10, pending: Math.round(pending*10)/10, share: _FIL_CREATOR_SHARE, top: top });
+  }catch(e){ res.json({ total: 0 }); }
+});
+// ── Admin du Fil : signalements + campagnes à valider ──
+app.get('/api/penc/admin/fil/moderation', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const rep = await _pgPool.query("SELECT target_id, COUNT(DISTINCT reporter_id)::int AS n, ARRAY_AGG(DISTINCT reason) AS reasons, MAX(created_at) AS last FROM penc_reports WHERE target_type='post' AND status='pending' GROUP BY target_id ORDER BY 2 DESC, 4 DESC LIMIT 60");
+    const ids = rep.rows.map(function(x){ return x.target_id; });
+    let posts = [];
+    if(ids.length){ const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE id = ANY($1)',[ids]); posts = await _postEnrichMany(pr.rows, req.pencUser.userId); const hid = {}; pr.rows.forEach(function(r){ hid[r.id] = !!r.deleted; }); posts.forEach(function(p){ p._hidden = hid[p.id]; }); }
+    const byId = {}; posts.forEach(function(p){ byId[p.id]=p; });
+    const ads = await _pgPool.query("SELECT a.*, u.full_name AS owner_name FROM penc_ads a LEFT JOIN penc_users u ON u.id=a.owner_id WHERE a.status IN ('review','pending_payment') ORDER BY a.created_at ASC LIMIT 60");
+    res.json({ reports: rep.rows.filter(function(x){ return byId[x.target_id]; }).map(function(x){ return { post: byId[x.target_id], count: x.n, reasons: x.reasons, last: x.last }; }), ads: ads.rows.map(function(a){ const o = _filAdOut(a, {}); o.owner_name = a.owner_name || ''; o.pay_ref = a.pay_ref || ''; return o; }) });
+  }catch(e){ console.error('fil moderation:', e.message); res.json({ reports: [], ads: [] }); }
+});
+app.post('/api/penc/admin/fil/ads/:id/:action', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE id=$1',[req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const a = r.rows[0];
+    if(req.params.action === 'approve'){
+      await _pgPool.query("UPDATE penc_ads SET active=TRUE, paid=TRUE, status='active' WHERE id=$1",[a.id]);
+      if(a.owner_id){ try{ sendPencPush(a.owner_id, { title:'Penc Publicité', body:'Ta campagne « '+String(a.title||'').slice(0,40)+' » est en ligne !', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+a.id, data:{ type:'ads', url:'/messager' } }); }catch(_p){} }
+    } else if(req.params.action === 'reject'){
+      // Remboursement automatique du budget non dépensé si payé avec le solde Penc
+      if(a.pay_method === 'balance' && a.paid && a.status !== 'rejected'){ const refund = Math.max(0, (a.budget_fcfa||0) - Math.ceil(Number(a.spent_fcfa)||0)); if(refund > 0) await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[refund, a.owner_id]); }
+      await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='rejected' WHERE id=$1",[a.id]);
+      if(a.owner_id){ try{ sendPencPush(a.owner_id, { title:'Penc Publicité', body:'Ta campagne n\'a pas été validée.' + (a.pay_method==='balance' ? ' Ton budget a été remboursé sur ton solde.' : ' Contacte le support pour le remboursement Wave.'), icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+a.id, data:{ type:'ads', url:'/messager' } }); }catch(_p){} }
+    } else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Tendances : hashtags et vidéos du moment, partout et dans ton pays / ta ville ──
+const _filTrendCache = new Map();
+app.get('/api/penc/fil/trends', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ tags: [], local_tags: [], videos: [] });
+    const uid = req.pencUser.userId;
+    let country = '', city = '';
+    try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; country = geo.country || ''; city = geo.city || ''; }catch(_g){}
+    const ck = country + '|' + city; const c = _filTrendCache.get(ck);
+    let base;
+    if(c && Date.now() - c.t < 10*60000) base = c;
+    else {
+      const pr = await _pgPool.query("SELECT p.id, p.content, p.user_id, p.video IS NOT NULL AS is_video, u.geo FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE p.deleted=FALSE AND p.created_at <= NOW() AND p.created_at > NOW() - INTERVAL '72 hours' ORDER BY p.created_at DESC LIMIT 1500");
+      const all = {}, loc = {}, locCity = {};
+      pr.rows.forEach(function(p){
+        const tags = Array.from(new Set(((String(p.content||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])));
+        let geo = {}; try{ geo = p.geo ? (typeof p.geo==='string' ? JSON.parse(p.geo) : p.geo) : {}; }catch(_e){}
+        tags.forEach(function(t){ all[t]=(all[t]||0)+1; if(country && geo.country===country) loc[t]=(loc[t]||0)+1; if(city && geo.city===city) locCity[t]=(locCity[t]||0)+1; });
+      });
+      const top = function(m, n){ return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }).slice(0,n).map(function(t){ return { tag:t, count:m[t] }; }); };
+      const vids = pr.rows.filter(function(p){ return p.is_video; }).map(function(p){ return p.id; });
+      let vrows = [];
+      if(vids.length){
+        const lk = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const vw = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const cm = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const best = vids.sort(function(a,b){ const sa=(vw[a]||0)+3*(lk[a]||0)+5*(cm[a]||0), sb=(vw[b]||0)+3*(lk[b]||0)+5*(cm[b]||0); return sb-sa; }).slice(0, 10);
+        vrows = (await _pgPool.query('SELECT * FROM penc_posts WHERE id = ANY($1)',[best])).rows.sort(function(a,b){ return best.indexOf(a.id)-best.indexOf(b.id); });
+      }
+      base = { t: Date.now(), tags: top(all, 12), local_tags: top(loc, 8), city_tags: top(locCity, 6), vrows: vrows };
+      _filTrendCache.set(ck, base); if(_filTrendCache.size > 500){ const k0 = _filTrendCache.keys().next().value; _filTrendCache.delete(k0); }
+    }
+    const blocked = await _filBlockedSet(uid);
+    res.json({ country: country, city: city, tags: base.tags, local_tags: base.local_tags, city_tags: base.city_tags, videos: await _postEnrichMany(base.vrows.filter(_filVisible(uid, blocked)).slice(0, 8), uid) });
+  }catch(e){ console.error('trends:', e.message); res.json({ tags: [], local_tags: [], videos: [] }); }
+});
+// ── Aperçu riche des liens partagés (WhatsApp, Facebook, X…) ──
+// penc-messagerie.com/p/CODE redirige ici : les robots lisent l'image et le titre, les personnes sont
+// envoyées aussitôt vers la publication dans Penc.
+function _filHtmlEsc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+app.get('/p/:code', async (req, res) => {
+  const code = String(req.params.code||'').replace(/[^A-Za-z0-9]/g,'').slice(0, 12);
+  const target = 'https://penc-messagerie.com/messager?p=' + encodeURIComponent(code);
+  let title = 'Publication sur Penc', desc = 'Découvre cette publication sur Penc, la messagerie panafricaine.', img = 'https://penc-messagerie.com/penc-icon-512.png', isVideo = false;
+  try{
+    if(_pgPool && code){
+      const r = await _pgPool.query('SELECT p.*, u.full_name, u.username FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE p.short_code=$1 AND p.deleted=FALSE AND p.created_at <= NOW()',[code]);
+      if(r.rows.length){
+        const p = r.rows[0];
+        title = (p.full_name || p.username || 'Quelqu\'un') + ' sur Penc';
+        const txt = String(p.content||'').replace(/\s+/g,' ').trim(); if(txt) desc = txt.slice(0, 180) + (txt.length > 180 ? '…' : '');
+        let media = []; try{ media = Array.isArray(p.media_urls) ? p.media_urls : JSON.parse(p.media_urls||'[]'); }catch(_m){}
+        const v = _filParseVideo(p);
+        if(v && v.poster){ img = v.poster; isVideo = true; } else if(media.length) img = media[0];
+      }
+    }
+  }catch(_e){}
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.setHeader('Cache-Control','public, max-age=300');
+  res.send('<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'
+    +'<title>'+_filHtmlEsc(title)+'</title>'
+    +'<meta property="og:site_name" content="Penc"/><meta property="og:type" content="'+(isVideo?'video.other':'article')+'"/>'
+    +'<meta property="og:title" content="'+_filHtmlEsc(title)+'"/><meta property="og:description" content="'+_filHtmlEsc(desc)+'"/>'
+    +'<meta property="og:image" content="'+_filHtmlEsc(img)+'"/><meta property="og:url" content="https://penc-messagerie.com/p/'+_filHtmlEsc(code)+'"/>'
+    +'<meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="'+_filHtmlEsc(title)+'"/><meta name="twitter:description" content="'+_filHtmlEsc(desc)+'"/><meta name="twitter:image" content="'+_filHtmlEsc(img)+'"/>'
+    +'<meta http-equiv="refresh" content="0;url='+_filHtmlEsc(target)+'"/></head>'
+    +'<body style="font-family:system-ui,sans-serif;background:#F5F0E8;text-align:center;padding:40px 16px;"><p>Ouverture de la publication sur Penc…</p><p><a href="'+_filHtmlEsc(target)+'">Continuer</a></p>'
+    +'<script>location.replace('+JSON.stringify(target)+');</script></body></html>');
 });
 // GET /api/penc/posts/saved — mes publications enregistrées
 app.get('/api/penc/posts/saved', pencAuth, async (req, res) => {
@@ -7616,7 +7836,12 @@ app.put('/api/penc/posts/:id', pencAuth, async (req, res) => {
     if(Object.prototype.hasOwnProperty.call(req.body, 'bg')) bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1) ? String(req.body.bg) : null;
     if(media.length || video || content.length>300) bg = null;
     if(!content.trim() && !media.length && !video && !row0.repost_of) return res.status(400).json({ error: 'Publication vide' });
-    await _pgPool.query('UPDATE penc_posts SET content=$1, media_urls=$2, video=$3, bg=$4, edited_at=NOW() WHERE id=$5',[content, JSON.stringify(media), video ? JSON.stringify(video) : null, bg, req.params.id]);
+    let thumbs0 = null; try{ const t = row0.media_thumbs; thumbs0 = t ? (typeof t==='string' ? JSON.parse(t) : t) : null; }catch(_t){}
+    let media0 = []; try{ media0 = Array.isArray(row0.media_urls)?row0.media_urls:JSON.parse(row0.media_urls||'[]'); }catch(_m){}
+    let thumbs = null;
+    if(Array.isArray(req.body.media_thumbs) && req.body.media_thumbs.length === media.length && req.body.media_thumbs.every(_filOkMedia)) thumbs = req.body.media_thumbs;
+    else if(Array.isArray(thumbs0)){ const map = {}; media0.forEach(function(u,i){ map[u] = thumbs0[i]; }); const t2 = media.map(function(u){ return map[u] || null; }); if(t2.every(Boolean)) thumbs = t2; }
+    await _pgPool.query('UPDATE penc_posts SET content=$1, media_urls=$2, video=$3, bg=$4, media_thumbs=$5, edited_at=NOW() WHERE id=$6',[content, JSON.stringify(media), video ? JSON.stringify(video) : null, bg, thumbs ? JSON.stringify(thumbs) : null, req.params.id]);
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[req.params.id])).rows[0];
     res.json({ success: true, post: await _postEnrich(row, uid) });
   }catch(e){ console.error('edit post:', e.message); res.status(500).json({ error: 'Erreur' }); }
