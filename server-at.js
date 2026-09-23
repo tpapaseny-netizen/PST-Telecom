@@ -3720,9 +3720,12 @@ async function sendPencPush(userId, payload) {
       const subs = await pencPushSubs();
       mine = subs.filter(x => x.user_id === userId);
     }
+    let _sent = 0, _errs = [];
     for (const sb of mine) {
-      try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload)); }
+      try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload), { TTL: 86400, urgency: 'high' }); _sent++; }
       catch (err) {
+        _errs.push((err && err.statusCode) || (err && err.message) || 'erreur');
+        if (!(err && (err.statusCode === 404 || err.statusCode === 410))) console.error('[push] envoi refusé (' + ((err && err.statusCode) || '?') + ') pour ' + userId + ' : ' + ((err && err.body) || (err && err.message) || ''));
         if (err && (err.statusCode === 404 || err.statusCode === 410)) {
           // Abonnement expiré → le retirer des deux stockages
           const _ep = sb.subscription && sb.subscription.endpoint;
@@ -3734,7 +3737,8 @@ async function sendPencPush(userId, payload) {
         }
       }
     }
-  } catch (e) { console.error('sendPencPush:', e.message); }
+    return { subscriptions: mine.length, sent: _sent, errors: _errs };
+  } catch (e) { console.error('sendPencPush:', e.message); return { subscriptions: 0, sent: 0, errors: [e.message] }; }
 }
 // ── Notifications DeglouFM en digest : plutôt qu'une push par commentaire (spam garanti sur
 // une station active), on regroupe tous les commentaires arrivés dans une fenêtre de 45s en
@@ -5913,6 +5917,13 @@ async function pgGetMessages(convId, limit=400){
   const rf = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT $2',[convId, limit]);
   return rf.rows.reverse();
 }
+async function pgGetOlderMessages(convId, beforeId, limit){
+  if(!_pgPool) return [];
+  const a = await _pgPool.query('SELECT created_at FROM penc_messages WHERE id=$1 AND conversation_id=$2',[beforeId, convId]);
+  if(!a.rows.length) return [];
+  const r = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3',[convId, a.rows[0].created_at, limit]);
+  return r.rows.reverse();
+}
 // Enregistrement FIABLE d'un message, AVANT toute diffusion : 3 essais, et une erreur de base n'est plus
 // confondue avec un « doublon » (avant : l'envoi était confirmé au téléphone alors que rien n'était enregistré).
 async function _pencPersistMsg(m){
@@ -7172,7 +7183,10 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     let messages = [];
     const uid = req.pencUser.userId;
     if (_pgPool) {
-      const rows = await pgGetMessages(convId, 400);
+      const _before = req.query.before ? String(req.query.before).slice(0,120) : null;
+      const _lim = _before ? Math.min(parseInt(req.query.limit)||200, 500) : 400;
+      const rows = _before ? await pgGetOlderMessages(convId, _before, _lim) : await pgGetMessages(convId, _lim);
+      res.set('X-Penc-Has-More', rows.length >= _lim ? '1' : '0');
       console.log('[msgs-read] conv=' + convId + ' user=' + uid + ' -> ' + rows.length + ' message(s), dernier=' + (rows.length ? rows[rows.length-1].id : '-'));
       // Reactions groupees par message pour cette conversation (une seule requete)
       let _reactByMsg = {};
@@ -7227,7 +7241,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
       messages = all.filter(m => m.conversation_id === convId)
         .map(m => ({...m, is_mine: String(m.sender_id) === String(uid)}));
     }
-    res.json({ messages });
+    res.json({ messages, has_more: res.get('X-Penc-Has-More') === '1' });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 
@@ -10175,8 +10189,8 @@ app.get('/api/penc/push/status', pencAuth, async (req, res) => {
 app.post('/api/penc/push/test', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
-    await sendPencPush(uid, { title: 'Penc', body: 'Notification de test ✅', tag: 'penc-test', url: '/messager', icon: '/penc-icon-192.png', badge: '/penc-icon-192.png' });
-    res.json({ success: true });
+    const out = await sendPencPush(uid, { title: 'Penc', body: 'Notification de test ✅ — elles arrivent bien sur ton téléphone', tag: 'penc-test', url: '/messager', icon: '/penc-icon-192.png', badge: '/penc-icon-192.png' });
+    res.json(Object.assign({ success: true, vapid: !!webpush }, out || {}));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
