@@ -4867,10 +4867,6 @@ async function initPgPenc(){
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
-      CREATE SEQUENCE IF NOT EXISTS penc_msg_seq;
-      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGINT;
-      ALTER TABLE penc_messages ALTER COLUMN server_seq SET DEFAULT nextval('penc_msg_seq');
-      CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC NULLS LAST, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
       CREATE TABLE IF NOT EXISTS penc_statuses (
         id          TEXT PRIMARY KEY,
@@ -5884,16 +5880,38 @@ async function pgGetOrCreateConv(uid1,uid2){
   );
   return ins.rows[0];
 }
+// Numéro de séquence des messages : installé à part, étape par étape, sans jamais bloquer le reste
+let _msgSeqReady = null, _msgSeqP = null;
+async function _ensureMsgSeq(){
+  if(_msgSeqReady !== null) return _msgSeqReady;
+  if(_msgSeqP) return _msgSeqP;
+  _msgSeqP = (async function(){
+    const steps = [
+      'CREATE SEQUENCE IF NOT EXISTS penc_msg_seq',
+      'ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGINT',
+      "ALTER TABLE penc_messages ALTER COLUMN server_seq SET DEFAULT nextval('penc_msg_seq')",
+      'CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC NULLS LAST, created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_pm_conv_created ON penc_messages(conversation_id, created_at DESC)'
+    ];
+    for(const q of steps){ try{ await _pgPool.query(q); }catch(e){ console.error('[msg-seq] ' + q.slice(0,60) + ' -> ' + e.message); } }
+    try{ const c = await _pgPool.query("SELECT 1 FROM information_schema.columns WHERE table_name='penc_messages' AND column_name='server_seq'"); _msgSeqReady = c.rows.length > 0; }
+    catch(e){ _msgSeqReady = false; }
+    console.log('[msg-seq] ordre serveur ' + (_msgSeqReady ? 'actif' : 'INDISPONIBLE (repli sur la date)'));
+    return _msgSeqReady;
+  })();
+  try{ return await _msgSeqP; } finally { _msgSeqP = null; }
+}
 async function pgGetMessages(convId, limit=400){
   if(!_pgPool) return [];
-  // Les plus récents d'abord (ordre du serveur, pas l'heure du téléphone), puis remis dans l'ordre chronologique.
-  // Avant : ORDER BY created_at ASC LIMIT 400 renvoyait les 400 PLUS ANCIENS messages — dans une discussion
-  // de plus de 400 messages, tous les nouveaux semblaient disparaître à la réouverture.
-  const r=await _pgPool.query(
-    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC NULLS LAST, created_at DESC LIMIT $2',
-    [convId, limit]
-  );
-  return r.rows.reverse();
+  // Filet de sécurité : si l'ordre serveur n'est pas disponible, on lit quand même les PLUS RÉCENTS par date.
+  try{
+    if(await _ensureMsgSeq()){
+      const r0 = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC NULLS LAST, created_at DESC LIMIT $2',[convId, limit]);
+      return r0.rows.reverse();
+    }
+  }catch(e){ console.error('[msgs] lecture par séquence échouée, repli par date:', e.message); }
+  const rf = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT $2',[convId, limit]);
+  return rf.rows.reverse();
 }
 // Enregistrement FIABLE d'un message, AVANT toute diffusion : 3 essais, et une erreur de base n'est plus
 // confondue avec un « doublon » (avant : l'envoi était confirmé au téléphone alors que rien n'était enregistré).
@@ -7155,6 +7173,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     const uid = req.pencUser.userId;
     if (_pgPool) {
       const rows = await pgGetMessages(convId, 400);
+      console.log('[msgs-read] conv=' + convId + ' user=' + uid + ' -> ' + rows.length + ' message(s), dernier=' + (rows.length ? rows[rows.length-1].id : '-'));
       // Reactions groupees par message pour cette conversation (une seule requete)
       let _reactByMsg = {};
       try{
