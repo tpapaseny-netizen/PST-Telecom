@@ -41,6 +41,8 @@ app.use(function(req, res, next){
 const http = require('http');
 const { Server: IOServer } = require('socket.io');
 const httpServer = http.createServer(app);
+httpServer.keepAliveTimeout = 65000;   // derrière le répartiteur de Render : évite les coupures 502 sous forte charge
+httpServer.headersTimeout = 66000;
 const io = new IOServer(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
   // Reglages adaptes a un grand nombre de connexions simultanees : evite de garder des sockets
@@ -97,6 +99,9 @@ app.get('/health', function(req,res){
     });
   }catch(e){ res.status(500).json({ status:'error', error:e.message }); }
 });
+// ══ Montée en charge : réponses compressées (≈ 70 % de données en moins sur le Fil) ══
+try{ const _compression = require('compression'); app.use(_compression({ threshold: 1024, filter: function(req, res){ if(req.headers['x-no-compression']) return false; return _compression.filter(req, res); } })); console.log('[perf] compression gzip active'); }
+catch(_c){ console.log('[perf] module compression absent — ajouter "compression" dans package.json pour activer le gzip'); }
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
@@ -5272,6 +5277,16 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_post_views (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_follows (follower TEXT NOT NULL, followee TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (follower, followee));
       CREATE INDEX IF NOT EXISTS idx_penc_follows_followee ON penc_follows(followee);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_live ON penc_posts(created_at DESC) WHERE deleted=FALSE;
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_user ON penc_posts(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_video ON penc_posts(created_at DESC) WHERE deleted=FALSE AND video IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_penc_post_likes_user ON penc_post_likes(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_user ON penc_post_comments(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_parent ON penc_post_comments(parent_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_views_user ON penc_post_views(user_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_views_post ON penc_post_views(post_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_clicks_post ON penc_post_clicks(post_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_follows_follower ON penc_follows(follower);
       CREATE TABLE IF NOT EXISTS penc_reports (id TEXT PRIMARY KEY, reporter_id TEXT, target_type TEXT, target_id TEXT, target_user_id TEXT, reason TEXT, content_snapshot TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
       CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
@@ -7380,20 +7395,37 @@ app.get('/api/penc/posts', pencAuth, async (req, res) => {
 //       × proximité (amis, abonnements, conversations récentes, auteurs avec qui tu interagis)
 //       × nouveauté (fortement réduit si tu l'as déjà vue)
 // puis une passe de diversité : jamais le même auteur deux fois de suite dans une fenêtre de 3.
-const _filRankCache = new Map(); // uid -> {t, rows, oldest} (30 s) : le défilement réutilise le même ordre
+const _filRankCache = new Map(); // uid -> {t, rows, oldest} (45 s) : le défilement réutilise le même ordre
+// Données communes à tous (publications récentes + compteurs) : calculées une seule fois par minute,
+// quel que soit le nombre de personnes connectées. Chaque utilisateur n'ajoute ensuite que SES signaux.
+let _filGlobal = null, _filGlobalP = null;
+async function _filGlobalPool(){
+  if(_filGlobal && Date.now() - _filGlobal.t < 60000) return _filGlobal;
+  if(_filGlobalP) return _filGlobalP;
+  _filGlobalP = (async function(){
+    let pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT 500")).rows;
+    if(pool.length < 60){ pool = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 200')).rows; }
+    const ids = pool.map(function(r){ return r.id; });
+    const g = { t: Date.now(), pool: pool, ids: ids,
+      likes: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      likes6h: await _filCountMap("SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND created_at > NOW() - INTERVAL '6 hours' GROUP BY post_id",[ids]),
+      comments: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      reposts: await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[ids]),
+      clickers: await _filCountMap('SELECT post_id AS k, COUNT(DISTINCT user_id)::int AS n FROM penc_post_clicks WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      viewers: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      verified: new Set() };
+    try{ (await _pgPool.query('SELECT id FROM penc_users WHERE id = ANY($1) AND (verified=TRUE OR business_verified=TRUE)',[Array.from(new Set(pool.map(function(r){ return r.user_id; })))])).rows.forEach(function(x){ g.verified.add(String(x.id)); }); }catch(_e){}
+    _filGlobal = g; return g;
+  })();
+  try{ return await _filGlobalP; } finally { _filGlobalP = null; }
+}
 async function _filRankedFeed(uid, visible){
   const c = _filRankCache.get(uid);
-  if(c && Date.now() - c.t < 30000) return c;
-  let pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT 500")).rows;
-  if(pool.length < 60){ pool = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 200')).rows; }
-  pool = pool.filter(visible);
+  if(c && Date.now() - c.t < 45000) return c;
+  const G = await _filGlobalPool();
+  let pool = G.pool.filter(visible);
   const ids = pool.map(function(r){ return r.id; });
-  const likes = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
-  const likes6h = await _filCountMap("SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND created_at > NOW() - INTERVAL '6 hours' GROUP BY post_id",[ids]);
-  const comments = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
-  const reposts = await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[ids]);
-  const clickers = await _filCountMap('SELECT post_id AS k, COUNT(DISTINCT user_id)::int AS n FROM penc_post_clicks WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
-  const viewers = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
+  const likes = G.likes, likes6h = G.likes6h, comments = G.comments, reposts = G.reposts, clickers = G.clickers, viewers = G.viewers;
   const friends = new Set(), follows = new Set(), chatting = new Set(), seen = new Set();
   try{ (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ friends.add(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
   try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1',[uid])).rows.forEach(function(x){ follows.add(String(x.followee)); }); }catch(_e){}
@@ -7405,8 +7437,7 @@ async function _filRankedFeed(uid, visible){
   const friendLikes = {};
   const circle = Array.from(new Set(Array.from(friends).concat(Array.from(follows))));
   if(circle.length){ try{ (await _pgPool.query('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND user_id = ANY($2) GROUP BY post_id',[ids, circle])).rows.forEach(function(x){ friendLikes[x.k]=x.n; }); }catch(_e){} }
-  let verified = new Set();
-  try{ (await _pgPool.query('SELECT id FROM penc_users WHERE id = ANY($1) AND (verified=TRUE OR business_verified=TRUE)',[Array.from(new Set(pool.map(function(r){ return r.user_id; })))])).rows.forEach(function(x){ verified.add(String(x.id)); }); }catch(_e){}
+  const verified = G.verified;
   const now = Date.now(), day = new Date().toISOString().slice(0,10);
   function h(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0)/4294967295; }
   const scored = pool.map(function(p){
@@ -7960,7 +7991,7 @@ app.post('/api/penc/posts/:id/repost', pencAuth, async (req, res) => {
     if(String(rootAuthor) !== String(uid)){
       try{ const me = await pgFindUser('id', uid) || {}; sendPencPush(rootAuthor, { title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' a republié ta publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+rootId, data:{ type:'post', post_id:rootId, url:'/messager?post='+rootId } }); }catch(_p){}
     }
-    _filRankCache.clear();
+    _filRankCache.clear(); _filGlobal = null;
     res.json({ success: true, post: await _postEnrich(row, uid) });
   }catch(e){ console.error('repost:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -8086,7 +8117,7 @@ app.delete('/api/penc/posts/:id', pencAuth, async (req, res) => {
     const isAdmin = req.pencUser.is_admin;
     if(String(p.rows[0].user_id) !== String(uid) && !isAdmin) return res.status(403).json({ error: 'Non autorisé' });
     await _pgPool.query('UPDATE penc_posts SET deleted=TRUE WHERE id=$1',[pid]);
-    _filRankCache.clear();
+    _filRankCache.clear(); _filGlobal = null;
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
