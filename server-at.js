@@ -4867,6 +4867,10 @@ async function initPgPenc(){
       CREATE UNIQUE INDEX IF NOT EXISTS penc_msg_client ON penc_messages(client_id) WHERE client_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_pm_conv    ON penc_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_pm_created ON penc_messages(created_at DESC);
+      CREATE SEQUENCE IF NOT EXISTS penc_msg_seq;
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGINT;
+      ALTER TABLE penc_messages ALTER COLUMN server_seq SET DEFAULT nextval('penc_msg_seq');
+      CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC NULLS LAST, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_pc_updated ON penc_conversations(updated_at DESC);
       CREATE TABLE IF NOT EXISTS penc_statuses (
         id          TEXT PRIMARY KEY,
@@ -5882,11 +5886,37 @@ async function pgGetOrCreateConv(uid1,uid2){
 }
 async function pgGetMessages(convId, limit=400){
   if(!_pgPool) return [];
+  // Les plus récents d'abord (ordre du serveur, pas l'heure du téléphone), puis remis dans l'ordre chronologique.
+  // Avant : ORDER BY created_at ASC LIMIT 400 renvoyait les 400 PLUS ANCIENS messages — dans une discussion
+  // de plus de 400 messages, tous les nouveaux semblaient disparaître à la réouverture.
   const r=await _pgPool.query(
-    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT $2',
+    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC NULLS LAST, created_at DESC LIMIT $2',
     [convId, limit]
   );
-  return r.rows;
+  return r.rows.reverse();
+}
+// Enregistrement FIABLE d'un message, AVANT toute diffusion : 3 essais, et une erreur de base n'est plus
+// confondue avec un « doublon » (avant : l'envoi était confirmé au téléphone alors que rien n'était enregistré).
+async function _pencPersistMsg(m){
+  if(!_pgPool) return { ok:false };
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      if(m.client_id){
+        const c = await pgClaimMessage(m);
+        if(c) return { ok:true, dup:false };
+        const d = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[m.client_id]);
+        if(d.rows.length) return { ok:true, dup:true, id:d.rows[0].id };
+      } else {
+        const ex = await _pgPool.query('SELECT 1 FROM penc_messages WHERE id=$1 LIMIT 1',[m.id]);
+        if(ex.rows.length) return { ok:true, dup:false };
+        await pgSaveMessage(m);
+        const ok2 = await _pgPool.query('SELECT 1 FROM penc_messages WHERE id=$1 LIMIT 1',[m.id]);
+        if(ok2.rows.length) return { ok:true, dup:false };
+      }
+    }catch(e){ console.error('[msg-persist] essai '+(attempt+1)+' échoué:', e.message); }
+    await new Promise(function(r){ setTimeout(r, 300*(attempt+1)); });
+  }
+  return { ok:false };
 }
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
@@ -8723,12 +8753,11 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     // client_id (ex: l'émission socket directe pendant que cette relance REST arrive aussi)
     // diffuse chacun sa propre copie du message.
     let _claimed=null;
-    if(client_id){
-      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(_e){}
-      if(!_claimed){
-        try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
-        catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
-      }
+    {
+      const _p = await _pencPersistMsg({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:client_id||msg.client_id||null, pending:false, expires_at:msg.expires_at||null, view_once:msg.view_once||false, file_name:msg.file_name||null, file_size:msg.file_size||null });
+      if(!_p.ok) return res.status(503).json({ error:'Réseau instable : le message sera renvoyé automatiquement.', retry:true });
+      if(_p.dup) return res.json({ success:true, duplicate:true, id:_p.id||msg.id });
+      _claimed=true;
     }
     const fullMsg = { ...msg, sender };
     try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
@@ -14679,25 +14708,19 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // d'insérer, diffusant chacune leur propre copie — doublon visible côté client jusqu'au
       // rechargement complet de l'app, moment où un seul des deux survivait réellement en base.)
       let _claimed = null;
-      if (client_id && _pgPool) {
-        try {
-          _claimed = await pgClaimMessage({
-            id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
-            content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
-            reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
-            client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
-            file_name: msg.file_name || null, file_size: msg.file_size || null
-          });
-        } catch (_e) {}
-        if (!_claimed) {
-          try {
-            const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
-            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: (_dup.rows[0] && _dup.rows[0].id) || msg.id, sender } });
-          } catch (_e) {
-            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, sender } });
-          }
-          return;
-        }
+      if (_pgPool) {
+        const _p = await _pencPersistMsg({
+          id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
+          content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
+          reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
+          client_id: msg.client_id || client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+          file_name: msg.file_name || null, file_size: msg.file_size || null
+        });
+        if (!_p.ok) { console.error('[msg-send] NON enregistré conv=' + conversation_id + ' — le téléphone va réessayer'); if (typeof cb === 'function') cb({ error: 'Réseau instable : le message sera renvoyé automatiquement.', retry: true }); return; }
+        if (_p.dup) { if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: _p.id || msg.id, sender } }); return; }
+        _claimed = true;
+      } else {
+        try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); _claimed = true; } catch (_jb) {}
       }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
@@ -14717,8 +14740,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
-      // 2) Persistance best-effort — déjà faite ci-dessus (réservation atomique) quand un
-      // client_id était fourni ; sinon on persiste ici comme avant.
+      // 2) Persistance : déjà faite ci-dessus AVANT la diffusion (plus jamais « affiché puis perdu »).
       if (!_claimed) {
       try {
         if (_pgPool) {
