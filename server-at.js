@@ -5917,7 +5917,7 @@ async function _pencMergeConvs(ids){
 // Au démarrage : on répare toutes les discussions en double existantes, puis on pose la clé unique par duo
 setTimeout(async function(){
   if(!_pgPool) return;
-  try{ await _pgPool.query("UPDATE penc_users SET avatar_url='https://penc-messagerie.com/penc-icon-512.png', full_name='Penc', verified=TRUE WHERE id='penc_official'"); }catch(_lg){}
+  try{ await _pgPool.query("UPDATE penc_users SET avatar_url='https://penc-messagerie.com/penc-icon-192.png', full_name='Penc', verified=TRUE WHERE id='penc_official'"); }catch(_lg){}
   try{
     try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS pair_key TEXT'); }catch(_a){}
     try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()'); }catch(_a){}
@@ -6089,7 +6089,13 @@ function _pencWelcomeText(fullName){
     + 'Une question ? Réponds simplement à ce message.\n— L\'équipe Penc · PST Pure Smart Telecom';
 }
 function _pencWelcomeBackText(fullName){
-  return "Ravis de vous revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant votre absence, vos messages, vos appels, vos statuts et la radio DeglouFM en direct vous attendent. Jetez un \u0153il \u00e0 vos conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
+  const p = String(fullName||'').trim().split(/\s+/)[0] || '';
+  return 'Ravi de te revoir sur Penc' + (p ? (', ' + p) : '') + ' ! 👋\n\n'
+    + 'Depuis ta dernière visite :\n'
+    + '📰 Le Fil s\'est rempli de nouvelles publications et vidéos\n'
+    + '💬 Tes discussions et tes statuts t\'attendent\n'
+    + '🔥 Tes Flammes et tes Défis du jour sont prêts\n\n'
+    + 'Bonne reprise ! — L\'équipe Penc · PST Pure Smart Telecom';
 }
 async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
   try{
