@@ -5875,20 +5875,59 @@ async function pgGetOrCreateConv(uid1,uid2){
     const retry=await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1',[selfId]);
     return retry.rows[0];
   }
-  // Chercher conv existante
+  // Chercher conv existante (TOUJOURS la même : la plus ancienne), et fusionner les doublons s'il y en a.
+  // Avant : deux ouvertures simultanées pouvaient créer 2 discussions pour le même duo ; chacun écrivait
+  // alors dans « sa » discussion et les messages de l'autre semblaient disparaître.
   const r=await _pgPool.query(
-    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2 AND jsonb_array_length(participants)=2',
+    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2 AND jsonb_array_length(participants)=2 ORDER BY created_at ASC NULLS LAST, id ASC',
     [JSON.stringify([uid1]),JSON.stringify([uid2])]
   );
+  const _plain = r.rows.filter(function(x){ return !x.khatma_circle && !x.is_group && !x.group_name; });
+  if(_plain.length > 1){ try{ await _pencMergeConvs(_plain.map(function(x){ return x.id; })); }catch(_m){ console.error('[conv-merge]', _m.message); } return _plain[0]; }
+  if(_plain.length) return _plain[0];
   if(r.rows.length) return r.rows[0];
-  // Créer nouvelle conv
+  // Créer nouvelle conv — clé unique du duo : impossible d'en créer deux, même en même temps
+  const pk=[String(uid1),String(uid2)].sort().join('|');
   const id='conv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  const ins=await _pgPool.query(
-    'INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',
-    [id,JSON.stringify([uid1,uid2])]
-  );
-  return ins.rows[0];
+  try{
+    const ins=await _pgPool.query('INSERT INTO penc_conversations(id,participants,updated_at,pair_key) VALUES($1,$2,NOW(),$3) ON CONFLICT DO NOTHING RETURNING *',[id,JSON.stringify([uid1,uid2]),pk]);
+    if(ins.rows.length) return ins.rows[0];
+    const again=await _pgPool.query('SELECT * FROM penc_conversations WHERE pair_key=$1 LIMIT 1',[pk]);
+    if(again.rows.length) return again.rows[0];
+  }catch(_pk){}
+  const ins2=await _pgPool.query('INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',[id,JSON.stringify([uid1,uid2])]);
+  return ins2.rows[0];
 }
+// Fusion de discussions en double : tous les messages rejoignent la première, les autres sont supprimées
+async function _pencMergeConvs(ids){
+  if(!ids || ids.length < 2) return 0;
+  const keep = ids[0], drop = ids.slice(1);
+  const c = await _pgPool.connect();
+  try{
+    await c.query('BEGIN');
+    const mv = await c.query('UPDATE penc_messages SET conversation_id=$1 WHERE conversation_id = ANY($2)',[keep, drop]);
+    for(const t of ['penc_pinned_convs','penc_muted_convs','penc_chat_locks','penc_conv_ephemeral']){ try{ await c.query('SAVEPOINT s1'); await c.query('DELETE FROM '+t+' WHERE conv_id = ANY($1)',[drop]); await c.query('RELEASE SAVEPOINT s1'); }catch(_t){ await c.query('ROLLBACK TO SAVEPOINT s1'); } }
+    await c.query('DELETE FROM penc_conversations WHERE id = ANY($1)',[drop]);
+    await c.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[keep]);
+    await c.query('COMMIT');
+    console.log('[conv-merge] ' + drop.length + ' doublon(s) fusionné(s) dans ' + keep + ' (' + mv.rowCount + ' message(s) récupéré(s))');
+    return mv.rowCount;
+  }catch(e){ try{ await c.query('ROLLBACK'); }catch(_){} throw e; } finally { c.release(); }
+}
+// Au démarrage : on répare toutes les discussions en double existantes, puis on pose la clé unique par duo
+setTimeout(async function(){
+  if(!_pgPool) return;
+  try{ await _pgPool.query("UPDATE penc_users SET avatar_url='https://penc-messagerie.com/penc-icon-512.png', full_name='Penc', verified=TRUE WHERE id='penc_official'"); }catch(_lg){}
+  try{
+    try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS pair_key TEXT'); }catch(_a){}
+    try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()'); }catch(_a){}
+    const d = await _pgPool.query("SELECT (SELECT string_agg(x, '|' ORDER BY x) FROM jsonb_array_elements_text(participants) x) AS pk, array_agg(id ORDER BY created_at ASC NULLS LAST, id ASC) AS ids FROM penc_conversations WHERE jsonb_array_length(participants)=2 AND COALESCE(khatma_circle,false)=false GROUP BY 1 HAVING COUNT(*) > 1 LIMIT 2000");
+    let n = 0, moved = 0; for(const row of d.rows){ try{ moved += await _pencMergeConvs(row.ids); n++; }catch(_m){ console.error('[conv-merge] ' + row.pk + ' : ' + _m.message); } }
+    console.log('[conv-merge] démarrage : ' + n + ' duo(s) réparé(s), ' + moved + ' message(s) réunis');
+    await _pgPool.query("UPDATE penc_conversations SET pair_key=(SELECT string_agg(x, '|' ORDER BY x) FROM jsonb_array_elements_text(participants) x) WHERE pair_key IS NULL AND jsonb_array_length(participants)=2 AND COALESCE(khatma_circle,false)=false");
+    try{ await _pgPool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_penc_conv_pair ON penc_conversations(pair_key) WHERE pair_key IS NOT NULL'); console.log('[conv-merge] clé unique par duo active'); }catch(_u){ console.error('[conv-merge] index unique :', _u.message); }
+  }catch(e){ console.error('[conv-merge] démarrage :', e.message); }
+}, 12000);
 // Numéro de séquence des messages : installé à part, étape par étape, sans jamais bloquer le reste
 let _msgSeqReady = null, _msgSeqP = null;
 async function _ensureMsgSeq(){
@@ -6038,7 +6077,16 @@ async function pgClaimMessage(msg){
 }
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
-  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Votre messagerie panafricaine gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o et Penc Meet, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDD4C Coran & outils spirituels, \uD83D\uDCB8 transferts d'argent. R\u00e9pondez \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
+  const p = String(fullName||'').trim().split(/\s+/)[0] || '';
+  return 'Bienvenue sur Penc' + (p ? (', ' + p) : '') + ' ! 🎉\n\n'
+    + 'Penc, c\'est la messagerie panafricaine, pensée ici, pour nous :\n\n'
+    + '💬 Discussions, vocaux et appels en haute qualité\n'
+    + '📰 Le Fil : publications, vidéos et tendances de chez toi\n'
+    + '⭕ Les Statuts de tes proches\n'
+    + '🔥 Les Flammes et les Défis : garde le lien, gagne des récompenses\n'
+    + '📻 La radio DeglouFM en direct\n\n'
+    + 'Invite tes proches pour en profiter ensemble 👉 https://play.google.com/store/apps/details?id=com.penc.messagerie\n\n'
+    + 'Une question ? Réponds simplement à ce message.\n— L\'équipe Penc · PST Pure Smart Telecom';
 }
 function _pencWelcomeBackText(fullName){
   return "Ravis de vous revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant votre absence, vos messages, vos appels, vos statuts et la radio DeglouFM en direct vous attendent. Jetez un \u0153il \u00e0 vos conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
@@ -7319,7 +7367,7 @@ function _filCleanVideo(v){
   const d = Math.min(61, Math.max(0, Number(v.duration)||0));
   return { url: v.url, poster: _filOkMedia(v.poster) ? v.poster : null, duration: Math.round(d*10)/10, w: Math.max(0, parseInt(v.w)||0), h: Math.max(0, parseInt(v.h)||0) };
 }
-const _FIL_REACTIONS = ['like','love','haha','wow','sad','pray'];
+const _FIL_REACTIONS = ['like','love','haha','wow','sad','angry','pray'];
 // Limites anti-abus par utilisateur (mémoire du serveur, fenêtre glissante)
 const _filRateMap = new Map();
 function _filRate(uid, action, max, windowMs){
@@ -7381,6 +7429,7 @@ async function _postEnrichMany(rows, meId){
   const comments = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
   const reposts = await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[allIds]);
   const views = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
+  const shares = await _filCountMap("SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_clicks WHERE post_id = ANY($1) AND kind='share' GROUP BY post_id",[allIds]);
   const likedByMe = {}, repostedByMe = {}, savedByMe = {}, myReaction = {}, reacts = {}, pollVotes = {}, myVote = {}, followed = {};
   if(meId){ try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1 AND followee = ANY($2)',[meId, userIds])).rows.forEach(function(x){ followed[String(x.followee)]=1; }); }catch(_f){} }
   try{ (await _pgPool.query("SELECT post_id, COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id, COALESCE(reaction,'like')",[allIds])).rows.forEach(function(x){ (reacts[x.post_id]=reacts[x.post_id]||{})[x.r]=x.n; }); }catch(_e){}
@@ -7426,6 +7475,7 @@ async function _postEnrichMany(rows, meId){
       likes_count: likes[row.id] || 0,
       comments_count: comments[row.id] || 0,
       reposts_count: reposts[row.id] || 0,
+      shares_count: shares[row.id] || 0,
       liked_by_me: !!likedByMe[row.id],
       reposted_by_me: !!repostedByMe[row.id],
       saved_by_me: !!savedByMe[row.id],
@@ -7500,7 +7550,8 @@ app.get('/api/penc/posts', pencAuth, async (req, res) => {
     const visible = _filVisible(uid, blocked);
     if(String(req.query.ranked||'') === '1'){
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
-      const out = await _filRankedFeed(uid, visible);
+      const _sessSeen = new Set(String(req.query.seen||'').split(',').filter(Boolean).slice(0, 200));
+      const out = await _filRankedFeed(uid, visible, { fresh: String(req.query.fresh||'')==='1', sessionSeen: _sessSeen });
       const slice = out.rows.slice(offset, offset + limit);
       return res.json({ posts: await _postEnrichMany(slice, uid), ranked: true, more: offset + limit < out.rows.length, pool_oldest: out.oldest });
     }
@@ -7550,9 +7601,10 @@ async function _filGlobalPool(){
   })();
   try{ return await _filGlobalP; } finally { _filGlobalP = null; }
 }
-async function _filRankedFeed(uid, visible){
+async function _filRankedFeed(uid, visible, opts){
+  opts = opts || {};
   const c = _filRankCache.get(uid);
-  if(c && Date.now() - c.t < 45000) return c;
+  if(c && !opts.fresh && Date.now() - c.t < 45000) return c;
   const G = await _filGlobalPool();
   let pool = G.pool.filter(visible);
   const ids = pool.map(function(r){ return r.id; });
@@ -7584,7 +7636,7 @@ async function _filRankedFeed(uid, visible){
     prox += Math.min(1.2, (inter[a]||0)/8);
     if(verified.has(a)) prox += 0.1;
     let media = 1; try{ const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); if(p.video) media = 1.2; else if(m.length) media = 1.15; else if(p.poll) media = 1.12; else if(p.bg) media = 1.08; }catch(_e){}
-    const novelty = seen.has(p.id) ? 0.3 : 1;
+    const novelty = (opts.sessionSeen && opts.sessionSeen.has(p.id)) ? 0.12 : (seen.has(p.id) ? 0.3 : 1);
     const ctr = (clickers[p.id]||0) / Math.max(10, viewers[p.id]||0);   // taux de clic (lissé pour les petites audiences)
     media *= (1 + Math.min(0.5, ctr));
     const jitter = 0.92 + 0.16*h(p.id + day + uid);
@@ -8115,6 +8167,27 @@ app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
   try{ const r = await _pgPool.query('SELECT * FROM penc_fil_bans WHERE until IS NULL OR until > NOW() ORDER BY created_at DESC LIMIT 100'); const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
     res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
 });
+app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
+// Traduction d'une publication : français, wolof, anglais, arabe (résultat mis en cache)
+const _trCache = new Map();
+app.post('/api/penc/translate', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const to = ['fr','wo','en','ar'].indexOf(String(req.body.to)) > -1 ? String(req.body.to) : 'fr';
+    const text = String(req.body.text || '').slice(0, 4000);
+    if(!text.trim()) return res.json({ text: '' });
+    const key = to + '|' + require('crypto').createHash('sha1').update(text).digest('hex');
+    if(_trCache.has(key)) return res.json(_trCache.get(key));
+    if(!_filRate(uid, 'translate', 60, 3600000)) return _filTooFast(res);
+    const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + to + '&dt=t&q=' + encodeURIComponent(text);
+    const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if(!r.ok) return res.status(502).json({ error: 'Traduction indisponible' });
+    const j = await r.json();
+    const out = { text: (j && j[0] || []).map(function(x){ return x && x[0] || ''; }).join(''), from: (j && j[2]) || null, to: to };
+    _trCache.set(key, out); if(_trCache.size > 20000){ const k0 = _trCache.keys().next().value; _trCache.delete(k0); }
+    res.json(out);
+  }catch(e){ console.error('translate:', e.message); res.status(500).json({ error: 'Traduction indisponible' }); }
+});
 // GET /api/penc/posts/saved — mes publications enregistrées
 app.get('/api/penc/posts/saved', pencAuth, async (req, res) => {
   try{
@@ -8315,7 +8388,7 @@ app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
     const out = r.rows.map(function(c){
       const a = users[c.user_id];
       return { id:c.id, user_id:c.user_id, parent_id:c.parent_id||null,
-        author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false,
+        author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_username: a?(a.username||''):'', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false,
         content:c.content, created_at:c.created_at, edited_at:c.edited_at||null, pinned:!!c.pinned, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id], my_reaction: mine[c.id]||null,
         reactions: Object.keys(rx[c.id]||{}).sort(function(a,b){ return rx[c.id][b]-rx[c.id][a]; }).slice(0,3),
         is_author: postOwner!==null && String(c.user_id)===postOwner, can_edit: String(c.user_id)===String(uid), can_pin: postOwner===String(uid) && !c.parent_id,
@@ -9639,18 +9712,34 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
     const q = String(req.query.q || '').trim();
     let results = [];
     if (_pgPool) {
+      // Amis en commun : mes amis, puis combien de ces amis chaque personne connaît
+      const mutual = {}, myFriends = new Set();
+      try{
+        (await _pgPool.query("SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END AS f FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ myFriends.add(String(x.f)); });
+        if(myFriends.size){ const fl = Array.from(myFriends); (await _pgPool.query("SELECT CASE WHEN requester = ANY($1) THEN recipient ELSE requester END AS c, COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester = ANY($1) OR recipient = ANY($1)) GROUP BY 1 ORDER BY 2 DESC LIMIT 2000",[fl])).rows.forEach(function(x){ if(String(x.c)!==String(uid)) mutual[String(x.c)] = x.n; }); }
+      }catch(_mu){}
       if (q) {
         const ql = '%' + q.toLowerCase() + '%';
         const r = await _pgPool.query(
-          'SELECT * FROM penc_users WHERE id!=$1 AND (LOWER(full_name) LIKE $2 OR LOWER(username) LIKE $2 OR phone LIKE $3) LIMIT 50',
-          [uid, ql, '%'+q+'%']
+          "SELECT * FROM penc_users WHERE id!=$1 AND (LOWER(full_name) LIKE $2 OR LOWER(username) LIKE $2 OR phone LIKE $3 OR REPLACE(phone,' ','') LIKE $3) LIMIT 300",
+          [uid, ql, '%'+q.replace(/\s+/g,'')+'%']
         );
         results = r.rows.map(pgRow).map(pencStrip);
       } else {
-        // Sans query: retourner tous les utilisateurs (PG + JSONBin)
-        const all = await pgAllUsersMerged() || [];
-        results = all.filter(u => u.id !== uid).map(pencStrip);
+        // Sans recherche : suggestions (amis d'amis d'abord), jamais la liste entière des comptes
+        const cand = Object.keys(mutual).filter(function(id){ return !myFriends.has(id); }).slice(0, 100);
+        results = (cand.length ? await pgFindUsersByIds(cand) : []).map(pencStrip);
+        if(results.length < 30){ try{ const rr = await _pgPool.query('SELECT * FROM penc_users WHERE id!=$1 ORDER BY created_at DESC NULLS LAST LIMIT 60',[uid]); rr.rows.map(pgRow).map(pencStrip).forEach(function(u){ if(!results.some(function(x){ return x.id===u.id; })) results.push(u); }); }catch(_r){} }
       }
+      const ql2 = q.toLowerCase();
+      results.forEach(function(u){ u.mutual_friends = mutual[String(u.id)] || 0; u.is_friend = myFriends.has(String(u.id)); });
+      results.sort(function(a,b){
+        if(a.is_friend !== b.is_friend) return a.is_friend ? -1 : 1;
+        if((b.mutual_friends||0) !== (a.mutual_friends||0)) return (b.mutual_friends||0) - (a.mutual_friends||0);
+        const as = ql2 && String(a.full_name||'').toLowerCase().indexOf(ql2)===0 ? 0 : 1, bs = ql2 && String(b.full_name||'').toLowerCase().indexOf(ql2)===0 ? 0 : 1;
+        return as - bs;
+      });
+      results = results.slice(0, 100);
     } else {
       const users = await pencUsers();
       const ql = q.toLowerCase();
