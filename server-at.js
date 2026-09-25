@@ -8168,6 +8168,9 @@ app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
     res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
 });
 app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
+// Clé publique de notification réellement utilisée par le serveur : l'app s'abonne TOUJOURS avec celle-ci
+// (si la clé écrite dans l'app diffère de celle du serveur, Google/Android refuse chaque notification).
+app.get('/api/penc/push/vapid', (req, res) => { const k = process.env.VAPID_PUBLIC_KEY || ''; res.json({ key: k, configured: !!(k && process.env.VAPID_PRIVATE_KEY) }); });
 // Traduction d'une publication : français, wolof, anglais, arabe (résultat mis en cache)
 const _trCache = new Map();
 app.post('/api/penc/translate', pencAuth, async (req, res) => {
@@ -10530,7 +10533,7 @@ app.post('/api/penc/push/test', pencAuth, async (req, res) => {
   try {
     const uid = req.pencUser.userId;
     const out = await sendPencPush(uid, { title: 'Penc', body: 'Notification de test ✅ — elles arrivent bien sur ton téléphone', tag: 'penc-test', url: '/messager', icon: '/penc-icon-192.png', badge: '/penc-icon-192.png' });
-    res.json(Object.assign({ success: true, vapid: !!webpush }, out || {}));
+    res.json(Object.assign({ success: true, vapid: !!(webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) }, out || {}));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
