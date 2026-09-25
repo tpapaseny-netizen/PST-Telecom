@@ -4346,22 +4346,33 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
   }
   if (withWatermark) {
     const uname = _wmCleanUsername(username);
-    const text = ('@' + uname + '_Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
-    const fontSize = Math.max(13, Math.round(H * 0.03));
+    const text = ('@' + uname).replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
+    // Zone toujours visible : le Fil affiche les vidéos très verticales en 4:5 et les très larges en 1,91:1
+    // (recadrage au centre) — le filigrane est placé À L'INTÉRIEUR de cette zone, jamais coupé.
+    let safeX = 0, safeY = 0;
+    if (H / W > 1.25) safeY = Math.round((H - W * 1.25) / 2);
+    if (W / H > 1.91) safeX = Math.round((W - H * 1.91) / 2);
+    const base = Math.min(W, H);
+    const m = Math.round(base * 0.035);
+    const fontSize = Math.max(14, Math.round(base * 0.042));
+    const logoW = Math.max(28, Math.round(base * 0.14));
     const logoBuf = await _loadWatermarkLogo();
+    const textY = 'h-' + (safeY + m) + '-th';
+    const textX = 'w-tw-' + (safeX + m);
+    const txt = "drawtext=text='" + text + "':fontcolor=white@0.96:fontsize=" + fontSize + ":box=1:boxcolor=black@0.38:boxborderw=" + Math.round(fontSize * 0.45) + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + textX + ":y=" + textY;
     if (logoBuf) {
       logoTmpPath = pathMod.join(os.tmpdir(), 'wmlogo_' + Date.now() + '.png');
       fs.writeFileSync(logoTmpPath, logoBuf);
       cmd = cmd.input(logoTmpPath);
-      const logoW = Math.max(20, Math.round(W * 0.11));
       const afterLogo = nextLabel(), afterText = nextLabel();
-      filters.push('[1:v]scale=' + logoW + ':-1[logo]');
-      filters.push('[' + curLabel + '][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[' + afterLogo + ']');
-      filters.push('[' + afterLogo + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=1.5:bordercolor=black@0.55:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      const logoY = H - safeY - m - Math.round(fontSize * 1.9) - Math.round(m * 0.5) - logoW;
+      filters.push('[1:v]scale=' + logoW + ':-1,format=rgba,colorchannelmixer=aa=0.94[logo]');
+      filters.push('[' + curLabel + '][logo]overlay=x=W-w-' + (safeX + m) + ':y=' + Math.max(0, logoY) + '[' + afterLogo + ']');
+      filters.push('[' + afterLogo + ']' + txt + '[' + afterText + ']');
       curLabel = afterText;
     } else {
       const afterText = nextLabel();
-      filters.push('[' + curLabel + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=1.5:bordercolor=black@0.55:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      filters.push('[' + curLabel + "]drawtext=text='Penc':fontcolor=white:fontsize=" + Math.round(fontSize * 1.5) + ":shadowcolor=black@0.6:shadowx=2:shadowy=2:x=" + textX + ":y=h-" + (safeY + m) + "-th-" + Math.round(fontSize * 2.2) + ',' + txt + '[' + afterText + ']');
       curLabel = afterText;
     }
   }
@@ -8174,6 +8185,58 @@ app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
     res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
 });
 app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
+// ══ Site vitrine : mesure d'audience anonyme (aucun cookie, aucune donnée personnelle) ══
+let _siteTblOk = false;
+async function _siteTbl(){ if(_siteTblOk) return; await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_site_events (id BIGSERIAL PRIMARY KEY, vid TEXT, kind TEXT, path TEXT, ref TEXT, country TEXT, device TEXT, utm TEXT, created_at TIMESTAMPTZ DEFAULT NOW())'); await _pgPool.query('CREATE INDEX IF NOT EXISTS idx_site_ev_time ON penc_site_events(created_at DESC)'); _siteTblOk = true; }
+app.post('/api/penc/site/event', async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ok: true });
+    const ip = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    if(!_filRate('site:'+ip, 'site', 120, 600000)) return res.json({ ok: true });
+    await _siteTbl();
+    const b = req.body || {};
+    const kind = ['view','download','web','contact','section'].indexOf(String(b.kind)) > -1 ? String(b.kind) : 'view';
+    const ua = String(req.headers['user-agent']||''); const device = /android/i.test(ua) ? 'Android' : /iphone|ipad/i.test(ua) ? 'iPhone' : /mobile/i.test(ua) ? 'Mobile' : 'Ordinateur';
+    let ref = String(b.ref||'').slice(0,200); try{ ref = ref ? new URL(ref).hostname.replace(/^www\./,'') : ''; }catch(_){ ref = ''; }
+    await _pgPool.query('INSERT INTO penc_site_events(vid,kind,path,ref,country,device,utm,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())',
+      [String(b.vid||'').slice(0,40), kind, String(b.path||'').slice(0,120), ref, String(req.headers['cf-ipcountry']||'').slice(0,4), device, String(b.utm||'').slice(0,80)]);
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.get('/api/penc/admin/site/stats', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    await _siteTbl();
+    const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(e){ return []; } };
+    const one = async function(sql){ const r = await q(sql); return r[0] ? r[0].n : 0; };
+    res.json({
+      views_today: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='view' AND created_at > NOW() - INTERVAL '24 hours'"),
+      visitors_today: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      visitors_week: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '7 days'"),
+      visitors_month: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days'"),
+      downloads_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='download' AND created_at > NOW() - INTERVAL '7 days'"),
+      web_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='web' AND created_at > NOW() - INTERVAL '7 days'"),
+      contact_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='contact' AND created_at > NOW() - INTERVAL '7 days'"),
+      days: await q("SELECT to_char(date_trunc('day', created_at),'DD/MM') AS d, COUNT(DISTINCT vid)::int AS v, SUM(CASE WHEN kind='download' THEN 1 ELSE 0 END)::int AS dl FROM penc_site_events WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY date_trunc('day', created_at) ORDER BY date_trunc('day', created_at)"),
+      refs: await q("SELECT COALESCE(NULLIF(ref,''),'Accès direct') AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 8"),
+      countries: await q("SELECT COALESCE(NULLIF(country,''),'?') AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 8"),
+      devices: await q("SELECT device AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC"),
+      sections: await q("SELECT path AS k, COUNT(*)::int AS n FROM penc_site_events WHERE kind='section' AND created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
+    });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ Suggestions de hashtags : « #s » -> #senegal (1 240 publications)… ══
+let _tagIndex = { t: 0, tags: [] };
+async function _tagIdx(){
+  if(Date.now() - _tagIndex.t < 10*60000 && _tagIndex.tags.length) return _tagIndex.tags;
+  const r = await _pgPool.query("SELECT content FROM penc_posts WHERE deleted=FALSE AND created_at > NOW() - INTERVAL '180 days' AND content LIKE '%#%' ORDER BY created_at DESC LIMIT 5000");
+  const c = {}; r.rows.forEach(function(row){ Array.from(new Set((String(row.content||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])).forEach(function(t){ c[t]=(c[t]||0)+1; }); });
+  _tagIndex = { t: Date.now(), tags: Object.keys(c).map(function(k){ return { tag:k, count:c[k] }; }).sort(function(a,b){ return b.count-a.count; }) };
+  return _tagIndex.tags;
+}
+app.get('/api/penc/fil/tags', pencAuth, async (req, res) => {
+  try{ const q = String(req.query.q||'').toLowerCase().replace(/^#/,'').slice(0,40); const all = await _tagIdx();
+    res.json({ tags: all.filter(function(t){ return !q || t.tag.slice(1).indexOf(q) === 0; }).slice(0, 8) }); }catch(e){ res.json({ tags: [] }); }
+});
 // Clé publique de notification réellement utilisée par le serveur : l'app s'abonne TOUJOURS avec celle-ci
 // (si la clé écrite dans l'app diffère de celle du serveur, Google/Android refuse chaque notification).
 app.get('/api/penc/push/vapid', (req, res) => { const k = process.env.VAPID_PUBLIC_KEY || ''; res.json({ key: k, configured: !!(k && process.env.VAPID_PRIVATE_KEY) }); });
