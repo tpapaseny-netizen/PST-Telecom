@@ -4345,40 +4345,40 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
     curLabel = afterBlur;
   }
   if (withWatermark) {
+    // Vidéo déjà marquée (republiée depuis Penc, ou venant de TikTok / CapCut / Douyin) : on ne superpose pas un 2e filigrane
+    try{
+      const tags = Object.assign({}, (probe.format && probe.format.tags) || {}, vs.tags || {});
+      const tagTxt = Object.keys(tags).map(function(k){ return k + '=' + tags[k]; }).join(' ').toLowerCase();
+      if (/penc_wm|tiktok|bytedance|douyin|capcut|vid:v[0-9]/.test(tagTxt)) withWatermark = false;
+    }catch(_t){}
+  }
+  if (withWatermark) {
     const uname = _wmCleanUsername(username);
-    const text = ('@' + uname).replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
-    // Zone toujours visible : le Fil affiche les vidéos très verticales en 4:5 et les très larges en 1,91:1
-    // (recadrage au centre) — le filigrane est placé À L'INTÉRIEUR de cette zone, jamais coupé.
-    let safeX = 0, safeY = 0;
-    if (H / W > 1.25) safeY = Math.round((H - W * 1.25) / 2);
-    if (W / H > 1.91) safeX = Math.round((W - H * 1.91) / 2);
-    const base = Math.min(W, H);
-    const m = Math.round(base * 0.035);
-    const fontSize = Math.max(14, Math.round(base * 0.042));
-    const logoW = Math.max(28, Math.round(base * 0.14));
+    const text = ('@' + uname + '  ·  Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
+    const fontSize = Math.max(14, Math.round(Math.min(W, H) * 0.042));
+    const pad = Math.round(fontSize * 0.5);
+    const txt = "drawtext=text='" + text + "':fontcolor=white@0.97:fontsize=" + fontSize + ":box=1:boxcolor=black@0.40:boxborderw=" + pad + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th";
     const logoBuf = await _loadWatermarkLogo();
-    const textY = 'h-' + (safeY + m) + '-th';
-    const textX = 'w-tw-' + (safeX + m);
-    const txt = "drawtext=text='" + text + "':fontcolor=white@0.96:fontsize=" + fontSize + ":box=1:boxcolor=black@0.38:boxborderw=" + Math.round(fontSize * 0.45) + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + textX + ":y=" + textY;
     if (logoBuf) {
       logoTmpPath = pathMod.join(os.tmpdir(), 'wmlogo_' + Date.now() + '.png');
       fs.writeFileSync(logoTmpPath, logoBuf);
       cmd = cmd.input(logoTmpPath);
+      const logoW = Math.max(24, Math.round(Math.min(W, H) * 0.13));
       const afterLogo = nextLabel(), afterText = nextLabel();
-      const logoY = H - safeY - m - Math.round(fontSize * 1.9) - Math.round(m * 0.5) - logoW;
       filters.push('[1:v]scale=' + logoW + ':-1,format=rgba,colorchannelmixer=aa=0.94[logo]');
-      filters.push('[' + curLabel + '][logo]overlay=x=W-w-' + (safeX + m) + ':y=' + Math.max(0, logoY) + '[' + afterLogo + ']');
+      filters.push('[' + curLabel + '][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[' + afterLogo + ']');
       filters.push('[' + afterLogo + ']' + txt + '[' + afterText + ']');
       curLabel = afterText;
     } else {
       const afterText = nextLabel();
-      filters.push('[' + curLabel + "]drawtext=text='Penc':fontcolor=white:fontsize=" + Math.round(fontSize * 1.5) + ":shadowcolor=black@0.6:shadowx=2:shadowy=2:x=" + textX + ":y=h-" + (safeY + m) + "-th-" + Math.round(fontSize * 2.2) + ',' + txt + '[' + afterText + ']');
+      filters.push('[' + curLabel + ']' + txt + '[' + afterText + ']');
       curLabel = afterText;
     }
   }
   if (filters.length) cmd = cmd.complexFilter(filters, curLabel);
   return new Promise((resolve, reject) => {
     var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'];
+    if (withWatermark) _outOpts.push('-metadata', 'comment=penc_wm');
     // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
     // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
     // Le '?' rend l'audio optionnel : aucune erreur si la vidéo source n'a pas de piste audio.
@@ -5270,6 +5270,7 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS poll JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS short_code TEXT;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_thumbs JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS tagged JSONB;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
@@ -7463,6 +7464,9 @@ async function _postEnrichMany(rows, meId){
   }
   const users = {};
   try{ (await pgFindUsersByIds(userIds)).forEach(function(u){ users[u.id]=u; }); }catch(_e){}
+  const _tagUsers = {};
+  try{ const _tids = Array.from(new Set([].concat.apply([], rows.concat(origRows).map(function(r){ try{ return r.tagged ? (typeof r.tagged==='string' ? JSON.parse(r.tagged) : r.tagged) : []; }catch(_){ return []; } })).map(String))).filter(function(id){ return !users[id]; });
+    if(_tids.length) (await pgFindUsersByIds(_tids)).forEach(function(u){ _tagUsers[String(u.id)]=u; }); }catch(_e){}
   const origById = {}; origRows.forEach(function(r){ origById[r.id]=r; });
   function one(row, withRepost){
     const a = users[row.user_id] || null;
@@ -7477,6 +7481,7 @@ async function _postEnrichMany(rows, meId){
       author_avatar: a ? (a.avatar_url || null) : null,
       author_verified: a ? !!(a.verified || a.business_verified) || String(row.user_id)==='penc_official' : false,
       author_followed: !!followed[String(row.user_id)],
+      tagged: (function(){ try{ const t = row.tagged ? (typeof row.tagged==='string' ? JSON.parse(row.tagged) : row.tagged) : []; return (t||[]).map(function(id){ const u = users[String(id)] || _tagUsers[String(id)]; return u ? { id:String(id), name: u.full_name || u.username || 'Utilisateur' } : null; }).filter(Boolean); }catch(_e){ return []; } })(),
       content: row.content || '',
       media_urls: media,
       bg: row.bg || null,
@@ -7540,7 +7545,10 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     if(!content.trim() && !media.length && !video) return res.status(400).json({ error: 'Publication vide' });
     let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && !poll && content.length<=300) ? String(req.body.bg) : null;
     const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, when]);
+    let tagged = Array.isArray(req.body.tagged) ? Array.from(new Set(req.body.tagged.map(String).filter(function(x){ return x && x !== String(uid); }))).slice(0, 10) : [];
+    if(tagged.length){ try{ const ok = await pgFindUsersByIds(tagged); tagged = ok.filter(function(u){ return !_areIsolated(uid, u.id); }).map(function(u){ return String(u.id); }); }catch(_tg){ tagged = []; } }
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,tagged,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, tagged.length ? JSON.stringify(tagged) : null, when]);
+    if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
     setImmediate(function(){ _gamBump(uid, 'post', 1); if(video) _gamBump(uid, 'video', 1); });
@@ -7621,7 +7629,7 @@ async function _filGlobalPool(){
 async function _filRankedFeed(uid, visible, opts){
   opts = opts || {};
   const c = _filRankCache.get(uid);
-  if(c && !opts.fresh && Date.now() - c.t < 45000) return c;
+  if(c && !opts.fresh && Date.now() - c.t < 20000) return c;
   const G = await _filGlobalPool();
   let pool = G.pool.filter(visible);
   const ids = pool.map(function(r){ return r.id; });
@@ -7668,6 +7676,14 @@ async function _filRankedFeed(uid, visible, opts){
     const it = scored.splice(k,1)[0]; rows.push(it.p);
     recent.push(String(it.p.user_id)); if(recent.length>2) recent.shift();
   }
+  // Découverte : 1 publication récente jamais vue, prise au hasard, toutes les 5 places (hors cercle habituel)
+  try{
+    const inRows = new Set(rows.slice(0, 60).map(function(p){ return p.id; }));
+    const fresh48 = pool.filter(function(p){ return !seen.has(p.id) && (now - new Date(p.created_at).getTime()) < 48*3600000 && !friends.has(String(p.user_id)) && !follows.has(String(p.user_id)) && String(p.user_id)!==String(uid); });
+    for(let i = fresh48.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = fresh48[i]; fresh48[i] = fresh48[j]; fresh48[j] = t; }
+    let pos = 4;
+    for(const p of fresh48){ if(pos >= Math.min(rows.length, 60)) break; if(inRows.has(p.id) && rows.indexOf(p) < pos) continue; const k = rows.indexOf(p); if(k > -1) rows.splice(k, 1); rows.splice(pos, 0, p); pos += 5; }
+  }catch(_d){}
   const oldest = pool.length ? pool[pool.length-1].created_at : null;
   const out = { t: Date.now(), rows: rows, oldest: oldest };
   _filRankCache.set(uid, out);
