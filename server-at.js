@@ -3675,6 +3675,7 @@ function _pencInDndWindow(start, end) {
   } catch (_e) { return false; }
 }
 async function sendPencPush(userId, payload) {
+  try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
   try {
     // Respecter le mute par conversation : ne pas notifier si l'utilisateur a coupé cette discussion
@@ -5271,6 +5272,8 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS short_code TEXT;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_thumbs JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS tagged JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS place TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mood TEXT;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
@@ -6013,7 +6016,7 @@ async function _gamBump(uid, kind, n){
     try{
       const r = await _pgPool.query('INSERT INTO penc_gam_prog(user_id,period,cid,progress,claimed) VALUES($1,$2,$3,LEAST($4,$5),FALSE) ON CONFLICT (user_id,period,cid) DO UPDATE SET progress=LEAST(penc_gam_prog.progress+$4,$5) RETURNING progress',[uid, period, c.id, n, c.target]);
       const p = r.rows[0] ? r.rows[0].progress : 0;
-      if(p >= c.target && p - n < c.target){ try{ emitToUser(uid, 'gam:done', { cid:c.id, period:period, title:c.title, xp:c.xp, icon:c.icon }); }catch(_e){} }
+      if(p >= c.target && p - n < c.target){ try{ emitToUsers([String(uid)], 'gam:done', { cid:c.id, period:period, title:c.title, xp:c.xp, icon:c.icon }); }catch(_e){} }
     }catch(e){ console.error('[gam] bump:', e.message); }
   }
 }
@@ -6033,7 +6036,7 @@ async function _gamStreakOnMessage(uid, convId){
       const d = up.rows[0].days;
       if([3,7,30,100].indexOf(d) > -1){
         const bonus = d===3?20:d===7?50:d===30?200:500; const lv = _gamStreakLevel(d);
-        for(const u of [a,b]){ await _gamAddXp(u, bonus); try{ emitToUser(u, 'gam:streak', { with: (u===a?b:a), days: d, icon: lv.icon, name: lv.name, xp: bonus }); }catch(_e){} }
+        for(const u of [a,b]){ await _gamAddXp(u, bonus); try{ emitToUsers([String(u)], 'gam:streak', { with: (u===a?b:a), days: d, icon: lv.icon, name: lv.name, xp: bonus }); }catch(_e){} }
       }
     }
   }catch(e){ console.error('[gam] streak:', e.message); }
@@ -7481,6 +7484,7 @@ async function _postEnrichMany(rows, meId){
       author_avatar: a ? (a.avatar_url || null) : null,
       author_verified: a ? !!(a.verified || a.business_verified) || String(row.user_id)==='penc_official' : false,
       author_followed: !!followed[String(row.user_id)],
+      place: row.place || null, mood: row.mood || null,
       tagged: (function(){ try{ const t = row.tagged ? (typeof row.tagged==='string' ? JSON.parse(row.tagged) : row.tagged) : []; return (t||[]).map(function(id){ const u = users[String(id)] || _tagUsers[String(id)]; return u ? { id:String(id), name: u.full_name || u.username || 'Utilisateur' } : null; }).filter(Boolean); }catch(_e){ return []; } })(),
       content: row.content || '',
       media_urls: media,
@@ -7548,6 +7552,9 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     let tagged = Array.isArray(req.body.tagged) ? Array.from(new Set(req.body.tagged.map(String).filter(function(x){ return x && x !== String(uid); }))).slice(0, 10) : [];
     if(tagged.length){ try{ const ok = await pgFindUsersByIds(tagged); tagged = ok.filter(function(u){ return !_areIsolated(uid, u.id); }).map(function(u){ return String(u.id); }); }catch(_tg){ tagged = []; } }
     await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,tagged,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, tagged.length ? JSON.stringify(tagged) : null, when]);
+    const _place = String(req.body.place||'').replace(/[<>]/g,'').trim().slice(0,60) || null;
+    const _mood = String(req.body.mood||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+    if(_place || _mood){ try{ await _pgPool.query('UPDATE penc_posts SET place=$1, mood=$2 WHERE id=$3',[_place, _mood, id]); }catch(_pm){} }
     if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
