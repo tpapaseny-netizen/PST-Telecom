@@ -4358,7 +4358,7 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
     const text = ('@' + uname + '  ·  Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
     const fontSize = Math.max(14, Math.round(Math.min(W, H) * 0.042));
     const pad = Math.round(fontSize * 0.5);
-    const txt = "drawtext=text='" + text + "':fontcolor=white@0.97:fontsize=" + fontSize + ":box=1:boxcolor=black@0.40:boxborderw=" + pad + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th";
+    const txt = "drawtext=text='" + text + "':fontcolor=0xCFE6FF:fontsize=" + fontSize + ":box=1:boxcolor=0x0B1B33@0.55:boxborderw=" + pad + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th";
     const logoBuf = await _loadWatermarkLogo();
     if (logoBuf) {
       logoTmpPath = pathMod.join(os.tmpdir(), 'wmlogo_' + Date.now() + '.png');
@@ -8208,6 +8208,49 @@ app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
     res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
 });
 app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
+// Temps d'utilisation : l'app envoie un signal par minute passée à l'écran
+let _presTblOk = false;
+async function _presTbl(){ if(_presTblOk) return; await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_user_time (user_id TEXT NOT NULL, day DATE NOT NULL, seconds INT DEFAULT 0, sessions INT DEFAULT 0, first_at TIMESTAMPTZ DEFAULT NOW(), last_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, day))'); _presTblOk = true; }
+app.post('/api/penc/presence/tick', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ok: true });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'tick', 3, 50000)) return res.json({ ok: true });
+    await _presTbl();
+    const sec = Math.max(0, Math.min(90, parseInt(req.body.seconds)||60)); const start = req.body.start ? 1 : 0;
+    await _pgPool.query('INSERT INTO penc_user_time(user_id,day,seconds,sessions,first_at,last_at) VALUES($1,CURRENT_DATE,$2,$3,NOW(),NOW()) ON CONFLICT (user_id,day) DO UPDATE SET seconds=penc_user_time.seconds+$2, sessions=penc_user_time.sessions+$3, last_at=NOW()',[uid, sec, start]);
+    try{ await _pgPool.query('UPDATE penc_users SET last_seen=NOW() WHERE id=$1',[uid]); }catch(_l){}
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.get('/api/penc/admin/users/report', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    await _presTbl();
+    const q = String(req.query.q||'').trim().slice(0,60); const sort = String(req.query.sort||'recent');
+    const orderBy = { recent:'u.last_seen DESC NULLS LAST', new:'u.created_at DESC NULLS LAST', old:'u.created_at ASC NULLS LAST', name:'u.full_name ASC' }[sort] || 'u.last_seen DESC NULLS LAST';
+    const where = q ? "WHERE (u.full_name ILIKE $1 OR u.username ILIKE $1 OR u.phone ILIKE $1 OR u.email ILIKE $1)" : '';
+    const ur = await _pgPool.query('SELECT u.id, u.full_name, u.username, u.phone, u.email, u.avatar_url, u.created_at, u.last_seen, u.is_online, u.geo FROM penc_users u ' + where + ' ORDER BY ' + orderBy + ' LIMIT 100', q ? ['%'+q+'%'] : []);
+    const ids = ur.rows.map(function(x){ return x.id; });
+    const cm = async function(sql){ const m = {}; try{ (await _pgPool.query(sql,[ids])).rows.forEach(function(r){ m[r.k] = r; }); }catch(e){} return m; };
+    const msgs = await cm("SELECT sender_id AS k, COUNT(*)::int AS n, MAX(created_at) AS last FROM penc_messages WHERE sender_id = ANY($1) GROUP BY sender_id");
+    const posts = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_posts WHERE user_id = ANY($1) AND deleted=FALSE GROUP BY user_id");
+    const cmts = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE user_id = ANY($1) GROUP BY user_id");
+    const rx = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE user_id = ANY($1) GROUP BY user_id");
+    const st = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_statuses WHERE user_id = ANY($1) GROUP BY user_id");
+    const tm = await cm("SELECT user_id AS k, SUM(seconds)::int AS n, SUM(CASE WHEN day > CURRENT_DATE - 7 THEN seconds ELSE 0 END)::int AS w, SUM(sessions)::int AS s, COUNT(*)::int AS days, MAX(last_at) AS last FROM penc_user_time WHERE user_id = ANY($1) GROUP BY user_id");
+    const fr = await cm("SELECT CASE WHEN requester = ANY($1) THEN requester ELSE recipient END AS k, COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester = ANY($1) OR recipient = ANY($1)) GROUP BY 1");
+    const totals = {};
+    try{ const t = await _pgPool.query("SELECT COUNT(*)::int AS users, SUM(CASE WHEN last_seen > NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END)::int AS day, SUM(CASE WHEN last_seen > NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS week, SUM(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS newweek FROM penc_users"); Object.assign(totals, t.rows[0]); }catch(_t){}
+    try{ const t2 = await _pgPool.query("SELECT COALESCE(SUM(seconds),0)::int AS sec, COUNT(DISTINCT user_id)::int AS n FROM penc_user_time WHERE day = CURRENT_DATE"); totals.today_seconds = t2.rows[0].sec; totals.today_users = t2.rows[0].n; }catch(_t){}
+    res.json({ totals: totals, users: ur.rows.map(function(u){ let geo = {}; try{ geo = u.geo ? (typeof u.geo==='string'?JSON.parse(u.geo):u.geo) : {}; }catch(_){}
+      const t = tm[u.id] || {};
+      const lastTime = [u.last_seen, t.last, (msgs[u.id]||{}).last].filter(Boolean).map(function(d){ return new Date(d).getTime(); });
+      return { id:u.id, full_name:u.full_name||'', username:u.username||'', phone:u.phone||'', email:u.email||'', avatar_url:u.avatar_url||null,
+        joined:u.created_at, last_seen: lastTime.length ? new Date(Math.max.apply(null,lastTime)).toISOString() : null, online:!!u.is_online, city:geo.city||'', country:geo.country||'',
+        time_total:t.n||0, time_week:t.w||0, sessions:t.s||0, active_days:t.days||0,
+        messages:(msgs[u.id]||{}).n||0, posts:(posts[u.id]||{}).n||0, comments:(cmts[u.id]||{}).n||0, reactions:(rx[u.id]||{}).n||0, statuses:(st[u.id]||{}).n||0, friends:(fr[u.id]||{}).n||0 }; }) });
+  }catch(e){ console.error('users report:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
 // ══ Site vitrine : mesure d'audience anonyme (aucun cookie, aucune donnée personnelle) ══
 let _siteTblOk = false;
 async function _siteTbl(){ if(_siteTblOk) return; await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_site_events (id BIGSERIAL PRIMARY KEY, vid TEXT, kind TEXT, path TEXT, ref TEXT, country TEXT, device TEXT, utm TEXT, created_at TIMESTAMPTZ DEFAULT NOW())'); await _pgPool.query('CREATE INDEX IF NOT EXISTS idx_site_ev_time ON penc_site_events(created_at DESC)'); _siteTblOk = true; }
