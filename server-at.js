@@ -4149,7 +4149,7 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings', bg_audio: 'penc/bg-audio'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings', bg_audio: 'penc/bg-audio', music_track: 'penc/music'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
@@ -4318,7 +4318,7 @@ async function _ffprobeMeta(inputPath, timeoutMs) {
     });
   });
 }
-async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark, blurRect) {
+async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark, blurRect, audioPath) {
   const ffmpeg = _ffmpegBin();
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   const probe = await _ffprobeMeta(inputPath);
@@ -4376,16 +4376,19 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
       curLabel = afterText;
     }
   }
+  let audioInputIdx = null;
+  if (audioPath) { cmd = cmd.input(audioPath).inputOptions(['-stream_loop', '-1']); audioInputIdx = logoTmpPath ? 2 : 1; }
   if (filters.length) cmd = cmd.complexFilter(filters, curLabel);
   return new Promise((resolve, reject) => {
-    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'];
+    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart', '-shortest'];
     if (withWatermark) _outOpts.push('-metadata', 'comment=penc_wm');
     // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
     // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
     // Le '?' rend l'audio optionnel : aucune erreur si la vidéo source n'a pas de piste audio.
     // Nécessaire dès qu'un complexFilter est utilisé (filigrane OU floutage de zone), pas
     // seulement pour le filigrane avec logo comme avant.
-    if (filters.length) { _outOpts.unshift('-map', '0:a?'); }
+    if (audioInputIdx !== null) { _outOpts.unshift('-map', audioInputIdx + ':a'); }        // musique choisie : remplace le son d'origine
+    else if (filters.length) { _outOpts.unshift('-map', '0:a?'); }
     cmd.outputOptions(_outOpts)
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
@@ -4685,8 +4688,20 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       fs.writeFileSync(tmpIn, buf);
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
-      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ', floutage=' + (blurRect ? 'oui' : 'non') + ')...');
-      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect);
+      // Musique choisie sur une vidéo du Fil : téléchargée depuis R2 puis mixée par ffmpeg
+      let audioPath = null;
+      if (req.body.audio_track_id && type === 'video') {
+        try{
+          const tr = await _pgPool.query('SELECT url FROM penc_audio_tracks WHERE id=$1',[req.body.audio_track_id]);
+          if (tr.rows.length) {
+            const aBuf = await (async function(){ const u = new URL(tr.rows[0].url); const kk = decodeURIComponent(u.pathname.replace(/^\//,'')); return r2GetBuffer(kk); })();
+            audioPath = pathMod.join(os.tmpdir(), 'aud_' + Date.now() + '.mp3');
+            fs.writeFileSync(audioPath, aBuf); tmpFiles.push(audioPath);
+          }
+        }catch(_at){ console.error('[media/process] musique indisponible:', _at.message); audioPath = null; }
+      }
+      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ', floutage=' + (blurRect ? 'oui' : 'non') + ', musique=' + (audioPath?'oui':'non') + ')...');
+      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect, audioPath);
       console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const url = await r2PutBuffer(key, outBuf, 'video/mp4');
@@ -5274,6 +5289,16 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS tagged JSONB;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS place TEXT;
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mood TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS kind TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_mixed JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ad_price TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ad_category TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_date TIMESTAMPTZ;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_place TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_reminded BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_event_rsvp (post_id TEXT NOT NULL, user_id TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_event_rsvp_post ON penc_event_rsvp(post_id);
+      CREATE TABLE IF NOT EXISTS penc_audio_tracks (id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, duration INT, uploaded_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
@@ -7467,6 +7492,14 @@ async function _postEnrichMany(rows, meId){
   }
   const users = {};
   try{ (await pgFindUsersByIds(userIds)).forEach(function(u){ users[u.id]=u; }); }catch(_e){}
+  const _evGoing = {}, _evInterested = {}, _evMine = {};
+  try{
+    const evIds = rows.concat(origRows).filter(function(r){ return r.kind==='event'; }).map(function(r){ return r.id; });
+    if(evIds.length){
+      (await _pgPool.query("SELECT post_id, status, COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id = ANY($1) GROUP BY 1,2",[evIds])).rows.forEach(function(r){ if(r.status==='going') _evGoing[r.post_id]=r.n; else _evInterested[r.post_id]=r.n; });
+      if(meId){ (await _pgPool.query('SELECT post_id, status FROM penc_event_rsvp WHERE post_id = ANY($1) AND user_id=$2',[evIds, meId])).rows.forEach(function(r){ _evMine[r.post_id]=r.status; }); }
+    }
+  }catch(_ev){}
   const _tagUsers = {};
   try{ const _tids = Array.from(new Set([].concat.apply([], rows.concat(origRows).map(function(r){ try{ return r.tagged ? (typeof r.tagged==='string' ? JSON.parse(r.tagged) : r.tagged) : []; }catch(_){ return []; } })).map(String))).filter(function(id){ return !users[id]; });
     if(_tids.length) (await pgFindUsersByIds(_tids)).forEach(function(u){ _tagUsers[String(u.id)]=u; }); }catch(_e){}
@@ -7485,6 +7518,10 @@ async function _postEnrichMany(rows, meId){
       author_verified: a ? !!(a.verified || a.business_verified) || String(row.user_id)==='penc_official' : false,
       author_followed: !!followed[String(row.user_id)],
       place: row.place || null, mood: row.mood || null,
+      kind: row.kind || null, ad_price: row.ad_price || null, ad_category: row.ad_category || null,
+      ev_date: row.ev_date || null, ev_place: row.ev_place || null,
+      rsvp_going: _evGoing[row.id] || 0, rsvp_interested: _evInterested[row.id] || 0, my_rsvp: _evMine[row.id] || null,
+      media_mixed: (function(){ try{ return row.media_mixed ? (typeof row.media_mixed==='string'?JSON.parse(row.media_mixed):row.media_mixed) : null; }catch(_e){ return null; } })(),
       tagged: (function(){ try{ const t = row.tagged ? (typeof row.tagged==='string' ? JSON.parse(row.tagged) : row.tagged) : []; return (t||[]).map(function(id){ const u = users[String(id)] || _tagUsers[String(id)]; return u ? { id:String(id), name: u.full_name || u.username || 'Utilisateur' } : null; }).filter(Boolean); }catch(_e){ return []; } })(),
       content: row.content || '',
       media_urls: media,
@@ -7537,6 +7574,29 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     let media = Array.isArray(req.body.media_urls) ? req.body.media_urls.filter(_filOkMedia).slice(0, 10) : [];
     const video = _filCleanVideo(req.body.video);
     if(video) media = [];   // une vidéo se publie seule
+    // Carrousel mixte : plusieurs photos ET vidéos courtes dans une seule publication, dans l'ordre choisi
+    let mediaMixed = null;
+    if(Array.isArray(req.body.media_mixed) && req.body.media_mixed.length){
+      mediaMixed = req.body.media_mixed.slice(0, 10).map(function(it){
+        if(!it || !_filOkMedia(it.url)) return null;
+        const t = it.type === 'video' ? 'video' : 'image';
+        return { type: t, url: it.url, poster: (t==='video' && _filOkMedia(it.poster)) ? it.poster : null, duration: t==='video' ? (Math.min(60, Math.max(1, parseInt(it.duration)||0))||null) : null };
+      }).filter(Boolean);
+      if(mediaMixed.length < 2) mediaMixed = null; else { media = []; }
+    }
+    const kind = ['ad','event'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
+    let adPrice = null, adCategory = null, evDate = null, evPlace = null;
+    if(kind === 'ad'){
+      adPrice = String(req.body.ad_price||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+      adCategory = String(req.body.ad_category||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+    }
+    if(kind === 'event'){
+      const t = new Date(req.body.ev_date).getTime();
+      if(!isFinite(t) || t < Date.now() - 3600000) return res.status(400).json({ error: "Choisis une date d'événement valide" });
+      evDate = new Date(t).toISOString();
+      evPlace = String(req.body.ev_place||'').replace(/[<>]/g,'').trim().slice(0,80) || null;
+      if(!evPlace) return res.status(400).json({ error: "Indique un lieu pour l'événement" });
+    }
     let thumbs = Array.isArray(req.body.media_thumbs) ? req.body.media_thumbs.slice(0, media.length).map(function(u){ return _filOkMedia(u) ? u : null; }) : [];
     if(thumbs.length !== media.length || thumbs.some(function(x){ return !x; })) thumbs = null;
     const poll = (!video && !media.length) ? _filCleanPoll(req.body.poll) : null;
@@ -7551,7 +7611,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     let tagged = Array.isArray(req.body.tagged) ? Array.from(new Set(req.body.tagged.map(String).filter(function(x){ return x && x !== String(uid); }))).slice(0, 10) : [];
     if(tagged.length){ try{ const ok = await pgFindUsersByIds(tagged); tagged = ok.filter(function(u){ return !_areIsolated(uid, u.id); }).map(function(u){ return String(u.id); }); }catch(_tg){ tagged = []; } }
-    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,tagged,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, tagged.length ? JSON.stringify(tagged) : null, when]);
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,tagged,kind,media_mixed,ad_price,ad_category,ev_date,ev_place,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,COALESCE($16::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, tagged.length ? JSON.stringify(tagged) : null, kind, mediaMixed ? JSON.stringify(mediaMixed) : null, adPrice, adCategory, evDate, evPlace, when]);
     const _place = String(req.body.place||'').replace(/[<>]/g,'').trim().slice(0,60) || null;
     const _mood = String(req.body.mood||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
     if(_place || _mood){ try{ await _pgPool.query('UPDATE penc_posts SET place=$1, mood=$2 WHERE id=$3',[_place, _mood, id]); }catch(_pm){} }
@@ -10316,6 +10376,51 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 
 // Récupération de la sauvegarde chiffrée de la clé E2E (nouvel appareil, réinstallation).
 // Servie uniquement à son propriétaire (identité prise du jeton), jamais via un lien public.
+// ── Événements : « J'y vais » / « Intéressé·e » ──
+app.post('/api/penc/posts/:id/rsvp', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const status = ['going','interested'].indexOf(String(req.body.status)) > -1 ? String(req.body.status) : null;
+    const p = await _pgPool.query("SELECT kind FROM penc_posts WHERE id=$1 AND deleted=FALSE",[pid]);
+    if(!p.rows.length || p.rows[0].kind !== 'event') return res.status(404).json({ error: 'Événement introuvable' });
+    if(!status){ await _pgPool.query('DELETE FROM penc_event_rsvp WHERE post_id=$1 AND user_id=$2',[pid, uid]); }
+    else { await _pgPool.query('INSERT INTO penc_event_rsvp(post_id,user_id,status,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET status=$3',[pid, uid, status]); }
+    const g = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id=$1 AND status='going'",[pid]);
+    const i = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id=$1 AND status='interested'",[pid]);
+    res.json({ success: true, my_rsvp: status, rsvp_going: g.rows[0].n, rsvp_interested: i.rows[0].n });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Bibliothèque musicale (pour poser une musique sur une vidéo du Fil) ──
+async function _eventReminders(){
+  if(!_pgPool) return;
+  try{
+    const r = await _pgPool.query("SELECT id, user_id, content, ev_date, ev_place FROM penc_posts WHERE kind='event' AND deleted=FALSE AND ev_reminded=FALSE AND ev_date IS NOT NULL AND ev_date > NOW() AND ev_date <= NOW() + INTERVAL '25 hours'");
+    for(const ev of r.rows){
+      const rs = await _pgPool.query("SELECT user_id FROM penc_event_rsvp WHERE post_id=$1 AND status IN ('going','interested')",[ev.id]);
+      const when = new Date(ev.ev_date).toLocaleString('fr-FR',{weekday:'long',hour:'2-digit',minute:'2-digit'});
+      const title = String(ev.content||'Événement').split('\n')[0].slice(0,60);
+      for(const p of rs.rows){ try{ sendPencPush(p.user_id, { title: '🗓️ Demain : ' + title, body: (ev.ev_place||'') + ' · ' + when, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-event-'+ev.id, data:{ type:'post', post_id: ev.id, url:'/messager?post='+ev.id } }); }catch(_p){} }
+      await _pgPool.query('UPDATE penc_posts SET ev_reminded=TRUE WHERE id=$1',[ev.id]);
+      console.log('[event] rappel envoyé pour ' + ev.id + ' à ' + rs.rows.length + ' personne(s)');
+    }
+  }catch(e){ console.error('[event] rappel:', e.message); }
+}
+setInterval(_eventReminders, 15*60000); setTimeout(_eventReminders, 20000);
+app.get('/api/penc/audio/tracks', pencAuth, async (req, res) => {
+  try{ const r = await _pgPool.query('SELECT id, name, url, duration FROM penc_audio_tracks ORDER BY created_at DESC LIMIT 100'); res.json({ tracks: r.rows }); }catch(e){ res.json({ tracks: [] }); }
+});
+app.post('/api/penc/audio/tracks', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const url = String(req.body.url||''); const name = String(req.body.name||'').replace(/[<>]/g,'').trim().slice(0,60);
+    if(!_filOkMedia(url) || !name) return res.status(400).json({ error: 'Nom ou fichier manquant' });
+    const id = 'track_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await _pgPool.query('INSERT INTO penc_audio_tracks(id,name,url,duration,uploaded_by,created_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, name, url, Math.max(0,parseInt(req.body.duration)||0)||null, req.pencUser.userId]);
+    res.json({ success: true, id });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.delete('/api/penc/audio/tracks/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _pgPool.query('DELETE FROM penc_audio_tracks WHERE id=$1',[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
 app.get('/api/penc/keybackup/download', pencAuth, async (req, res) => {
   try{
     const uid = String(req.pencUser.userId);
