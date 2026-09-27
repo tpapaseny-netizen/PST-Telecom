@@ -10314,6 +10314,20 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
+// Récupération de la sauvegarde chiffrée de la clé E2E (nouvel appareil, réinstallation).
+// Servie uniquement à son propriétaire (identité prise du jeton), jamais via un lien public.
+app.get('/api/penc/keybackup/download', pencAuth, async (req, res) => {
+  try{
+    const uid = String(req.pencUser.userId);
+    if(!_filRate(uid, 'kb_dl', 10, 3600000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie plus tard' });
+    const buf = await r2GetBuffer('penc/keybackup/' + uid + '.enc');
+    let obj = null; try{ obj = JSON.parse(buf.toString('utf8')); }catch(_p){}
+    if(!obj) return res.status(404).json({ error: 'Sauvegarde introuvable' });
+    res.set('Cache-Control', 'no-store');
+    res.json(obj);
+  }catch(e){ res.status(404).json({ error: 'Sauvegarde introuvable' }); }
+});
+
 app.get('/api/penc/referral/mine', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ code:null, count:0 });
