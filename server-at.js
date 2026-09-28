@@ -5298,6 +5298,18 @@ async function initPgPenc(){
       ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_reminded BOOLEAN DEFAULT FALSE;
       CREATE TABLE IF NOT EXISTS penc_event_rsvp (post_id TEXT NOT NULL, user_id TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
       CREATE INDEX IF NOT EXISTS idx_event_rsvp_post ON penc_event_rsvp(post_id);
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS group_id TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS group_private BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_goal INT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_deadline TIMESTAMPTZ;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_wave TEXT;
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_group ON penc_posts(group_id, created_at DESC) WHERE group_id IS NOT NULL;
+      CREATE TABLE IF NOT EXISTS penc_fil_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, avatar_url TEXT, owner_id TEXT NOT NULL, privacy TEXT DEFAULT 'public', category TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_fil_group_members (group_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT DEFAULT 'member', status TEXT DEFAULT 'member', joined_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (group_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_fgm_user ON penc_fil_group_members(user_id);
+      CREATE TABLE IF NOT EXISTS penc_fil_lives (id TEXT PRIMARY KEY, host_id TEXT NOT NULL, title TEXT, room TEXT NOT NULL, status TEXT DEFAULT 'live', peak INT DEFAULT 0, started_at TIMESTAMPTZ DEFAULT NOW(), ended_at TIMESTAMPTZ);
+      CREATE TABLE IF NOT EXISTS penc_fund_contribs (id TEXT PRIMARY KEY, post_id TEXT NOT NULL, user_id TEXT NOT NULL, amount INT NOT NULL, method TEXT NOT NULL, ref TEXT, status TEXT DEFAULT 'pending', anonymous BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_fund_post ON penc_fund_contribs(post_id);
       CREATE TABLE IF NOT EXISTS penc_audio_tracks (id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, duration INT, uploaded_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
       ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
@@ -7500,6 +7512,10 @@ async function _postEnrichMany(rows, meId){
       if(meId){ (await _pgPool.query('SELECT post_id, status FROM penc_event_rsvp WHERE post_id = ANY($1) AND user_id=$2',[evIds, meId])).rows.forEach(function(r){ _evMine[r.post_id]=r.status; }); }
     }
   }catch(_ev){}
+  const _grpNames = {}, _fundRaised = {}, _fundPending = {}, _fundCount = {};
+  try{ const gids = Array.from(new Set(rows.concat(origRows).map(function(r){ return r.group_id; }).filter(Boolean))); if(gids.length) (await _pgPool.query('SELECT id, name FROM penc_fil_groups WHERE id = ANY($1)',[gids])).rows.forEach(function(g){ _grpNames[g.id]=g.name; }); }catch(_g){}
+  try{ const fids = rows.concat(origRows).filter(function(r){ return r.kind==='fund'; }).map(function(r){ return r.id; });
+    if(fids.length) (await _pgPool.query("SELECT post_id, SUM(CASE WHEN status='confirmed' THEN amount ELSE 0 END)::int AS ok, SUM(CASE WHEN status='pending' THEN amount ELSE 0 END)::int AS pend, COUNT(DISTINCT CASE WHEN status='confirmed' THEN user_id END)::int AS n FROM penc_fund_contribs WHERE post_id = ANY($1) GROUP BY post_id",[fids])).rows.forEach(function(r){ _fundRaised[r.post_id]=r.ok; _fundPending[r.post_id]=r.pend; _fundCount[r.post_id]=r.n; }); }catch(_f){}
   const _tagUsers = {};
   try{ const _tids = Array.from(new Set([].concat.apply([], rows.concat(origRows).map(function(r){ try{ return r.tagged ? (typeof r.tagged==='string' ? JSON.parse(r.tagged) : r.tagged) : []; }catch(_){ return []; } })).map(String))).filter(function(id){ return !users[id]; });
     if(_tids.length) (await pgFindUsersByIds(_tids)).forEach(function(u){ _tagUsers[String(u.id)]=u; }); }catch(_e){}
@@ -7519,6 +7535,9 @@ async function _postEnrichMany(rows, meId){
       author_followed: !!followed[String(row.user_id)],
       place: row.place || null, mood: row.mood || null,
       kind: row.kind || null, ad_price: row.ad_price || null, ad_category: row.ad_category || null,
+      group_id: row.group_id || null, group_name: row.group_id ? (_grpNames[row.group_id] || null) : null,
+      fund_goal: row.fund_goal || null, fund_deadline: row.fund_deadline || null, fund_wave: (row.fund_wave && meId) ? row.fund_wave : null,
+      fund_raised: _fundRaised[row.id] || 0, fund_pending: _fundPending[row.id] || 0, fund_count: _fundCount[row.id] || 0,
       ev_date: row.ev_date || null, ev_place: row.ev_place || null,
       rsvp_going: _evGoing[row.id] || 0, rsvp_interested: _evInterested[row.id] || 0, my_rsvp: _evMine[row.id] || null,
       media_mixed: (function(){ try{ return row.media_mixed ? (typeof row.media_mixed==='string'?JSON.parse(row.media_mixed):row.media_mixed) : null; }catch(_e){ return null; } })(),
@@ -7584,7 +7603,21 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
       }).filter(Boolean);
       if(mediaMixed.length < 2) mediaMixed = null; else { media = []; }
     }
-    const kind = ['ad','event'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
+    const kind = ['ad','event','fund'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
+    // Publication dans un groupe : seulement pour ses membres
+    let groupId = null, groupPrivate = false;
+    if(req.body.group_id){
+      const gm = await _pgPool.query("SELECT g.privacy FROM penc_fil_groups g JOIN penc_fil_group_members m ON m.group_id=g.id AND m.user_id=$2 AND m.status='member' WHERE g.id=$1",[String(req.body.group_id), uid]);
+      if(!gm.rows.length) return res.status(403).json({ error: 'Rejoins le groupe pour y publier' });
+      groupId = String(req.body.group_id); groupPrivate = gm.rows[0].privacy === 'private';
+    }
+    let fundGoal = null, fundDeadline = null, fundWave = null;
+    if(kind === 'fund'){
+      fundGoal = Math.max(1000, Math.min(100000000, parseInt(req.body.fund_goal)||0));
+      if(!parseInt(req.body.fund_goal)) return res.status(400).json({ error: "Indique l'objectif de la collecte" });
+      const d = new Date(req.body.fund_deadline).getTime(); if(isFinite(d) && d > Date.now()) fundDeadline = new Date(d).toISOString();
+      fundWave = String(req.body.fund_wave||'').replace(/[^0-9+ ]/g,'').trim().slice(0,20) || null;
+    }
     let adPrice = null, adCategory = null, evDate = null, evPlace = null;
     if(kind === 'ad'){
       adPrice = String(req.body.ad_price||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
@@ -7615,6 +7648,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     const _place = String(req.body.place||'').replace(/[<>]/g,'').trim().slice(0,60) || null;
     const _mood = String(req.body.mood||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
     if(_place || _mood){ try{ await _pgPool.query('UPDATE penc_posts SET place=$1, mood=$2 WHERE id=$3',[_place, _mood, id]); }catch(_pm){} }
+    if(groupId || fundGoal){ try{ await _pgPool.query('UPDATE penc_posts SET group_id=$1, group_private=$2, fund_goal=$3, fund_deadline=$4, fund_wave=$5 WHERE id=$6',[groupId, groupPrivate, fundGoal, fundDeadline, fundWave, id]); }catch(_gf){ console.error('[post] groupe/collecte:', _gf.message); } }
     if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
@@ -7654,11 +7688,11 @@ app.get('/api/penc/posts', pencAuth, async (req, res) => {
       const circle = [String(uid)];
       try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1',[uid])).rows.forEach(function(x){ circle.push(String(x.followee)); }); }catch(_e){}
       try{ (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ circle.push(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
-      if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND user_id = ANY($1) AND created_at <= NOW() AND created_at < $2 ORDER BY created_at DESC LIMIT $3'; args = [circle, before, limit]; }
-      else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND user_id = ANY($1) AND created_at <= NOW() ORDER BY created_at DESC LIMIT $2'; args = [circle, limit]; }
+      if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND user_id = ANY($1) AND created_at <= NOW() AND created_at < $2 ORDER BY created_at DESC LIMIT $3'; args = [circle, before, limit]; }
+      else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND user_id = ANY($1) AND created_at <= NOW() ORDER BY created_at DESC LIMIT $2'; args = [circle, limit]; }
     }
-    else if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2'; args = [before, limit]; }
-    else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT $1'; args = [limit]; }
+    else if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2'; args = [before, limit]; }
+    else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY created_at DESC LIMIT $1'; args = [limit]; }
     const r = await _pgPool.query(q, args);
     res.json({ posts: await _postEnrichMany(r.rows.filter(visible), uid), more: r.rows.length >= limit });
   }catch(e){ console.error('list posts:', e.message); res.json({ posts: [] }); }
@@ -7677,8 +7711,8 @@ async function _filGlobalPool(){
   if(_filGlobal && Date.now() - _filGlobal.t < 60000) return _filGlobal;
   if(_filGlobalP) return _filGlobalP;
   _filGlobalP = (async function(){
-    let pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT 500")).rows;
-    if(pool.length < 60){ pool = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 200')).rows; }
+    let pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT 500")).rows;
+    if(pool.length < 60){ pool = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 200')).rows; }
     const ids = pool.map(function(r){ return r.id; });
     const g = { t: Date.now(), pool: pool, ids: ids,
       likes: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
@@ -7763,7 +7797,7 @@ app.get('/api/penc/posts/user/:id', pencAuth, async (req, res) => {
     if(!_pgPool) return res.json({ posts: [] });
     const uid = req.pencUser.userId; const target = req.params.id;
     if(_areIsolated(uid, target) || await pgIsBlocked(uid, target)) return res.status(403).json({ error: 'Indisponible', posts: [] });
-    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND ($2 OR created_at <= NOW()) ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 60',[target, String(target)===String(uid)]);
+    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND ($2 OR created_at <= NOW()) ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 60',[target, String(target)===String(uid)]);
     res.json({ posts: await _postEnrichMany(r.rows, uid) });
   }catch(e){ res.json({ posts: [] }); }
 });
@@ -7842,7 +7876,7 @@ app.get('/api/penc/reels', pencAuth, async (req, res) => {
     const exclude = new Set(String(req.query.exclude||'').split(',').filter(Boolean).slice(0, 300));
     const blocked = await _filBlockedSet(uid);
     const visible = _filVisible(uid, blocked);
-    const pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND video IS NOT NULL AND created_at <= NOW() AND created_at > NOW() - INTERVAL '90 days' ORDER BY created_at DESC LIMIT 400")).rows.filter(visible).filter(function(p){ return !exclude.has(p.id); });
+    const pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND video IS NOT NULL AND created_at <= NOW() AND created_at > NOW() - INTERVAL '90 days' ORDER BY created_at DESC LIMIT 400")).rows.filter(visible).filter(function(p){ return !exclude.has(p.id); });
     let seed = null;
     if(req.query.seed){ try{ seed = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[String(req.query.seed)])).rows[0] || null; }catch(_s){} }
     const tagsOf = function(t){ return new Set(((String(t||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])); };
@@ -8061,7 +8095,7 @@ app.get('/api/penc/fil/trends', pencAuth, async (req, res) => {
     }
     const blocked = await _filBlockedSet(uid);
     if(!base.totals){ base.totals = {}; const allTags = Array.from(new Set((base.tags||[]).concat(base.local_tags||[], base.city_tags||[]).map(function(t){ return t.tag; }))).slice(0, 20);
-      for(const t of allTags){ try{ base.totals[t] = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND content ILIKE $1',['%'+t+'%'])).rows[0].n; }catch(_t){} } }
+      for(const t of allTags){ try{ base.totals[t] = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND content ILIKE $1',['%'+t+'%'])).rows[0].n; }catch(_t){} } }
     const withTot = function(arr){ return (arr||[]).map(function(x){ return { tag:x.tag, count:x.count, total: base.totals[x.tag] || x.count }; }); };
     base.tags = withTot(base.tags); base.local_tags = withTot(base.local_tags); base.city_tags = withTot(base.city_tags);
     res.json({ country: country, city: city, tags: base.tags, local_tags: base.local_tags, city_tags: base.city_tags, videos: await _postEnrichMany(base.vrows.filter(_filVisible(uid, blocked)).slice(0, 8), uid) });
@@ -8167,7 +8201,7 @@ app.get('/api/penc/public/posts', async (req, res) => {
   try{
     const limit = Math.min(parseInt(req.query.limit)||20, 40); const before = req.query.before ? String(req.query.before) : null;
     let rows;
-    if(before) rows = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2',[before, limit])).rows;
+    if(before) rows = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2',[before, limit])).rows;
     else { const G = await _filGlobalPool(); const sc = G.pool.map(function(p){ const ageH = Math.max(0,(Date.now()-new Date(p.created_at).getTime())/3600000); return { p:p, s: Math.log2(2+(G.likes[p.id]||0)+2.5*(G.comments[p.id]||0)+3*(G.reposts[p.id]||0)) * Math.pow(ageH+2,-1.2) }; }).sort(function(a,b){ return b.s-a.s; }); rows = sc.slice(0, limit).map(function(x){ return x.p; }); }
     res.json({ posts: await _postEnrichMany(rows, null), guest: true, more: rows.length >= limit });
   }catch(e){ res.json({ posts: [] }); }
@@ -8178,7 +8212,7 @@ app.get('/api/penc/public/posts/by-code/:code', async (req, res) => {
 });
 app.get('/api/penc/public/posts/user/:id', async (req, res) => {
   if(!_pubGuard(req, res)) return;
-  try{ const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND created_at <= NOW() ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 40',[req.params.id]); res.json({ posts: await _postEnrichMany(r.rows, null) }); }catch(e){ res.json({ posts: [] }); }
+  try{ const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 40',[req.params.id]); res.json({ posts: await _postEnrichMany(r.rows, null) }); }catch(e){ res.json({ posts: [] }); }
 });
 app.get('/api/penc/public/posts/:id', async (req, res) => {
   if(!_pubGuard(req, res)) return;
@@ -8195,20 +8229,20 @@ app.get('/api/penc/public/posts/:id/comments', async (req, res) => {
 });
 app.get('/api/penc/public/reels', async (req, res) => {
   if(!_pubGuard(req, res)) return;
-  try{ const ex = String(req.query.exclude||'').split(',').filter(Boolean).slice(0,300); const r = await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND video IS NOT NULL AND created_at <= NOW() AND NOT (id = ANY($1)) ORDER BY created_at DESC LIMIT 10",[ex]); res.json({ posts: await _postEnrichMany(r.rows, null), more: r.rows.length >= 10 }); }catch(e){ res.json({ posts: [] }); }
+  try{ const ex = String(req.query.exclude||'').split(',').filter(Boolean).slice(0,300); const r = await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND video IS NOT NULL AND created_at <= NOW() AND NOT (id = ANY($1)) ORDER BY created_at DESC LIMIT 10",[ex]); res.json({ posts: await _postEnrichMany(r.rows, null), more: r.rows.length >= 10 }); }catch(e){ res.json({ posts: [] }); }
 });
 app.get('/api/penc/public/fil/profile/:id', async (req, res) => {
   if(!_pubGuard(req, res)) return;
   try{ const u = await pgFindUser('id', String(req.params.id)); if(!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
     const one = async function(sql, a){ try{ return (await _pgPool.query(sql, a)).rows[0].n; }catch(_e){ return 0; } };
     const t = String(req.params.id);
-    res.json({ user: Object.assign(_filUserPub(u), { friends_count: await one("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[t]), followers_count: await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[t]), posts_count: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND created_at <= NOW()',[t]), likes_received: await one('SELECT COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE p.user_id=$1',[t]), guest: true }) });
+    res.json({ user: Object.assign(_filUserPub(u), { friends_count: await one("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[t]), followers_count: await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[t]), posts_count: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW()',[t]), likes_received: await one('SELECT COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE p.user_id=$1',[t]), guest: true }) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/penc/public/fil/search', async (req, res) => {
   if(!_pubGuard(req, res)) return;
   try{ const q = String(req.query.q||'').trim().slice(0,80); if(q.length < 2) return res.json({ users: [], posts: [] }); const like = '%' + q.replace(/[%_\\]/g, function(c){ return '\\' + c; }) + '%';
-    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 30',[like]);
+    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 30',[like]);
     const ur = await _pgPool.query('SELECT * FROM penc_users WHERE (full_name ILIKE $1 OR username ILIKE $1) ORDER BY full_name LIMIT 15',[like]);
     res.json({ users: ur.rows.map(pgRow).map(_filUserPub), posts: await _postEnrichMany(pr.rows, null) }); }catch(e){ res.json({ users: [], posts: [] }); }
 });
@@ -8219,7 +8253,7 @@ app.get('/api/penc/admin/fil/stats', pencAuth, pencAdmin, async (req, res) => {
     const out = {
       posts_today: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '24 hours' AND deleted=FALSE"),
       posts_week: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
-      posts_total: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE'),
+      posts_total: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE'),
       videos_week: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE video IS NOT NULL AND created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
       creators_week: await one("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
       reactions_today: await one("SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE created_at > NOW() - INTERVAL '24 hours'"),
@@ -8354,7 +8388,7 @@ app.get('/api/penc/admin/site/stats', pencAuth, pencAdmin, async (req, res) => {
 let _tagIndex = { t: 0, tags: [] };
 async function _tagIdx(){
   if(Date.now() - _tagIndex.t < 10*60000 && _tagIndex.tags.length) return _tagIndex.tags;
-  const r = await _pgPool.query("SELECT content FROM penc_posts WHERE deleted=FALSE AND created_at > NOW() - INTERVAL '180 days' AND content LIKE '%#%' ORDER BY created_at DESC LIMIT 5000");
+  const r = await _pgPool.query("SELECT content FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at > NOW() - INTERVAL '180 days' AND content LIKE '%#%' ORDER BY created_at DESC LIMIT 5000");
   const c = {}; r.rows.forEach(function(row){ Array.from(new Set((String(row.content||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])).forEach(function(t){ c[t]=(c[t]||0)+1; }); });
   _tagIndex = { t: Date.now(), tags: Object.keys(c).map(function(k){ return { tag:k, count:c[k] }; }).sort(function(a,b){ return b.count-a.count; }) };
   return _tagIndex.tags;
@@ -8710,7 +8744,7 @@ app.get('/api/penc/fil/profile/:id', pencAuth, async (req, res) => {
     const friends_count = await one("SELECT COUNT(DISTINCT CASE WHEN requester=$1 THEN recipient ELSE requester END)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[target]);
     const followers_count = await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[target]);
     const following_count = await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE follower=$1',[target]);
-    const posts_count = await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND created_at <= NOW()',[target]);
+    const posts_count = await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW()',[target]);
     const likes_received = await one('SELECT COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE p.user_id=$1 AND p.deleted=FALSE',[target]);
     let rel = { status: null, requester: null };
     try{ const f = await _pgPool.query("SELECT status, requester FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) ORDER BY created_at DESC LIMIT 1",[uid, target]); if(f.rows.length) rel = f.rows[0]; }catch(_e){}
@@ -8767,9 +8801,9 @@ app.get('/api/penc/fil/search', pencAuth, async (req, res) => {
     const blocked = await _filBlockedSet(uid);
     const ur = await _pgPool.query('SELECT * FROM penc_users WHERE (full_name ILIKE $1 OR username ILIKE $1) AND id <> $2 ORDER BY (CASE WHEN verified OR business_verified THEN 0 ELSE 1 END), full_name LIMIT 30',[like, uid]);
     const users = ur.rows.map(pgRow).filter(function(u){ return !blocked.has(String(u.id)) && !_areIsolated(uid, u.id); }).slice(0, 20).map(_filUserPub);
-    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 40',[like]);
+    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 40',[like]);
     let tag_count = null;
-    if(/^#[0-9A-Za-z_\u00C0-\u024F]{2,40}$/.test(q)){ try{ tag_count = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND created_at <= NOW() AND content ILIKE $1',[like])).rows[0].n; }catch(_tc){} }
+    if(/^#[0-9A-Za-z_\u00C0-\u024F]{2,40}$/.test(q)){ try{ tag_count = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1',[like])).rows[0].n; }catch(_tc){} }
     const posts = await _postEnrichMany(pr.rows.filter(_filVisible(uid, blocked)).slice(0, 30), uid);
     res.json({ users, posts, tag_count });
   }catch(e){ console.error('fil search:', e.message); res.json({ users: [], posts: [] }); }
@@ -10376,6 +10410,200 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 
 // Récupération de la sauvegarde chiffrée de la clé E2E (nouvel appareil, réinstallation).
 // Servie uniquement à son propriétaire (identité prise du jeton), jamais via un lien public.
+// ══ GROUPES DU FIL ══
+function _grpClean(s, n){ return String(s||'').replace(/[<>]/g,'').trim().slice(0, n); }
+async function _grpRole(gid, uid){ try{ const r = await _pgPool.query('SELECT role, status FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, uid]); return r.rows[0] || null; }catch(e){ return null; } }
+async function _grpOut(rows, uid){
+  if(!rows.length) return [];
+  const ids = rows.map(function(g){ return g.id; });
+  const cnt = {}, mine = {}, posts = {};
+  try{ (await _pgPool.query("SELECT group_id, COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id = ANY($1) AND status='member' GROUP BY group_id",[ids])).rows.forEach(function(r){ cnt[r.group_id]=r.n; }); }catch(_){}
+  try{ (await _pgPool.query('SELECT group_id, role, status FROM penc_fil_group_members WHERE group_id = ANY($1) AND user_id=$2',[ids, uid])).rows.forEach(function(r){ mine[r.group_id]=r; }); }catch(_){}
+  try{ (await _pgPool.query("SELECT group_id, COUNT(*)::int AS n FROM penc_posts WHERE group_id = ANY($1) AND deleted=FALSE AND created_at > NOW() - INTERVAL '7 days' GROUP BY group_id",[ids])).rows.forEach(function(r){ posts[r.group_id]=r.n; }); }catch(_){}
+  return rows.map(function(g){ const m = mine[g.id] || {}; return { id:g.id, name:g.name, description:g.description||'', avatar_url:g.avatar_url||null, privacy:g.privacy, category:g.category||null, owner_id:g.owner_id, members:cnt[g.id]||0, posts_week:posts[g.id]||0, my_role:m.status==='member'?m.role:null, my_status:m.status||null }; });
+}
+app.post('/api/penc/fil/groups', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'grp_create', 5, 86400000)) return _filTooFast(res);
+    const name = _grpClean(req.body.name, 60); if(name.length < 3) return res.status(400).json({ error: 'Donne un nom au groupe (3 caractères minimum)' });
+    const id = 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const privacy = req.body.privacy === 'private' ? 'private' : 'public';
+    await _pgPool.query('INSERT INTO penc_fil_groups(id,name,description,avatar_url,owner_id,privacy,category,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())',[id, name, _grpClean(req.body.description, 500), _filOkMedia(req.body.avatar_url) ? req.body.avatar_url : null, uid, privacy, _grpClean(req.body.category, 30) || null]);
+    await _pgPool.query("INSERT INTO penc_fil_group_members(group_id,user_id,role,status,joined_at) VALUES($1,$2,'admin','member',NOW())",[id, uid]);
+    const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[id])).rows[0];
+    res.json({ success: true, group: (await _grpOut([g], uid))[0] });
+  }catch(e){ console.error('grp create:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/groups', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const q = _grpClean(req.query.q, 60);
+    const mine = (await _pgPool.query("SELECT g.* FROM penc_fil_groups g JOIN penc_fil_group_members m ON m.group_id=g.id AND m.user_id=$1 AND m.status IN ('member','pending') ORDER BY g.name LIMIT 100",[uid])).rows;
+    let disc;
+    if(q) disc = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE (name ILIKE $1 OR description ILIKE $1) ORDER BY created_at DESC LIMIT 40',['%'+q+'%'])).rows;
+    else disc = (await _pgPool.query("SELECT g.* FROM penc_fil_groups g LEFT JOIN penc_fil_group_members m ON m.group_id=g.id AND m.status='member' WHERE NOT EXISTS (SELECT 1 FROM penc_fil_group_members x WHERE x.group_id=g.id AND x.user_id=$1) GROUP BY g.id ORDER BY COUNT(m.user_id) DESC, g.created_at DESC LIMIT 30",[uid])).rows;
+    res.json({ mine: await _grpOut(mine, uid), discover: await _grpOut(disc, uid) });
+  }catch(e){ res.json({ mine: [], discover: [] }); }
+});
+app.get('/api/penc/fil/groups/:id', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[req.params.id])).rows[0];
+    if(!g) return res.status(404).json({ error: 'Groupe introuvable' });
+    const out = (await _grpOut([g], uid))[0];
+    const canSee = g.privacy === 'public' || out.my_status === 'member';
+    let posts = [];
+    if(canSee){ const before = req.query.before ? String(req.query.before) : null;
+      const r = before ? await _pgPool.query('SELECT * FROM penc_posts WHERE group_id=$1 AND deleted=FALSE AND created_at <= NOW() AND created_at < $2 ORDER BY created_at DESC LIMIT 20',[g.id, before]) : await _pgPool.query('SELECT * FROM penc_posts WHERE group_id=$1 AND deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 20',[g.id]);
+      posts = await _postEnrichMany(r.rows, uid); }
+    let pending = 0; if(out.my_role === 'admin'){ try{ pending = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id=$1 AND status='pending'",[g.id])).rows[0].n; }catch(_){} }
+    res.json({ group: Object.assign(out, { can_see: canSee, pending_requests: pending }), posts: posts });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/groups/:id/join', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[req.params.id])).rows[0];
+    if(!g) return res.status(404).json({ error: 'Groupe introuvable' });
+    const status = g.privacy === 'private' ? 'pending' : 'member';
+    await _pgPool.query("INSERT INTO penc_fil_group_members(group_id,user_id,role,status,joined_at) VALUES($1,$2,'member',$3,NOW()) ON CONFLICT (group_id,user_id) DO NOTHING",[g.id, uid, status]);
+    if(status === 'pending'){ try{ const adm = await _pgPool.query("SELECT user_id FROM penc_fil_group_members WHERE group_id=$1 AND role='admin'",[g.id]); const me = await pgFindUser('id', uid) || {}; adm.rows.forEach(function(a){ sendPencPush(a.user_id, { title:'👥 ' + g.name, body:(me.full_name||'Quelqu\'un') + ' demande à rejoindre le groupe', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-grp-'+g.id, data:{ type:'group', group_id:g.id, url:'/messager' } }); }); }catch(_){} }
+    res.json({ success: true, status: status });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/groups/:id/leave', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id;
+    const me = await _grpRole(gid, uid);
+    if(me && me.role === 'admin'){ const others = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id=$1 AND role='admin' AND user_id<>$2 AND status='member'",[gid, uid])).rows[0].n; if(!others) return res.status(400).json({ error: 'Nomme un autre administrateur avant de quitter ce groupe' }); }
+    await _pgPool.query('DELETE FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, uid]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/groups/:id/members', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id; const me = await _grpRole(gid, uid);
+    const status = (req.query.pending && me && me.role === 'admin') ? 'pending' : 'member';
+    const r = await _pgPool.query('SELECT user_id, role FROM penc_fil_group_members WHERE group_id=$1 AND status=$2 ORDER BY (role=\'admin\') DESC, joined_at ASC LIMIT 300',[gid, status]);
+    const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
+    res.json({ members: r.rows.map(function(x){ return Object.assign(_filUserPub(us[x.user_id]||{id:x.user_id}), { role: x.role }); }), am_admin: !!(me && me.role==='admin') });
+  }catch(e){ res.json({ members: [] }); }
+});
+app.post('/api/penc/fil/groups/:id/members/:uid/:action', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id; const target = String(req.params.uid); const me = await _grpRole(gid, uid);
+    if(!me || me.role !== 'admin' || me.status !== 'member') return res.status(403).json({ error: 'Réservé aux administrateurs du groupe' });
+    const a = req.params.action;
+    if(a === 'approve'){ await _pgPool.query("UPDATE penc_fil_group_members SET status='member', joined_at=NOW() WHERE group_id=$1 AND user_id=$2",[gid, target]); try{ const g = (await _pgPool.query('SELECT name FROM penc_fil_groups WHERE id=$1',[gid])).rows[0]; sendPencPush(target, { title:'👥 ' + (g?g.name:'Groupe'), body:'Ta demande a été acceptée, bienvenue !', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-grp-'+gid, data:{ type:'group', group_id:gid, url:'/messager' } }); }catch(_){} }
+    else if(a === 'reject' || a === 'remove'){ if(target === uid) return res.status(400).json({ error: 'Utilise « Quitter le groupe »' }); await _pgPool.query('DELETE FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, target]); }
+    else if(a === 'promote'){ await _pgPool.query("UPDATE penc_fil_group_members SET role='admin' WHERE group_id=$1 AND user_id=$2 AND status='member'",[gid, target]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ LIVES DU FIL (vidéo en direct via LiveKit) ══
+async function _liveToken(uid, name, room, host){
+  const at = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: uid, name: name || uid });
+  at.addGrant({ roomJoin: true, room: room, canPublish: !!host, canSubscribe: true, canPublishData: true });
+  at.ttl = '6h'; return await at.toJwt();
+}
+app.post('/api/penc/fil/lives', pencAuth, async (req, res) => {
+  try{
+    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Le direct n\'est pas disponible pour le moment' });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'live_start', 6, 86400000)) return _filTooFast(res);
+    if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux pas lancer de direct pour le moment (décision de modération).' });
+    await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE host_id=$1 AND status='live'",[uid]);
+    const id = 'live_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); const room = 'penc_live_' + id;
+    const title = String(req.body.title||'').replace(/[<>]/g,'').trim().slice(0,100) || 'En direct';
+    await _pgPool.query('INSERT INTO penc_fil_lives(id,host_id,title,room,status,started_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, uid, title, room, 'live']);
+    const me = await pgFindUser('id', uid) || {};
+    const token = await _liveToken(uid, me.full_name || me.username, room, true);
+    // Prévenir les abonnés et les amis
+    setImmediate(async function(){ try{
+      const f = await _pgPool.query("SELECT follower AS u FROM penc_follows WHERE followee=$1 UNION SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1) LIMIT 2000",[uid]);
+      f.rows.forEach(function(x){ try{ sendPencPush(x.u, { title:'🔴 ' + (me.full_name||'Quelqu\'un') + ' est en direct', body: title, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-live-'+id, data:{ type:'live', live_id:id, url:'/messager?live='+id } }); }catch(_){} });
+    }catch(_e){} });
+    res.json({ success: true, live: { id, title, room, host_id: uid }, token, url: LIVEKIT_URL });
+  }catch(e){ console.error('live start:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/lives', pencAuth, async (req, res) => {
+  try{
+    await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE status='live' AND started_at < NOW() - INTERVAL '6 hours'");
+    const r = await _pgPool.query("SELECT * FROM penc_fil_lives WHERE status='live' ORDER BY started_at DESC LIMIT 20");
+    const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.host_id; }))).forEach(function(u){ us[u.id]=u; });
+    res.json({ lives: r.rows.map(function(l){ const u = us[l.host_id] || {}; return { id:l.id, title:l.title, host_id:l.host_id, host_name:u.full_name||u.username||'Utilisateur', host_avatar:u.avatar_url||null, started_at:l.started_at }; }) });
+  }catch(e){ res.json({ lives: [] }); }
+});
+app.post('/api/penc/fil/lives/:id/join', pencAuth, async (req, res) => {
+  try{
+    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Direct indisponible' });
+    const uid = req.pencUser.userId; const l = (await _pgPool.query('SELECT * FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0];
+    if(!l || l.status !== 'live') return res.status(404).json({ error: 'Ce direct est terminé' });
+    if(_areIsolated(uid, l.host_id)) return res.status(403).json({ error: 'Direct indisponible' });
+    const me = await pgFindUser('id', uid) || {}; const host = await pgFindUser('id', l.host_id) || {};
+    const token = await _liveToken(uid, me.full_name || me.username, l.room, String(uid) === String(l.host_id));
+    res.json({ success: true, live: { id:l.id, title:l.title, room:l.room, host_id:l.host_id, host_name:host.full_name||host.username||'', host_avatar:host.avatar_url||null, started_at:l.started_at }, token, url: LIVEKIT_URL });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/lives/:id/end', pencAuth, async (req, res) => {
+  try{
+    const peak = Math.max(0, parseInt(req.body.peak)||0);
+    const r = await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW(), peak=GREATEST(peak,$3) WHERE id=$1 AND host_id=$2 RETURNING id",[req.params.id, req.pencUser.userId, peak]);
+    res.json({ success: !!r.rows.length });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ COLLECTES ET COTISATIONS ══
+app.post('/api/penc/posts/:id/fund', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    if(!_filRate(uid, 'fund', 30, 3600000)) return _filTooFast(res);
+    const p = (await _pgPool.query("SELECT id, user_id, content, kind, fund_deadline FROM penc_posts WHERE id=$1 AND deleted=FALSE",[pid])).rows[0];
+    if(!p || p.kind !== 'fund') return res.status(404).json({ error: 'Collecte introuvable' });
+    if(p.fund_deadline && new Date(p.fund_deadline).getTime() < Date.now()) return res.status(400).json({ error: 'Cette collecte est terminée' });
+    const amount = parseInt(req.body.amount)||0; if(amount < 100 || amount > 10000000) return res.status(400).json({ error: 'Montant invalide (100 F minimum)' });
+    const method = req.body.method === 'balance' ? 'balance' : 'wave';
+    const id = 'fc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const anonymous = !!req.body.anonymous;
+    if(method === 'balance'){
+      if(String(uid) === String(p.user_id)) return res.status(400).json({ error: 'Tu ne peux pas contribuer à ta propre collecte avec ton solde' });
+      const c = await _pgPool.connect();
+      try{
+        await c.query('BEGIN');
+        const deb = await c.query('UPDATE penc_users SET balance=COALESCE(balance,0)-$1 WHERE id=$2 AND COALESCE(balance,0) >= $1 RETURNING balance',[amount, uid]);
+        if(!deb.rows.length){ await c.query('ROLLBACK'); return res.status(400).json({ error: 'Solde Penc insuffisant' }); }
+        await c.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[amount, p.user_id]);
+        await c.query("INSERT INTO penc_fund_contribs(id,post_id,user_id,amount,method,ref,status,anonymous,created_at) VALUES($1,$2,$3,$4,'balance',NULL,'confirmed',$5,NOW())",[id, pid, uid, amount, anonymous]);
+        await c.query('COMMIT');
+      }catch(e){ try{ await c.query('ROLLBACK'); }catch(_){} throw e; } finally { c.release(); }
+    } else {
+      const ref = String(req.body.ref||'').replace(/[<>]/g,'').trim().slice(0,60);
+      await _pgPool.query("INSERT INTO penc_fund_contribs(id,post_id,user_id,amount,method,ref,status,anonymous,created_at) VALUES($1,$2,$3,$4,'wave',$5,'pending',$6,NOW())",[id, pid, uid, amount, ref || null, anonymous]);
+    }
+    try{ const me = await pgFindUser('id', uid) || {}; sendPencPush(p.user_id, { title:'💰 Nouvelle contribution', body:(anonymous?'Un donateur anonyme':(me.full_name||'Quelqu\'un')) + ' : ' + amount.toLocaleString('fr-FR') + ' F' + (method==='wave'?' (à confirmer)':''), icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-fund-'+pid, data:{ type:'post', post_id:pid, url:'/messager?post='+pid } }); }catch(_){}
+    const t = (await _pgPool.query("SELECT SUM(CASE WHEN status='confirmed' THEN amount ELSE 0 END)::int AS ok, SUM(CASE WHEN status='pending' THEN amount ELSE 0 END)::int AS pend, COUNT(DISTINCT CASE WHEN status='confirmed' THEN user_id END)::int AS n FROM penc_fund_contribs WHERE post_id=$1",[pid])).rows[0];
+    res.json({ success: true, status: method==='balance'?'confirmed':'pending', fund_raised: t.ok||0, fund_pending: t.pend||0, fund_count: t.n||0 });
+  }catch(e){ console.error('fund:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/posts/:id/fund', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = (await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid])).rows[0]; if(!p) return res.status(404).json({ error: 'Introuvable' });
+    const owner = String(p.user_id) === String(uid);
+    const r = await _pgPool.query(owner ? 'SELECT * FROM penc_fund_contribs WHERE post_id=$1 ORDER BY created_at DESC LIMIT 300' : "SELECT * FROM penc_fund_contribs WHERE post_id=$1 AND status='confirmed' ORDER BY created_at DESC LIMIT 100",[pid]);
+    const us = {}; (await pgFindUsersByIds(Array.from(new Set(r.rows.map(function(x){ return x.user_id; }))))).forEach(function(u){ us[u.id]=u; });
+    res.json({ owner: owner, contribs: r.rows.map(function(c){ const u = us[c.user_id] || {}; const hide = c.anonymous && !owner; return { id:c.id, user_id: hide?null:c.user_id, name: hide?'Anonyme':(u.full_name||u.username||'Utilisateur'), avatar_url: hide?null:(u.avatar_url||null), amount:c.amount, method:c.method, ref: owner?c.ref:null, status:c.status, anonymous:c.anonymous, created_at:c.created_at }; }) });
+  }catch(e){ res.json({ contribs: [] }); }
+});
+app.post('/api/penc/fund/contribs/:id/:action', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const c = (await _pgPool.query('SELECT f.*, p.user_id AS owner FROM penc_fund_contribs f JOIN penc_posts p ON p.id=f.post_id WHERE f.id=$1',[req.params.id])).rows[0];
+    if(!c || String(c.owner) !== String(uid)) return res.status(403).json({ error: 'Réservé à l\'organisateur' });
+    if(c.method !== 'wave' || c.status !== 'pending') return res.status(400).json({ error: 'Déjà traitée' });
+    const st = req.params.action === 'confirm' ? 'confirmed' : (req.params.action === 'reject' ? 'rejected' : null); if(!st) return res.status(400).json({ error: 'Action inconnue' });
+    await _pgPool.query('UPDATE penc_fund_contribs SET status=$1 WHERE id=$2',[st, c.id]);
+    try{ sendPencPush(c.user_id, { title:'💰 Contribution ' + (st==='confirmed'?'confirmée':'non reçue'), body: st==='confirmed' ? ('Merci ! Tes ' + c.amount.toLocaleString('fr-FR') + ' F ont bien été reçus.') : 'L\'organisateur n\'a pas trouvé ce paiement Wave. Vérifie ta référence.', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-fund-'+c.post_id, data:{ type:'post', post_id:c.post_id, url:'/messager?post='+c.post_id } }); }catch(_){}
+    res.json({ success: true, status: st });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
 // ── Événements : « J'y vais » / « Intéressé·e » ──
 app.post('/api/penc/posts/:id/rsvp', pencAuth, async (req, res) => {
   try{
