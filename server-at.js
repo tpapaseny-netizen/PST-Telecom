@@ -4378,9 +4378,19 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
   }
   let audioInputIdx = null;
   if (audioPath) { cmd = cmd.input(audioPath).inputOptions(['-stream_loop', '-1']); audioInputIdx = logoTmpPath ? 2 : 1; }
+  // Vidéo légère pour une lecture immédiate (comme Facebook) : 720p maximum, débit plafonné,
+  // images clés rapprochées. Une vidéo 1080p/4K de téléphone devient 5 à 10 fois plus légère.
+  const _needScale = Math.min(W, H) > 720;
+  const _scaleExpr = (H >= W) ? 'scale=720:-2' : 'scale=-2:720';
+  let _vfOpt = null;
+  if (_needScale) {
+    if (filters.length) { const sc = nextLabel(); filters.push('[' + curLabel + ']' + _scaleExpr + '[' + sc + ']'); curLabel = sc; }
+    else _vfOpt = _scaleExpr;
+  }
   if (filters.length) cmd = cmd.complexFilter(filters, curLabel);
   return new Promise((resolve, reject) => {
-    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart', '-shortest'];
+    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 25', '-maxrate 1800k', '-bufsize 3600k', '-g 48', '-pix_fmt yuv420p', '-c:a aac', '-b:a 96k', '-movflags +faststart', '-shortest'];
+    if (_vfOpt) _outOpts.push('-vf', _vfOpt);
     if (withWatermark) _outOpts.push('-metadata', 'comment=penc_wm');
     // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
     // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
