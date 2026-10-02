@@ -10420,6 +10420,381 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 
 // Récupération de la sauvegarde chiffrée de la clé E2E (nouvel appareil, réinstallation).
 // Servie uniquement à son propriétaire (identité prise du jeton), jamais via un lien public.
+// ════════════════════════════════════════════════════════════════════════════
+// PENC GP — réseau social des GP (envoi de colis France ⇄ Sénégal et diaspora)
+// Expéditeurs : annoncent un colis. GP / entreprises : publient leurs départs et
+// proposent leurs services. Tout le contact passe par la messagerie Penc.
+// ════════════════════════════════════════════════════════════════════════════
+const GP_TYPES = ['documents','vetements','electronique','alimentaire','medicaments','cosmetiques','pieces_auto','autre'];
+const GP_COUNTRIES = ['France','Sénégal','Belgique','Italie','Espagne','Allemagne','Suisse','Royaume-Uni','États-Unis','Canada','Mali','Gambie','Guinée','Mauritanie','Côte d\'Ivoire','Maroc'];
+let _gpReady = false;
+async function _gpInit(){
+  if(_gpReady || !_pgPool) return;
+  await _pgPool.query(`
+    CREATE TABLE IF NOT EXISTS gp_profiles (user_id TEXT PRIMARY KEY, kind TEXT DEFAULT 'gp', company_name TEXT, phone TEXT, show_phone BOOLEAN DEFAULT FALSE, bio TEXT, logo_url TEXT,
+      routes JSONB, verified BOOLEAN DEFAULT FALSE, verified_at TIMESTAMPTZ, verify_doc_url TEXT, verify_requested_at TIMESTAMPTZ, banned BOOLEAN DEFAULT FALSE,
+      rating_avg NUMERIC DEFAULT 0, rating_count INT DEFAULT 0, deliveries INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS gp_requests (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, from_country TEXT, from_city TEXT, to_country TEXT, to_city TEXT, weight_kg NUMERIC, parcel_type TEXT,
+      title TEXT, description TEXT, photos JSONB, desired_date DATE, flexible BOOLEAN DEFAULT TRUE, budget NUMERIC, currency TEXT DEFAULT 'EUR', status TEXT DEFAULT 'open', assigned_to TEXT,
+      hidden BOOLEAN DEFAULT FALSE, views INT DEFAULT 0, proposals INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpr_route ON gp_requests(from_country, to_country, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpr_user ON gp_requests(user_id);
+    CREATE TABLE IF NOT EXISTS gp_offers (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, from_country TEXT, from_city TEXT, to_country TEXT, to_city TEXT, depart_date DATE, arrival_date DATE,
+      kg_available NUMERIC, price_per_kg NUMERIC, currency TEXT DEFAULT 'EUR', accepted_types JSONB, drop_point TEXT, pickup_point TEXT, notes TEXT, status TEXT DEFAULT 'open', hidden BOOLEAN DEFAULT FALSE,
+      views INT DEFAULT 0, contacts INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpo_route ON gp_offers(from_country, to_country, status, depart_date);
+    CREATE INDEX IF NOT EXISTS idx_gpo_user ON gp_offers(user_id);
+    CREATE TABLE IF NOT EXISTS gp_proposals (id TEXT PRIMARY KEY, request_id TEXT NOT NULL, gp_user_id TEXT NOT NULL, offer_id TEXT, price_total NUMERIC, currency TEXT DEFAULT 'EUR', message TEXT,
+      status TEXT DEFAULT 'pending', conv_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(request_id, gp_user_id));
+    CREATE TABLE IF NOT EXISTS gp_reviews (id TEXT PRIMARY KEY, gp_user_id TEXT NOT NULL, author_id TEXT NOT NULL, request_id TEXT NOT NULL, rating INT NOT NULL, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(author_id, request_id));
+    CREATE INDEX IF NOT EXISTS idx_gprev_gp ON gp_reviews(gp_user_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS gp_reports (id TEXT PRIMARY KEY, target_type TEXT, target_id TEXT, reporter_id TEXT, reason TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMPTZ DEFAULT NOW());
+  `);
+  _gpReady = true;
+}
+setTimeout(function(){ _gpInit().catch(function(e){ console.error('[gp] init:', e.message); }); }, 8000);
+function _gpId(p){ return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _gpTxt(s, n){ return String(s == null ? '' : s).replace(/[<>]/g,'').replace(/\s+\n/g,'\n').trim().slice(0, n); }
+function _gpCountry(c){ c = _gpTxt(c, 40); return GP_COUNTRIES.indexOf(c) > -1 ? c : null; }
+function _gpNum(v, min, max){ const n = Number(String(v||'').replace(',','.')); if(!isFinite(n)) return null; return Math.max(min, Math.min(max, Math.round(n*10)/10)); }
+function _gpDate(d){ const t = new Date(d); if(!isFinite(t.getTime())) return null; return t.toISOString().slice(0,10); }
+function _gpCur(c){ return ['EUR','XOF','USD','CAD','GBP','CHF'].indexOf(String(c)) > -1 ? String(c) : 'EUR'; }
+async function _gpUsers(ids){ const m = {}; try{ (await pgFindUsersByIds(Array.from(new Set(ids.filter(Boolean))))).forEach(function(u){ m[u.id] = u; }); }catch(_){} return m; }
+async function _gpProfiles(ids){ const m = {}; if(!ids.length) return m; try{ (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id = ANY($1)',[Array.from(new Set(ids))])).rows.forEach(function(p){ m[p.user_id] = p; }); }catch(_){} return m; }
+function _gpPubUser(u, p){ u = u || {}; p = p || null; return { id: u.id, name: (p && p.company_name) || u.full_name || u.username || 'Utilisateur', person: u.full_name || '', avatar_url: (p && p.logo_url) || u.avatar_url || null,
+  is_gp: !!p, kind: p ? p.kind : null, verified: !!(p && p.verified), rating: p ? Number(p.rating_avg || 0) : 0, reviews: p ? (p.rating_count || 0) : 0, deliveries: p ? (p.deliveries || 0) : 0 }; }
+async function _gpDM(fromUid, toUid, text){
+  try{
+    const conv = await pgGetOrCreateConv(String(fromUid), String(toUid)); if(!conv) return null;
+    const msg = { id: 'msg_' + Date.now() + Math.random().toString(36).slice(2), conversation_id: conv.id, sender_id: String(fromUid), type: 'text', content: text, created_at: new Date().toISOString() };
+    let sender = { id: fromUid }; try{ const su = await pgFindUser('id', fromUid); if(su) sender = pencStrip(su); }catch(_){}
+    await pgSaveMessage(msg);
+    const full = Object.assign({}, msg, { sender: sender });
+    try{ io.to('penc:' + conv.id).emit('message:new', full); io.to('user:' + String(toUid)).emit('message:new', full); io.to('user:' + String(fromUid)).emit('message:new', full); }catch(_){}
+    try{ await sendPencPush(String(toUid), { title: '📦 ' + (sender.full_name || 'Penc GP'), body: text.slice(0, 120), tag: 'gp-' + conv.id, url: '/messager?conv=' + conv.id, conv_id: conv.id }); }catch(_){}
+    return conv.id;
+  }catch(e){ console.error('[gp] dm:', e.message); return null; }
+}
+function _gpPush(uid, title, body, url){ try{ sendPencPush(String(uid), { title: title, body: body, icon: '/penc-icon-192.png', badge: '/penc-icon-192.png', tag: 'gp-' + Date.now(), url: url || '/gp' }); }catch(_){} }
+async function _gpOptUser(req){ try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return null; const d = jwt_penc.verify(h.slice(7), PENC_SECRET); return d && d.userId ? String(d.userId) : null; }catch(_){ return null; } }
+function _gpReqOut(r, users, profs, me){
+  const u = users[r.user_id] || {};
+  return { id: r.id, owner: { id: r.user_id, name: u.full_name || u.username || 'Utilisateur', avatar_url: u.avatar_url || null }, mine: !!(me && String(me) === String(r.user_id)),
+    from_country: r.from_country, from_city: r.from_city, to_country: r.to_country, to_city: r.to_city, weight_kg: r.weight_kg != null ? Number(r.weight_kg) : null, parcel_type: r.parcel_type,
+    title: r.title, description: r.description, photos: r.photos || [], desired_date: r.desired_date, flexible: r.flexible, budget: r.budget != null ? Number(r.budget) : null, currency: r.currency,
+    status: r.status, assigned_to: r.assigned_to ? _gpPubUser(users[r.assigned_to], profs[r.assigned_to]) : null, views: r.views, proposals: r.proposals, created_at: r.created_at };
+}
+function _gpOfferOut(o, users, profs, me){
+  return { id: o.id, gp: _gpPubUser(users[o.user_id], profs[o.user_id]), mine: !!(me && String(me) === String(o.user_id)), from_country: o.from_country, from_city: o.from_city, to_country: o.to_country, to_city: o.to_city,
+    depart_date: o.depart_date, arrival_date: o.arrival_date, kg_available: o.kg_available != null ? Number(o.kg_available) : null, price_per_kg: o.price_per_kg != null ? Number(o.price_per_kg) : null, currency: o.currency,
+    accepted_types: o.accepted_types || [], drop_point: o.drop_point, pickup_point: o.pickup_point, notes: o.notes, status: o.status, views: o.views, contacts: o.contacts, created_at: o.created_at };
+}
+function _gpFilters(q, alias){
+  const w = [], v = [];
+  const p = function(x){ v.push(x); return '$' + v.length; };
+  if(q.from) w.push(alias + 'from_country = ' + p(String(q.from)));
+  if(q.to) w.push(alias + 'to_country = ' + p(String(q.to)));
+  if(q.city) w.push('(' + alias + 'from_city ILIKE ' + p('%' + _gpTxt(q.city, 40) + '%') + ' OR ' + alias + 'to_city ILIKE $' + v.length + ')');
+  if(q.q) w.push('(' + alias + (alias === 'r.' ? 'title' : 'notes') + ' ILIKE ' + p('%' + _gpTxt(q.q, 60) + '%') + ' OR ' + alias + 'from_city ILIKE $' + v.length + ' OR ' + alias + 'to_city ILIKE $' + v.length + ')');
+  return { w: w, v: v };
+}
+// ── Listes publiques (visibles sans compte) ──
+app.get('/api/penc/gp/public/stats', async (req, res) => {
+  try{ await _gpInit();
+    const one = async function(sql){ try{ return (await _pgPool.query(sql)).rows[0].n || 0; }catch(_){ return 0; } };
+    res.set('Cache-Control','public, max-age=60');
+    res.json({ open_requests: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='open' AND hidden=FALSE"), open_offers: await one("SELECT COUNT(*)::int AS n FROM gp_offers WHERE status='open' AND hidden=FALSE AND depart_date >= CURRENT_DATE"),
+      verified_gps: await one('SELECT COUNT(*)::int AS n FROM gp_profiles WHERE verified=TRUE AND banned=FALSE'), delivered: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='delivered'") });
+  }catch(e){ res.json({}); }
+});
+app.get('/api/penc/gp/public/requests', async (req, res) => {
+  try{ await _gpInit(); const me = await _gpOptUser(req);
+    if(!_filRate('ip:' + (req.ip||''), 'gp_list', 120, 60000)) return _filTooFast(res);
+    const f = _gpFilters(req.query, 'r.'); const page = Math.max(0, parseInt(req.query.page)||0);
+    const st = req.query.status === 'all' ? '' : " AND r.status='open'";
+    const sql = 'SELECT r.* FROM gp_requests r WHERE r.hidden=FALSE' + st + (f.w.length ? ' AND ' + f.w.join(' AND ') : '') + ' ORDER BY r.created_at DESC LIMIT 20 OFFSET ' + (page*20);
+    const rows = (await _pgPool.query(sql, f.v)).rows;
+    const users = await _gpUsers(rows.map(function(r){ return r.user_id; }).concat(rows.map(function(r){ return r.assigned_to; })));
+    const profs = await _gpProfiles(rows.map(function(r){ return r.assigned_to; }).filter(Boolean));
+    res.json({ items: rows.map(function(r){ return _gpReqOut(r, users, profs, me); }), more: rows.length === 20 });
+  }catch(e){ console.error('[gp] list req:', e.message); res.json({ items: [] }); }
+});
+app.get('/api/penc/gp/public/offers', async (req, res) => {
+  try{ await _gpInit(); const me = await _gpOptUser(req);
+    if(!_filRate('ip:' + (req.ip||''), 'gp_list', 120, 60000)) return _filTooFast(res);
+    const f = _gpFilters(req.query, 'o.'); const page = Math.max(0, parseInt(req.query.page)||0);
+    if(req.query.date) { f.v.push(_gpDate(req.query.date)); f.w.push('o.depart_date >= $' + f.v.length); }
+    const sql = "SELECT o.* FROM gp_offers o LEFT JOIN gp_profiles p ON p.user_id=o.user_id WHERE o.hidden=FALSE AND o.status='open' AND o.depart_date >= CURRENT_DATE AND COALESCE(p.banned,FALSE)=FALSE" + (f.w.length ? ' AND ' + f.w.join(' AND ') : '') + ' ORDER BY COALESCE(p.verified,FALSE) DESC, o.depart_date ASC LIMIT 20 OFFSET ' + (page*20);
+    const rows = (await _pgPool.query(sql, f.v)).rows;
+    const ids = rows.map(function(o){ return o.user_id; }); const users = await _gpUsers(ids); const profs = await _gpProfiles(ids);
+    res.json({ items: rows.map(function(o){ return _gpOfferOut(o, users, profs, me); }), more: rows.length === 20 });
+  }catch(e){ console.error('[gp] list off:', e.message); res.json({ items: [] }); }
+});
+app.get('/api/penc/gp/public/requests/:id', async (req, res) => {
+  try{ await _gpInit(); const me = await _gpOptUser(req);
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || (r.hidden && String(me) !== String(r.user_id))) return res.status(404).json({ error: 'Annonce introuvable' });
+    if(String(me) !== String(r.user_id)) _pgPool.query('UPDATE gp_requests SET views=views+1 WHERE id=$1',[r.id]).catch(function(){});
+    const users = await _gpUsers([r.user_id, r.assigned_to]); const profs = await _gpProfiles([r.assigned_to].filter(Boolean));
+    const out = _gpReqOut(r, users, profs, me);
+    if(me){ try{ const mp = (await _pgPool.query('SELECT id, status, price_total, currency, conv_id FROM gp_proposals WHERE request_id=$1 AND gp_user_id=$2',[r.id, me])).rows[0]; out.my_proposal = mp || null; }catch(_){} }
+    res.json({ item: out });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/gp/public/offers/:id', async (req, res) => {
+  try{ await _gpInit(); const me = await _gpOptUser(req);
+    const o = (await _pgPool.query('SELECT * FROM gp_offers WHERE id=$1',[req.params.id])).rows[0];
+    if(!o || (o.hidden && String(me) !== String(o.user_id))) return res.status(404).json({ error: 'Départ introuvable' });
+    if(String(me) !== String(o.user_id)) _pgPool.query('UPDATE gp_offers SET views=views+1 WHERE id=$1',[o.id]).catch(function(){});
+    const users = await _gpUsers([o.user_id]); const profs = await _gpProfiles([o.user_id]);
+    res.json({ item: _gpOfferOut(o, users, profs, me) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/gp/public/gp/:uid', async (req, res) => {
+  try{ await _gpInit(); const me = await _gpOptUser(req); const uid = String(req.params.uid);
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0]; if(!p || p.banned) return res.status(404).json({ error: 'GP introuvable' });
+    const users = await _gpUsers([uid]); const u = users[uid] || {};
+    const offers = (await _pgPool.query("SELECT * FROM gp_offers WHERE user_id=$1 AND hidden=FALSE AND status='open' AND depart_date >= CURRENT_DATE ORDER BY depart_date ASC LIMIT 20",[uid])).rows;
+    const revs = (await _pgPool.query('SELECT * FROM gp_reviews WHERE gp_user_id=$1 ORDER BY created_at DESC LIMIT 30',[uid])).rows;
+    const ru = await _gpUsers(revs.map(function(r){ return r.author_id; }));
+    res.json({ gp: Object.assign(_gpPubUser(u, p), { bio: p.bio || '', routes: p.routes || [], phone: (p.show_phone && me) ? (p.phone || u.phone || '') : null, member_since: p.created_at }),
+      offers: offers.map(function(o){ return _gpOfferOut(o, users, { [uid]: p }, me); }),
+      reviews: revs.map(function(r){ const a = ru[r.author_id] || {}; return { rating: r.rating, comment: r.comment, author: a.full_name || 'Client', avatar_url: a.avatar_url || null, created_at: r.created_at }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Mon profil GP ──
+app.get('/api/penc/gp/me', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId;
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0] || null;
+    const u = await pgFindUser('id', uid) || {};
+    res.json({ user: { id: uid, name: u.full_name || u.username || '', avatar_url: u.avatar_url || null, phone: u.phone || '' }, profile: p, is_admin: await _pencIsAdmin(req) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gp/profile', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    const kind = b.kind === 'company' ? 'company' : 'gp';
+    const name = _gpTxt(b.company_name, 80); if(kind === 'company' && name.length < 2) return res.status(400).json({ error: 'Indique le nom de ton entreprise' });
+    const routes = Array.isArray(b.routes) ? b.routes.slice(0, 12).map(function(r){ return { from: _gpCountry(r && r.from), to: _gpCountry(r && r.to) }; }).filter(function(r){ return r.from && r.to && r.from !== r.to; }) : [];
+    const logo = _filOkMedia(b.logo_url) ? b.logo_url : null;
+    await _pgPool.query(`INSERT INTO gp_profiles(user_id,kind,company_name,phone,show_phone,bio,logo_url,routes,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+      ON CONFLICT (user_id) DO UPDATE SET kind=$2, company_name=$3, phone=$4, show_phone=$5, bio=$6, logo_url=COALESCE($7, gp_profiles.logo_url), routes=$8, updated_at=NOW()`,
+      [uid, kind, name || null, _gpTxt(b.phone, 30).replace(/[^0-9+ ]/g,'') || null, !!b.show_phone, _gpTxt(b.bio, 800) || null, logo, JSON.stringify(routes)]);
+    res.json({ success: true, profile: (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0] });
+  }catch(e){ console.error('[gp] profile:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gp/profile/verify', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId;
+    if(!_filOkMedia(req.body.doc_url)) return res.status(400).json({ error: 'Ajoute une photo de ton justificatif' });
+    const r = await _pgPool.query('UPDATE gp_profiles SET verify_doc_url=$1, verify_requested_at=NOW() WHERE user_id=$2 RETURNING user_id',[req.body.doc_url, uid]);
+    if(!r.rows.length) return res.status(400).json({ error: 'Crée d\'abord ton profil GP' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Annonces de colis (expéditeurs) ──
+app.post('/api/penc/gp/requests', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'gp_req', 10, 86400000)) return _filTooFast(res);
+    const fc = _gpCountry(b.from_country), tc = _gpCountry(b.to_country);
+    if(!fc || !tc || fc === tc) return res.status(400).json({ error: 'Choisis le pays de départ et d\'arrivée' });
+    const w = _gpNum(b.weight_kg, 0.1, 500); if(!w) return res.status(400).json({ error: 'Indique le poids approximatif (kg)' });
+    const title = _gpTxt(b.title, 90); if(title.length < 3) return res.status(400).json({ error: 'Donne un titre à ton annonce (ex : « Valise de vêtements »)' });
+    const type = GP_TYPES.indexOf(b.parcel_type) > -1 ? b.parcel_type : 'autre';
+    const photos = Array.isArray(b.photos) ? b.photos.filter(_filOkMedia).slice(0, 4) : [];
+    const id = _gpId('gpr');
+    await _pgPool.query('INSERT INTO gp_requests(id,user_id,from_country,from_city,to_country,to_city,weight_kg,parcel_type,title,description,photos,desired_date,flexible,budget,currency) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, uid, fc, _gpTxt(b.from_city, 50) || null, tc, _gpTxt(b.to_city, 50) || null, w, type, title, _gpTxt(b.description, 1500) || null, JSON.stringify(photos), _gpDate(b.desired_date), b.flexible !== false, _gpNum(b.budget, 0, 100000000), _gpCur(b.currency)]);
+    // Alerte aux GP qui ont un départ compatible (même trajet, départ dans les 30 jours)
+    setImmediate(async function(){ try{
+      const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_offers WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND depart_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
+      m.rows.forEach(function(x){ _gpPush(x.user_id, '📦 Nouveau colis ' + fc + ' → ' + tc, title + ' · ' + w + ' kg' + (b.to_city ? ' · ' + _gpTxt(b.to_city, 40) : ''), '/gp#/colis/' + id); });
+    }catch(_){} });
+    res.json({ success: true, id: id });
+  }catch(e){ console.error('[gp] new req:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.patch('/api/penc/gp/requests/:id', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || String(r.user_id) !== String(uid)) return res.status(403).json({ error: 'Action non autorisée' });
+    if(b.status === 'cancelled' || b.status === 'open'){ await _pgPool.query('UPDATE gp_requests SET status=$1, updated_at=NOW() WHERE id=$2',[b.status, r.id]); return res.json({ success: true }); }
+    if(b.status === 'delivered'){
+      if(r.status !== 'assigned') return res.status(400).json({ error: 'Choisis d\'abord le GP qui transporte ton colis' });
+      await _pgPool.query("UPDATE gp_requests SET status='delivered', updated_at=NOW() WHERE id=$1",[r.id]);
+      if(r.assigned_to){ await _pgPool.query('UPDATE gp_profiles SET deliveries=deliveries+1 WHERE user_id=$1',[r.assigned_to]); _gpPush(r.assigned_to, '✅ Colis livré', '« ' + r.title + ' » a été marqué comme livré. Merci !', '/gp#/espace'); }
+      return res.json({ success: true });
+    }
+    res.status(400).json({ error: 'Action inconnue' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Propositions des GP sur une annonce ──
+app.post('/api/penc/gp/requests/:id/propose', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'gp_prop', 40, 3600000)) return _filTooFast(res);
+    const prof = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0];
+    if(!prof) return res.status(400).json({ error: 'Crée ton profil GP pour proposer tes services', need_profile: true });
+    if(prof.banned) return res.status(403).json({ error: 'Ton profil GP est suspendu' });
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || r.hidden || r.status !== 'open') return res.status(400).json({ error: 'Cette annonce n\'accepte plus de propositions' });
+    if(String(r.user_id) === String(uid)) return res.status(400).json({ error: 'C\'est ta propre annonce' });
+    const price = _gpNum(b.price_total, 0, 100000000); const cur = _gpCur(b.currency); const msg = _gpTxt(b.message, 800);
+    const offerId = b.offer_id ? String(b.offer_id) : null;
+    const id = _gpId('gpp');
+    const ins = await _pgPool.query('INSERT INTO gp_proposals(id,request_id,gp_user_id,offer_id,price_total,currency,message) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (request_id,gp_user_id) DO NOTHING RETURNING id',[id, r.id, uid, offerId, price, cur, msg || null]);
+    if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà fait une proposition pour ce colis' });
+    await _pgPool.query('UPDATE gp_requests SET proposals=proposals+1 WHERE id=$1',[r.id]);
+    const name = prof.company_name || ((await pgFindUser('id', uid)) || {}).full_name || 'Un GP';
+    const text = '📦 Proposition pour ton colis « ' + r.title + ' » (' + r.from_country + ' → ' + r.to_country + ', ' + Number(r.weight_kg) + ' kg)\n'
+      + (price != null ? '💶 Prix proposé : ' + price.toLocaleString('fr-FR') + ' ' + cur + '\n' : '') + (msg ? '\n' + msg + '\n' : '')
+      + '\n👉 Voir et accepter : https://penc-messagerie.com/gp#/colis/' + r.id;
+    const conv = await _gpDM(uid, r.user_id, text);
+    if(conv) await _pgPool.query('UPDATE gp_proposals SET conv_id=$1 WHERE id=$2',[conv, id]);
+    res.json({ success: true, id: id, conv_id: conv });
+  }catch(e){ console.error('[gp] propose:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/gp/requests/:id/proposals', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId;
+    const r = (await _pgPool.query('SELECT user_id FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || String(r.user_id) !== String(uid)) return res.status(403).json({ error: 'Réservé à l\'auteur de l\'annonce' });
+    const ps = (await _pgPool.query('SELECT * FROM gp_proposals WHERE request_id=$1 ORDER BY created_at ASC',[req.params.id])).rows;
+    const ids = ps.map(function(p){ return p.gp_user_id; }); const users = await _gpUsers(ids); const profs = await _gpProfiles(ids);
+    res.json({ items: ps.map(function(p){ return { id: p.id, gp: _gpPubUser(users[p.gp_user_id], profs[p.gp_user_id]), price_total: p.price_total != null ? Number(p.price_total) : null, currency: p.currency, message: p.message, status: p.status, conv_id: p.conv_id, created_at: p.created_at }; }) });
+  }catch(e){ res.json({ items: [] }); }
+});
+app.post('/api/penc/gp/proposals/:id/:action', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const a = req.params.action;
+    const p = (await _pgPool.query('SELECT p.*, r.user_id AS owner, r.title, r.status AS rstatus FROM gp_proposals p JOIN gp_requests r ON r.id=p.request_id WHERE p.id=$1',[req.params.id])).rows[0];
+    if(!p) return res.status(404).json({ error: 'Proposition introuvable' });
+    if(a === 'withdraw'){ if(String(p.gp_user_id) !== String(uid)) return res.status(403).json({ error: 'Action non autorisée' }); await _pgPool.query("UPDATE gp_proposals SET status='withdrawn' WHERE id=$1",[p.id]); return res.json({ success: true }); }
+    if(String(p.owner) !== String(uid)) return res.status(403).json({ error: 'Réservé à l\'auteur de l\'annonce' });
+    if(a === 'accept'){
+      if(p.rstatus !== 'open') return res.status(400).json({ error: 'Tu as déjà choisi un GP pour ce colis' });
+      await _pgPool.query("UPDATE gp_proposals SET status='accepted' WHERE id=$1",[p.id]);
+      await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE request_id=$1 AND id<>$2 AND status='pending'",[p.request_id, p.id]);
+      await _pgPool.query("UPDATE gp_requests SET status='assigned', assigned_to=$1, updated_at=NOW() WHERE id=$2",[p.gp_user_id, p.request_id]);
+      const conv = await _gpDM(uid, p.gp_user_id, '✅ J\'accepte ta proposition pour « ' + p.title + ' ». Dis-moi où et quand déposer le colis 🙏');
+      return res.json({ success: true, conv_id: conv || p.conv_id });
+    }
+    if(a === 'decline'){ await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE id=$1",[p.id]); return res.json({ success: true }); }
+    res.status(400).json({ error: 'Action inconnue' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Départs des GP ──
+app.post('/api/penc/gp/offers', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'gp_off', 15, 86400000)) return _filTooFast(res);
+    const prof = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0];
+    if(!prof) return res.status(400).json({ error: 'Crée ton profil GP pour publier un départ', need_profile: true });
+    if(prof.banned) return res.status(403).json({ error: 'Ton profil GP est suspendu' });
+    const fc = _gpCountry(b.from_country), tc = _gpCountry(b.to_country);
+    if(!fc || !tc || fc === tc) return res.status(400).json({ error: 'Choisis le pays de départ et d\'arrivée' });
+    const dd = _gpDate(b.depart_date); if(!dd || new Date(dd) < new Date(new Date().toISOString().slice(0,10))) return res.status(400).json({ error: 'Choisis une date de départ à venir' });
+    const kg = _gpNum(b.kg_available, 1, 5000); if(!kg) return res.status(400).json({ error: 'Indique les kilos disponibles' });
+    const types = Array.isArray(b.accepted_types) ? b.accepted_types.filter(function(t){ return GP_TYPES.indexOf(t) > -1; }) : [];
+    const id = _gpId('gpo');
+    await _pgPool.query('INSERT INTO gp_offers(id,user_id,from_country,from_city,to_country,to_city,depart_date,arrival_date,kg_available,price_per_kg,currency,accepted_types,drop_point,pickup_point,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, uid, fc, _gpTxt(b.from_city, 50) || null, tc, _gpTxt(b.to_city, 50) || null, dd, _gpDate(b.arrival_date), kg, _gpNum(b.price_per_kg, 0, 1000000), _gpCur(b.currency), JSON.stringify(types), _gpTxt(b.drop_point, 160) || null, _gpTxt(b.pickup_point, 160) || null, _gpTxt(b.notes, 1000) || null]);
+    // Alerte aux expéditeurs qui ont un colis en attente sur ce trajet
+    setImmediate(async function(){ try{
+      const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_requests WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
+      const name = prof.company_name || 'Un GP';
+      m.rows.forEach(function(x){ _gpPush(x.user_id, '✈️ Nouveau départ ' + fc + ' → ' + tc, name + ' part le ' + new Date(dd).toLocaleDateString('fr-FR') + ' · ' + kg + ' kg disponibles', '/gp#/depart/' + id); });
+    }catch(_){} });
+    res.json({ success: true, id: id });
+  }catch(e){ console.error('[gp] new off:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.patch('/api/penc/gp/offers/:id', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    const o = (await _pgPool.query('SELECT user_id FROM gp_offers WHERE id=$1',[req.params.id])).rows[0];
+    if(!o || String(o.user_id) !== String(uid)) return res.status(403).json({ error: 'Action non autorisée' });
+    if(['open','full','done','cancelled'].indexOf(b.status) > -1) await _pgPool.query('UPDATE gp_offers SET status=$1, updated_at=NOW() WHERE id=$2',[b.status, req.params.id]);
+    if(b.kg_available != null){ const kg = _gpNum(b.kg_available, 0, 5000); await _pgPool.query('UPDATE gp_offers SET kg_available=$1, updated_at=NOW() WHERE id=$2',[kg, req.params.id]); }
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// L'expéditeur contacte un GP à partir de son départ
+app.post('/api/penc/gp/offers/:id/contact', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'gp_contact', 30, 3600000)) return _filTooFast(res);
+    const o = (await _pgPool.query('SELECT * FROM gp_offers WHERE id=$1',[req.params.id])).rows[0];
+    if(!o || o.hidden || o.status !== 'open') return res.status(400).json({ error: 'Ce départ n\'est plus disponible' });
+    if(String(o.user_id) === String(uid)) return res.status(400).json({ error: 'C\'est ton propre départ' });
+    const w = _gpNum(b.weight_kg, 0.1, 500); const msg = _gpTxt(b.message, 800);
+    const text = '✈️ Bonjour, je suis intéressé(e) par ton départ ' + o.from_country + (o.from_city ? ' (' + o.from_city + ')' : '') + ' → ' + o.to_country + (o.to_city ? ' (' + o.to_city + ')' : '') + ' du ' + new Date(o.depart_date).toLocaleDateString('fr-FR') + '.\n'
+      + (w ? '📦 Poids de mon colis : ' + w + ' kg\n' : '') + (msg ? '\n' + msg + '\n' : '') + '\n👉 https://penc-messagerie.com/gp#/depart/' + o.id;
+    const conv = await _gpDM(uid, o.user_id, text);
+    await _pgPool.query('UPDATE gp_offers SET contacts=contacts+1 WHERE id=$1',[o.id]);
+    res.json({ success: true, conv_id: conv });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Mon espace ──
+app.get('/api/penc/gp/mine', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId;
+    const reqs = (await _pgPool.query('SELECT * FROM gp_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[uid])).rows;
+    const offs = (await _pgPool.query('SELECT * FROM gp_offers WHERE user_id=$1 ORDER BY depart_date DESC LIMIT 100',[uid])).rows;
+    const props = (await _pgPool.query('SELECT p.*, r.title, r.from_country, r.to_country, r.weight_kg, r.status AS rstatus, r.user_id AS owner FROM gp_proposals p JOIN gp_requests r ON r.id=p.request_id WHERE p.gp_user_id=$1 ORDER BY p.created_at DESC LIMIT 100',[uid])).rows;
+    const users = await _gpUsers(reqs.map(function(r){ return r.assigned_to; }).concat([uid]).concat(props.map(function(p){ return p.owner; })));
+    const profs = await _gpProfiles(reqs.map(function(r){ return r.assigned_to; }).filter(Boolean).concat([uid]));
+    const reviewed = {}; try{ (await _pgPool.query('SELECT request_id FROM gp_reviews WHERE author_id=$1',[uid])).rows.forEach(function(x){ reviewed[x.request_id] = 1; }); }catch(_){}
+    res.json({ requests: reqs.map(function(r){ return Object.assign(_gpReqOut(r, users, profs, uid), { reviewed: !!reviewed[r.id] }); }),
+      offers: offs.map(function(o){ return _gpOfferOut(o, users, profs, uid); }),
+      proposals: props.map(function(p){ const ow = users[p.owner] || {}; return { id: p.id, request_id: p.request_id, title: p.title, route: p.from_country + ' → ' + p.to_country, weight_kg: Number(p.weight_kg), price_total: p.price_total != null ? Number(p.price_total) : null, currency: p.currency, status: p.status, request_status: p.rstatus, owner: ow.full_name || 'Expéditeur', conv_id: p.conv_id, created_at: p.created_at }; }) });
+  }catch(e){ console.error('[gp] mine:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Avis après livraison ──
+app.post('/api/penc/gp/reviews', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId; const b = req.body || {};
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[String(b.request_id||'')])).rows[0];
+    if(!r || String(r.user_id) !== String(uid) || r.status !== 'delivered' || !r.assigned_to) return res.status(400).json({ error: 'Tu pourras noter le GP une fois ton colis livré' });
+    const rating = Math.max(1, Math.min(5, parseInt(b.rating)||0)); if(!rating) return res.status(400).json({ error: 'Choisis une note' });
+    const ins = await _pgPool.query('INSERT INTO gp_reviews(id,gp_user_id,author_id,request_id,rating,comment) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (author_id,request_id) DO NOTHING RETURNING id',[_gpId('gpv'), r.assigned_to, uid, r.id, rating, _gpTxt(b.comment, 600) || null]);
+    if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà noté ce GP pour ce colis' });
+    await _pgPool.query('UPDATE gp_profiles SET rating_avg=(SELECT AVG(rating) FROM gp_reviews WHERE gp_user_id=$1), rating_count=(SELECT COUNT(*) FROM gp_reviews WHERE gp_user_id=$1) WHERE user_id=$1',[r.assigned_to]);
+    _gpPush(r.assigned_to, '⭐ Nouvel avis : ' + rating + '/5', (_gpTxt(b.comment, 80) || 'Un client t\'a noté'), '/gp#/gp/' + r.assigned_to);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Signalements ──
+app.post('/api/penc/gp/report', pencAuth, async (req, res) => {
+  try{ await _gpInit(); const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'gp_report', 10, 86400000)) return _filTooFast(res);
+    const t = ['request','offer','gp'].indexOf(req.body.target_type) > -1 ? req.body.target_type : null; if(!t) return res.status(400).json({ error: 'Signalement invalide' });
+    await _pgPool.query('INSERT INTO gp_reports(id,target_type,target_id,reporter_id,reason) VALUES($1,$2,$3,$4,$5)',[_gpId('gpx'), t, String(req.body.target_id||'').slice(0,60), uid, _gpTxt(req.body.reason, 500) || null]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Administration ──
+app.get('/api/penc/gp/admin/overview', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _gpInit();
+    const q = async function(sql, v){ try{ return (await _pgPool.query(sql, v||[])).rows; }catch(_){ return []; } };
+    const counts = (await q("SELECT (SELECT COUNT(*)::int FROM gp_requests) AS requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='open') AS open_requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='delivered') AS delivered, (SELECT COUNT(*)::int FROM gp_offers) AS offers, (SELECT COUNT(*)::int FROM gp_profiles) AS gps, (SELECT COUNT(*)::int FROM gp_profiles WHERE verified) AS verified, (SELECT COUNT(*)::int FROM gp_proposals) AS proposals"))[0] || {};
+    const pend = await q('SELECT * FROM gp_profiles WHERE verified=FALSE AND verify_doc_url IS NOT NULL ORDER BY verify_requested_at DESC LIMIT 50');
+    const reports = await q("SELECT * FROM gp_reports WHERE status='open' ORDER BY created_at DESC LIMIT 100");
+    const gps = await q('SELECT * FROM gp_profiles ORDER BY created_at DESC LIMIT 200');
+    const users = await _gpUsers(pend.map(function(p){ return p.user_id; }).concat(gps.map(function(p){ return p.user_id; })).concat(reports.map(function(r){ return r.reporter_id; })));
+    const pub = function(p){ const u = users[p.user_id] || {}; return Object.assign(_gpPubUser(u, p), { phone: p.phone || u.phone || '', email: u.email || '', doc_url: p.verify_doc_url, banned: p.banned, created_at: p.created_at }); };
+    res.json({ counts: counts, pending: pend.map(pub), gps: gps.map(pub), reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).full_name || '' }); }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gp/admin/gp/:uid/:action', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _gpInit(); const uid = String(req.params.uid); const a = req.params.action;
+    if(a === 'verify'){ await _pgPool.query('UPDATE gp_profiles SET verified=TRUE, verified_at=NOW() WHERE user_id=$1',[uid]); _gpPush(uid, '✅ Profil GP vérifié', 'Ton badge « Vérifié » est maintenant visible sur Penc GP', '/gp#/gp/' + uid); }
+    else if(a === 'unverify') await _pgPool.query('UPDATE gp_profiles SET verified=FALSE WHERE user_id=$1',[uid]);
+    else if(a === 'ban'){ await _pgPool.query('UPDATE gp_profiles SET banned=TRUE WHERE user_id=$1',[uid]); await _pgPool.query("UPDATE gp_offers SET hidden=TRUE WHERE user_id=$1",[uid]); }
+    else if(a === 'unban') await _pgPool.query('UPDATE gp_profiles SET banned=FALSE WHERE user_id=$1',[uid]);
+    else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gp/admin/hide', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _gpInit(); const t = req.body.type === 'offer' ? 'gp_offers' : 'gp_requests';
+    await _pgPool.query('UPDATE ' + t + ' SET hidden=$1 WHERE id=$2',[req.body.hidden !== false, String(req.body.id||'')]);
+    if(req.body.report_id) await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[String(req.body.report_id)]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gp/admin/report/:id/close', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+
 // ══ GROUPES DU FIL ══
 function _grpClean(s, n){ return String(s||'').replace(/[<>]/g,'').trim().slice(0, n); }
 async function _grpRole(gid, uid){ try{ const r = await _pgPool.query('SELECT role, status FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, uid]); return r.rows[0] || null; }catch(e){ return null; } }
