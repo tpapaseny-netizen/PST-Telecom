@@ -10427,7 +10427,7 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 // Routes : /api/gp/...
 // ════════════════════════════════════════════════════════════════════════════
 const GP_TYPES = ['documents','vetements','electronique','alimentaire','medicaments','cosmetiques','pieces_auto','autre'];
-const GP_COUNTRIES = ['France','Sénégal','Belgique','Italie','Espagne','Allemagne','Suisse','Royaume-Uni','États-Unis','Canada','Mali','Gambie','Guinée','Mauritanie','Côte d\'Ivoire','Maroc'];
+const GP_COUNTRIES = ["Afghanistan", "Afrique du Sud", "Albanie", "Algérie", "Allemagne", "Andorre", "Angola", "Antigua-et-Barbuda", "Arabie saoudite", "Argentine", "Arménie", "Australie", "Autriche", "Azerbaïdjan", "Bahamas", "Bahreïn", "Bangladesh", "Barbade", "Belgique", "Belize", "Bénin", "Bhoutan", "Biélorussie", "Birmanie", "Bolivie", "Bosnie-Herzégovine", "Botswana", "Brésil", "Brunei", "Bulgarie", "Burkina Faso", "Burundi", "Cambodge", "Cameroun", "Canada", "Cap-Vert", "Centrafrique", "Chili", "Chine", "Chypre", "Colombie", "Comores", "Congo", "Congo (RDC)", "Corée du Nord", "Corée du Sud", "Costa Rica", "Côte d'Ivoire", "Croatie", "Cuba", "Danemark", "Djibouti", "Dominique", "Égypte", "Émirats arabes unis", "Équateur", "Érythrée", "Espagne", "Estonie", "Eswatini", "États-Unis", "Éthiopie", "Fidji", "Finlande", "France", "Gabon", "Gambie", "Géorgie", "Ghana", "Grèce", "Grenade", "Guatemala", "Guinée", "Guinée équatoriale", "Guinée-Bissau", "Guyana", "Guyane française", "Haïti", "Honduras", "Hong Kong", "Hongrie", "Inde", "Indonésie", "Irak", "Iran", "Irlande", "Islande", "Israël", "Italie", "Jamaïque", "Japon", "Jordanie", "Kazakhstan", "Kenya", "Kirghizistan", "Kiribati", "Kosovo", "Koweït", "Laos", "Lesotho", "Lettonie", "Liban", "Liberia", "Libye", "Liechtenstein", "Lituanie", "Luxembourg", "Macédoine du Nord", "Madagascar", "Malaisie", "Malawi", "Maldives", "Mali", "Malte", "Maroc", "Marshall", "Maurice", "Mauritanie", "Mexique", "Micronésie", "Moldavie", "Monaco", "Mongolie", "Monténégro", "Mozambique", "Namibie", "Nauru", "Népal", "Nicaragua", "Niger", "Nigeria", "Norvège", "Nouvelle-Zélande", "Oman", "Ouganda", "Ouzbékistan", "Pakistan", "Palaos", "Palestine", "Panama", "Papouasie-Nouvelle-Guinée", "Paraguay", "Pays-Bas", "Pérou", "Philippines", "Pologne", "Portugal", "Qatar", "République dominicaine", "République tchèque", "La Réunion", "Roumanie", "Royaume-Uni", "Russie", "Rwanda", "Saint-Kitts-et-Nevis", "Sainte-Lucie", "Saint-Marin", "Saint-Vincent-et-les-Grenadines", "Salomon", "Salvador", "Samoa", "Sao Tomé-et-Principe", "Sénégal", "Serbie", "Seychelles", "Sierra Leone", "Singapour", "Slovaquie", "Slovénie", "Somalie", "Soudan", "Soudan du Sud", "Sri Lanka", "Suède", "Suisse", "Suriname", "Syrie", "Tadjikistan", "Taïwan", "Tanzanie", "Tchad", "Thaïlande", "Timor oriental", "Togo", "Tonga", "Trinité-et-Tobago", "Tunisie", "Turkménistan", "Turquie", "Tuvalu", "Ukraine", "Uruguay", "Vanuatu", "Vatican", "Venezuela", "Viêt Nam", "Yémen", "Zambie", "Zimbabwe", "Guadeloupe", "Martinique", "Mayotte"];
 const GP_SECRET = PENC_SECRET + '::gp-site';          // jeton différent de Penc : un jeton Penc n'ouvre pas le site GP, et inversement
 const GP_ADMINS = String(process.env.GP_ADMINS || '').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
 let _gpReady = false;
@@ -10460,11 +10460,27 @@ async function _gpInit(){
     CREATE INDEX IF NOT EXISTS idx_gpm_conv ON gp_msgs(conv_id, created_at);
     CREATE TABLE IF NOT EXISTS gp_reads (conv_id TEXT NOT NULL, user_id TEXT NOT NULL, read_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY(conv_id, user_id));
     CREATE TABLE IF NOT EXISTS gp_push (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, sub JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS pwd_changed_at TIMESTAMPTZ;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS terms_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS gp_codes (user_id TEXT NOT NULL, purpose TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, attempts INT DEFAULT 0, PRIMARY KEY(user_id, purpose));
+    CREATE TABLE IF NOT EXISTS gp_events (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, user_id TEXT, target TEXT, meta JSONB, ip TEXT, ua TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpev_time ON gp_events(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpev_user ON gp_events(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpev_type ON gp_events(type, created_at DESC);
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS last_ip TEXT;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS logins INT DEFAULT 0;
+    CREATE TABLE IF NOT EXISTS gp_contacts (id TEXT PRIMARY KEY, user_id TEXT, name TEXT, email TEXT, subject TEXT, message TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMPTZ DEFAULT NOW());
     CREATE INDEX IF NOT EXISTS idx_gppush_user ON gp_push(user_id);
   `);
   _gpReady = true;
 }
 setTimeout(function(){ _gpInit().catch(function(e){ console.error('[gp] init:', e.message); }); }, 8000);
+function _gpIp(req){ return String((req && (req.headers['cf-connecting-ip'] || (req.headers['x-forwarded-for']||'').split(',')[0] || req.ip)) || '').trim().slice(0,60); }
+function _gpLog(type, uid, target, meta, req){
+  try{ if(!_pgPool) return; _pgPool.query('INSERT INTO gp_events(type,user_id,target,meta,ip,ua) VALUES($1,$2,$3,$4,$5,$6)',[type, uid ? String(uid) : null, target ? String(target).slice(0,120) : null, meta ? JSON.stringify(meta) : null, req ? _gpIp(req) : null, req ? String(req.headers['user-agent']||'').slice(0,200) : null]).catch(function(){}); }catch(_){}
+}
 function _gpId(p){ return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function _gpTxt(s, n){ return String(s == null ? '' : s).replace(/[<>]/g,'').trim().slice(0, n); }
 function _gpCountry(c){ c = _gpTxt(c, 40); return GP_COUNTRIES.indexOf(c) > -1 ? c : null; }
@@ -10473,22 +10489,58 @@ function _gpDate(d){ if(!d) return null; const t = new Date(d); if(!isFinite(t.g
 function _gpCur(c){ return ['EUR','XOF','USD','CAD','GBP','CHF'].indexOf(String(c)) > -1 ? String(c) : 'EUR'; }
 function _gpPhone(p){ return String(p||'').replace(/[^0-9+]/g,'').replace(/^00/,'+').slice(0,20); }
 function _gpRate(key, act, max, win){ return _filRate(key, 'gp_' + act, max, win); }
-function _gpSign(u){ return jwt_penc.sign({ gpu: u.id }, GP_SECRET, { expiresIn: '90d' }); }
-function _gpUid(req){ try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return null; const d = jwt_penc.verify(h.slice(7), GP_SECRET); return d && d.gpu ? String(d.gpu) : null; }catch(_){ return null; } }
+function _gpSign(u){ return jwt_penc.sign({ gpu: u.id }, GP_SECRET, { expiresIn: '365d' }); }
+function _gpTok(req){ try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return null; const d = jwt_penc.verify(h.slice(7), GP_SECRET); return d && d.gpu ? d : null; }catch(_){ return null; } }
+function _gpUid(req){ const d = _gpTok(req); return d ? String(d.gpu) : null; }
 async function gpAuth(req, res, next){
-  const uid = _gpUid(req); if(!uid) return res.status(401).json({ error: 'Connecte-toi pour continuer' });
-  try{ await _gpInit(); const u = (await _pgPool.query('SELECT id, banned FROM gp_users WHERE id=$1',[uid])).rows[0];
+  const tk = _gpTok(req); const uid = tk ? String(tk.gpu) : null; if(!uid) return res.status(401).json({ error: 'Connecte-toi pour continuer' });
+  try{ await _gpInit(); const u = (await _pgPool.query('SELECT id, banned, pwd_changed_at FROM gp_users WHERE id=$1',[uid])).rows[0];
     if(!u) return res.status(401).json({ error: 'Session expirée' }); if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    if(u.pwd_changed_at && tk.iat && tk.iat * 1000 < new Date(u.pwd_changed_at).getTime() - 2000) return res.status(401).json({ error: 'Session expirée, reconnecte-toi' });
     req.gpUid = uid; _pgPool.query('UPDATE gp_users SET last_seen=NOW() WHERE id=$1',[uid]).catch(function(){}); next();
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 }
 async function _gpIsAdmin(uid){ try{ const u = (await _pgPool.query('SELECT is_admin, phone, email FROM gp_users WHERE id=$1',[uid])).rows[0]; if(!u) return false; return !!(u.is_admin || GP_ADMINS.indexOf(String(u.phone||'').toLowerCase()) > -1 || GP_ADMINS.indexOf(String(u.email||'').toLowerCase()) > -1); }catch(_){ return false; } }
 async function gpAdmin(req, res, next){ if(await _gpIsAdmin(req.gpUid)) return next(); res.status(403).json({ error: 'Réservé à l\'administration' }); }
-async function _gpUsers(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT id, name, avatar_url, phone, email, created_at FROM gp_users WHERE id = ANY($1)',[ids])).rows.forEach(function(u){ m[u.id] = u; }); }catch(_){} return m; }
+async function _gpUsers(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT id, name, avatar_url, phone, email, phone_verified, created_at FROM gp_users WHERE id = ANY($1)',[ids])).rows.forEach(function(u){ m[u.id] = u; }); }catch(_){} return m; }
 async function _gpProfiles(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id = ANY($1)',[ids])).rows.forEach(function(p){ m[p.user_id] = p; }); }catch(_){} return m; }
 function _gpPub(u, p){ u = u || {}; p = p || null; return { id: u.id, name: (p && p.company_name) || u.name || 'Membre', person: u.name || '', avatar_url: (p && p.logo_url) || u.avatar_url || null,
-  is_gp: !!p, kind: p ? p.kind : null, verified: !!(p && p.verified), rating: p ? Number(p.rating_avg || 0) : 0, reviews: p ? (p.rating_count || 0) : 0, deliveries: p ? (p.deliveries || 0) : 0 }; }
-function _gpMe(u){ return { id: u.id, name: u.name, phone: u.phone || '', email: u.email || '', avatar_url: u.avatar_url || null }; }
+  is_gp: !!p, kind: p ? p.kind : null, verified: !!(p && p.verified), phone_verified: !!u.phone_verified, member_since: u.created_at || null, rating: p ? Number(p.rating_avg || 0) : 0, reviews: p ? (p.rating_count || 0) : 0, deliveries: p ? (p.deliveries || 0) : 0 }; }
+function _gpMe(u){ return { id: u.id, name: u.name, phone: u.phone || '', email: u.email || '', avatar_url: u.avatar_url || null, phone_verified: !!u.phone_verified }; }
+// ── Envoi de codes (SMS et e-mail) au nom du site ──
+const GP_MAIL_FROM = process.env.GP_MAIL_FROM || 'Yobanté <no-reply@yobantegp.com>';
+const GP_SMS_SENDER = process.env.GP_SMS_SENDER || 'Yobante';
+const GP_SITE = process.env.GP_SITE_URL || 'https://yobantegp.com';
+async function _gpSms(phone, text){
+  try{ const tok = process.env.TECHSOFT_TOKEN; if(!tok){ console.log('[gp] SMS : TECHSOFT_TOKEN absent'); return false; }
+    const r = await fetch('https://app.techsoft-sms.com/api/http/?token=' + encodeURIComponent(tok) + '&to=' + encodeURIComponent(phone) + '&message=' + encodeURIComponent(text) + '&sender_id=' + encodeURIComponent(GP_SMS_SENDER));
+    const t = await r.text(); const ok = !/error/i.test(t); console.log('[gp] SMS', phone, ok ? 'OK' : 'ECHEC', t.slice(0,120)); return ok;
+  }catch(e){ console.log('[gp] SMS exception', e.message); return false; }
+}
+async function _gpMail(to, subject, title, html){
+  try{ const key = process.env.RESEND_API_KEY; if(!key){ console.log('[gp] e-mail : RESEND_API_KEY absent'); return false; }
+    const body = '<div style="background:#F5F0E8;padding:28px 14px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:18px;overflow:hidden">'
+      + '<div style="background:#1877F2;padding:20px 24px;color:#F5F0E8;font-size:22px;font-weight:800">Yobanté</div><div style="padding:24px"><h1 style="margin:0 0 14px;color:#082E63;font-size:19px">' + title + '</h1>' + html + '</div>'
+      + '<div style="padding:14px 24px;background:#FBF8F3;color:#8a8a8a;font-size:12px">Yobanté — le réseau des GP de confiance · <a href="' + GP_SITE + '" style="color:#1877F2">' + GP_SITE.replace('https://','') + '</a></div></div></div>';
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: GP_MAIL_FROM, to: [to], subject: subject, html: body }) });
+    if(!r.ok){ console.log('[gp] e-mail ECHEC', r.status, (await r.text()).slice(0,160)); return false; } return true;
+  }catch(e){ console.log('[gp] e-mail exception', e.message); return false; }
+}
+async function _gpNewCode(uid, purpose){
+  const code = String(require('crypto').randomInt(100000, 1000000));
+  const h = require('crypto').createHash('sha256').update(code + '|' + uid + '|' + purpose).digest('hex');
+  await _pgPool.query("INSERT INTO gp_codes(user_id,purpose,code_hash,expires_at,attempts) VALUES($1,$2,$3,NOW()+INTERVAL '10 minutes',0) ON CONFLICT (user_id,purpose) DO UPDATE SET code_hash=$3, expires_at=NOW()+INTERVAL '10 minutes', attempts=0",[uid, purpose, h]);
+  return code;
+}
+async function _gpCheckCode(uid, purpose, code){
+  const r = (await _pgPool.query('SELECT * FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose])).rows[0];
+  if(!r || new Date(r.expires_at) < new Date()) return 'Code expiré, demande un nouveau code';
+  if(r.attempts >= 5){ await _pgPool.query('DELETE FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose]); return 'Trop de tentatives, demande un nouveau code'; }
+  await _pgPool.query('UPDATE gp_codes SET attempts=attempts+1 WHERE user_id=$1 AND purpose=$2',[uid, purpose]);
+  const h = require('crypto').createHash('sha256').update(String(code).trim() + '|' + uid + '|' + purpose).digest('hex');
+  if(h !== r.code_hash) return 'Code incorrect';
+  await _pgPool.query('DELETE FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose]); return null;
+}
 // ── Notifications (web-push du serveur, abonnements propres au site GP) ──
 async function _gpPush(uid, title, body, url){
   try{ if(!webpush) return; const subs = (await _pgPool.query('SELECT endpoint, sub FROM gp_push WHERE user_id=$1',[String(uid)])).rows;
@@ -10517,13 +10569,16 @@ app.post('/api/gp/auth/register', async (req, res) => {
     if(!_gpRate('ip:' + (req.ip||''), 'reg', 8, 3600000)) return _filTooFast(res);
     const name = _gpTxt(b.name, 60); const phone = _gpPhone(b.phone); const email = _gpTxt(b.email, 120).toLowerCase() || null; const pwd = String(b.password || '');
     if(name.length < 2) return res.status(400).json({ error: 'Indique ton nom' });
-    if(phone.replace(/\D/g,'').length < 8) return res.status(400).json({ error: 'Indique un numéro de téléphone valide' });
+    if(!phone && !email) return res.status(400).json({ error: 'Indique ton téléphone ou ton e-mail' });
+    if(phone && phone.replace(/\D/g,'').length < 8) return res.status(400).json({ error: 'Numéro de téléphone invalide (avec l\'indicatif, ex : +221…)' });
     if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide' });
-    if(pwd.length < 6 || pwd.length > 200) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères' });
-    const ex = (await _pgPool.query('SELECT 1 FROM gp_users WHERE phone=$1 OR ($2::text IS NOT NULL AND email=$2)',[phone, email])).rows[0];
+    if(pwd.length < 8 || pwd.length > 200 || !/[A-Za-zÀ-ÿ]/.test(pwd) || !/[0-9]/.test(pwd)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+    if(!b.accept_terms) return res.status(400).json({ error: 'Accepte les conditions d\'utilisation pour créer ton compte' });
+    const ex = (await _pgPool.query('SELECT 1 FROM gp_users WHERE ($1::text <> \'\' AND phone=$1) OR ($2::text IS NOT NULL AND email=$2)',[phone, email])).rows[0];
     if(ex) return res.status(400).json({ error: 'Un compte existe déjà avec ce numéro ou cet e-mail' });
-    const u = { id: _gpId('gpu'), name: name, phone: phone, email: email };
-    await _pgPool.query('INSERT INTO gp_users(id,name,phone,email,pwd_hash) VALUES($1,$2,$3,$4,$5)',[u.id, name, phone, email, await _pencHash(pwd)]);
+    const u = { id: _gpId('gpu'), name: name, phone: phone || null, email: email };
+    await _pgPool.query('INSERT INTO gp_users(id,name,phone,email,pwd_hash,terms_at,last_ip,last_login,logins) VALUES($1,$2,$3,$4,$5,NOW(),$6,NOW(),1)',[u.id, name, phone || null, email, await _pencHash(pwd), _gpIp(req)]);
+    _gpLog('signup', u.id, null, { via: phone ? 'phone' : 'email' }, req);
     res.json({ token: _gpSign(u), user: _gpMe(u) });
   }catch(e){ console.error('[gp] register:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10532,23 +10587,81 @@ app.post('/api/gp/auth/login', async (req, res) => {
     if(!_gpRate('ip:' + (req.ip||''), 'login', 20, 900000) || !_gpRate('id:' + id.toLowerCase(), 'login', 8, 900000)) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans 15 minutes.' });
     if(!id || !pwd || id.length > 200 || pwd.length > 200) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
     const u = (await _pgPool.query('SELECT * FROM gp_users WHERE phone=$1 OR email=$2 LIMIT 1',[_gpPhone(id), id.toLowerCase()])).rows[0];
-    if(!u || !(await _pencComparePwd(pwd, u.pwd_hash))) return res.status(400).json({ error: 'Identifiant ou mot de passe incorrect' });
-    if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    if(!u || !(await _pencComparePwd(pwd, u.pwd_hash))){ _gpLog('login_fail', u ? u.id : null, id.slice(0,60), null, req); return res.status(400).json({ error: 'Identifiant ou mot de passe incorrect' }); }
+    if(u.banned){ _gpLog('login_banned', u.id, null, null, req); return res.status(403).json({ error: 'Compte suspendu' }); }
+    _pgPool.query('UPDATE gp_users SET last_ip=$1, last_login=NOW(), logins=COALESCE(logins,0)+1 WHERE id=$2',[_gpIp(req), u.id]).catch(function(){});
+    _gpLog('login', u.id, null, null, req);
     res.json({ token: _gpSign(u), user: _gpMe(u) });
   }catch(e){ console.error('[gp] login:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/auth/forgot', async (req, res) => {
+  try{ await _gpInit(); const id = String((req.body && req.body.identifier) || '').trim();
+    if(!id || id.length > 200) return res.status(400).json({ error: 'Indique ton téléphone ou ton e-mail' });
+    if(!_gpRate('ip:' + (req.ip||''), 'forgot', 10, 3600000) || !_gpRate('id:' + id.toLowerCase(), 'forgot', 4, 3600000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans une heure.' });
+    const isMail = id.indexOf('@') > -1;
+    const u = (await _pgPool.query(isMail ? 'SELECT * FROM gp_users WHERE email=$1' : 'SELECT * FROM gp_users WHERE phone=$1',[isMail ? id.toLowerCase() : _gpPhone(id)])).rows[0];
+    res.json({ success: true, channel: isMail ? 'email' : 'sms' });   // réponse identique que le compte existe ou non
+    _gpLog('forgot', u ? u.id : null, id.slice(0,60), { found: !!u }, req);
+    if(!u || u.banned) return;
+    const code = await _gpNewCode(u.id, 'reset');
+    if(isMail && u.email) _gpMail(u.email, 'Yobanté — ton code de réinitialisation', 'Réinitialisation du mot de passe', '<p style="color:#333;font-size:15px;line-height:1.6">Voici ton code pour choisir un nouveau mot de passe :</p><div style="text-align:center;margin:22px 0"><span style="display:inline-block;background:#D6E6FC;color:#082E63;font-size:30px;font-weight:800;letter-spacing:8px;padding:14px 24px;border-radius:14px">' + code + '</span></div><p style="color:#666;font-size:14px">Il est valable 10 minutes. Si tu n\'as rien demandé, ignore ce message : ton mot de passe ne change pas.</p>');
+    else if(u.phone) _gpSms(u.phone, 'Yobante - Ton code de reinitialisation : ' + code + ' (valable 10 min). Ne le communique a personne.');
+  }catch(e){ if(!res.headersSent) res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/auth/reset', async (req, res) => {
+  try{ await _gpInit(); const b = req.body || {}; const id = String(b.identifier || '').trim(); const pwd = String(b.password || '');
+    if(!_gpRate('ip:' + (req.ip||''), 'reset', 20, 3600000)) return _filTooFast(res);
+    if(pwd.length < 8 || !/[A-Za-zÀ-ÿ]/.test(pwd) || !/[0-9]/.test(pwd)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+    const isMail = id.indexOf('@') > -1;
+    const u = (await _pgPool.query(isMail ? 'SELECT * FROM gp_users WHERE email=$1' : 'SELECT * FROM gp_users WHERE phone=$1',[isMail ? id.toLowerCase() : _gpPhone(id)])).rows[0];
+    if(!u) return res.status(400).json({ error: 'Code incorrect' });
+    const err = await _gpCheckCode(u.id, 'reset', b.code); if(err) return res.status(400).json({ error: err });
+    await _pgPool.query('UPDATE gp_users SET pwd_hash=$1, pwd_changed_at=NOW()' + (isMail ? '' : ', phone_verified=TRUE') + ' WHERE id=$2',[await _pencHash(pwd), u.id]);
+    const u2 = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[u.id])).rows[0]; _gpLog('password_reset', u.id, null, null, req);
+    res.json({ success: true, token: _gpSign(u2), user: _gpMe(u2) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/me/phone/send', gpAuth, async (req, res) => {
+  try{ if(!_gpRate(req.gpUid, 'phone_send', 3, 3600000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans une heure.' });
+    const u = (await _pgPool.query('SELECT phone, phone_verified FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
+    if(u.phone_verified) return res.json({ success: true, already: true });
+    const code = await _gpNewCode(req.gpUid, 'phone');
+    const ok = await _gpSms(u.phone, 'Yobante - Ton code de verification : ' + code + ' (valable 10 min).');
+    if(!ok) return res.status(500).json({ error: 'Envoi du SMS impossible pour le moment' }); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/me/phone/verify', gpAuth, async (req, res) => {
+  try{ const err = await _gpCheckCode(req.gpUid, 'phone', req.body.code); if(err) return res.status(400).json({ error: err });
+    await _pgPool.query('UPDATE gp_users SET phone_verified=TRUE WHERE id=$1',[req.gpUid]); _gpLog('phone_verified', req.gpUid, null, null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/contact', async (req, res) => {
+  try{ await _gpInit(); if(!_gpRate('ip:' + (req.ip||''), 'contact', 5, 3600000)) return _filTooFast(res);
+    const b = req.body || {}; const msg = _gpTxt(b.message, 3000); const email = _gpTxt(b.email, 120);
+    if(msg.length < 10) return res.status(400).json({ error: 'Écris ton message (10 caractères minimum)' });
+    if(!email) return res.status(400).json({ error: 'Indique ton e-mail ou ton téléphone pour qu\'on te réponde' });
+    await _pgPool.query('INSERT INTO gp_contacts(id,user_id,name,email,subject,message) VALUES($1,$2,$3,$4,$5,$6)',[_gpId('gpk'), _gpUid(req), _gpTxt(b.name,80), email, _gpTxt(b.subject,80), msg]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/gp/me', gpAuth, async (req, res) => {
   try{ const u = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
     const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[req.gpUid])).rows[0] || null;
     const unread = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM gp_convs c LEFT JOIN gp_reads r ON r.conv_id=c.id AND r.user_id=$1 WHERE (c.u1=$1 OR c.u2=$1) AND c.last_sender<>$1 AND (r.read_at IS NULL OR r.read_at < c.updated_at)',[req.gpUid])).rows[0].n;
-    res.json({ user: _gpMe(u), profile: p, unread: unread, is_admin: await _gpIsAdmin(req.gpUid) });
+    const tk = _gpTok(req); const fresh = (tk && tk.iat && Date.now()/1000 - tk.iat > 7*86400) ? _gpSign(u) : null;   // session glissante
+    res.json({ user: _gpMe(u), profile: p, unread: unread, is_admin: await _gpIsAdmin(req.gpUid), token: fresh });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/me', gpAuth, async (req, res) => {
   try{ const b = req.body || {}; const name = _gpTxt(b.name, 60); const av = _filOkMedia(b.avatar_url) ? b.avatar_url : null;
     if(name.length >= 2) await _pgPool.query('UPDATE gp_users SET name=$1 WHERE id=$2',[name, req.gpUid]);
     if(av) await _pgPool.query('UPDATE gp_users SET avatar_url=$1 WHERE id=$2',[av, req.gpUid]);
-    if(b.password){ if(String(b.password).length < 6) return res.status(400).json({ error: 'Mot de passe trop court' }); await _pgPool.query('UPDATE gp_users SET pwd_hash=$1 WHERE id=$2',[await _pencHash(String(b.password)), req.gpUid]); }
+    if(b.password){ const np = String(b.password);
+      if(np.length < 8 || !/[A-Za-zÀ-ÿ]/.test(np) || !/[0-9]/.test(np)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+      const cur = (await _pgPool.query('SELECT pwd_hash FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
+      if(!b.current_password || !(await _pencComparePwd(String(b.current_password), cur.pwd_hash))) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+      await _pgPool.query('UPDATE gp_users SET pwd_hash=$1, pwd_changed_at=NOW() WHERE id=$2',[await _pencHash(np), req.gpUid]);
+      const u2 = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[req.gpUid])).rows[0]; _gpLog('password_change', req.gpUid, null, null, req); return res.json({ success: true, token: _gpSign(u2) }); }
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10593,7 +10706,7 @@ app.post('/api/gp/convs/:id/messages', gpAuth, async (req, res) => {
     const c = (await _pgPool.query('SELECT * FROM gp_convs WHERE id=$1',[req.params.id])).rows[0];
     if(!c || (c.u1 !== me && c.u2 !== me)) return res.status(404).json({ error: 'Discussion introuvable' });
     const text = _gpTxt(req.body.text, 4000); if(!text) return res.status(400).json({ error: 'Message vide' });
-    await _gpSend(me, c.u1 === me ? c.u2 : c.u1, text);
+    await _gpSend(me, c.u1 === me ? c.u2 : c.u1, text); _gpLog('message', me, c.id, { len: text.length }, null);
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10628,7 +10741,7 @@ app.get('/api/gp/public/stats', async (req, res) => {
   try{ await _gpInit(); const one = async function(sql){ try{ return (await _pgPool.query(sql)).rows[0].n || 0; }catch(_){ return 0; } };
     res.set('Cache-Control','public, max-age=60');
     res.json({ open_requests: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='open' AND hidden=FALSE"), open_offers: await one("SELECT COUNT(*)::int AS n FROM gp_offers WHERE status='open' AND hidden=FALSE AND depart_date >= CURRENT_DATE"),
-      verified_gps: await one('SELECT COUNT(*)::int AS n FROM gp_profiles WHERE verified=TRUE AND banned=FALSE'), delivered: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='delivered'") });
+      verified_gps: await one('SELECT COUNT(*)::int AS n FROM gp_profiles WHERE verified=TRUE AND banned=FALSE'), delivered: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='delivered'"), members: await one('SELECT COUNT(*)::int AS n FROM gp_users') });
   }catch(e){ res.json({}); }
 });
 app.get('/api/gp/public/requests', async (req, res) => {
@@ -10686,13 +10799,14 @@ app.post('/api/gp/profile', gpAuth, async (req, res) => {
     await _pgPool.query(`INSERT INTO gp_profiles(user_id,kind,company_name,phone,show_phone,bio,logo_url,routes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
       ON CONFLICT (user_id) DO UPDATE SET kind=$2, company_name=$3, phone=$4, show_phone=$5, bio=$6, logo_url=COALESCE($7, gp_profiles.logo_url), routes=$8, updated_at=NOW()`,
       [uid, kind, name || null, _gpPhone(b.phone) || null, !!b.show_phone, _gpTxt(b.bio, 800) || null, _filOkMedia(b.logo_url) ? b.logo_url : null, JSON.stringify(routes)]);
+    _gpLog('gp_profile', uid, null, { kind: kind }, req);
     res.json({ success: true, profile: (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0] });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/profile/verify', gpAuth, async (req, res) => {
   try{ if(!_filOkMedia(req.body.doc_url)) return res.status(400).json({ error: 'Ajoute une photo de ton justificatif' });
     const r = await _pgPool.query('UPDATE gp_profiles SET verify_doc_url=$1, verify_requested_at=NOW() WHERE user_id=$2 RETURNING user_id',[req.body.doc_url, req.gpUid]);
-    if(!r.rows.length) return res.status(400).json({ error: 'Crée d\'abord ton profil GP' }); res.json({ success: true });
+    if(!r.rows.length) return res.status(400).json({ error: 'Crée d\'abord ton profil GP' }); _gpLog('verify_request', req.gpUid, null, null, req); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ── Annonces de colis ──
@@ -10706,15 +10820,23 @@ app.post('/api/gp/requests', gpAuth, async (req, res) => {
       [id, uid, fc, _gpTxt(b.from_city,50)||null, tc, _gpTxt(b.to_city,50)||null, w, type, title, _gpTxt(b.description,1500)||null, JSON.stringify(photos), _gpDate(b.desired_date), b.flexible !== false, _gpNum(b.budget,0,100000000), _gpCur(b.currency)]);
     setImmediate(async function(){ try{ const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_offers WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND depart_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
       m.rows.forEach(function(x){ _gpPush(x.user_id, '📦 Nouveau colis ' + fc + ' → ' + tc, title + ' · ' + w + ' kg', '/#/colis/' + id); }); }catch(_){} });
+    _gpLog('request_new', uid, id, { route: fc + ' → ' + tc, kg: w }, req);
     res.json({ success: true, id: id });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.patch('/api/gp/requests/:id', gpAuth, async (req, res) => {
   try{ const uid = req.gpUid; const s = req.body.status; const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(r && r.assigned_to === uid && r.user_id !== uid){
+      if(s === 'sent' && r.status === 'assigned'){ await _pgPool.query("UPDATE gp_requests SET status='sent', updated_at=NOW() WHERE id=$1",[r.id]); _gpLog('request_sent', uid, r.id, { by: 'gp' }, req); _gpPush(r.user_id, '📦 Ton colis est pris en charge', 'Ton GP a récupéré « ' + r.title + ' »', '/#/colis/' + r.id); return res.json({ success: true }); }
+      return res.status(403).json({ error: 'Seul l\'expéditeur peut confirmer la livraison' });
+    }
     if(!r || r.user_id !== uid) return res.status(403).json({ error: 'Action non autorisée' });
-    if(s === 'cancelled' || (s === 'open' && r.status === 'cancelled')){ await _pgPool.query('UPDATE gp_requests SET status=$1, updated_at=NOW() WHERE id=$2',[s, r.id]); return res.json({ success: true }); }
-    if(s === 'delivered'){ if(r.status !== 'assigned') return res.status(400).json({ error: 'Choisis d\'abord ton GP' });
-      await _pgPool.query("UPDATE gp_requests SET status='delivered', updated_at=NOW() WHERE id=$1",[r.id]); await _pgPool.query('UPDATE gp_profiles SET deliveries=deliveries+1 WHERE user_id=$1',[r.assigned_to]);
+    if(s === 'cancelled' || (s === 'open' && r.status === 'cancelled')){ await _pgPool.query('UPDATE gp_requests SET status=$1, updated_at=NOW() WHERE id=$2',[s, r.id]); _gpLog('request_' + s, uid, r.id, null, req); return res.json({ success: true }); }
+    if(s === 'sent'){ if(r.status !== 'assigned') return res.status(400).json({ error: 'Choisis d\'abord ton GP' });
+      await _pgPool.query("UPDATE gp_requests SET status='sent', updated_at=NOW() WHERE id=$1",[r.id]); _gpLog('request_sent', uid, r.id, { by: 'sender' }, req);
+      _gpPush(r.assigned_to, '📦 Colis remis', '« ' + r.title + ' » t\'a été remis. Bon voyage !', '/#/colis/' + r.id); return res.json({ success: true }); }
+    if(s === 'delivered'){ if(r.status !== 'assigned' && r.status !== 'sent') return res.status(400).json({ error: 'Choisis d\'abord ton GP' });
+      await _pgPool.query("UPDATE gp_requests SET status='delivered', updated_at=NOW() WHERE id=$1",[r.id]); await _pgPool.query('UPDATE gp_profiles SET deliveries=deliveries+1 WHERE user_id=$1',[r.assigned_to]); _gpLog('request_delivered', uid, r.id, { gp: r.assigned_to }, req);
       _gpPush(r.assigned_to, '✅ Colis livré', '« ' + r.title + ' » a été marqué comme livré. Merci !', '/#/espace'); return res.json({ success: true }); }
     res.status(400).json({ error: 'Action inconnue' });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
@@ -10730,7 +10852,7 @@ app.post('/api/gp/requests/:id/propose', gpAuth, async (req, res) => {
     if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà fait une proposition pour ce colis' });
     await _pgPool.query('UPDATE gp_requests SET proposals=proposals+1 WHERE id=$1',[r.id]);
     const conv = await _gpSend(uid, r.user_id, '📦 Proposition pour ton colis « ' + r.title + ' » (' + r.from_country + ' → ' + r.to_country + ', ' + Number(r.weight_kg) + ' kg)\n' + (price != null ? '💶 Prix proposé : ' + price.toLocaleString('fr-FR') + ' ' + cur + '\n' : '') + (msg ? '\n' + msg : ''), 'request:' + r.id);
-    await _pgPool.query('UPDATE gp_proposals SET conv_id=$1 WHERE id=$2',[conv, id]);
+    await _pgPool.query('UPDATE gp_proposals SET conv_id=$1 WHERE id=$2',[conv, id]); _gpLog('proposal_new', uid, r.id, { price: price, cur: cur }, req);
     res.json({ success: true, id: id, conv_id: conv });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10748,6 +10870,7 @@ app.post('/api/gp/proposals/:id/:action', gpAuth, async (req, res) => {
     if(a === 'accept'){ if(p.rstatus !== 'open') return res.status(400).json({ error: 'Tu as déjà choisi un GP' });
       await _pgPool.query("UPDATE gp_proposals SET status='accepted' WHERE id=$1",[p.id]); await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE request_id=$1 AND id<>$2 AND status='pending'",[p.request_id, p.id]);
       await _pgPool.query("UPDATE gp_requests SET status='assigned', assigned_to=$1, updated_at=NOW() WHERE id=$2",[p.gp_user_id, p.request_id]);
+      _gpLog('proposal_accept', uid, p.request_id, { gp: p.gp_user_id }, req);
       const conv = await _gpSend(uid, p.gp_user_id, '✅ J\'accepte ta proposition pour « ' + p.title + ' ». Dis-moi où et quand déposer le colis 🙏', 'request:' + p.request_id); return res.json({ success: true, conv_id: conv }); }
     if(a === 'decline'){ await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE id=$1 AND status='pending'",[p.id]); return res.json({ success: true }); }
     res.status(400).json({ error: 'Action inconnue' });
@@ -10764,13 +10887,18 @@ app.post('/api/gp/offers', gpAuth, async (req, res) => {
     await _pgPool.query('INSERT INTO gp_offers(id,user_id,from_country,from_city,to_country,to_city,depart_date,arrival_date,kg_available,price_per_kg,currency,accepted_types,drop_point,pickup_point,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
       [id, uid, fc, _gpTxt(b.from_city,50)||null, tc, _gpTxt(b.to_city,50)||null, dd, _gpDate(b.arrival_date), kg, _gpNum(b.price_per_kg,0,1000000), _gpCur(b.currency), JSON.stringify(types), _gpTxt(b.drop_point,160)||null, _gpTxt(b.pickup_point,160)||null, _gpTxt(b.notes,1000)||null]);
     setImmediate(async function(){ try{ const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_requests WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
+      _gpLog('offer_new', uid, id, { route: fc + ' → ' + tc, kg: kg, date: dd }, req);
       m.rows.forEach(function(x){ _gpPush(x.user_id, '✈️ Nouveau départ ' + fc + ' → ' + tc, (prof.company_name || 'Un GP') + ' part le ' + new Date(dd).toLocaleDateString('fr-FR') + ' · ' + kg + ' kg disponibles', '/#/depart/' + id); }); }catch(_){} });
     res.json({ success: true, id: id });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.patch('/api/gp/offers/:id', gpAuth, async (req, res) => {
   try{ const o = (await _pgPool.query('SELECT user_id FROM gp_offers WHERE id=$1',[req.params.id])).rows[0]; if(!o || o.user_id !== req.gpUid) return res.status(403).json({ error: 'Action non autorisée' });
-    if(['open','full','done','cancelled'].indexOf(req.body.status) > -1) await _pgPool.query('UPDATE gp_offers SET status=$1, updated_at=NOW() WHERE id=$2',[req.body.status, req.params.id]);
+    const st = req.body.status;
+    if(['open','full','departed','done','cancelled'].indexOf(st) < 0) return res.status(400).json({ error: 'Statut inconnu' });
+    await _pgPool.query('UPDATE gp_offers SET status=$1, updated_at=NOW() WHERE id=$2',[st, req.params.id]); _gpLog('offer_' + st, req.gpUid, req.params.id, null, req);
+    if(st === 'departed' || st === 'done'){ try{ const rs = (await _pgPool.query("SELECT id, user_id, title FROM gp_requests WHERE assigned_to=$1 AND status IN ('assigned','sent')",[req.gpUid])).rows;
+      rs.forEach(function(x){ _gpPush(x.user_id, st === 'departed' ? '✈️ Ton GP est parti' : '🛬 Ton GP est arrivé', '« ' + x.title + ' » ' + (st === 'departed' ? 'est en route' : 'est arrivé à destination'), '/#/colis/' + x.id); }); }catch(_){} }
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10779,7 +10907,7 @@ app.post('/api/gp/offers/:id/contact', gpAuth, async (req, res) => {
     const o = (await _pgPool.query('SELECT * FROM gp_offers WHERE id=$1',[req.params.id])).rows[0]; if(!o || o.hidden || o.status !== 'open') return res.status(400).json({ error: 'Ce départ n\'est plus disponible' }); if(o.user_id === uid) return res.status(400).json({ error: 'C\'est ton propre départ' });
     const w = _gpNum(req.body.weight_kg, 0.1, 500); const msg = _gpTxt(req.body.message, 800);
     const conv = await _gpSend(uid, o.user_id, '✈️ Bonjour, je suis intéressé(e) par ton départ ' + o.from_country + (o.from_city ? ' (' + o.from_city + ')' : '') + ' → ' + o.to_country + (o.to_city ? ' (' + o.to_city + ')' : '') + ' du ' + new Date(o.depart_date).toLocaleDateString('fr-FR') + '.' + (w ? '\n📦 Poids de mon colis : ' + w + ' kg' : '') + (msg ? '\n\n' + msg : ''), 'offer:' + o.id);
-    await _pgPool.query('UPDATE gp_offers SET contacts=contacts+1 WHERE id=$1',[o.id]); res.json({ success: true, conv_id: conv });
+    await _pgPool.query('UPDATE gp_offers SET contacts=contacts+1 WHERE id=$1',[o.id]); _gpLog('offer_contact', uid, o.id, { gp: o.user_id }, req); res.json({ success: true, conv_id: conv });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ── Mon espace, avis, signalements ──
@@ -10796,18 +10924,19 @@ app.get('/api/gp/mine', gpAuth, async (req, res) => {
 });
 app.post('/api/gp/reviews', gpAuth, async (req, res) => {
   try{ const uid = req.gpUid; const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[String(req.body.request_id||'')])).rows[0];
-    if(!r || r.user_id !== uid || r.status !== 'delivered' || !r.assigned_to) return res.status(400).json({ error: 'Tu pourras noter le GP une fois ton colis livré' });
+    if(!r || r.user_id !== uid || (r.status !== 'delivered' && r.status !== 'sent') || !r.assigned_to) return res.status(400).json({ error: 'Tu pourras noter le GP une fois ton colis remis ou livré' });
     const rating = Math.max(1, Math.min(5, parseInt(req.body.rating)||0));
     const ins = await _pgPool.query('INSERT INTO gp_reviews(id,gp_user_id,author_id,request_id,rating,comment) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (author_id,request_id) DO NOTHING RETURNING id',[_gpId('gpv'), r.assigned_to, uid, r.id, rating, _gpTxt(req.body.comment, 600) || null]);
     if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà noté ce GP pour ce colis' });
     await _pgPool.query('UPDATE gp_profiles SET rating_avg=(SELECT AVG(rating) FROM gp_reviews WHERE gp_user_id=$1), rating_count=(SELECT COUNT(*) FROM gp_reviews WHERE gp_user_id=$1) WHERE user_id=$1',[r.assigned_to]);
+    _gpLog('review', uid, r.id, { gp: r.assigned_to, rating: rating }, req);
     _gpPush(r.assigned_to, '⭐ Nouvel avis : ' + rating + '/5', _gpTxt(req.body.comment, 80) || 'Un client t\'a noté', '/#/gp/' + r.assigned_to); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/report', gpAuth, async (req, res) => {
   try{ if(!_gpRate(req.gpUid, 'report', 10, 86400000)) return _filTooFast(res);
     const t = ['request','offer','gp'].indexOf(req.body.target_type) > -1 ? req.body.target_type : null; if(!t) return res.status(400).json({ error: 'Signalement invalide' });
-    await _pgPool.query('INSERT INTO gp_reports(id,target_type,target_id,reporter_id,reason) VALUES($1,$2,$3,$4,$5)',[_gpId('gpx'), t, String(req.body.target_id||'').slice(0,60), req.gpUid, _gpTxt(req.body.reason,500)||null]); res.json({ success: true });
+    await _pgPool.query('INSERT INTO gp_reports(id,target_type,target_id,reporter_id,reason) VALUES($1,$2,$3,$4,$5)',[_gpId('gpx'), t, String(req.body.target_id||'').slice(0,60), req.gpUid, _gpTxt(req.body.reason,500)||null]); _gpLog('report', req.gpUid, t + ':' + String(req.body.target_id||'').slice(0,60), null, req); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ── Administration du site ──
@@ -10818,11 +10947,13 @@ app.get('/api/gp/admin/overview', gpAuth, gpAdmin, async (req, res) => {
     const reports = await q("SELECT * FROM gp_reports WHERE status='open' ORDER BY created_at DESC LIMIT 100"); const gps = await q('SELECT * FROM gp_profiles ORDER BY created_at DESC LIMIT 200');
     const users = await _gpUsers(pend.map(function(p){ return p.user_id; }).concat(gps.map(function(p){ return p.user_id; })).concat(reports.map(function(r){ return r.reporter_id; })));
     const pub = function(p){ const u = users[p.user_id] || {}; return Object.assign(_gpPub(u, p), { phone: p.phone || u.phone || '', email: u.email || '', doc_url: p.verify_doc_url, banned: p.banned, created_at: p.created_at }); };
-    res.json({ counts: counts, pending: pend.map(pub), gps: gps.map(pub), reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).name || '' }); }) });
+    const contacts = await q("SELECT * FROM gp_contacts WHERE status='open' ORDER BY created_at DESC LIMIT 100");
+    res.json({ counts: counts, pending: pend.map(pub), gps: gps.map(pub), contacts: contacts, reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).name || '' }); }) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpAdmin, async (req, res) => {
   try{ const uid = String(req.params.uid); const a = req.params.action;
+    _gpLog('admin_' + a, req.gpUid, uid, null, req);
     if(a === 'verify'){ await _pgPool.query('UPDATE gp_profiles SET verified=TRUE, verified_at=NOW() WHERE user_id=$1',[uid]); _gpPush(uid, '✅ Profil vérifié', 'Ton badge « Vérifié » est maintenant visible', '/#/gp/' + uid); }
     else if(a === 'unverify') await _pgPool.query('UPDATE gp_profiles SET verified=FALSE WHERE user_id=$1',[uid]);
     else if(a === 'ban'){ await _pgPool.query('UPDATE gp_profiles SET banned=TRUE WHERE user_id=$1',[uid]); await _pgPool.query('UPDATE gp_users SET banned=TRUE WHERE id=$1',[uid]); await _pgPool.query('UPDATE gp_offers SET hidden=TRUE WHERE user_id=$1',[uid]); }
@@ -10832,9 +10963,66 @@ app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpAdmin, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/admin/hide', gpAuth, gpAdmin, async (req, res) => {
-  try{ const t = req.body.type === 'offer' ? 'gp_offers' : 'gp_requests'; await _pgPool.query('UPDATE ' + t + ' SET hidden=$1 WHERE id=$2',[req.body.hidden !== false, String(req.body.id||'')]);
+  try{ const t = req.body.type === 'offer' ? 'gp_offers' : 'gp_requests'; await _pgPool.query('UPDATE ' + t + ' SET hidden=$1 WHERE id=$2',[req.body.hidden !== false, String(req.body.id||'')]); _gpLog(req.body.hidden !== false ? 'admin_hide' : 'admin_unhide', req.gpUid, String(req.body.id||''), { type: req.body.type }, req);
     if(req.body.report_id) await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[String(req.body.report_id)]); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/daily', gpAuth, gpAdmin, async (req, res) => {
+  try{ const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(_){ return []; } };
+    const days = []; for(let i = 13; i >= 0; i--){ const d = new Date(Date.now() - i*86400000); days.push(d.toISOString().slice(0,10)); }
+    const by = async function(tbl){ const m = {}; (await q("SELECT to_char(created_at::date,'YYYY-MM-DD') AS d, COUNT(*)::int AS n FROM " + tbl + " WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY 1")).forEach(function(r){ m[r.d] = r.n; }); return days.map(function(d){ return m[d] || 0; }); };
+    const act = {}; (await q("SELECT to_char(created_at::date,'YYYY-MM-DD') AS d, COUNT(DISTINCT user_id)::int AS n FROM gp_events WHERE created_at > NOW() - INTERVAL '14 days' AND user_id IS NOT NULL GROUP BY 1")).forEach(function(r){ act[r.d] = r.n; });
+    res.json({ days: days, signups: await by('gp_users'), requests: await by('gp_requests'), offers: await by('gp_offers'), messages: await by('gp_msgs'), active: days.map(function(d){ return act[d] || 0; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/users', gpAuth, gpAdmin, async (req, res) => {
+  try{ const qq = _gpTxt(req.query.q, 60); const sort = { recent: 'u.last_seen DESC NULLS LAST', new: 'u.created_at DESC', old: 'u.created_at ASC', name: 'u.name ASC' }[req.query.sort] || 'u.created_at DESC';
+    const rows = (await _pgPool.query('SELECT u.*, p.kind, p.company_name, p.verified, p.banned AS gp_banned, (SELECT COUNT(*)::int FROM gp_requests r WHERE r.user_id=u.id) AS n_req, (SELECT COUNT(*)::int FROM gp_offers o WHERE o.user_id=u.id) AS n_off, (SELECT COUNT(*)::int FROM gp_msgs m WHERE m.sender_id=u.id) AS n_msg FROM gp_users u LEFT JOIN gp_profiles p ON p.user_id=u.id' + (qq ? ' WHERE (u.name ILIKE $1 OR u.phone ILIKE $1 OR u.email ILIKE $1 OR p.company_name ILIKE $1)' : '') + ' ORDER BY ' + sort + ' LIMIT 200', qq ? ['%' + qq + '%'] : [])).rows;
+    res.json({ items: rows.map(function(u){ return { id: u.id, name: u.name, phone: u.phone, email: u.email, avatar_url: u.avatar_url, phone_verified: u.phone_verified, banned: u.banned, created_at: u.created_at, last_seen: u.last_seen, last_login: u.last_login, last_ip: u.last_ip, logins: u.logins || 0, is_gp: !!u.kind, company: u.company_name, verified: !!u.verified, n_req: u.n_req, n_off: u.n_off, n_msg: u.n_msg }; }) });
+  }catch(e){ console.error('[gp] admin users:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/users/:id', gpAuth, gpAdmin, async (req, res) => {
+  try{ const id = String(req.params.id); const u = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[id])).rows[0]; if(!u) return res.status(404).json({ error: 'Introuvable' });
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[id])).rows[0] || null;
+    const reqs = (await _pgPool.query('SELECT id, title, from_country, to_country, weight_kg, status, hidden, created_at FROM gp_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50',[id])).rows;
+    const offs = (await _pgPool.query('SELECT id, from_country, to_country, depart_date, kg_available, status, hidden, created_at FROM gp_offers WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50',[id])).rows;
+    const ev = (await _pgPool.query('SELECT type, target, meta, ip, ua, created_at FROM gp_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200',[id])).rows;
+    const n = async function(sql){ try{ return (await _pgPool.query(sql,[id])).rows[0].n || 0; }catch(_){ return 0; } };
+    res.json({ user: { id: u.id, name: u.name, phone: u.phone, email: u.email, avatar_url: u.avatar_url, phone_verified: u.phone_verified, banned: u.banned, is_admin: u.is_admin, created_at: u.created_at, terms_at: u.terms_at, last_seen: u.last_seen, last_login: u.last_login, last_ip: u.last_ip, logins: u.logins || 0, pwd_changed_at: u.pwd_changed_at },
+      profile: p, requests: reqs, offers: offs, events: ev,
+      counts: { messages: await n('SELECT COUNT(*)::int AS n FROM gp_msgs WHERE sender_id=$1'), convs: await n('SELECT COUNT(*)::int AS n FROM gp_convs WHERE u1=$1 OR u2=$1'), proposals: await n('SELECT COUNT(*)::int AS n FROM gp_proposals WHERE gp_user_id=$1'), reviews_given: await n('SELECT COUNT(*)::int AS n FROM gp_reviews WHERE author_id=$1'), reviews_received: await n('SELECT COUNT(*)::int AS n FROM gp_reviews WHERE gp_user_id=$1'), reports_made: await n('SELECT COUNT(*)::int AS n FROM gp_reports WHERE reporter_id=$1') } });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/users/:id/:action', gpAuth, gpAdmin, async (req, res) => {
+  try{ const id = String(req.params.id); const a = req.params.action; if(id === req.gpUid) return res.status(400).json({ error: 'Action impossible sur ton propre compte' });
+    if(a === 'ban'){ await _pgPool.query('UPDATE gp_users SET banned=TRUE, pwd_changed_at=NOW() WHERE id=$1',[id]); await _pgPool.query('UPDATE gp_offers SET hidden=TRUE WHERE user_id=$1',[id]); await _pgPool.query('UPDATE gp_requests SET hidden=TRUE WHERE user_id=$1',[id]); }
+    else if(a === 'unban'){ await _pgPool.query('UPDATE gp_users SET banned=FALSE WHERE id=$1',[id]); await _pgPool.query('UPDATE gp_offers SET hidden=FALSE WHERE user_id=$1',[id]); await _pgPool.query('UPDATE gp_requests SET hidden=FALSE WHERE user_id=$1',[id]); }
+    else if(a === 'logout'){ await _pgPool.query('UPDATE gp_users SET pwd_changed_at=NOW() WHERE id=$1',[id]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    _gpLog('admin_user_' + a, req.gpUid, id, null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/listings', gpAuth, gpAdmin, async (req, res) => {
+  try{ const kind = req.query.kind === 'offers' ? 'offers' : 'requests'; const qq = _gpTxt(req.query.q, 60); const st = _gpTxt(req.query.status, 20);
+    const tbl = kind === 'offers' ? 'gp_offers' : 'gp_requests'; const w = []; const v = [];
+    if(qq){ v.push('%' + qq + '%'); w.push('(x.from_city ILIKE $1 OR x.to_city ILIKE $1 OR x.from_country ILIKE $1 OR x.to_country ILIKE $1' + (kind === 'requests' ? ' OR x.title ILIKE $1' : ' OR x.notes ILIKE $1') + ')'); }
+    if(st){ v.push(st); w.push('x.status = $' + v.length); }
+    const rows = (await _pgPool.query('SELECT x.*, u.name AS owner_name, u.phone AS owner_phone FROM ' + tbl + ' x LEFT JOIN gp_users u ON u.id=x.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY x.created_at DESC LIMIT 200', v)).rows;
+    res.json({ items: rows });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/events', gpAuth, gpAdmin, async (req, res) => {
+  try{ const w = []; const v = []; const p = function(x){ v.push(x); return '$' + v.length; };
+    if(req.query.type) w.push('e.type LIKE ' + p(_gpTxt(req.query.type, 40) + '%'));
+    if(req.query.user) w.push('e.user_id = ' + p(String(req.query.user)));
+    if(req.query.before) w.push('e.id < ' + p(parseInt(req.query.before)||0));
+    if(req.query.q) w.push('(u.name ILIKE ' + p('%' + _gpTxt(req.query.q, 60) + '%') + ' OR e.ip ILIKE $' + v.length + ' OR e.target ILIKE $' + v.length + ')');
+    const rows = (await _pgPool.query('SELECT e.*, u.name AS user_name FROM gp_events e LEFT JOIN gp_users u ON u.id=e.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY e.id DESC LIMIT 150', v)).rows;
+    res.json({ items: rows, next: rows.length === 150 ? rows[rows.length-1].id : null });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/contact/:id/close', gpAuth, gpAdmin, async (req, res) => {
+  try{ await _pgPool.query("UPDATE gp_contacts SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/admin/report/:id/close', gpAuth, gpAdmin, async (req, res) => {
   try{ await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
