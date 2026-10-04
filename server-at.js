@@ -1,4 +1,5 @@
-const express = require('express');
+﻿const express = require('express');
+const _PENC_DISABLE_DEVICE_LOCK = true; // TEMPORAIRE (tests natif multi-appareils) — remettre à false pour restaurer le verrou
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
@@ -40,6 +41,8 @@ app.use(function(req, res, next){
 const http = require('http');
 const { Server: IOServer } = require('socket.io');
 const httpServer = http.createServer(app);
+httpServer.keepAliveTimeout = 65000;   // derrière le répartiteur de Render : évite les coupures 502 sous forte charge
+httpServer.headersTimeout = 66000;
 const io = new IOServer(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
   // Reglages adaptes a un grand nombre de connexions simultanees : evite de garder des sockets
@@ -96,6 +99,9 @@ app.get('/health', function(req,res){
     });
   }catch(e){ res.status(500).json({ status:'error', error:e.message }); }
 });
+// ══ Montée en charge : réponses compressées (≈ 70 % de données en moins sur le Fil) ══
+try{ const _compression = require('compression'); app.use(_compression({ threshold: 1024, filter: function(req, res){ if(req.headers['x-no-compression']) return false; return _compression.filter(req, res); } })); console.log('[perf] compression gzip active'); }
+catch(_c){ console.log('[perf] module compression absent — ajouter "compression" dans package.json pour activer le gzip'); }
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
@@ -3669,6 +3675,7 @@ function _pencInDndWindow(start, end) {
   } catch (_e) { return false; }
 }
 async function sendPencPush(userId, payload) {
+  try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
   try {
     // Respecter le mute par conversation : ne pas notifier si l'utilisateur a coupé cette discussion
@@ -3696,18 +3703,43 @@ async function sendPencPush(userId, payload) {
         }
       } catch (_de) {}
     }
-    const subs = await pencPushSubs();
-    const mine = subs.filter(x => x.user_id === userId);
+    // Récupérer les abonnements push de l'utilisateur — PostgreSQL en priorité (fiable, comme le
+    // reste de l'app), avec repli sur JSONBin uniquement si Postgres est indisponible. Avant, la
+    // lecture se faisait UNIQUEMENT sur JSONBin, qui a été largement abandonné et peut être vide
+    // ou défaillant → aucune notification n'était jamais envoyée (bulle interne via socket, mais
+    // rien dans la barre système). C'est la cause du bug "notifications internes seulement".
+    let mine = [];
+    if (_pgPool) {
+      try {
+        const _pr = await _pgPool.query('SELECT subscription FROM penc_push_subs WHERE user_id=$1', [userId]);
+        mine = _pr.rows.map(function (r) { return { user_id: userId, subscription: r.subscription }; });
+      } catch (_pe) {
+        // Postgres indisponible : repli JSONBin
+        try { const subs = await pencPushSubs(); mine = subs.filter(x => x.user_id === userId); } catch (_je) {}
+      }
+    } else {
+      const subs = await pencPushSubs();
+      mine = subs.filter(x => x.user_id === userId);
+    }
+    let _sent = 0, _errs = [];
     for (const sb of mine) {
-      try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload)); }
+      try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload), { TTL: 86400, urgency: 'high' }); _sent++; }
       catch (err) {
+        _errs.push((err && err.statusCode) || (err && err.message) || 'erreur');
+        if (!(err && (err.statusCode === 404 || err.statusCode === 410))) console.error('[push] envoi refusé (' + ((err && err.statusCode) || '?') + ') pour ' + userId + ' : ' + ((err && err.body) || (err && err.message) || ''));
         if (err && (err.statusCode === 404 || err.statusCode === 410)) {
-          const all = await pencPushSubs();
-          await pencSavePushSubs(all.filter(z => !(z.subscription && sb.subscription && z.subscription.endpoint === sb.subscription.endpoint)));
+          // Abonnement expiré → le retirer des deux stockages
+          const _ep = sb.subscription && sb.subscription.endpoint;
+          if (_ep && _pgPool) { try { await _pgPool.query('DELETE FROM penc_push_subs WHERE endpoint=$1', [_ep]); } catch (_de2) {} }
+          try {
+            const all = await pencPushSubs();
+            await pencSavePushSubs(all.filter(z => !(z.subscription && _ep && z.subscription.endpoint === _ep)));
+          } catch (_je2) {}
         }
       }
     }
-  } catch (e) { console.error('sendPencPush:', e.message); }
+    return { subscriptions: mine.length, sent: _sent, errors: _errs };
+  } catch (e) { console.error('sendPencPush:', e.message); return { subscriptions: 0, sent: 0, errors: [e.message] }; }
 }
 // ── Notifications DeglouFM en digest : plutôt qu'une push par commentaire (spam garanti sur
 // une station active), on regroupe tous les commentaires arrivés dans une fenêtre de 45s en
@@ -4019,6 +4051,38 @@ app.get('/api/sen-sms/me', senSmsAuth, async (req, res) => {
 app.get('/messager', (req, res) => {
   res.sendFile(__dirname + '/messager.html');
 });
+app.get('/sonko', (req, res) => {
+  res.sendFile(__dirname + '/sonko.html');
+});
+// Route dynamique pour un article : injecte le vrai titre/image/résumé dans les balises
+// Open Graph avant d'envoyer la page, pour que Facebook (qui n'exécute pas le JavaScript)
+// affiche un aperçu correct du lien partagé, au lieu du titre générique du site.
+app.get('/sonko/a/:id', async (req, res) => {
+  try {
+    const fs = require('fs');
+    let html = fs.readFileSync(__dirname + '/sonko.html', 'utf8');
+    if (_pgPool) {
+      const r = await _pgPool.query('SELECT title,excerpt,content,image_url FROM sonko_articles WHERE id=$1', [req.params.id]);
+      if (r.rows.length) {
+        const a = r.rows[0];
+        const esc = (s) => String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const title = esc(a.title);
+        const desc = esc((a.excerpt && a.excerpt.trim()) || String(a.content).slice(0, 160));
+        const image = esc(a.image_url || '');
+        const url = esc('https://' + req.get('host') + req.originalUrl);
+        html = html
+          .split('<!--OG_TITLE-->Sonko Archives TV — Actualités').join('<!--OG_TITLE-->' + title)
+          .split('<!--OG_DESC-->Sonko Archives TV — actualités, archives et analyses.').join('<!--OG_DESC-->' + desc)
+          .replace('content="<!--OG_IMAGE-->"', 'content="' + image + '"')
+          .replace('content="<!--OG_URL-->"', 'content="' + url + '"');
+      }
+    }
+    res.send(html);
+  } catch (e) { res.sendFile(__dirname + '/sonko.html'); }
+});
+app.get('/sonko-admin', (req, res) => {
+  res.sendFile(__dirname + '/sonko-admin.html');
+});
 
 
 // ════════════════════════════════════════════════════════════
@@ -4085,7 +4149,7 @@ function r2Key(type, userId, ext) {
     photo: 'penc/images', video: 'penc/videos', voice: 'penc/voice',
     sticker: 'penc/stickers', avatar: 'penc/avatars', group_icon: 'penc/groups',
     kyc: 'penc/verif', status_photo: 'penc/status', status_video: 'penc/status',
-    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings', bg_audio: 'penc/bg-audio'
+    channel: 'penc/channel', file: 'penc/docs', ad: 'penc/ads', wallpaper: 'penc/wallpapers', key_backup: 'penc/keybackup', listing: 'penc/listings', bg_audio: 'penc/bg-audio', music_track: 'penc/music'
   };
   const folder = folders[type] || 'penc/misc';
   const safeExt = String(ext || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
@@ -4254,7 +4318,7 @@ async function _ffprobeMeta(inputPath, timeoutMs) {
     });
   });
 }
-async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark, blurRect) {
+async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark, blurRect, audioPath) {
   const ffmpeg = _ffmpegBin();
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   const probe = await _ffprobeMeta(inputPath);
@@ -4282,35 +4346,59 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
     curLabel = afterBlur;
   }
   if (withWatermark) {
+    // Vidéo déjà marquée (republiée depuis Penc, ou venant de TikTok / CapCut / Douyin) : on ne superpose pas un 2e filigrane
+    try{
+      const tags = Object.assign({}, (probe.format && probe.format.tags) || {}, vs.tags || {});
+      const tagTxt = Object.keys(tags).map(function(k){ return k + '=' + tags[k]; }).join(' ').toLowerCase();
+      if (/penc_wm|tiktok|bytedance|douyin|capcut|vid:v[0-9]/.test(tagTxt)) withWatermark = false;
+    }catch(_t){}
+  }
+  if (withWatermark) {
     const uname = _wmCleanUsername(username);
-    const text = ('@' + uname + '_Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
-    const fontSize = Math.max(14, Math.round(H * 0.042));
+    const text = ('@' + uname + '  ·  Penc').replace(/\\/g, '').replace(/:/g, '\\:').replace(/'/g, "\\'");
+    const fontSize = Math.max(14, Math.round(Math.min(W, H) * 0.042));
+    const pad = Math.round(fontSize * 0.5);
+    const txt = "drawtext=text='" + text + "':fontcolor=0xCFE6FF:fontsize=" + fontSize + ":box=1:boxcolor=0x0B1B33@0.55:boxborderw=" + pad + ":shadowcolor=black@0.5:shadowx=1:shadowy=1:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th";
     const logoBuf = await _loadWatermarkLogo();
     if (logoBuf) {
       logoTmpPath = pathMod.join(os.tmpdir(), 'wmlogo_' + Date.now() + '.png');
       fs.writeFileSync(logoTmpPath, logoBuf);
       cmd = cmd.input(logoTmpPath);
-      const logoW = Math.max(20, Math.round(W * 0.13));
+      const logoW = Math.max(24, Math.round(Math.min(W, H) * 0.13));
       const afterLogo = nextLabel(), afterText = nextLabel();
-      filters.push('[1:v]scale=' + logoW + ':-1[logo]');
+      filters.push('[1:v]scale=' + logoW + ':-1,format=rgba,colorchannelmixer=aa=0.94[logo]');
       filters.push('[' + curLabel + '][logo]overlay=x=' + Math.round(W * 0.03) + ':y=' + Math.round(H * 0.03) + '[' + afterLogo + ']');
-      filters.push('[' + afterLogo + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      filters.push('[' + afterLogo + ']' + txt + '[' + afterText + ']');
       curLabel = afterText;
     } else {
       const afterText = nextLabel();
-      filters.push('[' + curLabel + "]drawtext=text='" + text + "':fontcolor=white:fontsize=" + fontSize + ":borderw=3:bordercolor=black@0.6:x=" + Math.round(W * 0.03) + ":y=h-" + Math.round(H * 0.04) + "-th[" + afterText + "]");
+      filters.push('[' + curLabel + ']' + txt + '[' + afterText + ']');
       curLabel = afterText;
     }
   }
+  let audioInputIdx = null;
+  if (audioPath) { cmd = cmd.input(audioPath).inputOptions(['-stream_loop', '-1']); audioInputIdx = logoTmpPath ? 2 : 1; }
+  // Vidéo légère pour une lecture immédiate (comme Facebook) : 720p maximum, débit plafonné,
+  // images clés rapprochées. Une vidéo 1080p/4K de téléphone devient 5 à 10 fois plus légère.
+  const _needScale = Math.min(W, H) > 720;
+  const _scaleExpr = (H >= W) ? 'scale=720:-2' : 'scale=-2:720';
+  let _vfOpt = null;
+  if (_needScale) {
+    if (filters.length) { const sc = nextLabel(); filters.push('[' + curLabel + ']' + _scaleExpr + '[' + sc + ']'); curLabel = sc; }
+    else _vfOpt = _scaleExpr;
+  }
   if (filters.length) cmd = cmd.complexFilter(filters, curLabel);
   return new Promise((resolve, reject) => {
-    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', '-movflags +faststart'];
+    var _outOpts = ['-c:v libx264', '-preset veryfast', '-crf 25', '-maxrate 1800k', '-bufsize 3600k', '-g 48', '-pix_fmt yuv420p', '-c:a aac', '-b:a 96k', '-movflags +faststart', '-shortest'];
+    if (_vfOpt) _outOpts.push('-vf', _vfOpt);
+    if (withWatermark) _outOpts.push('-metadata', 'comment=penc_wm');
     // '0:a?' doit être passé en option -map brute (pas via complexFilter, qui traiterait
     // ce texte comme un label de filtre invalide et ferait planter ffmpeg avec code 1).
     // Le '?' rend l'audio optionnel : aucune erreur si la vidéo source n'a pas de piste audio.
     // Nécessaire dès qu'un complexFilter est utilisé (filigrane OU floutage de zone), pas
     // seulement pour le filigrane avec logo comme avant.
-    if (filters.length) { _outOpts.unshift('-map', '0:a?'); }
+    if (audioInputIdx !== null) { _outOpts.unshift('-map', audioInputIdx + ':a'); }        // musique choisie : remplace le son d'origine
+    else if (filters.length) { _outOpts.unshift('-map', '0:a?'); }
     cmd.outputOptions(_outOpts)
       .on('end', () => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} resolve(); })
       .on('error', (err) => { try { if (logoTmpPath) fs.unlinkSync(logoTmpPath); } catch (e) {} reject(err); })
@@ -4610,8 +4698,20 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       fs.writeFileSync(tmpIn, buf);
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
-      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ', floutage=' + (blurRect ? 'oui' : 'non') + ')...');
-      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect);
+      // Musique choisie sur une vidéo du Fil : téléchargée depuis R2 puis mixée par ffmpeg
+      let audioPath = null;
+      if (req.body.audio_track_id && type === 'video') {
+        try{
+          const tr = await _pgPool.query('SELECT url FROM penc_audio_tracks WHERE id=$1',[req.body.audio_track_id]);
+          if (tr.rows.length) {
+            const aBuf = await (async function(){ const u = new URL(tr.rows[0].url); const kk = decodeURIComponent(u.pathname.replace(/^\//,'')); return r2GetBuffer(kk); })();
+            audioPath = pathMod.join(os.tmpdir(), 'aud_' + Date.now() + '.mp3');
+            fs.writeFileSync(audioPath, aBuf); tmpFiles.push(audioPath);
+          }
+        }catch(_at){ console.error('[media/process] musique indisponible:', _at.message); audioPath = null; }
+      }
+      console.log('[media/process] video: lancement ffmpeg (watermark=' + withWatermark + ', floutage=' + (blurRect ? 'oui' : 'non') + ', musique=' + (audioPath?'oui':'non') + ')...');
+      await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect, audioPath);
       console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const url = await r2PutBuffer(key, outBuf, 'video/mp4');
@@ -4924,6 +5024,48 @@ async function initPgPenc(){
       CREATE INDEX IF NOT EXISTS idx_qplay_track ON penc_quran_plays(track_type, track_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_user ON penc_quran_plays(user_id);
       CREATE INDEX IF NOT EXISTS idx_qplay_created ON penc_quran_plays(created_at);
+      CREATE TABLE IF NOT EXISTS sonko_articles (
+        id            TEXT PRIMARY KEY,
+        title         TEXT NOT NULL,
+        excerpt       TEXT DEFAULT '',
+        content       TEXT NOT NULL,
+        image_url     TEXT,
+        video_url     TEXT,
+        author        TEXT DEFAULT 'Redaction',
+        category      TEXT DEFAULT 'Actualité',
+        tags          TEXT DEFAULT '',
+        ai_summary    TEXT DEFAULT '',
+        reading_minutes INTEGER DEFAULT 1,
+        views         INTEGER DEFAULT 0,
+        published     BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS sonko_comments (
+        id            TEXT PRIMARY KEY,
+        article_id    TEXT NOT NULL,
+        name          TEXT NOT NULL,
+        content       TEXT NOT NULL,
+        edit_token    TEXT,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      ALTER TABLE sonko_comments ADD COLUMN IF NOT EXISTS edit_token TEXT;
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Actualité';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT '';
+      ALTER TABLE sonko_articles ADD COLUMN IF NOT EXISTS video_url TEXT;
+      CREATE INDEX IF NOT EXISTS idx_sonko_comments_article ON sonko_comments(article_id, created_at);
+      CREATE TABLE IF NOT EXISTS sonko_reactions (
+        article_id    TEXT NOT NULL,
+        emoji         TEXT NOT NULL,
+        count         INTEGER DEFAULT 0,
+        PRIMARY KEY (article_id, emoji)
+      );
+      CREATE TABLE IF NOT EXISTS sonko_settings (
+        key           TEXT PRIMARY KEY,
+        value         TEXT DEFAULT '',
+        enabled       BOOLEAN DEFAULT FALSE,
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS penc_radio_stations (
         id            TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -5121,6 +5263,101 @@ async function initPgPenc(){
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_psc_status ON penc_status_comments(status_id);
+      -- ══ Fil social (publications permanentes façon Facebook, ne disparaissent pas comme les statuts) ══
+      CREATE TABLE IF NOT EXISTS penc_posts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        content TEXT DEFAULT '',
+        media_urls JSONB DEFAULT '[]',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        edited_at TIMESTAMPTZ,
+        deleted BOOLEAN DEFAULT FALSE
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_created ON penc_posts(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_user ON penc_posts(user_id);
+      CREATE TABLE IF NOT EXISTS penc_post_likes (
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (post_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_post_likes_post ON penc_post_likes(post_id);
+      CREATE TABLE IF NOT EXISTS penc_post_comments (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_post ON penc_post_comments(post_id);
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS repost_of TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS bg TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS video JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS poll JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS short_code TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_thumbs JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS tagged JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS place TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mood TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS kind TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS media_mixed JSONB;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ad_price TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ad_category TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_date TIMESTAMPTZ;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_place TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ev_reminded BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_event_rsvp (post_id TEXT NOT NULL, user_id TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_event_rsvp_post ON penc_event_rsvp(post_id);
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS group_id TEXT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS group_private BOOLEAN DEFAULT FALSE;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_goal INT;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_deadline TIMESTAMPTZ;
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS fund_wave TEXT;
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_group ON penc_posts(group_id, created_at DESC) WHERE group_id IS NOT NULL;
+      CREATE TABLE IF NOT EXISTS penc_fil_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, avatar_url TEXT, owner_id TEXT NOT NULL, privacy TEXT DEFAULT 'public', category TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_fil_group_members (group_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT DEFAULT 'member', status TEXT DEFAULT 'member', joined_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (group_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_fgm_user ON penc_fil_group_members(user_id);
+      CREATE TABLE IF NOT EXISTS penc_fil_lives (id TEXT PRIMARY KEY, host_id TEXT NOT NULL, title TEXT, room TEXT NOT NULL, status TEXT DEFAULT 'live', peak INT DEFAULT 0, started_at TIMESTAMPTZ DEFAULT NOW(), ended_at TIMESTAMPTZ);
+      CREATE TABLE IF NOT EXISTS penc_fund_contribs (id TEXT PRIMARY KEY, post_id TEXT NOT NULL, user_id TEXT NOT NULL, amount INT NOT NULL, method TEXT NOT NULL, ref TEXT, status TEXT DEFAULT 'pending', anonymous BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_fund_post ON penc_fund_contribs(post_id);
+      CREATE TABLE IF NOT EXISTS penc_audio_tracks (id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, duration INT, uploaded_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+      ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS penc_creator_earnings (id BIGSERIAL PRIMARY KEY, user_id TEXT NOT NULL, ad_id TEXT, post_id TEXT, amount NUMERIC NOT NULL, paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_penc_creator_earn_user ON penc_creator_earnings(user_id, paid);
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS mod_hidden BOOLEAN DEFAULT FALSE;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_penc_posts_short ON penc_posts(short_code) WHERE short_code IS NOT NULL;
+      CREATE TABLE IF NOT EXISTS penc_post_clicks (post_id TEXT NOT NULL, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id, kind));
+      CREATE TABLE IF NOT EXISTS penc_ad_events (id BIGSERIAL PRIMARY KEY, ad_id TEXT NOT NULL, user_id TEXT NOT NULL, kind TEXT NOT NULL, place TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_penc_ad_events_ad ON penc_ad_events(ad_id, kind);
+      CREATE INDEX IF NOT EXISTS idx_penc_ad_events_user ON penc_ad_events(user_id, created_at DESC);
+      ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+      ALTER TABLE penc_post_likes ADD COLUMN IF NOT EXISTS reaction TEXT DEFAULT 'like';
+      CREATE TABLE IF NOT EXISTS penc_post_poll_votes (post_id TEXT NOT NULL, user_id TEXT NOT NULL, option_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE TABLE IF NOT EXISTS penc_post_saves (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE INDEX IF NOT EXISTS idx_penc_post_saves_user ON penc_post_saves(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_repost ON penc_posts(repost_of);
+      ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS parent_id TEXT;
+      CREATE TABLE IF NOT EXISTS penc_post_comment_likes (comment_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (comment_id, user_id));
+      ALTER TABLE penc_post_comment_likes ADD COLUMN IF NOT EXISTS reaction TEXT DEFAULT 'like';
+      CREATE TABLE IF NOT EXISTS penc_post_views (post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (post_id, user_id));
+      CREATE TABLE IF NOT EXISTS penc_follows (follower TEXT NOT NULL, followee TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (follower, followee));
+      CREATE INDEX IF NOT EXISTS idx_penc_follows_followee ON penc_follows(followee);
+      CREATE TABLE IF NOT EXISTS penc_gam (user_id TEXT PRIMARY KEY, xp INT DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_fil_bans (user_id TEXT PRIMARY KEY, reason TEXT, until TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_gam_prog (user_id TEXT NOT NULL, period TEXT NOT NULL, cid TEXT NOT NULL, progress INT DEFAULT 0, claimed BOOLEAN DEFAULT FALSE, PRIMARY KEY (user_id, period, cid));
+      CREATE TABLE IF NOT EXISTS penc_streaks (pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL, days INT DEFAULT 0, best INT DEFAULT 0, last_day DATE, a_day DATE, b_day DATE);
+      CREATE INDEX IF NOT EXISTS idx_penc_streaks_a ON penc_streaks(a); CREATE INDEX IF NOT EXISTS idx_penc_streaks_b ON penc_streaks(b);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_live ON penc_posts(created_at DESC) WHERE deleted=FALSE;
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_user ON penc_posts(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_posts_video ON penc_posts(created_at DESC) WHERE deleted=FALSE AND video IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_penc_post_likes_user ON penc_post_likes(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_user ON penc_post_comments(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_comments_parent ON penc_post_comments(parent_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_views_user ON penc_post_views(user_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_views_post ON penc_post_views(post_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_post_clicks_post ON penc_post_clicks(post_id);
+      CREATE INDEX IF NOT EXISTS idx_penc_follows_follower ON penc_follows(follower);
       CREATE TABLE IF NOT EXISTS penc_reports (id TEXT PRIMARY KEY, reporter_id TEXT, target_type TEXT, target_id TEXT, target_user_id TEXT, reason TEXT, content_snapshot TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
       CREATE INDEX IF NOT EXISTS idx_prep_status ON penc_reports(status);
       CREATE TABLE IF NOT EXISTS penc_verif_requests (id TEXT PRIMARY KEY, user_id TEXT, doc_url TEXT, doc_url2 TEXT, type TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW());
@@ -5133,6 +5370,8 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_pinned_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, pinned_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_chat_locks (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
       CREATE TABLE IF NOT EXISTS penc_muted_convs (user_id TEXT NOT NULL, conv_id TEXT NOT NULL, muted_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, conv_id));
+      CREATE TABLE IF NOT EXISTS penc_push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, subscription JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE INDEX IF NOT EXISTS idx_penc_push_subs_user ON penc_push_subs (user_id);
       CREATE TABLE IF NOT EXISTS penc_message_reactions (message_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE TABLE IF NOT EXISTS penc_saved_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, saved_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_todo_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, message_id TEXT, conv_id TEXT, sender_name TEXT, type TEXT, content TEXT, media_url TEXT, added_at TIMESTAMPTZ DEFAULT NOW());
@@ -5166,6 +5405,15 @@ async function initPgPenc(){
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       INSERT INTO penc_ads(id,title,type,bg_color,duration,cpv_fcfa,active) VALUES('ad_demo','Votre publicité ici — Annoncez sur Penc','text','#0E8C7C',8,5,TRUE) ON CONFLICT(id) DO NOTHING;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS budget_fcfa INT DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS spent_fcfa NUMERIC DEFAULT 0;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_country TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS target_city TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS placement TEXT DEFAULT 'all';
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS status TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_method TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS pay_ref TEXT;
+      ALTER TABLE penc_ads ADD COLUMN IF NOT EXISTS cta TEXT;
       CREATE TABLE IF NOT EXISTS penc_channel_drafts (
         channel_id TEXT PRIMARY KEY, content TEXT DEFAULT '', version INTEGER DEFAULT 0,
         updated_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -5689,27 +5937,179 @@ async function pgGetOrCreateConv(uid1,uid2){
     const retry=await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1',[selfId]);
     return retry.rows[0];
   }
-  // Chercher conv existante
+  // Chercher conv existante (TOUJOURS la même : la plus ancienne), et fusionner les doublons s'il y en a.
+  // Avant : deux ouvertures simultanées pouvaient créer 2 discussions pour le même duo ; chacun écrivait
+  // alors dans « sa » discussion et les messages de l'autre semblaient disparaître.
   const r=await _pgPool.query(
-    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2 AND jsonb_array_length(participants)=2',
+    'SELECT * FROM penc_conversations WHERE participants @> $1 AND participants @> $2 AND jsonb_array_length(participants)=2 ORDER BY created_at ASC NULLS LAST, id ASC',
     [JSON.stringify([uid1]),JSON.stringify([uid2])]
   );
+  const _plain = r.rows.filter(function(x){ return !x.khatma_circle && !x.is_group && !x.group_name; });
+  if(_plain.length > 1){ try{ await _pencMergeConvs(_plain.map(function(x){ return x.id; })); }catch(_m){ console.error('[conv-merge]', _m.message); } return _plain[0]; }
+  if(_plain.length) return _plain[0];
   if(r.rows.length) return r.rows[0];
-  // Créer nouvelle conv
+  // Créer nouvelle conv — clé unique du duo : impossible d'en créer deux, même en même temps
+  const pk=[String(uid1),String(uid2)].sort().join('|');
   const id='conv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  const ins=await _pgPool.query(
-    'INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',
-    [id,JSON.stringify([uid1,uid2])]
-  );
-  return ins.rows[0];
+  try{
+    const ins=await _pgPool.query('INSERT INTO penc_conversations(id,participants,updated_at,pair_key) VALUES($1,$2,NOW(),$3) ON CONFLICT DO NOTHING RETURNING *',[id,JSON.stringify([uid1,uid2]),pk]);
+    if(ins.rows.length) return ins.rows[0];
+    const again=await _pgPool.query('SELECT * FROM penc_conversations WHERE pair_key=$1 LIMIT 1',[pk]);
+    if(again.rows.length) return again.rows[0];
+  }catch(_pk){}
+  const ins2=await _pgPool.query('INSERT INTO penc_conversations(id,participants,updated_at) VALUES($1,$2,NOW()) RETURNING *',[id,JSON.stringify([uid1,uid2])]);
+  return ins2.rows[0];
+}
+// Fusion de discussions en double : tous les messages rejoignent la première, les autres sont supprimées
+async function _pencMergeConvs(ids){
+  if(!ids || ids.length < 2) return 0;
+  const keep = ids[0], drop = ids.slice(1);
+  const c = await _pgPool.connect();
+  try{
+    await c.query('BEGIN');
+    const mv = await c.query('UPDATE penc_messages SET conversation_id=$1 WHERE conversation_id = ANY($2)',[keep, drop]);
+    for(const t of ['penc_pinned_convs','penc_muted_convs','penc_chat_locks','penc_conv_ephemeral']){ try{ await c.query('SAVEPOINT s1'); await c.query('DELETE FROM '+t+' WHERE conv_id = ANY($1)',[drop]); await c.query('RELEASE SAVEPOINT s1'); }catch(_t){ await c.query('ROLLBACK TO SAVEPOINT s1'); } }
+    await c.query('DELETE FROM penc_conversations WHERE id = ANY($1)',[drop]);
+    await c.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[keep]);
+    await c.query('COMMIT');
+    console.log('[conv-merge] ' + drop.length + ' doublon(s) fusionné(s) dans ' + keep + ' (' + mv.rowCount + ' message(s) récupéré(s))');
+    return mv.rowCount;
+  }catch(e){ try{ await c.query('ROLLBACK'); }catch(_){} throw e; } finally { c.release(); }
+}
+// Au démarrage : on répare toutes les discussions en double existantes, puis on pose la clé unique par duo
+setTimeout(async function(){
+  if(!_pgPool) return;
+  try{ await _pgPool.query("UPDATE penc_users SET avatar_url='https://penc-messagerie.com/penc-icon-192.png', full_name='Penc', verified=TRUE WHERE id='penc_official'"); }catch(_lg){}
+  try{
+    try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS pair_key TEXT'); }catch(_a){}
+    try{ await _pgPool.query('ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()'); }catch(_a){}
+    const d = await _pgPool.query("SELECT (SELECT string_agg(x, '|' ORDER BY x) FROM jsonb_array_elements_text(participants) x) AS pk, array_agg(id ORDER BY created_at ASC NULLS LAST, id ASC) AS ids FROM penc_conversations WHERE jsonb_array_length(participants)=2 AND COALESCE(khatma_circle,false)=false GROUP BY 1 HAVING COUNT(*) > 1 LIMIT 2000");
+    let n = 0, moved = 0; for(const row of d.rows){ try{ moved += await _pencMergeConvs(row.ids); n++; }catch(_m){ console.error('[conv-merge] ' + row.pk + ' : ' + _m.message); } }
+    console.log('[conv-merge] démarrage : ' + n + ' duo(s) réparé(s), ' + moved + ' message(s) réunis');
+    await _pgPool.query("UPDATE penc_conversations SET pair_key=(SELECT string_agg(x, '|' ORDER BY x) FROM jsonb_array_elements_text(participants) x) WHERE pair_key IS NULL AND jsonb_array_length(participants)=2 AND COALESCE(khatma_circle,false)=false");
+    try{ await _pgPool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_penc_conv_pair ON penc_conversations(pair_key) WHERE pair_key IS NOT NULL'); console.log('[conv-merge] clé unique par duo active'); }catch(_u){ console.error('[conv-merge] index unique :', _u.message); }
+  }catch(e){ console.error('[conv-merge] démarrage :', e.message); }
+}, 12000);
+// Numéro de séquence des messages : installé à part, étape par étape, sans jamais bloquer le reste
+let _msgSeqReady = null, _msgSeqP = null;
+async function _ensureMsgSeq(){
+  if(_msgSeqReady !== null) return _msgSeqReady;
+  if(_msgSeqP) return _msgSeqP;
+  _msgSeqP = (async function(){
+    const steps = [
+      'CREATE SEQUENCE IF NOT EXISTS penc_msg_seq',
+      'ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGINT',
+      "ALTER TABLE penc_messages ALTER COLUMN server_seq SET DEFAULT nextval('penc_msg_seq')",
+      'CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC NULLS LAST, created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_pm_conv_created ON penc_messages(conversation_id, created_at DESC)'
+    ];
+    for(const q of steps){ try{ await _pgPool.query(q); }catch(e){ console.error('[msg-seq] ' + q.slice(0,60) + ' -> ' + e.message); } }
+    try{ const c = await _pgPool.query("SELECT 1 FROM information_schema.columns WHERE table_name='penc_messages' AND column_name='server_seq'"); _msgSeqReady = c.rows.length > 0; }
+    catch(e){ _msgSeqReady = false; }
+    console.log('[msg-seq] ordre serveur ' + (_msgSeqReady ? 'actif' : 'INDISPONIBLE (repli sur la date)'));
+    return _msgSeqReady;
+  })();
+  try{ return await _msgSeqP; } finally { _msgSeqP = null; }
 }
 async function pgGetMessages(convId, limit=400){
   if(!_pgPool) return [];
-  const r=await _pgPool.query(
-    'SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT $2',
-    [convId, limit]
-  );
-  return r.rows;
+  // Filet de sécurité : si l'ordre serveur n'est pas disponible, on lit quand même les PLUS RÉCENTS par date.
+  try{
+    if(await _ensureMsgSeq()){
+      const r0 = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC NULLS LAST, created_at DESC LIMIT $2',[convId, limit]);
+      return r0.rows.reverse();
+    }
+  }catch(e){ console.error('[msgs] lecture par séquence échouée, repli par date:', e.message); }
+  const rf = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT $2',[convId, limit]);
+  return rf.rows.reverse();
+}
+async function pgGetOlderMessages(convId, beforeId, limit){
+  if(!_pgPool) return [];
+  const a = await _pgPool.query('SELECT created_at FROM penc_messages WHERE id=$1 AND conversation_id=$2',[beforeId, convId]);
+  if(!a.rows.length) return [];
+  const r = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3',[convId, a.rows[0].created_at, limit]);
+  return r.rows.reverse();
+}
+// ══ APPELS EN ATTENTE : permet de décrocher en revenant dans l'app (notification touchée, app en arrière-plan) ══
+const _pencPendingCalls = new Map();
+setInterval(function(){ const now = Date.now(); _pencPendingCalls.forEach(function(v,k){ if(now - v.ts > 70000) _pencPendingCalls.delete(k); }); }, 30000);
+// ══ GAMIFICATION ══
+const _GAM_DAILY = [
+  { id:'d_msg', kind:'msg', title:'Envoie 10 messages', target:10, xp:20, icon:'💬' },
+  { id:'d_react', kind:'react', title:'Réagis à 5 publications du Fil', target:5, xp:15, icon:'❤️' },
+  { id:'d_comment', kind:'comment', title:'Commente 2 publications', target:2, xp:15, icon:'✍️' },
+  { id:'d_post', kind:'post', title:'Publie sur le Fil', target:1, xp:25, icon:'📰' },
+  { id:'d_call', kind:'call', title:'Passe un appel d\'au moins 1 minute', target:1, xp:20, icon:'📞' }
+];
+const _GAM_WEEKLY = [
+  { id:'w_streak', kind:'_streak', title:'Garde 3 flammes actives', target:3, xp:100, icon:'🔥' },
+  { id:'w_video', kind:'video', title:'Publie 3 vidéos', target:3, xp:80, icon:'🎬' },
+  { id:'w_invite', kind:'invite', title:'Invite 2 amis sur Penc', target:2, xp:80, icon:'🤝' },
+  { id:'w_reacts', kind:'got_react', title:'Reçois 30 réactions sur tes publications', target:30, xp:100, icon:'⭐' },
+  { id:'w_status', kind:'status', title:'Publie 3 statuts', target:3, xp:60, icon:'⭕' }
+];
+function _gamDayKey(){ return 'd:' + new Date().toISOString().slice(0,10); }
+function _gamWeekKey(){ const d = new Date(); const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y = t.getUTCFullYear(); const w = Math.ceil((((t - Date.UTC(y,0,1)) / 86400000) + 1) / 7); return 'w:' + y + '-' + w; }
+function _gamLevel(xp){ let lv = 1; while(50*lv*(lv+1) <= xp) lv++; return { level: lv, from: 50*(lv-1)*lv, to: 50*lv*(lv+1) }; }
+function _gamTitle(lv){ return lv>=20?'Légende':lv>=12?'Étoile':lv>=7?'Pilier':lv>=4?'Fidèle':lv>=2?'Actif':'Nouveau'; }
+const _GAM_STREAK_LV = [[100,'👑','Légendaires'],[30,'💎','Inséparables'],[7,'🔥🔥','Complices'],[3,'🔥','En feu'],[1,'✨','Ça commence']];
+function _gamStreakLevel(d){ for(const l of _GAM_STREAK_LV){ if(d >= l[0]) return { icon:l[1], name:l[2] }; } return { icon:'', name:'' }; }
+async function _gamAddXp(uid, xp){ try{ await _pgPool.query('INSERT INTO penc_gam(user_id,xp,updated_at) VALUES($1,$2,NOW()) ON CONFLICT (user_id) DO UPDATE SET xp=penc_gam.xp+$2, updated_at=NOW()',[uid, xp]); }catch(e){ console.error('[gam] xp:', e.message); } }
+async function _gamBump(uid, kind, n){
+  if(!_pgPool || !uid) return; n = n || 1;
+  const list = _GAM_DAILY.map(function(c){ return [c, _gamDayKey()]; }).concat(_GAM_WEEKLY.map(function(c){ return [c, _gamWeekKey()]; })).filter(function(x){ return x[0].kind === kind; });
+  for(const it of list){
+    const c = it[0], period = it[1];
+    try{
+      const r = await _pgPool.query('INSERT INTO penc_gam_prog(user_id,period,cid,progress,claimed) VALUES($1,$2,$3,LEAST($4,$5),FALSE) ON CONFLICT (user_id,period,cid) DO UPDATE SET progress=LEAST(penc_gam_prog.progress+$4,$5) RETURNING progress',[uid, period, c.id, n, c.target]);
+      const p = r.rows[0] ? r.rows[0].progress : 0;
+      if(p >= c.target && p - n < c.target){ try{ emitToUsers([String(uid)], 'gam:done', { cid:c.id, period:period, title:c.title, xp:c.xp, icon:c.icon }); }catch(_e){} }
+    }catch(e){ console.error('[gam] bump:', e.message); }
+  }
+}
+// Flamme : chacun des deux doit écrire au moins un message dans la journée ; jours consécutifs = la flamme grandit
+async function _gamStreakOnMessage(uid, convId){
+  try{
+    const cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[convId]);
+    if(!cr.rows.length) return;
+    const parts = Array.isArray(cr.rows[0].participants) ? cr.rows[0].participants : JSON.parse(cr.rows[0].participants||'[]');
+    if(parts.length !== 2 || String(parts[0]) === String(parts[1])) return;
+    const other = String(parts.find(function(p){ return String(p) !== String(uid); }));
+    const a = [String(uid), other].sort()[0], b = [String(uid), other].sort()[1];
+    const col = (String(uid) === a) ? 'a_day' : 'b_day';
+    await _pgPool.query('INSERT INTO penc_streaks(pair,a,b,days,best,'+col+') VALUES($1,$2,$3,0,0,CURRENT_DATE) ON CONFLICT (pair) DO UPDATE SET '+col+'=CURRENT_DATE',[a+'|'+b, a, b]);
+    const up = await _pgPool.query("UPDATE penc_streaks SET days = CASE WHEN last_day = CURRENT_DATE - 1 THEN days + 1 ELSE 1 END, last_day = CURRENT_DATE, best = GREATEST(best, CASE WHEN last_day = CURRENT_DATE - 1 THEN days + 1 ELSE 1 END) WHERE pair=$1 AND a_day = CURRENT_DATE AND b_day = CURRENT_DATE AND (last_day IS NULL OR last_day < CURRENT_DATE) RETURNING days",[a+'|'+b]);
+    if(up.rows.length){
+      const d = up.rows[0].days;
+      if([3,7,30,100].indexOf(d) > -1){
+        const bonus = d===3?20:d===7?50:d===30?200:500; const lv = _gamStreakLevel(d);
+        for(const u of [a,b]){ await _gamAddXp(u, bonus); try{ emitToUsers([String(u)], 'gam:streak', { with: (u===a?b:a), days: d, icon: lv.icon, name: lv.name, xp: bonus }); }catch(_e){} }
+      }
+    }
+  }catch(e){ console.error('[gam] streak:', e.message); }
+}
+// Enregistrement FIABLE d'un message, AVANT toute diffusion : 3 essais, et une erreur de base n'est plus
+// confondue avec un « doublon » (avant : l'envoi était confirmé au téléphone alors que rien n'était enregistré).
+async function _pencPersistMsg(m){
+  if(!_pgPool) return { ok:false };
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      if(m.client_id){
+        const c = await pgClaimMessage(m);
+        if(c) return { ok:true, dup:false };
+        const d = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[m.client_id]);
+        if(d.rows.length) return { ok:true, dup:true, id:d.rows[0].id };
+      } else {
+        const ex = await _pgPool.query('SELECT 1 FROM penc_messages WHERE id=$1 LIMIT 1',[m.id]);
+        if(ex.rows.length) return { ok:true, dup:false };
+        await pgSaveMessage(m);
+        const ok2 = await _pgPool.query('SELECT 1 FROM penc_messages WHERE id=$1 LIMIT 1',[m.id]);
+        if(ok2.rows.length) return { ok:true, dup:false };
+      }
+    }catch(e){ console.error('[msg-persist] essai '+(attempt+1)+' échoué:', e.message); }
+    await new Promise(function(r){ setTimeout(r, 300*(attempt+1)); });
+  }
+  return { ok:false };
 }
 async function pgSaveMessage(msg){
   if(!_pgPool) return null;
@@ -5739,10 +6139,25 @@ async function pgClaimMessage(msg){
 }
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
-  return "Bienvenue sur Penc, "+fullName+" ! \uD83C\uDF89 Votre messagerie panafricaine gratuite : \uD83D\uDCAC messages priv\u00e9s & groupes, \uD83C\uDFA4 vocaux, \uD83D\uDCDE\uD83C\uDFA5 appels audio & vid\u00e9o et Penc Meet, \uD83D\uDCF8 statuts \u00e9ph\u00e9m\u00e8res, \uD83D\uDCE1 canaux, \uD83D\uDCFB radio DeglouFM en direct, \uD83D\uDD4C Coran & outils spirituels, \uD83D\uDCB8 transferts d'argent. R\u00e9pondez \u00e0 ce message pour toute question. \u2014 L'\u00e9quipe Penc \uD83D\uDC9A";
+  const p = String(fullName||'').trim().split(/\s+/)[0] || '';
+  return 'Bienvenue sur Penc' + (p ? (', ' + p) : '') + ' ! 🎉\n\n'
+    + 'Penc, c\'est la messagerie panafricaine, pensée ici, pour nous :\n\n'
+    + '💬 Discussions, vocaux et appels en haute qualité\n'
+    + '📰 Le Fil : publications, vidéos et tendances de chez toi\n'
+    + '⭕ Les Statuts de tes proches\n'
+    + '🔥 Les Flammes et les Défis : garde le lien, gagne des récompenses\n'
+    + '📻 La radio DeglouFM en direct\n\n'
+    + 'Invite tes proches pour en profiter ensemble 👉 https://play.google.com/store/apps/details?id=com.penc.messagerie\n\n'
+    + 'Une question ? Réponds simplement à ce message.\n— L\'équipe Penc · PST Pure Smart Telecom';
 }
 function _pencWelcomeBackText(fullName){
-  return "Ravis de vous revoir sur Penc"+(fullName?(", "+fullName):"")+" ! \uD83D\uDC4B Pendant votre absence, vos messages, vos appels, vos statuts et la radio DeglouFM en direct vous attendent. Jetez un \u0153il \u00e0 vos conversations en attente. \u2014 L'\u00e9quipe Penc \uD83D\uDC99";
+  const p = String(fullName||'').trim().split(/\s+/)[0] || '';
+  return 'Ravi de te revoir sur Penc' + (p ? (', ' + p) : '') + ' ! 👋\n\n'
+    + 'Depuis ta dernière visite :\n'
+    + '📰 Le Fil s\'est rempli de nouvelles publications et vidéos\n'
+    + '💬 Tes discussions et tes statuts t\'attendent\n'
+    + '🔥 Tes Flammes et tes Défis du jour sont prêts\n\n'
+    + 'Bonne reprise ! — L\'équipe Penc · PST Pure Smart Telecom';
 }
 async function _sendPencOfficialDM(uid, text, pushTitle, pushBody, tag){
   try{
@@ -6118,6 +6533,7 @@ function _pencNewSid(){ return 's_'+Date.now()+'_'+Math.random().toString(36).sl
 // que par liaison QR — jamais par simple email/mot de passe (exigence explicite du produit). ═══
 async function _pencDeviceLockCheck(userId, req){
   try{
+    if (typeof _PENC_DISABLE_DEVICE_LOCK !== 'undefined' && _PENC_DISABLE_DEVICE_LOCK) return {blocked:false};
     if(!_pgPool) return {blocked:false};
     const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0,300);
     const r = await _pgPool.query('SELECT ua FROM penc_sessions WHERE user_id=$1 AND revoked=FALSE', [userId]);
@@ -6946,7 +7362,11 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     let messages = [];
     const uid = req.pencUser.userId;
     if (_pgPool) {
-      const rows = await pgGetMessages(convId, 400);
+      const _before = req.query.before ? String(req.query.before).slice(0,120) : null;
+      const _lim = _before ? Math.min(parseInt(req.query.limit)||200, 500) : 400;
+      const rows = _before ? await pgGetOlderMessages(convId, _before, _lim) : await pgGetMessages(convId, _lim);
+      res.set('X-Penc-Has-More', rows.length >= _lim ? '1' : '0');
+      console.log('[msgs-read] conv=' + convId + ' user=' + uid + ' -> ' + rows.length + ' message(s), dernier=' + (rows.length ? rows[rows.length-1].id : '-'));
       // Reactions groupees par message pour cette conversation (une seule requete)
       let _reactByMsg = {};
       try{
@@ -7000,8 +7420,1403 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
       messages = all.filter(m => m.conversation_id === convId)
         .map(m => ({...m, is_mine: String(m.sender_id) === String(uid)}));
     }
-    res.json({ messages });
+    res.json({ messages, has_more: res.get('X-Penc-Has-More') === '1' });
   } catch(e) { console.error('GET conv msgs:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ════════════════ FIL SOCIAL — publications permanentes (façon Facebook) ════════════════
+// v2 (22 sept 2026) : enrichissement groupé (quelques requêtes pour tout le lot au lieu de 4 par
+// publication), badge vérifié corrigé (colonne `verified`), republications, fonds colorés pour
+// les publications texte, réponses + j'aime sur les commentaires, abonnements, vues, profil du fil,
+// recherche, et un classement serveur (ranked=1) qui personnalise l'ordre du fil.
+const _FIL_BG_KEYS = ['blue','night','sunset','green','violet','sand','red','teal'];
+function _filCleanVideo(v){
+  if(!v || typeof v!=='object' || !_filOkMedia(v.url)) return null;
+  const d = Math.min(61, Math.max(0, Number(v.duration)||0));
+  return { url: v.url, poster: _filOkMedia(v.poster) ? v.poster : null, duration: Math.round(d*10)/10, w: Math.max(0, parseInt(v.w)||0), h: Math.max(0, parseInt(v.h)||0) };
+}
+const _FIL_REACTIONS = ['like','love','haha','wow','sad','angry','pray'];
+// Limites anti-abus par utilisateur (mémoire du serveur, fenêtre glissante)
+const _filRateMap = new Map();
+function _filRate(uid, action, max, windowMs){
+  const k = uid + '|' + action, now = Date.now();
+  let arr = _filRateMap.get(k) || [];
+  arr = arr.filter(function(t){ return now - t < windowMs; });
+  if(arr.length >= max){ _filRateMap.set(k, arr); return false; }
+  arr.push(now); _filRateMap.set(k, arr);
+  if(_filRateMap.size > 50000){ const k0 = _filRateMap.keys().next().value; _filRateMap.delete(k0); }
+  return true;
+}
+function _filTooFast(res){ return res.status(429).json({ error: 'Trop d\'actions en peu de temps. Réessaie dans quelques minutes.' }); }
+// Seuls les fichiers hébergés par Penc sont acceptés dans les publications (pas de liens externes piégés)
+function _filOkMedia(u){ return typeof u==='string' && !!R2_PUBLIC && u.indexOf(R2_PUBLIC + '/') === 0 && u.indexOf('..') < 0 && u.length < 600; }
+const _FIL_CODE_CHARS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function _filNewCode(){ let c=''; const b=require('crypto').randomBytes(7); for(let i=0;i<7;i++) c += _FIL_CODE_CHARS[b[i] % _FIL_CODE_CHARS.length]; return c; }
+function _filParsePoll(row){ try{ const v = row.poll; if(!v) return null; return typeof v==='string' ? JSON.parse(v) : v; }catch(_e){ return null; } }
+function _filCleanPoll(p){
+  if(!p || !Array.isArray(p.options)) return null;
+  const opts = p.options.map(function(t){ return String(t||'').trim().slice(0,80); }).filter(Boolean).slice(0,4);
+  if(opts.length < 2) return null;
+  const days = [1,3,7].indexOf(parseInt(p.days)) > -1 ? parseInt(p.days) : 1;
+  return { options: opts.map(function(t,i){ return { id: 'o'+(i+1), text: t }; }), ends_at: new Date(Date.now() + days*86400000).toISOString() };
+}
+// Mentions @pseudo : notifie les personnes citées (publications et commentaires)
+async function _filNotifyMentions(text, fromUid, postId, kind){
+  try{
+    const names = Array.from(new Set((String(text||'').match(/@([a-zA-Z0-9_.]{2,30})/g) || []).map(function(m){ return m.slice(1).toLowerCase(); }))).slice(0, 10);
+    if(!names.length) return;
+    const r = await _pgPool.query('SELECT id FROM penc_users WHERE LOWER(username) = ANY($1)',[names]);
+    const me = await pgFindUser('id', fromUid) || {};
+    const who = me.full_name || me.username || 'Quelqu\'un';
+    for(const row of r.rows){
+      if(String(row.id) === String(fromUid) || _areIsolated(fromUid, row.id) || await pgIsBlocked(fromUid, row.id)) continue;
+      try{ sendPencPush(row.id, { title:'Penc', body: who + (kind==='comment' ? ' t\'a mentionné dans un commentaire' : ' t\'a mentionné dans une publication'), icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+postId, data:{ type:'post', post_id:postId, url:'/messager?post='+postId } }); }catch(_p){}
+    }
+  }catch(_e){}
+}
+function _filParseVideo(row){ try{ const v = row.video; if(!v) return null; return typeof v==='string' ? JSON.parse(v) : v; }catch(_e){ return null; } }
+function _filUserPub(u){
+  u = u || {};
+  return { id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null,
+           verified:!!(u.verified||u.business_verified), business_verified:!!u.business_verified, bio:u.bio||'' };
+}
+async function _filCountMap(sql, args){
+  const m = {};
+  try{ const r = await _pgPool.query(sql, args); r.rows.forEach(function(x){ m[x.k] = x.n; }); }catch(_e){}
+  return m;
+}
+async function _postEnrichMany(rows, meId){
+  rows = (rows || []).filter(Boolean);
+  if(!rows.length) return [];
+  let origRows = [];
+  const repostIds = Array.from(new Set(rows.map(function(r){ return r.repost_of; }).filter(Boolean)));
+  if(repostIds.length){ try{ origRows = (await _pgPool.query('SELECT * FROM penc_posts WHERE id = ANY($1)',[repostIds])).rows; }catch(_e){} }
+  const allIds = Array.from(new Set(rows.map(function(r){ return r.id; }).concat(origRows.map(function(r){ return r.id; }))));
+  const userIds = Array.from(new Set(rows.map(function(r){ return r.user_id; }).concat(origRows.map(function(r){ return r.user_id; }))));
+  const likes = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
+  const comments = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
+  const reposts = await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[allIds]);
+  const views = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[allIds]);
+  const shares = await _filCountMap("SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_clicks WHERE post_id = ANY($1) AND kind='share' GROUP BY post_id",[allIds]);
+  const likedByMe = {}, repostedByMe = {}, savedByMe = {}, myReaction = {}, reacts = {}, pollVotes = {}, myVote = {}, followed = {};
+  if(meId){ try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1 AND followee = ANY($2)',[meId, userIds])).rows.forEach(function(x){ followed[String(x.followee)]=1; }); }catch(_f){} }
+  try{ (await _pgPool.query("SELECT post_id, COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id, COALESCE(reaction,'like')",[allIds])).rows.forEach(function(x){ (reacts[x.post_id]=reacts[x.post_id]||{})[x.r]=x.n; }); }catch(_e){}
+  const pollIds = rows.concat(origRows).filter(function(r){ return r.poll; }).map(function(r){ return r.id; });
+  if(pollIds.length){
+    try{ (await _pgPool.query('SELECT post_id, option_id, COUNT(*)::int AS n FROM penc_post_poll_votes WHERE post_id = ANY($1) GROUP BY post_id, option_id',[pollIds])).rows.forEach(function(x){ (pollVotes[x.post_id]=pollVotes[x.post_id]||{})[x.option_id]=x.n; }); }catch(_e){}
+    if(meId){ try{ (await _pgPool.query('SELECT post_id, option_id FROM penc_post_poll_votes WHERE post_id = ANY($1) AND user_id=$2',[pollIds, meId])).rows.forEach(function(x){ myVote[x.post_id]=x.option_id; }); }catch(_e){} }
+  }
+  if(meId){
+    try{ (await _pgPool.query("SELECT post_id, COALESCE(reaction,'like') AS r FROM penc_post_likes WHERE post_id = ANY($1) AND user_id=$2",[allIds, meId])).rows.forEach(function(x){ myReaction[x.post_id]=x.r; }); }catch(_e){}
+    try{ (await _pgPool.query('SELECT post_id FROM penc_post_saves WHERE post_id = ANY($1) AND user_id=$2',[allIds, meId])).rows.forEach(function(x){ savedByMe[x.post_id]=1; }); }catch(_e){}
+    try{ (await _pgPool.query('SELECT post_id FROM penc_post_likes WHERE post_id = ANY($1) AND user_id=$2',[allIds, meId])).rows.forEach(function(x){ likedByMe[x.post_id]=1; }); }catch(_e){}
+    try{ (await _pgPool.query('SELECT repost_of FROM penc_posts WHERE repost_of = ANY($1) AND user_id=$2 AND deleted=FALSE',[allIds, meId])).rows.forEach(function(x){ repostedByMe[x.repost_of]=1; }); }catch(_e){}
+  }
+  const users = {};
+  try{ (await pgFindUsersByIds(userIds)).forEach(function(u){ users[u.id]=u; }); }catch(_e){}
+  const _evGoing = {}, _evInterested = {}, _evMine = {};
+  try{
+    const evIds = rows.concat(origRows).filter(function(r){ return r.kind==='event'; }).map(function(r){ return r.id; });
+    if(evIds.length){
+      (await _pgPool.query("SELECT post_id, status, COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id = ANY($1) GROUP BY 1,2",[evIds])).rows.forEach(function(r){ if(r.status==='going') _evGoing[r.post_id]=r.n; else _evInterested[r.post_id]=r.n; });
+      if(meId){ (await _pgPool.query('SELECT post_id, status FROM penc_event_rsvp WHERE post_id = ANY($1) AND user_id=$2',[evIds, meId])).rows.forEach(function(r){ _evMine[r.post_id]=r.status; }); }
+    }
+  }catch(_ev){}
+  const _grpNames = {}, _fundRaised = {}, _fundPending = {}, _fundCount = {};
+  try{ const gids = Array.from(new Set(rows.concat(origRows).map(function(r){ return r.group_id; }).filter(Boolean))); if(gids.length) (await _pgPool.query('SELECT id, name FROM penc_fil_groups WHERE id = ANY($1)',[gids])).rows.forEach(function(g){ _grpNames[g.id]=g.name; }); }catch(_g){}
+  try{ const fids = rows.concat(origRows).filter(function(r){ return r.kind==='fund'; }).map(function(r){ return r.id; });
+    if(fids.length) (await _pgPool.query("SELECT post_id, SUM(CASE WHEN status='confirmed' THEN amount ELSE 0 END)::int AS ok, SUM(CASE WHEN status='pending' THEN amount ELSE 0 END)::int AS pend, COUNT(DISTINCT CASE WHEN status='confirmed' THEN user_id END)::int AS n FROM penc_fund_contribs WHERE post_id = ANY($1) GROUP BY post_id",[fids])).rows.forEach(function(r){ _fundRaised[r.post_id]=r.ok; _fundPending[r.post_id]=r.pend; _fundCount[r.post_id]=r.n; }); }catch(_f){}
+  const _tagUsers = {};
+  try{ const _tids = Array.from(new Set([].concat.apply([], rows.concat(origRows).map(function(r){ try{ return r.tagged ? (typeof r.tagged==='string' ? JSON.parse(r.tagged) : r.tagged) : []; }catch(_){ return []; } })).map(String))).filter(function(id){ return !users[id]; });
+    if(_tids.length) (await pgFindUsersByIds(_tids)).forEach(function(u){ _tagUsers[String(u.id)]=u; }); }catch(_e){}
+  const origById = {}; origRows.forEach(function(r){ origById[r.id]=r; });
+  function one(row, withRepost){
+    const a = users[row.user_id] || null;
+    let media = [];
+    try{ media = Array.isArray(row.media_urls) ? row.media_urls : JSON.parse(row.media_urls||'[]'); }catch(_e){ media = []; }
+    const mine = meId ? (String(row.user_id) === String(meId)) : false;
+    const o = {
+      id: row.id,
+      user_id: row.user_id,
+      author_name: a ? (a.full_name || a.username || 'Utilisateur') : 'Utilisateur',
+      author_username: a ? (a.username || '') : '',
+      author_avatar: a ? (a.avatar_url || null) : null,
+      author_verified: a ? !!(a.verified || a.business_verified) || String(row.user_id)==='penc_official' : false,
+      author_followed: !!followed[String(row.user_id)],
+      place: row.place || null, mood: row.mood || null,
+      kind: row.kind || null, ad_price: row.ad_price || null, ad_category: row.ad_category || null,
+      group_id: row.group_id || null, group_name: row.group_id ? (_grpNames[row.group_id] || null) : null,
+      fund_goal: row.fund_goal || null, fund_deadline: row.fund_deadline || null, fund_wave: (row.fund_wave && meId) ? row.fund_wave : null,
+      fund_raised: _fundRaised[row.id] || 0, fund_pending: _fundPending[row.id] || 0, fund_count: _fundCount[row.id] || 0,
+      ev_date: row.ev_date || null, ev_place: row.ev_place || null,
+      rsvp_going: _evGoing[row.id] || 0, rsvp_interested: _evInterested[row.id] || 0, my_rsvp: _evMine[row.id] || null,
+      media_mixed: (function(){ try{ return row.media_mixed ? (typeof row.media_mixed==='string'?JSON.parse(row.media_mixed):row.media_mixed) : null; }catch(_e){ return null; } })(),
+      tagged: (function(){ try{ const t = row.tagged ? (typeof row.tagged==='string' ? JSON.parse(row.tagged) : row.tagged) : []; return (t||[]).map(function(id){ const u = users[String(id)] || _tagUsers[String(id)]; return u ? { id:String(id), name: u.full_name || u.username || 'Utilisateur' } : null; }).filter(Boolean); }catch(_e){ return []; } })(),
+      content: row.content || '',
+      media_urls: media,
+      bg: row.bg || null,
+      video: _filParseVideo(row),
+      media_thumbs: (function(){ try{ const t = row.media_thumbs; const a = t ? (typeof t==='string' ? JSON.parse(t) : t) : null; return (Array.isArray(a) && a.length===media.length) ? a : null; }catch(_e){ return null; } })(),
+      poll: (function(){ const pl = _filParsePoll(row); if(!pl) return null; const v = pollVotes[row.id]||{}; let total = 0; const opts = (pl.options||[]).map(function(o){ const n = v[o.id]||0; total += n; return { id:o.id, text:o.text, votes:n }; }); return { options: opts, total: total, ends_at: pl.ends_at, closed: pl.ends_at ? (new Date(pl.ends_at).getTime() < Date.now()) : false, my_vote: myVote[row.id] || null }; })(),
+      pinned: !!row.pinned_at,
+      scheduled: new Date(row.created_at).getTime() > Date.now() + 5000,
+      reactions: Object.keys(reacts[row.id]||{}).sort(function(a,b){ return reacts[row.id][b]-reacts[row.id][a]; }).slice(0,3),
+      my_reaction: myReaction[row.id] || null,
+      created_at: row.created_at,
+      edited_at: row.edited_at || null,
+      likes_count: likes[row.id] || 0,
+      comments_count: comments[row.id] || 0,
+      reposts_count: reposts[row.id] || 0,
+      shares_count: shares[row.id] || 0,
+      liked_by_me: !!likedByMe[row.id],
+      reposted_by_me: !!repostedByMe[row.id],
+      saved_by_me: !!savedByMe[row.id],
+      is_mine: mine
+    };
+    if(mine) o.views_count = views[row.id] || 0;   // statistiques visibles par l'auteur uniquement
+    if(withRepost && row.repost_of){
+      const orig = origById[row.repost_of];
+      o.repost_of = row.repost_of;
+      o.repost = (orig && !orig.deleted) ? one(orig, false) : { id: row.repost_of, deleted: true };
+    }
+    return o;
+  }
+  return rows.map(function(r){ return one(r, true); });
+}
+async function _postEnrich(row, meId){ return (await _postEnrichMany([row], meId))[0]; }
+async function _filBlockedSet(uid){
+  const s = new Set();
+  try{ (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='blocked' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ s.add(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
+  return s;
+}
+function _filVisible(uid, blocked){ return function(row){ return !blocked.has(String(row.user_id)) && !_areIsolated(uid, row.user_id); }; }
+
+// POST /api/penc/posts — créer une publication (texte illimité, photos, ou texte sur fond coloré)
+app.post('/api/penc/posts', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const content = String(req.body.content || '').slice(0, 20000);
+    if(!_filRate(uid, 'post', 12, 3600000) || !_filRate(uid, 'post_day', 40, 86400000)) return _filTooFast(res);
+    if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux plus publier sur le Fil pour le moment (décision de modération).' });
+    const _asPenc = !!(req.body.as_penc && await _pencIsAdmin(req));
+    let media = Array.isArray(req.body.media_urls) ? req.body.media_urls.filter(_filOkMedia).slice(0, 10) : [];
+    const video = _filCleanVideo(req.body.video);
+    if(video) media = [];   // une vidéo se publie seule
+    // Carrousel mixte : plusieurs photos ET vidéos courtes dans une seule publication, dans l'ordre choisi
+    let mediaMixed = null;
+    if(Array.isArray(req.body.media_mixed) && req.body.media_mixed.length){
+      mediaMixed = req.body.media_mixed.slice(0, 10).map(function(it){
+        if(!it || !_filOkMedia(it.url)) return null;
+        const t = it.type === 'video' ? 'video' : 'image';
+        return { type: t, url: it.url, poster: (t==='video' && _filOkMedia(it.poster)) ? it.poster : null, duration: t==='video' ? (Math.min(60, Math.max(1, parseInt(it.duration)||0))||null) : null };
+      }).filter(Boolean);
+      if(mediaMixed.length < 2) mediaMixed = null; else { media = []; }
+    }
+    const kind = ['ad','event','fund'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
+    // Publication dans un groupe : seulement pour ses membres
+    let groupId = null, groupPrivate = false;
+    if(req.body.group_id){
+      const gm = await _pgPool.query("SELECT g.privacy FROM penc_fil_groups g JOIN penc_fil_group_members m ON m.group_id=g.id AND m.user_id=$2 AND m.status='member' WHERE g.id=$1",[String(req.body.group_id), uid]);
+      if(!gm.rows.length) return res.status(403).json({ error: 'Rejoins le groupe pour y publier' });
+      groupId = String(req.body.group_id); groupPrivate = gm.rows[0].privacy === 'private';
+    }
+    let fundGoal = null, fundDeadline = null, fundWave = null;
+    if(kind === 'fund'){
+      fundGoal = Math.max(1000, Math.min(100000000, parseInt(req.body.fund_goal)||0));
+      if(!parseInt(req.body.fund_goal)) return res.status(400).json({ error: "Indique l'objectif de la collecte" });
+      const d = new Date(req.body.fund_deadline).getTime(); if(isFinite(d) && d > Date.now()) fundDeadline = new Date(d).toISOString();
+      fundWave = String(req.body.fund_wave||'').replace(/[^0-9+ ]/g,'').trim().slice(0,20) || null;
+    }
+    let adPrice = null, adCategory = null, evDate = null, evPlace = null;
+    if(kind === 'ad'){
+      adPrice = String(req.body.ad_price||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+      adCategory = String(req.body.ad_category||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+    }
+    if(kind === 'event'){
+      const t = new Date(req.body.ev_date).getTime();
+      if(!isFinite(t) || t < Date.now() - 3600000) return res.status(400).json({ error: "Choisis une date d'événement valide" });
+      evDate = new Date(t).toISOString();
+      evPlace = String(req.body.ev_place||'').replace(/[<>]/g,'').trim().slice(0,80) || null;
+      if(!evPlace) return res.status(400).json({ error: "Indique un lieu pour l'événement" });
+    }
+    let thumbs = Array.isArray(req.body.media_thumbs) ? req.body.media_thumbs.slice(0, media.length).map(function(u){ return _filOkMedia(u) ? u : null; }) : [];
+    if(thumbs.length !== media.length || thumbs.some(function(x){ return !x; })) thumbs = null;
+    const poll = (!video && !media.length) ? _filCleanPoll(req.body.poll) : null;
+    if(poll && !content.trim()) return res.status(400).json({ error: 'Écris la question du sondage' });
+    // Anti-spam : même texte republié à l'identique dans les 10 dernières minutes
+    if(content.trim().length > 3 && !media.length && !video){ try{ const dup = await _pgPool.query("SELECT 1 FROM penc_posts WHERE user_id=$1 AND content=$2 AND deleted=FALSE AND created_at > NOW() - INTERVAL '10 minutes' LIMIT 1",[uid, content]); if(dup.rows.length) return res.status(429).json({ error: 'Tu viens déjà de publier ce texte.' }); }catch(_d){} }
+    if(((content.match(/https?:\/\//g))||[]).length > 6) return res.status(400).json({ error: 'Trop de liens dans une seule publication.' });
+    let when = null;
+    if(req.body.scheduled_at){ const t = new Date(req.body.scheduled_at).getTime(); if(isFinite(t) && t > Date.now() + 60000 && t < Date.now() + 30*86400000) when = new Date(t).toISOString(); }
+    if(!content.trim() && !media.length && !video) return res.status(400).json({ error: 'Publication vide' });
+    let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && !poll && content.length<=300) ? String(req.body.bg) : null;
+    const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    let tagged = Array.isArray(req.body.tagged) ? Array.from(new Set(req.body.tagged.map(String).filter(function(x){ return x && x !== String(uid); }))).slice(0, 10) : [];
+    if(tagged.length){ try{ const ok = await pgFindUsersByIds(tagged); tagged = ok.filter(function(u){ return !_areIsolated(uid, u.id); }).map(function(u){ return String(u.id); }); }catch(_tg){ tagged = []; } }
+    await _pgPool.query('INSERT INTO penc_posts(id,user_id,content,media_urls,bg,video,poll,media_thumbs,tagged,kind,media_mixed,ad_price,ad_category,ev_date,ev_place,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,COALESCE($16::timestamptz,NOW()))',[id, _asPenc ? 'penc_official' : uid, content, JSON.stringify(media), bg, video ? JSON.stringify(video) : null, poll ? JSON.stringify(poll) : null, thumbs ? JSON.stringify(thumbs) : null, tagged.length ? JSON.stringify(tagged) : null, kind, mediaMixed ? JSON.stringify(mediaMixed) : null, adPrice, adCategory, evDate, evPlace, when]);
+    const _place = String(req.body.place||'').replace(/[<>]/g,'').trim().slice(0,60) || null;
+    const _mood = String(req.body.mood||'').replace(/[<>]/g,'').trim().slice(0,40) || null;
+    if(_place || _mood){ try{ await _pgPool.query('UPDATE penc_posts SET place=$1, mood=$2 WHERE id=$3',[_place, _mood, id]); }catch(_pm){} }
+    if(groupId || fundGoal){ try{ await _pgPool.query('UPDATE penc_posts SET group_id=$1, group_private=$2, fund_goal=$3, fund_deadline=$4, fund_wave=$5 WHERE id=$6',[groupId, groupPrivate, fundGoal, fundDeadline, fundWave, id]); }catch(_gf){ console.error('[post] groupe/collecte:', _gf.message); } }
+    if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
+    const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
+    if(!when) _filNotifyMentions(content, uid, id, 'post');
+    setImmediate(function(){ _gamBump(uid, 'post', 1); if(video) _gamBump(uid, 'video', 1); });
+    res.json({ success: true, post: await _postEnrich(row, uid) });
+  }catch(e){ console.error('create post:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// POST /api/penc/posts/views — l'appli signale les publications réellement vues (statistiques + classement)
+app.post('/api/penc/posts/views', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success: true });
+    const uid = req.pencUser.userId;
+    const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).map(String).filter(function(x){ return /^post_/.test(x); }).slice(0, 60);
+    if(ids.length){ await _pgPool.query('INSERT INTO penc_post_views(post_id,user_id,created_at) SELECT x, $2, NOW() FROM UNNEST($1::text[]) AS x ON CONFLICT DO NOTHING',[ids, uid]); }
+    res.json({ success: true });
+  }catch(e){ res.json({ success: false }); }
+});
+// GET /api/penc/posts — le fil. ranked=1 : ordre personnalisé calculé ici ; sinon chronologique (before=)
+app.get('/api/penc/posts', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const blocked = await _filBlockedSet(uid);
+    const visible = _filVisible(uid, blocked);
+    if(String(req.query.ranked||'') === '1'){
+      const offset = Math.max(0, parseInt(req.query.offset) || 0);
+      const _sessSeen = new Set(String(req.query.seen||'').split(',').filter(Boolean).slice(0, 200));
+      const out = await _filRankedFeed(uid, visible, { fresh: String(req.query.fresh||'')==='1', sessionSeen: _sessSeen });
+      const slice = out.rows.slice(offset, offset + limit);
+      return res.json({ posts: await _postEnrichMany(slice, uid), ranked: true, more: offset + limit < out.rows.length, pool_oldest: out.oldest });
+    }
+    const before = req.query.before ? String(req.query.before) : null;
+    let q, args;
+    if(String(req.query.following||'') === '1'){
+      // Onglet « Abonnements » : uniquement les gens que tu suis, tes amis et toi, du plus récent au plus ancien
+      const circle = [String(uid)];
+      try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1',[uid])).rows.forEach(function(x){ circle.push(String(x.followee)); }); }catch(_e){}
+      try{ (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ circle.push(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
+      if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND user_id = ANY($1) AND created_at <= NOW() AND created_at < $2 ORDER BY created_at DESC LIMIT $3'; args = [circle, before, limit]; }
+      else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND user_id = ANY($1) AND created_at <= NOW() ORDER BY created_at DESC LIMIT $2'; args = [circle, limit]; }
+    }
+    else if(before){ q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2'; args = [before, limit]; }
+    else { q = 'SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY created_at DESC LIMIT $1'; args = [limit]; }
+    const r = await _pgPool.query(q, args);
+    res.json({ posts: await _postEnrichMany(r.rows.filter(visible), uid), more: r.rows.length >= limit });
+  }catch(e){ console.error('list posts:', e.message); res.json({ posts: [] }); }
+});
+// ── Classement du fil (côté serveur) ──
+// Score = intérêt (réactions, avec bonus aux réactions récentes et à celles de tes amis)
+//       × fraîcheur (décroissance selon l'âge)
+//       × proximité (amis, abonnements, conversations récentes, auteurs avec qui tu interagis)
+//       × nouveauté (fortement réduit si tu l'as déjà vue)
+// puis une passe de diversité : jamais le même auteur deux fois de suite dans une fenêtre de 3.
+const _filRankCache = new Map(); // uid -> {t, rows, oldest} (45 s) : le défilement réutilise le même ordre
+// Données communes à tous (publications récentes + compteurs) : calculées une seule fois par minute,
+// quel que soit le nombre de personnes connectées. Chaque utilisateur n'ajoute ensuite que SES signaux.
+let _filGlobal = null, _filGlobalP = null;
+async function _filGlobalPool(){
+  if(_filGlobal && Date.now() - _filGlobal.t < 60000) return _filGlobal;
+  if(_filGlobalP) return _filGlobalP;
+  _filGlobalP = (async function(){
+    let pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC LIMIT 500")).rows;
+    if(pool.length < 60){ pool = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 200')).rows; }
+    const ids = pool.map(function(r){ return r.id; });
+    const g = { t: Date.now(), pool: pool, ids: ids,
+      likes: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      likes6h: await _filCountMap("SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND created_at > NOW() - INTERVAL '6 hours' GROUP BY post_id",[ids]),
+      comments: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      reposts: await _filCountMap('SELECT repost_of AS k, COUNT(*)::int AS n FROM penc_posts WHERE repost_of = ANY($1) AND deleted=FALSE GROUP BY repost_of',[ids]),
+      clickers: await _filCountMap('SELECT post_id AS k, COUNT(DISTINCT user_id)::int AS n FROM penc_post_clicks WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      viewers: await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[ids]),
+      verified: new Set() };
+    try{ (await _pgPool.query('SELECT id FROM penc_users WHERE id = ANY($1) AND (verified=TRUE OR business_verified=TRUE)',[Array.from(new Set(pool.map(function(r){ return r.user_id; })))])).rows.forEach(function(x){ g.verified.add(String(x.id)); }); }catch(_e){}
+    _filGlobal = g; return g;
+  })();
+  try{ return await _filGlobalP; } finally { _filGlobalP = null; }
+}
+async function _filRankedFeed(uid, visible, opts){
+  opts = opts || {};
+  const c = _filRankCache.get(uid);
+  if(c && !opts.fresh && Date.now() - c.t < 20000) return c;
+  const G = await _filGlobalPool();
+  let pool = G.pool.filter(visible);
+  const ids = pool.map(function(r){ return r.id; });
+  const likes = G.likes, likes6h = G.likes6h, comments = G.comments, reposts = G.reposts, clickers = G.clickers, viewers = G.viewers;
+  const friends = new Set(), follows = new Set(), chatting = new Set(), seen = new Set();
+  try{ (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ friends.add(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
+  try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1',[uid])).rows.forEach(function(x){ follows.add(String(x.followee)); }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT participants FROM penc_conversations WHERE participants @> $1::jsonb AND jsonb_array_length(participants)=2 AND updated_at > NOW() - INTERVAL '14 days'",[JSON.stringify([uid])])).rows.forEach(function(x){ (x.participants||[]).forEach(function(p){ if(String(p)!==String(uid)) chatting.add(String(p)); }); }); }catch(_e){}
+  try{ (await _pgPool.query('SELECT post_id FROM penc_post_views WHERE user_id=$1 AND post_id = ANY($2)',[uid, ids])).rows.forEach(function(x){ seen.add(x.post_id); }); }catch(_e){}
+  const inter = {};
+  try{ (await _pgPool.query("SELECT p.user_id AS k, COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE l.user_id=$1 AND l.created_at > NOW() - INTERVAL '60 days' GROUP BY p.user_id",[uid])).rows.forEach(function(x){ inter[x.k]=(inter[x.k]||0)+x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT p.user_id AS k, COUNT(*)::int AS n FROM penc_post_comments c JOIN penc_posts p ON p.id=c.post_id WHERE c.user_id=$1 AND c.created_at > NOW() - INTERVAL '60 days' GROUP BY p.user_id",[uid])).rows.forEach(function(x){ inter[x.k]=(inter[x.k]||0)+2*x.n; }); }catch(_e){}
+  const friendLikes = {};
+  const circle = Array.from(new Set(Array.from(friends).concat(Array.from(follows))));
+  if(circle.length){ try{ (await _pgPool.query('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND user_id = ANY($2) GROUP BY post_id',[ids, circle])).rows.forEach(function(x){ friendLikes[x.k]=x.n; }); }catch(_e){} }
+  const verified = G.verified;
+  const now = Date.now(), day = new Date().toISOString().slice(0,10);
+  function h(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0)/4294967295; }
+  const scored = pool.map(function(p){
+    const a = String(p.user_id);
+    const ageH = Math.max(0, (now - new Date(p.created_at).getTime())/3600000);
+    const l = likes[p.id]||0, cm = comments[p.id]||0, rp = reposts[p.id]||0, l6 = likes6h[p.id]||0, fl = friendLikes[p.id]||0;
+    const interest = Math.log2(2 + l + 2.5*cm + 3*rp + 2*l6 + 3*fl);
+    const fresh = Math.pow(ageH + 2, -1.2);
+    let prox = 1;
+    if(friends.has(a)) prox += 0.7;
+    if(follows.has(a)) prox += 0.6;
+    if(chatting.has(a)) prox += 0.5;
+    prox += Math.min(1.2, (inter[a]||0)/8);
+    if(verified.has(a)) prox += 0.1;
+    let media = 1; try{ const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); if(p.video) media = 1.2; else if(m.length) media = 1.15; else if(p.poll) media = 1.12; else if(p.bg) media = 1.08; }catch(_e){}
+    const novelty = (opts.sessionSeen && opts.sessionSeen.has(p.id)) ? 0.12 : (seen.has(p.id) ? 0.3 : 1);
+    const ctr = (clickers[p.id]||0) / Math.max(10, viewers[p.id]||0);   // taux de clic (lissé pour les petites audiences)
+    media *= (1 + Math.min(0.5, ctr));
+    const jitter = 0.92 + 0.16*h(p.id + day + uid);
+    let s = interest * fresh * prox * media * novelty * jitter;
+    if(a === String(uid) && ageH < 2 && !seen.has(p.id)) s += 1e6;
+    return { p: p, s: s };
+  }).sort(function(x, y){ return y.s - x.s; });
+  const rows = [], recent = [];
+  while(scored.length){
+    let k = 0;
+    for(let i=0; i<scored.length && i<15; i++){ if(recent.indexOf(String(scored[i].p.user_id))<0){ k=i; break; } }
+    const it = scored.splice(k,1)[0]; rows.push(it.p);
+    recent.push(String(it.p.user_id)); if(recent.length>2) recent.shift();
+  }
+  // Découverte : 1 publication récente jamais vue, prise au hasard, toutes les 5 places (hors cercle habituel)
+  try{
+    const inRows = new Set(rows.slice(0, 60).map(function(p){ return p.id; }));
+    const fresh48 = pool.filter(function(p){ return !seen.has(p.id) && (now - new Date(p.created_at).getTime()) < 48*3600000 && !friends.has(String(p.user_id)) && !follows.has(String(p.user_id)) && String(p.user_id)!==String(uid); });
+    for(let i = fresh48.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = fresh48[i]; fresh48[i] = fresh48[j]; fresh48[j] = t; }
+    let pos = 4;
+    for(const p of fresh48){ if(pos >= Math.min(rows.length, 60)) break; if(inRows.has(p.id) && rows.indexOf(p) < pos) continue; const k = rows.indexOf(p); if(k > -1) rows.splice(k, 1); rows.splice(pos, 0, p); pos += 5; }
+  }catch(_d){}
+  const oldest = pool.length ? pool[pool.length-1].created_at : null;
+  const out = { t: Date.now(), rows: rows, oldest: oldest };
+  _filRankCache.set(uid, out);
+  if(_filRankCache.size > 5000){ const k0 = _filRankCache.keys().next().value; _filRankCache.delete(k0); }
+  return out;
+}
+// GET /api/penc/posts/user/:id — les publications d'un utilisateur (pour son profil)
+app.get('/api/penc/posts/user/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId; const target = req.params.id;
+    if(_areIsolated(uid, target) || await pgIsBlocked(uid, target)) return res.status(403).json({ error: 'Indisponible', posts: [] });
+    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND ($2 OR created_at <= NOW()) ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 60',[target, String(target)===String(uid)]);
+    res.json({ posts: await _postEnrichMany(r.rows, uid) });
+  }catch(e){ res.json({ posts: [] }); }
+});
+// POST /api/penc/posts/clicks — clics sur les publications (taux de clic), envoyés par lots
+app.post('/api/penc/posts/clicks', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success: true });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'clicks', 120, 600000)) return res.json({ success: true });
+    const KINDS = ['media','profile','comments','more','link','share','reel','cta'];
+    const items = (Array.isArray(req.body.items) ? req.body.items : []).slice(0, 80).filter(function(x){ return x && /^post_/.test(String(x.post_id||'')) && KINDS.indexOf(String(x.kind)) > -1; });
+    for(const it of items){ try{ await _pgPool.query('INSERT INTO penc_post_clicks(post_id,user_id,kind,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT DO NOTHING',[String(it.post_id), uid, String(it.kind)]); }catch(_e){} }
+    res.json({ success: true });
+  }catch(e){ res.json({ success: false }); }
+});
+// POST /api/penc/posts/:id/link — lien court de partage (penc-messagerie.com/p/XXXXXXX)
+app.post('/api/penc/posts/:id/link', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const r = await _pgPool.query('SELECT short_code FROM penc_posts WHERE id=$1 AND deleted=FALSE',[req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    let code = r.rows[0].short_code;
+    for(let i=0; !code && i<5; i++){ const c = _filNewCode(); try{ const u = await _pgPool.query('UPDATE penc_posts SET short_code=$1 WHERE id=$2 AND short_code IS NULL RETURNING short_code',[c, req.params.id]); if(u.rows.length) code = c; else code = (await _pgPool.query('SELECT short_code FROM penc_posts WHERE id=$1',[req.params.id])).rows[0].short_code; }catch(_dup){} }
+    if(!code) return res.status(500).json({ error: 'Erreur' });
+    res.json({ code, url: 'https://penc-messagerie.com/p/' + code });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/by-code/:code — ouvrir une publication depuis un lien court
+app.get('/api/penc/posts/by-code/:code', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const code = String(req.params.code||'').replace(/[^A-Za-z0-9]/g,'').slice(0,12);
+    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE short_code=$1 AND deleted=FALSE AND created_at <= NOW()',[code]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Publication introuvable' });
+    if(_areIsolated(uid, r.rows[0].user_id) || await pgIsBlocked(uid, r.rows[0].user_id)) return res.status(403).json({ error: 'Indisponible' });
+    res.json({ post: await _postEnrich(r.rows[0], uid) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/:id/report — signaler une publication ; masquée automatiquement à 5 signalements distincts
+app.post('/api/penc/posts/:id/report', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    if(!_filRate(uid, 'report', 20, 86400000)) return _filTooFast(res);
+    const p = await _pgPool.query('SELECT user_id, content FROM penc_posts WHERE id=$1 AND deleted=FALSE',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    if(String(p.rows[0].user_id) === String(uid)) return res.status(400).json({ error: 'Invalide' });
+    const already = await _pgPool.query("SELECT 1 FROM penc_reports WHERE reporter_id=$1 AND target_type='post' AND target_id=$2 LIMIT 1",[uid, pid]);
+    if(!already.rows.length){
+      const reason = String(req.body.reason || 'Non précisé').slice(0, 200);
+      await _pgPool.query("INSERT INTO penc_reports(id, reporter_id, target_type, target_id, target_user_id, reason, content_snapshot, status, created_at) VALUES($1,$2,'post',$3,$4,$5,$6,'pending',NOW())",['rep_' + Date.now() + Math.random().toString(36).slice(2), uid, pid, p.rows[0].user_id, reason, String(p.rows[0].content||'').slice(0, 500)]);
+    }
+    const n = (await _pgPool.query("SELECT COUNT(DISTINCT reporter_id)::int AS n FROM penc_reports WHERE target_type='post' AND target_id=$1 AND status='pending'",[pid])).rows[0].n;
+    if(n >= 5){ await _pgPool.query('UPDATE penc_posts SET deleted=TRUE, mod_hidden=TRUE WHERE id=$1',[pid]); _filRankCache.clear(); try{ pencSecLog('post_auto_hidden', req, { post_id: pid, author: p.rows[0].user_id, reports: n }); }catch(_l){} }
+    res.json({ success: true });
+  }catch(e){ console.error('report post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// Admin : remettre en ligne ou masquer une publication
+app.post('/api/penc/admin/posts/:id/:action', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const a = req.params.action;
+    if(a === 'restore'){ await _pgPool.query('UPDATE penc_posts SET deleted=FALSE, mod_hidden=FALSE WHERE id=$1',[req.params.id]); await _pgPool.query("UPDATE penc_reports SET status='dismissed' WHERE target_type='post' AND target_id=$1",[req.params.id]); }
+    else if(a === 'hide'){ await _pgPool.query('UPDATE penc_posts SET deleted=TRUE, mod_hidden=TRUE WHERE id=$1',[req.params.id]); await _pgPool.query("UPDATE penc_reports SET status='resolved' WHERE target_type='post' AND target_id=$1",[req.params.id]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    _filRankCache.clear();
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/reels — vidéos façon Reels/TikTok : la suivante ressemble à celle qu'on vient de voir
+app.get('/api/penc/reels', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId;
+    const limit = Math.min(parseInt(req.query.limit) || 8, 20);
+    const exclude = new Set(String(req.query.exclude||'').split(',').filter(Boolean).slice(0, 300));
+    const blocked = await _filBlockedSet(uid);
+    const visible = _filVisible(uid, blocked);
+    const pool = (await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND video IS NOT NULL AND created_at <= NOW() AND created_at > NOW() - INTERVAL '90 days' ORDER BY created_at DESC LIMIT 400")).rows.filter(visible).filter(function(p){ return !exclude.has(p.id); });
+    let seed = null;
+    if(req.query.seed){ try{ seed = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[String(req.query.seed)])).rows[0] || null; }catch(_s){} }
+    const tagsOf = function(t){ return new Set(((String(t||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])); };
+    const seedTags = seed ? tagsOf(seed.content) : new Set();
+    const ids = pool.map(function(p){ return p.id; });
+    const likes = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
+    const comments = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
+    const views = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[ids]);
+    const seen = new Set(); try{ (await _pgPool.query('SELECT post_id FROM penc_post_views WHERE user_id=$1 AND post_id = ANY($2)',[uid, ids])).rows.forEach(function(x){ seen.add(x.post_id); }); }catch(_e){}
+    const circle = new Set(); try{ (await _pgPool.query('SELECT followee FROM penc_follows WHERE follower=$1',[uid])).rows.forEach(function(x){ circle.add(String(x.followee)); }); (await _pgPool.query("SELECT requester, recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ circle.add(String(x.requester===uid?x.recipient:x.requester)); }); }catch(_e){}
+    const now = Date.now();
+    const scored = pool.map(function(p){
+      const ageH = Math.max(0,(now - new Date(p.created_at).getTime())/3600000);
+      let sim = 1;
+      if(seed){ if(String(p.user_id)===String(seed.user_id)) sim += 1.2; const tg = tagsOf(p.content); seedTags.forEach(function(t){ if(tg.has(t)) sim += 1.5; }); }
+      if(circle.has(String(p.user_id))) sim += 0.8;
+      const eng = Math.log2(2 + (likes[p.id]||0) + 2.5*(comments[p.id]||0)) * (1 + Math.min(1, ((likes[p.id]||0)+(comments[p.id]||0))/Math.max(10, views[p.id]||0)));
+      const fresh = Math.pow(ageH + 6, -0.6);
+      const s = sim * eng * fresh * (seen.has(p.id) ? 0.25 : 1) * (0.9 + 0.2*Math.random());
+      return { p: p, s: s };
+    }).sort(function(a,b){ return b.s - a.s; });
+    const rows = [], recent = [];
+    while(scored.length && rows.length < limit){ let k = 0; for(let i=0;i<scored.length&&i<10;i++){ if(recent.indexOf(String(scored[i].p.user_id))<0){ k=i; break; } } const it = scored.splice(k,1)[0]; rows.push(it.p); recent.push(String(it.p.user_id)); if(recent.length>1) recent.shift(); }
+    res.json({ posts: await _postEnrichMany(rows, uid), more: scored.length > 0 });
+  }catch(e){ console.error('reels:', e.message); res.json({ posts: [] }); }
+});
+// GET /api/penc/fil/ads — publicités à glisser dans le fil et les Reels (max 3 affichages / 24 h / personne)
+app.get('/api/penc/fil/ads', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ads: [] });
+    const uid = req.pencUser.userId;
+    let country = '', city = '';
+    try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; country = geo.country || ''; city = geo.city || ''; }catch(_g){}
+    const r = await _pgPool.query("SELECT a.id, a.title, a.type, a.media_url, a.bg_color, a.link_url, a.duration, a.cta, a.placement, a.owner_id FROM penc_ads a WHERE a.active=TRUE AND a.id <> 'ad_demo' AND (COALESCE(a.budget_fcfa,0)=0 OR COALESCE(a.spent_fcfa,0) < a.budget_fcfa) AND (a.target_country IS NULL OR a.target_country='' OR LOWER(a.target_country)=LOWER($2)) AND (a.target_city IS NULL OR a.target_city='' OR LOWER(a.target_city)=LOWER($3)) AND (SELECT COUNT(*) FROM penc_ad_events e WHERE e.ad_id=a.id AND e.user_id=$1 AND e.kind='impression' AND e.created_at > NOW() - INTERVAL '24 hours') < 3 ORDER BY RANDOM() LIMIT 8",[uid, country, city]);
+    res.json({ ads: r.rows.filter(function(a){ return String(a.owner_id||'') !== String(uid) || true; }).map(function(a){ return { id:a.id, title:a.title||'', type:a.type||'text', media_url:_filOkMedia(a.media_url) ? a.media_url : (a.media_url && /^https:\/\//.test(a.media_url) ? a.media_url : null), bg_color:a.bg_color||'#1877F2', link_url:(a.link_url && /^https?:\/\//.test(a.link_url)) ? a.link_url : null, duration: Math.max(5, Math.min(15, a.duration||8)), cta: a.cta || 'En savoir plus', placement: a.placement || 'all' }; }) });
+  }catch(e){ console.error('fil ads:', e.message); res.json({ ads: [] }); }
+});
+// Tarif : 1 FCFA par affichage réel (1 000 FCFA = 1 000 affichages). 40 % reviennent au créateur dont le
+// contenu était affiché juste avant la publicité (fil ou vidéos).
+const _FIL_AD_PRICE = 1, _FIL_CREATOR_SHARE = 0.4;
+async function _filCreditCreator(authorId, adId, postId){
+  try{
+    const amt = _FIL_AD_PRICE * _FIL_CREATOR_SHARE;
+    await _pgPool.query('INSERT INTO penc_creator_earnings(user_id,ad_id,post_id,amount,created_at) VALUES($1,$2,$3,$4,NOW())',[authorId, adId, postId, amt]);
+    const sum = Number((await _pgPool.query('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND paid=FALSE',[authorId])).rows[0].s) || 0;
+    if(sum >= 10){
+      const whole = Math.floor(sum);
+      await _pgPool.query('UPDATE penc_creator_earnings SET paid=TRUE WHERE user_id=$1 AND paid=FALSE',[authorId]);
+      if(sum - whole > 0.0001) await _pgPool.query('INSERT INTO penc_creator_earnings(user_id,ad_id,post_id,amount,paid,created_at) VALUES($1,NULL,NULL,$2,FALSE,NOW())',[authorId, sum - whole]);
+      await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[whole, authorId]);
+    }
+  }catch(e){ console.error('creator credit:', e.message); }
+}
+app.post('/api/penc/fil/ads/event', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ success: true });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'adev', 200, 600000)) return res.json({ success: true });
+    const kind = ['impression','click'].indexOf(String(req.body.kind)) > -1 ? String(req.body.kind) : null;
+    const ad = String(req.body.ad_id||'').slice(0, 80);
+    const place = ['feed','reels'].indexOf(String(req.body.place)) > -1 ? String(req.body.place) : 'feed';
+    if(!kind || !ad) return res.json({ success: true });
+    // Une même personne ne compte qu'un affichage par pub toutes les 30 min (pas de gonflement artificiel)
+    if(kind === 'impression'){ const rec = await _pgPool.query("SELECT 1 FROM penc_ad_events WHERE ad_id=$1 AND user_id=$2 AND kind='impression' AND created_at > NOW() - INTERVAL '30 minutes' LIMIT 1",[ad, uid]); if(rec.rows.length) return res.json({ success: true }); }
+    await _pgPool.query('INSERT INTO penc_ad_events(ad_id,user_id,kind,place,created_at) VALUES($1,$2,$3,$4,NOW())',[ad, uid, kind, place]);
+    if(kind === 'impression'){
+      const up = await _pgPool.query("UPDATE penc_ads SET spent_fcfa=COALESCE(spent_fcfa,0)+$2 WHERE id=$1 AND COALESCE(budget_fcfa,0) > 0 RETURNING spent_fcfa, budget_fcfa, owner_id",[ad, _FIL_AD_PRICE]);
+      if(up.rows.length){
+        const row = up.rows[0];
+        if(Number(row.spent_fcfa) >= Number(row.budget_fcfa)){ await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='done' WHERE id=$1",[ad]); if(row.owner_id){ try{ sendPencPush(row.owner_id, { title:'Penc Publicité', body:'Ta campagne est terminée : tout le budget a été diffusé. Consulte les résultats.', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+ad, data:{ type:'ads', url:'/messager' } }); }catch(_p){} } }
+        const pid = String(req.body.post_id||'');
+        if(/^post_/.test(pid)){ try{ const pr = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1 AND deleted=FALSE',[pid]); const author = pr.rows.length ? String(pr.rows[0].user_id) : null; if(author && author !== String(uid) && author !== String(row.owner_id||'')) await _filCreditCreator(author, ad, pid); }catch(_c){} }
+      }
+    }
+    res.json({ success: true });
+  }catch(e){ res.json({ success: false }); }
+});
+// ── Espace annonceur en libre-service ──
+function _filAdOut(a, ev){
+  ev = ev || {};
+  const imp = ev.imp||0, clk = ev.clk||0;
+  return { id:a.id, title:a.title, type:a.type, media_url:a.media_url, link_url:a.link_url, cta:a.cta, bg_color:a.bg_color, budget:a.budget_fcfa||0, spent:Math.round(Number(a.spent_fcfa)||0), target_country:a.target_country||'', target_city:a.target_city||'', placement:a.placement||'all', status: a.status || (a.active ? 'active' : 'review'), active:!!a.active, pay_method:a.pay_method||'', created_at:a.created_at, impressions:imp, clicks:clk, ctr: imp ? Math.round(1000*clk/imp)/10 : 0, feed_imp: ev.fi||0, reels_imp: ev.ri||0 };
+}
+app.get('/api/penc/fil/ads/mine', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ads: [] });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE owner_id=$1 ORDER BY created_at DESC LIMIT 50',[uid]);
+    const ids = r.rows.map(function(a){ return a.id; }); const ev = {};
+    if(ids.length){ (await _pgPool.query("SELECT ad_id, SUM(CASE WHEN kind='impression' THEN 1 ELSE 0 END)::int imp, SUM(CASE WHEN kind='click' THEN 1 ELSE 0 END)::int clk, SUM(CASE WHEN kind='impression' AND place='feed' THEN 1 ELSE 0 END)::int fi, SUM(CASE WHEN kind='impression' AND place='reels' THEN 1 ELSE 0 END)::int ri FROM penc_ad_events WHERE ad_id = ANY($1) GROUP BY ad_id",[ids])).rows.forEach(function(x){ ev[x.ad_id]=x; }); }
+    let balance = 0, geo = {};
+    try{ const u = (await _pgPool.query('SELECT balance, geo FROM penc_users WHERE id=$1',[uid])).rows[0] || {}; balance = u.balance || 0; geo = u.geo ? (typeof u.geo==='string' ? JSON.parse(u.geo) : u.geo) : {}; }catch(_u){}
+    res.json({ ads: r.rows.map(function(a){ return _filAdOut(a, ev[a.id]); }), balance: balance, country: geo.country || '', city: geo.city || '', price_per_view: _FIL_AD_PRICE, wave_url: 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/' });
+  }catch(e){ res.json({ ads: [] }); }
+});
+app.post('/api/penc/fil/ads/campaign', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const b = req.body || {};
+    if(!_filRate(uid, 'campaign', 10, 86400000)) return _filTooFast(res);
+    const title = String(b.title||'').trim().slice(0, 200);
+    if(title.length < 4) return res.status(400).json({ error: 'Écris le texte de ton annonce' });
+    const type = ['text','image','video'].indexOf(String(b.type)) > -1 ? String(b.type) : 'text';
+    const media = (type !== 'text') ? (_filOkMedia(b.media_url) ? b.media_url : null) : null;
+    if(type !== 'text' && !media) return res.status(400).json({ error: 'Ajoute la photo ou la vidéo de ton annonce' });
+    const link = (b.link_url && /^https?:\/\/[^\s]{3,}$/.test(String(b.link_url))) ? String(b.link_url).slice(0, 500) : null;
+    const CTAS = ['En savoir plus','Acheter','Commander','Appeler','Écrire','S\'inscrire','Réserver','Télécharger'];
+    const cta = CTAS.indexOf(String(b.cta)) > -1 ? String(b.cta) : 'En savoir plus';
+    const budget = parseInt(b.budget, 10);
+    if(!(budget >= 1000 && budget <= 5000000)) return res.status(400).json({ error: 'Budget entre 1 000 et 5 000 000 FCFA' });
+    const placement = ['all','feed','reels'].indexOf(String(b.placement)) > -1 ? String(b.placement) : 'all';
+    let tc = null, tcity = null;
+    if(b.target === 'country' || b.target === 'city'){
+      try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; tc = geo.country || null; if(b.target === 'city') tcity = geo.city || null; }catch(_g){}
+    }
+    const bg = /^#[0-9a-fA-F]{6}$/.test(String(b.bg_color||'')) ? String(b.bg_color) : '#1877F2';
+    const pay = b.pay === 'balance' ? 'balance' : 'wave';
+    const id = 'ad_' + Date.now() + Math.random().toString(36).slice(2, 8);
+    if(pay === 'balance'){
+      const deb = await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)-$1 WHERE id=$2 AND COALESCE(balance,0) >= $1 RETURNING balance',[budget, uid]);
+      if(!deb.rows.length) return res.status(402).json({ error: 'Solde Penc insuffisant. Choisis le paiement Wave ou recharge ton solde.' });
+    }
+    const waveRef = String(b.wave_ref||'').trim().slice(0, 80) || null;
+    if(pay === 'wave' && !waveRef) return res.status(400).json({ error: 'Indique la référence de ton paiement Wave' });
+    await _pgPool.query("INSERT INTO penc_ads(id,title,type,media_url,bg_color,link_url,duration,cpv_fcfa,active,owner_id,paid,budget_fcfa,spent_fcfa,target_country,target_city,placement,status,pay_method,pay_ref,cta,created_at) VALUES($1,$2,$3,$4,$5,$6,8,1,FALSE,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,$16,NOW())",
+      [id, title, type, media, bg, link, uid, pay === 'balance', budget, tc, tcity, placement, pay === 'balance' ? 'review' : 'pending_payment', pay, waveRef, cta]);
+    try{ const ar = await _pgPool.query("SELECT id FROM penc_users WHERE LOWER(email) = ANY($1)",[PENC_ADMIN_EMAILS]); ar.rows.forEach(function(a){ emitToUsers(String(a.id),'admin:newad',{ id:id, title:title }); }); }catch(_n){}
+    res.json({ success: true, id: id, status: pay === 'balance' ? 'review' : 'pending_payment' });
+  }catch(e){ console.error('campaign:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/fil/ads/:id/pause', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE id=$1 AND owner_id=$2',[req.params.id, uid]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const a = r.rows[0];
+    if(a.status === 'active'){ await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='paused' WHERE id=$1",[a.id]); return res.json({ success: true, status: 'paused' }); }
+    if(a.status === 'paused'){ await _pgPool.query("UPDATE penc_ads SET active=TRUE, status='active' WHERE id=$1",[a.id]); return res.json({ success: true, status: 'active' }); }
+    res.status(400).json({ error: 'Cette campagne ne peut pas être mise en pause maintenant' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// Revenus créateur
+app.get('/api/penc/fil/creator/earnings', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ total: 0 });
+    const uid = req.pencUser.userId;
+    const one = async function(sql){ try{ return Number((await _pgPool.query(sql,[uid])).rows[0].s)||0; }catch(_e){ return 0; } };
+    const total = await one('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND ad_id IS NOT NULL');
+    const month = await one("SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND ad_id IS NOT NULL AND created_at > NOW() - INTERVAL '30 days'");
+    const pending = await one('SELECT COALESCE(SUM(amount),0) AS s FROM penc_creator_earnings WHERE user_id=$1 AND paid=FALSE');
+    let top = [];
+    try{ top = (await _pgPool.query('SELECT post_id, SUM(amount) AS s FROM penc_creator_earnings WHERE user_id=$1 AND post_id IS NOT NULL GROUP BY post_id ORDER BY 2 DESC LIMIT 5',[uid])).rows.map(function(x){ return { post_id:x.post_id, amount: Math.round(Number(x.s)*10)/10 }; }); }catch(_t){}
+    res.json({ total: Math.round(total*10)/10, month: Math.round(month*10)/10, pending: Math.round(pending*10)/10, share: _FIL_CREATOR_SHARE, top: top });
+  }catch(e){ res.json({ total: 0 }); }
+});
+// ── Admin du Fil : signalements + campagnes à valider ──
+app.get('/api/penc/admin/fil/moderation', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const rep = await _pgPool.query("SELECT target_id, COUNT(DISTINCT reporter_id)::int AS n, ARRAY_AGG(DISTINCT reason) AS reasons, MAX(created_at) AS last FROM penc_reports WHERE target_type='post' AND status='pending' GROUP BY target_id ORDER BY 2 DESC, 4 DESC LIMIT 60");
+    const ids = rep.rows.map(function(x){ return x.target_id; });
+    let posts = [];
+    if(ids.length){ const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE id = ANY($1)',[ids]); posts = await _postEnrichMany(pr.rows, req.pencUser.userId); const hid = {}; pr.rows.forEach(function(r){ hid[r.id] = !!r.deleted; }); posts.forEach(function(p){ p._hidden = hid[p.id]; }); }
+    const byId = {}; posts.forEach(function(p){ byId[p.id]=p; });
+    const ads = await _pgPool.query("SELECT a.*, u.full_name AS owner_name FROM penc_ads a LEFT JOIN penc_users u ON u.id=a.owner_id WHERE a.status IN ('review','pending_payment') ORDER BY a.created_at ASC LIMIT 60");
+    res.json({ reports: rep.rows.filter(function(x){ return byId[x.target_id]; }).map(function(x){ return { post: byId[x.target_id], count: x.n, reasons: x.reasons, last: x.last }; }), ads: ads.rows.map(function(a){ const o = _filAdOut(a, {}); o.owner_name = a.owner_name || ''; o.pay_ref = a.pay_ref || ''; return o; }) });
+  }catch(e){ console.error('fil moderation:', e.message); res.json({ reports: [], ads: [] }); }
+});
+app.post('/api/penc/admin/fil/ads/:id/:action', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const r = await _pgPool.query('SELECT * FROM penc_ads WHERE id=$1',[req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const a = r.rows[0];
+    if(req.params.action === 'approve'){
+      await _pgPool.query("UPDATE penc_ads SET active=TRUE, paid=TRUE, status='active' WHERE id=$1",[a.id]);
+      if(a.owner_id){ try{ sendPencPush(a.owner_id, { title:'Penc Publicité', body:'Ta campagne « '+String(a.title||'').slice(0,40)+' » est en ligne !', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+a.id, data:{ type:'ads', url:'/messager' } }); }catch(_p){} }
+    } else if(req.params.action === 'reject'){
+      // Remboursement automatique du budget non dépensé si payé avec le solde Penc
+      if(a.pay_method === 'balance' && a.paid && a.status !== 'rejected'){ const refund = Math.max(0, (a.budget_fcfa||0) - Math.ceil(Number(a.spent_fcfa)||0)); if(refund > 0) await _pgPool.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[refund, a.owner_id]); }
+      await _pgPool.query("UPDATE penc_ads SET active=FALSE, status='rejected' WHERE id=$1",[a.id]);
+      if(a.owner_id){ try{ sendPencPush(a.owner_id, { title:'Penc Publicité', body:'Ta campagne n\'a pas été validée.' + (a.pay_method==='balance' ? ' Ton budget a été remboursé sur ton solde.' : ' Contacte le support pour le remboursement Wave.'), icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-ad-'+a.id, data:{ type:'ads', url:'/messager' } }); }catch(_p){} }
+    } else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Tendances : hashtags et vidéos du moment, partout et dans ton pays / ta ville ──
+const _filTrendCache = new Map();
+app.get('/api/penc/fil/trends', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ tags: [], local_tags: [], videos: [] });
+    const uid = req.pencUser.userId;
+    let country = '', city = '';
+    try{ const g = (await _pgPool.query('SELECT geo FROM penc_users WHERE id=$1',[uid])).rows[0]; const geo = g && g.geo ? (typeof g.geo==='string' ? JSON.parse(g.geo) : g.geo) : {}; country = geo.country || ''; city = geo.city || ''; }catch(_g){}
+    const ck = country + '|' + city; const c = _filTrendCache.get(ck);
+    let base;
+    if(c && Date.now() - c.t < 10*60000) base = c;
+    else {
+      const pr = await _pgPool.query("SELECT p.id, p.content, p.user_id, p.video IS NOT NULL AS is_video, u.geo FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE p.deleted=FALSE AND p.created_at <= NOW() AND p.created_at > NOW() - INTERVAL '72 hours' ORDER BY p.created_at DESC LIMIT 1500");
+      const all = {}, loc = {}, locCity = {};
+      pr.rows.forEach(function(p){
+        const tags = Array.from(new Set(((String(p.content||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])));
+        let geo = {}; try{ geo = p.geo ? (typeof p.geo==='string' ? JSON.parse(p.geo) : p.geo) : {}; }catch(_e){}
+        tags.forEach(function(t){ all[t]=(all[t]||0)+1; if(country && geo.country===country) loc[t]=(loc[t]||0)+1; if(city && geo.city===city) locCity[t]=(locCity[t]||0)+1; });
+      });
+      const top = function(m, n){ return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }).slice(0,n).map(function(t){ return { tag:t, count:m[t] }; }); };
+      const vids = pr.rows.filter(function(p){ return p.is_video; }).map(function(p){ return p.id; });
+      let vrows = [];
+      if(vids.length){
+        const lk = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const vw = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_views WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const cm = await _filCountMap('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE post_id = ANY($1) GROUP BY post_id',[vids]);
+        const best = vids.sort(function(a,b){ const sa=(vw[a]||0)+3*(lk[a]||0)+5*(cm[a]||0), sb=(vw[b]||0)+3*(lk[b]||0)+5*(cm[b]||0); return sb-sa; }).slice(0, 10);
+        vrows = (await _pgPool.query('SELECT * FROM penc_posts WHERE id = ANY($1)',[best])).rows.sort(function(a,b){ return best.indexOf(a.id)-best.indexOf(b.id); });
+      }
+      base = { t: Date.now(), tags: top(all, 12), local_tags: top(loc, 8), city_tags: top(locCity, 6), vrows: vrows };
+      _filTrendCache.set(ck, base); if(_filTrendCache.size > 500){ const k0 = _filTrendCache.keys().next().value; _filTrendCache.delete(k0); }
+    }
+    const blocked = await _filBlockedSet(uid);
+    if(!base.totals){ base.totals = {}; const allTags = Array.from(new Set((base.tags||[]).concat(base.local_tags||[], base.city_tags||[]).map(function(t){ return t.tag; }))).slice(0, 20);
+      for(const t of allTags){ try{ base.totals[t] = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND content ILIKE $1',['%'+t+'%'])).rows[0].n; }catch(_t){} } }
+    const withTot = function(arr){ return (arr||[]).map(function(x){ return { tag:x.tag, count:x.count, total: base.totals[x.tag] || x.count }; }); };
+    base.tags = withTot(base.tags); base.local_tags = withTot(base.local_tags); base.city_tags = withTot(base.city_tags);
+    res.json({ country: country, city: city, tags: base.tags, local_tags: base.local_tags, city_tags: base.city_tags, videos: await _postEnrichMany(base.vrows.filter(_filVisible(uid, blocked)).slice(0, 8), uid) });
+  }catch(e){ console.error('trends:', e.message); res.json({ tags: [], local_tags: [], videos: [] }); }
+});
+// ── Aperçu riche des liens partagés (WhatsApp, Facebook, X…) ──
+// penc-messagerie.com/p/CODE redirige ici : les robots lisent l'image et le titre, les personnes sont
+// envoyées aussitôt vers la publication dans Penc.
+function _filHtmlEsc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+app.get('/p/:code', async (req, res) => {
+  const code = String(req.params.code||'').replace(/[^A-Za-z0-9]/g,'').slice(0, 12);
+  const target = 'https://penc-messagerie.com/messager?p=' + encodeURIComponent(code);
+  let title = 'Publication sur Penc', desc = 'Découvre cette publication sur Penc, la messagerie panafricaine.', img = 'https://penc-messagerie.com/penc-icon-512.png', isVideo = false;
+  try{
+    if(_pgPool && code){
+      const r = await _pgPool.query('SELECT p.*, u.full_name, u.username FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE p.short_code=$1 AND p.deleted=FALSE AND p.created_at <= NOW()',[code]);
+      if(r.rows.length){
+        const p = r.rows[0];
+        title = (p.full_name || p.username || 'Quelqu\'un') + ' sur Penc';
+        const txt = String(p.content||'').replace(/\s+/g,' ').trim(); if(txt) desc = txt.slice(0, 180) + (txt.length > 180 ? '…' : '');
+        let media = []; try{ media = Array.isArray(p.media_urls) ? p.media_urls : JSON.parse(p.media_urls||'[]'); }catch(_m){}
+        const v = _filParseVideo(p);
+        if(v && v.poster){ img = v.poster; isVideo = true; } else if(media.length) img = media[0];
+      }
+    }
+  }catch(_e){}
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.setHeader('Cache-Control','public, max-age=300');
+  res.send('<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>'
+    +'<title>'+_filHtmlEsc(title)+'</title>'
+    +'<meta property="og:site_name" content="Penc"/><meta property="og:type" content="'+(isVideo?'video.other':'article')+'"/>'
+    +'<meta property="og:title" content="'+_filHtmlEsc(title)+'"/><meta property="og:description" content="'+_filHtmlEsc(desc)+'"/>'
+    +'<meta property="og:image" content="'+_filHtmlEsc(img)+'"/><meta property="og:url" content="https://penc-messagerie.com/p/'+_filHtmlEsc(code)+'"/>'
+    +'<meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="'+_filHtmlEsc(title)+'"/><meta name="twitter:description" content="'+_filHtmlEsc(desc)+'"/><meta name="twitter:image" content="'+_filHtmlEsc(img)+'"/>'
+    +'<meta http-equiv="refresh" content="0;url='+_filHtmlEsc(target)+'"/></head>'
+    +'<body style="font-family:system-ui,sans-serif;background:#F5F0E8;text-align:center;padding:40px 16px;"><p>Ouverture de la publication sur Penc…</p><p><a href="'+_filHtmlEsc(target)+'">Continuer</a></p>'
+    +'<script>location.replace('+JSON.stringify(target)+');</script></body></html>');
+});
+// ── Appel en attente pour moi (retour dans l'app après avoir touché la notification) ──
+app.get('/api/penc/calls/pending', pencAuth, async (req, res) => {
+  const p = _pencPendingCalls.get(String(req.pencUser.userId));
+  if(!p || Date.now() - p.ts > 60000) return res.json({ call: null });
+  res.json({ call: Object.assign({}, p, { age_ms: Date.now() - p.ts }) });
+});
+// ── Gamification : mon niveau, mes flammes, mes défis ──
+app.get('/api/penc/gam/me', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ xp: 0 });
+    const uid = req.pencUser.userId;
+    let xp = 0; try{ const g = await _pgPool.query('SELECT xp FROM penc_gam WHERE user_id=$1',[uid]); xp = g.rows.length ? g.rows[0].xp : 0; }catch(_x){}
+    const L = _gamLevel(xp);
+    const dk = _gamDayKey(), wk = _gamWeekKey();
+    const prog = {}; try{ (await _pgPool.query('SELECT period, cid, progress, claimed FROM penc_gam_prog WHERE user_id=$1 AND period = ANY($2)',[uid, [dk, wk]])).rows.forEach(function(r){ prog[r.period+'|'+r.cid] = r; }); }catch(_p){}
+    const sr = await _pgPool.query("SELECT * FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1 AND days > 0 ORDER BY days DESC LIMIT 50",[uid]);
+    const others = sr.rows.map(function(r){ return String(r.a===uid?r.b:r.a); });
+    const users = {}; try{ (await pgFindUsersByIds(others)).forEach(function(u){ users[String(u.id)] = u; }); }catch(_u){}
+    const streaks = sr.rows.map(function(r){ const o = String(r.a===uid?r.b:r.a); const u = users[o] || {}; const mine = (r.a===uid ? r.a_day : r.b_day), theirs = (r.a===uid ? r.b_day : r.a_day); const today = new Date().toISOString().slice(0,10); const f = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; }; const lv = _gamStreakLevel(r.days);
+      return { user_id:o, name:u.full_name||u.username||'Utilisateur', avatar_url:u.avatar_url||null, days:r.days, best:r.best, icon:lv.icon, level:lv.name, me_today: f(mine)===today, them_today: f(theirs)===today, at_risk: f(r.last_day)!==today }; });
+    const activeStreaks = streaks.length;
+    const mk = function(c, period){ const p = prog[period+'|'+c.id] || {}; let pr = p.progress || 0; if(c.kind === '_streak') pr = Math.min(c.target, activeStreaks); return { id:c.id, period:period, title:c.title, icon:c.icon, target:c.target, progress:pr, xp:c.xp, claimed:!!p.claimed, done: pr >= c.target }; };
+    const now = new Date(); const endDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1));
+    const wd = now.getUTCDay() || 7; const endWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + (8 - wd)));
+    res.json({ xp: xp, level: L.level, title: _gamTitle(L.level), level_from: L.from, level_to: L.to,
+      daily: _GAM_DAILY.map(function(c){ return mk(c, dk); }), weekly: _GAM_WEEKLY.map(function(c){ return mk(c, wk); }),
+      daily_ends: endDay.toISOString(), weekly_ends: endWeek.toISOString(), streaks: streaks });
+  }catch(e){ console.error('[gam] me:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/gam/claim', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const cid = String(req.body.cid||''); const period = String(req.body.period||'');
+    const c = _GAM_DAILY.concat(_GAM_WEEKLY).find(function(x){ return x.id === cid; });
+    if(!c || (period !== _gamDayKey() && period !== _gamWeekKey())) return res.status(400).json({ error: 'Défi inconnu ou expiré' });
+    let progress = 0;
+    if(c.kind === '_streak'){ const r = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1 AND days > 0",[uid]); progress = r.rows[0].n; await _pgPool.query('INSERT INTO penc_gam_prog(user_id,period,cid,progress,claimed) VALUES($1,$2,$3,$4,FALSE) ON CONFLICT (user_id,period,cid) DO UPDATE SET progress=$4',[uid, period, cid, Math.min(progress, c.target)]); }
+    const u = await _pgPool.query('UPDATE penc_gam_prog SET claimed=TRUE WHERE user_id=$1 AND period=$2 AND cid=$3 AND claimed=FALSE AND progress >= $4 RETURNING cid',[uid, period, cid, c.target]);
+    if(!u.rows.length) return res.status(400).json({ error: 'Défi pas encore terminé ou déjà réclamé' });
+    await _gamAddXp(uid, c.xp);
+    const g = await _pgPool.query('SELECT xp FROM penc_gam WHERE user_id=$1',[uid]); const xp = g.rows[0].xp; const L = _gamLevel(xp);
+    res.json({ success: true, xp: xp, gained: c.xp, level: L.level, title: _gamTitle(L.level), level_from: L.from, level_to: L.to });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// Événements signalés par l'application (appel, invitation, statut) — limités pour éviter la triche
+app.post('/api/penc/gam/event', pencAuth, async (req, res) => {
+  const uid = req.pencUser.userId; const k = String(req.body.kind||'');
+  if(['call','invite','status'].indexOf(k) < 0) return res.json({ success: false });
+  if(!_filRate(uid, 'gam_'+k, k==='invite'?6:10, 86400000)) return res.json({ success: true });
+  await _gamBump(uid, k, 1); res.json({ success: true });
+});
+// Administrateur ? (le jeton de connexion ne porte pas ce rôle : on le vérifie sur le compte, avec un petit cache)
+const _admCache = new Map();
+async function _pencIsAdmin(req){
+  try{ const uid = String(req.pencUser && req.pencUser.userId || ''); if(!uid) return false;
+    const c = _admCache.get(uid); if(c && Date.now()-c.t < 300000) return c.v;
+    const u = await pgFindUser('id', uid); const v = !!(u && PENC_ADMIN_EMAILS.includes(String(u.email||'').toLowerCase()));
+    _admCache.set(uid, { t: Date.now(), v: v }); return v; }catch(_e){ return false; }
+}
+async function _filBanned(uid){ try{ const r = await _pgPool.query('SELECT 1 FROM penc_fil_bans WHERE user_id=$1 AND (until IS NULL OR until > NOW())',[uid]); return r.rows.length > 0; }catch(_e){ return false; } }
+// ══ VISITEURS SANS COMPTE : lecture seule du Fil (lien partagé ou après téléchargement) ══
+function _pubIp(req){ return String((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '')).split(',')[0].trim(); }
+function _pubGuard(req, res){ if(!_pgPool){ res.json({ posts: [] }); return false; } if(!_filRate('ip:'+_pubIp(req), 'public', 240, 600000)){ res.status(429).json({ error: 'Trop de requêtes' }); return false; } return true; }
+app.get('/api/penc/public/posts', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{
+    const limit = Math.min(parseInt(req.query.limit)||20, 40); const before = req.query.before ? String(req.query.before) : null;
+    let rows;
+    if(before) rows = (await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND created_at < $1 ORDER BY created_at DESC LIMIT $2',[before, limit])).rows;
+    else { const G = await _filGlobalPool(); const sc = G.pool.map(function(p){ const ageH = Math.max(0,(Date.now()-new Date(p.created_at).getTime())/3600000); return { p:p, s: Math.log2(2+(G.likes[p.id]||0)+2.5*(G.comments[p.id]||0)+3*(G.reposts[p.id]||0)) * Math.pow(ageH+2,-1.2) }; }).sort(function(a,b){ return b.s-a.s; }); rows = sc.slice(0, limit).map(function(x){ return x.p; }); }
+    res.json({ posts: await _postEnrichMany(rows, null), guest: true, more: rows.length >= limit });
+  }catch(e){ res.json({ posts: [] }); }
+});
+app.get('/api/penc/public/posts/by-code/:code', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const code = String(req.params.code||'').replace(/[^A-Za-z0-9]/g,'').slice(0,12); const r = await _pgPool.query('SELECT * FROM penc_posts WHERE short_code=$1 AND deleted=FALSE AND created_at <= NOW()',[code]); if(!r.rows.length) return res.status(404).json({ error: 'Publication introuvable' }); res.json({ post: await _postEnrich(r.rows[0], null) }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/public/posts/user/:id', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const r = await _pgPool.query('SELECT * FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() ORDER BY (pinned_at IS NOT NULL) DESC, pinned_at DESC NULLS LAST, created_at DESC LIMIT 40',[req.params.id]); res.json({ posts: await _postEnrichMany(r.rows, null) }); }catch(e){ res.json({ posts: [] }); }
+});
+app.get('/api/penc/public/posts/:id', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const r = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE AND created_at <= NOW()',[req.params.id]); if(!r.rows.length) return res.status(404).json({ error: 'Publication introuvable' }); res.json({ post: await _postEnrich(r.rows[0], null) }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/public/posts/:id/comments', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{
+    const r = await _pgPool.query('SELECT * FROM penc_post_comments WHERE post_id=$1 ORDER BY created_at ASC LIMIT 300',[req.params.id]);
+    const users = {}; (await pgFindUsersByIds(Array.from(new Set(r.rows.map(function(c){ return c.user_id; }))))).forEach(function(u){ users[u.id]=u; });
+    const cl = await _filCountMap('SELECT comment_id AS k, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id = ANY($1) GROUP BY comment_id',[r.rows.map(function(c){ return c.id; })]);
+    res.json({ comments: r.rows.map(function(c){ const a = users[c.user_id]; return { id:c.id, user_id:c.user_id, parent_id:c.parent_id||null, author_name:a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar:a?(a.avatar_url||null):null, author_verified:a?!!(a.verified||a.business_verified):false, content:c.content, created_at:c.created_at, pinned:!!c.pinned, likes_count: cl[c.id]||0 }; }) });
+  }catch(e){ res.json({ comments: [] }); }
+});
+app.get('/api/penc/public/reels', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const ex = String(req.query.exclude||'').split(',').filter(Boolean).slice(0,300); const r = await _pgPool.query("SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND video IS NOT NULL AND created_at <= NOW() AND NOT (id = ANY($1)) ORDER BY created_at DESC LIMIT 10",[ex]); res.json({ posts: await _postEnrichMany(r.rows, null), more: r.rows.length >= 10 }); }catch(e){ res.json({ posts: [] }); }
+});
+app.get('/api/penc/public/fil/profile/:id', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const u = await pgFindUser('id', String(req.params.id)); if(!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const one = async function(sql, a){ try{ return (await _pgPool.query(sql, a)).rows[0].n; }catch(_e){ return 0; } };
+    const t = String(req.params.id);
+    res.json({ user: Object.assign(_filUserPub(u), { friends_count: await one("SELECT COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[t]), followers_count: await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[t]), posts_count: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW()',[t]), likes_received: await one('SELECT COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE p.user_id=$1',[t]), guest: true }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/public/fil/search', async (req, res) => {
+  if(!_pubGuard(req, res)) return;
+  try{ const q = String(req.query.q||'').trim().slice(0,80); if(q.length < 2) return res.json({ users: [], posts: [] }); const like = '%' + q.replace(/[%_\\]/g, function(c){ return '\\' + c; }) + '%';
+    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 30',[like]);
+    const ur = await _pgPool.query('SELECT * FROM penc_users WHERE (full_name ILIKE $1 OR username ILIKE $1) ORDER BY full_name LIMIT 15',[like]);
+    res.json({ users: ur.rows.map(pgRow).map(_filUserPub), posts: await _postEnrichMany(pr.rows, null) }); }catch(e){ res.json({ users: [], posts: [] }); }
+});
+// ══ ADMIN DU FIL : vue d'ensemble, publications, créateurs, interdictions ══
+app.get('/api/penc/admin/fil/stats', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const one = async function(sql){ try{ return (await _pgPool.query(sql)).rows[0].n; }catch(_e){ return 0; } };
+    const out = {
+      posts_today: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '24 hours' AND deleted=FALSE"),
+      posts_week: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
+      posts_total: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE'),
+      videos_week: await one("SELECT COUNT(*)::int AS n FROM penc_posts WHERE video IS NOT NULL AND created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
+      creators_week: await one("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_posts WHERE created_at > NOW() - INTERVAL '7 days' AND deleted=FALSE"),
+      reactions_today: await one("SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      comments_today: await one("SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      views_today: await one("SELECT COUNT(*)::int AS n FROM penc_post_views WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      viewers_today: await one("SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_post_views WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      reports_pending: await one("SELECT COUNT(DISTINCT target_id)::int AS n FROM penc_reports WHERE target_type='post' AND status='pending'"),
+      hidden_posts: await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE mod_hidden=TRUE'),
+      ads_active: await one("SELECT COUNT(*)::int AS n FROM penc_ads WHERE active=TRUE AND id <> 'ad_demo'"),
+      ad_impr_week: await one("SELECT COUNT(*)::int AS n FROM penc_ad_events WHERE kind='impression' AND created_at > NOW() - INTERVAL '7 days'"),
+      ad_clicks_week: await one("SELECT COUNT(*)::int AS n FROM penc_ad_events WHERE kind='click' AND created_at > NOW() - INTERVAL '7 days'"),
+      ad_revenue_total: await one('SELECT COALESCE(SUM(spent_fcfa),0)::int AS n FROM penc_ads'),
+      creator_paid_total: await one('SELECT COALESCE(SUM(amount),0)::int AS n FROM penc_creator_earnings WHERE ad_id IS NOT NULL'),
+      bans: await one('SELECT COUNT(*)::int AS n FROM penc_fil_bans WHERE until IS NULL OR until > NOW()')
+    };
+    let top = [];
+    try{ const tr = await _pgPool.query("SELECT p.user_id, COUNT(DISTINCT p.id)::int AS posts, COUNT(l.post_id)::int AS reacts FROM penc_posts p LEFT JOIN penc_post_likes l ON l.post_id=p.id WHERE p.created_at > NOW() - INTERVAL '7 days' AND p.deleted=FALSE GROUP BY p.user_id ORDER BY reacts DESC, posts DESC LIMIT 10");
+      const us = {}; (await pgFindUsersByIds(tr.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
+      top = tr.rows.map(function(x){ return Object.assign(_filUserPub(us[x.user_id]||{id:x.user_id}), { posts:x.posts, reacts:x.reacts }); }); }catch(_t){}
+    res.json(Object.assign(out, { top_creators: top }));
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/admin/fil/posts', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const q = String(req.query.q||'').trim().slice(0,80); const filter = String(req.query.filter||'recent');
+    let rows;
+    if(filter === 'hidden') rows = (await _pgPool.query('SELECT * FROM penc_posts WHERE mod_hidden=TRUE OR deleted=TRUE ORDER BY created_at DESC LIMIT 60')).rows;
+    else if(q) rows = (await _pgPool.query('SELECT p.* FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE (p.content ILIKE $1 OR u.full_name ILIKE $1 OR u.username ILIKE $1) ORDER BY p.created_at DESC LIMIT 60',['%'+q+'%'])).rows;
+    else if(filter === 'top') rows = (await _pgPool.query("SELECT p.* FROM penc_posts p LEFT JOIN penc_post_likes l ON l.post_id=p.id WHERE p.deleted=FALSE AND p.created_at > NOW() - INTERVAL '7 days' GROUP BY p.id ORDER BY COUNT(l.post_id) DESC LIMIT 60")).rows;
+    else rows = (await _pgPool.query('SELECT * FROM penc_posts ORDER BY created_at DESC LIMIT 60')).rows;
+    const posts = await _postEnrichMany(rows, req.pencUser.userId); const del = {}; rows.forEach(function(r){ del[r.id] = !!r.deleted; }); posts.forEach(function(p){ p._hidden = del[p.id]; });
+    res.json({ posts: posts });
+  }catch(e){ res.json({ posts: [] }); }
+});
+app.post('/api/penc/admin/fil/ban', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const uid = String(req.body.user_id||''); if(!uid) return res.status(400).json({ error: 'Utilisateur requis' });
+    if(req.body.unban){ await _pgPool.query('DELETE FROM penc_fil_bans WHERE user_id=$1',[uid]); return res.json({ success: true, banned: false }); }
+    const days = parseInt(req.body.days)||0; const until = days > 0 ? new Date(Date.now() + days*86400000).toISOString() : null;
+    await _pgPool.query('INSERT INTO penc_fil_bans(user_id,reason,until,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (user_id) DO UPDATE SET reason=$2, until=$3',[uid, String(req.body.reason||'').slice(0,200), until]);
+    res.json({ success: true, banned: true, until: until });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
+  try{ const r = await _pgPool.query('SELECT * FROM penc_fil_bans WHERE until IS NULL OR until > NOW() ORDER BY created_at DESC LIMIT 100'); const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
+    res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
+});
+app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
+// Temps d'utilisation : l'app envoie un signal par minute passée à l'écran
+let _presTblOk = false;
+async function _presTbl(){ if(_presTblOk) return; await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_user_time (user_id TEXT NOT NULL, day DATE NOT NULL, seconds INT DEFAULT 0, sessions INT DEFAULT 0, first_at TIMESTAMPTZ DEFAULT NOW(), last_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (user_id, day))'); _presTblOk = true; }
+app.post('/api/penc/presence/tick', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ok: true });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'tick', 3, 50000)) return res.json({ ok: true });
+    await _presTbl();
+    const sec = Math.max(0, Math.min(90, parseInt(req.body.seconds)||60)); const start = req.body.start ? 1 : 0;
+    await _pgPool.query('INSERT INTO penc_user_time(user_id,day,seconds,sessions,first_at,last_at) VALUES($1,CURRENT_DATE,$2,$3,NOW(),NOW()) ON CONFLICT (user_id,day) DO UPDATE SET seconds=penc_user_time.seconds+$2, sessions=penc_user_time.sessions+$3, last_at=NOW()',[uid, sec, start]);
+    try{ await _pgPool.query('UPDATE penc_users SET last_seen=NOW() WHERE id=$1',[uid]); }catch(_l){}
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.get('/api/penc/admin/users/report', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    await _presTbl();
+    const q = String(req.query.q||'').trim().slice(0,60); const sort = String(req.query.sort||'recent');
+    const orderBy = { recent:'u.last_seen DESC NULLS LAST', new:'u.created_at DESC NULLS LAST', old:'u.created_at ASC NULLS LAST', name:'u.full_name ASC' }[sort] || 'u.last_seen DESC NULLS LAST';
+    const where = q ? "WHERE (u.full_name ILIKE $1 OR u.username ILIKE $1 OR u.phone ILIKE $1 OR u.email ILIKE $1)" : '';
+    const ur = await _pgPool.query('SELECT u.id, u.full_name, u.username, u.phone, u.email, u.avatar_url, u.created_at, u.last_seen, u.is_online, u.geo FROM penc_users u ' + where + ' ORDER BY ' + orderBy + ' LIMIT 100', q ? ['%'+q+'%'] : []);
+    const ids = ur.rows.map(function(x){ return x.id; });
+    const cm = async function(sql){ const m = {}; try{ (await _pgPool.query(sql,[ids])).rows.forEach(function(r){ m[r.k] = r; }); }catch(e){} return m; };
+    const msgs = await cm("SELECT sender_id AS k, COUNT(*)::int AS n, MAX(created_at) AS last FROM penc_messages WHERE sender_id = ANY($1) GROUP BY sender_id");
+    const posts = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_posts WHERE user_id = ANY($1) AND deleted=FALSE GROUP BY user_id");
+    const cmts = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_post_comments WHERE user_id = ANY($1) GROUP BY user_id");
+    const rx = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE user_id = ANY($1) GROUP BY user_id");
+    const st = await cm("SELECT user_id AS k, COUNT(*)::int AS n FROM penc_statuses WHERE user_id = ANY($1) GROUP BY user_id");
+    const tm = await cm("SELECT user_id AS k, SUM(seconds)::int AS n, SUM(CASE WHEN day > CURRENT_DATE - 7 THEN seconds ELSE 0 END)::int AS w, SUM(sessions)::int AS s, COUNT(*)::int AS days, MAX(last_at) AS last FROM penc_user_time WHERE user_id = ANY($1) GROUP BY user_id");
+    const fr = await cm("SELECT CASE WHEN requester = ANY($1) THEN requester ELSE recipient END AS k, COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester = ANY($1) OR recipient = ANY($1)) GROUP BY 1");
+    const totals = {};
+    try{ const t = await _pgPool.query("SELECT COUNT(*)::int AS users, SUM(CASE WHEN last_seen > NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END)::int AS day, SUM(CASE WHEN last_seen > NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS week, SUM(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS newweek FROM penc_users"); Object.assign(totals, t.rows[0]); }catch(_t){}
+    try{ const t2 = await _pgPool.query("SELECT COALESCE(SUM(seconds),0)::int AS sec, COUNT(DISTINCT user_id)::int AS n FROM penc_user_time WHERE day = CURRENT_DATE"); totals.today_seconds = t2.rows[0].sec; totals.today_users = t2.rows[0].n; }catch(_t){}
+    res.json({ totals: totals, users: ur.rows.map(function(u){ let geo = {}; try{ geo = u.geo ? (typeof u.geo==='string'?JSON.parse(u.geo):u.geo) : {}; }catch(_){}
+      const t = tm[u.id] || {};
+      const lastTime = [u.last_seen, t.last, (msgs[u.id]||{}).last].filter(Boolean).map(function(d){ return new Date(d).getTime(); });
+      return { id:u.id, full_name:u.full_name||'', username:u.username||'', phone:u.phone||'', email:u.email||'', avatar_url:u.avatar_url||null,
+        joined:u.created_at, last_seen: lastTime.length ? new Date(Math.max.apply(null,lastTime)).toISOString() : null, online:!!u.is_online, city:geo.city||'', country:geo.country||'',
+        time_total:t.n||0, time_week:t.w||0, sessions:t.s||0, active_days:t.days||0,
+        messages:(msgs[u.id]||{}).n||0, posts:(posts[u.id]||{}).n||0, comments:(cmts[u.id]||{}).n||0, reactions:(rx[u.id]||{}).n||0, statuses:(st[u.id]||{}).n||0, friends:(fr[u.id]||{}).n||0 }; }) });
+  }catch(e){ console.error('users report:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ Site vitrine : mesure d'audience anonyme (aucun cookie, aucune donnée personnelle) ══
+let _siteTblOk = false;
+async function _siteTbl(){ if(_siteTblOk) return; await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_site_events (id BIGSERIAL PRIMARY KEY, vid TEXT, kind TEXT, path TEXT, ref TEXT, country TEXT, device TEXT, utm TEXT, created_at TIMESTAMPTZ DEFAULT NOW())'); await _pgPool.query('CREATE INDEX IF NOT EXISTS idx_site_ev_time ON penc_site_events(created_at DESC)'); _siteTblOk = true; }
+app.post('/api/penc/site/event', async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ ok: true });
+    const ip = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    if(!_filRate('site:'+ip, 'site', 120, 600000)) return res.json({ ok: true });
+    await _siteTbl();
+    const b = req.body || {};
+    const kind = ['view','download','web','contact','section'].indexOf(String(b.kind)) > -1 ? String(b.kind) : 'view';
+    const ua = String(req.headers['user-agent']||''); const device = /android/i.test(ua) ? 'Android' : /iphone|ipad/i.test(ua) ? 'iPhone' : /mobile/i.test(ua) ? 'Mobile' : 'Ordinateur';
+    let ref = String(b.ref||'').slice(0,200); try{ ref = ref ? new URL(ref).hostname.replace(/^www\./,'') : ''; }catch(_){ ref = ''; }
+    await _pgPool.query('INSERT INTO penc_site_events(vid,kind,path,ref,country,device,utm,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())',
+      [String(b.vid||'').slice(0,40), kind, String(b.path||'').slice(0,120), ref, String(req.headers['cf-ipcountry']||'').slice(0,4), device, String(b.utm||'').slice(0,80)]);
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.get('/api/penc/admin/site/stats', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    await _siteTbl();
+    const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(e){ return []; } };
+    const one = async function(sql){ const r = await q(sql); return r[0] ? r[0].n : 0; };
+    res.json({
+      views_today: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='view' AND created_at > NOW() - INTERVAL '24 hours'"),
+      visitors_today: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '24 hours'"),
+      visitors_week: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '7 days'"),
+      visitors_month: await one("SELECT COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days'"),
+      downloads_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='download' AND created_at > NOW() - INTERVAL '7 days'"),
+      web_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='web' AND created_at > NOW() - INTERVAL '7 days'"),
+      contact_week: await one("SELECT COUNT(*)::int AS n FROM penc_site_events WHERE kind='contact' AND created_at > NOW() - INTERVAL '7 days'"),
+      days: await q("SELECT to_char(date_trunc('day', created_at),'DD/MM') AS d, COUNT(DISTINCT vid)::int AS v, SUM(CASE WHEN kind='download' THEN 1 ELSE 0 END)::int AS dl FROM penc_site_events WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY date_trunc('day', created_at) ORDER BY date_trunc('day', created_at)"),
+      refs: await q("SELECT COALESCE(NULLIF(ref,''),'Accès direct') AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 8"),
+      countries: await q("SELECT COALESCE(NULLIF(country,''),'?') AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 8"),
+      devices: await q("SELECT device AS k, COUNT(DISTINCT vid)::int AS n FROM penc_site_events WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC"),
+      sections: await q("SELECT path AS k, COUNT(*)::int AS n FROM penc_site_events WHERE kind='section' AND created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
+    });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ Suggestions de hashtags : « #s » -> #senegal (1 240 publications)… ══
+let _tagIndex = { t: 0, tags: [] };
+async function _tagIdx(){
+  if(Date.now() - _tagIndex.t < 10*60000 && _tagIndex.tags.length) return _tagIndex.tags;
+  const r = await _pgPool.query("SELECT content FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at > NOW() - INTERVAL '180 days' AND content LIKE '%#%' ORDER BY created_at DESC LIMIT 5000");
+  const c = {}; r.rows.forEach(function(row){ Array.from(new Set((String(row.content||'').toLowerCase().match(/#[0-9a-z_\u00c0-\u024f]{2,40}/g))||[])).forEach(function(t){ c[t]=(c[t]||0)+1; }); });
+  _tagIndex = { t: Date.now(), tags: Object.keys(c).map(function(k){ return { tag:k, count:c[k] }; }).sort(function(a,b){ return b.count-a.count; }) };
+  return _tagIndex.tags;
+}
+app.get('/api/penc/fil/tags', pencAuth, async (req, res) => {
+  try{ const q = String(req.query.q||'').toLowerCase().replace(/^#/,'').slice(0,40); const all = await _tagIdx();
+    res.json({ tags: all.filter(function(t){ return !q || t.tag.slice(1).indexOf(q) === 0; }).slice(0, 8) }); }catch(e){ res.json({ tags: [] }); }
+});
+// Clé publique de notification réellement utilisée par le serveur : l'app s'abonne TOUJOURS avec celle-ci
+// (si la clé écrite dans l'app diffère de celle du serveur, Google/Android refuse chaque notification).
+app.get('/api/penc/push/vapid', (req, res) => { const k = process.env.VAPID_PUBLIC_KEY || ''; res.json({ key: k, configured: !!(k && process.env.VAPID_PRIVATE_KEY) }); });
+// Traduction d'une publication : français, wolof, anglais, arabe (résultat mis en cache)
+const _trCache = new Map();
+app.post('/api/penc/translate', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    const to = ['fr','wo','en','ar'].indexOf(String(req.body.to)) > -1 ? String(req.body.to) : 'fr';
+    const text = String(req.body.text || '').slice(0, 4000);
+    if(!text.trim()) return res.json({ text: '' });
+    const key = to + '|' + require('crypto').createHash('sha1').update(text).digest('hex');
+    if(_trCache.has(key)) return res.json(_trCache.get(key));
+    if(!_filRate(uid, 'translate', 60, 3600000)) return _filTooFast(res);
+    const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + to + '&dt=t&q=' + encodeURIComponent(text);
+    const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if(!r.ok) return res.status(502).json({ error: 'Traduction indisponible' });
+    const j = await r.json();
+    const out = { text: (j && j[0] || []).map(function(x){ return x && x[0] || ''; }).join(''), from: (j && j[2]) || null, to: to };
+    _trCache.set(key, out); if(_trCache.size > 20000){ const k0 = _trCache.keys().next().value; _trCache.delete(k0); }
+    res.json(out);
+  }catch(e){ console.error('translate:', e.message); res.status(500).json({ error: 'Traduction indisponible' }); }
+});
+// GET /api/penc/posts/saved — mes publications enregistrées
+app.get('/api/penc/posts/saved', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ posts: [] });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT p.* FROM penc_post_saves s JOIN penc_posts p ON p.id=s.post_id WHERE s.user_id=$1 AND p.deleted=FALSE ORDER BY s.created_at DESC LIMIT 100',[uid]);
+    const blocked = await _filBlockedSet(uid);
+    res.json({ posts: await _postEnrichMany(r.rows.filter(_filVisible(uid, blocked)), uid) });
+  }catch(e){ res.json({ posts: [] }); }
+});
+// GET /api/penc/media/proxy?url= — relais de téléchargement (photos/vidéos du stockage Penc uniquement).
+// Permet à l'appli d'enregistrer le fichier directement dans la galerie, sans ouvrir d'onglet navigateur.
+app.get('/api/penc/media/proxy', pencAuth, async (req, res) => {
+  try{
+    const url = String(req.query.url || '');
+    if(!R2_PUBLIC || url.indexOf(R2_PUBLIC + '/') !== 0 || url.indexOf('..') > -1) return res.status(400).json({ error: 'Lien non autorisé' });
+    const r = await fetch(url);
+    if(!r.ok) return res.status(r.status).json({ error: 'Fichier introuvable' });
+    const len = parseInt(r.headers.get('content-length') || '0', 10);
+    if(len > 200 * 1024 * 1024) return res.status(413).json({ error: 'Fichier trop lourd' });
+    res.setHeader('Content-Type', r.headers.get('content-type') || 'application/octet-stream');
+    if(len) res.setHeader('Content-Length', String(len));
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    const { Readable } = require('stream');
+    Readable.fromWeb(r.body).pipe(res);
+  }catch(e){ console.error('media proxy:', e.message); if(!res.headersSent) res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id — une publication (lien partagé, notification)
+app.get('/api/penc/posts/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const r = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE AND (created_at <= NOW() OR user_id=$2)',[req.params.id, uid]);
+    if(!r.rows.length) return res.status(404).json({ error: 'Publication introuvable' });
+    if(_areIsolated(uid, r.rows[0].user_id) || await pgIsBlocked(uid, r.rows[0].user_id)) return res.status(403).json({ error: 'Indisponible' });
+    res.json({ post: await _postEnrich(r.rows[0], uid) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// PUT /api/penc/posts/:id — modifier le texte de sa publication
+app.put('/api/penc/posts/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const p = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE',[req.params.id]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const row0 = p.rows[0];
+    if(String(row0.user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
+    const content = String(req.body.content || '').slice(0, 20000);
+    let media = []; try{ media = Array.isArray(row0.media_urls)?row0.media_urls:JSON.parse(row0.media_urls||'[]'); }catch(_e){}
+    if(Array.isArray(req.body.media_urls)) media = req.body.media_urls.filter(_filOkMedia).slice(0, 10);
+    let video = _filParseVideo(row0);
+    if(Object.prototype.hasOwnProperty.call(req.body, 'video')) video = _filCleanVideo(req.body.video);
+    if(video) media = [];
+    let bg = row0.bg || null;
+    if(Object.prototype.hasOwnProperty.call(req.body, 'bg')) bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1) ? String(req.body.bg) : null;
+    if(media.length || video || content.length>300) bg = null;
+    if(!content.trim() && !media.length && !video && !row0.repost_of) return res.status(400).json({ error: 'Publication vide' });
+    let thumbs0 = null; try{ const t = row0.media_thumbs; thumbs0 = t ? (typeof t==='string' ? JSON.parse(t) : t) : null; }catch(_t){}
+    let media0 = []; try{ media0 = Array.isArray(row0.media_urls)?row0.media_urls:JSON.parse(row0.media_urls||'[]'); }catch(_m){}
+    let thumbs = null;
+    if(Array.isArray(req.body.media_thumbs) && req.body.media_thumbs.length === media.length && req.body.media_thumbs.every(_filOkMedia)) thumbs = req.body.media_thumbs;
+    else if(Array.isArray(thumbs0)){ const map = {}; media0.forEach(function(u,i){ map[u] = thumbs0[i]; }); const t2 = media.map(function(u){ return map[u] || null; }); if(t2.every(Boolean)) thumbs = t2; }
+    await _pgPool.query('UPDATE penc_posts SET content=$1, media_urls=$2, video=$3, bg=$4, media_thumbs=$5, edited_at=NOW() WHERE id=$6',[content, JSON.stringify(media), video ? JSON.stringify(video) : null, bg, thumbs ? JSON.stringify(thumbs) : null, req.params.id]);
+    const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[req.params.id])).rows[0];
+    res.json({ success: true, post: await _postEnrich(row, uid) });
+  }catch(e){ console.error('edit post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id/likers — qui a aimé (visible par tous)
+app.get('/api/penc/posts/:id/likers', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ users: [] });
+    const uid = req.pencUser.userId;
+    const lr = await _pgPool.query("SELECT user_id, COALESCE(reaction,'like') AS r FROM penc_post_likes WHERE post_id=$1 ORDER BY created_at DESC LIMIT 200",[req.params.id]);
+    const users = await pgFindUsersByIds(lr.rows.map(function(x){ return x.user_id; }));
+    const byId = {}; users.forEach(function(u){ byId[u.id]=u; });
+    res.json({ users: lr.rows.filter(function(x){ return byId[x.user_id] && !_areIsolated(uid, x.user_id); }).map(function(x){ return Object.assign(_filUserPub(byId[x.user_id]), { reaction: x.r }); }) });
+  }catch(e){ res.json({ users: [] }); }
+});
+// POST /api/penc/posts/:id/save — enregistrer / retirer des enregistrements (toggle, privé)
+app.post('/api/penc/posts/:id/save', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const ex = await _pgPool.query('SELECT 1 FROM penc_post_saves WHERE post_id=$1 AND user_id=$2',[pid, uid]);
+    let saved;
+    if(ex.rows.length){ await _pgPool.query('DELETE FROM penc_post_saves WHERE post_id=$1 AND user_id=$2',[pid, uid]); saved=false; }
+    else { await _pgPool.query('INSERT INTO penc_post_saves(post_id,user_id,created_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING',[pid, uid]); saved=true; }
+    res.json({ success: true, saved });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id/stats — statistiques de sa publication (auteur uniquement)
+app.get('/api/penc/posts/:id/stats', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    if(String(p.rows[0].user_id) !== String(uid) && !(await _pencIsAdmin(req))) return res.status(403).json({ error: 'Non autorisé' });
+    const one = async function(sql){ try{ return (await _pgPool.query(sql,[pid])).rows[0].n; }catch(_e){ return 0; } };
+    const views = await one('SELECT COUNT(*)::int AS n FROM penc_post_views WHERE post_id=$1');
+    const likes = await one('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1');
+    const comments = await one('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1');
+    const reposts = await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE repost_of=$1 AND deleted=FALSE');
+    const lr = await _pgPool.query('SELECT user_id FROM penc_post_likes WHERE post_id=$1 ORDER BY created_at DESC LIMIT 100',[pid]);
+    const users = await pgFindUsersByIds(lr.rows.map(function(x){ return x.user_id; }));
+    const byId = {}; users.forEach(function(u){ byId[u.id]=u; });
+    const clicks = {}; let clickers = 0;
+    try{ (await _pgPool.query('SELECT kind, COUNT(*)::int AS n FROM penc_post_clicks WHERE post_id=$1 GROUP BY kind',[pid])).rows.forEach(function(x){ clicks[x.kind]=x.n; }); }catch(_c){}
+    try{ clickers = (await _pgPool.query('SELECT COUNT(DISTINCT user_id)::int AS n FROM penc_post_clicks WHERE post_id=$1',[pid])).rows[0].n; }catch(_c){}
+    res.json({ views, likes, comments, reposts, clicks, clickers, ctr: views ? Math.round(1000*clickers/views)/10 : 0, engagement_rate: views ? Math.round(100*(likes+comments+reposts)/views) : 0, likers: lr.rows.map(function(x){ return _filUserPub(byId[x.user_id]); }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/:id/like — aimer / ne plus aimer (toggle)
+app.post('/api/penc/posts/:id/like', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    if(!_filRate(uid, 'like', 300, 600000)) return _filTooFast(res);
+    const want = (req.body && _FIL_REACTIONS.indexOf(String(req.body.reaction)) > -1) ? String(req.body.reaction) : null;
+    const ex = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r FROM penc_post_likes WHERE post_id=$1 AND user_id=$2 LIMIT 1",[pid, uid]);
+    let reaction = null;
+    if(ex.rows.length && (!want || want === ex.rows[0].r)){ await _pgPool.query('DELETE FROM penc_post_likes WHERE post_id=$1 AND user_id=$2',[pid, uid]); }
+    else if(ex.rows.length){ await _pgPool.query('UPDATE penc_post_likes SET reaction=$3 WHERE post_id=$1 AND user_id=$2',[pid, uid, want]); reaction = want; }
+    else { reaction = want || 'like'; await _pgPool.query('INSERT INTO penc_post_likes(post_id,user_id,reaction,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction',[pid, uid, reaction]); }
+    if(reaction && !ex.rows.length){ setImmediate(async function(){ _gamBump(uid, 'react', 1); try{ const _o = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); if(_o.rows.length && String(_o.rows[0].user_id)!==String(uid)) _gamBump(String(_o.rows[0].user_id), 'got_react', 1); }catch(_g){} }); }
+    const lc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1',[pid]);
+    const rc = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1 GROUP BY 1 ORDER BY 2 DESC LIMIT 3",[pid]);
+    res.json({ success: true, liked: !!reaction, reaction, likes_count: lc.rows[0].n, reactions: rc.rows.map(function(x){ return x.r; }) });
+  }catch(e){ console.error('like post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/:id/vote — voter dans un sondage (on peut changer son vote tant qu'il est ouvert)
+app.post('/api/penc/posts/:id/vote', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const pl = _filParsePoll(p.rows[0]); if(!pl) return res.status(400).json({ error: 'Pas de sondage' });
+    if(pl.ends_at && new Date(pl.ends_at).getTime() < Date.now()) return res.status(400).json({ error: 'Sondage terminé' });
+    if(!_filRate(uid, 'vote', 60, 600000)) return _filTooFast(res);
+    const opt = String(req.body.option_id||'');
+    if(!(pl.options||[]).some(function(o){ return o.id===opt; })) return res.status(400).json({ error: 'Choix invalide' });
+    await _pgPool.query('INSERT INTO penc_post_poll_votes(post_id,user_id,option_id,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET option_id=EXCLUDED.option_id, created_at=NOW()',[pid, uid, opt]);
+    res.json({ success: true, post: await _postEnrich(p.rows[0], uid) });
+  }catch(e){ console.error('vote:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/:id/pin — épingler / désépingler en haut de son profil (une seule épinglée)
+app.post('/api/penc/posts/:id/pin', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = await _pgPool.query('SELECT user_id, pinned_at FROM penc_posts WHERE id=$1 AND deleted=FALSE',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    if(String(p.rows[0].user_id) !== String(uid)) return res.status(403).json({ error: 'Non autorisé' });
+    const pinned = !p.rows[0].pinned_at;
+    await _pgPool.query('UPDATE penc_posts SET pinned_at=NULL WHERE user_id=$1 AND pinned_at IS NOT NULL',[uid]);
+    if(pinned) await _pgPool.query('UPDATE penc_posts SET pinned_at=NOW() WHERE id=$1',[pid]);
+    res.json({ success: true, pinned });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/:id/repost — republier (avec un texte facultatif). Toujours rattaché à l'original.
+app.post('/api/penc/posts/:id/repost', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const src = await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1 AND deleted=FALSE',[req.params.id]);
+    if(!src.rows.length) return res.status(404).json({ error: 'Publication introuvable' });
+    const rootId = src.rows[0].repost_of || src.rows[0].id;
+    const root = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[rootId]);
+    const rootAuthor = root.rows.length ? root.rows[0].user_id : src.rows[0].user_id;
+    if(_areIsolated(uid, rootAuthor) || await pgIsBlocked(uid, rootAuthor)) return res.status(403).json({ error: 'Indisponible' });
+    if(!_filRate(uid, 'post', 12, 3600000)) return _filTooFast(res);
+    const content = String(req.body.content || '').slice(0, 5000);
+    const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query("INSERT INTO penc_posts(id,user_id,content,media_urls,repost_of,created_at) VALUES($1,$2,$3,'[]',$4,NOW())",[id, uid, content, rootId]);
+    const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
+    if(String(rootAuthor) !== String(uid)){
+      try{ const me = await pgFindUser('id', uid) || {}; sendPencPush(rootAuthor, { title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' a republié ta publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+rootId, data:{ type:'post', post_id:rootId, url:'/messager?post='+rootId } }); }catch(_p){}
+    }
+    _filRankCache.clear(); _filGlobal = null;
+    res.json({ success: true, post: await _postEnrich(row, uid) });
+  }catch(e){ console.error('repost:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/posts/:id/comments — commentaires + réponses (parent_id) + j'aime
+app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ comments: [] });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const r = await _pgPool.query('SELECT * FROM penc_post_comments WHERE post_id=$1 ORDER BY created_at ASC LIMIT 400',[pid]);
+    const cids = r.rows.map(function(c){ return c.id; });
+    const cl = await _filCountMap('SELECT comment_id AS k, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id = ANY($1) GROUP BY comment_id',[cids]);
+    const mine = {}, rx = {};
+    try{ (await _pgPool.query("SELECT comment_id, COALESCE(reaction,'like') AS r FROM penc_post_comment_likes WHERE comment_id = ANY($1) AND user_id=$2",[cids, uid])).rows.forEach(function(x){ mine[x.comment_id]=x.r; }); }catch(_e){}
+    try{ (await _pgPool.query("SELECT comment_id, COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id = ANY($1) GROUP BY 1,2",[cids])).rows.forEach(function(x){ (rx[x.comment_id]=rx[x.comment_id]||{})[x.r]=x.n; }); }catch(_e){}
+    const users = {}; try{ (await pgFindUsersByIds(Array.from(new Set(r.rows.map(function(c){ return c.user_id; }))))).forEach(function(u){ users[u.id]=u; }); }catch(_e){}
+    let postOwner = null; try{ const po = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); postOwner = po.rows.length ? String(po.rows[0].user_id) : null; }catch(_e){}
+    const _isAdm = await _pencIsAdmin(req);
+    const out = r.rows.map(function(c){
+      const a = users[c.user_id];
+      return { id:c.id, user_id:c.user_id, parent_id:c.parent_id||null,
+        author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_username: a?(a.username||''):'', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false,
+        content:c.content, created_at:c.created_at, edited_at:c.edited_at||null, pinned:!!c.pinned, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id], my_reaction: mine[c.id]||null,
+        reactions: Object.keys(rx[c.id]||{}).sort(function(a,b){ return rx[c.id][b]-rx[c.id][a]; }).slice(0,3),
+        is_author: postOwner!==null && String(c.user_id)===postOwner, can_edit: String(c.user_id)===String(uid), can_pin: postOwner===String(uid) && !c.parent_id,
+        can_delete: String(c.user_id)===String(uid) || postOwner===String(uid) || _isAdm };
+    });
+    res.json({ comments: out });
+  }catch(e){ res.json({ comments: [] }); }
+});
+// POST /api/penc/posts/:id/comments — commenter ou répondre (parent_id)
+app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    if(!_filRate(uid, 'comment', 40, 600000)) return _filTooFast(res);
+    if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux plus commenter pour le moment (décision de modération).' });
+    const content = String(req.body.content || '').trim().slice(0, 2000);
+    if(!content) return res.status(400).json({ error: 'Commentaire vide' });
+    let parentId = null, parentAuthor = null;
+    if(req.body.parent_id){
+      const pc = await _pgPool.query('SELECT id, parent_id, user_id FROM penc_post_comments WHERE id=$1 AND post_id=$2',[String(req.body.parent_id), pid]);
+      if(pc.rows.length){ parentId = pc.rows[0].parent_id || pc.rows[0].id; parentAuthor = pc.rows[0].user_id; }
+    }
+    const id = 'pcm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _pgPool.query('INSERT INTO penc_post_comments(id,post_id,user_id,content,parent_id,created_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, pid, uid, content, parentId]);
+    let a = null; try{ a = await pgFindUser('id', uid); }catch(_e){}
+    const cc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1',[pid]);
+    try{
+      const po = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]);
+      const who = a ? (a.full_name||a.username||'Quelqu\'un') : 'Quelqu\'un';
+      const notif = function(to, body){ if(!to || String(to)===String(uid)) return; sendPencPush(to, { title:'Penc', body: body, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+pid, data:{ type:'post', post_id:pid, url:'/messager?post='+pid } }); };
+      if(parentAuthor) notif(parentAuthor, who+' a répondu à ton commentaire');
+      if(po.rows.length && String(po.rows[0].user_id)!==String(parentAuthor)) notif(po.rows[0].user_id, who+' a commenté ta publication');
+    }catch(_p){}
+    _filNotifyMentions(content, uid, pid, 'comment');
+    setImmediate(function(){ _gamBump(uid, 'comment', 1); });
+    res.json({ success: true, comment: { id, user_id: uid, parent_id: parentId, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false, content, created_at: new Date().toISOString(), likes_count: 0, liked_by_me: false, can_delete: true }, comments_count: cc.rows[0].n });
+  }catch(e){ console.error('comment post:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/comments/:cid/like — aimer un commentaire (toggle)
+app.post('/api/penc/posts/comments/:cid/like', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const cid = req.params.cid;
+    if(!_filRate(uid, 'like', 300, 600000)) return _filTooFast(res);
+    const want = (req.body && _FIL_REACTIONS.indexOf(String(req.body.reaction)) > -1) ? String(req.body.reaction) : null;
+    const ex = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2",[cid, uid]);
+    let reaction = null;
+    if(ex.rows.length && (!want || want === ex.rows[0].r)){ await _pgPool.query('DELETE FROM penc_post_comment_likes WHERE comment_id=$1 AND user_id=$2',[cid, uid]); }
+    else if(ex.rows.length){ await _pgPool.query('UPDATE penc_post_comment_likes SET reaction=$3 WHERE comment_id=$1 AND user_id=$2',[cid, uid, want]); reaction = want; }
+    else { reaction = want || 'like'; await _pgPool.query('INSERT INTO penc_post_comment_likes(comment_id,user_id,reaction,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (comment_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction',[cid, uid, reaction]); }
+    const n = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id=$1',[cid])).rows[0].n;
+    const rc = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_comment_likes WHERE comment_id=$1 GROUP BY 1 ORDER BY 2 DESC LIMIT 3",[cid]);
+    res.json({ success: true, liked: !!reaction, reaction, likes_count: n, reactions: rc.rows.map(function(x){ return x.r; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// PUT /api/penc/posts/comments/:cid — modifier son commentaire
+app.put('/api/penc/posts/comments/:cid', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'comment_edit', 30, 600000)) return _filTooFast(res);
+    const content = String(req.body.content || '').trim().slice(0, 2000);
+    if(!content) return res.status(400).json({ error: 'Commentaire vide' });
+    const u = await _pgPool.query('UPDATE penc_post_comments SET content=$1, edited_at=NOW() WHERE id=$2 AND user_id=$3 RETURNING id',[content, req.params.cid, uid]);
+    if(!u.rows.length) return res.status(403).json({ error: 'Non autorisé' });
+    res.json({ success: true, content: content });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// POST /api/penc/posts/comments/:cid/pin — l'auteur de la publication épingle un commentaire (un seul)
+app.post('/api/penc/posts/comments/:cid/pin', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId;
+    const c = await _pgPool.query('SELECT c.post_id, c.pinned, c.parent_id, p.user_id AS owner FROM penc_post_comments c JOIN penc_posts p ON p.id=c.post_id WHERE c.id=$1',[req.params.cid]);
+    if(!c.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    if(String(c.rows[0].owner) !== String(uid) || c.rows[0].parent_id) return res.status(403).json({ error: 'Non autorisé' });
+    const pinned = !c.rows[0].pinned;
+    await _pgPool.query('UPDATE penc_post_comments SET pinned=FALSE WHERE post_id=$1',[c.rows[0].post_id]);
+    if(pinned) await _pgPool.query('UPDATE penc_post_comments SET pinned=TRUE WHERE id=$1',[req.params.cid]);
+    res.json({ success: true, pinned });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// DELETE /api/penc/posts/comments/:cid — supprimer un commentaire (son auteur, l'auteur de la publication, ou admin)
+app.delete('/api/penc/posts/comments/:cid', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const cid = req.params.cid;
+    const c = await _pgPool.query('SELECT c.user_id, c.post_id, p.user_id AS owner FROM penc_post_comments c LEFT JOIN penc_posts p ON p.id=c.post_id WHERE c.id=$1',[cid]);
+    if(!c.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const row = c.rows[0];
+    if(String(row.user_id)!==String(uid) && String(row.owner)!==String(uid) && !(await _pencIsAdmin(req))) return res.status(403).json({ error: 'Non autorisé' });
+    await _pgPool.query('DELETE FROM penc_post_comments WHERE id=$1 OR parent_id=$1',[cid]);
+    try{ await _pgPool.query('DELETE FROM penc_post_comment_likes WHERE comment_id=$1',[cid]); }catch(_e){}
+    const cc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1',[row.post_id]);
+    res.json({ success: true, comments_count: cc.rows[0].n });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// DELETE /api/penc/posts/:id — supprimer sa publication (ou admin)
+app.delete('/api/penc/posts/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]);
+    if(!p.rows.length) return res.status(404).json({ error: 'Introuvable' });
+    const isAdmin = await _pencIsAdmin(req);
+    if(String(p.rows[0].user_id) !== String(uid) && !isAdmin) return res.status(403).json({ error: 'Non autorisé' });
+    await _pgPool.query('UPDATE penc_posts SET deleted=TRUE WHERE id=$1',[pid]);
+    _filRankCache.clear(); _filGlobal = null;
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/fil/profile/:id — profil public côté Fil : infos, badge, statistiques, relation
+app.get('/api/penc/fil/profile/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const target = String(req.params.id);
+    if(target !== String(uid) && (_areIsolated(uid, target) || await pgIsBlocked(uid, target))) return res.status(403).json({ error: 'Profil indisponible' });
+    const u = await pgFindUser('id', target);
+    if(!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const one = async function(sql, args){ try{ return (await _pgPool.query(sql, args)).rows[0].n; }catch(_e){ return 0; } };
+    const friends_count = await one("SELECT COUNT(DISTINCT CASE WHEN requester=$1 THEN recipient ELSE requester END)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[target]);
+    const followers_count = await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[target]);
+    const following_count = await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE follower=$1',[target]);
+    const posts_count = await one('SELECT COUNT(*)::int AS n FROM penc_posts WHERE user_id=$1 AND deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW()',[target]);
+    const likes_received = await one('SELECT COUNT(*)::int AS n FROM penc_post_likes l JOIN penc_posts p ON p.id=l.post_id WHERE p.user_id=$1 AND p.deleted=FALSE',[target]);
+    let rel = { status: null, requester: null };
+    try{ const f = await _pgPool.query("SELECT status, requester FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) ORDER BY created_at DESC LIMIT 1",[uid, target]); if(f.rows.length) rel = f.rows[0]; }catch(_e){}
+    const is_following = target !== String(uid) && (await one('SELECT COUNT(*)::int AS n FROM penc_follows WHERE follower=$1 AND followee=$2',[uid, target])) > 0;
+    res.json({ user: Object.assign(_filUserPub(u), {
+      friends_count, followers_count, following_count, posts_count, likes_received,
+      is_me: target === String(uid),
+      is_friend: rel.status === 'accepted',
+      request_sent: rel.status === 'pending' && String(rel.requester) === String(uid),
+      request_received: rel.status === 'pending' && String(rel.requester) !== String(uid),
+      is_following
+    }) });
+  }catch(e){ console.error('fil profile:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/fil/profile/:id/friends — liste des amis d'un profil
+app.get('/api/penc/fil/profile/:id/friends', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ users: [] });
+    const uid = req.pencUser.userId; const target = String(req.params.id);
+    if(target !== String(uid) && (_areIsolated(uid, target) || await pgIsBlocked(uid, target))) return res.status(403).json({ users: [] });
+    const r = await _pgPool.query("SELECT DISTINCT CASE WHEN requester=$1 THEN recipient ELSE requester END AS fid FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1) LIMIT 500",[target]);
+    const users = await pgFindUsersByIds(r.rows.map(function(x){ return x.fid; }));
+    res.json({ users: users.filter(function(u){ return !_areIsolated(uid, u.id); }).map(_filUserPub) });
+  }catch(e){ res.json({ users: [] }); }
+});
+// POST /api/penc/follow/:id — suivre / ne plus suivre (toggle)
+app.post('/api/penc/follow/:id', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = req.pencUser.userId; const target = String(req.params.id);
+    if(!target || target === String(uid)) return res.status(400).json({ error: 'Invalide' });
+    if(!_filRate(uid, 'follow', 80, 3600000)) return _filTooFast(res);
+    if(_areIsolated(uid, target) || await pgIsBlocked(uid, target)) return res.status(403).json({ error: 'Action impossible' });
+    const ex = await _pgPool.query('SELECT 1 FROM penc_follows WHERE follower=$1 AND followee=$2',[uid, target]);
+    let following;
+    if(ex.rows.length){ await _pgPool.query('DELETE FROM penc_follows WHERE follower=$1 AND followee=$2',[uid, target]); following = false; }
+    else {
+      await _pgPool.query('INSERT INTO penc_follows(follower,followee,created_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING',[uid, target]); following = true;
+      try{ const me = await pgFindUser('id', uid) || {}; sendPencPush(target, { title:'Penc', body:(me.full_name||me.username||'Quelqu\'un')+' s\'est abonné à toi', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-follow', data:{ type:'follow', user_id:uid, url:'/messager' } }); }catch(_p){}
+    }
+    _filRankCache.delete(uid);
+    const n = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_follows WHERE followee=$1',[target])).rows[0].n;
+    res.json({ success: true, following, followers_count: n });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// GET /api/penc/fil/search?q= — rechercher des profils et des publications
+app.get('/api/penc/fil/search', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ users: [], posts: [] });
+    const uid = req.pencUser.userId;
+    const q = String(req.query.q || '').trim().slice(0, 80);
+    if(q.length < 2) return res.json({ users: [], posts: [] });
+    const like = '%' + q.replace(/[%_\\]/g, function(c){ return '\\' + c; }) + '%';
+    const blocked = await _filBlockedSet(uid);
+    const ur = await _pgPool.query('SELECT * FROM penc_users WHERE (full_name ILIKE $1 OR username ILIKE $1) AND id <> $2 ORDER BY (CASE WHEN verified OR business_verified THEN 0 ELSE 1 END), full_name LIMIT 30',[like, uid]);
+    const users = ur.rows.map(pgRow).filter(function(u){ return !blocked.has(String(u.id)) && !_areIsolated(uid, u.id); }).slice(0, 20).map(_filUserPub);
+    const pr = await _pgPool.query('SELECT * FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1 ORDER BY created_at DESC LIMIT 40',[like]);
+    let tag_count = null;
+    if(/^#[0-9A-Za-z_\u00C0-\u024F]{2,40}$/.test(q)){ try{ tag_count = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_posts WHERE deleted=FALSE AND group_private IS NOT TRUE AND created_at <= NOW() AND content ILIKE $1',[like])).rows[0].n; }catch(_tc){} }
+    const posts = await _postEnrichMany(pr.rows.filter(_filVisible(uid, blocked)).slice(0, 30), uid);
+    res.json({ users, posts, tag_count });
+  }catch(e){ console.error('fil search:', e.message); res.json({ users: [], posts: [] }); }
 });
 
 // ════════════════ ARCHIVE PUBLICATIONS (Fonct.1) ════════════════
@@ -7343,7 +9158,9 @@ app.get('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
     const users=await pgAllUsers()||[];
     let statMap={};
     try{ const sr=await _pgPool.query("SELECT ad_id, COUNT(*)::int views, COALESCE(SUM(total),0)::int revenue FROM penc_ad_revenue GROUP BY ad_id"); sr.rows.forEach(function(x){ statMap[String(x.ad_id)]={views:x.views, revenue:x.revenue}; }); }catch(e){}
-    const ads=r.rows.map(function(a){ if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } var st=statMap[String(a.id)]||{views:0,revenue:0}; a.views=st.views; a.revenue=st.revenue; return a; });
+    let evMap={};
+    try{ const er=await _pgPool.query("SELECT ad_id, SUM(CASE WHEN kind='impression' THEN 1 ELSE 0 END)::int imp, SUM(CASE WHEN kind='click' THEN 1 ELSE 0 END)::int clk FROM penc_ad_events GROUP BY ad_id"); er.rows.forEach(function(x){ evMap[String(x.ad_id)]={imp:x.imp,clk:x.clk}; }); }catch(_ev){}
+    const ads=r.rows.map(function(a){ var ev=evMap[String(a.id)]||{imp:0,clk:0}; a.impressions=ev.imp; a.clicks=ev.clk; a.ctr=ev.imp?Math.round(1000*ev.clk/ev.imp)/10:0; if(a.owner_id){ var u=users.find(function(x){return String(x.id)===String(a.owner_id);}); a.owner_name=u?(u.full_name||u.username||'Utilisateur'):'Utilisateur'; } else { a.owner_name='Admin'; } var st=statMap[String(a.id)]||{views:0,revenue:0}; a.views=st.views; a.revenue=st.revenue; return a; });
     res.json({ads:ads}); }catch(e){ res.json({ads:[]}); }
 });
 app.post('/api/penc/ads', pencAuth, pencAdmin, async (req,res)=>{
@@ -7529,12 +9346,11 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     // client_id (ex: l'émission socket directe pendant que cette relance REST arrive aussi)
     // diffuse chacun sa propre copie du message.
     let _claimed=null;
-    if(client_id){
-      try{ _claimed=await pgClaimMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(_e){}
-      if(!_claimed){
-        try{ const _dup=await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1',[client_id]); return res.json({ success:true, duplicate:true, id:(_dup.rows[0]&&_dup.rows[0].id)||msg.id }); }
-        catch(_e){ return res.json({ success:true, duplicate:true, id:msg.id }); }
-      }
+    {
+      const _p = await _pencPersistMsg({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:client_id||msg.client_id||null, pending:false, expires_at:msg.expires_at||null, view_once:msg.view_once||false, file_name:msg.file_name||null, file_size:msg.file_size||null });
+      if(!_p.ok) return res.status(503).json({ error:'Réseau instable : le message sera renvoyé automatiquement.', retry:true });
+      if(_p.dup) return res.json({ success:true, duplicate:true, id:_p.id||msg.id });
+      _claimed=true;
     }
     const fullMsg = { ...msg, sender };
     try{ io.to('penc:'+conversation_id).emit('message:new', fullMsg); }catch(_){}
@@ -7846,7 +9662,12 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
     let result = [];
     if (_pgPool) {
       const convs = await pgGetConvs(uid);
-      const allUsers = await pgAllUsers() || [];
+      // Avant : pgAllUsers() chargeait TOUS les comptes de Penc à chaque ouverture de l'app (lent, et
+      // intenable à 100 000 utilisateurs). Maintenant : seulement les personnes présentes dans MES discussions.
+      let allUsers = [];
+      try{ const _pids = Array.from(new Set([].concat.apply([], convs.map(function(c){ try{ return Array.isArray(c.participants)?c.participants:JSON.parse(c.participants||'[]'); }catch(_){ return []; } })))); allUsers = await pgFindUsersByIds(_pids); }catch(_au){ allUsers = await pgAllUsers() || []; }
+      let _streakMap = {};
+      try{ const _sr = await _pgPool.query("SELECT a, b, days, last_day FROM penc_streaks WHERE (a=$1 OR b=$1) AND last_day >= CURRENT_DATE - 1",[uid]); _sr.rows.forEach(function(r){ _streakMap[String(r.a===uid?r.b:r.a)] = r.days; }); }catch(_se){}
       let _pinnedIds = new Set();
       try{ const _pr = await _pgPool.query('SELECT conv_id FROM penc_pinned_convs WHERE user_id=$1',[uid]); _pinnedIds = new Set(_pr.rows.map(r=>r.conv_id)); }catch(_pe){}
       let _mutedIds = new Set();
@@ -7854,7 +9675,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
       let _lockedIds = new Set();
       try{ const _lkr = await _pgPool.query('SELECT conv_id FROM penc_chat_locks WHERE user_id=$1',[uid]); _lockedIds = new Set(_lkr.rows.map(r=>r.conv_id)); }catch(_lke){}
       let _ephemeralMap = {};
-      try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral'); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
+      try{ const _epr = await _pgPool.query('SELECT conv_id, duration_seconds FROM penc_conv_ephemeral WHERE conv_id = ANY($1)',[convs.map(function(c){ return c.id; })]); _epr.rows.forEach(function(row){ _ephemeralMap[row.conv_id]=row.duration_seconds; }); }catch(_epe){}
       // Messages en attente : demandes d'ami RECUES (quelqu'un d'autre a écrit en premier, pas encore acceptées)
       let _pendingFrom = new Set();
       try{ const _pfr = await _pgPool.query("SELECT requester FROM penc_friendships WHERE recipient=$1 AND status='pending'", [uid]); _pfr.rows.forEach(function(row){ _pendingFrom.add(row.requester); }); }catch(_pfe){}
@@ -7890,6 +9711,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           muted: _mutedIds.has(c.id),
           locked: _lockedIds.has(c.id),
           ephemeral_seconds: _ephemeralMap[c.id] || 0,
+          streak: (parts.length === 2 && _streakMap[String(otherId)]) || 0,
           is_request: _pendingFrom.has(otherId)
         };
       }));
@@ -8132,18 +9954,34 @@ app.get('/api/penc/contacts/search', pencAuth, async (req, res) => {
     const q = String(req.query.q || '').trim();
     let results = [];
     if (_pgPool) {
+      // Amis en commun : mes amis, puis combien de ces amis chaque personne connaît
+      const mutual = {}, myFriends = new Set();
+      try{
+        (await _pgPool.query("SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END AS f FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid])).rows.forEach(function(x){ myFriends.add(String(x.f)); });
+        if(myFriends.size){ const fl = Array.from(myFriends); (await _pgPool.query("SELECT CASE WHEN requester = ANY($1) THEN recipient ELSE requester END AS c, COUNT(*)::int AS n FROM penc_friendships WHERE status='accepted' AND (requester = ANY($1) OR recipient = ANY($1)) GROUP BY 1 ORDER BY 2 DESC LIMIT 2000",[fl])).rows.forEach(function(x){ if(String(x.c)!==String(uid)) mutual[String(x.c)] = x.n; }); }
+      }catch(_mu){}
       if (q) {
         const ql = '%' + q.toLowerCase() + '%';
         const r = await _pgPool.query(
-          'SELECT * FROM penc_users WHERE id!=$1 AND (LOWER(full_name) LIKE $2 OR LOWER(username) LIKE $2 OR phone LIKE $3) LIMIT 50',
-          [uid, ql, '%'+q+'%']
+          "SELECT * FROM penc_users WHERE id!=$1 AND (LOWER(full_name) LIKE $2 OR LOWER(username) LIKE $2 OR phone LIKE $3 OR REPLACE(phone,' ','') LIKE $3) LIMIT 300",
+          [uid, ql, '%'+q.replace(/\s+/g,'')+'%']
         );
         results = r.rows.map(pgRow).map(pencStrip);
       } else {
-        // Sans query: retourner tous les utilisateurs (PG + JSONBin)
-        const all = await pgAllUsersMerged() || [];
-        results = all.filter(u => u.id !== uid).map(pencStrip);
+        // Sans recherche : suggestions (amis d'amis d'abord), jamais la liste entière des comptes
+        const cand = Object.keys(mutual).filter(function(id){ return !myFriends.has(id); }).slice(0, 100);
+        results = (cand.length ? await pgFindUsersByIds(cand) : []).map(pencStrip);
+        if(results.length < 30){ try{ const rr = await _pgPool.query('SELECT * FROM penc_users WHERE id!=$1 ORDER BY created_at DESC NULLS LAST LIMIT 60',[uid]); rr.rows.map(pgRow).map(pencStrip).forEach(function(u){ if(!results.some(function(x){ return x.id===u.id; })) results.push(u); }); }catch(_r){} }
       }
+      const ql2 = q.toLowerCase();
+      results.forEach(function(u){ u.mutual_friends = mutual[String(u.id)] || 0; u.is_friend = myFriends.has(String(u.id)); });
+      results.sort(function(a,b){
+        if(a.is_friend !== b.is_friend) return a.is_friend ? -1 : 1;
+        if((b.mutual_friends||0) !== (a.mutual_friends||0)) return (b.mutual_friends||0) - (a.mutual_friends||0);
+        const as = ql2 && String(a.full_name||'').toLowerCase().indexOf(ql2)===0 ? 0 : 1, bs = ql2 && String(b.full_name||'').toLowerCase().indexOf(ql2)===0 ? 0 : 1;
+        return as - bs;
+      });
+      results = results.slice(0, 100);
     } else {
       const users = await pencUsers();
       const ql = q.toLowerCase();
@@ -8580,6 +10418,1143 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 
+// Récupération de la sauvegarde chiffrée de la clé E2E (nouvel appareil, réinstallation).
+// Servie uniquement à son propriétaire (identité prise du jeton), jamais via un lien public.
+// ════════════════════════════════════════════════════════════════════════════
+// YOBOUMA — courses en voiture et en moto Jakarta à Kaolack (type Yango, version simple)
+// Même serveur, même PostgreSQL que Penc. Comptes SÉPARÉS (tables yb_*, jeton dédié).
+// Routes : /api/yb/...   Positions GPS = GPS du téléphone (aucune API payante).
+// Paiement : espèces au chauffeur ; la commission s'accumule et se règle avec l'admin.
+// ════════════════════════════════════════════════════════════════════════════
+const YB_SECRET = PENC_SECRET + '::yobouma';
+const YB_ADMINS = String(process.env.YB_ADMINS || '').split(',').map(function(s){ return s.replace(/[^0-9+]/g,'').trim(); }).filter(Boolean);
+const YB_CITY = { name: 'Kaolack', lat: 14.152, lng: -16.073, radius_km: 25 };
+const YB_DEFAULTS = { commission_pct: 1, search_radius_km: 6,
+  moto:    { base: 200, per_km: 100, min: 300 },
+  voiture: { base: 500, per_km: 250, min: 1000 } };
+let _ybReady = false;
+async function _ybInit(){
+  if(_ybReady || !_pgPool) return;
+  await _pgPool.query(`
+    CREATE TABLE IF NOT EXISTS yb_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT UNIQUE NOT NULL, pwd_hash TEXT NOT NULL, role TEXT DEFAULT 'client', banned BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS yb_drivers (user_id TEXT PRIMARY KEY, vehicle TEXT NOT NULL, plate TEXT, vehicle_desc TEXT, status TEXT DEFAULT 'pending', online BOOLEAN DEFAULT FALSE,
+      lat DOUBLE PRECISION, lng DOUBLE PRECISION, loc_at TIMESTAMPTZ, rating_sum INT DEFAULT 0, rating_count INT DEFAULT 0, rides INT DEFAULT 0,
+      commission_due NUMERIC DEFAULT 0, earned NUMERIC DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS yb_rides (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, driver_id TEXT, vehicle TEXT NOT NULL,
+      from_lat DOUBLE PRECISION, from_lng DOUBLE PRECISION, from_label TEXT, to_lat DOUBLE PRECISION, to_lng DOUBLE PRECISION, to_label TEXT,
+      distance_km NUMERIC, price NUMERIC, commission NUMERIC DEFAULT 0, status TEXT DEFAULT 'searching', cancel_by TEXT, declined JSONB DEFAULT '[]',
+      rating INT, created_at TIMESTAMPTZ DEFAULT NOW(), accepted_at TIMESTAMPTZ, arrived_at TIMESTAMPTZ, started_at TIMESTAMPTZ, done_at TIMESTAMPTZ);
+    CREATE INDEX IF NOT EXISTS idx_ybr_status ON yb_rides(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ybr_client ON yb_rides(client_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ybr_driver ON yb_rides(driver_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS yb_settings (k TEXT PRIMARY KEY, v JSONB NOT NULL);
+    CREATE TABLE IF NOT EXISTS yb_events (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, user_id TEXT, target TEXT, meta JSONB, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_ybev_time ON yb_events(created_at DESC);
+  `);
+  _ybReady = true;
+}
+setTimeout(function(){ _ybInit().catch(function(e){ console.error('[yb] init:', e.message); }); }, 9000);
+const YB_ACTIVE = ['searching','accepted','arrived','ongoing'];
+function _ybLog(type, uid, target, meta, req){ try{ if(!_pgPool) return; _pgPool.query('INSERT INTO yb_events(type,user_id,target,meta,ip) VALUES($1,$2,$3,$4,$5)',[type, uid||null, target ? String(target).slice(0,120) : null, meta ? JSON.stringify(meta) : null, req ? _gpIp(req) : null]).catch(function(){}); }catch(_){} }
+function _ybId(p){ return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _ybPhone(p){ let s = String(p||'').replace(/[^0-9+]/g,'').replace(/^00/,'+'); if(/^[0-9]{9}$/.test(s)) s = '+221' + s; if(/^221[0-9]{9}$/.test(s)) s = '+' + s; return s.slice(0,16); }
+function _ybSign(u){ return jwt_penc.sign({ ybu: u.id }, YB_SECRET, { expiresIn: '365d' }); }
+function _ybNum(v){ const n = Number(v); return isFinite(n) ? n : null; }
+function _ybKm(a, b, c, d){ const R = 6371, r = Math.PI/180; const x = Math.sin((c-a)*r/2), y = Math.sin((d-b)*r/2); return 2*R*Math.asin(Math.sqrt(x*x + Math.cos(a*r)*Math.cos(c*r)*y*y)); }
+function _ybInCity(lat, lng){ return lat != null && lng != null && _ybKm(lat, lng, YB_CITY.lat, YB_CITY.lng) <= YB_CITY.radius_km; }
+async function _ybSettings(){ try{ const r = (await _pgPool.query("SELECT v FROM yb_settings WHERE k='main'")).rows[0]; const v = r ? r.v : {};
+  return { commission_pct: v.commission_pct != null ? Number(v.commission_pct) : YB_DEFAULTS.commission_pct, search_radius_km: Number(v.search_radius_km || YB_DEFAULTS.search_radius_km),
+    moto: Object.assign({}, YB_DEFAULTS.moto, v.moto || {}), voiture: Object.assign({}, YB_DEFAULTS.voiture, v.voiture || {}) }; }catch(_){ return JSON.parse(JSON.stringify(YB_DEFAULTS)); } }
+function _ybPrice(s, vehicle, km){ const t = s[vehicle] || s.moto; const raw = Number(t.base) + Number(t.per_km) * km; return Math.ceil(Math.max(Number(t.min), raw) / 50) * 50; }
+function _ybRoadKm(a, b, c, d){ return Math.round(_ybKm(a, b, c, d) * 1.3 * 10) / 10; }   // trajet routier estimé ≈ 1,3 × ligne droite
+async function ybAuth(req, res, next){
+  try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Connecte-toi' });
+    let d; try{ d = jwt_penc.verify(h.slice(7), YB_SECRET); }catch(_){ return res.status(401).json({ error: 'Session expirée' }); }
+    await _ybInit(); const u = (await _pgPool.query('SELECT * FROM yb_users WHERE id=$1',[String(d.ybu)])).rows[0];
+    if(!u) return res.status(401).json({ error: 'Session expirée' }); if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    req.yb = u; _pgPool.query('UPDATE yb_users SET last_seen=NOW() WHERE id=$1',[u.id]).catch(function(){}); next();
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+}
+function _ybIsAdmin(u){ return !!u && (u.role === 'admin' || YB_ADMINS.indexOf(u.phone) > -1); }
+function ybAdmin(req, res, next){ if(_ybIsAdmin(req.yb)) return next(); res.status(403).json({ error: 'Réservé à l\'administration' }); }
+function _ybMe(u, drv){ return { id: u.id, name: u.name, phone: u.phone, role: u.role, is_admin: _ybIsAdmin(u),
+  driver: drv ? { vehicle: drv.vehicle, plate: drv.plate, vehicle_desc: drv.vehicle_desc, status: drv.status, online: !!drv.online, rides: drv.rides || 0,
+    rating: drv.rating_count ? Math.round(drv.rating_sum / drv.rating_count * 10) / 10 : null, commission_due: Number(drv.commission_due || 0), earned: Number(drv.earned || 0) } : null }; }
+// Course vue par le client ou le chauffeur (avec l'autre partie)
+async function _ybRideView(r, viewerId){
+  if(!r) return null;
+  const v = { id: r.id, status: r.status, vehicle: r.vehicle, from: { lat: r.from_lat, lng: r.from_lng, label: r.from_label }, to: { lat: r.to_lat, lng: r.to_lng, label: r.to_label },
+    distance_km: Number(r.distance_km), price: Number(r.price), created_at: r.created_at, accepted_at: r.accepted_at, done_at: r.done_at, rating: r.rating, cancel_by: r.cancel_by };
+  if(r.driver_id && viewerId !== r.driver_id){
+    const d = (await _pgPool.query('SELECT u.name, u.phone, d.* FROM yb_users u JOIN yb_drivers d ON d.user_id=u.id WHERE u.id=$1',[r.driver_id])).rows[0];
+    if(d) v.driver = { name: d.name, phone: d.phone, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, lat: d.lat, lng: d.lng, loc_at: d.loc_at,
+      rating: d.rating_count ? Math.round(d.rating_sum / d.rating_count * 10) / 10 : null, rides: d.rides || 0 };
+  }
+  if(viewerId !== r.client_id){ const c = (await _pgPool.query('SELECT name, phone FROM yb_users WHERE id=$1',[r.client_id])).rows[0]; if(c) v.client = { name: c.name, phone: c.phone }; }
+  return v;
+}
+// Les recherches sans chauffeur depuis plus de 5 minutes expirent
+async function _ybExpire(){ try{ await _pgPool.query("UPDATE yb_rides SET status='expired' WHERE status='searching' AND created_at < NOW() - INTERVAL '5 minutes'"); }catch(_){} }
+
+app.get('/api/yb/config', async (req, res) => { try{ await _ybInit(); const s = await _ybSettings(); res.json({ city: YB_CITY, prices: { moto: s.moto, voiture: s.voiture } }); }catch(e){ res.status(500).json({ error: 'Erreur' }); } });
+app.post('/api/yb/auth/register', async (req, res) => {
+  try{ await _ybInit(); const b = req.body || {};
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_reg', 10, 3600000)) return _filTooFast(res);
+    const name = _gpTxt(b.name, 50), phone = _ybPhone(b.phone), pwd = String(b.password || ''), role = b.role === 'driver' ? 'driver' : 'client';
+    if(name.length < 2) return res.status(400).json({ error: 'Écris ton nom' });
+    if(phone.replace(/\D/g,'').length < 9) return res.status(400).json({ error: 'Numéro de téléphone invalide' });
+    if(pwd.length < 4 || pwd.length > 100) return res.status(400).json({ error: 'Le code secret doit avoir au moins 4 chiffres' });
+    let vehicle = null, plate = null;
+    if(role === 'driver'){ vehicle = b.vehicle === 'voiture' ? 'voiture' : 'moto'; plate = _gpTxt(b.plate, 20).toUpperCase(); if(plate.length < 3) return res.status(400).json({ error: 'Écris la plaque d\'immatriculation' }); }
+    if((await _pgPool.query('SELECT 1 FROM yb_users WHERE phone=$1',[phone])).rows[0]) return res.status(400).json({ error: 'Ce numéro a déjà un compte. Connecte-toi.' });
+    const u = { id: _ybId('ybu'), name: name, phone: phone, role: role };
+    await _pgPool.query('INSERT INTO yb_users(id,name,phone,pwd_hash,role) VALUES($1,$2,$3,$4,$5)',[u.id, name, phone, await _pencHash(pwd), role]);
+    let drv = null;
+    if(role === 'driver'){ await _pgPool.query('INSERT INTO yb_drivers(user_id,vehicle,plate,vehicle_desc) VALUES($1,$2,$3,$4)',[u.id, vehicle, plate, _gpTxt(b.vehicle_desc, 60)]); drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[u.id])).rows[0]; }
+    _ybLog('signup', u.id, role, { vehicle: vehicle }, req);
+    res.json({ token: _ybSign(u), me: _ybMe(u, drv) });
+  }catch(e){ console.error('[yb] register:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/auth/login', async (req, res) => {
+  try{ await _ybInit(); const b = req.body || {}; const phone = _ybPhone(b.phone); const pwd = String(b.password || '');
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_login', 30, 900000) || !_gpRate('ph:' + phone, 'yb_login', 8, 900000)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans 15 minutes.' });
+    const u = (await _pgPool.query('SELECT * FROM yb_users WHERE phone=$1',[phone])).rows[0];
+    if(!u || !(await _pencComparePwd(pwd, u.pwd_hash))){ _ybLog('login_fail', u ? u.id : null, phone, null, req); return res.status(400).json({ error: 'Numéro ou code secret incorrect' }); }
+    if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    const drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[u.id])).rows[0];
+    _ybLog('login', u.id, null, null, req);
+    res.json({ token: _ybSign(u), me: _ybMe(u, drv) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/me', ybAuth, async (req, res) => {
+  try{ await _ybExpire(); const drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0]; const s = await _ybSettings();
+    const r = (await _pgPool.query('SELECT * FROM yb_rides WHERE (client_id=$1 OR driver_id=$1) AND status = ANY($2) ORDER BY created_at DESC LIMIT 1',[req.yb.id, YB_ACTIVE])).rows[0];
+    res.json({ me: _ybMe(req.yb, drv), ride: await _ybRideView(r, req.yb.id), prices: { moto: s.moto, voiture: s.voiture }, city: YB_CITY });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Client ──
+app.post('/api/yb/quote', async (req, res) => {
+  try{ await _ybInit(); const b = req.body || {}; const a = _ybNum(b.from_lat), o = _ybNum(b.from_lng), c = _ybNum(b.to_lat), d = _ybNum(b.to_lng);
+    if([a,o,c,d].some(function(x){ return x == null; })) return res.status(400).json({ error: 'Positions manquantes' });
+    const s = await _ybSettings(); const km = _ybRoadKm(a, o, c, d);
+    const since = new Date(Date.now() - 120000);
+    const near = (await _pgPool.query("SELECT vehicle, lat, lng FROM yb_drivers WHERE status='approved' AND online=TRUE AND loc_at > $1",[since])).rows;
+    const avail = { moto: 0, voiture: 0 }, eta = { moto: null, voiture: null };
+    near.forEach(function(x){ const k = _ybKm(a, o, x.lat, x.lng); if(k <= s.search_radius_km){ avail[x.vehicle]++; const m = Math.max(2, Math.round(k * 1.3 / 0.4)); if(eta[x.vehicle] == null || m < eta[x.vehicle]) eta[x.vehicle] = m; } });
+    res.json({ distance_km: km, minutes: Math.max(3, Math.round(km / 0.4)), moto: { price: _ybPrice(s, 'moto', km), drivers: avail.moto, eta: eta.moto }, voiture: { price: _ybPrice(s, 'voiture', km), drivers: avail.voiture, eta: eta.voiture } });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides', ybAuth, async (req, res) => {
+  try{ const b = req.body || {}; if(!_gpRate(req.yb.id, 'yb_ride', 15, 3600000)) return _filTooFast(res);
+    const a = _ybNum(b.from_lat), o = _ybNum(b.from_lng), c = _ybNum(b.to_lat), d = _ybNum(b.to_lng); const vehicle = b.vehicle === 'voiture' ? 'voiture' : 'moto';
+    if([a,o,c,d].some(function(x){ return x == null; })) return res.status(400).json({ error: 'Choisis le départ et la destination' });
+    if(!_ybInCity(a, o)) return res.status(400).json({ error: 'Yobouma fonctionne pour l\'instant uniquement à Kaolack' });
+    await _ybExpire();
+    if((await _pgPool.query('SELECT 1 FROM yb_rides WHERE client_id=$1 AND status = ANY($2)',[req.yb.id, YB_ACTIVE])).rows[0]) return res.status(400).json({ error: 'Tu as déjà une course en cours' });
+    const s = await _ybSettings(); const km = _ybRoadKm(a, o, c, d); if(km < 0.2) return res.status(400).json({ error: 'La destination est trop proche du départ' });
+    const price = _ybPrice(s, vehicle, km); const id = _ybId('ybr');
+    await _pgPool.query('INSERT INTO yb_rides(id,client_id,vehicle,from_lat,from_lng,from_label,to_lat,to_lng,to_label,distance_km,price) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, req.yb.id, vehicle, a, o, _gpTxt(b.from_label, 80) || 'Ma position', c, d, _gpTxt(b.to_label, 80) || 'Destination', km, price]);
+    _ybLog('ride_new', req.yb.id, id, { vehicle: vehicle, price: price, km: km }, req);
+    res.json({ success: true, ride: await _ybRideView((await _pgPool.query('SELECT * FROM yb_rides WHERE id=$1',[id])).rows[0], req.yb.id) });
+  }catch(e){ console.error('[yb] ride:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/rides/:id', ybAuth, async (req, res) => {
+  try{ await _ybExpire(); const r = (await _pgPool.query('SELECT * FROM yb_rides WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || (r.client_id !== req.yb.id && r.driver_id !== req.yb.id && !_ybIsAdmin(req.yb))) return res.status(404).json({ error: 'Course introuvable' });
+    res.json({ ride: await _ybRideView(r, req.yb.id) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/cancel', ybAuth, async (req, res) => {
+  try{ const r = (await _pgPool.query('SELECT * FROM yb_rides WHERE id=$1',[req.params.id])).rows[0]; if(!r) return res.status(404).json({ error: 'Course introuvable' });
+    const isC = r.client_id === req.yb.id, isD = r.driver_id === req.yb.id; if(!isC && !isD) return res.status(403).json({ error: 'Interdit' });
+    if(['searching','accepted','arrived'].indexOf(r.status) < 0) return res.status(400).json({ error: 'Cette course ne peut plus être annulée' });
+    if(isD){ // le chauffeur se désiste : la course repart en recherche pour un autre chauffeur
+      const dec = Array.isArray(r.declined) ? r.declined : []; dec.push(req.yb.id);
+      await _pgPool.query("UPDATE yb_rides SET status='searching', driver_id=NULL, accepted_at=NULL, arrived_at=NULL, created_at=NOW(), declined=$2 WHERE id=$1",[r.id, JSON.stringify(dec)]);
+    } else await _pgPool.query("UPDATE yb_rides SET status='cancelled', cancel_by='client' WHERE id=$1",[r.id]);
+    _ybLog('ride_cancel', req.yb.id, r.id, { by: isD ? 'driver' : 'client', status: r.status }, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/rate', ybAuth, async (req, res) => {
+  try{ const n = Math.round(Number((req.body || {}).rating)); if(!(n >= 1 && n <= 5)) return res.status(400).json({ error: 'Note de 1 à 5' });
+    const r = (await _pgPool.query("UPDATE yb_rides SET rating=$1 WHERE id=$2 AND client_id=$3 AND status='done' AND rating IS NULL RETURNING driver_id",[n, req.params.id, req.yb.id])).rows[0];
+    if(!r) return res.status(400).json({ error: 'Déjà noté' });
+    await _pgPool.query('UPDATE yb_drivers SET rating_sum=rating_sum+$1, rating_count=rating_count+1 WHERE user_id=$2',[n, r.driver_id]); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/history', ybAuth, async (req, res) => {
+  try{ const rows = (await _pgPool.query("SELECT * FROM yb_rides WHERE (client_id=$1 OR driver_id=$1) AND status IN ('done','cancelled','expired') ORDER BY created_at DESC LIMIT 30",[req.yb.id])).rows;
+    res.json({ items: rows.map(function(r){ return { id: r.id, status: r.status, vehicle: r.vehicle, from: r.from_label, to: r.to_label, price: Number(r.price), km: Number(r.distance_km), at: r.done_at || r.created_at, mine_as: r.driver_id === req.yb.id ? 'driver' : 'client' }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Chauffeur : un seul appel régulier envoie sa position et reçoit courses proposées + course en cours ──
+app.post('/api/yb/driver/ping', ybAuth, async (req, res) => {
+  try{ const b = req.body || {}; const d = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0];
+    if(!d) return res.status(403).json({ error: 'Compte chauffeur introuvable' });
+    const lat = _ybNum(b.lat), lng = _ybNum(b.lng);
+    const online = d.status === 'approved' && (b.online === undefined ? !!d.online : !!b.online);
+    if(lat != null && lng != null) await _pgPool.query('UPDATE yb_drivers SET lat=$1, lng=$2, loc_at=NOW(), online=$3 WHERE user_id=$4',[lat, lng, online, req.yb.id]);
+    else await _pgPool.query('UPDATE yb_drivers SET online=$1 WHERE user_id=$2',[online, req.yb.id]);
+    await _ybExpire();
+    const act = (await _pgPool.query('SELECT * FROM yb_rides WHERE driver_id=$1 AND status = ANY($2) ORDER BY accepted_at DESC LIMIT 1',[req.yb.id, ['accepted','arrived','ongoing']])).rows[0];
+    let offers = [];
+    if(online && !act && lat != null){ const s = await _ybSettings();
+      const rows = (await _pgPool.query("SELECT * FROM yb_rides WHERE status='searching' AND vehicle=$1 ORDER BY created_at ASC LIMIT 40",[d.vehicle])).rows;
+      offers = rows.filter(function(r){ return (r.declined || []).indexOf(req.yb.id) < 0 && _ybKm(lat, lng, r.from_lat, r.from_lng) <= s.search_radius_km; })
+        .map(function(r){ const k = _ybKm(lat, lng, r.from_lat, r.from_lng); return { id: r.id, from: { lat: r.from_lat, lng: r.from_lng, label: r.from_label }, to: { lat: r.to_lat, lng: r.to_lng, label: r.to_label },
+          distance_km: Number(r.distance_km), price: Number(r.price), pickup_km: Math.round(k * 1.3 * 10) / 10, created_at: r.created_at }; })
+        .sort(function(x, y){ return x.pickup_km - y.pickup_km; }).slice(0, 5); }
+    const d2 = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0];
+    res.json({ me: _ybMe(req.yb, d2), ride: await _ybRideView(act, req.yb.id), offers: offers });
+  }catch(e){ console.error('[yb] ping:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/decline', ybAuth, async (req, res) => {
+  try{ await _pgPool.query("UPDATE yb_rides SET declined = COALESCE(declined,'[]'::jsonb) || to_jsonb($2::text) WHERE id=$1 AND status='searching'",[req.params.id, req.yb.id]); res.json({ success: true }); }
+  catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/accept', ybAuth, async (req, res) => {
+  try{ const d = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0];
+    if(!d || d.status !== 'approved') return res.status(403).json({ error: 'Ton compte chauffeur n\'est pas encore validé' });
+    if((await _pgPool.query('SELECT 1 FROM yb_rides WHERE driver_id=$1 AND status = ANY($2)',[req.yb.id, ['accepted','arrived','ongoing']])).rows[0]) return res.status(400).json({ error: 'Termine d\'abord ta course en cours' });
+    // Attribution atomique : le premier chauffeur qui accepte obtient la course
+    const r = (await _pgPool.query("UPDATE yb_rides SET status='accepted', driver_id=$1, accepted_at=NOW() WHERE id=$2 AND status='searching' AND vehicle=$3 RETURNING *",[req.yb.id, req.params.id, d.vehicle])).rows[0];
+    if(!r) return res.status(409).json({ error: 'Trop tard, un autre chauffeur a pris cette course' });
+    _ybLog('ride_accept', req.yb.id, r.id, null, req); res.json({ success: true, ride: await _ybRideView(r, req.yb.id) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/:step', ybAuth, async (req, res) => {
+  try{ const step = req.params.step; if(['arrived','start','finish'].indexOf(step) < 0) return res.status(404).json({ error: 'Action inconnue' }); const from = { arrived: 'accepted', start: 'arrived', finish: 'ongoing' }[step]; const to = { arrived: 'arrived', start: 'ongoing', finish: 'done' }[step];
+    const col = { arrived: 'arrived_at', start: 'started_at', finish: 'done_at' }[step];
+    const s = await _ybSettings();
+    const r = (await _pgPool.query('UPDATE yb_rides SET status=$1, ' + col + '=NOW()' + (step === 'finish' ? ', commission=ROUND(price*$5/100)' : '') + ' WHERE id=$2 AND driver_id=$3 AND status=$4 RETURNING *',
+      step === 'finish' ? [to, req.params.id, req.yb.id, from, s.commission_pct] : [to, req.params.id, req.yb.id, from])).rows[0];
+    if(!r) return res.status(400).json({ error: 'Action impossible à cette étape' });
+    if(step === 'finish') await _pgPool.query('UPDATE yb_drivers SET rides=rides+1, earned=earned+$1, commission_due=commission_due+$2 WHERE user_id=$3',[Number(r.price) - Number(r.commission), Number(r.commission), req.yb.id]);
+    _ybLog('ride_' + step, req.yb.id, r.id, null, req); res.json({ success: true, ride: await _ybRideView(r, req.yb.id) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Administration ──
+app.get('/api/yb/admin/overview', ybAuth, ybAdmin, async (req, res) => {
+  try{ await _ybExpire(); const q = function(sql, p){ return _pgPool.query(sql, p || []).then(function(r){ return r.rows; }); };
+    const c = (await q(`SELECT (SELECT COUNT(*)::int FROM yb_users WHERE role='client') AS clients, (SELECT COUNT(*)::int FROM yb_drivers WHERE status='approved') AS drivers,
+      (SELECT COUNT(*)::int FROM yb_drivers WHERE status='approved' AND online AND loc_at > NOW() - INTERVAL '2 minutes') AS online,
+      (SELECT COUNT(*)::int FROM yb_rides WHERE status='done' AND done_at > date_trunc('day', NOW())) AS today_rides,
+      (SELECT COALESCE(SUM(price),0) FROM yb_rides WHERE status='done' AND done_at > date_trunc('day', NOW())) AS today_volume,
+      (SELECT COALESCE(SUM(commission),0) FROM yb_rides WHERE status='done' AND done_at > date_trunc('day', NOW())) AS today_commission,
+      (SELECT COUNT(*)::int FROM yb_rides WHERE status='done') AS total_rides, (SELECT COALESCE(SUM(commission_due),0) FROM yb_drivers) AS commission_due,
+      (SELECT COUNT(*)::int FROM yb_rides WHERE status = ANY($1)) AS active`, [YB_ACTIVE]))[0];
+    const drivers = await q("SELECT u.id, u.name, u.phone, u.banned, u.created_at, d.* FROM yb_drivers d JOIN yb_users u ON u.id=d.user_id ORDER BY (d.status='pending') DESC, d.commission_due DESC, u.created_at DESC LIMIT 300");
+    const rides = await q('SELECT r.*, c.name AS client_name, c.phone AS client_phone, u.name AS driver_name FROM yb_rides r LEFT JOIN yb_users c ON c.id=r.client_id LEFT JOIN yb_users u ON u.id=r.driver_id ORDER BY r.created_at DESC LIMIT 60');
+    res.json({ counts: c, settings: await _ybSettings(), drivers: drivers.map(function(d){ return { id: d.id, name: d.name, phone: d.phone, banned: d.banned, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, status: d.status,
+      online: !!(d.online && d.loc_at && (Date.now() - new Date(d.loc_at).getTime()) < 120000), rides: d.rides, commission_due: Number(d.commission_due), earned: Number(d.earned), rating: d.rating_count ? Math.round(d.rating_sum / d.rating_count * 10) / 10 : null, lat: d.lat, lng: d.lng }; }),
+      rides: rides.map(function(r){ return { id: r.id, status: r.status, vehicle: r.vehicle, from: r.from_label, to: r.to_label, price: Number(r.price), commission: Number(r.commission), km: Number(r.distance_km), client: r.client_name, client_phone: r.client_phone, driver: r.driver_name, at: r.created_at }; }) });
+  }catch(e){ console.error('[yb] admin:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/admin/drivers/:id/:act', ybAuth, ybAdmin, async (req, res) => {
+  try{ const id = req.params.id, act = req.params.act; if(['approve','refuse','ban','unban','paid'].indexOf(act) < 0) return res.status(404).json({ error: 'Action inconnue' });
+    if(act === 'approve') await _pgPool.query("UPDATE yb_drivers SET status='approved' WHERE user_id=$1",[id]);
+    if(act === 'refuse') await _pgPool.query("UPDATE yb_drivers SET status='refused', online=FALSE WHERE user_id=$1",[id]);
+    if(act === 'ban') await _pgPool.query('UPDATE yb_users SET banned=TRUE WHERE id=$1',[id]), await _pgPool.query('UPDATE yb_drivers SET online=FALSE WHERE user_id=$1',[id]);
+    if(act === 'unban') await _pgPool.query('UPDATE yb_users SET banned=FALSE WHERE id=$1',[id]);
+    let paid = null; if(act === 'paid'){ paid = (await _pgPool.query('SELECT commission_due FROM yb_drivers WHERE user_id=$1',[id])).rows[0]; await _pgPool.query('UPDATE yb_drivers SET commission_due=0 WHERE user_id=$1',[id]); }
+    _ybLog('admin_' + act, req.yb.id, id, paid ? { amount: Number(paid.commission_due) } : null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/admin/settings', ybAuth, ybAdmin, async (req, res) => {
+  try{ const b = req.body || {}; const s = await _ybSettings(); const n = function(v, d, max){ const x = Number(v); return isFinite(x) && x >= 0 && x <= max ? Math.round(x) : d; };
+    const v = { commission_pct: n(b.commission_pct, s.commission_pct, 50), search_radius_km: n(b.search_radius_km, s.search_radius_km, 30) || 6 };
+    ['moto','voiture'].forEach(function(k){ const t = b[k] || {}; v[k] = { base: n(t.base, s[k].base, 100000), per_km: n(t.per_km, s[k].per_km, 100000), min: n(t.min, s[k].min, 100000) }; });
+    await _pgPool.query("INSERT INTO yb_settings(k,v) VALUES('main',$1) ON CONFLICT (k) DO UPDATE SET v=$1",[JSON.stringify(v)]);
+    _ybLog('admin_settings', req.yb.id, null, v, req); res.json({ success: true, settings: v });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// SITE GP INDÉPENDANT (marque propre, domaine propre) — hébergé sur l'infrastructure
+// PST : même serveur, même base PostgreSQL, même stockage R2, même service de push.
+// Comptes, messagerie et notifications sont SÉPARÉS de Penc (tables gp_*, jeton dédié).
+// Routes : /api/gp/...
+// ════════════════════════════════════════════════════════════════════════════
+const GP_TYPES = ['documents','vetements','electronique','alimentaire','medicaments','cosmetiques','pieces_auto','autre'];
+const GP_COUNTRIES = ["Afghanistan", "Afrique du Sud", "Albanie", "Algérie", "Allemagne", "Andorre", "Angola", "Antigua-et-Barbuda", "Arabie saoudite", "Argentine", "Arménie", "Australie", "Autriche", "Azerbaïdjan", "Bahamas", "Bahreïn", "Bangladesh", "Barbade", "Belgique", "Belize", "Bénin", "Bhoutan", "Biélorussie", "Birmanie", "Bolivie", "Bosnie-Herzégovine", "Botswana", "Brésil", "Brunei", "Bulgarie", "Burkina Faso", "Burundi", "Cambodge", "Cameroun", "Canada", "Cap-Vert", "Centrafrique", "Chili", "Chine", "Chypre", "Colombie", "Comores", "Congo", "Congo (RDC)", "Corée du Nord", "Corée du Sud", "Costa Rica", "Côte d'Ivoire", "Croatie", "Cuba", "Danemark", "Djibouti", "Dominique", "Égypte", "Émirats arabes unis", "Équateur", "Érythrée", "Espagne", "Estonie", "Eswatini", "États-Unis", "Éthiopie", "Fidji", "Finlande", "France", "Gabon", "Gambie", "Géorgie", "Ghana", "Grèce", "Grenade", "Guatemala", "Guinée", "Guinée équatoriale", "Guinée-Bissau", "Guyana", "Guyane française", "Haïti", "Honduras", "Hong Kong", "Hongrie", "Inde", "Indonésie", "Irak", "Iran", "Irlande", "Islande", "Israël", "Italie", "Jamaïque", "Japon", "Jordanie", "Kazakhstan", "Kenya", "Kirghizistan", "Kiribati", "Kosovo", "Koweït", "Laos", "Lesotho", "Lettonie", "Liban", "Liberia", "Libye", "Liechtenstein", "Lituanie", "Luxembourg", "Macédoine du Nord", "Madagascar", "Malaisie", "Malawi", "Maldives", "Mali", "Malte", "Maroc", "Marshall", "Maurice", "Mauritanie", "Mexique", "Micronésie", "Moldavie", "Monaco", "Mongolie", "Monténégro", "Mozambique", "Namibie", "Nauru", "Népal", "Nicaragua", "Niger", "Nigeria", "Norvège", "Nouvelle-Zélande", "Oman", "Ouganda", "Ouzbékistan", "Pakistan", "Palaos", "Palestine", "Panama", "Papouasie-Nouvelle-Guinée", "Paraguay", "Pays-Bas", "Pérou", "Philippines", "Pologne", "Portugal", "Qatar", "République dominicaine", "République tchèque", "La Réunion", "Roumanie", "Royaume-Uni", "Russie", "Rwanda", "Saint-Kitts-et-Nevis", "Sainte-Lucie", "Saint-Marin", "Saint-Vincent-et-les-Grenadines", "Salomon", "Salvador", "Samoa", "Sao Tomé-et-Principe", "Sénégal", "Serbie", "Seychelles", "Sierra Leone", "Singapour", "Slovaquie", "Slovénie", "Somalie", "Soudan", "Soudan du Sud", "Sri Lanka", "Suède", "Suisse", "Suriname", "Syrie", "Tadjikistan", "Taïwan", "Tanzanie", "Tchad", "Thaïlande", "Timor oriental", "Togo", "Tonga", "Trinité-et-Tobago", "Tunisie", "Turkménistan", "Turquie", "Tuvalu", "Ukraine", "Uruguay", "Vanuatu", "Vatican", "Venezuela", "Viêt Nam", "Yémen", "Zambie", "Zimbabwe", "Guadeloupe", "Martinique", "Mayotte"];
+const GP_SECRET = PENC_SECRET + '::gp-site';          // jeton différent de Penc : un jeton Penc n'ouvre pas le site GP, et inversement
+const GP_ADMINS = String(process.env.GP_ADMINS || '').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+const GP_MODS = String(process.env.GP_MODERATORS || '').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+let _gpReady = false;
+async function _gpInit(){
+  if(_gpReady || !_pgPool) return;
+  await _pgPool.query(`
+    CREATE TABLE IF NOT EXISTS gp_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT UNIQUE, email TEXT UNIQUE, pwd_hash TEXT NOT NULL, avatar_url TEXT, is_admin BOOLEAN DEFAULT FALSE, banned BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS gp_profiles (user_id TEXT PRIMARY KEY, kind TEXT DEFAULT 'gp', company_name TEXT, phone TEXT, show_phone BOOLEAN DEFAULT FALSE, bio TEXT, logo_url TEXT,
+      routes JSONB, verified BOOLEAN DEFAULT FALSE, verified_at TIMESTAMPTZ, verify_doc_url TEXT, verify_requested_at TIMESTAMPTZ, banned BOOLEAN DEFAULT FALSE,
+      rating_avg NUMERIC DEFAULT 0, rating_count INT DEFAULT 0, deliveries INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS gp_requests (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, from_country TEXT, from_city TEXT, to_country TEXT, to_city TEXT, weight_kg NUMERIC, parcel_type TEXT,
+      title TEXT, description TEXT, photos JSONB, desired_date DATE, flexible BOOLEAN DEFAULT TRUE, budget NUMERIC, currency TEXT DEFAULT 'EUR', status TEXT DEFAULT 'open', assigned_to TEXT,
+      hidden BOOLEAN DEFAULT FALSE, views INT DEFAULT 0, proposals INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpr_route ON gp_requests(from_country, to_country, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpr_user ON gp_requests(user_id);
+    CREATE TABLE IF NOT EXISTS gp_offers (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, from_country TEXT, from_city TEXT, to_country TEXT, to_city TEXT, depart_date DATE, arrival_date DATE,
+      kg_available NUMERIC, price_per_kg NUMERIC, currency TEXT DEFAULT 'EUR', accepted_types JSONB, drop_point TEXT, pickup_point TEXT, notes TEXT, status TEXT DEFAULT 'open', hidden BOOLEAN DEFAULT FALSE,
+      views INT DEFAULT 0, contacts INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpo_route ON gp_offers(from_country, to_country, status, depart_date);
+    CREATE INDEX IF NOT EXISTS idx_gpo_user ON gp_offers(user_id);
+    CREATE TABLE IF NOT EXISTS gp_proposals (id TEXT PRIMARY KEY, request_id TEXT NOT NULL, gp_user_id TEXT NOT NULL, offer_id TEXT, price_total NUMERIC, currency TEXT DEFAULT 'EUR', message TEXT,
+      status TEXT DEFAULT 'pending', conv_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(request_id, gp_user_id));
+    CREATE TABLE IF NOT EXISTS gp_reviews (id TEXT PRIMARY KEY, gp_user_id TEXT NOT NULL, author_id TEXT NOT NULL, request_id TEXT NOT NULL, rating INT NOT NULL, comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(author_id, request_id));
+    CREATE INDEX IF NOT EXISTS idx_gprev_gp ON gp_reviews(gp_user_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS gp_reports (id TEXT PRIMARY KEY, target_type TEXT, target_id TEXT, reporter_id TEXT, reason TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS gp_convs (id TEXT PRIMARY KEY, pair_key TEXT UNIQUE NOT NULL, u1 TEXT NOT NULL, u2 TEXT NOT NULL, ctx TEXT, last_text TEXT, last_sender TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpc_u1 ON gp_convs(u1, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpc_u2 ON gp_convs(u2, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS gp_msgs (id TEXT PRIMARY KEY, conv_id TEXT NOT NULL, sender_id TEXT NOT NULL, text TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpm_conv ON gp_msgs(conv_id, created_at);
+    CREATE TABLE IF NOT EXISTS gp_reads (conv_id TEXT NOT NULL, user_id TEXT NOT NULL, read_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY(conv_id, user_id));
+    CREATE TABLE IF NOT EXISTS gp_push (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, sub JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS pwd_changed_at TIMESTAMPTZ;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS terms_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS gp_codes (user_id TEXT NOT NULL, purpose TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, attempts INT DEFAULT 0, PRIMARY KEY(user_id, purpose));
+    CREATE TABLE IF NOT EXISTS gp_events (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, user_id TEXT, target TEXT, meta JSONB, ip TEXT, ua TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gpev_time ON gp_events(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpev_user ON gp_events(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gpev_type ON gp_events(type, created_at DESC);
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS last_ip TEXT;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+    ALTER TABLE gp_users ADD COLUMN IF NOT EXISTS logins INT DEFAULT 0;
+    CREATE TABLE IF NOT EXISTS gp_contacts (id TEXT PRIMARY KEY, user_id TEXT, name TEXT, email TEXT, subject TEXT, message TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_gppush_user ON gp_push(user_id);
+  `);
+  _gpReady = true;
+}
+setTimeout(function(){ _gpInit().catch(function(e){ console.error('[gp] init:', e.message); }); }, 8000);
+function _gpIp(req){ return String((req && (req.headers['cf-connecting-ip'] || (req.headers['x-forwarded-for']||'').split(',')[0] || req.ip)) || '').trim().slice(0,60); }
+function _gpLog(type, uid, target, meta, req){
+  try{ if(!_pgPool) return; _pgPool.query('INSERT INTO gp_events(type,user_id,target,meta,ip,ua) VALUES($1,$2,$3,$4,$5,$6)',[type, uid ? String(uid) : null, target ? String(target).slice(0,120) : null, meta ? JSON.stringify(meta) : null, req ? _gpIp(req) : null, req ? String(req.headers['user-agent']||'').slice(0,200) : null]).catch(function(){}); }catch(_){}
+}
+function _gpId(p){ return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _gpTxt(s, n){ return String(s == null ? '' : s).replace(/[<>]/g,'').trim().slice(0, n); }
+function _gpCountry(c){ c = _gpTxt(c, 40); return GP_COUNTRIES.indexOf(c) > -1 ? c : null; }
+function _gpNum(v, min, max){ const n = Number(String(v == null ? '' : v).replace(',','.')); if(v === '' || v == null || !isFinite(n)) return null; return Math.max(min, Math.min(max, Math.round(n*10)/10)); }
+function _gpDate(d){ if(!d) return null; const t = new Date(d); if(!isFinite(t.getTime())) return null; return t.toISOString().slice(0,10); }
+function _gpCur(c){ return ['EUR','XOF','USD','CAD','GBP','CHF'].indexOf(String(c)) > -1 ? String(c) : 'EUR'; }
+function _gpPhone(p){ return String(p||'').replace(/[^0-9+]/g,'').replace(/^00/,'+').slice(0,20); }
+function _gpRate(key, act, max, win){ return _filRate(key, 'gp_' + act, max, win); }
+function _gpSign(u){ return jwt_penc.sign({ gpu: u.id }, GP_SECRET, { expiresIn: '365d' }); }
+function _gpTok(req){ try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return null; const d = jwt_penc.verify(h.slice(7), GP_SECRET); return d && d.gpu ? d : null; }catch(_){ return null; } }
+function _gpUid(req){ const d = _gpTok(req); return d ? String(d.gpu) : null; }
+async function gpAuth(req, res, next){
+  const tk = _gpTok(req); const uid = tk ? String(tk.gpu) : null; if(!uid) return res.status(401).json({ error: 'Connecte-toi pour continuer' });
+  try{ await _gpInit(); const u = (await _pgPool.query('SELECT id, banned, pwd_changed_at FROM gp_users WHERE id=$1',[uid])).rows[0];
+    if(!u) return res.status(401).json({ error: 'Session expirée' }); if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    if(u.pwd_changed_at && tk.iat && tk.iat * 1000 < new Date(u.pwd_changed_at).getTime() - 2000) return res.status(401).json({ error: 'Session expirée, reconnecte-toi' });
+    req.gpUid = uid; _pgPool.query('UPDATE gp_users SET last_seen=NOW() WHERE id=$1',[uid]).catch(function(){}); next();
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+}
+async function _gpRoleOf(uid){ try{ const u = (await _pgPool.query('SELECT is_admin, phone, email FROM gp_users WHERE id=$1',[uid])).rows[0]; if(!u) return null;
+  const keys = [String(u.phone||'').toLowerCase(), String(u.email||'').toLowerCase()].filter(Boolean);
+  if(u.is_admin || keys.some(function(k){ return GP_ADMINS.indexOf(k) > -1; })) return 'admin';
+  if(keys.some(function(k){ return GP_MODS.indexOf(k) > -1; })) return 'mod';
+  return null; }catch(_){ return null; } }
+async function _gpIsAdmin(uid){ return (await _gpRoleOf(uid)) === 'admin'; }
+async function gpAdmin(req, res, next){ if(await _gpIsAdmin(req.gpUid)) return next(); res.status(403).json({ error: 'Réservé à l\'administrateur principal' }); }
+async function gpStaff(req, res, next){ const r = await _gpRoleOf(req.gpUid); if(r){ req.gpRole = r; return next(); } res.status(403).json({ error: 'Réservé à l\'administration' }); }
+async function _gpUsers(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT id, name, avatar_url, phone, email, phone_verified, created_at FROM gp_users WHERE id = ANY($1)',[ids])).rows.forEach(function(u){ m[u.id] = u; }); }catch(_){} return m; }
+async function _gpProfiles(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id = ANY($1)',[ids])).rows.forEach(function(p){ m[p.user_id] = p; }); }catch(_){} return m; }
+function _gpPub(u, p){ u = u || {}; p = p || null; return { id: u.id, name: (p && p.company_name) || u.name || 'Membre', person: u.name || '', avatar_url: (p && p.logo_url) || u.avatar_url || null,
+  is_gp: !!p, kind: p ? p.kind : null, verified: !!(p && p.verified), phone_verified: !!u.phone_verified, member_since: u.created_at || null, rating: p ? Number(p.rating_avg || 0) : 0, reviews: p ? (p.rating_count || 0) : 0, deliveries: p ? (p.deliveries || 0) : 0 }; }
+function _gpMe(u){ return { id: u.id, name: u.name, phone: u.phone || '', email: u.email || '', avatar_url: u.avatar_url || null, phone_verified: !!u.phone_verified }; }
+// ── Envoi de codes (SMS et e-mail) au nom du site ──
+const GP_MAIL_FROM = process.env.GP_MAIL_FROM || 'Yobanté <no-reply@yobantegp.com>';
+const GP_SMS_SENDER = process.env.GP_SMS_SENDER || 'Yobante';
+const GP_SITE = process.env.GP_SITE_URL || 'https://yobantegp.com';
+async function _gpSms(phone, text){
+  try{ const tok = process.env.TECHSOFT_TOKEN; if(!tok){ console.log('[gp] SMS : TECHSOFT_TOKEN absent'); return false; }
+    const r = await fetch('https://app.techsoft-sms.com/api/http/?token=' + encodeURIComponent(tok) + '&to=' + encodeURIComponent(phone) + '&message=' + encodeURIComponent(text) + '&sender_id=' + encodeURIComponent(GP_SMS_SENDER));
+    const t = await r.text(); const ok = !/error/i.test(t); console.log('[gp] SMS', phone, ok ? 'OK' : 'ECHEC', t.slice(0,120)); return ok;
+  }catch(e){ console.log('[gp] SMS exception', e.message); return false; }
+}
+async function _gpMail(to, subject, title, html){
+  try{ const key = process.env.RESEND_API_KEY; if(!key){ _gpMailLast = { at: new Date().toISOString(), ok: false, status: 0, detail: 'RESEND_API_KEY absent sur Render' }; console.log('[gp] e-mail : RESEND_API_KEY absent'); return false; }
+    const body = '<div style="background:#F5F0E8;padding:28px 14px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:18px;overflow:hidden">'
+      + '<div style="background:#1877F2;padding:20px 24px;color:#F5F0E8;font-size:22px;font-weight:800">Yobanté</div><div style="padding:24px"><h1 style="margin:0 0 14px;color:#082E63;font-size:19px">' + title + '</h1>' + html + '</div>'
+      + '<div style="padding:14px 24px;background:#FBF8F3;color:#8a8a8a;font-size:12px">Yobanté — le réseau des GP de confiance · <a href="' + GP_SITE + '" style="color:#1877F2">' + GP_SITE.replace('https://','') + '</a></div></div></div>';
+    const ctrl = new AbortController(); const tmo = setTimeout(function(){ ctrl.abort(); }, 10000);
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: GP_MAIL_FROM, to: [to], subject: subject, html: body }), signal: ctrl.signal });
+    clearTimeout(tmo);
+    const txt = await r.text();
+    if(!r.ok){ _gpMailLast = { at: new Date().toISOString(), ok: false, status: r.status, detail: txt.slice(0,300) }; console.log('[gp] e-mail ECHEC', r.status, txt.slice(0,300)); return false; }
+    _gpMailLast = { at: new Date().toISOString(), ok: true, status: r.status, detail: txt.slice(0,200) }; console.log('[gp] e-mail OK', to.replace(/^(.).*(@.*)$/,'$1***$2')); return true;
+  }catch(e){ _gpMailLast = { at: new Date().toISOString(), ok: false, status: 0, detail: e.message }; console.log('[gp] e-mail exception', e.message); return false; }
+}
+var _gpMailLast = null;   // dernier résultat d'envoi d'e-mail (diagnostic admin)
+async function _gpNewCode(uid, purpose){
+  const code = String(require('crypto').randomInt(100000, 1000000));
+  const h = require('crypto').createHash('sha256').update(code + '|' + uid + '|' + purpose).digest('hex');
+  await _pgPool.query("INSERT INTO gp_codes(user_id,purpose,code_hash,expires_at,attempts) VALUES($1,$2,$3,NOW()+INTERVAL '10 minutes',0) ON CONFLICT (user_id,purpose) DO UPDATE SET code_hash=$3, expires_at=NOW()+INTERVAL '10 minutes', attempts=0",[uid, purpose, h]);
+  return code;
+}
+async function _gpCheckCode(uid, purpose, code){
+  const r = (await _pgPool.query('SELECT * FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose])).rows[0];
+  if(!r || new Date(r.expires_at) < new Date()) return 'Code expiré, demande un nouveau code';
+  if(r.attempts >= 5){ await _pgPool.query('DELETE FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose]); return 'Trop de tentatives, demande un nouveau code'; }
+  await _pgPool.query('UPDATE gp_codes SET attempts=attempts+1 WHERE user_id=$1 AND purpose=$2',[uid, purpose]);
+  const h = require('crypto').createHash('sha256').update(String(code).trim() + '|' + uid + '|' + purpose).digest('hex');
+  if(h !== r.code_hash) return 'Code incorrect';
+  await _pgPool.query('DELETE FROM gp_codes WHERE user_id=$1 AND purpose=$2',[uid, purpose]); return null;
+}
+// ── Notifications (web-push du serveur, abonnements propres au site GP) ──
+async function _gpPush(uid, title, body, url){
+  try{ if(!webpush) return; const subs = (await _pgPool.query('SELECT endpoint, sub FROM gp_push WHERE user_id=$1',[String(uid)])).rows;
+    for(const s of subs){ try{ await webpush.sendNotification(typeof s.sub === 'string' ? JSON.parse(s.sub) : s.sub, JSON.stringify({ title: title, body: body, url: url || '/' }), { TTL: 86400 }); }
+      catch(e){ if(e && (e.statusCode === 404 || e.statusCode === 410)) _pgPool.query('DELETE FROM gp_push WHERE endpoint=$1',[s.endpoint]).catch(function(){}); } }
+  }catch(_){}
+}
+// ── Messagerie intégrée du site ──
+async function _gpConv(a, b, ctx){
+  const pk = [String(a), String(b)].sort().join('|');
+  const r = await _pgPool.query('INSERT INTO gp_convs(id,pair_key,u1,u2,ctx,updated_at) VALUES($1,$2,$3,$4,$5,NOW()) ON CONFLICT (pair_key) DO UPDATE SET ctx=COALESCE($5, gp_convs.ctx) RETURNING *',[_gpId('gpc'), pk, String(a), String(b), ctx || null]);
+  return r.rows[0];
+}
+async function _gpSend(from, to, text, ctx){
+  const c = await _gpConv(from, to, ctx); const id = _gpId('gpm'); text = String(text).slice(0, 4000);
+  await _pgPool.query('INSERT INTO gp_msgs(id,conv_id,sender_id,text) VALUES($1,$2,$3,$4)',[id, c.id, String(from), text]);
+  await _pgPool.query('UPDATE gp_convs SET last_text=$1, last_sender=$2, updated_at=NOW() WHERE id=$3',[text.slice(0,160), String(from), c.id]);
+  await _pgPool.query('INSERT INTO gp_reads(conv_id,user_id,read_at) VALUES($1,$2,NOW()) ON CONFLICT (conv_id,user_id) DO UPDATE SET read_at=NOW()',[c.id, String(from)]);
+  try{ const fu = (await _pgPool.query('SELECT name FROM gp_users WHERE id=$1',[String(from)])).rows[0] || {}; const fp = (await _pgPool.query('SELECT company_name FROM gp_profiles WHERE user_id=$1',[String(from)])).rows[0] || {};
+    _gpPush(to, '💬 ' + (fp.company_name || fu.name || 'Nouveau message'), text.slice(0, 120), '/#/messages/' + c.id); }catch(_){}
+  return c.id;
+}
+// ── Comptes ──
+app.post('/api/gp/auth/register', async (req, res) => {
+  try{ await _gpInit(); const b = req.body || {};
+    if(!_gpRate('ip:' + (req.ip||''), 'reg', 8, 3600000)) return _filTooFast(res);
+    const name = _gpTxt(b.name, 60); const phone = _gpPhone(b.phone); const email = _gpTxt(b.email, 120).toLowerCase() || null; const pwd = String(b.password || '');
+    if(name.length < 2) return res.status(400).json({ error: 'Indique ton nom' });
+    if(!phone && !email) return res.status(400).json({ error: 'Indique ton téléphone ou ton e-mail' });
+    if(phone && phone.replace(/\D/g,'').length < 8) return res.status(400).json({ error: 'Numéro de téléphone invalide (avec l\'indicatif, ex : +221…)' });
+    if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide' });
+    if(pwd.length < 8 || pwd.length > 200 || !/[A-Za-zÀ-ÿ]/.test(pwd) || !/[0-9]/.test(pwd)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+    if(!b.accept_terms) return res.status(400).json({ error: 'Accepte les conditions d\'utilisation pour créer ton compte' });
+    const ex = (await _pgPool.query('SELECT 1 FROM gp_users WHERE ($1::text <> \'\' AND phone=$1) OR ($2::text IS NOT NULL AND email=$2)',[phone, email])).rows[0];
+    if(ex) return res.status(400).json({ error: 'Un compte existe déjà avec ce numéro ou cet e-mail' });
+    const u = { id: _gpId('gpu'), name: name, phone: phone || null, email: email };
+    await _pgPool.query('INSERT INTO gp_users(id,name,phone,email,pwd_hash,terms_at,last_ip,last_login,logins) VALUES($1,$2,$3,$4,$5,NOW(),$6,NOW(),1)',[u.id, name, phone || null, email, await _pencHash(pwd), _gpIp(req)]);
+    _gpLog('signup', u.id, null, { via: phone ? 'phone' : 'email' }, req);
+    res.json({ token: _gpSign(u), user: _gpMe(u) });
+  }catch(e){ console.error('[gp] register:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/auth/login', async (req, res) => {
+  try{ await _gpInit(); const b = req.body || {}; const id = String(b.identifier || '').trim(); const pwd = String(b.password || '');
+    if(!_gpRate('ip:' + (req.ip||''), 'login', 20, 900000) || !_gpRate('id:' + id.toLowerCase(), 'login', 8, 900000)) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans 15 minutes.' });
+    if(!id || !pwd || id.length > 200 || pwd.length > 200) return res.status(400).json({ error: 'Identifiant et mot de passe requis' });
+    const u = (await _pgPool.query('SELECT * FROM gp_users WHERE phone=$1 OR email=$2 LIMIT 1',[_gpPhone(id), id.toLowerCase()])).rows[0];
+    if(!u || !(await _pencComparePwd(pwd, u.pwd_hash))){ _gpLog('login_fail', u ? u.id : null, id.slice(0,60), null, req); return res.status(400).json({ error: 'Identifiant ou mot de passe incorrect' }); }
+    if(u.banned){ _gpLog('login_banned', u.id, null, null, req); return res.status(403).json({ error: 'Compte suspendu' }); }
+    _pgPool.query('UPDATE gp_users SET last_ip=$1, last_login=NOW(), logins=COALESCE(logins,0)+1 WHERE id=$2',[_gpIp(req), u.id]).catch(function(){});
+    _gpLog('login', u.id, null, null, req);
+    res.json({ token: _gpSign(u), user: _gpMe(u) });
+  }catch(e){ console.error('[gp] login:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/auth/forgot', async (req, res) => {
+  try{ await _gpInit(); const id = String((req.body && req.body.identifier) || '').trim();
+    if(!id || id.length > 200) return res.status(400).json({ error: 'Indique ton téléphone ou ton e-mail' });
+    if(!_gpRate('ip:' + (req.ip||''), 'forgot', 10, 3600000) || !_gpRate('id:' + id.toLowerCase(), 'forgot', 4, 3600000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans une heure.' });
+    const isMail = id.indexOf('@') > -1;
+    const u = (await _pgPool.query(isMail ? 'SELECT * FROM gp_users WHERE email=$1' : 'SELECT * FROM gp_users WHERE phone=$1',[isMail ? id.toLowerCase() : _gpPhone(id)])).rows[0];
+    res.json({ success: true, channel: isMail ? 'email' : 'sms' });   // réponse identique que le compte existe ou non
+    _gpLog('forgot', u ? u.id : null, id.slice(0,60), { found: !!u }, req);
+    if(!u || u.banned) return;
+    const code = await _gpNewCode(u.id, 'reset');
+    if(isMail && u.email){ const okm = await _gpMail(u.email, 'Yobanté — ton code de réinitialisation', 'Réinitialisation du mot de passe', '<p style="color:#333;font-size:15px;line-height:1.6">Voici ton code pour choisir un nouveau mot de passe :</p><div style="text-align:center;margin:22px 0"><span style="display:inline-block;background:#D6E6FC;color:#082E63;font-size:30px;font-weight:800;letter-spacing:8px;padding:14px 24px;border-radius:14px">' + code + '</span></div><p style="color:#666;font-size:14px">Il est valable 10 minutes. Si tu n\'as rien demandé, ignore ce message : ton mot de passe ne change pas.</p>'); if(!okm) _gpLog('mail_fail', u.id, null, { purpose: 'reset', status: _gpMailLast && _gpMailLast.status, detail: _gpMailLast && String(_gpMailLast.detail||'').slice(0,200) }, req); }
+    else if(u.phone) _gpSms(u.phone, 'Yobante - Ton code de reinitialisation : ' + code + ' (valable 10 min). Ne le communique a personne.');
+  }catch(e){ if(!res.headersSent) res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/auth/reset', async (req, res) => {
+  try{ await _gpInit(); const b = req.body || {}; const id = String(b.identifier || '').trim(); const pwd = String(b.password || '');
+    if(!_gpRate('ip:' + (req.ip||''), 'reset', 20, 3600000)) return _filTooFast(res);
+    if(pwd.length < 8 || !/[A-Za-zÀ-ÿ]/.test(pwd) || !/[0-9]/.test(pwd)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+    const isMail = id.indexOf('@') > -1;
+    const u = (await _pgPool.query(isMail ? 'SELECT * FROM gp_users WHERE email=$1' : 'SELECT * FROM gp_users WHERE phone=$1',[isMail ? id.toLowerCase() : _gpPhone(id)])).rows[0];
+    if(!u) return res.status(400).json({ error: 'Code incorrect' });
+    const err = await _gpCheckCode(u.id, 'reset', b.code); if(err) return res.status(400).json({ error: err });
+    await _pgPool.query('UPDATE gp_users SET pwd_hash=$1, pwd_changed_at=NOW()' + (isMail ? '' : ', phone_verified=TRUE') + ' WHERE id=$2',[await _pencHash(pwd), u.id]);
+    const u2 = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[u.id])).rows[0]; _gpLog('password_reset', u.id, null, null, req);
+    res.json({ success: true, token: _gpSign(u2), user: _gpMe(u2) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/me/phone/send', gpAuth, async (req, res) => {
+  try{ if(!_gpRate(req.gpUid, 'phone_send', 3, 3600000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans une heure.' });
+    const u = (await _pgPool.query('SELECT phone, phone_verified FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
+    if(u.phone_verified) return res.json({ success: true, already: true });
+    const code = await _gpNewCode(req.gpUid, 'phone');
+    const ok = await _gpSms(u.phone, 'Yobante - Ton code de verification : ' + code + ' (valable 10 min).');
+    if(!ok) return res.status(500).json({ error: 'Envoi du SMS impossible pour le moment' }); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/me/phone/verify', gpAuth, async (req, res) => {
+  try{ const err = await _gpCheckCode(req.gpUid, 'phone', req.body.code); if(err) return res.status(400).json({ error: err });
+    await _pgPool.query('UPDATE gp_users SET phone_verified=TRUE WHERE id=$1',[req.gpUid]); _gpLog('phone_verified', req.gpUid, null, null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/contact', async (req, res) => {
+  try{ await _gpInit(); if(!_gpRate('ip:' + (req.ip||''), 'contact', 5, 3600000)) return _filTooFast(res);
+    const b = req.body || {}; const msg = _gpTxt(b.message, 3000); const email = _gpTxt(b.email, 120);
+    if(msg.length < 10) return res.status(400).json({ error: 'Écris ton message (10 caractères minimum)' });
+    if(!email) return res.status(400).json({ error: 'Indique ton e-mail ou ton téléphone pour qu\'on te réponde' });
+    await _pgPool.query('INSERT INTO gp_contacts(id,user_id,name,email,subject,message) VALUES($1,$2,$3,$4,$5,$6)',[_gpId('gpk'), _gpUid(req), _gpTxt(b.name,80), email, _gpTxt(b.subject,80), msg]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/me', gpAuth, async (req, res) => {
+  try{ const u = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[req.gpUid])).rows[0] || null;
+    const unread = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM gp_convs c LEFT JOIN gp_reads r ON r.conv_id=c.id AND r.user_id=$1 WHERE (c.u1=$1 OR c.u2=$1) AND c.last_sender<>$1 AND (r.read_at IS NULL OR r.read_at < c.updated_at)',[req.gpUid])).rows[0].n;
+    const tk = _gpTok(req); const fresh = (tk && tk.iat && Date.now()/1000 - tk.iat > 7*86400) ? _gpSign(u) : null;   // session glissante
+    const role = await _gpRoleOf(req.gpUid);
+    res.json({ user: _gpMe(u), profile: p, unread: unread, is_admin: !!role, role: role, token: fresh });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/me', gpAuth, async (req, res) => {
+  try{ const b = req.body || {}; const name = _gpTxt(b.name, 60); const av = _filOkMedia(b.avatar_url) ? b.avatar_url : null;
+    if(name.length >= 2) await _pgPool.query('UPDATE gp_users SET name=$1 WHERE id=$2',[name, req.gpUid]);
+    if(av) await _pgPool.query('UPDATE gp_users SET avatar_url=$1 WHERE id=$2',[av, req.gpUid]);
+    if(b.password){ const np = String(b.password);
+      if(np.length < 8 || !/[A-Za-zÀ-ÿ]/.test(np) || !/[0-9]/.test(np)) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères, avec des lettres et au moins un chiffre' });
+      const cur = (await _pgPool.query('SELECT pwd_hash FROM gp_users WHERE id=$1',[req.gpUid])).rows[0];
+      if(!b.current_password || !(await _pencComparePwd(String(b.current_password), cur.pwd_hash))) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+      await _pgPool.query('UPDATE gp_users SET pwd_hash=$1, pwd_changed_at=NOW() WHERE id=$2',[await _pencHash(np), req.gpUid]);
+      const u2 = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[req.gpUid])).rows[0]; _gpLog('password_change', req.gpUid, null, null, req); return res.json({ success: true, token: _gpSign(u2) }); }
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Photos (stockage R2 de l'infrastructure, dossier séparé) ──
+app.post('/api/gp/media/presign', gpAuth, async (req, res) => {
+  try{ if(!_gpRate(req.gpUid, 'media', 60, 3600000)) return _filTooFast(res);
+    const mime = String(req.body.mime || 'image/jpeg'); if(!/^image\/(jpeg|png|webp|gif|heic|heif)$/.test(mime)) return res.status(400).json({ error: 'Seules les photos sont acceptées' });
+    const ext = mime.split('/')[1].replace('jpeg','jpg'); const key = 'gp/' + req.gpUid + '/' + Date.now() + '-' + require('crypto').randomBytes(5).toString('hex') + '.' + ext;
+    res.json({ uploadUrl: await r2PresignPut(key, mime), publicUrl: R2_PUBLIC + '/' + key });
+  }catch(e){ res.status(500).json({ error: 'Envoi impossible' }); }
+});
+// ── Notifications ──
+app.get('/api/gp/push/vapid', (req, res) => { res.json({ key: process.env.VAPID_PUBLIC_KEY || null }); });
+app.post('/api/gp/push/subscribe', gpAuth, async (req, res) => {
+  try{ const s = req.body && req.body.sub; if(!s || !s.endpoint) return res.status(400).json({ error: 'Abonnement invalide' });
+    await _pgPool.query('INSERT INTO gp_push(endpoint,user_id,sub) VALUES($1,$2,$3) ON CONFLICT (endpoint) DO UPDATE SET user_id=$2, sub=$3',[String(s.endpoint).slice(0,800), req.gpUid, JSON.stringify(s)]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Messagerie ──
+app.get('/api/gp/convs', gpAuth, async (req, res) => {
+  try{ const me = req.gpUid;
+    const cs = (await _pgPool.query('SELECT c.*, r.read_at FROM gp_convs c LEFT JOIN gp_reads r ON r.conv_id=c.id AND r.user_id=$1 WHERE (c.u1=$1 OR c.u2=$1) AND c.last_text IS NOT NULL ORDER BY c.updated_at DESC LIMIT 100',[me])).rows;
+    const others = cs.map(function(c){ return c.u1 === me ? c.u2 : c.u1; }); const users = await _gpUsers(others); const profs = await _gpProfiles(others);
+    res.json({ items: cs.map(function(c){ const o = c.u1 === me ? c.u2 : c.u1; return { id: c.id, other: _gpPub(users[o], profs[o]), last_text: c.last_text, mine_last: c.last_sender === me, updated_at: c.updated_at, unread: c.last_sender !== me && (!c.read_at || new Date(c.read_at) < new Date(c.updated_at)) }; }) });
+  }catch(e){ res.json({ items: [] }); }
+});
+app.get('/api/gp/convs/:id', gpAuth, async (req, res) => {
+  try{ const me = req.gpUid; const c = (await _pgPool.query('SELECT * FROM gp_convs WHERE id=$1',[req.params.id])).rows[0];
+    if(!c || (c.u1 !== me && c.u2 !== me)) return res.status(404).json({ error: 'Discussion introuvable' });
+    const after = req.query.after ? String(req.query.after) : null;
+    const ms = after ? (await _pgPool.query('SELECT * FROM gp_msgs WHERE conv_id=$1 AND created_at > $2 ORDER BY created_at ASC LIMIT 200',[c.id, after])).rows
+                     : (await _pgPool.query('SELECT * FROM (SELECT * FROM gp_msgs WHERE conv_id=$1 ORDER BY created_at DESC LIMIT 200) t ORDER BY created_at ASC',[c.id])).rows;
+    await _pgPool.query('INSERT INTO gp_reads(conv_id,user_id,read_at) VALUES($1,$2,NOW()) ON CONFLICT (conv_id,user_id) DO UPDATE SET read_at=NOW()',[c.id, me]);
+    const o = c.u1 === me ? c.u2 : c.u1; const users = await _gpUsers([o]); const profs = await _gpProfiles([o]);
+    const or = (await _pgPool.query('SELECT read_at FROM gp_reads WHERE conv_id=$1 AND user_id=$2',[c.id, o])).rows[0];
+    res.json({ conv: { id: c.id, other: _gpPub(users[o], profs[o]), other_read_at: or ? or.read_at : null }, messages: ms.map(function(m){ return { id: m.id, mine: m.sender_id === me, text: m.text, created_at: m.created_at }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/convs/:id/messages', gpAuth, async (req, res) => {
+  try{ const me = req.gpUid; if(!_gpRate(me, 'msg', 60, 60000)) return _filTooFast(res);
+    const c = (await _pgPool.query('SELECT * FROM gp_convs WHERE id=$1',[req.params.id])).rows[0];
+    if(!c || (c.u1 !== me && c.u2 !== me)) return res.status(404).json({ error: 'Discussion introuvable' });
+    const text = _gpTxt(req.body.text, 4000); if(!text) return res.status(400).json({ error: 'Message vide' });
+    await _gpSend(me, c.u1 === me ? c.u2 : c.u1, text); _gpLog('message', me, c.id, { len: text.length }, null);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/convs/start', gpAuth, async (req, res) => {
+  try{ const me = req.gpUid; const to = String(req.body.to || ''); if(!to || to === me) return res.status(400).json({ error: 'Destinataire invalide' });
+    if(!(await _pgPool.query('SELECT 1 FROM gp_users WHERE id=$1 AND banned=FALSE',[to])).rows.length) return res.status(404).json({ error: 'Membre introuvable' });
+    const c = await _gpConv(me, to); res.json({ conv_id: c.id });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Listes publiques ──
+function _gpReqOut(r, users, profs, me){
+  const u = users[r.user_id] || {};
+  return { id: r.id, owner: { id: r.user_id, name: u.name || 'Membre', avatar_url: u.avatar_url || null }, mine: !!(me && me === r.user_id),
+    from_country: r.from_country, from_city: r.from_city, to_country: r.to_country, to_city: r.to_city, weight_kg: r.weight_kg != null ? Number(r.weight_kg) : null, parcel_type: r.parcel_type,
+    title: r.title, description: r.description, photos: r.photos || [], desired_date: r.desired_date, flexible: r.flexible, budget: r.budget != null ? Number(r.budget) : null, currency: r.currency,
+    status: r.status, assigned_to: r.assigned_to ? _gpPub(users[r.assigned_to], profs[r.assigned_to]) : null, views: r.views, proposals: r.proposals, created_at: r.created_at };
+}
+function _gpOffOut(o, users, profs, me){
+  return { id: o.id, gp: _gpPub(users[o.user_id], profs[o.user_id]), mine: !!(me && me === o.user_id), from_country: o.from_country, from_city: o.from_city, to_country: o.to_country, to_city: o.to_city,
+    depart_date: o.depart_date, arrival_date: o.arrival_date, kg_available: o.kg_available != null ? Number(o.kg_available) : null, price_per_kg: o.price_per_kg != null ? Number(o.price_per_kg) : null, currency: o.currency,
+    accepted_types: o.accepted_types || [], drop_point: o.drop_point, pickup_point: o.pickup_point, notes: o.notes, status: o.status, views: o.views, contacts: o.contacts, created_at: o.created_at };
+}
+function _gpFilters(q, a, textCol){
+  const w = [], v = []; const p = function(x){ v.push(x); return '$' + v.length; };
+  if(q.from && _gpCountry(q.from)) w.push(a + 'from_country = ' + p(_gpCountry(q.from)));
+  if(q.to && _gpCountry(q.to)) w.push(a + 'to_country = ' + p(_gpCountry(q.to)));
+  if(q.city){ const k = p('%' + _gpTxt(q.city, 40) + '%'); w.push('(' + a + 'from_city ILIKE ' + k + ' OR ' + a + 'to_city ILIKE ' + k + ')'); }
+  if(q.q){ const k = p('%' + _gpTxt(q.q, 60) + '%'); w.push('(' + a + textCol + ' ILIKE ' + k + ' OR ' + a + 'from_city ILIKE ' + k + ' OR ' + a + 'to_city ILIKE ' + k + ')'); }
+  return { w: w, v: v };
+}
+app.get('/api/gp/public/stats', async (req, res) => {
+  try{ await _gpInit(); const one = async function(sql){ try{ return (await _pgPool.query(sql)).rows[0].n || 0; }catch(_){ return 0; } };
+    res.set('Cache-Control','public, max-age=60');
+    res.json({ open_requests: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='open' AND hidden=FALSE"), open_offers: await one("SELECT COUNT(*)::int AS n FROM gp_offers WHERE status='open' AND hidden=FALSE AND depart_date >= CURRENT_DATE"),
+      verified_gps: await one('SELECT COUNT(*)::int AS n FROM gp_profiles WHERE verified=TRUE AND banned=FALSE'), delivered: await one("SELECT COUNT(*)::int AS n FROM gp_requests WHERE status='delivered'"), members: await one('SELECT COUNT(*)::int AS n FROM gp_users') });
+  }catch(e){ res.json({}); }
+});
+app.get('/api/gp/public/requests', async (req, res) => {
+  try{ await _gpInit(); const me = _gpUid(req); if(!_gpRate('ip:' + (req.ip||''), 'list', 150, 60000)) return _filTooFast(res);
+    const f = _gpFilters(req.query, 'r.', 'title'); const page = Math.max(0, Math.min(50, parseInt(req.query.page)||0));
+    const rows = (await _pgPool.query("SELECT r.* FROM gp_requests r WHERE r.hidden=FALSE AND r.status='open'" + (f.w.length ? ' AND ' + f.w.join(' AND ') : '') + ' ORDER BY r.created_at DESC LIMIT 20 OFFSET ' + (page*20), f.v)).rows;
+    const users = await _gpUsers(rows.map(function(r){ return r.user_id; })); res.json({ items: rows.map(function(r){ return _gpReqOut(r, users, {}, me); }), more: rows.length === 20 });
+  }catch(e){ res.json({ items: [] }); }
+});
+app.get('/api/gp/public/offers', async (req, res) => {
+  try{ await _gpInit(); const me = _gpUid(req); if(!_gpRate('ip:' + (req.ip||''), 'list', 150, 60000)) return _filTooFast(res);
+    const f = _gpFilters(req.query, 'o.', 'notes'); const page = Math.max(0, Math.min(50, parseInt(req.query.page)||0));
+    if(req.query.date && _gpDate(req.query.date)){ f.v.push(_gpDate(req.query.date)); f.w.push('o.depart_date >= $' + f.v.length); }
+    const rows = (await _pgPool.query("SELECT o.* FROM gp_offers o LEFT JOIN gp_profiles p ON p.user_id=o.user_id WHERE o.hidden=FALSE AND o.status='open' AND o.depart_date >= CURRENT_DATE AND COALESCE(p.banned,FALSE)=FALSE" + (f.w.length ? ' AND ' + f.w.join(' AND ') : '') + ' ORDER BY COALESCE(p.verified,FALSE) DESC, o.depart_date ASC LIMIT 20 OFFSET ' + (page*20), f.v)).rows;
+    const ids = rows.map(function(o){ return o.user_id; }); const users = await _gpUsers(ids); const profs = await _gpProfiles(ids);
+    res.json({ items: rows.map(function(o){ return _gpOffOut(o, users, profs, me); }), more: rows.length === 20 });
+  }catch(e){ res.json({ items: [] }); }
+});
+app.get('/api/gp/public/requests/:id', async (req, res) => {
+  try{ await _gpInit(); const me = _gpUid(req);
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || (r.hidden && me !== r.user_id)) return res.status(404).json({ error: 'Annonce introuvable' });
+    if(me !== r.user_id) _pgPool.query('UPDATE gp_requests SET views=views+1 WHERE id=$1',[r.id]).catch(function(){});
+    const users = await _gpUsers([r.user_id, r.assigned_to]); const profs = await _gpProfiles([r.assigned_to]);
+    const out = _gpReqOut(r, users, profs, me);
+    if(me){ const mp = (await _pgPool.query('SELECT id, status, price_total, currency, conv_id FROM gp_proposals WHERE request_id=$1 AND gp_user_id=$2',[r.id, me])).rows[0]; out.my_proposal = mp || null;
+      if(me === r.user_id){ const rv = (await _pgPool.query('SELECT 1 FROM gp_reviews WHERE author_id=$1 AND request_id=$2',[me, r.id])).rows[0]; out.reviewed = !!rv; } }
+    res.json({ item: out });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/public/offers/:id', async (req, res) => {
+  try{ await _gpInit(); const me = _gpUid(req);
+    const o = (await _pgPool.query('SELECT * FROM gp_offers WHERE id=$1',[req.params.id])).rows[0];
+    if(!o || (o.hidden && me !== o.user_id)) return res.status(404).json({ error: 'Départ introuvable' });
+    if(me !== o.user_id) _pgPool.query('UPDATE gp_offers SET views=views+1 WHERE id=$1',[o.id]).catch(function(){});
+    const users = await _gpUsers([o.user_id]); const profs = await _gpProfiles([o.user_id]); res.json({ item: _gpOffOut(o, users, profs, me) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/public/gp/:uid', async (req, res) => {
+  try{ await _gpInit(); const me = _gpUid(req); const uid = String(req.params.uid);
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0]; if(!p || p.banned) return res.status(404).json({ error: 'GP introuvable' });
+    const users = await _gpUsers([uid]); const u = users[uid] || {};
+    const offers = (await _pgPool.query("SELECT * FROM gp_offers WHERE user_id=$1 AND hidden=FALSE AND status='open' AND depart_date >= CURRENT_DATE ORDER BY depart_date ASC LIMIT 20",[uid])).rows;
+    const revs = (await _pgPool.query('SELECT * FROM gp_reviews WHERE gp_user_id=$1 ORDER BY created_at DESC LIMIT 30',[uid])).rows; const ru = await _gpUsers(revs.map(function(r){ return r.author_id; }));
+    res.json({ gp: Object.assign(_gpPub(u, p), { bio: p.bio || '', routes: p.routes || [], phone: (p.show_phone && me) ? (p.phone || u.phone || '') : null, member_since: p.created_at }),
+      offers: offers.map(function(o){ return _gpOffOut(o, users, { [uid]: p }, me); }),
+      reviews: revs.map(function(r){ const a = ru[r.author_id] || {}; return { rating: r.rating, comment: r.comment, author: a.name || 'Client', avatar_url: a.avatar_url || null, created_at: r.created_at }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Profil GP ──
+app.post('/api/gp/profile', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const b = req.body || {}; const kind = b.kind === 'company' ? 'company' : 'gp'; const name = _gpTxt(b.company_name, 80);
+    if(kind === 'company' && name.length < 2) return res.status(400).json({ error: 'Indique le nom de ton entreprise' });
+    const routes = Array.isArray(b.routes) ? b.routes.slice(0,12).map(function(r){ return { from: _gpCountry(r && r.from), to: _gpCountry(r && r.to) }; }).filter(function(r){ return r.from && r.to && r.from !== r.to; }) : [];
+    await _pgPool.query(`INSERT INTO gp_profiles(user_id,kind,company_name,phone,show_phone,bio,logo_url,routes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+      ON CONFLICT (user_id) DO UPDATE SET kind=$2, company_name=$3, phone=$4, show_phone=$5, bio=$6, logo_url=COALESCE($7, gp_profiles.logo_url), routes=$8, updated_at=NOW()`,
+      [uid, kind, name || null, _gpPhone(b.phone) || null, !!b.show_phone, _gpTxt(b.bio, 800) || null, _filOkMedia(b.logo_url) ? b.logo_url : null, JSON.stringify(routes)]);
+    _gpLog('gp_profile', uid, null, { kind: kind }, req);
+    res.json({ success: true, profile: (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0] });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/profile/verify', gpAuth, async (req, res) => {
+  try{ if(!_filOkMedia(req.body.doc_url)) return res.status(400).json({ error: 'Ajoute une photo de ton justificatif' });
+    const r = await _pgPool.query('UPDATE gp_profiles SET verify_doc_url=$1, verify_requested_at=NOW() WHERE user_id=$2 RETURNING user_id',[req.body.doc_url, req.gpUid]);
+    if(!r.rows.length) return res.status(400).json({ error: 'Crée d\'abord ton profil GP' }); _gpLog('verify_request', req.gpUid, null, null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Annonces de colis ──
+app.post('/api/gp/requests', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const b = req.body || {}; if(!_gpRate(uid, 'req', 10, 86400000)) return _filTooFast(res);
+    const fc = _gpCountry(b.from_country), tc = _gpCountry(b.to_country); if(!fc || !tc || fc === tc) return res.status(400).json({ error: 'Choisis le pays de départ et d\'arrivée' });
+    const w = _gpNum(b.weight_kg, 0.1, 500); if(!w) return res.status(400).json({ error: 'Indique le poids approximatif (kg)' });
+    const title = _gpTxt(b.title, 90); if(title.length < 3) return res.status(400).json({ error: 'Donne un titre à ton annonce' });
+    const type = GP_TYPES.indexOf(b.parcel_type) > -1 ? b.parcel_type : 'autre'; const photos = Array.isArray(b.photos) ? b.photos.filter(_filOkMedia).slice(0,4) : []; const id = _gpId('gpr');
+    await _pgPool.query('INSERT INTO gp_requests(id,user_id,from_country,from_city,to_country,to_city,weight_kg,parcel_type,title,description,photos,desired_date,flexible,budget,currency) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, uid, fc, _gpTxt(b.from_city,50)||null, tc, _gpTxt(b.to_city,50)||null, w, type, title, _gpTxt(b.description,1500)||null, JSON.stringify(photos), _gpDate(b.desired_date), b.flexible !== false, _gpNum(b.budget,0,100000000), _gpCur(b.currency)]);
+    setImmediate(async function(){ try{ const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_offers WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND depart_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
+      m.rows.forEach(function(x){ _gpPush(x.user_id, '📦 Nouveau colis ' + fc + ' → ' + tc, title + ' · ' + w + ' kg', '/#/colis/' + id); }); }catch(_){} });
+    _gpLog('request_new', uid, id, { route: fc + ' → ' + tc, kg: w }, req);
+    res.json({ success: true, id: id });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.patch('/api/gp/requests/:id', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const s = req.body.status; const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(r && r.assigned_to === uid && r.user_id !== uid){
+      if(s === 'sent' && r.status === 'assigned'){ await _pgPool.query("UPDATE gp_requests SET status='sent', updated_at=NOW() WHERE id=$1",[r.id]); _gpLog('request_sent', uid, r.id, { by: 'gp' }, req); _gpPush(r.user_id, '📦 Ton colis est pris en charge', 'Ton GP a récupéré « ' + r.title + ' »', '/#/colis/' + r.id); return res.json({ success: true }); }
+      return res.status(403).json({ error: 'Seul l\'expéditeur peut confirmer la livraison' });
+    }
+    if(!r || r.user_id !== uid) return res.status(403).json({ error: 'Action non autorisée' });
+    if(s === 'cancelled' || (s === 'open' && r.status === 'cancelled')){ await _pgPool.query('UPDATE gp_requests SET status=$1, updated_at=NOW() WHERE id=$2',[s, r.id]); _gpLog('request_' + s, uid, r.id, null, req); return res.json({ success: true }); }
+    if(s === 'sent'){ if(r.status !== 'assigned') return res.status(400).json({ error: 'Choisis d\'abord ton GP' });
+      await _pgPool.query("UPDATE gp_requests SET status='sent', updated_at=NOW() WHERE id=$1",[r.id]); _gpLog('request_sent', uid, r.id, { by: 'sender' }, req);
+      _gpPush(r.assigned_to, '📦 Colis remis', '« ' + r.title + ' » t\'a été remis. Bon voyage !', '/#/colis/' + r.id); return res.json({ success: true }); }
+    if(s === 'delivered'){ if(r.status !== 'assigned' && r.status !== 'sent') return res.status(400).json({ error: 'Choisis d\'abord ton GP' });
+      await _pgPool.query("UPDATE gp_requests SET status='delivered', updated_at=NOW() WHERE id=$1",[r.id]); await _pgPool.query('UPDATE gp_profiles SET deliveries=deliveries+1 WHERE user_id=$1',[r.assigned_to]); _gpLog('request_delivered', uid, r.id, { gp: r.assigned_to }, req);
+      _gpPush(r.assigned_to, '✅ Colis livré', '« ' + r.title + ' » a été marqué comme livré. Merci !', '/#/espace'); return res.json({ success: true }); }
+    res.status(400).json({ error: 'Action inconnue' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/requests/:id/propose', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const b = req.body || {}; if(!_gpRate(uid, 'prop', 40, 3600000)) return _filTooFast(res);
+    const prof = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0]; if(!prof) return res.status(400).json({ error: 'Crée ton profil GP pour proposer tes services', need_profile: true });
+    if(prof.banned) return res.status(403).json({ error: 'Ton profil GP est suspendu' });
+    const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[req.params.id])).rows[0];
+    if(!r || r.hidden || r.status !== 'open') return res.status(400).json({ error: 'Cette annonce n\'accepte plus de propositions' }); if(r.user_id === uid) return res.status(400).json({ error: 'C\'est ta propre annonce' });
+    const price = _gpNum(b.price_total, 0, 100000000); const cur = _gpCur(b.currency); const msg = _gpTxt(b.message, 800); const id = _gpId('gpp');
+    const ins = await _pgPool.query('INSERT INTO gp_proposals(id,request_id,gp_user_id,price_total,currency,message) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (request_id,gp_user_id) DO NOTHING RETURNING id',[id, r.id, uid, price, cur, msg || null]);
+    if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà fait une proposition pour ce colis' });
+    await _pgPool.query('UPDATE gp_requests SET proposals=proposals+1 WHERE id=$1',[r.id]);
+    const conv = await _gpSend(uid, r.user_id, '📦 Proposition pour ton colis « ' + r.title + ' » (' + r.from_country + ' → ' + r.to_country + ', ' + Number(r.weight_kg) + ' kg)\n' + (price != null ? '💶 Prix proposé : ' + price.toLocaleString('fr-FR') + ' ' + cur + '\n' : '') + (msg ? '\n' + msg : ''), 'request:' + r.id);
+    await _pgPool.query('UPDATE gp_proposals SET conv_id=$1 WHERE id=$2',[conv, id]); _gpLog('proposal_new', uid, r.id, { price: price, cur: cur }, req);
+    res.json({ success: true, id: id, conv_id: conv });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/requests/:id/proposals', gpAuth, async (req, res) => {
+  try{ const r = (await _pgPool.query('SELECT user_id FROM gp_requests WHERE id=$1',[req.params.id])).rows[0]; if(!r || r.user_id !== req.gpUid) return res.status(403).json({ error: 'Réservé à l\'auteur' });
+    const ps = (await _pgPool.query('SELECT * FROM gp_proposals WHERE request_id=$1 ORDER BY created_at ASC',[req.params.id])).rows; const ids = ps.map(function(p){ return p.gp_user_id; }); const users = await _gpUsers(ids); const profs = await _gpProfiles(ids);
+    res.json({ items: ps.map(function(p){ return { id: p.id, gp: _gpPub(users[p.gp_user_id], profs[p.gp_user_id]), price_total: p.price_total != null ? Number(p.price_total) : null, currency: p.currency, message: p.message, status: p.status, conv_id: p.conv_id, created_at: p.created_at }; }) });
+  }catch(e){ res.json({ items: [] }); }
+});
+app.post('/api/gp/proposals/:id/:action', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const a = req.params.action;
+    const p = (await _pgPool.query('SELECT p.*, r.user_id AS owner, r.title, r.status AS rstatus FROM gp_proposals p JOIN gp_requests r ON r.id=p.request_id WHERE p.id=$1',[req.params.id])).rows[0]; if(!p) return res.status(404).json({ error: 'Proposition introuvable' });
+    if(a === 'withdraw'){ if(p.gp_user_id !== uid) return res.status(403).json({ error: 'Action non autorisée' }); await _pgPool.query("UPDATE gp_proposals SET status='withdrawn' WHERE id=$1 AND status='pending'",[p.id]); return res.json({ success: true }); }
+    if(p.owner !== uid) return res.status(403).json({ error: 'Réservé à l\'auteur de l\'annonce' });
+    if(a === 'accept'){ if(p.rstatus !== 'open') return res.status(400).json({ error: 'Tu as déjà choisi un GP' });
+      await _pgPool.query("UPDATE gp_proposals SET status='accepted' WHERE id=$1",[p.id]); await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE request_id=$1 AND id<>$2 AND status='pending'",[p.request_id, p.id]);
+      await _pgPool.query("UPDATE gp_requests SET status='assigned', assigned_to=$1, updated_at=NOW() WHERE id=$2",[p.gp_user_id, p.request_id]);
+      _gpLog('proposal_accept', uid, p.request_id, { gp: p.gp_user_id }, req);
+      const conv = await _gpSend(uid, p.gp_user_id, '✅ J\'accepte ta proposition pour « ' + p.title + ' ». Dis-moi où et quand déposer le colis 🙏', 'request:' + p.request_id); return res.json({ success: true, conv_id: conv }); }
+    if(a === 'decline'){ await _pgPool.query("UPDATE gp_proposals SET status='declined' WHERE id=$1 AND status='pending'",[p.id]); return res.json({ success: true }); }
+    res.status(400).json({ error: 'Action inconnue' });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Départs ──
+app.post('/api/gp/offers', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const b = req.body || {}; if(!_gpRate(uid, 'off', 15, 86400000)) return _filTooFast(res);
+    const prof = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[uid])).rows[0]; if(!prof) return res.status(400).json({ error: 'Crée ton profil GP pour publier un départ', need_profile: true }); if(prof.banned) return res.status(403).json({ error: 'Ton profil GP est suspendu' });
+    const fc = _gpCountry(b.from_country), tc = _gpCountry(b.to_country); if(!fc || !tc || fc === tc) return res.status(400).json({ error: 'Choisis le pays de départ et d\'arrivée' });
+    const dd = _gpDate(b.depart_date); if(!dd || dd < new Date().toISOString().slice(0,10)) return res.status(400).json({ error: 'Choisis une date de départ à venir' });
+    const kg = _gpNum(b.kg_available, 1, 5000); if(!kg) return res.status(400).json({ error: 'Indique les kilos disponibles' });
+    const types = Array.isArray(b.accepted_types) ? b.accepted_types.filter(function(t){ return GP_TYPES.indexOf(t) > -1; }) : []; const id = _gpId('gpo');
+    await _pgPool.query('INSERT INTO gp_offers(id,user_id,from_country,from_city,to_country,to_city,depart_date,arrival_date,kg_available,price_per_kg,currency,accepted_types,drop_point,pickup_point,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, uid, fc, _gpTxt(b.from_city,50)||null, tc, _gpTxt(b.to_city,50)||null, dd, _gpDate(b.arrival_date), kg, _gpNum(b.price_per_kg,0,1000000), _gpCur(b.currency), JSON.stringify(types), _gpTxt(b.drop_point,160)||null, _gpTxt(b.pickup_point,160)||null, _gpTxt(b.notes,1000)||null]);
+    setImmediate(async function(){ try{ const m = await _pgPool.query("SELECT DISTINCT user_id FROM gp_requests WHERE status='open' AND hidden=FALSE AND from_country=$1 AND to_country=$2 AND user_id<>$3 LIMIT 300",[fc, tc, uid]);
+      _gpLog('offer_new', uid, id, { route: fc + ' → ' + tc, kg: kg, date: dd }, req);
+      m.rows.forEach(function(x){ _gpPush(x.user_id, '✈️ Nouveau départ ' + fc + ' → ' + tc, (prof.company_name || 'Un GP') + ' part le ' + new Date(dd).toLocaleDateString('fr-FR') + ' · ' + kg + ' kg disponibles', '/#/depart/' + id); }); }catch(_){} });
+    res.json({ success: true, id: id });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.patch('/api/gp/offers/:id', gpAuth, async (req, res) => {
+  try{ const o = (await _pgPool.query('SELECT user_id FROM gp_offers WHERE id=$1',[req.params.id])).rows[0]; if(!o || o.user_id !== req.gpUid) return res.status(403).json({ error: 'Action non autorisée' });
+    const st = req.body.status;
+    if(['open','full','departed','done','cancelled'].indexOf(st) < 0) return res.status(400).json({ error: 'Statut inconnu' });
+    await _pgPool.query('UPDATE gp_offers SET status=$1, updated_at=NOW() WHERE id=$2',[st, req.params.id]); _gpLog('offer_' + st, req.gpUid, req.params.id, null, req);
+    if(st === 'departed' || st === 'done'){ try{ const rs = (await _pgPool.query("SELECT id, user_id, title FROM gp_requests WHERE assigned_to=$1 AND status IN ('assigned','sent')",[req.gpUid])).rows;
+      rs.forEach(function(x){ _gpPush(x.user_id, st === 'departed' ? '✈️ Ton GP est parti' : '🛬 Ton GP est arrivé', '« ' + x.title + ' » ' + (st === 'departed' ? 'est en route' : 'est arrivé à destination'), '/#/colis/' + x.id); }); }catch(_){} }
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/offers/:id/contact', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; if(!_gpRate(uid, 'contact', 30, 3600000)) return _filTooFast(res);
+    const o = (await _pgPool.query('SELECT * FROM gp_offers WHERE id=$1',[req.params.id])).rows[0]; if(!o || o.hidden || o.status !== 'open') return res.status(400).json({ error: 'Ce départ n\'est plus disponible' }); if(o.user_id === uid) return res.status(400).json({ error: 'C\'est ton propre départ' });
+    const w = _gpNum(req.body.weight_kg, 0.1, 500); const msg = _gpTxt(req.body.message, 800);
+    const conv = await _gpSend(uid, o.user_id, '✈️ Bonjour, je suis intéressé(e) par ton départ ' + o.from_country + (o.from_city ? ' (' + o.from_city + ')' : '') + ' → ' + o.to_country + (o.to_city ? ' (' + o.to_city + ')' : '') + ' du ' + new Date(o.depart_date).toLocaleDateString('fr-FR') + '.' + (w ? '\n📦 Poids de mon colis : ' + w + ' kg' : '') + (msg ? '\n\n' + msg : ''), 'offer:' + o.id);
+    await _pgPool.query('UPDATE gp_offers SET contacts=contacts+1 WHERE id=$1',[o.id]); _gpLog('offer_contact', uid, o.id, { gp: o.user_id }, req); res.json({ success: true, conv_id: conv });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Mon espace, avis, signalements ──
+app.get('/api/gp/mine', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid;
+    const reqs = (await _pgPool.query('SELECT * FROM gp_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[uid])).rows;
+    const offs = (await _pgPool.query('SELECT * FROM gp_offers WHERE user_id=$1 ORDER BY depart_date DESC LIMIT 100',[uid])).rows;
+    const props = (await _pgPool.query('SELECT p.*, r.title, r.from_country, r.to_country, r.weight_kg, r.user_id AS owner FROM gp_proposals p JOIN gp_requests r ON r.id=p.request_id WHERE p.gp_user_id=$1 ORDER BY p.created_at DESC LIMIT 100',[uid])).rows;
+    const users = await _gpUsers(reqs.map(function(r){ return r.assigned_to; }).concat([uid]).concat(props.map(function(p){ return p.owner; }))); const profs = await _gpProfiles(reqs.map(function(r){ return r.assigned_to; }).concat([uid]));
+    const reviewed = {}; (await _pgPool.query('SELECT request_id FROM gp_reviews WHERE author_id=$1',[uid])).rows.forEach(function(x){ reviewed[x.request_id] = 1; });
+    res.json({ requests: reqs.map(function(r){ return Object.assign(_gpReqOut(r, users, profs, uid), { reviewed: !!reviewed[r.id] }); }), offers: offs.map(function(o){ return _gpOffOut(o, users, profs, uid); }),
+      proposals: props.map(function(p){ return { id: p.id, request_id: p.request_id, title: p.title, route: p.from_country + ' → ' + p.to_country, weight_kg: Number(p.weight_kg), price_total: p.price_total != null ? Number(p.price_total) : null, currency: p.currency, status: p.status, owner: (users[p.owner]||{}).name || 'Expéditeur', conv_id: p.conv_id, created_at: p.created_at }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/reviews', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const r = (await _pgPool.query('SELECT * FROM gp_requests WHERE id=$1',[String(req.body.request_id||'')])).rows[0];
+    if(!r || r.user_id !== uid || (r.status !== 'delivered' && r.status !== 'sent') || !r.assigned_to) return res.status(400).json({ error: 'Tu pourras noter le GP une fois ton colis remis ou livré' });
+    const rating = Math.max(1, Math.min(5, parseInt(req.body.rating)||0));
+    const ins = await _pgPool.query('INSERT INTO gp_reviews(id,gp_user_id,author_id,request_id,rating,comment) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (author_id,request_id) DO NOTHING RETURNING id',[_gpId('gpv'), r.assigned_to, uid, r.id, rating, _gpTxt(req.body.comment, 600) || null]);
+    if(!ins.rows.length) return res.status(400).json({ error: 'Tu as déjà noté ce GP pour ce colis' });
+    await _pgPool.query('UPDATE gp_profiles SET rating_avg=(SELECT AVG(rating) FROM gp_reviews WHERE gp_user_id=$1), rating_count=(SELECT COUNT(*) FROM gp_reviews WHERE gp_user_id=$1) WHERE user_id=$1',[r.assigned_to]);
+    _gpLog('review', uid, r.id, { gp: r.assigned_to, rating: rating }, req);
+    _gpPush(r.assigned_to, '⭐ Nouvel avis : ' + rating + '/5', _gpTxt(req.body.comment, 80) || 'Un client t\'a noté', '/#/gp/' + r.assigned_to); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/report', gpAuth, async (req, res) => {
+  try{ if(!_gpRate(req.gpUid, 'report', 10, 86400000)) return _filTooFast(res);
+    const t = ['request','offer','gp'].indexOf(req.body.target_type) > -1 ? req.body.target_type : null; if(!t) return res.status(400).json({ error: 'Signalement invalide' });
+    await _pgPool.query('INSERT INTO gp_reports(id,target_type,target_id,reporter_id,reason) VALUES($1,$2,$3,$4,$5)',[_gpId('gpx'), t, String(req.body.target_id||'').slice(0,60), req.gpUid, _gpTxt(req.body.reason,500)||null]); _gpLog('report', req.gpUid, t + ':' + String(req.body.target_id||'').slice(0,60), null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Administration du site ──
+// Diagnostic : envoie un e-mail de test à l'administrateur et renvoie la réponse exacte de Resend
+app.post('/api/gp/admin/mail-test', gpAuth, gpAdmin, async (req, res) => {
+  try{ const u = (await _pgPool.query('SELECT email FROM gp_users WHERE id=$1',[req.gpUid])).rows[0] || {};
+    const to = String((req.body && req.body.to) || u.email || '').trim().toLowerCase();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return res.status(400).json({ error: 'Ajoute une adresse e-mail à ton compte ou indique-en une' });
+    const ok = await _gpMail(to, 'Yobanté — e-mail de test', 'Test d\'envoi', '<p style="color:#333;font-size:15px;line-height:1.6">Si tu lis ce message, les e-mails de Yobanté (codes de vérification, mot de passe oublié) partent correctement.</p>');
+    res.json({ success: ok, to: to, from: GP_MAIL_FROM, result: _gpMailLast });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/overview', gpAuth, gpStaff, async (req, res) => {
+  try{ const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(_){ return []; } };
+    const counts = (await q("SELECT (SELECT COUNT(*)::int FROM gp_users) AS users, (SELECT COUNT(*)::int FROM gp_requests) AS requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='open') AS open_requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='delivered') AS delivered, (SELECT COUNT(*)::int FROM gp_offers) AS offers, (SELECT COUNT(*)::int FROM gp_profiles) AS gps, (SELECT COUNT(*)::int FROM gp_profiles WHERE verified) AS verified, (SELECT COUNT(*)::int FROM gp_msgs) AS messages"))[0] || {};
+    const pend = await q('SELECT * FROM gp_profiles WHERE verified=FALSE AND verify_doc_url IS NOT NULL ORDER BY verify_requested_at DESC LIMIT 50');
+    const reports = await q("SELECT * FROM gp_reports WHERE status='open' ORDER BY created_at DESC LIMIT 100"); const gps = await q('SELECT * FROM gp_profiles ORDER BY created_at DESC LIMIT 200');
+    const users = await _gpUsers(pend.map(function(p){ return p.user_id; }).concat(gps.map(function(p){ return p.user_id; })).concat(reports.map(function(r){ return r.reporter_id; })));
+    const pub = function(p){ const u = users[p.user_id] || {}; return Object.assign(_gpPub(u, p), { phone: p.phone || u.phone || '', email: u.email || '', doc_url: p.verify_doc_url, banned: p.banned, created_at: p.created_at }); };
+    const contacts = await q("SELECT * FROM gp_contacts WHERE status='open' ORDER BY created_at DESC LIMIT 100");
+    const isMod = req.gpRole !== 'admin';
+    const strip = function(x){ if(!isMod) return x; const y = Object.assign({}, x); y.phone = ''; y.email = ''; return y; };   // les modérateurs ne voient pas les coordonnées
+    res.json({ role: req.gpRole, counts: counts, pending: pend.map(pub).map(strip), gps: isMod ? [] : gps.map(pub), contacts: contacts, reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).name || '' }); }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpStaff, async (req, res) => {
+  try{ const uid = String(req.params.uid); const a = req.params.action;
+    if(req.gpRole !== 'admin' && a !== 'verify') return res.status(403).json({ error: 'Seul l\'administrateur principal peut faire cette action' });
+    _gpLog('admin_' + a, req.gpUid, uid, null, req);
+    if(a === 'verify'){ await _pgPool.query('UPDATE gp_profiles SET verified=TRUE, verified_at=NOW() WHERE user_id=$1',[uid]); _gpPush(uid, '✅ Profil vérifié', 'Ton badge « Vérifié » est maintenant visible', '/#/gp/' + uid); }
+    else if(a === 'unverify') await _pgPool.query('UPDATE gp_profiles SET verified=FALSE WHERE user_id=$1',[uid]);
+    else if(a === 'ban'){ await _pgPool.query('UPDATE gp_profiles SET banned=TRUE WHERE user_id=$1',[uid]); await _pgPool.query('UPDATE gp_users SET banned=TRUE WHERE id=$1',[uid]); await _pgPool.query('UPDATE gp_offers SET hidden=TRUE WHERE user_id=$1',[uid]); }
+    else if(a === 'unban'){ await _pgPool.query('UPDATE gp_profiles SET banned=FALSE WHERE user_id=$1',[uid]); await _pgPool.query('UPDATE gp_users SET banned=FALSE WHERE id=$1',[uid]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/hide', gpAuth, gpStaff, async (req, res) => {
+  try{ const t = req.body.type === 'offer' ? 'gp_offers' : 'gp_requests'; await _pgPool.query('UPDATE ' + t + ' SET hidden=$1 WHERE id=$2',[req.body.hidden !== false, String(req.body.id||'')]); _gpLog(req.body.hidden !== false ? 'admin_hide' : 'admin_unhide', req.gpUid, String(req.body.id||''), { type: req.body.type }, req);
+    if(req.body.report_id) await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[String(req.body.report_id)]); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/daily', gpAuth, gpStaff, async (req, res) => {
+  try{ const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(_){ return []; } };
+    const days = []; for(let i = 13; i >= 0; i--){ const d = new Date(Date.now() - i*86400000); days.push(d.toISOString().slice(0,10)); }
+    const by = async function(tbl){ const m = {}; (await q("SELECT to_char(created_at::date,'YYYY-MM-DD') AS d, COUNT(*)::int AS n FROM " + tbl + " WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY 1")).forEach(function(r){ m[r.d] = r.n; }); return days.map(function(d){ return m[d] || 0; }); };
+    const act = {}; (await q("SELECT to_char(created_at::date,'YYYY-MM-DD') AS d, COUNT(DISTINCT user_id)::int AS n FROM gp_events WHERE created_at > NOW() - INTERVAL '14 days' AND user_id IS NOT NULL GROUP BY 1")).forEach(function(r){ act[r.d] = r.n; });
+    res.json({ days: days, signups: await by('gp_users'), requests: await by('gp_requests'), offers: await by('gp_offers'), messages: await by('gp_msgs'), active: days.map(function(d){ return act[d] || 0; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/users', gpAuth, gpAdmin, async (req, res) => {
+  try{ const qq = _gpTxt(req.query.q, 60); const sort = { recent: 'u.last_seen DESC NULLS LAST', new: 'u.created_at DESC', old: 'u.created_at ASC', name: 'u.name ASC' }[req.query.sort] || 'u.created_at DESC';
+    const rows = (await _pgPool.query('SELECT u.*, p.kind, p.company_name, p.verified, p.banned AS gp_banned, (SELECT COUNT(*)::int FROM gp_requests r WHERE r.user_id=u.id) AS n_req, (SELECT COUNT(*)::int FROM gp_offers o WHERE o.user_id=u.id) AS n_off, (SELECT COUNT(*)::int FROM gp_msgs m WHERE m.sender_id=u.id) AS n_msg FROM gp_users u LEFT JOIN gp_profiles p ON p.user_id=u.id' + (qq ? ' WHERE (u.name ILIKE $1 OR u.phone ILIKE $1 OR u.email ILIKE $1 OR p.company_name ILIKE $1)' : '') + ' ORDER BY ' + sort + ' LIMIT 200', qq ? ['%' + qq + '%'] : [])).rows;
+    res.json({ items: rows.map(function(u){ return { id: u.id, name: u.name, phone: u.phone, email: u.email, avatar_url: u.avatar_url, phone_verified: u.phone_verified, banned: u.banned, created_at: u.created_at, last_seen: u.last_seen, last_login: u.last_login, last_ip: u.last_ip, logins: u.logins || 0, is_gp: !!u.kind, company: u.company_name, verified: !!u.verified, n_req: u.n_req, n_off: u.n_off, n_msg: u.n_msg }; }) });
+  }catch(e){ console.error('[gp] admin users:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/users/:id', gpAuth, gpAdmin, async (req, res) => {
+  try{ const id = String(req.params.id); const u = (await _pgPool.query('SELECT * FROM gp_users WHERE id=$1',[id])).rows[0]; if(!u) return res.status(404).json({ error: 'Introuvable' });
+    const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[id])).rows[0] || null;
+    const reqs = (await _pgPool.query('SELECT id, title, from_country, to_country, weight_kg, status, hidden, created_at FROM gp_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50',[id])).rows;
+    const offs = (await _pgPool.query('SELECT id, from_country, to_country, depart_date, kg_available, status, hidden, created_at FROM gp_offers WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50',[id])).rows;
+    const ev = (await _pgPool.query('SELECT type, target, meta, ip, ua, created_at FROM gp_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200',[id])).rows;
+    const n = async function(sql){ try{ return (await _pgPool.query(sql,[id])).rows[0].n || 0; }catch(_){ return 0; } };
+    res.json({ user: { id: u.id, name: u.name, phone: u.phone, email: u.email, avatar_url: u.avatar_url, phone_verified: u.phone_verified, banned: u.banned, is_admin: u.is_admin, created_at: u.created_at, terms_at: u.terms_at, last_seen: u.last_seen, last_login: u.last_login, last_ip: u.last_ip, logins: u.logins || 0, pwd_changed_at: u.pwd_changed_at },
+      profile: p, requests: reqs, offers: offs, events: ev,
+      counts: { messages: await n('SELECT COUNT(*)::int AS n FROM gp_msgs WHERE sender_id=$1'), convs: await n('SELECT COUNT(*)::int AS n FROM gp_convs WHERE u1=$1 OR u2=$1'), proposals: await n('SELECT COUNT(*)::int AS n FROM gp_proposals WHERE gp_user_id=$1'), reviews_given: await n('SELECT COUNT(*)::int AS n FROM gp_reviews WHERE author_id=$1'), reviews_received: await n('SELECT COUNT(*)::int AS n FROM gp_reviews WHERE gp_user_id=$1'), reports_made: await n('SELECT COUNT(*)::int AS n FROM gp_reports WHERE reporter_id=$1') } });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/users/:id/:action', gpAuth, gpAdmin, async (req, res) => {
+  try{ const id = String(req.params.id); const a = req.params.action; if(id === req.gpUid) return res.status(400).json({ error: 'Action impossible sur ton propre compte' });
+    if(a === 'ban'){ await _pgPool.query('UPDATE gp_users SET banned=TRUE, pwd_changed_at=NOW() WHERE id=$1',[id]); await _pgPool.query('UPDATE gp_offers SET hidden=TRUE WHERE user_id=$1',[id]); await _pgPool.query('UPDATE gp_requests SET hidden=TRUE WHERE user_id=$1',[id]); }
+    else if(a === 'unban'){ await _pgPool.query('UPDATE gp_users SET banned=FALSE WHERE id=$1',[id]); await _pgPool.query('UPDATE gp_offers SET hidden=FALSE WHERE user_id=$1',[id]); await _pgPool.query('UPDATE gp_requests SET hidden=FALSE WHERE user_id=$1',[id]); }
+    else if(a === 'logout'){ await _pgPool.query('UPDATE gp_users SET pwd_changed_at=NOW() WHERE id=$1',[id]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    _gpLog('admin_user_' + a, req.gpUid, id, null, req); res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/listings', gpAuth, gpStaff, async (req, res) => {
+  try{ const kind = req.query.kind === 'offers' ? 'offers' : 'requests'; const qq = _gpTxt(req.query.q, 60); const st = _gpTxt(req.query.status, 20);
+    const tbl = kind === 'offers' ? 'gp_offers' : 'gp_requests'; const w = []; const v = [];
+    if(qq){ v.push('%' + qq + '%'); w.push('(x.from_city ILIKE $1 OR x.to_city ILIKE $1 OR x.from_country ILIKE $1 OR x.to_country ILIKE $1' + (kind === 'requests' ? ' OR x.title ILIKE $1' : ' OR x.notes ILIKE $1') + ')'); }
+    if(st){ v.push(st); w.push('x.status = $' + v.length); }
+    const rows = (await _pgPool.query('SELECT x.*, u.name AS owner_name' + (req.gpRole === 'admin' ? ', u.phone AS owner_phone' : '') + ' FROM ' + tbl + ' x LEFT JOIN gp_users u ON u.id=x.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY x.created_at DESC LIMIT 200', v)).rows;
+    res.json({ items: rows });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/gp/admin/events', gpAuth, gpAdmin, async (req, res) => {
+  try{ const w = []; const v = []; const p = function(x){ v.push(x); return '$' + v.length; };
+    if(req.query.type) w.push('e.type LIKE ' + p(_gpTxt(req.query.type, 40) + '%'));
+    if(req.query.user) w.push('e.user_id = ' + p(String(req.query.user)));
+    if(req.query.before) w.push('e.id < ' + p(parseInt(req.query.before)||0));
+    if(req.query.q) w.push('(u.name ILIKE ' + p('%' + _gpTxt(req.query.q, 60) + '%') + ' OR e.ip ILIKE $' + v.length + ' OR e.target ILIKE $' + v.length + ')');
+    const rows = (await _pgPool.query('SELECT e.*, u.name AS user_name FROM gp_events e LEFT JOIN gp_users u ON u.id=e.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY e.id DESC LIMIT 150', v)).rows;
+    res.json({ items: rows, next: rows.length === 150 ? rows[rows.length-1].id : null });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/contact/:id/close', gpAuth, gpStaff, async (req, res) => {
+  try{ await _pgPool.query("UPDATE gp_contacts SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/gp/admin/report/:id/close', gpAuth, gpStaff, async (req, res) => {
+  try{ await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ══ GROUPES DU FIL ══
+function _grpClean(s, n){ return String(s||'').replace(/[<>]/g,'').trim().slice(0, n); }
+async function _grpRole(gid, uid){ try{ const r = await _pgPool.query('SELECT role, status FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, uid]); return r.rows[0] || null; }catch(e){ return null; } }
+async function _grpOut(rows, uid){
+  if(!rows.length) return [];
+  const ids = rows.map(function(g){ return g.id; });
+  const cnt = {}, mine = {}, posts = {};
+  try{ (await _pgPool.query("SELECT group_id, COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id = ANY($1) AND status='member' GROUP BY group_id",[ids])).rows.forEach(function(r){ cnt[r.group_id]=r.n; }); }catch(_){}
+  try{ (await _pgPool.query('SELECT group_id, role, status FROM penc_fil_group_members WHERE group_id = ANY($1) AND user_id=$2',[ids, uid])).rows.forEach(function(r){ mine[r.group_id]=r; }); }catch(_){}
+  try{ (await _pgPool.query("SELECT group_id, COUNT(*)::int AS n FROM penc_posts WHERE group_id = ANY($1) AND deleted=FALSE AND created_at > NOW() - INTERVAL '7 days' GROUP BY group_id",[ids])).rows.forEach(function(r){ posts[r.group_id]=r.n; }); }catch(_){}
+  return rows.map(function(g){ const m = mine[g.id] || {}; return { id:g.id, name:g.name, description:g.description||'', avatar_url:g.avatar_url||null, privacy:g.privacy, category:g.category||null, owner_id:g.owner_id, members:cnt[g.id]||0, posts_week:posts[g.id]||0, my_role:m.status==='member'?m.role:null, my_status:m.status||null }; });
+}
+app.post('/api/penc/fil/groups', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'grp_create', 5, 86400000)) return _filTooFast(res);
+    const name = _grpClean(req.body.name, 60); if(name.length < 3) return res.status(400).json({ error: 'Donne un nom au groupe (3 caractères minimum)' });
+    const id = 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const privacy = req.body.privacy === 'private' ? 'private' : 'public';
+    await _pgPool.query('INSERT INTO penc_fil_groups(id,name,description,avatar_url,owner_id,privacy,category,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,NOW())',[id, name, _grpClean(req.body.description, 500), _filOkMedia(req.body.avatar_url) ? req.body.avatar_url : null, uid, privacy, _grpClean(req.body.category, 30) || null]);
+    await _pgPool.query("INSERT INTO penc_fil_group_members(group_id,user_id,role,status,joined_at) VALUES($1,$2,'admin','member',NOW())",[id, uid]);
+    const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[id])).rows[0];
+    res.json({ success: true, group: (await _grpOut([g], uid))[0] });
+  }catch(e){ console.error('grp create:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/groups', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const q = _grpClean(req.query.q, 60);
+    const mine = (await _pgPool.query("SELECT g.* FROM penc_fil_groups g JOIN penc_fil_group_members m ON m.group_id=g.id AND m.user_id=$1 AND m.status IN ('member','pending') ORDER BY g.name LIMIT 100",[uid])).rows;
+    let disc;
+    if(q) disc = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE (name ILIKE $1 OR description ILIKE $1) ORDER BY created_at DESC LIMIT 40',['%'+q+'%'])).rows;
+    else disc = (await _pgPool.query("SELECT g.* FROM penc_fil_groups g LEFT JOIN penc_fil_group_members m ON m.group_id=g.id AND m.status='member' WHERE NOT EXISTS (SELECT 1 FROM penc_fil_group_members x WHERE x.group_id=g.id AND x.user_id=$1) GROUP BY g.id ORDER BY COUNT(m.user_id) DESC, g.created_at DESC LIMIT 30",[uid])).rows;
+    res.json({ mine: await _grpOut(mine, uid), discover: await _grpOut(disc, uid) });
+  }catch(e){ res.json({ mine: [], discover: [] }); }
+});
+app.get('/api/penc/fil/groups/:id', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[req.params.id])).rows[0];
+    if(!g) return res.status(404).json({ error: 'Groupe introuvable' });
+    const out = (await _grpOut([g], uid))[0];
+    const canSee = g.privacy === 'public' || out.my_status === 'member';
+    let posts = [];
+    if(canSee){ const before = req.query.before ? String(req.query.before) : null;
+      const r = before ? await _pgPool.query('SELECT * FROM penc_posts WHERE group_id=$1 AND deleted=FALSE AND created_at <= NOW() AND created_at < $2 ORDER BY created_at DESC LIMIT 20',[g.id, before]) : await _pgPool.query('SELECT * FROM penc_posts WHERE group_id=$1 AND deleted=FALSE AND created_at <= NOW() ORDER BY created_at DESC LIMIT 20',[g.id]);
+      posts = await _postEnrichMany(r.rows, uid); }
+    let pending = 0; if(out.my_role === 'admin'){ try{ pending = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id=$1 AND status='pending'",[g.id])).rows[0].n; }catch(_){} }
+    res.json({ group: Object.assign(out, { can_see: canSee, pending_requests: pending }), posts: posts });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/groups/:id/join', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const g = (await _pgPool.query('SELECT * FROM penc_fil_groups WHERE id=$1',[req.params.id])).rows[0];
+    if(!g) return res.status(404).json({ error: 'Groupe introuvable' });
+    const status = g.privacy === 'private' ? 'pending' : 'member';
+    await _pgPool.query("INSERT INTO penc_fil_group_members(group_id,user_id,role,status,joined_at) VALUES($1,$2,'member',$3,NOW()) ON CONFLICT (group_id,user_id) DO NOTHING",[g.id, uid, status]);
+    if(status === 'pending'){ try{ const adm = await _pgPool.query("SELECT user_id FROM penc_fil_group_members WHERE group_id=$1 AND role='admin'",[g.id]); const me = await pgFindUser('id', uid) || {}; adm.rows.forEach(function(a){ sendPencPush(a.user_id, { title:'👥 ' + g.name, body:(me.full_name||'Quelqu\'un') + ' demande à rejoindre le groupe', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-grp-'+g.id, data:{ type:'group', group_id:g.id, url:'/messager' } }); }); }catch(_){} }
+    res.json({ success: true, status: status });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/groups/:id/leave', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id;
+    const me = await _grpRole(gid, uid);
+    if(me && me.role === 'admin'){ const others = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_fil_group_members WHERE group_id=$1 AND role='admin' AND user_id<>$2 AND status='member'",[gid, uid])).rows[0].n; if(!others) return res.status(400).json({ error: 'Nomme un autre administrateur avant de quitter ce groupe' }); }
+    await _pgPool.query('DELETE FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, uid]);
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/groups/:id/members', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id; const me = await _grpRole(gid, uid);
+    const status = (req.query.pending && me && me.role === 'admin') ? 'pending' : 'member';
+    const r = await _pgPool.query('SELECT user_id, role FROM penc_fil_group_members WHERE group_id=$1 AND status=$2 ORDER BY (role=\'admin\') DESC, joined_at ASC LIMIT 300',[gid, status]);
+    const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
+    res.json({ members: r.rows.map(function(x){ return Object.assign(_filUserPub(us[x.user_id]||{id:x.user_id}), { role: x.role }); }), am_admin: !!(me && me.role==='admin') });
+  }catch(e){ res.json({ members: [] }); }
+});
+app.post('/api/penc/fil/groups/:id/members/:uid/:action', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const gid = req.params.id; const target = String(req.params.uid); const me = await _grpRole(gid, uid);
+    if(!me || me.role !== 'admin' || me.status !== 'member') return res.status(403).json({ error: 'Réservé aux administrateurs du groupe' });
+    const a = req.params.action;
+    if(a === 'approve'){ await _pgPool.query("UPDATE penc_fil_group_members SET status='member', joined_at=NOW() WHERE group_id=$1 AND user_id=$2",[gid, target]); try{ const g = (await _pgPool.query('SELECT name FROM penc_fil_groups WHERE id=$1',[gid])).rows[0]; sendPencPush(target, { title:'👥 ' + (g?g.name:'Groupe'), body:'Ta demande a été acceptée, bienvenue !', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-grp-'+gid, data:{ type:'group', group_id:gid, url:'/messager' } }); }catch(_){} }
+    else if(a === 'reject' || a === 'remove'){ if(target === uid) return res.status(400).json({ error: 'Utilise « Quitter le groupe »' }); await _pgPool.query('DELETE FROM penc_fil_group_members WHERE group_id=$1 AND user_id=$2',[gid, target]); }
+    else if(a === 'promote'){ await _pgPool.query("UPDATE penc_fil_group_members SET role='admin' WHERE group_id=$1 AND user_id=$2 AND status='member'",[gid, target]); }
+    else return res.status(400).json({ error: 'Action inconnue' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ LIVES DU FIL (vidéo en direct via LiveKit) ══
+async function _liveToken(uid, name, room, host){
+  const at = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: uid, name: name || uid });
+  at.addGrant({ roomJoin: true, room: room, canPublish: !!host, canSubscribe: true, canPublishData: true });
+  at.ttl = '6h'; return await at.toJwt();
+}
+app.post('/api/penc/fil/lives', pencAuth, async (req, res) => {
+  try{
+    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Le direct n\'est pas disponible pour le moment' });
+    const uid = req.pencUser.userId;
+    if(!_filRate(uid, 'live_start', 6, 86400000)) return _filTooFast(res);
+    if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux pas lancer de direct pour le moment (décision de modération).' });
+    await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE host_id=$1 AND status='live'",[uid]);
+    const id = 'live_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); const room = 'penc_live_' + id;
+    const title = String(req.body.title||'').replace(/[<>]/g,'').trim().slice(0,100) || 'En direct';
+    await _pgPool.query('INSERT INTO penc_fil_lives(id,host_id,title,room,status,started_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, uid, title, room, 'live']);
+    const me = await pgFindUser('id', uid) || {};
+    const token = await _liveToken(uid, me.full_name || me.username, room, true);
+    // Prévenir les abonnés et les amis
+    setImmediate(async function(){ try{
+      const f = await _pgPool.query("SELECT follower AS u FROM penc_follows WHERE followee=$1 UNION SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1) LIMIT 2000",[uid]);
+      f.rows.forEach(function(x){ try{ sendPencPush(x.u, { title:'🔴 ' + (me.full_name||'Quelqu\'un') + ' est en direct', body: title, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-live-'+id, data:{ type:'live', live_id:id, url:'/messager?live='+id } }); }catch(_){} });
+    }catch(_e){} });
+    res.json({ success: true, live: { id, title, room, host_id: uid }, token, url: LIVEKIT_URL });
+  }catch(e){ console.error('live start:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/lives', pencAuth, async (req, res) => {
+  try{
+    await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE status='live' AND started_at < NOW() - INTERVAL '6 hours'");
+    const r = await _pgPool.query("SELECT * FROM penc_fil_lives WHERE status='live' ORDER BY started_at DESC LIMIT 20");
+    const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.host_id; }))).forEach(function(u){ us[u.id]=u; });
+    res.json({ lives: r.rows.map(function(l){ const u = us[l.host_id] || {}; return { id:l.id, title:l.title, host_id:l.host_id, host_name:u.full_name||u.username||'Utilisateur', host_avatar:u.avatar_url||null, started_at:l.started_at }; }) });
+  }catch(e){ res.json({ lives: [] }); }
+});
+app.post('/api/penc/fil/lives/:id/join', pencAuth, async (req, res) => {
+  try{
+    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Direct indisponible' });
+    const uid = req.pencUser.userId; const l = (await _pgPool.query('SELECT * FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0];
+    if(!l || l.status !== 'live') return res.status(404).json({ error: 'Ce direct est terminé' });
+    if(_areIsolated(uid, l.host_id)) return res.status(403).json({ error: 'Direct indisponible' });
+    const me = await pgFindUser('id', uid) || {}; const host = await pgFindUser('id', l.host_id) || {};
+    const token = await _liveToken(uid, me.full_name || me.username, l.room, String(uid) === String(l.host_id));
+    res.json({ success: true, live: { id:l.id, title:l.title, room:l.room, host_id:l.host_id, host_name:host.full_name||host.username||'', host_avatar:host.avatar_url||null, started_at:l.started_at }, token, url: LIVEKIT_URL });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/penc/fil/lives/:id/end', pencAuth, async (req, res) => {
+  try{
+    const peak = Math.max(0, parseInt(req.body.peak)||0);
+    const r = await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW(), peak=GREATEST(peak,$3) WHERE id=$1 AND host_id=$2 RETURNING id",[req.params.id, req.pencUser.userId, peak]);
+    res.json({ success: !!r.rows.length });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ COLLECTES ET COTISATIONS ══
+app.post('/api/penc/posts/:id/fund', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    if(!_filRate(uid, 'fund', 30, 3600000)) return _filTooFast(res);
+    const p = (await _pgPool.query("SELECT id, user_id, content, kind, fund_deadline FROM penc_posts WHERE id=$1 AND deleted=FALSE",[pid])).rows[0];
+    if(!p || p.kind !== 'fund') return res.status(404).json({ error: 'Collecte introuvable' });
+    if(p.fund_deadline && new Date(p.fund_deadline).getTime() < Date.now()) return res.status(400).json({ error: 'Cette collecte est terminée' });
+    const amount = parseInt(req.body.amount)||0; if(amount < 100 || amount > 10000000) return res.status(400).json({ error: 'Montant invalide (100 F minimum)' });
+    const method = req.body.method === 'balance' ? 'balance' : 'wave';
+    const id = 'fc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const anonymous = !!req.body.anonymous;
+    if(method === 'balance'){
+      if(String(uid) === String(p.user_id)) return res.status(400).json({ error: 'Tu ne peux pas contribuer à ta propre collecte avec ton solde' });
+      const c = await _pgPool.connect();
+      try{
+        await c.query('BEGIN');
+        const deb = await c.query('UPDATE penc_users SET balance=COALESCE(balance,0)-$1 WHERE id=$2 AND COALESCE(balance,0) >= $1 RETURNING balance',[amount, uid]);
+        if(!deb.rows.length){ await c.query('ROLLBACK'); return res.status(400).json({ error: 'Solde Penc insuffisant' }); }
+        await c.query('UPDATE penc_users SET balance=COALESCE(balance,0)+$1 WHERE id=$2',[amount, p.user_id]);
+        await c.query("INSERT INTO penc_fund_contribs(id,post_id,user_id,amount,method,ref,status,anonymous,created_at) VALUES($1,$2,$3,$4,'balance',NULL,'confirmed',$5,NOW())",[id, pid, uid, amount, anonymous]);
+        await c.query('COMMIT');
+      }catch(e){ try{ await c.query('ROLLBACK'); }catch(_){} throw e; } finally { c.release(); }
+    } else {
+      const ref = String(req.body.ref||'').replace(/[<>]/g,'').trim().slice(0,60);
+      await _pgPool.query("INSERT INTO penc_fund_contribs(id,post_id,user_id,amount,method,ref,status,anonymous,created_at) VALUES($1,$2,$3,$4,'wave',$5,'pending',$6,NOW())",[id, pid, uid, amount, ref || null, anonymous]);
+    }
+    try{ const me = await pgFindUser('id', uid) || {}; sendPencPush(p.user_id, { title:'💰 Nouvelle contribution', body:(anonymous?'Un donateur anonyme':(me.full_name||'Quelqu\'un')) + ' : ' + amount.toLocaleString('fr-FR') + ' F' + (method==='wave'?' (à confirmer)':''), icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-fund-'+pid, data:{ type:'post', post_id:pid, url:'/messager?post='+pid } }); }catch(_){}
+    const t = (await _pgPool.query("SELECT SUM(CASE WHEN status='confirmed' THEN amount ELSE 0 END)::int AS ok, SUM(CASE WHEN status='pending' THEN amount ELSE 0 END)::int AS pend, COUNT(DISTINCT CASE WHEN status='confirmed' THEN user_id END)::int AS n FROM penc_fund_contribs WHERE post_id=$1",[pid])).rows[0];
+    res.json({ success: true, status: method==='balance'?'confirmed':'pending', fund_raised: t.ok||0, fund_pending: t.pend||0, fund_count: t.n||0 });
+  }catch(e){ console.error('fund:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/posts/:id/fund', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const p = (await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid])).rows[0]; if(!p) return res.status(404).json({ error: 'Introuvable' });
+    const owner = String(p.user_id) === String(uid);
+    const r = await _pgPool.query(owner ? 'SELECT * FROM penc_fund_contribs WHERE post_id=$1 ORDER BY created_at DESC LIMIT 300' : "SELECT * FROM penc_fund_contribs WHERE post_id=$1 AND status='confirmed' ORDER BY created_at DESC LIMIT 100",[pid]);
+    const us = {}; (await pgFindUsersByIds(Array.from(new Set(r.rows.map(function(x){ return x.user_id; }))))).forEach(function(u){ us[u.id]=u; });
+    res.json({ owner: owner, contribs: r.rows.map(function(c){ const u = us[c.user_id] || {}; const hide = c.anonymous && !owner; return { id:c.id, user_id: hide?null:c.user_id, name: hide?'Anonyme':(u.full_name||u.username||'Utilisateur'), avatar_url: hide?null:(u.avatar_url||null), amount:c.amount, method:c.method, ref: owner?c.ref:null, status:c.status, anonymous:c.anonymous, created_at:c.created_at }; }) });
+  }catch(e){ res.json({ contribs: [] }); }
+});
+app.post('/api/penc/fund/contribs/:id/:action', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const c = (await _pgPool.query('SELECT f.*, p.user_id AS owner FROM penc_fund_contribs f JOIN penc_posts p ON p.id=f.post_id WHERE f.id=$1',[req.params.id])).rows[0];
+    if(!c || String(c.owner) !== String(uid)) return res.status(403).json({ error: 'Réservé à l\'organisateur' });
+    if(c.method !== 'wave' || c.status !== 'pending') return res.status(400).json({ error: 'Déjà traitée' });
+    const st = req.params.action === 'confirm' ? 'confirmed' : (req.params.action === 'reject' ? 'rejected' : null); if(!st) return res.status(400).json({ error: 'Action inconnue' });
+    await _pgPool.query('UPDATE penc_fund_contribs SET status=$1 WHERE id=$2',[st, c.id]);
+    try{ sendPencPush(c.user_id, { title:'💰 Contribution ' + (st==='confirmed'?'confirmée':'non reçue'), body: st==='confirmed' ? ('Merci ! Tes ' + c.amount.toLocaleString('fr-FR') + ' F ont bien été reçus.') : 'L\'organisateur n\'a pas trouvé ce paiement Wave. Vérifie ta référence.', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-fund-'+c.post_id, data:{ type:'post', post_id:c.post_id, url:'/messager?post='+c.post_id } }); }catch(_){}
+    res.json({ success: true, status: st });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Événements : « J'y vais » / « Intéressé·e » ──
+app.post('/api/penc/posts/:id/rsvp', pencAuth, async (req, res) => {
+  try{
+    const uid = req.pencUser.userId; const pid = req.params.id;
+    const status = ['going','interested'].indexOf(String(req.body.status)) > -1 ? String(req.body.status) : null;
+    const p = await _pgPool.query("SELECT kind FROM penc_posts WHERE id=$1 AND deleted=FALSE",[pid]);
+    if(!p.rows.length || p.rows[0].kind !== 'event') return res.status(404).json({ error: 'Événement introuvable' });
+    if(!status){ await _pgPool.query('DELETE FROM penc_event_rsvp WHERE post_id=$1 AND user_id=$2',[pid, uid]); }
+    else { await _pgPool.query('INSERT INTO penc_event_rsvp(post_id,user_id,status,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET status=$3',[pid, uid, status]); }
+    const g = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id=$1 AND status='going'",[pid]);
+    const i = await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_event_rsvp WHERE post_id=$1 AND status='interested'",[pid]);
+    res.json({ success: true, my_rsvp: status, rsvp_going: g.rows[0].n, rsvp_interested: i.rows[0].n });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── Bibliothèque musicale (pour poser une musique sur une vidéo du Fil) ──
+async function _eventReminders(){
+  if(!_pgPool) return;
+  try{
+    const r = await _pgPool.query("SELECT id, user_id, content, ev_date, ev_place FROM penc_posts WHERE kind='event' AND deleted=FALSE AND ev_reminded=FALSE AND ev_date IS NOT NULL AND ev_date > NOW() AND ev_date <= NOW() + INTERVAL '25 hours'");
+    for(const ev of r.rows){
+      const rs = await _pgPool.query("SELECT user_id FROM penc_event_rsvp WHERE post_id=$1 AND status IN ('going','interested')",[ev.id]);
+      const when = new Date(ev.ev_date).toLocaleString('fr-FR',{weekday:'long',hour:'2-digit',minute:'2-digit'});
+      const title = String(ev.content||'Événement').split('\n')[0].slice(0,60);
+      for(const p of rs.rows){ try{ sendPencPush(p.user_id, { title: '🗓️ Demain : ' + title, body: (ev.ev_place||'') + ' · ' + when, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-event-'+ev.id, data:{ type:'post', post_id: ev.id, url:'/messager?post='+ev.id } }); }catch(_p){} }
+      await _pgPool.query('UPDATE penc_posts SET ev_reminded=TRUE WHERE id=$1',[ev.id]);
+      console.log('[event] rappel envoyé pour ' + ev.id + ' à ' + rs.rows.length + ' personne(s)');
+    }
+  }catch(e){ console.error('[event] rappel:', e.message); }
+}
+setInterval(_eventReminders, 15*60000); setTimeout(_eventReminders, 20000);
+app.get('/api/penc/audio/tracks', pencAuth, async (req, res) => {
+  try{ const r = await _pgPool.query('SELECT id, name, url, duration FROM penc_audio_tracks ORDER BY created_at DESC LIMIT 100'); res.json({ tracks: r.rows }); }catch(e){ res.json({ tracks: [] }); }
+});
+app.post('/api/penc/audio/tracks', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    const url = String(req.body.url||''); const name = String(req.body.name||'').replace(/[<>]/g,'').trim().slice(0,60);
+    if(!_filOkMedia(url) || !name) return res.status(400).json({ error: 'Nom ou fichier manquant' });
+    const id = 'track_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await _pgPool.query('INSERT INTO penc_audio_tracks(id,name,url,duration,uploaded_by,created_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, name, url, Math.max(0,parseInt(req.body.duration)||0)||null, req.pencUser.userId]);
+    res.json({ success: true, id });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.delete('/api/penc/audio/tracks/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _pgPool.query('DELETE FROM penc_audio_tracks WHERE id=$1',[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/keybackup/download', pencAuth, async (req, res) => {
+  try{
+    const uid = String(req.pencUser.userId);
+    if(!_filRate(uid, 'kb_dl', 10, 3600000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie plus tard' });
+    const buf = await r2GetBuffer('penc/keybackup/' + uid + '.enc');
+    let obj = null; try{ obj = JSON.parse(buf.toString('utf8')); }catch(_p){}
+    if(!obj) return res.status(404).json({ error: 'Sauvegarde introuvable' });
+    res.set('Cache-Control', 'no-store');
+    res.json(obj);
+  }catch(e){ res.status(404).json({ error: 'Sauvegarde introuvable' }); }
+});
+
 app.get('/api/penc/referral/mine', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ code:null, count:0 });
@@ -8919,17 +11894,53 @@ app.post('/api/penc/statuses/:id/view', pencAuth, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// GET /api/penc/push/status — diagnostic : combien d'abonnements pour l'utilisateur connecté
+app.get('/api/penc/push/status', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    let pgCount = 0, jbCount = 0;
+    if (_pgPool) { try { const r = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_push_subs WHERE user_id=$1', [uid]); pgCount = r.rows[0].n; } catch (_) {} }
+    try { const subs = await pencPushSubs(); jbCount = subs.filter(x => x.user_id === uid).length; } catch (_) {}
+    res.json({ success: true, webpush_configured: !!webpush, pg_subscriptions: pgCount, jsonbin_subscriptions: jbCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// POST /api/penc/push/test — s'envoie une notification de test à soi-même
+app.post('/api/penc/push/test', pencAuth, async (req, res) => {
+  try {
+    const uid = req.pencUser.userId;
+    const out = await sendPencPush(uid, { title: 'Penc', body: 'Notification de test ✅ — elles arrivent bien sur ton téléphone', tag: 'penc-test', url: '/messager', icon: '/penc-icon-192.png', badge: '/penc-icon-192.png' });
+    res.json(Object.assign({ success: true, vapid: !!(webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) }, out || {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/penc/push/subscribe
 app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
   try {
     const { subscription } = req.body;
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
-    const subs = await pencPushSubs();
-    const others = subs.filter(s => !(s.subscription && s.subscription.endpoint === subscription.endpoint));
-    others.push({ user_id: uid, subscription, created_at: new Date().toISOString() });
-    await pencSavePushSubs(others);
-    res.json({ success: true });
+    // Enregistrer dans PostgreSQL en priorité (fiable). L'endpoint est unique : si le même
+    // appareil se réabonne, on met simplement à jour son user_id et sa subscription.
+    let _pgOk = false;
+    if (_pgPool) {
+      try {
+        await _pgPool.query(
+          `INSERT INTO penc_push_subs (endpoint, user_id, subscription, created_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, subscription = EXCLUDED.subscription`,
+          [subscription.endpoint, uid, JSON.stringify(subscription)]
+        );
+        _pgOk = true;
+      } catch (_pe) { console.error('push sub pg:', _pe.message); }
+    }
+    // Filet JSONBin (au cas où Postgres serait momentanément indisponible) — non bloquant.
+    try {
+      const subs = await pencPushSubs();
+      const others = subs.filter(s => !(s.subscription && s.subscription.endpoint === subscription.endpoint));
+      others.push({ user_id: uid, subscription, created_at: new Date().toISOString() });
+      await pencSavePushSubs(others);
+    } catch (_je) {}
+    res.json({ success: true, stored: _pgOk ? 'pg' : 'jsonbin' });
   } catch (e) { console.error('penc push sub:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -13179,7 +16190,7 @@ app.post('/api/penc/call/token', pencAuth, async (req, res) => {
       canSubscribe: true,
       canPublishData: true
     });
-    at.ttl = '1h';
+    at.ttl = '24h'; // appels illimités en pratique : le token ne peut plus expirer pendant un appel (avant : '1h', ce qui coupait tout appel dépassant 60 min)
     const token = await at.toJwt();
     res.json({ token, url: LIVEKIT_URL, room: room_name });
   }catch(e){
@@ -13288,6 +16299,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_user_id, 'call:recording-stopped', { room_name });
   });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
+    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now() }); }catch(_pc){}
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       room_name:room_name||('call_'+pencUserId),
@@ -13300,14 +16312,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     // (socket suspendu par le système, JS gelé) ne sonne jamais, même si "l'utilisateur"
     // est techniquement en ligne ailleurs. Un appel doit sonner sur TOUS les appareils.
     try{
-      const callerUsers = _pgPool ? (await pgAllUsers()||[]) : await pencUsers();
-      const callerUser = callerUsers.find(u=>u.id===pencUserId)||{};
+      const callerUser = (_pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(u=>u.id===pencUserId)) || {};
       const callerName = callerUser.full_name||callerUser.username||'Inconnu';
       await sendPencPush(target_user_id, {
         title: callerName+' appelle...',
         body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
         tag: 'penc-call',
-        url: '/messager',
+        url: '/messager?call=1',
+        requireInteraction: true, renotify: true, vibrate: [400,200,400,200,400,200,400],
         conv_id: null,
         call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
       });
@@ -13315,12 +16327,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     }catch(ep){console.error('push call err:',ep.message);}
   });
   socket.on('call:accept', ({caller_id}) => {
+    _pencPendingCalls.delete(String(pencUserId));
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
     // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
     // doit arrêter de sonner dès qu'un autre appareil du même compte a répondu.
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:decline', ({caller_id}) => {
+    _pencPendingCalls.delete(String(pencUserId));
     emitToUser(caller_id,'call:declined',{by:pencUserId});
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
@@ -13334,6 +16348,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
+    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)) _pencPendingCalls.delete(String(target_id)); }catch(_pe){}
     emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
@@ -13449,25 +16464,20 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // d'insérer, diffusant chacune leur propre copie — doublon visible côté client jusqu'au
       // rechargement complet de l'app, moment où un seul des deux survivait réellement en base.)
       let _claimed = null;
-      if (client_id && _pgPool) {
-        try {
-          _claimed = await pgClaimMessage({
-            id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
-            content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
-            reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
-            client_id: msg.client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
-            file_name: msg.file_name || null, file_size: msg.file_size || null
-          });
-        } catch (_e) {}
-        if (!_claimed) {
-          try {
-            const _dup = await _pgPool.query('SELECT id FROM penc_messages WHERE client_id=$1 LIMIT 1', [client_id]);
-            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: (_dup.rows[0] && _dup.rows[0].id) || msg.id, sender } });
-          } catch (_e) {
-            if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, sender } });
-          }
-          return;
-        }
+      if (_pgPool) {
+        const _p = await _pencPersistMsg({
+          id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type,
+          content: msg.content || '', media_url: msg.media_url || null, duration: msg.media_duration || null,
+          reply_to: msg.reply_to || null, pending: msg.pending || false, created_at: msg.created_at,
+          client_id: msg.client_id || client_id || null, expires_at: msg.expires_at || null, view_once: msg.view_once || false,
+          file_name: msg.file_name || null, file_size: msg.file_size || null
+        });
+        if (!_p.ok) { console.error('[msg-send] NON enregistré conv=' + conversation_id + ' — le téléphone va réessayer'); if (typeof cb === 'function') cb({ error: 'Réseau instable : le message sera renvoyé automatiquement.', retry: true }); return; }
+        if (_p.dup) { if (typeof cb === 'function') cb({ success: true, duplicate: true, message: { ...msg, id: _p.id || msg.id, sender } }); return; }
+        _claimed = true;
+        setImmediate(function(){ _gamBump(pencUserId, 'msg', 1); _gamStreakOnMessage(pencUserId, conversation_id); });
+      } else {
+        try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); _claimed = true; } catch (_jb) {}
       }
       const fullMsg = { ...msg, sender };
       // Livraison: room de la conv + rooms personnelles des participants
@@ -13487,8 +16497,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
-      // 2) Persistance best-effort — déjà faite ci-dessus (réservation atomique) quand un
-      // client_id était fourni ; sinon on persiste ici comme avant.
+      // 2) Persistance : déjà faite ci-dessus AVANT la diffusion (plus jamais « affiché puis perdu »).
       if (!_claimed) {
       try {
         if (_pgPool) {
@@ -13697,6 +16706,267 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
 });
 
+
+// ==== Sonko Archives TV -- site d'actu, meme infra que Penc (Render + PostgreSQL) ====
+// Reutilise les MEMES endpoints gratuits Google (traduction, synthese vocale) que Penc,
+// aucune nouvelle cle API ni cout supplementaire.
+const SONKO_ADMIN_KEY = process.env.SONKO_ADMIN_KEY || 'change-moi-dans-render';
+function sonkoAdmin(req, res, next) {
+  if ((req.headers['x-sonko-admin-key'] || '') !== SONKO_ADMIN_KEY) return res.status(401).json({ error: 'Cle admin invalide' });
+  next();
+}
+
+// Résumé automatique gratuit (sans appel IA payant) : repère les phrases contenant les
+// mots les plus fréquents de l'article (hors mots vides), en favorisant la première phrase
+// (souvent le lede en journalisme), puis les restitue dans leur ordre d'origine.
+const _FR_STOPWORDS = new Set(['le','la','les','de','des','du','un','une','et','en','à','au','aux','ce','ces','cette','cet','pour','par','sur','dans','avec','est','sont','a','ont','que','qui','se','son','sa','ses','ne','pas','plus','ou','mais','donc','or','ni','car','il','elle','ils','elles','on','nous','vous','je','tu','y','être','avoir','fait','faire','sans','entre','comme','aussi','très','tout','tous','toute','toutes','leur','leurs','ainsi','ceux','celle','celles','celui','dont','où','après','avant','depuis','lors']);
+function _extractiveSummary(text, maxBullets){
+  maxBullets = maxBullets || 3;
+  const sentences = String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 30);
+  if (sentences.length <= maxBullets) return sentences;
+  const freq = {};
+  (String(text).toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || []).forEach(w => {
+    if (!_FR_STOPWORDS.has(w) && w.length > 2) freq[w] = (freq[w] || 0) + 1;
+  });
+  const scored = sentences.map((s, i) => {
+    const words = s.toLowerCase().match(/[a-zàâäéèêëîïôöùûüç]+/g) || [];
+    let score = 0;
+    words.forEach(w => { if (freq[w]) score += freq[w]; });
+    score = score / Math.max(words.length, 1);
+    if (i === 0) score *= 1.3;
+    return { s: s.trim(), i, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, maxBullets).sort((a, b) => a.i - b.i).map(t => t.s);
+}
+
+// Bannière d'annonce déroulante, administrable depuis /sonko-admin (remplace la version
+// codée en dur : le texte vit maintenant en base, modifiable sans redéploiement).
+app.get('/api/sonko/announcement', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ enabled: false, text: '' });
+    const r = await _pgPool.query("SELECT value, enabled FROM sonko_settings WHERE key='announcement'");
+    if (!r.rows.length) return res.json({ enabled: false, text: '' });
+    res.json({ enabled: !!r.rows[0].enabled, text: r.rows[0].value || '' });
+  } catch (e) { res.json({ enabled: false, text: '' }); }
+});
+app.post('/api/sonko/admin/announcement', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ success: true });
+    const text = String((req.body && req.body.text) || '').slice(0, 300);
+    const enabled = !!(req.body && req.body.enabled);
+    await _pgPool.query(
+      "INSERT INTO sonko_settings(key,value,enabled,updated_at) VALUES('announcement',$1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$1, enabled=$2, updated_at=NOW()",
+      [text, enabled]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/sonko/articles', async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ articles: [] });
+    const r = await _pgPool.query("SELECT id,title,excerpt,image_url,author,category,reading_minutes,views,created_at FROM sonko_articles WHERE published=TRUE ORDER BY created_at DESC LIMIT 100");
+    res.json({ articles: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Modération admin des commentaires -- équivalent "gestion des utilisateurs" pour ce site
+// qui n'a pas de comptes : voir tous les commentaires de tous les articles, en supprimer
+// n'importe lequel (contrairement au visiteur qui ne peut modifier QUE le sien via son jeton).
+app.get('/api/sonko/admin/comments', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ comments: [] });
+    const r = await _pgPool.query('SELECT c.id,c.article_id,c.name,c.content,c.created_at,a.title AS article_title FROM sonko_comments c LEFT JOIN sonko_articles a ON a.id=c.article_id ORDER BY c.created_at DESC LIMIT 200');
+    res.json({ comments: r.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.delete('/api/sonko/admin/comments/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_comments WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/sonko/articles/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    await _pgPool.query('UPDATE sonko_articles SET views=views+1 WHERE id=$1', [req.params.id]);
+    const comments = await _pgPool.query('SELECT id,name,content,created_at FROM sonko_comments WHERE article_id=$1 ORDER BY created_at ASC LIMIT 300', [req.params.id]);
+    const reactions = await _pgPool.query('SELECT emoji,count FROM sonko_reactions WHERE article_id=$1', [req.params.id]);
+    res.json({ article: a.rows[0], comments: comments.rows, reactions: reactions.rows });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const id = 'art_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    // Temps de lecture estime : ~200 mots/minute, arrondi au superieur, minimum 1 minute
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
+    await _pgPool.query(
+      'INSERT INTO sonko_articles(id,title,excerpt,content,image_url,video_url,author,category,tags,ai_summary,reading_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes]
+    );
+    res.json({ success: true, id, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Lecture admin (pré-remplissage du formulaire d'édition) -- ne compte pas de vue,
+// contrairement à la route publique GET /api/sonko/articles/:id.
+app.get('/api/sonko/admin/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const a = await _pgPool.query('SELECT * FROM sonko_articles WHERE id=$1', [req.params.id]);
+    if (!a.rows.length) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ article: a.rows[0] });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.put('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { title, excerpt, content, image_url, video_url, author, category, tags } = req.body || {};
+    if (!title || !content) return res.status(400).json({ error: 'Titre et contenu requis' });
+    const wordCount = String(content).trim().split(/\s+/).filter(Boolean).length;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const aiSummary = _extractiveSummary(content).join('\n');
+    const r = await _pgPool.query(
+      'UPDATE sonko_articles SET title=$1,excerpt=$2,content=$3,image_url=$4,video_url=$5,author=$6,category=$7,tags=$8,ai_summary=$9,reading_minutes=$10 WHERE id=$11',
+      [title, excerpt || '', content, image_url || null, video_url || null, author || 'Redaction', category || 'Actualité', tags || '', aiSummary, readingMinutes, req.params.id]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
+    res.json({ success: true, reading_minutes: readingMinutes });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.delete('/api/sonko/articles/:id', sonkoAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _pgPool.query('DELETE FROM sonko_articles WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/comments', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { name, content } = req.body || {};
+    if (!name || !content) return res.status(400).json({ error: 'Nom et commentaire requis' });
+    const id = 'cm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const editToken = require('crypto').randomBytes(16).toString('hex');
+    await _pgPool.query('INSERT INTO sonko_comments(id,article_id,name,content,edit_token) VALUES($1,$2,$3,$4,$5)', [id, req.params.id, String(name).slice(0, 80), String(content).slice(0, 2000), editToken]);
+    res.json({ success: true, id, edit_token: editToken });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Modification d'un commentaire par son auteur -- pas de compte utilisateur sur ce site,
+// donc l'auteur prouve que le commentaire est le sien via le jeton reçu à la création
+// (stocké uniquement dans son navigateur, jamais renvoyé dans la liste publique des
+// commentaires) plutôt que par une authentification complète.
+app.put('/api/sonko/comments/:id', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const { content, edit_token } = req.body || {};
+    if (!content || !edit_token) return res.status(400).json({ error: 'Contenu et jeton requis' });
+    const r = await _pgPool.query('UPDATE sonko_comments SET content=$1 WHERE id=$2 AND edit_token=$3', [String(content).slice(0, 2000), req.params.id, edit_token]);
+    if (!r.rowCount) return res.status(403).json({ error: 'Modification non autorisée' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/sonko/articles/:id/react', async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const emoji = (req.body && req.body.emoji) || '👍';
+    await _pgPool.query('INSERT INTO sonko_reactions(article_id,emoji,count) VALUES($1,$2,1) ON CONFLICT (article_id,emoji) DO UPDATE SET count=sonko_reactions.count+1', [req.params.id, emoji]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Traduction -- meme endpoint Google gratuit non-officiel que Penc (translate_a/single)
+app.get('/api/sonko/translate', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 5000);
+    const target = String(req.query.target || 'en');
+    if (!text) return res.json({ translated: '' });
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(target) + '&dt=t&q=' + encodeURIComponent(text);
+    const r = await fetch(url);
+    const j = await r.json();
+    const translated = (j[0] || []).map(p => p[0]).join('');
+    res.json({ translated });
+  } catch (e) { res.status(500).json({ error: 'Traduction indisponible' }); }
+});
+
+// Lecture audio -- meme moteur gratuit que Penc (_generateTTS), limite ~200 caracteres par
+// appel cote Google : le texte est donc lu par le CLIENT en plusieurs morceaux successifs
+// (voir sonko.html), cet endpoint ne traite qu'un seul morceau a la fois.
+app.get('/api/sonko/tts', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').slice(0, 200);
+    const lang = String(req.query.lang || 'fr');
+    if (!text) return res.status(400).end();
+    const buf = await _generateTTS(text, lang);
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(buf);
+  } catch (e) { res.status(500).json({ error: 'Lecture audio indisponible' }); }
+});
+
+// Upload d'image depuis l'admin -- meme stockage R2 que Penc, aucune nouvelle cle/config.
+app.post('/api/sonko/upload-image', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }).single('image');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Image trop lourde (15 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune image recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'jpg';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutBuffer(key, req.file.buffer, req.file.mimetype || 'image/jpeg');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Upload vidéo -- fichiers plus gros que les photos, donc écriture temporaire sur disque
+// (multer.diskStorage) puis envoi vers R2 en streaming (r2PutFile), pour ne jamais charger
+// toute la vidéo en mémoire RAM sur un serveur déjà partagé avec Penc.
+app.post('/api/sonko/upload-video', sonkoAdmin, async (req, res) => {
+  try {
+    let multer;
+    try { multer = require('multer'); } catch (_me) {
+      return res.status(503).json({ error: 'Upload indisponible (multer manquant cote serveur).' });
+    }
+    const os = require('os');
+    const upload = multer({ dest: os.tmpdir(), limits: { fileSize: 60 * 1024 * 1024 } }).single('video');
+    upload(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: 'Video trop lourde (60 Mo max) ou invalide.' });
+      if (!req.file) return res.status(400).json({ error: 'Aucune video recue.' });
+      if (!_r2Client) return res.status(503).json({ error: 'Stockage indisponible.' });
+      const fs = require('fs');
+      try {
+        const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.split('.').pop().toLowerCase() : 'mp4';
+        const key = 'sonko/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const url = await r2PutFile(key, req.file.path, req.file.mimetype || 'video/mp4');
+        res.json({ success: true, url });
+      } catch (e2) { res.status(500).json({ error: 'Echec de l\'envoi vers le stockage.' }); }
+      finally { try { fs.unlinkSync(req.file.path); } catch (_ue) {} }
+    });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
