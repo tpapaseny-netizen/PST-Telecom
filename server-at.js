@@ -10488,6 +10488,10 @@ async function _ybInit(){
     CREATE TABLE IF NOT EXISTS yb_settings (k TEXT PRIMARY KEY, v JSONB NOT NULL);
     CREATE TABLE IF NOT EXISTS yb_events (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, user_id TEXT, target TEXT, meta JSONB, ip TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
     CREATE INDEX IF NOT EXISTS idx_ybev_time ON yb_events(created_at DESC);
+    ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS route JSONB;
+    ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS route_src TEXT;
+    CREATE TABLE IF NOT EXISTS yb_places (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, name_key TEXT NOT NULL, lat DOUBLE PRECISION NOT NULL, lng DOUBLE PRECISION NOT NULL, uses INT DEFAULT 1, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS idx_ybp_key ON yb_places(name_key);
   `);
   _ybReady = true;
 }
@@ -10505,6 +10509,44 @@ async function _ybSettings(){ try{ const r = (await _pgPool.query("SELECT v FROM
     moto: Object.assign({}, YB_DEFAULTS.moto, v.moto || {}), voiture: Object.assign({}, YB_DEFAULTS.voiture, v.voiture || {}) }; }catch(_){ return JSON.parse(JSON.stringify(YB_DEFAULTS)); } }
 function _ybPrice(s, vehicle, km){ const t = s[vehicle] || s.moto; const raw = Number(t.base) + Number(t.per_km) * km; return Math.ceil(Math.max(Number(t.min), raw) / 50) * 50; }
 function _ybRoadKm(a, b, c, d){ return Math.round(_ybKm(a, b, c, d) * 1.3 * 10) / 10; }   // trajet routier estimé ≈ 1,3 × ligne droite
+// Vrai trajet par la route (OSRM, gratuit). Garde-fous : délai de 3 s, résultat incohérent → estimation.
+// Le prix est TOUJOURS calculé ici, côté serveur, et figé au moment de la commande.
+const YB_ROUTER = process.env.YB_ROUTER_URL || 'https://router.project-osrm.org';
+const _ybRouteCache = new Map();
+async function _ybRoute(a, b, c, d){
+  const straight = _ybKm(a, b, c, d);
+  const est = { km: _ybRoadKm(a, b, c, d), minutes: Math.max(3, Math.round(straight * 1.3 / 0.4)), geometry: null, src: 'estimate' };
+  const key = [a, b, c, d].map(function(x){ return Number(x).toFixed(4); }).join(',');
+  const hit = _ybRouteCache.get(key); if(hit && Date.now() - hit.t < 6 * 3600000) return hit.v;
+  try{
+    const ctrl = new AbortController(); const tm = setTimeout(function(){ ctrl.abort(); }, 3000);
+    const r = await fetch(YB_ROUTER + '/route/v1/driving/' + b + ',' + a + ';' + d + ',' + c + '?overview=simplified&geometries=geojson', { signal: ctrl.signal, headers: { 'User-Agent': 'Yobouma/1.0 (PST)' } });
+    clearTimeout(tm);
+    const j = await r.json(); const rt = j && j.routes && j.routes[0];
+    if(rt && rt.distance > 0){
+      const km = Math.round(rt.distance / 100) / 10;
+      // Trajet absurde (détour énorme ou plus court que la ligne droite) → on garde l'estimation
+      if(km >= straight * 0.9 && (km <= straight * 3.5 || km - straight < 2)){
+        let g = (rt.geometry && rt.geometry.coordinates) || []; if(g.length > 400){ const st = Math.ceil(g.length / 400); g = g.filter(function(_, i){ return i % st === 0 || i === g.length - 1; }); }
+        const v = { km: km, minutes: Math.max(2, Math.round(rt.duration / 60)), geometry: g, src: 'route' };
+        _ybRouteCache.set(key, { t: Date.now(), v: v }); if(_ybRouteCache.size > 5000) _ybRouteCache.clear();
+        return v;
+      }
+    }
+  }catch(_){}
+  return est;
+}
+function _ybKey(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+// Les lieux nommés par les clients deviennent des suggestions pour tout le monde (gare routière, marché…)
+async function _ybLearnPlace(name, lat, lng){
+  try{ const k = _ybKey(name); if(k.length < 3 || /^(ma position|destination|point choisi)/.test(k)) return;
+    const rows = (await _pgPool.query('SELECT id, lat, lng FROM yb_places WHERE name_key=$1 LIMIT 20',[k])).rows;
+    const near = rows.find(function(p){ return _ybKm(lat, lng, p.lat, p.lng) < 0.4; });
+    if(near) await _pgPool.query('UPDATE yb_places SET uses=uses+1 WHERE id=$1',[near.id]);
+    else await _pgPool.query('INSERT INTO yb_places(name,name_key,lat,lng) VALUES($1,$2,$3,$4)',[_gpTxt(name, 80), k, lat, lng]);
+  }catch(_){}
+}
+const _ybGeoCache = new Map();
 async function ybAuth(req, res, next){
   try{ const h = req.headers.authorization || ''; if(!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Connecte-toi' });
     let d; try{ d = jwt_penc.verify(h.slice(7), YB_SECRET); }catch(_){ return res.status(401).json({ error: 'Session expirée' }); }
@@ -10522,7 +10564,7 @@ function _ybMe(u, drv){ return { id: u.id, name: u.name, phone: u.phone, role: u
 async function _ybRideView(r, viewerId){
   if(!r) return null;
   const v = { id: r.id, status: r.status, vehicle: r.vehicle, from: { lat: r.from_lat, lng: r.from_lng, label: r.from_label }, to: { lat: r.to_lat, lng: r.to_lng, label: r.to_label },
-    distance_km: Number(r.distance_km), price: Number(r.price), created_at: r.created_at, accepted_at: r.accepted_at, done_at: r.done_at, rating: r.rating, cancel_by: r.cancel_by };
+    distance_km: Number(r.distance_km), price: Number(r.price), route: r.route || null, created_at: r.created_at, accepted_at: r.accepted_at, done_at: r.done_at, rating: r.rating, cancel_by: r.cancel_by };
   if(r.driver_id && viewerId !== r.driver_id){
     const d = (await _pgPool.query('SELECT u.name, u.phone, d.* FROM yb_users u JOIN yb_drivers d ON d.user_id=u.id WHERE u.id=$1',[r.driver_id])).rows[0];
     if(d) v.driver = { name: d.name, phone: d.phone, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, lat: d.lat, lng: d.lng, loc_at: d.loc_at,
@@ -10570,16 +10612,44 @@ app.get('/api/yb/me', ybAuth, async (req, res) => {
     res.json({ me: _ybMe(req.yb, drv), ride: await _ybRideView(r, req.yb.id), prices: { moto: s.moto, voiture: s.voiture }, city: YB_CITY });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
+// ── Recherche d'un lieu : lieux Yobouma (appris des courses) + carte libre OpenStreetMap (Photon) ──
+app.get('/api/yb/places', async (req, res) => {
+  try{ await _ybInit(); const q = String(req.query.q || '').slice(0, 60).trim(); const k = _ybKey(q);
+    const lat = _ybNum(req.query.lat), lng = _ybNum(req.query.lng);
+    const hasPos = lat != null && lng != null;
+    let own = (await _pgPool.query(k ? "SELECT name, lat, lng, uses FROM yb_places WHERE name_key LIKE $1 ORDER BY uses DESC LIMIT 60" : 'SELECT name, lat, lng, uses FROM yb_places ORDER BY uses DESC LIMIT 200', k ? ['%' + k + '%'] : [])).rows;
+    if(hasPos) own = own.filter(function(p){ return _ybKm(lat, lng, p.lat, p.lng) <= 30; });
+    let items = own.slice(0, k ? 6 : 8).map(function(p){ return { name: p.name, sub: 'Lieu Yobouma', lat: p.lat, lng: p.lng, km: hasPos ? Math.round(_ybKm(lat, lng, p.lat, p.lng) * 10) / 10 : null }; });
+    if(k.length >= 3){
+      const ck = k + '|' + (hasPos ? lat.toFixed(1) + ',' + lng.toFixed(1) : '');
+      let ext = null; const hit = _ybGeoCache.get(ck); if(hit && Date.now() - hit.t < 24 * 3600000) ext = hit.v;
+      if(!ext){ ext = [];
+        try{ const ctrl = new AbortController(); const tm = setTimeout(function(){ ctrl.abort(); }, 2500);
+          const u = 'https://photon.komoot.io/api/?limit=8&lang=fr&q=' + encodeURIComponent(q) + (hasPos ? '&lat=' + lat + '&lon=' + lng : '');
+          const j = await (await fetch(u, { signal: ctrl.signal, headers: { 'User-Agent': 'Yobouma/1.0 (PST)' } })).json(); clearTimeout(tm);
+          ext = ((j && j.features) || []).map(function(f){ const pr = f.properties || {}; const c = (f.geometry && f.geometry.coordinates) || [];
+            return { name: pr.name || pr.street || '', sub: [pr.city || pr.county || pr.district, pr.country].filter(Boolean).join(', '), lat: c[1], lng: c[0] }; })
+            .filter(function(x){ return x.name && x.lat != null; });
+          _ybGeoCache.set(ck, { t: Date.now(), v: ext }); if(_ybGeoCache.size > 3000) _ybGeoCache.clear();
+        }catch(_){}
+      }
+      ext.forEach(function(x){ const d = hasPos ? _ybKm(lat, lng, x.lat, x.lng) : null; if(d != null && d > 40) return;
+        if(items.some(function(i){ return _ybKey(i.name) === _ybKey(x.name) && _ybKm(i.lat, i.lng, x.lat, x.lng) < 0.5; })) return;
+        items.push({ name: x.name, sub: x.sub, lat: x.lat, lng: x.lng, km: d != null ? Math.round(d * 10) / 10 : null }); });
+    }
+    res.json({ items: items.slice(0, 10) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
 // ── Client ──
 app.post('/api/yb/quote', async (req, res) => {
   try{ await _ybInit(); const b = req.body || {}; const a = _ybNum(b.from_lat), o = _ybNum(b.from_lng), c = _ybNum(b.to_lat), d = _ybNum(b.to_lng);
     if([a,o,c,d].some(function(x){ return x == null; })) return res.status(400).json({ error: 'Positions manquantes' });
-    const s = await _ybSettings(); const km = _ybRoadKm(a, o, c, d);
+    const s = await _ybSettings(); const rt = await _ybRoute(a, o, c, d); const km = rt.km;
     const since = new Date(Date.now() - 120000);
     const near = (await _pgPool.query("SELECT vehicle, lat, lng FROM yb_drivers WHERE status='approved' AND online=TRUE AND loc_at > $1",[since])).rows;
     const avail = { moto: 0, voiture: 0 }, eta = { moto: null, voiture: null };
     near.forEach(function(x){ const k = _ybKm(a, o, x.lat, x.lng); if(k <= s.search_radius_km){ avail[x.vehicle]++; const m = Math.max(2, Math.round(k * 1.3 / 0.4)); if(eta[x.vehicle] == null || m < eta[x.vehicle]) eta[x.vehicle] = m; } });
-    res.json({ distance_km: km, minutes: Math.max(3, Math.round(km / 0.4)), moto: { price: _ybPrice(s, 'moto', km), drivers: avail.moto, eta: eta.moto }, voiture: { price: _ybPrice(s, 'voiture', km), drivers: avail.voiture, eta: eta.voiture } });
+    res.json({ distance_km: km, minutes: rt.minutes, route: rt.geometry, route_src: rt.src, moto: { price: _ybPrice(s, 'moto', km), drivers: avail.moto, eta: eta.moto }, voiture: { price: _ybPrice(s, 'voiture', km), drivers: avail.voiture, eta: eta.voiture } });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/yb/rides', ybAuth, async (req, res) => {
@@ -10589,10 +10659,12 @@ app.post('/api/yb/rides', ybAuth, async (req, res) => {
     if(!_ybInCity(a, o)) return res.status(400).json({ error: 'Yobouma fonctionne pour l\'instant à Kaolack, Médina Sabakh, Keur Ayib et Farafenni' });
     await _ybExpire();
     if((await _pgPool.query('SELECT 1 FROM yb_rides WHERE client_id=$1 AND status = ANY($2)',[req.yb.id, YB_ACTIVE])).rows[0]) return res.status(400).json({ error: 'Tu as déjà une course en cours' });
-    const s = await _ybSettings(); const km = _ybRoadKm(a, o, c, d); if(km < 0.2) return res.status(400).json({ error: 'La destination est trop proche du départ' });
+    if(_ybKm(a, o, c, d) < 0.1) return res.status(400).json({ error: 'La destination est trop proche du départ' });
+    const s = await _ybSettings(); const rt = await _ybRoute(a, o, c, d); const km = rt.km;
     const price = _ybPrice(s, vehicle, km); const id = _ybId('ybr');
-    await _pgPool.query('INSERT INTO yb_rides(id,client_id,vehicle,from_lat,from_lng,from_label,to_lat,to_lng,to_label,distance_km,price) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-      [id, req.yb.id, vehicle, a, o, _gpTxt(b.from_label, 80) || 'Ma position', c, d, _gpTxt(b.to_label, 80) || 'Destination', km, price]);
+    await _pgPool.query('INSERT INTO yb_rides(id,client_id,vehicle,from_lat,from_lng,from_label,to_lat,to_lng,to_label,distance_km,price,route,route_src) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+      [id, req.yb.id, vehicle, a, o, _gpTxt(b.from_label, 80) || 'Ma position', c, d, _gpTxt(b.to_label, 80) || 'Destination', km, price, rt.geometry ? JSON.stringify(rt.geometry) : null, rt.src]);
+    if(b.to_label) _ybLearnPlace(b.to_label, c, d); if(b.from_label) _ybLearnPlace(b.from_label, a, o);
     _ybLog('ride_new', req.yb.id, id, { vehicle: vehicle, price: price, km: km }, req);
     res.json({ success: true, ride: await _ybRideView((await _pgPool.query('SELECT * FROM yb_rides WHERE id=$1',[id])).rows[0], req.yb.id) });
   }catch(e){ console.error('[yb] ride:', e.message); res.status(500).json({ error: 'Erreur' }); }
