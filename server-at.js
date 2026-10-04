@@ -6001,7 +6001,11 @@ async function _ensureMsgSeq(){
       'ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS server_seq BIGINT',
       "ALTER TABLE penc_messages ALTER COLUMN server_seq SET DEFAULT nextval('penc_msg_seq')",
       'CREATE INDEX IF NOT EXISTS idx_pm_conv_seq ON penc_messages(conversation_id, server_seq DESC NULLS LAST, created_at DESC)',
-      'CREATE INDEX IF NOT EXISTS idx_pm_conv_created ON penc_messages(conversation_id, created_at DESC)'
+      'CREATE INDEX IF NOT EXISTS idx_pm_conv_created ON penc_messages(conversation_id, created_at DESC)',
+      // v29 : si le compteur a été remis à zéro (restauration/migration de la base), les nouveaux messages
+      // recevaient des numéros PLUS PETITS que les anciens → considérés comme anciens et jamais renvoyés.
+      // On replace le compteur au-dessus du plus grand numéro existant (jamais en dessous).
+      "SELECT setval('penc_msg_seq', GREATEST((SELECT COALESCE(MAX(server_seq),0) FROM penc_messages), (SELECT last_value FROM penc_msg_seq)) + 1, false)"
     ];
     for(const q of steps){ try{ await _pgPool.query(q); }catch(e){ console.error('[msg-seq] ' + q.slice(0,60) + ' -> ' + e.message); } }
     try{ const c = await _pgPool.query("SELECT 1 FROM information_schema.columns WHERE table_name='penc_messages' AND column_name='server_seq'"); _msgSeqReady = c.rows.length > 0; }
@@ -6016,7 +6020,14 @@ async function pgGetMessages(convId, limit=400){
   // Filet de sécurité : si l'ordre serveur n'est pas disponible, on lit quand même les PLUS RÉCENTS par date.
   try{
     if(await _ensureMsgSeq()){
-      const r0 = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY server_seq DESC NULLS LAST, created_at DESC LIMIT $2',[convId, limit]);
+      // v29 : les plus récents = l'union des plus récents par DATE SERVEUR et par numéro de séquence.
+      // Avant, seul le numéro comptait : des messages récents avec un numéro bas (compteur remis à zéro)
+      // ou sans numéro étaient classés « anciens » et exclus → discussion bloquée à une vieille date
+      // alors que la liste montrait bien le dernier message.
+      const r0 = await _pgPool.query(`SELECT * FROM penc_messages WHERE id IN (
+          SELECT id FROM (SELECT id FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT $2) a
+          UNION SELECT id FROM (SELECT id FROM penc_messages WHERE conversation_id=$1 AND server_seq IS NOT NULL ORDER BY server_seq DESC LIMIT $2) b
+        ) ORDER BY created_at DESC LIMIT $2`,[convId, limit]);
       return r0.rows.reverse();
     }
   }catch(e){ console.error('[msgs] lecture par séquence échouée, repli par date:', e.message); }
@@ -8321,7 +8332,8 @@ app.get('/api/penc/admin/conv-diag/:convId', pencAuth, pencAdmin, async (req, re
     let parts = cr.participants; if(typeof parts === 'string'){ try{ parts = JSON.parse(parts); }catch(_){ parts = []; } } parts = Array.isArray(parts) ? parts.map(String) : [];
     const k = (await _pgPool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE deleted_for_all)::int AS deleted_all, COUNT(*) FILTER (WHERE expires_at IS NOT NULL)::int AS with_expiry,
       COUNT(*) FILTER (WHERE view_once)::int AS view_once, COUNT(*) FILTER (WHERE view_once_consumed)::int AS view_once_consumed, COUNT(*) FILTER (WHERE pending)::int AS pending,
-      COUNT(*) FILTER (WHERE content LIKE 'PENC_E2E_v1:%')::int AS e2e, COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS last7d FROM penc_messages WHERE conversation_id=$1`,[cid])).rows[0];
+      COUNT(*) FILTER (WHERE content LIKE 'PENC_E2E_v1:%')::int AS e2e, COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS last7d,
+      MAX(created_at) AS newest_at, (SELECT created_at FROM penc_messages WHERE conversation_id=$1 AND server_seq IS NOT NULL ORDER BY server_seq DESC LIMIT 1) AS newest_by_seq_at FROM penc_messages WHERE conversation_id=$1`,[cid])).rows[0];
     let eph = 0; try{ const e = (await _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1',[cid])).rows[0]; eph = e ? e.duration_seconds : 0; }catch(_){}
     const rows = await pgGetMessages(cid, 40);
     let users = []; try{ users = (await _pgPool.query('SELECT id, full_name, username, public_key FROM penc_users WHERE id = ANY($1)',[parts])).rows; }catch(_){}
