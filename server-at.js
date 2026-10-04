@@ -8311,6 +8311,26 @@ app.get('/api/penc/admin/fil/bans', pencAuth, pencAdmin, async (req, res) => {
   try{ const r = await _pgPool.query('SELECT * FROM penc_fil_bans WHERE until IS NULL OR until > NOW() ORDER BY created_at DESC LIMIT 100'); const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.user_id; }))).forEach(function(u){ us[u.id]=u; });
     res.json({ bans: r.rows.map(function(b){ return Object.assign(_filUserPub(us[b.user_id]||{id:b.user_id}), { reason:b.reason, until:b.until }); }) }); }catch(e){ res.json({ bans: [] }); }
 });
+// Diagnostic d'une discussion (admin) : compteurs et métadonnées des derniers messages, JAMAIS leur contenu
+app.get('/api/penc/admin/conv-diag/:convId', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    const cid = String(req.params.convId).slice(0,120); const me = String(req.pencUser.userId);
+    const cr = (await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1',[cid])).rows[0];
+    if(!cr) return res.status(404).json({ error: 'Discussion introuvable' });
+    let parts = cr.participants; if(typeof parts === 'string'){ try{ parts = JSON.parse(parts); }catch(_){ parts = []; } } parts = Array.isArray(parts) ? parts.map(String) : [];
+    const k = (await _pgPool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE deleted_for_all)::int AS deleted_all, COUNT(*) FILTER (WHERE expires_at IS NOT NULL)::int AS with_expiry,
+      COUNT(*) FILTER (WHERE view_once)::int AS view_once, COUNT(*) FILTER (WHERE view_once_consumed)::int AS view_once_consumed, COUNT(*) FILTER (WHERE pending)::int AS pending,
+      COUNT(*) FILTER (WHERE content LIKE 'PENC_E2E_v1:%')::int AS e2e, COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS last7d FROM penc_messages WHERE conversation_id=$1`,[cid])).rows[0];
+    let eph = 0; try{ const e = (await _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1',[cid])).rows[0]; eph = e ? e.duration_seconds : 0; }catch(_){}
+    const rows = await pgGetMessages(cid, 40);
+    let users = []; try{ users = (await _pgPool.query('SELECT id, full_name, username, public_key FROM penc_users WHERE id = ANY($1)',[parts])).rows; }catch(_){}
+    res.json({ conv_id: cid, ephemeral_seconds: eph, counts: k,
+      participants: users.map(function(u){ return { id: u.id, name: u.full_name || u.username || u.id, has_pk: !!u.public_key, pk_tail: u.public_key ? String(u.public_key).slice(-6) : null }; }),
+      last: rows.map(function(m){ return { id: m.id, mine: String(m.sender_id) === me, type: m.type, created_at: m.created_at, server_seq: m.server_seq || null, deleted_for_all: !!m.deleted_for_all,
+        expires_at: m.expires_at || null, view_once: !!m.view_once, pending: !!m.pending, e2e: String(m.content || '').indexOf('PENC_E2E_v1:') === 0, len: String(m.content || '').length }; }) });
+  }catch(e){ console.error('[conv-diag]', e.message); res.status(500).json({ error: 'Erreur : ' + e.message }); }
+});
 app.get('/api/penc/admin/whoami', pencAuth, async (req, res) => { res.json({ admin: await _pencIsAdmin(req) }); });
 // Temps d'utilisation : l'app envoie un signal par minute passée à l'écran
 let _presTblOk = false;
