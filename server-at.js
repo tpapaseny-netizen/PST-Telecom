@@ -10954,6 +10954,31 @@ app.post('/api/gp/auth/register', async (req, res) => {
     res.json({ token: _gpSign(u), user: _gpMe(u) });
   }catch(e){ console.error('[gp] register:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
+// Suppression définitive du compte (exigée par Google Play / App Store) : dans l'app et via yobantegp.com/#/supprimer-compte
+app.post('/api/gp/me/delete', gpAuth, async (req, res) => {
+  try{ const uid = req.gpUid; const b = req.body || {};
+    if(!_gpRate(uid, 'gp_delete', 5, 3600000)) return _filTooFast(res);
+    const u = (await _pgPool.query('SELECT id, pwd_hash FROM gp_users WHERE id=$1',[uid])).rows[0]; if(!u) return res.status(404).json({ error: 'Compte introuvable' });
+    if(u.pwd_hash && !(await _pencComparePwd(String(b.password || ''), u.pwd_hash))) return res.status(400).json({ error: 'Mot de passe incorrect' });
+    if(String(b.confirm || '').trim().toUpperCase() !== 'SUPPRIMER') return res.status(400).json({ error: 'Écris SUPPRIMER pour confirmer' });
+    const q = function(sql){ return _pgPool.query(sql,[uid]).catch(function(e){ console.error('[gp-delete]', e.message); }); };
+    await q('DELETE FROM gp_msgs WHERE conv_id IN (SELECT id FROM gp_convs WHERE u1=$1 OR u2=$1)');
+    await q('DELETE FROM gp_reads WHERE conv_id IN (SELECT id FROM gp_convs WHERE u1=$1 OR u2=$1)');
+    await q('DELETE FROM gp_convs WHERE u1=$1 OR u2=$1');
+    await q('DELETE FROM gp_proposals WHERE gp_user_id=$1 OR request_id IN (SELECT id FROM gp_requests WHERE user_id=$1)');
+    await q('DELETE FROM gp_requests WHERE user_id=$1');
+    await q('DELETE FROM gp_offers WHERE user_id=$1');
+    await q('DELETE FROM gp_reviews WHERE gp_user_id=$1 OR author_id=$1');
+    await q('DELETE FROM gp_reports WHERE reporter_id=$1');
+    await q('DELETE FROM gp_push WHERE user_id=$1');
+    await q('DELETE FROM gp_codes WHERE user_id=$1');
+    await q('DELETE FROM gp_contacts WHERE user_id=$1');
+    await q('DELETE FROM gp_profiles WHERE user_id=$1');
+    await q('DELETE FROM gp_users WHERE id=$1');
+    _gpLog('account_deleted', null, uid, null, req);
+    res.json({ success: true });
+  }catch(e){ console.error('[gp-delete]', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
 app.post('/api/gp/auth/login', async (req, res) => {
   try{ await _gpInit(); const b = req.body || {}; const id = String(b.identifier || '').trim(); const pwd = String(b.password || '');
     if(!_gpRate('ip:' + (req.ip||''), 'login', 20, 900000) || !_gpRate('id:' + id.toLowerCase(), 'login', 8, 900000)) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans 15 minutes.' });
