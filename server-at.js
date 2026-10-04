@@ -10430,6 +10430,7 @@ const GP_TYPES = ['documents','vetements','electronique','alimentaire','medicame
 const GP_COUNTRIES = ["Afghanistan", "Afrique du Sud", "Albanie", "Algérie", "Allemagne", "Andorre", "Angola", "Antigua-et-Barbuda", "Arabie saoudite", "Argentine", "Arménie", "Australie", "Autriche", "Azerbaïdjan", "Bahamas", "Bahreïn", "Bangladesh", "Barbade", "Belgique", "Belize", "Bénin", "Bhoutan", "Biélorussie", "Birmanie", "Bolivie", "Bosnie-Herzégovine", "Botswana", "Brésil", "Brunei", "Bulgarie", "Burkina Faso", "Burundi", "Cambodge", "Cameroun", "Canada", "Cap-Vert", "Centrafrique", "Chili", "Chine", "Chypre", "Colombie", "Comores", "Congo", "Congo (RDC)", "Corée du Nord", "Corée du Sud", "Costa Rica", "Côte d'Ivoire", "Croatie", "Cuba", "Danemark", "Djibouti", "Dominique", "Égypte", "Émirats arabes unis", "Équateur", "Érythrée", "Espagne", "Estonie", "Eswatini", "États-Unis", "Éthiopie", "Fidji", "Finlande", "France", "Gabon", "Gambie", "Géorgie", "Ghana", "Grèce", "Grenade", "Guatemala", "Guinée", "Guinée équatoriale", "Guinée-Bissau", "Guyana", "Guyane française", "Haïti", "Honduras", "Hong Kong", "Hongrie", "Inde", "Indonésie", "Irak", "Iran", "Irlande", "Islande", "Israël", "Italie", "Jamaïque", "Japon", "Jordanie", "Kazakhstan", "Kenya", "Kirghizistan", "Kiribati", "Kosovo", "Koweït", "Laos", "Lesotho", "Lettonie", "Liban", "Liberia", "Libye", "Liechtenstein", "Lituanie", "Luxembourg", "Macédoine du Nord", "Madagascar", "Malaisie", "Malawi", "Maldives", "Mali", "Malte", "Maroc", "Marshall", "Maurice", "Mauritanie", "Mexique", "Micronésie", "Moldavie", "Monaco", "Mongolie", "Monténégro", "Mozambique", "Namibie", "Nauru", "Népal", "Nicaragua", "Niger", "Nigeria", "Norvège", "Nouvelle-Zélande", "Oman", "Ouganda", "Ouzbékistan", "Pakistan", "Palaos", "Palestine", "Panama", "Papouasie-Nouvelle-Guinée", "Paraguay", "Pays-Bas", "Pérou", "Philippines", "Pologne", "Portugal", "Qatar", "République dominicaine", "République tchèque", "La Réunion", "Roumanie", "Royaume-Uni", "Russie", "Rwanda", "Saint-Kitts-et-Nevis", "Sainte-Lucie", "Saint-Marin", "Saint-Vincent-et-les-Grenadines", "Salomon", "Salvador", "Samoa", "Sao Tomé-et-Principe", "Sénégal", "Serbie", "Seychelles", "Sierra Leone", "Singapour", "Slovaquie", "Slovénie", "Somalie", "Soudan", "Soudan du Sud", "Sri Lanka", "Suède", "Suisse", "Suriname", "Syrie", "Tadjikistan", "Taïwan", "Tanzanie", "Tchad", "Thaïlande", "Timor oriental", "Togo", "Tonga", "Trinité-et-Tobago", "Tunisie", "Turkménistan", "Turquie", "Tuvalu", "Ukraine", "Uruguay", "Vanuatu", "Vatican", "Venezuela", "Viêt Nam", "Yémen", "Zambie", "Zimbabwe", "Guadeloupe", "Martinique", "Mayotte"];
 const GP_SECRET = PENC_SECRET + '::gp-site';          // jeton différent de Penc : un jeton Penc n'ouvre pas le site GP, et inversement
 const GP_ADMINS = String(process.env.GP_ADMINS || '').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+const GP_MODS = String(process.env.GP_MODERATORS || '').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
 let _gpReady = false;
 async function _gpInit(){
   if(_gpReady || !_pgPool) return;
@@ -10500,8 +10501,14 @@ async function gpAuth(req, res, next){
     req.gpUid = uid; _pgPool.query('UPDATE gp_users SET last_seen=NOW() WHERE id=$1',[uid]).catch(function(){}); next();
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 }
-async function _gpIsAdmin(uid){ try{ const u = (await _pgPool.query('SELECT is_admin, phone, email FROM gp_users WHERE id=$1',[uid])).rows[0]; if(!u) return false; return !!(u.is_admin || GP_ADMINS.indexOf(String(u.phone||'').toLowerCase()) > -1 || GP_ADMINS.indexOf(String(u.email||'').toLowerCase()) > -1); }catch(_){ return false; } }
-async function gpAdmin(req, res, next){ if(await _gpIsAdmin(req.gpUid)) return next(); res.status(403).json({ error: 'Réservé à l\'administration' }); }
+async function _gpRoleOf(uid){ try{ const u = (await _pgPool.query('SELECT is_admin, phone, email FROM gp_users WHERE id=$1',[uid])).rows[0]; if(!u) return null;
+  const keys = [String(u.phone||'').toLowerCase(), String(u.email||'').toLowerCase()].filter(Boolean);
+  if(u.is_admin || keys.some(function(k){ return GP_ADMINS.indexOf(k) > -1; })) return 'admin';
+  if(keys.some(function(k){ return GP_MODS.indexOf(k) > -1; })) return 'mod';
+  return null; }catch(_){ return null; } }
+async function _gpIsAdmin(uid){ return (await _gpRoleOf(uid)) === 'admin'; }
+async function gpAdmin(req, res, next){ if(await _gpIsAdmin(req.gpUid)) return next(); res.status(403).json({ error: 'Réservé à l\'administrateur principal' }); }
+async function gpStaff(req, res, next){ const r = await _gpRoleOf(req.gpUid); if(r){ req.gpRole = r; return next(); } res.status(403).json({ error: 'Réservé à l\'administration' }); }
 async function _gpUsers(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT id, name, avatar_url, phone, email, phone_verified, created_at FROM gp_users WHERE id = ANY($1)',[ids])).rows.forEach(function(u){ m[u.id] = u; }); }catch(_){} return m; }
 async function _gpProfiles(ids){ const m = {}; ids = Array.from(new Set(ids.filter(Boolean))); if(!ids.length) return m; try{ (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id = ANY($1)',[ids])).rows.forEach(function(p){ m[p.user_id] = p; }); }catch(_){} return m; }
 function _gpPub(u, p){ u = u || {}; p = p || null; return { id: u.id, name: (p && p.company_name) || u.name || 'Membre', person: u.name || '', avatar_url: (p && p.logo_url) || u.avatar_url || null,
@@ -10649,7 +10656,8 @@ app.get('/api/gp/me', gpAuth, async (req, res) => {
     const p = (await _pgPool.query('SELECT * FROM gp_profiles WHERE user_id=$1',[req.gpUid])).rows[0] || null;
     const unread = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM gp_convs c LEFT JOIN gp_reads r ON r.conv_id=c.id AND r.user_id=$1 WHERE (c.u1=$1 OR c.u2=$1) AND c.last_sender<>$1 AND (r.read_at IS NULL OR r.read_at < c.updated_at)',[req.gpUid])).rows[0].n;
     const tk = _gpTok(req); const fresh = (tk && tk.iat && Date.now()/1000 - tk.iat > 7*86400) ? _gpSign(u) : null;   // session glissante
-    res.json({ user: _gpMe(u), profile: p, unread: unread, is_admin: await _gpIsAdmin(req.gpUid), token: fresh });
+    const role = await _gpRoleOf(req.gpUid);
+    res.json({ user: _gpMe(u), profile: p, unread: unread, is_admin: !!role, role: role, token: fresh });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/gp/me', gpAuth, async (req, res) => {
@@ -10940,7 +10948,7 @@ app.post('/api/gp/report', gpAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ── Administration du site ──
-app.get('/api/gp/admin/overview', gpAuth, gpAdmin, async (req, res) => {
+app.get('/api/gp/admin/overview', gpAuth, gpStaff, async (req, res) => {
   try{ const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(_){ return []; } };
     const counts = (await q("SELECT (SELECT COUNT(*)::int FROM gp_users) AS users, (SELECT COUNT(*)::int FROM gp_requests) AS requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='open') AS open_requests, (SELECT COUNT(*)::int FROM gp_requests WHERE status='delivered') AS delivered, (SELECT COUNT(*)::int FROM gp_offers) AS offers, (SELECT COUNT(*)::int FROM gp_profiles) AS gps, (SELECT COUNT(*)::int FROM gp_profiles WHERE verified) AS verified, (SELECT COUNT(*)::int FROM gp_msgs) AS messages"))[0] || {};
     const pend = await q('SELECT * FROM gp_profiles WHERE verified=FALSE AND verify_doc_url IS NOT NULL ORDER BY verify_requested_at DESC LIMIT 50');
@@ -10948,11 +10956,14 @@ app.get('/api/gp/admin/overview', gpAuth, gpAdmin, async (req, res) => {
     const users = await _gpUsers(pend.map(function(p){ return p.user_id; }).concat(gps.map(function(p){ return p.user_id; })).concat(reports.map(function(r){ return r.reporter_id; })));
     const pub = function(p){ const u = users[p.user_id] || {}; return Object.assign(_gpPub(u, p), { phone: p.phone || u.phone || '', email: u.email || '', doc_url: p.verify_doc_url, banned: p.banned, created_at: p.created_at }); };
     const contacts = await q("SELECT * FROM gp_contacts WHERE status='open' ORDER BY created_at DESC LIMIT 100");
-    res.json({ counts: counts, pending: pend.map(pub), gps: gps.map(pub), contacts: contacts, reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).name || '' }); }) });
+    const isMod = req.gpRole !== 'admin';
+    const strip = function(x){ if(!isMod) return x; const y = Object.assign({}, x); y.phone = ''; y.email = ''; return y; };   // les modérateurs ne voient pas les coordonnées
+    res.json({ role: req.gpRole, counts: counts, pending: pend.map(pub).map(strip), gps: isMod ? [] : gps.map(pub), contacts: contacts, reports: reports.map(function(r){ return Object.assign({}, r, { reporter: (users[r.reporter_id]||{}).name || '' }); }) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpAdmin, async (req, res) => {
+app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpStaff, async (req, res) => {
   try{ const uid = String(req.params.uid); const a = req.params.action;
+    if(req.gpRole !== 'admin' && a !== 'verify') return res.status(403).json({ error: 'Seul l\'administrateur principal peut faire cette action' });
     _gpLog('admin_' + a, req.gpUid, uid, null, req);
     if(a === 'verify'){ await _pgPool.query('UPDATE gp_profiles SET verified=TRUE, verified_at=NOW() WHERE user_id=$1',[uid]); _gpPush(uid, '✅ Profil vérifié', 'Ton badge « Vérifié » est maintenant visible', '/#/gp/' + uid); }
     else if(a === 'unverify') await _pgPool.query('UPDATE gp_profiles SET verified=FALSE WHERE user_id=$1',[uid]);
@@ -10962,12 +10973,12 @@ app.post('/api/gp/admin/gp/:uid/:action', gpAuth, gpAdmin, async (req, res) => {
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.post('/api/gp/admin/hide', gpAuth, gpAdmin, async (req, res) => {
+app.post('/api/gp/admin/hide', gpAuth, gpStaff, async (req, res) => {
   try{ const t = req.body.type === 'offer' ? 'gp_offers' : 'gp_requests'; await _pgPool.query('UPDATE ' + t + ' SET hidden=$1 WHERE id=$2',[req.body.hidden !== false, String(req.body.id||'')]); _gpLog(req.body.hidden !== false ? 'admin_hide' : 'admin_unhide', req.gpUid, String(req.body.id||''), { type: req.body.type }, req);
     if(req.body.report_id) await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[String(req.body.report_id)]); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.get('/api/gp/admin/daily', gpAuth, gpAdmin, async (req, res) => {
+app.get('/api/gp/admin/daily', gpAuth, gpStaff, async (req, res) => {
   try{ const q = async function(sql){ try{ return (await _pgPool.query(sql)).rows; }catch(_){ return []; } };
     const days = []; for(let i = 13; i >= 0; i--){ const d = new Date(Date.now() - i*86400000); days.push(d.toISOString().slice(0,10)); }
     const by = async function(tbl){ const m = {}; (await q("SELECT to_char(created_at::date,'YYYY-MM-DD') AS d, COUNT(*)::int AS n FROM " + tbl + " WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY 1")).forEach(function(r){ m[r.d] = r.n; }); return days.map(function(d){ return m[d] || 0; }); };
@@ -11002,12 +11013,12 @@ app.post('/api/gp/admin/users/:id/:action', gpAuth, gpAdmin, async (req, res) =>
     _gpLog('admin_user_' + a, req.gpUid, id, null, req); res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.get('/api/gp/admin/listings', gpAuth, gpAdmin, async (req, res) => {
+app.get('/api/gp/admin/listings', gpAuth, gpStaff, async (req, res) => {
   try{ const kind = req.query.kind === 'offers' ? 'offers' : 'requests'; const qq = _gpTxt(req.query.q, 60); const st = _gpTxt(req.query.status, 20);
     const tbl = kind === 'offers' ? 'gp_offers' : 'gp_requests'; const w = []; const v = [];
     if(qq){ v.push('%' + qq + '%'); w.push('(x.from_city ILIKE $1 OR x.to_city ILIKE $1 OR x.from_country ILIKE $1 OR x.to_country ILIKE $1' + (kind === 'requests' ? ' OR x.title ILIKE $1' : ' OR x.notes ILIKE $1') + ')'); }
     if(st){ v.push(st); w.push('x.status = $' + v.length); }
-    const rows = (await _pgPool.query('SELECT x.*, u.name AS owner_name, u.phone AS owner_phone FROM ' + tbl + ' x LEFT JOIN gp_users u ON u.id=x.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY x.created_at DESC LIMIT 200', v)).rows;
+    const rows = (await _pgPool.query('SELECT x.*, u.name AS owner_name' + (req.gpRole === 'admin' ? ', u.phone AS owner_phone' : '') + ' FROM ' + tbl + ' x LEFT JOIN gp_users u ON u.id=x.user_id' + (w.length ? ' WHERE ' + w.join(' AND ') : '') + ' ORDER BY x.created_at DESC LIMIT 200', v)).rows;
     res.json({ items: rows });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -11021,10 +11032,10 @@ app.get('/api/gp/admin/events', gpAuth, gpAdmin, async (req, res) => {
     res.json({ items: rows, next: rows.length === 150 ? rows[rows.length-1].id : null });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.post('/api/gp/admin/contact/:id/close', gpAuth, gpAdmin, async (req, res) => {
+app.post('/api/gp/admin/contact/:id/close', gpAuth, gpStaff, async (req, res) => {
   try{ await _pgPool.query("UPDATE gp_contacts SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
-app.post('/api/gp/admin/report/:id/close', gpAuth, gpAdmin, async (req, res) => {
+app.post('/api/gp/admin/report/:id/close', gpAuth, gpStaff, async (req, res) => {
   try{ await _pgPool.query("UPDATE gp_reports SET status='done' WHERE id=$1",[req.params.id]); res.json({ success: true }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 
