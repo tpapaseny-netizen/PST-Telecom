@@ -10461,6 +10461,11 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 const YB_SECRET = PENC_SECRET + '::yobouma';
 const YB_ADMINS = String(process.env.YB_ADMINS || '').split(',').map(function(s){ return s.replace(/[^0-9+]/g,'').trim(); }).filter(Boolean);
 const YB_CITY = { name: 'Kaolack', lat: 14.152, lng: -16.073, radius_km: 25 };
+// Zones où l'on peut commander (le départ doit être dans l'une d'elles). Ajouter une ville = ajouter une ligne.
+const YB_ZONES = [
+  { name: 'Kaolack', lat: 14.152, lng: -16.073, radius_km: 25 },
+  { name: 'Médina Sabakh · Keur Ayib · Farafenni', lat: 13.600, lng: -15.570, radius_km: 25 }
+];
 const YB_DEFAULTS = { commission_pct: 1, search_radius_km: 6,
   moto:    { base: 200, per_km: 100, min: 300 },
   voiture: { base: 500, per_km: 250, min: 1000 } };
@@ -10494,7 +10499,7 @@ function _ybPhone(p){ let s = String(p||'').replace(/[^0-9+]/g,'').replace(/^00/
 function _ybSign(u){ return jwt_penc.sign({ ybu: u.id }, YB_SECRET, { expiresIn: '365d' }); }
 function _ybNum(v){ const n = Number(v); return isFinite(n) ? n : null; }
 function _ybKm(a, b, c, d){ const R = 6371, r = Math.PI/180; const x = Math.sin((c-a)*r/2), y = Math.sin((d-b)*r/2); return 2*R*Math.asin(Math.sqrt(x*x + Math.cos(a*r)*Math.cos(c*r)*y*y)); }
-function _ybInCity(lat, lng){ return lat != null && lng != null && _ybKm(lat, lng, YB_CITY.lat, YB_CITY.lng) <= YB_CITY.radius_km; }
+function _ybInCity(lat, lng){ return lat != null && lng != null && YB_ZONES.some(function(z){ return _ybKm(lat, lng, z.lat, z.lng) <= z.radius_km; }); }
 async function _ybSettings(){ try{ const r = (await _pgPool.query("SELECT v FROM yb_settings WHERE k='main'")).rows[0]; const v = r ? r.v : {};
   return { commission_pct: v.commission_pct != null ? Number(v.commission_pct) : YB_DEFAULTS.commission_pct, search_radius_km: Number(v.search_radius_km || YB_DEFAULTS.search_radius_km),
     moto: Object.assign({}, YB_DEFAULTS.moto, v.moto || {}), voiture: Object.assign({}, YB_DEFAULTS.voiture, v.voiture || {}) }; }catch(_){ return JSON.parse(JSON.stringify(YB_DEFAULTS)); } }
@@ -10529,7 +10534,7 @@ async function _ybRideView(r, viewerId){
 // Les recherches sans chauffeur depuis plus de 5 minutes expirent
 async function _ybExpire(){ try{ await _pgPool.query("UPDATE yb_rides SET status='expired' WHERE status='searching' AND created_at < NOW() - INTERVAL '5 minutes'"); }catch(_){} }
 
-app.get('/api/yb/config', async (req, res) => { try{ await _ybInit(); const s = await _ybSettings(); res.json({ city: YB_CITY, prices: { moto: s.moto, voiture: s.voiture } }); }catch(e){ res.status(500).json({ error: 'Erreur' }); } });
+app.get('/api/yb/config', async (req, res) => { try{ await _ybInit(); const s = await _ybSettings(); res.json({ city: YB_CITY, zones: YB_ZONES, prices: { moto: s.moto, voiture: s.voiture } }); }catch(e){ res.status(500).json({ error: 'Erreur' }); } });
 app.post('/api/yb/auth/register', async (req, res) => {
   try{ await _ybInit(); const b = req.body || {};
     if(!_gpRate('ip:' + _gpIp(req), 'yb_reg', 10, 3600000)) return _filTooFast(res);
@@ -10581,7 +10586,7 @@ app.post('/api/yb/rides', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; if(!_gpRate(req.yb.id, 'yb_ride', 15, 3600000)) return _filTooFast(res);
     const a = _ybNum(b.from_lat), o = _ybNum(b.from_lng), c = _ybNum(b.to_lat), d = _ybNum(b.to_lng); const vehicle = b.vehicle === 'voiture' ? 'voiture' : 'moto';
     if([a,o,c,d].some(function(x){ return x == null; })) return res.status(400).json({ error: 'Choisis le départ et la destination' });
-    if(!_ybInCity(a, o)) return res.status(400).json({ error: 'Yobouma fonctionne pour l\'instant uniquement à Kaolack' });
+    if(!_ybInCity(a, o)) return res.status(400).json({ error: 'Yobouma fonctionne pour l\'instant à Kaolack, Médina Sabakh, Keur Ayib et Farafenni' });
     await _ybExpire();
     if((await _pgPool.query('SELECT 1 FROM yb_rides WHERE client_id=$1 AND status = ANY($2)',[req.yb.id, YB_ACTIVE])).rows[0]) return res.status(400).json({ error: 'Tu as déjà une course en cours' });
     const s = await _ybSettings(); const km = _ybRoadKm(a, o, c, d); if(km < 0.2) return res.status(400).json({ error: 'La destination est trop proche du départ' });
