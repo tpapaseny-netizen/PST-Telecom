@@ -7,7 +7,7 @@
    NOTE : grâce au réseau-d'abord, les mises à jour de messager.html arrivent SEULES, sans toucher
    à ce fichier. Incrémenter SW_VERSION reste une bonne hygiène à chaque release (purge du cache). */
 
-var SW_VERSION = 'v431';
+var SW_VERSION = 'v704';
 var SHELL_CACHE = 'penc-shell-' + SW_VERSION;
 
 self.addEventListener('install', function (e) {
@@ -17,19 +17,49 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys()
-      .then(function (keys) { return Promise.all(keys.map(function (k) { return (k===SHELL_CACHE) ? null : caches.delete(k); })); })
+      .then(function (keys) { return Promise.all(keys.map(function (k) { return (k===SHELL_CACHE || k==='penc-share') ? null : caches.delete(k); })); })
       .then(function () { return self.clients.claim(); })
   );
   console.log('[SW] Penc', SW_VERSION, 'actif');
 });
 
+// ── Partager vers Penc : Android envoie ici ce que l'utilisateur partage depuis une autre app ──
+// (texte, lien, photos, vidéos, documents). On le met de côté puis on ouvre Penc sur « Envoyer à… ».
+function _pencReceiveShare(req) {
+  return req.formData().then(function (fd) {
+    return caches.delete('penc-share').then(function () { return caches.open('penc-share'); }).then(function (c) {
+      var files = fd.getAll('media').filter(function (f) { return f && typeof f !== 'string' && f.size > 0; }).slice(0, 10);
+      var meta = { title: String(fd.get('title') || ''), text: String(fd.get('text') || ''), url: String(fd.get('url') || ''), files: [], at: Date.now() };
+      var jobs = files.map(function (f, i) {
+        meta.files.push({ name: f.name || ('fichier' + i), type: f.type || '', size: f.size, key: '/__share/f' + i });
+        return c.put('/__share/f' + i, new Response(f, { headers: { 'Content-Type': f.type || 'application/octet-stream' } }));
+      });
+      return Promise.all(jobs).then(function () { return c.put('/__share/meta', new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } })); });
+    });
+  }).catch(function (err) {
+    return caches.open('penc-share').then(function (c) { return c.put('/__share/meta', new Response(JSON.stringify({ title: '', text: '', url: '', files: [], at: Date.now(), error: String((err && err.message) || err) }), { headers: { 'Content-Type': 'application/json' } })); }).catch(function () {});
+  }).then(function () { return Response.redirect('/messager?shared=1', 303); });
+}
+// Partage reçu en GET (certains téléphones) : titre / texte / lien dans l'adresse
+function _pencReceiveShareGet(u) {
+  var meta = { title: u.searchParams.get('title') || '', text: u.searchParams.get('text') || '', url: u.searchParams.get('url') || '', files: [], at: Date.now() };
+  return caches.delete('penc-share').then(function () { return caches.open('penc-share'); })
+    .then(function (c) { return c.put('/__share/meta', new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } })); })
+    .catch(function () {}).then(function () { return Response.redirect('/messager?shared=1', 303); });
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
+  if (req.method === 'POST') {
+    try { var pu = new URL(req.url); if (pu.origin === self.location.origin && pu.searchParams.has('share-target')) { e.respondWith(_pencReceiveShare(req)); return; } } catch (_) {}
+    return;
+  }
   if (req.method !== 'GET') return;
   var url;
   try { url = new URL(req.url); } catch (_) { return; }
   if (url.origin !== self.location.origin) return; // laisse le navigateur gerer Cloudinary, polices, etc.
   if (url.pathname.indexOf('/api/') === 0) return; // jamais en cache : toujours frais
+  if (url.searchParams.has('share-target') && (url.searchParams.has('text') || url.searchParams.has('url') || url.searchParams.has('title'))) { e.respondWith(_pencReceiveShareGet(url)); return; }
 
   // ── v367 : RESEAU D'ABORD pour le document HTML ──
   // Chaque ouverture recupere la derniere version publiee sur Cloudflare.
@@ -89,9 +119,24 @@ self.addEventListener('push', function (e) {
   if (d.conv_id && !data.conv_id) data.conv_id = d.conv_id;
   if (d.url && !data.url) data.url = d.url;
   if (d.type && !data.type) data.type = d.type;
+  if (d.post_id && !data.post_id) data.post_id = d.post_id;
+  if (d.call_data && !data.call) data.call = d.call_data;
   var ICON = d.icon || '/penc-icon-192.png';
   var BADGE = d.badge || '/penc-icon-192.png';
-  e.waitUntil(_bdgInc().then(function () {
+  // Appel entrant : notification qui reste affichée, vibre comme un appel, et ramène à l'écran d'appel
+  if (d.tag === 'penc-call' || data.call) {
+    data.type = 'call'; data.url = '/messager?call=1';
+    e.waitUntil(self.registration.showNotification(d.title || 'Appel Penc', {
+      body: d.body || 'Appel entrant — touche pour répondre', icon: ICON, badge: BADGE, tag: 'penc-call',
+      renotify: true, requireInteraction: true, vibrate: [500, 250, 500, 250, 500, 250, 500, 250, 500], data: data
+    }));
+    return;
+  }
+  // App ouverte et visible à l'écran : la bannière interne suffit, pas de doublon dans la barre du téléphone
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cl) {
+    var visible = cl.some(function (c) { return c.visibilityState === 'visible' && c.focused; });
+    if (visible && data.conv_id) return;
+    return _bdgInc().then(function () {
     var reg = self.registration;
     if (data.conv_id) {
       return _grpGet().then(function (g) {
@@ -99,7 +144,12 @@ self.addEventListener('push', function (e) {
         g[data.conv_id] = (g[data.conv_id] || 0) + 1;
         return _grpSet(g).then(function () {
           var convs = Object.keys(g);
-          if (convs.length >= 2) {
+          // Seuil relevé de 2 à 6 discussions distinctes avant de tout regrouper en un message
+          // générique — avant, dès la 2e discussion avec un message en attente, tout disparaissait
+          // dans un vague "X nouvelles conversations" au lieu de garder chaque expéditeur visible
+          // séparément, contrairement à WhatsApp qui préserve des notifications distinctes bien
+          // plus longtemps avant de résumer.
+          if (convs.length >= 6) {
             return reg.getNotifications().then(function (list) {
               list.forEach(function (n) { if (n.data && n.data.conv_id) { try { n.close(); } catch (_) {} } });
               return reg.showNotification('Penc', {
@@ -123,6 +173,7 @@ self.addEventListener('push', function (e) {
       body: d.body || '', icon: ICON, badge: BADGE, tag: d.tag || 'penc',
       renotify: true, vibrate: [80, 40, 80], data: data
     });
+  });
   }));
 });
 
@@ -131,7 +182,9 @@ self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   var data = e.notification.data || {};
   var target = data.url || '/messager';
-  if (data.status_id) target = '/messager?statut=' + encodeURIComponent(data.status_id);
+  if (data.type === 'call') target = '/messager?call=1';
+  else if (data.post_id) target = '/messager?post=' + encodeURIComponent(data.post_id);
+  else if (data.status_id) target = '/messager?statut=' + encodeURIComponent(data.status_id);
   else if (data.conv_id) target = '/messager?conv=' + encodeURIComponent(data.conv_id);
   else if (data.type === 'friend_request' || data.type === 'friend_accepted') target = '/messager?req=1';
   e.waitUntil(
@@ -168,3 +221,15 @@ function _swFlush(){
   }).catch(function(){});
 }
 self.addEventListener('sync', function(e){ if(e.tag==='penc-outbox'){ e.waitUntil(_swFlush()); } });
+
+// ══ Abonnement aux notifications renouvelé par le navigateur : on se réabonne tout seul avec la même clé ══
+self.addEventListener('pushsubscriptionchange', function (e) {
+  var opts = (e.oldSubscription && e.oldSubscription.options) || null;
+  if (!opts || !opts.applicationServerKey) return;
+  e.waitUntil(
+    self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: opts.applicationServerKey })
+      .then(function () { return self.clients.matchAll({ type: 'window', includeUncontrolled: true }); })
+      .then(function (list) { list.forEach(function (c) { try { c.postMessage({ type: 'PENC_RESUB' }); } catch (_) {} }); })
+      .catch(function () {})
+  );
+});
