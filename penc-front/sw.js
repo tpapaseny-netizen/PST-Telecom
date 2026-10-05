@@ -7,7 +7,7 @@
    NOTE : grâce au réseau-d'abord, les mises à jour de messager.html arrivent SEULES, sans toucher
    à ce fichier. Incrémenter SW_VERSION reste une bonne hygiène à chaque release (purge du cache). */
 
-var SW_VERSION = 'v706';
+var SW_VERSION = 'v707';
 var SHELL_CACHE = 'penc-shell-' + SW_VERSION;
 
 self.addEventListener('install', function (e) {
