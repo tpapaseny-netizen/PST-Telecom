@@ -10322,7 +10322,7 @@ var _pencOpenAt=0, _pencUserTouched=false;
   document.addEventListener('touchstart',function(e){ if(e.target.closest && e.target.closest('#msgsArea')) _pencUserTouched=true; },{passive:true,capture:true});
   document.addEventListener('wheel',function(e){ if(e.target.closest && e.target.closest('#msgsArea')) _pencUserTouched=true; },{passive:true,capture:true});
   // Pendant les 2 premières secondes, tant qu'on n'a pas touché l'écran, la discussion reste collée en bas
-  var stick=function(){ var a=document.getElementById('msgsArea'); if(!a) return; if(Date.now()-_pencOpenAt<2200 && !_pencUserTouched && !document.getElementById('pencUnreadDiv')) a.scrollTop=a.scrollHeight; };
+  var stick=function(){ var a=document.getElementById('msgsArea'); if(!a) return; if(Date.now()-_pencOpenAt<2200 && !_pencUserTouched) a.scrollTop=a.scrollHeight; };
   document.addEventListener('load',function(e){ if(e.target && (e.target.tagName==='IMG'||e.target.tagName==='VIDEO') && e.target.closest && e.target.closest('#msgsArea')) stick(); },true);
   if('ResizeObserver' in window){ var hook=function(){ var a=document.getElementById('msgsArea'); if(!a||a._v12) return; a._v12=1; new ResizeObserver(stick).observe(a); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hook); else hook(); }
   // Anciens messages : seulement si c'est TOI qui remontes (jamais pendant l'ouverture)
@@ -10480,7 +10480,7 @@ async function _pencAdminCheck(){ try{ if(!TOKEN) return; var r=await api('/admi
 setTimeout(_pencAdminCheck,2500); setInterval(function(){ if(document.querySelector('.fil-tabs') && ME && ME.is_admin && !document.querySelector('.fil-adm')) _pencAdminCheck(); },5000);
 // ── Réaction « En colère » ──
 try{ _FIL_REACT.angry={e:'😡',l:'En colère',c:'#E0473E'}; _FIL_REACT_KEYS=['like','love','haha','wow','sad','angry','pray']; }catch(e){}
-try{ PENC_QUICK_EMOJIS.splice(0,PENC_QUICK_EMOJIS.length,'👍','❤️','😂','😮','😢','😡','🙏'); _CHAT_RX_LBL['😡']='En colère'; }catch(e){}
+try{ PENC_QUICK_EMOJIS.splice(0,PENC_QUICK_EMOJIS.length,'👍','❤️','😂','😮','😢','🙏','🙌','😍'); _CHAT_RX_LBL['😡']='En colère'; _CHAT_RX_LBL['🙌']='Bravo'; _CHAT_RX_LBL['😍']='Trop beau'; }catch(e){}
 // ── Fil : actualiser = de vraies nouveautés (le serveur écarte ce que tu viens de voir) ──
 var _feedSession={};
 (function(){
@@ -11973,11 +11973,18 @@ async function _qpThumb(file, max){
   function area(){ return document.getElementById('msgsArea'); }
   function gap(a){ return a.scrollHeight-a.scrollTop-a.clientHeight; }
   function toBottom(){ var a=area(); if(a && pinned) a.scrollTop=a.scrollHeight; }
-  function watch(n){ try{ if(ro && n && n.nodeType===1) ro.observe(n); }catch(_){} }
+  var _hgt=new WeakMap();
+  function watch(n){ try{ if(ro && n && n.nodeType===1){ _hgt.set(n, n.offsetHeight); ro.observe(n); } }catch(_){} }
   function hook(){
     var a=area(); if(!a || a._v28) return; a._v28=1;
     try{ a.style.overflowAnchor='none'; }catch(_){}
-    if('ResizeObserver' in window){ ro=new ResizeObserver(function(){ if(pinned) toBottom(); }); Array.prototype.forEach.call(a.children, watch); }
+    if('ResizeObserver' in window){ ro=new ResizeObserver(function(entries){
+      if(pinned){ entries.forEach(function(en){ try{ _hgt.set(en.target, en.target.offsetHeight); }catch(_){} }); toBottom(); return; }
+      var adj=0, top=a.scrollTop;
+      entries.forEach(function(en){ var el=en.target; var prev=_hgt.has(el)?_hgt.get(el):el.offsetHeight; var now=el.offsetHeight; _hgt.set(el, now);
+        if(now!==prev && el.offsetTop + prev <= top + 2) adj += (now-prev); });
+      if(adj) a.scrollTop = top + adj;
+    }); Array.prototype.forEach.call(a.children, watch); }
     new MutationObserver(function(ms){ ms.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, watch); }); if(pinned) toBottom(); }).observe(a,{childList:true});
     var mark=function(){ userMove=true; };
     a.addEventListener('touchmove',mark,{passive:true}); a.addEventListener('wheel',mark,{passive:true});
@@ -15500,7 +15507,7 @@ function _logCall(status){
 }
 function buildVoiceBubble(msg){
   const uid='v'+Date.now()+Math.random().toString(36).slice(2);
-  try{ window._voiceMeta=window._voiceMeta||{}; window._voiceMeta[uid]={msgId:msg.id, convId:CUR_CONV, channelId:msg.channelId||null}; }catch(_){}
+  try{ window._voiceMeta=window._voiceMeta||{}; window._voiceMeta[uid]={msgId:msg.id, convId:CUR_CONV, channelId:msg.channelId||null, m:msg}; }catch(_){}
   var seed=0; for(var _i=0;_i<(msg.media_url||'').length;_i++) seed=(seed*31+(msg.media_url||'').charCodeAt(_i))&0xffffff;
   var _N=34,_half=Math.ceil(_N/2),_tmp=[];
   for(var _hh=0;_hh<_half;_hh++){ seed=(seed*1664525+1013904223)&0x7fffffff; _tmp.push(4+(seed%11)); }
@@ -17759,6 +17766,7 @@ async function uploadAndSend(blob,type,mimeType,trim,scheduleFor,caption,viewOnc
   var _defC=type==='voice'?'🎤 Vocal':type==='image'?'📷 Photo':type==='video'?'🎬 Vidéo':(fileName?('📎 '+fileName):'📎 Fichier');
   var _rawMarkerEsc=esc((_cap||_defC));
   const row=document.createElement('div'); row.className='msg-row me'; row.dataset.mid=tid;
+  row.dataset.ttype=type; row.dataset.tcontent=(_cap||_defC);
   // Filet de sécurité : si cette bulle temporaire (le temps de l'envoi) reste bloquée pour une
   // raison quelconque (erreur réseau non rattrapée ailleurs), elle ne doit JAMAIS rester affichée
   // indéfiniment sans durée ni bouton vitesse — elle disparaît d'elle-même après 45s si elle n'a
@@ -17773,9 +17781,9 @@ async function uploadAndSend(blob,type,mimeType,trim,scheduleFor,caption,viewOnc
   var thumbHtml='', _imgDims=null, _boxStyle='';
   if(type==='image' && blob instanceof Blob){ try{ _imgDims=await _pencBlobDims(blob); }catch(_bd){} _boxStyle=_chatBoxStyle(_imgDims&&_imgDims[0],_imgDims&&_imgDims[1]); }
   if((type==='image'||type==='video') && blob instanceof Blob){
-    var tmpUrl=URL.createObjectURL(blob);
+    var tmpUrl=URL.createObjectURL(blob); row.dataset.localm=tmpUrl;
     if(type==='image'){
-      thumbHtml='<img src="'+tmpUrl+'" style="width:100%;height:100%;object-fit:cover;display:block;"/>';
+      thumbHtml='<img src="'+tmpUrl+'" style="width:100%;height:100%;object-fit:contain;display:block;"/>';
     } else {
       thumbHtml='<video src="'+tmpUrl+'" style="width:100%;max-height:280px;object-fit:cover;border-radius:12px;display:block;" muted preload="metadata"></video>';
     }
@@ -30163,7 +30171,7 @@ if('serviceWorker' in navigator){
     try{ showNotif('🔄','Mise à jour Penc','Une nouvelle version est prête — actualisation…','blue',null); }catch(_n){}
     setTimeout(function(){ location.reload(); }, 1400);
   }
-  navigator.serviceWorker.addEventListener('controllerchange',function(){ if(window._pencLoginAt&&(Date.now()-window._pencLoginAt)<60000)return; _pencApplyUpdateWhenIdle(); });
+  navigator.serviceWorker.addEventListener('controllerchange',function(){ if(window._pencLoginAt&&(Date.now()-window._pencLoginAt)<60000)return; if(window._pencDeferUpd && window._pencDeferUpd()){ window._pencUpdPending=_pencApplyUpdateWhenIdle; return; } _pencApplyUpdateWhenIdle(); });
 }
 // ── Navigation depuis notification push ──
 if(navigator.serviceWorker){
@@ -31618,6 +31626,7 @@ function showMsgMenu(msg, rowEl){
   plusBtn.style.cssText='font-size:20px;font-weight:700;cursor:pointer;padding:2px 8px;color:var(--muted);border:1.5px dashed var(--border);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-sizing:content-box;';
   var _openAnyEmoji=function(e){
     e.stopPropagation(); closeCtxMenu();
+    if(typeof _pencRxSheet==='function'){ _pencRxSheet(msg.id); return; }
     // Réutilise le clavier emoji natif du téléphone plutôt qu'une grille personnalisée : plus
     // fiable, toujours à jour, et déjà familier — au lieu d'être limité aux 6 réactions rapides.
     var inp=document.createElement('input'); inp.type='text'; inp.setAttribute('maxlength','8');
@@ -33101,5 +33110,236 @@ window.addEventListener('load', function(){ var n=0; var iv=setInterval(function
 .msg-row .msg-bubble.wa-voice.voice-wrap.vinnov.open .voice-bar.played{ background:#FFFFFF !important; opacity:1 !important; }
 .msg-row .msg-bubble.wa-voice.voice-wrap.vinnov.open .wa-dot{ background:#FFFFFF !important; }
 </style>
+<style id="penc706">
+/* ═══ v706 ═══ */
+/* Photos entières dans la discussion (plus de recadrage), fond flou derrière */
+#screen-chat .media-bubble.img-bubble.fixbox .mb-blur{display:block !important;position:absolute;inset:-14px;background:var(--mb) center/cover no-repeat;filter:blur(16px) brightness(.8);z-index:0;}
+#screen-chat .media-bubble.img-bubble.fixbox .mb-img{position:relative;z-index:1;object-fit:contain !important;}
+/* Réactions collées au message, comme WhatsApp */
+.msg-react-row{display:flex !important;margin:-13px 0 8px !important;padding:0 16px;position:relative;z-index:3;pointer-events:none;gap:0 !important;}
+.msg-react-row.me{justify-content:flex-end !important;}
+.msg-react-row.them{justify-content:flex-start !important;}
+.msg-react-row.rx-voice{margin-top:-6px !important;}
+.mrx-pill{pointer-events:auto;cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:2px 8px;font-size:14px;line-height:20px;display:inline-flex;align-items:center;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.14);}
+.mrx-pill.mine{border-color:rgba(24,119,242,.55);}
+.mrx-pill b{font-size:11.5px;font-weight:700;margin-left:4px;color:var(--muted);}
+.ctx-rx{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;}
+.ctx-rx::-webkit-scrollbar{display:none;}
+/* Grille complète d'emojis pour réagir */
+.rxs-ov{position:fixed;inset:0;z-index:2147483100;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;}
+.rxs-sheet{width:100%;max-height:62vh;background:var(--card);border-radius:20px 20px 0 0;padding:8px 10px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;animation:rxsUp .22s ease;}
+@keyframes rxsUp{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.rxs-h{width:40px;height:4px;border-radius:3px;background:var(--border);margin:4px auto 8px;}
+.rxs-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.rxs-tab{flex:none;border:none;background:transparent;font-size:21px;padding:6px 9px;border-radius:10px;cursor:pointer;}
+.rxs-tab.on{background:rgba(24,119,242,.14);}
+.rxs-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;padding-top:8px;}
+.rxs-grid button{border:none;background:transparent;font-size:26px;padding:6px 0;border-radius:10px;cursor:pointer;}
+.rxs-grid button:active{background:var(--card2);transform:scale(.9);}
+/* Mini-lecteur façon WhatsApp : bande fine en haut */
+.pmp-bar{left:0 !important;right:0 !important;top:0 !important;border-radius:0 !important;border:none !important;padding:calc(6px + env(safe-area-inset-top,0px)) 10px 9px !important;gap:10px !important;align-items:center !important;background:var(--card) !important;box-shadow:0 1px 0 var(--border),0 4px 14px rgba(0,0,0,.12) !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+.pmp-bar::before{display:none !important;}
+.pmp-bar .pmp-play{width:34px !important;height:34px !important;background:transparent !important;color:var(--text) !important;box-shadow:none !important;}
+.pmp-av{width:32px;height:32px;border-radius:50%;overflow:hidden;flex:none;background:#1877F2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;}
+.pmp-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.pmp-bar .pmp-title{font-size:14px !important;font-weight:800 !important;text-transform:uppercase;letter-spacing:.2px;}
+.pmp-bar .pmp-mid{position:static !important;}
+.pmp-bar .pmp-progress{position:absolute !important;left:0;right:0;bottom:0;margin:0 !important;height:2.5px !important;border-radius:0 !important;background:rgba(24,119,242,.12) !important;}
+.pmp-bar .pmp-time{display:none !important;}
+.pmp-bar .pmp-speed{padding:4px 9px !important;font-size:10.5px !important;}
+.pmp-bar .pmp-close{background:transparent !important;font-size:17px !important;width:30px !important;height:30px !important;color:var(--text) !important;}
+/* Visionneuse photo : retour en haut à gauche, enregistrer à droite (comme le Fil) */
+#imgViewer > .img-viewer-close:first-child{right:auto !important;left:14px !important;}
+#imgViewer > .img-viewer-close:nth-child(2){left:auto !important;right:14px !important;}
+#imgViewer > .img-viewer-close{top:calc(12px + env(safe-area-inset-top,0px)) !important;width:42px !important;height:42px !important;border-radius:21px !important;background:rgba(255,255,255,.16) !important;z-index:5;}
+/* Cartes de lien premium et stables (taille fixe : rien ne saute quand l'image arrive) */
+.mlc2{border-left:none !important;border-radius:14px !important;background:var(--card2) !important;box-shadow:0 1px 3px rgba(0,0,0,.12);max-width:min(300px,72vw) !important;margin:2px 0 7px !important;}
+.msg-row.me .mlc2{background:rgba(255,255,255,.17) !important;box-shadow:none;}
+.mlc2-img,.mlc2-img.tall{aspect-ratio:1.91 !important;max-height:none !important;}
+.mlc2-img.tall{aspect-ratio:.9 !important;}
+.mlc2-img.tall img,.mlc2-img.tall video{height:100% !important;max-height:none !important;object-fit:cover !important;}
+.mlc2-b{padding:9px 11px 10px !important;}
+.mlc2-t{font-size:14px !important;}
+.msg-text{overflow-wrap:anywhere;}
+.mlc2-url{max-width:min(280px,70vw) !important;}
+/* Connexion / inscription : le formulaire ne bouge plus avec le clavier */
+#screen-auth{justify-content:flex-start !important;}
+#screen-auth .auth-wrap{margin:max(20px, calc(50vh - 330px)) auto 24px !important;}
+@supports (height:1lvh){ #screen-auth .auth-wrap{margin:max(20px, calc(50lvh - 330px)) auto 24px !important;} }
+#screen-auth .auth-form > *{animation:none !important;}
+</style>
+<script id="penc706js">
+(function(){
+  /* ── 1. Bulle d'envoi reconnue à la confirmation (photo / vidéo / vocal) ── */
+  try{
+    _pencFindTmp=function(cid, msg){
+      var area=document.getElementById('msgsArea'); if(!area) return null;
+      var now=Date.now(), exact=null, sameType=null, want=String((msg&&msg.content)||'').trim();
+      area.querySelectorAll('[data-mid^="tmp_"]').forEach(function(el){
+        var age=now-parseInt((el.dataset.mid||'0').replace('tmp_',''),10); if(age>=150000) return;
+        var b=el.querySelector('.msg-bubble');
+        var raw=(el.dataset.tcontent!==undefined)?el.dataset.tcontent:(b?((b.dataset&&b.dataset.raw!==undefined)?b.dataset.raw:b.textContent):'');
+        if(String(raw).trim()===want) exact=el;
+        else if(msg && el.dataset.ttype && el.dataset.ttype===msg.type && !sameType) sameType=el;
+      });
+      return exact||sameType;
+    };
+    var _fin=_pencFinalizeTmp;
+    _pencFinalizeTmp=function(cid, tmpEl, msg){
+      var r=_fin.apply(this, arguments);
+      try{
+        if(msg && (msg.type==='image'||msg.type==='video') && !msg.view_once){
+          var mb=tmpEl.querySelector('.media-bubble');
+          var enc=(typeof _isE2E==='function') && _isE2E(msg.media_url);
+          var u=enc?(tmpEl.dataset.localm||''):msg.media_url;
+          if(mb && u){ mb.style.cursor='pointer'; mb.onclick=function(e){ if(e) e.stopPropagation(); if(msg.type==='image') openImgViewer(u, msg.id); else openVidViewer(u, msg.id, cid); }; }
+        }
+      }catch(_e){}
+      return r;
+    };
+  }catch(e){}
+
+  /* ── 2. Réactions collées au message ── */
+  try{
+    _applyMsgReactions=function(msgId, reactions){
+      Object.keys(MSGS).forEach(function(cid){ var m=(MSGS[cid]||[]).find(function(x){ return x.id===msgId; }); if(m) m.reactions=reactions; });
+      var row=document.querySelector('[data-mid="'+msgId+'"]'); if(!row) return;
+      var old=row.parentNode&&row.parentNode.querySelector('.msg-react-row[data-for="'+msgId+'"]'); if(old) old.remove();
+      if(!reactions||!reactions.length) return;
+      var counts={}; reactions.forEach(function(r){ counts[r.emoji]=(counts[r.emoji]||0)+1; });
+      var ems=Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; });
+      var mine=reactions.find(function(r){ return ME&&String(r.user_id)===String(ME.id); });
+      var who=ems.map(function(e){ var n=counts[e]; var me=reactions.some(function(r){ return r.emoji===e && ME && String(r.user_id)===String(ME.id); }); return e+' '+(me?(n>1?('Toi et '+(n-1)):'Toi'):n); }).join('   ');
+      var own=row.classList.contains('me');
+      var pill=document.createElement('div');
+      pill.className='msg-react-row '+(own?'me':'them')+(row.querySelector('.wa-voice')?' rx-voice':'');
+      pill.setAttribute('data-for', msgId);
+      pill.innerHTML='<span class="mrx-pill'+(mine?' mine':'')+'">'+ems.slice(0,3).join('')+(reactions.length>1?'<b>'+reactions.length+'</b>':'')+'</span>';
+      pill.firstChild.onclick=function(e){ e.stopPropagation(); try{ showNotif(ems[0], 'Réactions', who, 'blue', null); }catch(_){} };
+      row.insertAdjacentElement('afterend', pill);
+    };
+  }catch(e){}
+
+  /* ── 3. Grille complète d'emojis derrière le « + » ── */
+  window._pencRxSheet=function(msgId){
+    try{
+      var old=document.getElementById('rxSheetOv'); if(old) old.remove();
+      var cats=(typeof EMOJIS==='object' && EMOJIS)?EMOJIS:{'😀':['😀','😂','😍','🙏','🙌','👍','❤️','🔥','🎉','😢','😮','😡']};
+      var keys=Object.keys(cats); if(!keys.length) return;
+      var ov=document.createElement('div'); ov.id='rxSheetOv'; ov.className='rxs-ov';
+      ov.innerHTML='<div class="rxs-sheet"><div class="rxs-h"></div><div class="rxs-tabs"></div><div class="rxs-grid"></div></div>';
+      var tabs=ov.querySelector('.rxs-tabs'), grid=ov.querySelector('.rxs-grid');
+      function close(){ try{ ov.remove(); }catch(_){} }
+      function show(k){
+        tabs.querySelectorAll('.rxs-tab').forEach(function(t){ t.classList.toggle('on', t.dataset.k===k); });
+        grid.innerHTML=''; (cats[k]||[]).forEach(function(em){ var b=document.createElement('button'); b.type='button'; b.textContent=em; b.onclick=function(e){ e.stopPropagation(); close(); reactToMsg(msgId, em); }; grid.appendChild(b); });
+        grid.scrollTop=0;
+      }
+      keys.forEach(function(k){ var t=document.createElement('button'); t.type='button'; t.className='rxs-tab'; t.dataset.k=k; t.textContent=(cats[k]&&cats[k][0])||'•'; t.title=k; t.onclick=function(e){ e.stopPropagation(); show(k); }; tabs.appendChild(t); });
+      ov.addEventListener('click', function(e){ if(e.target===ov) close(); });
+      document.body.appendChild(ov); show(keys[0]);
+    }catch(e){}
+  };
+
+  /* ── 4. Mini-lecteur : photo + nom de la personne ── */
+  try{
+    var _bPS=pmpShow;
+    pmpShow=function(){
+      var r=_bPS.apply(this, arguments);
+      try{
+        var m=window._pmp||{}; var bar=document.getElementById('pencMiniPlayer'); if(!bar) return r;
+        var av=document.getElementById('pmpAv');
+        if(!av){ av=document.createElement('div'); av.id='pmpAv'; av.className='pmp-av'; var mid=bar.querySelector('.pmp-mid'); bar.insertBefore(av, mid); }
+        var name='Message vocal', img='';
+        if(m.kind==='voice'){
+          var vm=(window._voiceMeta||{})[m.uid]||{}; var msg=vm.m||null;
+          var c=(typeof CONVS!=='undefined'&&CONVS||[]).find(function(x){ return String(x.id)===String(vm.convId); });
+          var mine=msg && (msg.is_mine===true || (ME && String(msg.sender_id)===String(ME.id)));
+          if(mine){ name='Vous'; img=(ME&&ME.avatar_url)||''; }
+          else { name=(msg&&msg.sender&&msg.sender.full_name)||(c&&c.name)||'Message vocal'; img=(msg&&msg.sender&&msg.sender.avatar_url)||(c&&c.avatar_url)||''; }
+        } else if(m.kind==='video'){ name='Vidéo'; }
+        av.innerHTML=img?('<img src="'+esc(img)+'" alt=""/>'):('<span>'+esc(initials(name))+'</span>');
+        var ti=document.getElementById('pmpTitle'); if(ti) ti.textContent=name;
+      }catch(_){}
+      return r;
+    };
+  }catch(e){}
+
+  /* ── 5. Discussion stable : la resynchronisation n'ajoute que les nouveaux messages ── */
+  try{
+    _pencResyncOpenConv=async function(){
+      if(window._pencRsBusy) return;
+      try{
+        if(!CUR_CONV || CUR_CONV==='bot') return;
+        var sc=document.getElementById('screen-chat'); if(!sc || sc.classList.contains('hidden')) return;
+        window._pencRsBusy=true; var cid=CUR_CONV;
+        var d=await api('/conversations/'+cid+'/messages');
+        if(!d || !d.messages || CUR_CONV!==cid) return;
+        var byId={}; (MSGS[cid]||[]).forEach(function(m){ if(m&&m.id) byId[String(m.id)]=m; });
+        var rm=window._renderedMids||new Set();
+        d.messages.forEach(function(m){
+          if(!m||!m.id) return; var old=byId[String(m.id)];
+          if(old && rm.has(m.id)){
+            try{ if(m.read_at && !old.read_at) updateMsgTick(m.id,'read'); else if(m.delivered_at && !old.delivered_at) updateMsgTick(m.id,'delivered'); }catch(_t){}
+            try{ if(JSON.stringify(m.reactions||[])!==JSON.stringify(old.reactions||[])) _applyMsgReactions(m.id, m.reactions||[]); }catch(_r){}
+          }
+          byId[String(m.id)]=old?Object.assign(old, m):m;
+        });
+        var merged=Object.values(byId).sort(_pencMsgOrder); MSGS[cid]=merged;
+        var lastIdx=-1; merged.forEach(function(m,i){ if(rm.has(m.id)) lastIdx=i; });
+        var a=document.getElementById('msgsArea'); var near=a && (a.scrollHeight-a.scrollTop-a.clientHeight<160); var added=0;
+        merged.slice(lastIdx+1).forEach(function(m){
+          if(!m || rm.has(m.id) || String(m.id).indexOf('tmp_')===0) return;
+          try{ var own=ME && String(m.sender_id)===String(ME.id); if(own){ var t=_pencFindTmp(cid, m); if(t){ _pencFinalizeTmp(cid, t, m); return; } } }catch(_o){}
+          try{ appendMsg(m); added++; }catch(_a){}
+        });
+        try{ localStorage.setItem('penc_msgs_'+cid, JSON.stringify(merged.slice(-40))); }catch(_l){}
+        if(added && near){ try{ _stickBottom(); }catch(_s){} }
+      }catch(e){} finally{ window._pencRsBusy=false; }
+    };
+  }catch(e){}
+
+  /* ── 6. Liste des discussions : pas de redessin si rien n'a changé + rattrapage toutes les 30 s ── */
+  try{
+    var _bLC=loadConvs;
+    loadConvs=async function(){ window._lcPrev=JSON.stringify(CONVS||[]); window._lcIn=true; try{ return await _bLC.apply(this, arguments); } finally{ window._lcIn=false; } };
+    var _bRCL=renderConvList;
+    renderConvList=function(){
+      try{ if(window._lcIn && window._lcPrev && window._lcPrev===JSON.stringify(CONVS||[]) && document.querySelector('.conv-item')) return; }catch(_){}
+      return _bRCL.apply(this, arguments);
+    };
+  }catch(e){}
+  setInterval(function(){
+    try{
+      if(document.visibilityState!=='visible' || !localStorage.getItem('penc_tok')) return;
+      if(typeof loadConvs==='function') loadConvs();
+      _pencResyncOpenConv();
+    }catch(_){}
+  }, 30000);
+
+  /* ── 7. Mises à jour : jamais pendant une discussion, seulement sur le Fil ou en arrière-plan ── */
+  window._pencDeferUpd=function(){
+    try{
+      var sc=document.getElementById('screen-chat'); if(sc && !sc.classList.contains('hidden')) return true;
+      var ae=document.activeElement; if(ae && /INPUT|TEXTAREA/.test(ae.tagName)) return true;
+      if(document.body.classList.contains('kb-open')) return true;
+      var iv=document.getElementById('imgViewer'); if(iv && iv.classList.contains('show')) return true;
+      if(typeof curTab!=='undefined' && curTab!=='fil') return true;
+    }catch(_){}
+    return false;
+  };
+  try{
+    var _bFU=_pencForceUpdate;
+    _pencForceUpdate=function(){
+      if(window._pencDeferUpd()){ window._pencUpdPending=function(){ return _bFU(); }; var b=document.getElementById('pencUpBanner'); if(b) b.remove(); return; }
+      return _bFU.apply(this, arguments);
+    };
+  }catch(e){}
+  function _runPending(){ var f=window._pencUpdPending; if(!f) return; window._pencUpdPending=null; try{ f(); }catch(_){} }
+  setInterval(function(){ if(window._pencUpdPending && !window._pencDeferUpd()) _runPending(); }, 5000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden' && window._pencUpdPending) _runPending(); });
+})();
+</script>
+
 </body>
 </html>
