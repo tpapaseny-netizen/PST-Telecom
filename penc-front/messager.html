@@ -26643,17 +26643,74 @@ async function _stkSubmitPurchase(packId){
 function openVerifyRequest(){
   var ov=document.getElementById('verReqOv');
   if(!ov){ ov=document.createElement('div'); ov.id='verReqOv'; ov.className='overlay'; document.body.appendChild(ov); }
-  ov.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title">🔵 Demander la certification</div><div id="verReqBody"><div class="spinner" style="margin:20px auto;"></div></div></div>';
+  ov.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title" style="display:flex;align-items:center;gap:8px;">'+_pencBadgeSmall()+'Badge bleu</div><div id="verReqBody"><div class="spinner" style="margin:20px auto;"></div></div></div>';
   ov.classList.add('show');
-  api('/verify/status').then(function(d){
-    var b=document.getElementById('verReqBody'); if(!b) return;
-    if(d&&d.verified){ b.innerHTML='<div style="text-align:center;padding:20px;color:#1D9BF0;font-weight:700;">✓ Votre compte est déjà certifié.</div>'; return; }
-    if(d&&d.pending){ b.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);line-height:1.6;">⏳ Votre demande est en cours d\'examen.<br>Vous serez notifié dès qu\'elle sera traitée.</div><button onclick="closeVerReq()" style="width:100%;padding:11px;border:none;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer;">Fermer</button>'; return; }
-    b.innerHTML='<div style="color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:14px;">Envoie une photo claire de ta pièce d\'identité (CNI, passeport ou permis). Elle servira uniquement à vérifier ton identité et ne sera pas publiée.</div>'
-      +'<input type="file" id="verDocInput" accept="image/*" style="display:none" onchange="_doVerifySubmit(event)"/>'
-      +'<button onclick="document.getElementById(\'verDocInput\').click()" style="width:100%;padding:13px;border:none;border-radius:12px;background:#1D9BF0;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">📷 Envoyer ma pièce d\'identité</button>'
-      +'<div style="text-align:center;color:var(--muted);font-size:12px;margin:12px 0 8px;">— ou —</div>'+'<button onclick="_subscribeVerify()" style="width:100%;padding:13px;border:none;border-radius:12px;background:#1877F2;color:#04150f;font-weight:700;font-size:15px;cursor:pointer;">💳 Par abonnement ('+VERIF_PRICE+' FCFA)</button>'+'<button onclick="closeVerReq()" style="width:100%;padding:11px;border:none;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer;margin-top:8px;">Annuler</button>';
-  }).catch(function(){ var b=document.getElementById('verReqBody'); if(b) b.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Erreur. Réessaie.</div>'; });
+  _playBadgeRender();
+}
+// ══ Badge bleu via Google Play (v704) : inscription 5 000 F (1er mois inclus) puis 2 000 F/mois ══
+var PLAY_BILLING='https://play.google.com/billing';
+var PLAY_BADGE={ ins:'penc_badge_inscription', mois:'penc_badge_mensuel', pkg:'com.penc.messagerie' };
+function _pencBadgeSmall(){ return '<svg width="20" height="20" viewBox="0 0 24 24" fill="#1D9BF0"><path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z"/><path d="M9.6 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4z" fill="#fff"/></svg>'; }
+async function _playDGS(){ try{ if(!('getDigitalGoodsService' in window)) return null; return await window.getDigitalGoodsService(PLAY_BILLING); }catch(e){ return null; } }
+function _playFmtPrice(it, fallback){ try{ if(it && it.price && it.price.value){ var v=Number(it.price.value); var c=it.price.currency==='XOF'?' F':(' '+it.price.currency); return Math.round(v).toLocaleString('fr-FR')+c; } }catch(_){} return fallback; }
+function _playBtn(label, onclick, primary){ return '<button onclick="'+onclick+'" style="width:100%;padding:14px;border:none;border-radius:12px;background:'+(primary?'#1D9BF0':'var(--card2)')+';color:'+(primary?'#fff':'var(--text)')+';font-weight:700;font-size:15px;cursor:pointer;margin-top:8px;">'+label+'</button>'; }
+function _playClose(){ return '<button onclick="closeVerReq()" style="width:100%;padding:11px;border:none;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer;margin-top:6px;">Fermer</button>'; }
+async function _playBadgeRender(){
+  var b=document.getElementById('verReqBody'); if(!b) return;
+  var st=null; try{ st=await api('/play/badge/status'); }catch(_){}
+  if(st && st.sku_inscription){ PLAY_BADGE.ins=st.sku_inscription; PLAY_BADGE.mois=st.sku_mensuel||PLAY_BADGE.mois; PLAY_BADGE.pkg=st.package||PLAY_BADGE.pkg; }
+  var svc=await _playDGS();
+  b=document.getElementById('verReqBody'); if(!b) return;
+  // Badge donné par l'équipe Penc : rien à payer
+  if(st && st.verified && st.verified_type && st.verified_type!=='play'){ b.innerHTML='<div style="text-align:center;padding:18px;color:#1D9BF0;font-weight:700;">Ton compte est certifié par l\'équipe Penc.</div>'+_playClose(); return; }
+  var pIns='5 000 F', pMois='2 000 F';
+  if(svc){ try{ var det=await svc.getDetails([PLAY_BADGE.ins, PLAY_BADGE.mois]); (det||[]).forEach(function(it){ if(it.itemId===PLAY_BADGE.ins) pIns=_playFmtPrice(it,pIns); if(it.itemId===PLAY_BADGE.mois) pMois=_playFmtPrice(it,pMois); }); }catch(_){} }
+  var until=(st&&st.badge_until)?new Date(st.badge_until).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+  var manage='https://play.google.com/store/account/subscriptions?sku='+encodeURIComponent(PLAY_BADGE.mois)+'&package='+encodeURIComponent(PLAY_BADGE.pkg);
+  var intro='<div style="color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:6px;">Inspire confiance et gagne en visibilité. <b style="color:var(--text);">'+pIns+'</b> à l\'inscription (premier mois inclus), puis <b style="color:var(--text);">'+pMois+' par mois</b>. Paiement sécurisé par Google Play, résiliable à tout moment.</div>';
+  // Hors de l'appli Android (site web, iPhone) : Google Play n'est pas disponible
+  if(!svc){
+    if(st && st.verified){ b.innerHTML='<div style="text-align:center;padding:14px;color:#1D9BF0;font-weight:700;">Badge bleu actif'+(until?' jusqu\'au '+until:'')+'</div>'+_playClose(); return; }
+    b.innerHTML=intro+'<div style="background:var(--card2);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;margin:10px 0 4px;">Le badge bleu se prend depuis l\'appli Penc installée depuis Google Play.</div>'
+      +_playBtn('Ouvrir Penc sur Google Play',"window.open('https://play.google.com/store/apps/details?id="+PLAY_BADGE.pkg+"','_blank')",true)+_playClose();
+    return;
+  }
+  // Rattrapage : un achat payé mais pas encore enregistré (appli fermée trop tôt, coupure réseau…)
+  try{ var owned=await svc.listPurchases(); var todo=(owned||[]).filter(function(p){ return p && (p.itemId===PLAY_BADGE.ins||p.itemId===PLAY_BADGE.mois); }); if(todo.length && !(st&&st.verified&&st.sub_active)){ for(var i=0;i<todo.length;i++){ try{ await api('/play/badge/verify','POST',{sku:todo[i].itemId,purchaseToken:todo[i].purchaseToken}); }catch(_){} } try{ st=await api('/play/badge/status'); }catch(_){} until=(st&&st.badge_until)?new Date(st.badge_until).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):until; } }catch(_){}
+  b=document.getElementById('verReqBody'); if(!b) return;
+  if(st && st.verified && st.sub_active){
+    b.innerHTML='<div style="text-align:center;padding:14px 10px 4px;color:#1D9BF0;font-weight:700;font-size:16px;">Badge bleu actif</div><div style="text-align:center;color:var(--muted);font-size:13px;padding:0 8px 8px;">Mensualité active, prochain renouvellement le '+until+'.</div>'
+      +_playBtn('Gérer mon abonnement',"window.open('"+manage+"','_blank')",false)+_playClose();
+    return;
+  }
+  if(st && st.inscrit){
+    b.innerHTML=(st.verified?'<div style="text-align:center;padding:10px 10px 4px;color:#1D9BF0;font-weight:700;">Badge bleu actif jusqu\'au '+until+'</div><div style="text-align:center;color:var(--muted);font-size:13px;padding:0 8px 8px;line-height:1.55;">Active la mensualité de '+pMois+' pour le garder après cette date.</div>'
+                       :'<div style="text-align:center;padding:10px 10px 4px;font-weight:700;">Ton badge bleu est suspendu</div><div style="text-align:center;color:var(--muted);font-size:13px;padding:0 8px 8px;line-height:1.55;">Ton inscription est déjà payée. Active la mensualité de '+pMois+' pour le retrouver tout de suite.</div>')
+      +_playBtn('Activer la mensualité ('+pMois+'/mois)',"_playBuy('mois')",true)+_playClose();
+    return;
+  }
+  b.innerHTML=intro+_playBtn('Payer l\'inscription ('+pIns+')',"_playBuy('ins')",true)+_playClose();
+}
+async function _playBuy(which){
+  var sku=which==='mois'?PLAY_BADGE.mois:PLAY_BADGE.ins;
+  var resp=null;
+  try{
+    var req=new PaymentRequest([{supportedMethods:PLAY_BILLING,data:{sku:sku}}],{total:{label:'Total',amount:{currency:'XOF',value:'0'}}});
+    resp=await req.show();
+  }catch(e){ if(e && e.name!=='AbortError') showNotif('⚠️','Google Play','Paiement impossible pour le moment.','orange',null); return; }
+  var b=document.getElementById('verReqBody'); if(b) b.innerHTML='<div style="text-align:center;padding:24px;"><div class="spinner"></div><div style="margin-top:10px;color:var(--muted);">Confirmation du paiement…</div></div>';
+  var r=null;
+  try{ r=await api('/play/badge/verify','POST',{sku:sku,purchaseToken:resp.details&&resp.details.purchaseToken}); }catch(_){}
+  try{ await resp.complete(r&&r.success?'success':'fail'); }catch(_){}
+  if(r && r.success){
+    try{ if(ME){ ME.verified=!!r.verified; localStorage.setItem('penc_usr',JSON.stringify(ME)); } }catch(_){}
+    showNotif('🔵','Badge bleu',which==='mois'?'Mensualité activée':'Inscription payée, ton badge est actif','green',null);
+  } else if(r && r.pending){
+    showNotif('⏳','Google Play','Paiement en attente, ton badge s\'activera dès la confirmation.','blue',null);
+  } else {
+    showNotif('❌','Badge bleu',(r&&r.error)||'Vérification impossible, rouvre cet écran dans un instant.','red',null);
+  }
+  _playBadgeRender();
 }
 function closeVerReq(){ var o=document.getElementById('verReqOv'); if(o) o.classList.remove('show'); }
 var VERIF_PRICE = 5000;

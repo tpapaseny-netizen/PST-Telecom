@@ -14889,6 +14889,173 @@ app.post('/api/penc/admin/verify-requests/:id/reject', pencAuth, pencAdmin, asyn
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+// ══════════════ BADGE BLEU VIA GOOGLE PLAY (v704) ══════════════
+// Inscription (achat unique, 5 000 F) = badge pendant 30 jours ; la mensualité (abonnement
+// 2 000 F/mois) prolonge le badge tant qu'elle est payée. Google prévient le serveur (RTDN via
+// Pub/Sub) à chaque renouvellement, échec ou annulation ; un contrôle horaire rattrape le reste.
+// Les badges donnés à la main par l'admin (verified_type autre que 'play') ne sont JAMAIS touchés.
+// Variables Render : GOOGLE_PLAY_SA_JSON (clé JSON du compte de service, brute ou en base64),
+// PLAY_RTDN_KEY (secret mis dans l'URL de la notification Pub/Sub), PLAY_PACKAGE (optionnel).
+const PLAY_PKG = process.env.PLAY_PACKAGE || 'com.penc.messagerie';
+const PLAY_SKU_INS = process.env.PLAY_SKU_BADGE_INSCRIPTION || 'penc_badge_inscription';
+const PLAY_SKU_MOIS = process.env.PLAY_SKU_BADGE_MENSUEL || 'penc_badge_mensuel';
+const PLAY_FIRST_DAYS = 30;
+let _playTok = { t: null, exp: 0 }, _playReady = false;
+function _playSA(){
+  try{
+    const raw = String(process.env.GOOGLE_PLAY_SA_JSON || '').trim(); if(!raw) return null;
+    const j = JSON.parse(raw.charAt(0) === '{' ? raw : Buffer.from(raw, 'base64').toString('utf8'));
+    return (j.client_email && j.private_key) ? j : null;
+  }catch(e){ return null; }
+}
+async function _playToken(){
+  if(_playTok.t && Date.now() < _playTok.exp - 60000) return _playTok.t;
+  const sa = _playSA(); if(!sa) throw new Error('GOOGLE_PLAY_SA_JSON manquant ou invalide');
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = function(o){ return Buffer.from(JSON.stringify(o)).toString('base64url'); };
+  const unsigned = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/androidpublisher', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 });
+  const sig = crypto.createSign('RSA-SHA256').update(unsigned).sign(String(sa.private_key).replace(/\\n/g, '\n'), 'base64url');
+  const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + unsigned + '.' + sig });
+  const d = await r.json().catch(function(){ return {}; });
+  if(!d.access_token) throw new Error('OAuth Google : ' + (d.error_description || d.error || r.status));
+  _playTok = { t: d.access_token, exp: Date.now() + (d.expires_in || 3600) * 1000 };
+  return _playTok.t;
+}
+async function _playApi(path, method, body){
+  const t = await _playToken();
+  const r = await fetch('https://androidpublisher.googleapis.com/androidpublisher/v3/applications/' + encodeURIComponent(PLAY_PKG) + path, { method: method || 'GET', headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const txt = await r.text(); let d = {}; try{ d = txt ? JSON.parse(txt) : {}; }catch(_){}
+  if(!r.ok){ const e = new Error('Play API ' + r.status + ' : ' + ((d.error && d.error.message) || txt.slice(0, 200))); e.status = r.status; throw e; }
+  return d;
+}
+async function _playEnsure(){
+  if(_playReady || !_pgPool) return;
+  await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_play_purchases(token TEXT PRIMARY KEY, user_id TEXT NOT NULL, sku TEXT NOT NULL, kind TEXT NOT NULL, state TEXT, expires_at TIMESTAMPTZ, order_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())");
+  await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_play_purchases_user ON penc_play_purchases(user_id)');
+  await _pgPool.query('ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS badge_inscrit_at TIMESTAMPTZ');
+  await _pgPool.query('ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS badge_until TIMESTAMPTZ');
+  await _pgPool.query('ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_type TEXT');
+  await _pgPool.query('ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ');
+  _playReady = true;
+}
+function _playSubState(s){
+  return ({ SUBSCRIPTION_STATE_ACTIVE: 'active', SUBSCRIPTION_STATE_IN_GRACE_PERIOD: 'grace', SUBSCRIPTION_STATE_CANCELED: 'canceled', SUBSCRIPTION_STATE_ON_HOLD: 'hold', SUBSCRIPTION_STATE_PAUSED: 'paused', SUBSCRIPTION_STATE_EXPIRED: 'expired', SUBSCRIPTION_STATE_PENDING: 'pending' })[s] || 'unknown';
+}
+// Relit l'état d'un abonnement chez Google et l'enregistre
+async function _playRefreshSub(token, uid){
+  const d = await _playApi('/purchases/subscriptionsv2/tokens/' + encodeURIComponent(token));
+  const li = (d.lineItems || []).find(function(x){ return x.productId === PLAY_SKU_MOIS; }) || (d.lineItems || [])[0] || {};
+  const state = _playSubState(d.subscriptionState);
+  const exp = li.expiryTime ? new Date(li.expiryTime) : null;
+  if(d.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING' && (state === 'active' || state === 'grace')){
+    try{ await _playApi('/purchases/subscriptions/' + encodeURIComponent(li.productId || PLAY_SKU_MOIS) + '/tokens/' + encodeURIComponent(token) + ':acknowledge', 'POST', {}); }catch(e){ console.error('Play ack abonnement :', e.message); }
+  }
+  if(uid){
+    await _pgPool.query("INSERT INTO penc_play_purchases(token,user_id,sku,kind,state,expires_at,order_id,updated_at) VALUES($1,$2,$3,'subs',$4,$5,$6,NOW()) ON CONFLICT(token) DO UPDATE SET state=$4, expires_at=$5, order_id=COALESCE($6,penc_play_purchases.order_id), updated_at=NOW()", [token, uid, li.productId || PLAY_SKU_MOIS, state, exp, d.latestOrderId || null]);
+  } else {
+    await _pgPool.query('UPDATE penc_play_purchases SET state=$2, expires_at=$3, updated_at=NOW() WHERE token=$1', [token, state, exp]);
+  }
+  return { state: state, expires_at: exp };
+}
+// Recalcule le badge d'un utilisateur à partir de ses achats
+async function _playRecompute(uid){
+  const u = (await _pgPool.query('SELECT verified, verified_type, badge_inscrit_at FROM penc_users WHERE id=$1', [uid])).rows[0];
+  if(!u) return null;
+  if(u.verified && u.verified_type && u.verified_type !== 'play') return { verified: true, manual: true };
+  let until = u.badge_inscrit_at ? new Date(new Date(u.badge_inscrit_at).getTime() + PLAY_FIRST_DAYS * 86400000) : null;
+  const s = (await _pgPool.query("SELECT MAX(expires_at) AS e FROM penc_play_purchases WHERE user_id=$1 AND kind='subs' AND state IN ('active','grace','canceled')", [uid])).rows[0];
+  if(s && s.e && (!until || new Date(s.e) > until)) until = new Date(s.e);
+  const on = !!(u.badge_inscrit_at && until && until > new Date());
+  await _pgPool.query("UPDATE penc_users SET badge_until=$1, verified=$2, verified_type=CASE WHEN $2 THEN 'play' ELSE NULL END, verified_at=CASE WHEN $2 AND NOT COALESCE(verified,FALSE) THEN NOW() WHEN $2 THEN verified_at ELSE NULL END WHERE id=$3", [until, on, uid]);
+  if(on !== !!u.verified){
+    try{ emitToUsers(String(uid), 'penc:verified', { verified: on }); }catch(_){}
+    if(!on){ try{ sendPencPush(String(uid), { title: 'Badge bleu', body: 'Ta mensualité n\'a pas été payée : ton badge bleu est suspendu. Réactive-le depuis ton profil.', tag: 'penc-badge', url: '/messager' }).catch(function(){}); }catch(_){} }
+  }
+  return { verified: on, badge_until: until };
+}
+app.get('/api/penc/play/badge/status', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ verified: false });
+    await _playEnsure();
+    const uid = req.pencUser.userId;
+    const u = (await _pgPool.query('SELECT verified, verified_type, badge_inscrit_at, badge_until FROM penc_users WHERE id=$1', [uid])).rows[0] || {};
+    const s = (await _pgPool.query("SELECT 1 FROM penc_play_purchases WHERE user_id=$1 AND kind='subs' AND state IN ('active','grace') AND expires_at > NOW() LIMIT 1", [uid])).rows;
+    res.json({ verified: !!u.verified, verified_type: u.verified_type || null, inscrit: !!u.badge_inscrit_at, badge_until: u.badge_until || null, sub_active: s.length > 0, sku_inscription: PLAY_SKU_INS, sku_mensuel: PLAY_SKU_MOIS, package: PLAY_PKG });
+  }catch(e){ console.error('play/badge/status :', e.message); res.json({ verified: false }); }
+});
+app.post('/api/penc/play/badge/verify', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Base indisponible' });
+    await _playEnsure();
+    const uid = req.pencUser.userId;
+    const sku = String((req.body && req.body.sku) || '');
+    const token = String((req.body && req.body.purchaseToken) || '').trim();
+    if(!token || token.length > 4000) return res.status(400).json({ error: 'Achat invalide' });
+    const prev = (await _pgPool.query('SELECT user_id FROM penc_play_purchases WHERE token=$1', [token])).rows[0];
+    if(prev && String(prev.user_id) !== String(uid)) return res.status(409).json({ error: 'Cet achat appartient à un autre compte' });
+    if(sku === PLAY_SKU_INS){
+      const d = await _playApi('/purchases/products/' + encodeURIComponent(sku) + '/tokens/' + encodeURIComponent(token));
+      if(d.purchaseState === 2) return res.status(202).json({ error: 'Paiement en attente de confirmation par Google', pending: true });
+      if(d.purchaseState !== 0) return res.status(402).json({ error: 'Paiement annulé ou remboursé' });
+      if(d.acknowledgementState === 0){ try{ await _playApi('/purchases/products/' + encodeURIComponent(sku) + '/tokens/' + encodeURIComponent(token) + ':acknowledge', 'POST', {}); }catch(e){ console.error('Play ack inscription :', e.message); } }
+      await _pgPool.query("INSERT INTO penc_play_purchases(token,user_id,sku,kind,state,order_id,updated_at) VALUES($1,$2,$3,'inapp','purchased',$4,NOW()) ON CONFLICT(token) DO UPDATE SET state='purchased', updated_at=NOW()", [token, uid, sku, d.orderId || null]);
+      await _pgPool.query('UPDATE penc_users SET badge_inscrit_at=COALESCE(badge_inscrit_at,NOW()) WHERE id=$1', [uid]);
+    } else if(sku === PLAY_SKU_MOIS){
+      const u = (await _pgPool.query('SELECT badge_inscrit_at FROM penc_users WHERE id=$1', [uid])).rows[0];
+      if(!u || !u.badge_inscrit_at) return res.status(400).json({ error: 'Paie d\'abord l\'inscription au badge bleu' });
+      const st = await _playRefreshSub(token, uid);
+      if(st.state === 'pending') return res.status(202).json({ error: 'Paiement en attente de confirmation par Google', pending: true });
+    } else {
+      return res.status(400).json({ error: 'Produit inconnu' });
+    }
+    const r = await _playRecompute(uid);
+    res.json({ success: true, verified: !!(r && r.verified), badge_until: r && r.badge_until });
+  }catch(e){ console.error('play/badge/verify :', e.message); res.status(e.status === 404 || e.status === 400 ? 400 : 500).json({ error: e.status === 404 || e.status === 400 ? 'Achat introuvable chez Google' : 'Vérification impossible, réessaie' }); }
+});
+// Notifications Google Play en temps réel (Pub/Sub, abonnement « push » vers cette adresse avec ?k=PLAY_RTDN_KEY)
+app.post('/api/penc/play/rtdn', async (req, res) => {
+  const key = process.env.PLAY_RTDN_KEY || '';
+  if(!key || String(req.query.k || '') !== key) return res.status(403).end();
+  res.status(204).end(); // accusé immédiat pour Pub/Sub, le traitement continue
+  try{
+    if(!_pgPool) return;
+    await _playEnsure();
+    const raw = req.body && req.body.message && req.body.message.data;
+    if(!raw) return;
+    const n = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+    if(n.packageName && n.packageName !== PLAY_PKG) return;
+    if(n.subscriptionNotification && n.subscriptionNotification.purchaseToken){
+      const tok = n.subscriptionNotification.purchaseToken;
+      const row = (await _pgPool.query('SELECT user_id FROM penc_play_purchases WHERE token=$1', [tok])).rows[0];
+      if(!row) return; // achat pas encore déclaré par l'appli : il le sera via /play/badge/verify
+      await _playRefreshSub(tok, null);
+      await _playRecompute(row.user_id);
+    } else if(n.voidedPurchaseNotification && n.voidedPurchaseNotification.purchaseToken){
+      const tok = n.voidedPurchaseNotification.purchaseToken;
+      const row = (await _pgPool.query('SELECT user_id, kind FROM penc_play_purchases WHERE token=$1', [tok])).rows[0];
+      if(!row) return;
+      await _pgPool.query("UPDATE penc_play_purchases SET state='voided', updated_at=NOW() WHERE token=$1", [tok]);
+      if(row.kind === 'inapp'){
+        const other = (await _pgPool.query("SELECT 1 FROM penc_play_purchases WHERE user_id=$1 AND kind='inapp' AND state='purchased' LIMIT 1", [row.user_id])).rows;
+        if(!other.length) await _pgPool.query('UPDATE penc_users SET badge_inscrit_at=NULL WHERE id=$1', [row.user_id]);
+      }
+      await _playRecompute(row.user_id);
+    }
+  }catch(e){ console.error('play/rtdn :', e.message); }
+});
+// Contrôle horaire : relit les abonnements qui arrivent à échéance et retire les badges expirés
+async function _playSweep(){
+  try{
+    if(!_pgPool || !_playSA()) return;
+    await _playEnsure();
+    const subs = (await _pgPool.query("SELECT token, user_id FROM penc_play_purchases WHERE kind='subs' AND state NOT IN ('expired','voided') AND (expires_at IS NULL OR expires_at < NOW() + INTERVAL '1 day') ORDER BY updated_at ASC LIMIT 100")).rows;
+    for(const s of subs){ try{ await _playRefreshSub(s.token, null); }catch(e){ if(e.status === 410 || e.status === 404) await _pgPool.query("UPDATE penc_play_purchases SET state='expired' WHERE token=$1", [s.token]); } }
+    const users = (await _pgPool.query("SELECT id FROM penc_users WHERE (verified_type='play' AND (badge_until IS NULL OR badge_until < NOW())) OR id = ANY($1)", [subs.map(function(s){ return s.user_id; })])).rows;
+    for(const u of users){ try{ await _playRecompute(u.id); }catch(_){} }
+  }catch(e){ console.error('play sweep :', e.message); }
+}
+setTimeout(_playSweep, 90 * 1000);
+setInterval(_playSweep, 60 * 60 * 1000);
 app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
   try {
     const { title, body, url } = req.body || {};
