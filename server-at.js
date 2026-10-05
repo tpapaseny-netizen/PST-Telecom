@@ -14758,7 +14758,9 @@ function _lpExtract(html, url) {
   }
   var title = meta('og:title') || _lpDecodeEntities((html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]) || null;
   var description = meta('og:description') || meta('description');
-  var image = meta('og:image');
+  var image = meta('og:image') || meta('og:image:secure_url') || meta('og:image:url') || meta('twitter:image') || meta('twitter:image:src');
+  var ogType = String(meta('og:type') || '');
+  var isVideo = /video/i.test(ogType) || !!meta('og:video') || !!meta('og:video:url') || !!meta('og:video:secure_url') || String(meta('twitter:card') || '') === 'player';
   if (image && !/^https?:\/\//i.test(image)) {
     try { image = new URL(image, url).href; } catch (_u) { image = null; }
   }
@@ -14768,8 +14770,44 @@ function _lpExtract(html, url) {
     description: description ? description.trim().slice(0, 300) : null,
     image: image || null,
     site_name: siteName ? siteName.trim().slice(0, 80) : null,
+    video: isVideo,
     url: url
   };
+}
+// v705 : identifiant d'une vidéo YouTube (miniature disponible sans charger la page)
+function _lpYouTubeId(u){
+  try{
+    const x = new URL(u); const h = x.hostname.replace(/^www\.|^m\./, '');
+    if(h === 'youtu.be') return x.pathname.slice(1).split('/')[0] || null;
+    if(h === 'youtube.com' || h === 'music.youtube.com'){
+      if(x.searchParams.get('v')) return x.searchParams.get('v');
+      const m = x.pathname.match(/^\/(shorts|embed|live)\/([A-Za-z0-9_-]{6,})/); if(m) return m[2];
+    }
+  }catch(_){}
+  return null;
+}
+// v705 : aperçu d'une publication Penc (photo / vidéo) lu directement en base
+async function _lpPencPost(u){
+  try{
+    if(!_pgPool) return null;
+    const x = new URL(u); const h = x.hostname.replace(/^www\./, '');
+    if(h !== 'penc-messagerie.com' && h !== 'api.penc-messagerie.com') return null;
+    let code = null, pid = null;
+    const m = x.pathname.match(/^\/p\/([A-Za-z0-9]{3,12})/); if(m) code = m[1];
+    if(!code && x.searchParams.get('p')) code = String(x.searchParams.get('p')).replace(/[^A-Za-z0-9]/g, '').slice(0, 12);
+    if(x.searchParams.get('post')) pid = String(x.searchParams.get('post')).slice(0, 80);
+    if(!code && !pid) return null;
+    const r = await _pgPool.query('SELECT p.*, u.full_name, u.username FROM penc_posts p LEFT JOIN penc_users u ON u.id=p.user_id WHERE ' + (code ? 'p.short_code=$1' : 'p.id=$1') + ' AND p.deleted=FALSE AND p.created_at <= NOW() LIMIT 1', [code || pid]);
+    if(!r.rows.length) return null;
+    const p = r.rows[0];
+    let media = []; try{ media = Array.isArray(p.media_urls) ? p.media_urls : JSON.parse(p.media_urls || '[]'); }catch(_m){}
+    let v = null; try{ v = _filParseVideo(p); }catch(_v){}
+    let img = null, isVideo = false;
+    if(v && (v.poster || v.url)){ img = v.poster || null; isVideo = true; }
+    if(!img && media.length){ const f = media[0]; img = (typeof f === 'string') ? f : (f && (f.poster || f.url)) || null; if(f && typeof f === 'object' && f.type === 'video') isVideo = true; }
+    const txt = String(p.content || '').replace(/\s+/g, ' ').trim();
+    return { title: (p.full_name || p.username || 'Publication') + ' sur Penc', description: txt ? txt.slice(0, 200) : null, image: img, site_name: 'Penc', video: isVideo, url: u };
+  }catch(_e){ return null; }
 }
 app.get('/api/penc/link-preview', pencAuth, async (req, res) => {
   try {
@@ -14784,16 +14822,25 @@ app.get('/api/penc/link-preview', pencAuth, async (req, res) => {
     }
     var cached = _linkPreviewCache.get(url);
     if (cached && (Date.now() - cached.at) < LINK_PREVIEW_TTL_MS) return res.json(cached.data);
+    // v705 : publications Penc et vidéos YouTube -> visuel garanti
+    var _pp = await _lpPencPost(url);
+    if (_pp) { _linkPreviewCache.set(url, { data: _pp, at: Date.now() }); return res.json(_pp); }
+    var _yt = _lpYouTubeId(url);
     var ac = new AbortController(); var timeout = setTimeout(function () { ac.abort(); }, 6000);
     var r;
     try {
       r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PencBot/1.0; +https://penc-messagerie.com)' } });
     } finally { clearTimeout(timeout); }
-    if (!r.ok) return res.status(200).json({ title: null, description: null, image: null, site_name: null, url: url });
+    var _ytImg = _yt ? ('https://i.ytimg.com/vi/' + encodeURIComponent(_yt) + '/hqdefault.jpg') : null;
+    if (!r.ok) return res.status(200).json({ title: _yt ? 'Vidéo YouTube' : null, description: null, image: _ytImg, site_name: _yt ? 'YouTube' : null, video: !!_yt, url: url });
     var ct = r.headers.get('content-type') || '';
-    if (ct.indexOf('text/html') === -1) return res.status(200).json({ title: null, description: null, image: null, site_name: null, url: url });
+    // Lien direct vers une photo ou une vidéo
+    if (/^image\//i.test(ct)) { try { r.body && r.body.cancel && r.body.cancel(); } catch (_c) {} var _di = { title: null, description: null, image: url, site_name: host.replace(/^www\./, ''), kind: 'image', url: url }; _linkPreviewCache.set(url, { data: _di, at: Date.now() }); return res.json(_di); }
+    if (/^video\//i.test(ct)) { try { r.body && r.body.cancel && r.body.cancel(); } catch (_c) {} var _dv = { title: null, description: null, image: null, site_name: host.replace(/^www\./, ''), kind: 'video', video: true, url: url }; _linkPreviewCache.set(url, { data: _dv, at: Date.now() }); return res.json(_dv); }
+    if (ct.indexOf('text/html') === -1) return res.status(200).json({ title: null, description: null, image: _ytImg, site_name: null, video: !!_yt, url: url });
     var html = (await r.text()).slice(0, 200000); // pas besoin de tout lire pour trouver les balises <head>
     var data = _lpExtract(html, url);
+    if (_yt) { data.video = true; if (!data.image) data.image = _ytImg; if (!data.site_name) data.site_name = 'YouTube'; }
     _linkPreviewCache.set(url, { data: data, at: Date.now() });
     if (_linkPreviewCache.size > 500) { var firstKey = _linkPreviewCache.keys().next().value; _linkPreviewCache.delete(firstKey); }
     res.json(data);
