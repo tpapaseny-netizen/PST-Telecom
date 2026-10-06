@@ -1,0 +1,9 @@
+name = "dieulsi-site"
+routes = [
+  { pattern = "dieulsi.com", custom_domain = true },
+  { pattern = "www.dieulsi.com", custom_domain = true }
+]
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./public"
