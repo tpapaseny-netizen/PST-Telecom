@@ -9631,19 +9631,22 @@ app.delete('/api/penc/messages/:id', pencAuth, async (req, res) => {
     const { for_all } = req.body;
     if(!for_all) return res.json({success:true}); // 'Pour moi' = côté client uniquement
     if(!_pgPool) return res.status(503).json({error:'BD non disponible'});
-    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1',[req.params.id]);
+    // pncdel2 — on retrouve le message par son id serveur OU par l'id provisoire (client_id) de l'appli
+    const r=await _pgPool.query('SELECT * FROM penc_messages WHERE id=$1 OR client_id=$1 ORDER BY (id=$1) DESC LIMIT 1',[req.params.id]);
     const msg=r.rows[0];
-    if(!msg) return res.status(404).json({error:'Message introuvable'});
-    if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Action non autorisée'});
+    if(!msg) return res.status(404).json({error:'Message pas encore enregistré', retry:true});
+    if(String(msg.sender_id)!==String(uid)) return res.status(403).json({error:'Tu ne peux supprimer pour tous que tes propres messages', hard:true});
+    if(msg.deleted_for_all) return res.json({success:true, id:msg.id, already:true});   // déjà supprimé : pas une erreur
     // Marquer supprimé
     await _pgPool.query('UPDATE penc_messages SET deleted_for_all=TRUE,content=$1,type=$2 WHERE id=$3',
-      ['','deleted',req.params.id]);
+      ['','deleted',msg.id]);
     // Notifier tous les participants via Socket.io
     const convParts=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[msg.conversation_id]);
     const parts=(convParts.rows[0]?JSON.parse(JSON.stringify(convParts.rows[0].participants)):[]).filter(function(p){return String(p)!==String(uid);});
-    await emitToUsers(parts,'message:deleted',{id:msg.id,conv_id:msg.conversation_id});
-    res.json({success:true});
-  }catch(e){console.error('delete msg:',e.message);res.status(500).json({error:'Erreur serveur'});}
+    await emitToUsers(parts,'message:deleted',{id:msg.id,client_id:msg.client_id||null,conv_id:msg.conversation_id});
+    try{ io.to('user:'+String(uid)).emit('message:deleted',{id:msg.id,client_id:msg.client_id||null,conv_id:msg.conversation_id}); }catch(_){}   // mes autres appareils
+    res.json({success:true, id:msg.id});
+  }catch(e){console.error('delete msg:',e.message);res.status(500).json({error:'Erreur serveur', retry:true});}
 });
 
 // PATCH /api/penc/messages/:id — modifier
