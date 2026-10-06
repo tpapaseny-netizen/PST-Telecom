@@ -11087,7 +11087,7 @@ app.post('/api/yb/rides/:id/accept', ybAuth, async (req, res) => {
       await _pgPool.query('UPDATE yb_rides SET pickup_km=$1 WHERE id=$2',[pk, r.id]); r.pickup_km = pk; }
     _ybLog('ride_accept', req.yb.id, r.id, null, req); _ybSettle(r, req.yb.id); _ybPushed.delete(r.id);
     try{ const cv = await _ybRideView(r, r.client_id); const dv = cv && cv.driver;
-      if(dv) _ybPush(r.client_id, '✅ ' + String(dv.name || 'Ton chauffeur').split(' ')[0] + ' arrive' + (dv.eta_min ? ' · ' + dv.eta_min + ' min' : ''), (dv.vehicle === 'voiture' ? 'Voiture' : 'Moto') + ' ' + (dv.plate || '') + (dv.vehicle_desc ? ' · ' + dv.vehicle_desc : '') + ' — ton code de départ : ' + (r.pin || ''), '/', 'yb-ride', true, 1800); }catch(_){}
+      if(dv) _ybPush(r.client_id, '✅ ' + String(dv.name || 'Ton chauffeur').split(' ')[0] + ' arrive' + (dv.eta_min ? ' · ' + dv.eta_min + ' min' : ''), (dv.vehicle === 'voiture' ? 'Voiture' : 'Moto') + ' ' + (dv.plate || '') + (dv.vehicle_desc ? ' · ' + dv.vehicle_desc : '') + ' — ouvre Dieulsi pour voir ton code de départ', '/', 'yb-ride', true, 1800); }catch(_){}   // ybq5 : le code n'est affiché que dans l'appli
     res.json({ success: true, ride: await _ybRideView(r, req.yb.id) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -11108,7 +11108,7 @@ app.post('/api/yb/rides/:id/:step', ybAuth, async (req, res) => {
       await _pgPool.query('UPDATE yb_drivers SET last_done_at=NOW() WHERE user_id=$1',[req.yb.id]);
       _ybLearnFrom(r); }
     _ybLog('ride_' + step, req.yb.id, r.id, null, req);
-    if(step === 'arrived') _ybPush(r.client_id, '📍 Ton chauffeur est là', 'Il t\'attend au point de départ.' + (r.pin ? ' Code de départ : ' + r.pin : ''), '/', 'yb-ride', true, 1800);
+    if(step === 'arrived') _ybPush(r.client_id, '📍 Ton chauffeur est là', 'Il t\'attend au point de départ. Ouvre Dieulsi pour lui donner ton code.', '/', 'yb-ride', true, 1800);
     if(step === 'finish') _ybPush(r.client_id, 'Course terminée · ' + Number(r.price).toLocaleString('fr-FR') + ' F', 'Paie en espèces et note ton chauffeur : les meilleurs passent en premier.', '/', 'yb-ride', false, 86400); res.json({ success: true, ride: await _ybRideView(r, req.yb.id) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });

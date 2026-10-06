@@ -1,8 +1,8 @@
-/* Dieulsi — service worker (ybq4)
+/* Dieulsi — service worker (ybq4, ybq5)
    Pages : réseau d'abord (toujours la dernière version), copie de secours hors connexion.
    Images et icônes : cache d'abord. L'API (api.penc-messagerie.com) n'est jamais mise en cache.
    Notifications : affichage + ouverture de l'appli au bon endroit. */
-const CACHE = 'dieulsi-v4';
+const CACHE = 'dieulsi-v5';   // ybq5
 
 self.addEventListener('install', function (e) { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
