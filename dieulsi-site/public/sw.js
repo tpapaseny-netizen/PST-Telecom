@@ -1,6 +1,6 @@
 /* Dieulsi — service worker minimal : la page s'ouvre même avec un réseau faible.
    Réseau d'abord pour la page (toujours la dernière version), cache en secours. Jamais de cache pour l'API. */
-var V = 'yb-v2-dieulsi';
+var V = 'yb-v3-dieulsi';
 self.addEventListener('install', function (e) { self.skipWaiting(); e.waitUntil(caches.open(V).then(function (c) { return c.addAll(['/', '/manifest.json', '/icon-192.png']).catch(function () {}); })); });
 self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { return x === V ? null : caches.delete(x); })); }).then(function () { return self.clients.claim(); })); });
 self.addEventListener('fetch', function (e) {

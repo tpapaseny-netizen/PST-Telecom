@@ -10606,6 +10606,22 @@ app.post('/api/yb/auth/login', async (req, res) => {
     res.json({ token: _ybSign(u), me: _ybMe(u, drv) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
+// Suppression du compte Dieulsi (exigée par Google Play) : code secret + mot « SUPPRIMER »
+app.post('/api/yb/me/delete', ybAuth, async (req, res) => {
+  try{ await _ybInit(); const b = req.body || {};
+    if(String(b.confirm || '').trim().toUpperCase() !== 'SUPPRIMER') return res.status(400).json({ error: 'Écris SUPPRIMER pour confirmer' });
+    if(!_gpRate('yb:' + req.yb.id, 'yb_del', 6, 900000)) return res.status(429).json({ error: 'Trop d\'essais. Réessaie dans 15 minutes.' });
+    const u = (await _pgPool.query('SELECT * FROM yb_users WHERE id=$1',[req.yb.id])).rows[0];
+    if(!u) return res.status(404).json({ error: 'Compte introuvable' });
+    if(!(await _pencComparePwd(String(b.password || ''), u.pwd_hash))) return res.status(400).json({ error: 'Code secret incorrect' });
+    const act = (await _pgPool.query('SELECT 1 FROM yb_rides WHERE (client_id=$1 OR driver_id=$1) AND status = ANY($2) LIMIT 1',[u.id, YB_ACTIVE])).rows;
+    if(act.length) return res.status(409).json({ error: 'Termine ou annule ta course en cours avant de supprimer ton compte' });
+    await _pgPool.query('DELETE FROM yb_drivers WHERE user_id=$1',[u.id]);
+    await _pgPool.query("UPDATE yb_users SET name='Compte supprimé', phone=$2, pwd_hash='', role='client', banned=TRUE WHERE id=$1",[u.id, 'supprime:' + u.id]);
+    _ybLog('account_delete', u.id, null, null, req);
+    res.json({ success: true });
+  }catch(e){ console.error('yb delete :', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
 app.get('/api/yb/me', ybAuth, async (req, res) => {
   try{ await _ybExpire(); const drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0]; const s = await _ybSettings();
     const r = (await _pgPool.query('SELECT * FROM yb_rides WHERE (client_id=$1 OR driver_id=$1) AND status = ANY($2) ORDER BY created_at DESC LIMIT 1',[req.yb.id, YB_ACTIVE])).rows[0];

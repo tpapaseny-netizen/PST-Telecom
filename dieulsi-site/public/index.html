@@ -556,9 +556,12 @@ $('#menuBtn').onclick=function(){
     +'<button class="mitem" id="mHist">'+IC.clock+' Mes courses</button>'
     +(me.is_admin?'<button class="mitem" id="mAdm">'+IC.shield+' Administration</button>':'')
     +'<button class="mitem" id="mHelp">'+IC.help+' Comment ça marche</button>'
+    +'<button class="mitem" id="mPriv">'+IC.shield+' Confidentialité</button>'
     +'<button class="mitem" id="mOut" style="color:var(--bad)">'+IC.out+' Me déconnecter</button>'
+    +'<button class="mitem" id="mDel" style="color:var(--bad);opacity:.85">'+IC.out+' Supprimer mon compte</button>'
     +'<p class="note center" style="margin-top:24px">Dieulsi · By PST — Pure Smart Telecom</p>');
   $('#mHist').onclick=history; $('#mHelp').onclick=help; $('#mOut').onclick=function(){ closePage(); logout(); };
+  $('#mPriv').onclick=privacy; $('#mDel').onclick=deleteAccount;
   var a=$('#mAdm'); if(a) a.onclick=function(){ admin('vue'); };
 };
 async function history(){
@@ -613,6 +616,47 @@ async function admin(tab){
       if(x.success){ toast('Tarifs enregistrés'); admin('tarifs'); } else toast(x.error||'Erreur'); };
   }
 }
+
+/* ══════════════ CONFIDENTIALITÉ + SUPPRESSION DU COMPTE (exigées par Google Play) ══════════════ */
+function privacy(){
+  var sec=function(t,x){ return '<div class="it"><b>'+t+'</b><div class="l2">'+x+'</div></div>'; };
+  openPage(ph('Confidentialité')+'<div class="list">'
+    +sec('Qui sommes-nous','Dieulsi est un service de PST — Pure Smart Telecom (Thiès, Sénégal). Contact : <a href="mailto:contact@dieulsi.com">contact@dieulsi.com</a>.')
+    +sec('Ce que nous enregistrons','Ton nom, ton numéro de téléphone et ton code secret (chiffré, jamais lisible). Pour les chauffeurs : le type de véhicule, la plaque et sa description. Pour chaque course : le point de départ, la destination, le prix, les horaires et la note donnée.')
+    +sec('Ta position','Ta position n\'est utilisée que pendant que l\'appli est ouverte : pour placer le départ de ta course, et, pour un chauffeur en ligne, pour lui proposer les courses proches et montrer au client où il se trouve. Nous ne suivons personne en dehors d\'une course.')
+    +sec('À quoi ça sert','Uniquement à faire fonctionner le service : relier un client à un chauffeur, calculer le prix, assurer la sécurité (savoir qui a fait quelle course) et gérer la commission. Pas de publicité, pas de revente de données.')
+    +sec('Qui voit quoi','Pendant une course, le client voit le nom, la plaque et la position du chauffeur ; le chauffeur voit le nom, le numéro et le point de départ du client. L\'équipe Dieulsi peut consulter les courses en cas de problème.')
+    +sec('Où sont les données','Sur des serveurs sécurisés (connexion chiffrée HTTPS). La carte utilise OpenStreetMap.')
+    +sec('Supprimer ton compte','Menu ☰ → « Supprimer mon compte », ou la page <a href="#/supprimer-compte">dieulsi.com/#/supprimer-compte</a>. Ton nom, ton numéro et tes informations de chauffeur sont effacés aussitôt ; l\'historique des courses est gardé sans aucun lien avec toi, pour la comptabilité.')
+    +sec('Tes questions','Écris à <a href="mailto:contact@dieulsi.com">contact@dieulsi.com</a>.')
+    +'</div><p class="note center" style="margin-top:18px">Dernière mise à jour : octobre 2026</p>');
+}
+function deleteAccount(){
+  if(!S.tok || !S.me){
+    openPage(ph('Supprimer mon compte')+'<div class="list"><div class="it"><b>Connecte-toi d\'abord</b><div class="l2">Pour supprimer ton compte, connecte-toi avec ton numéro et ton code secret, puis ouvre le menu ☰ → « Supprimer mon compte ».<br/><br/>Tu n\'arrives plus à te connecter ? Écris à <a href="mailto:contact@dieulsi.com">contact@dieulsi.com</a> en indiquant ton numéro : nous supprimons le compte sous 7 jours.</div></div></div>'
+      +'<button class="big mt" id="delLogin">Me connecter</button>');
+    var b=$('#delLogin'); if(b) b.onclick=function(){ closePage(); try{ if(location.hash) location.hash=''; }catch(_){} };
+    return;
+  }
+  openPage(ph('Supprimer mon compte')
+    +'<div class="list"><div class="it"><b>Ce qui sera effacé</b><div class="l2">Ton nom, ton numéro, ton code secret'+(S.me.role==='driver'?' et tes informations de chauffeur (véhicule, plaque)':'')+'. Tu ne pourras plus te connecter avec ce compte. L\'historique des courses est gardé sans lien avec toi.</div></div></div>'
+    +'<div class="field" style="margin-top:14px"><input id="delPwd" type="password" inputmode="numeric" placeholder="Ton code secret" autocomplete="current-password"/></div>'
+    +'<div class="field"><input id="delWord" placeholder="Écris SUPPRIMER pour confirmer" autocapitalize="characters"/></div>'
+    +'<button class="big red mt" id="delGo">Supprimer définitivement</button>');
+  $('#delGo').onclick=async function(){
+    var b=this, pwd=$('#delPwd').value, w=$('#delWord').value.trim().toUpperCase();
+    if(!pwd){ toast('Entre ton code secret'); return; }
+    if(w!=='SUPPRIMER'){ toast('Écris SUPPRIMER pour confirmer'); return; }
+    b.disabled=true; b.classList.add('loading');
+    var r=await api('/me/delete','POST',{ password:pwd, confirm:w });
+    b.disabled=false; b.classList.remove('loading');
+    if(r.success){ closePage(); toast('Ton compte a été supprimé'); try{ if(location.hash) location.hash=''; }catch(_){} logout(true); }
+    else toast(r.error||'Suppression impossible');
+  };
+}
+function _routeHash(){ var h=location.hash||''; if(h==='#/confidentialite') privacy(); else if(h==='#/supprimer-compte') deleteAccount(); }
+window.addEventListener('hashchange', _routeHash);
+setTimeout(_routeHash, 700);
 
 /* ── Lancement ── */
 try{ S.tok=localStorage.getItem(TOK_KEY); }catch(_){}
