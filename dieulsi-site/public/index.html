@@ -154,6 +154,18 @@ h2{font-size:20px;margin:0 0 4px;font-weight:800;}
 .rk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;border-radius:8px;padding:2px 8px;background:#FFF5D6;color:#8A6200;}
 .rk.new{background:#E7F0FE;color:var(--bd);}
 .prio{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:-2px 0 10px;}
+/* ybq3 — code de départ, partage, SOS */
+.pinc{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--nv);color:#fff;border-radius:16px;padding:12px 14px;margin-bottom:10px;}
+.pinc b{font-size:30px;letter-spacing:.2em;font-weight:800;}
+.pinc small{display:block;opacity:.8;font-size:12px;font-weight:600;}
+.acts{display:flex;gap:8px;margin-top:10px;}
+.acts button{flex:1;height:46px;border-radius:14px;font-weight:800;background:var(--cr);color:var(--b);display:flex;align-items:center;justify-content:center;gap:6px;}
+.acts .sos{background:#FDECEC;color:var(--bad);flex:0 0 96px;}
+.field.pinf{border-color:var(--b);background:#F4F8FF;}
+.field.pinf input{letter-spacing:.3em;font-size:20px;}
+.field.pinf input::placeholder{letter-spacing:normal;font-size:16px;}
+.field.bad{border-color:var(--bad);animation:shk .32s;}
+.chip.rec{background:#E7F0FE;color:var(--bd);}
 /* Menu et pages */
 .page{position:fixed;inset:0;z-index:60;background:var(--cr);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px calc(env(safe-area-inset-bottom,0px) + 20px);}
 .ph{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
@@ -282,6 +294,38 @@ var ICOK='<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="cu
 function fmtTel(p){ var d=String(p||'').replace(/\D/g,''); if(d.length===12 && d.indexOf('221')===0) d=d.slice(3); return d.length===9? d.slice(0,2)+' '+d.slice(2,5)+' '+d.slice(5,7)+' '+d.slice(7) : String(p||''); }
 function rkTag(r, n, who){ return r ? '<span class="rk">★ '+String(r).replace('.',',')+(n?' · '+n+' course'+(n>1?'s':''):'')+'</span>' : '<span class="rk new">Nouveau '+(who||'')+'</span>'; }
 function starsBox(id){ return '<div class="stars" id="'+id+'">'+[1,2,3,4,5].map(function(n){ return '<button data-n="'+n+'" aria-label="'+n+' étoiles">'+IC.star+'</button>'; }).join('')+'</div>'; }
+IC.share='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+IC.hist='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+async function shareTrip(){ var r=S.ride; if(!r||!r.share) return; var url=location.origin+'/#/suivi/'+r.share;
+  var txt='Je suis en route avec Dieulsi'+(r.driver?' ('+vName(r.driver.vehicle)+' '+(r.driver.plate||'')+')':'')+'. Suis mon trajet en direct :';
+  if(navigator.share){ try{ await navigator.share({ title:'Mon trajet Dieulsi', text:txt, url:url }); return; }catch(e){ if(e && e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(txt+' '+url); toast('Lien copié — colle-le dans Penc ou WhatsApp'); }catch(_){ toast(url); } }
+async function sos(){ var r=S.ride; if(!r) return;
+  if(!(await ask({ title:'Urgence ?', text:'On prévient tout de suite l\'équipe Dieulsi avec ta position, puis on appelle la police (17).', ok:'Alerter et appeler le 17', cancel:'Annuler', danger:true, icon:ICX }))) return;
+  api('/rides/'+r.id+'/sos','POST',{ lat:S.pos?S.pos.lat:null, lng:S.pos?S.pos.lng:null }); toast('Alerte envoyée à l\'équipe Dieulsi'); setTimeout(function(){ location.href='tel:17'; },500); }
+var _trackT=null;
+function startTrack(tok){
+  S.track=tok; stopLoops(); clearTimeout(_trackT); $('#auth').classList.add('hide'); $('#topbar').classList.add('hide'); $('#page').classList.add('hide'); $('#sheet').classList.remove('hide');
+  var first=true;
+  var tick=async function(){
+    var r=await api('/track/'+tok);
+    if(!r.ride){ setSheet('<div class="center"><h2>Suivi indisponible</h2><p class="sub">'+esc(r.error||'Vérifie ta connexion internet')+'</p></div><a class="big" href="/" style="text-decoration:none">Ouvrir Dieulsi</a>'); if(r.error==='Pas de connexion internet') _trackT=setTimeout(tick,8000); return; }
+    var v=r.ride, d=v.driver, live=d&&d.lat!=null;
+    S.ride={ from:v.from, to:v.to, route:v.route, status:v.status, driver:d };
+    marker('a',v.from.lat,v.from.lng,'a',IC.dot); marker('z',v.to.lat,v.to.lng,'z',IC.flag);
+    marker('d', live?d.lat:null, live?d.lng:null,'d', d?vIcon(d.vehicle).replace(/width="28" height="28"/,'width="20" height="20"'):''); drawRoute();
+    if(first){ first=false; fit([live?{lat:d.lat,lng:d.lng}:null, v.from, v.to]); }
+    var who=esc(v.client||'Ton proche');
+    var st={ searching:'On cherche un chauffeur pour '+who, accepted:'Le chauffeur va chercher '+who, arrived:'Le chauffeur est arrivé', ongoing:who+' est en route', done:who+' est bien arrivé(e) ✓', cancelled:'Course annulée', expired:'Course annulée' }[v.status]||'';
+    var ended=['done','cancelled','expired'].indexOf(v.status)>-1;
+    setSheet('<div class="status">'+(ended?'':'<span class="dot on"></span> ')+st+'</div>'
+      +(d?'<div class="drv"><span class="av">'+esc((d.name||'?').charAt(0).toUpperCase())+'</span><div class="grow"><b>'+esc(d.name||'Chauffeur')+'</b>'+rkTag(d.rating,0,'chauffeur')+'<br/><span class="note">'+vName(d.vehicle)+(d.vehicle_desc?' · '+esc(d.vehicle_desc):'')+'</span><br/><span class="plate">'+esc(d.plate||'')+'</span></div></div>':'')
+      +'<p class="note" style="margin:0 0 10px">'+esc(v.from.label||'')+' → <b>'+esc(v.to.label||'')+'</b>'+(ended?'':'<br/>Position mise à jour en direct')+'</p>'
+      +'<a class="big light" href="/" style="text-decoration:none">Ouvrir Dieulsi</a>');
+    if(!ended) _trackT=setTimeout(tick, document.hidden?15000:5000);
+  };
+  tick();
+}
 function vIcon(v){ return v==='voiture'?IC.car:IC.moto; }
 function vName(v){ return v==='voiture'?'Voiture':'Moto Jakarta'; }
 
@@ -504,7 +548,7 @@ function logout(silent){ S.tok=null; S.me=null; S.ride=null; try{ localStorage.r
 async function boot(){
   initMap(); startGps();
   var r=await api('/me'); if(!r.me){ if(!S.tok) return renderAuth(); toast(r.error||'Erreur'); setTimeout(boot,3000); return; }
-  S.me=r.me; S.ride=r.ride; S.prices=r.prices; if(r.city) S.city=r.city;
+  S.me=r.me; S.ride=r.ride; S.prices=r.prices; if(r.city) S.city=r.city; S.recent=r.recent||[];
   $('#auth').classList.add('hide'); $('#topbar').classList.remove('hide'); $('#sheet').classList.remove('hide');
   if(S.me.role==='driver' && S.me.driver){ $('#drvPill').classList.remove('hide'); S.online=!!S.me.driver.online; setOnline(S.online,true); driverLoop(); renderDriver(); }
   else { $('#drvPill').classList.add('hide'); if(S.ride) S.step='ride'; else S.step='home'; renderClient(); clientLoop(); }
@@ -533,7 +577,8 @@ function renderClient(){
     if(!S.fromManual && S.pos) S.from={lat:S.pos.lat,lng:S.pos.lng};
     var fromTxt=S.fromManual?(S.fromLabel||'Point choisi sur la carte'):(S.pos?'Ma position actuelle':(S.gpsBad?'Position désactivée':'Recherche de ta position…'));
     var gpsLine=S.fromManual?'':(S.pos?'<div class="gps"><i></i>Position détectée'+(S.pos.acc?' · précise à '+Math.max(3,Math.round(S.pos.acc))+' m':'')+'</div>':(S.gpsBad?'<div class="gps bad"><i></i>Touche ici pour activer ta position</div>':'<div class="gps wait"><i></i>On détecte ta position…</div>'));
-    var chips=(_popular||[]).map(function(p,i){ return '<button class="chip" data-pi="'+i+'" style="border:0;cursor:pointer">'+IC.flag.replace('width="18" height="18"','width="14" height="14"')+esc(p.name)+'</button>'; }).join('');
+    var _rn={}; var chips=(S.recent||[]).map(function(p,i){ _rn[String(p.name).toLowerCase()]=1; return '<button class="chip rec" data-ri="'+i+'" style="border:0;cursor:pointer">'+IC.hist+esc(p.name)+'</button>'; }).join('')
+      +(_popular||[]).map(function(p,i){ if(_rn[String(p.name).toLowerCase()]) return ''; return '<button class="chip" data-pi="'+i+'" style="border:0;cursor:pointer">'+IC.flag.replace('width="18" height="18"','width="14" height="14"')+esc(p.name)+'</button>'; }).join('');
     setSheet('<h2>Où vas-tu ?</h2>'
       +'<button class="where" id="cTo" style="background:#fff;border:2px solid var(--b);"><span class="ic z" style="background:var(--b)">'+IC.flag+'</span><span><b style="color:#8FA6C8;font-weight:600">Chercher une destination</b></span></button>'
       +(chips?'<div style="margin:2px 0 10px">'+chips+'</div>':'')
@@ -542,6 +587,7 @@ function renderClient(){
     $('#cTo').onclick=function(){ S.searchFor='to'; S.step='search'; renderClient(); };
     $('#cFrom').onclick=function(){ if(S.gpsBad && !S.fromManual){ startGps(); toast('Autorise la localisation quand le téléphone le demande'); return; } S.searchFor='from'; S.step='search'; renderClient(); };
     document.querySelectorAll('[data-pi]').forEach(function(b){ b.onclick=function(){ pickTo(_popular[+b.getAttribute('data-pi')]); }; });
+    document.querySelectorAll('[data-ri]').forEach(function(b){ b.onclick=function(){ pickTo(S.recent[+b.getAttribute('data-ri')]); }; });
     if(_popular===null){ _popular=[]; loadPopular(); }
     return;
   }
@@ -582,7 +628,7 @@ function renderClient(){
     var card=function(v){ var x=q&&q[v]; var avail=x?(x.drivers>0?(x.eta?('Chauffeur à '+x.eta+' min'):'Disponible'):'Personne pour l\'instant'):'…';
       return '<button class="vcard'+(S.vehicle===v?' on':'')+'" data-v="'+v+'"><span class="vi">'+vIcon(v)+'</span><b>'+vName(v)+'</b><div class="pr">'+(x?F(x.price):'…')+'</div><small>'+avail+'</small></button>'; };
     setSheet('<div class="where" style="margin-bottom:10px"><span class="ic z">'+IC.flag+'</span><span style="flex:1;min-width:0"><small>Vers</small><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.toLabel||'Point choisi sur la carte')+'</b></span><button class="sbtn l" id="cChange" style="flex:none">Changer</button></div>'
-      +'<p class="sub" style="margin-bottom:8px">'+(q?((q.route_src==='route'?'Par la route : ':'Environ ')+km(q.distance_km)+' · '+q.minutes+' min · paiement en espèces'):'Calcul du trajet et du prix…')+'</p>'
+      +'<p class="sub" style="margin-bottom:8px">'+(q?((q.route_src==='route'?'Par la route : ':'Environ ')+km(q.distance_km)+' · '+((q[S.vehicle]&&q[S.vehicle].minutes)||q.minutes)+' min · paiement en espèces'):'Calcul du trajet et du prix…')+'</p>'
       +'<div class="veh">'+card('moto')+card('voiture')+'</div>'
       +'<div class="err" id="cErr"></div>'
       +'<button class="big" id="cOrder"'+(q?'':' disabled')+'>Commander · '+(q?F(q[S.vehicle].price):'…')+'</button>');
@@ -624,16 +670,20 @@ function renderRide(){
       +(r.rating||S.rated[r.id]?'<p class="note">Merci pour ta note !</p>':'<p class="note">Note ton chauffeur — les meilleurs sont proposés en premier</p><div class="stars" id="rStars">'+[1,2,3,4,5].map(function(n){ return '<button data-n="'+n+'" aria-label="'+n+' étoiles">'+IC.star+'</button>'; }).join('')+'</div>')
       +'</div><button class="big" id="rEnd">Terminer</button>');
     var st=$('#rStars'); if(st) st.querySelectorAll('button').forEach(function(b){ b.onclick=async function(){ var n=+b.getAttribute('data-n'); st.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-n')<=n); }); S.rated[r.id]=1; await api('/rides/'+r.id+'/rate','POST',{rating:n}); toast('Merci !'); }; });
-    $('#rEnd').onclick=function(){ S.ride=null; S.to=null; S.toLabel=''; S.step='home'; S.fromManual=false; renderClient(); };
+    $('#rEnd').onclick=function(){ api('/me').then(function(x){ if(x.recent) S.recent=x.recent; }); S.ride=null; S.to=null; S.toLabel=''; S.step='home'; S.fromManual=false; renderClient(); };
     return;
   }
   var label={accepted:'Ton chauffeur arrive', arrived:'Ton chauffeur est là !', ongoing:'En route vers ta destination'}[r.status]||'';
-  var eta=''; if(r.status==='accepted' && d && d.lat!=null){ var m=Math.max(1,Math.round(hav(d.lat,d.lng,r.from.lat,r.from.lng)*1.3/0.4)); eta=' · environ '+m+' min'; }
+  var eta=''; if(r.status==='accepted' && d && d.lat!=null){ var m=d.eta_min||Math.max(1,Math.round(hav(d.lat,d.lng,r.from.lat,r.from.lng)*1.3/0.4)); eta=' · environ '+m+' min'; }
+  var pinc=(r.pin && (r.status==='accepted'||r.status==='arrived'))?'<div class="pinc"><div><small>Ton code de départ</small><span style="font-size:13px;font-weight:600">Donne-le au chauffeur quand tu montes</span></div><b>'+esc(r.pin)+'</b></div>':'';
   setSheet('<div class="status">'+(r.status==='arrived'?'✅ ':'')+esc(label)+'<span class="note" style="font-weight:600">'+eta+'</span></div>'
     +(d?'<div class="drv"><span class="av">'+esc((d.name||'?').charAt(0).toUpperCase())+'</span><div class="grow"><b>'+esc(d.name)+'</b>'+rkTag(d.rating, d.rides, 'chauffeur')+'<br/><span class="note">'+vName(d.vehicle)+(d.vehicle_desc?' · '+esc(d.vehicle_desc):'')+'</span><br/><span class="plate">'+esc(d.plate||'')+'</span> <a class="telno" href="tel:'+esc(d.phone)+'">'+esc(fmtTel(d.phone))+'</a></div><a class="call" href="tel:'+esc(d.phone)+'" aria-label="Appeler">'+IC.phone+'</a></div>':'')
+    +pinc
     +'<div class="row"><div><p class="note" style="margin:0">À payer en espèces</p><div class="price" style="font-size:26px;margin:0">'+F(r.price)+'</div></div></div>'
+    +'<div class="acts">'+(r.share?'<button id="rShare">'+IC.share+' Partager mon trajet</button>':'')+'<button class="sos" id="rSos">SOS</button></div>'
     +(r.status!=='ongoing'?'<button class="big red mt" id="rCancel">Annuler la course</button>':''));
   var c=$('#rCancel'); if(c) c.onclick=cancelRide;
+  var sh=$('#rShare'); if(sh) sh.onclick=shareTrip; $('#rSos').onclick=sos;
 }
 async function cancelRide(){ if(!S.ride) return; if(!(await ask({ title:'Annuler cette course ?', text:S.ride.status==='searching'?'On arrête la recherche de chauffeur.':'Ton chauffeur est prévenu tout de suite.', ok:'Oui, annuler', cancel:'Non, garder ma course', danger:true, icon:ICX }))) return; var r=await api('/rides/'+S.ride.id+'/cancel','POST',{}); if(r.success){ S.ride=null; S.step='home'; renderClient(); toast('Course annulée'); } else toast(r.error||'Erreur'); }
 var loopT=null;
@@ -665,7 +715,7 @@ async function ping(){
   if(r.me){ S.me=r.me; var prev=S.ride; S.ride=r.ride; var newOnes=(r.offers||[]).filter(function(o){ return !S.seenOffers[o.id]; });
     if(newOnes.length){ newOnes.forEach(function(o){ S.seenOffers[o.id]=1; }); buzz(true); }
     S.offers=r.offers||[]; if(prev && !S.ride) toast('La course est terminée ou annulée');
-    if(S.me.driver && S.me.driver.status!=='approved' && S.online) setOnline(false,true);
+    if(S.me.driver && (S.me.driver.status!=='approved' || S.me.driver.paused_until) && S.online) setOnline(false,true);
     renderDriver(); }
 }
 function driverLoop(){ stopLoops(); var tick=async function(){ await ping(); loopT=setTimeout(tick, (S.online||S.ride)?4000:20000); }; tick(); }
@@ -683,6 +733,9 @@ function renderDriver(){
   }
   if(r){
     var cl=r.client||{};
+    if($('#dPin') && document.activeElement===$('#dPin') && S._lastRS===r.id+r.status) return;
+    S._lastRS=r.id+r.status;
+    var needPin=r.status==='arrived' && r.has_pin;
     var steps={accepted:['Va chercher le client','Je suis arrivé','arrived'], arrived:['Le client monte','Démarrer la course','start'], ongoing:['En route vers la destination','Terminer · encaisser '+F(r.price),'finish']}[r.status];
     var tgt=r.status==='ongoing'?r.to:(_live?{lat:cl.lat,lng:cl.lng,label:r.from.label}:r.from);
     setSheet('<div class="status">'+esc(steps?steps[0]:'')+'</div>'
@@ -690,22 +743,32 @@ function renderDriver(){
         +(r.status!=='ongoing'?'<span class="gps'+(_live?'':' wait')+'" style="font-size:12px"><i></i>'+(_live?'Position du client en direct'+(cl.acc?' · ± '+cl.acc+' m':''):'Position de départ indiquée')+'</span>':'')
         +'</div><a class="call" href="tel:'+esc(cl.phone||'')+'" aria-label="Appeler">'+IC.phone+'</a></div>'
       +'<a class="big light" style="text-decoration:none;margin-bottom:10px" href="'+navLink(tgt)+'" target="_blank" rel="noopener">'+IC.nav+' Itinéraire (Google Maps)</a>'
+      +(needPin?'<div class="field pinf" id="dPinF">'+IC.lock+'<input id="dPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Code du client"/></div>':'')
       +(steps?'<button class="big '+(r.status==='ongoing'?'ok':'')+'" id="dStep">'+steps[1]+'</button>':'')
-      +(r.status!=='ongoing'?'<button class="lnk" id="dDrop" style="color:var(--bad)">Je ne peux pas faire cette course</button>':''));
-    var b=$('#dStep'); if(b) b.onclick=async function(){ b.disabled=true; b.classList.add('loading'); var x=await api('/rides/'+r.id+'/'+steps[2],'POST',{}); b.disabled=false; b.classList.remove('loading'); if(x.ride){ if(steps[2]==='finish'){ toast('Course terminée · encaisse '+F(r.price)); S.rateClient=x.ride; } S.ride=x.ride.status==='done'?null:x.ride; renderDriver(); ping(); } else toast(x.error||'Erreur'); };
+      +'<div class="lnks">'+(r.status!=='ongoing'?'<button class="lnk" id="dDrop" style="color:var(--bad)">Je ne peux pas la faire</button>':'<span></span>')+'<button class="lnk" id="dSos" style="color:var(--bad)">SOS</button></div>');
+    $('#dSos').onclick=sos;
+    var b=$('#dStep'); if(b) b.onclick=async function(){ var body={}; if(needPin){ body.pin=($('#dPin').value||'').replace(/\D/g,''); if(body.pin.length!==4){ $('#dPinF').classList.remove('bad'); void $('#dPinF').offsetWidth; $('#dPinF').classList.add('bad'); toast('Demande le code à 4 chiffres au client'); $('#dPin').focus(); return; } }
+      b.disabled=true; b.classList.add('loading'); var x=await api('/rides/'+r.id+'/'+steps[2],'POST',body); b.disabled=false; b.classList.remove('loading');
+      if(x.bad_pin){ S._lastRS=null; var pf=$('#dPinF'); if(pf){ pf.classList.remove('bad'); void pf.offsetWidth; pf.classList.add('bad'); } toast(x.error); return; }
+      if(x.ride){ if(steps[2]==='finish'){ toast('Course terminée · encaisse '+F(r.price)); S.rateClient=x.ride; } S.ride=x.ride.status==='done'?null:x.ride; renderDriver(); ping(); } else toast(x.error||'Erreur'); };
     var dd=$('#dDrop'); if(dd) dd.onclick=async function(){ if(!(await ask({ title:'Laisser cette course ?', text:'Elle sera proposée tout de suite à un autre chauffeur.', ok:'Oui, la laisser', cancel:'Non, je la garde', danger:true, icon:ICX }))) return; var x=await api('/rides/'+r.id+'/cancel','POST',{}); if(x.success){ S.ride=null; renderDriver(); ping(); } else toast(x.error||'Erreur'); };
     if(S._fitRide!==r.id+r.status){ S._fitRide=r.id+r.status; fit([S.pos,tgt]); }
     return;
   }
   var prio=d.status==='approved'?'<div class="prio">'+rkTag(d.rating, d.rides, 'chauffeur')+(me.priority?'<span class="rk'+(me.priority==='haute'?'':' new')+'">Priorité '+esc(me.priority)+'</span>':'')+'</div>':'';
   var stats=prio+'<div class="stat3"><div><b>'+(d.rides||0)+'</b><span>courses</span></div><div><b>'+F(d.earned)+'</b><span>gagnés</span></div><div><b>'+F(d.commission_due)+'</b><span>à reverser</span></div></div>';
+  if(!S.online && d.paused_until){
+    setSheet('<h2>Pause de quelques minutes</h2><p class="sub">Tu as laissé plusieurs courses en peu de temps. Tu pourras repasser en ligne à '+new Date(d.paused_until).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'.</p>'+stats
+      +'<button class="big light" id="dRef">Actualiser</button><p class="note center" style="margin:8px 0 0">Les chauffeurs fiables reçoivent les courses en premier.</p>');
+    $('#dRef').onclick=ping; return;
+  }
   if(!S.online){
     setSheet('<h2>Bonjour '+esc((me.name||'').split(' ')[0])+'</h2><p class="sub">Passe en ligne pour recevoir les courses autour de toi.</p>'+stats
       +'<button class="big ok" id="dOn">Passer en ligne</button><p class="note center" style="margin:8px 0 0">Garde Dieulsi ouvert pendant que tu travailles.</p>');
     $('#dOn').onclick=function(){ if(!S.pos){ startGps(); toast('Active ta localisation pour recevoir des courses'); } setOnline(true); renderDriver(); };
     return;
   }
-  var offers=S.offers.map(function(o){ var oc=o.client||{}; return '<div class="offer"><div class="top2"><span class="p">'+F(o.price)+'</span><span class="tag2 b">Client à '+km(o.pickup_km)+'</span></div>'
+  var offers=S.offers.map(function(o){ var oc=o.client||{}; return '<div class="offer"><div class="top2"><span class="p">'+F(o.price)+'</span><span class="tag2 b">Client à '+km(o.pickup_km)+(o.pickup_min?' · '+o.pickup_min+' min':'')+'</span></div>'+(o.first?'<div style="margin-top:6px"><span class="tag2 ok">Proposée à toi en premier</span></div>':'')
     +'<div style="margin-top:6px"><b>'+esc(oc.name||'Client')+'</b> '+rkTag(oc.rating, oc.rides, 'client')+'</div>'
     +'<div class="note" style="margin:6px 0 10px">De : <b>'+esc(o.from.label)+'</b><br/>Vers : <b>'+esc(o.to.label)+'</b> · '+km(o.distance_km)+'</div>'
     +'<div class="row"><button class="big light" data-dec="'+o.id+'" style="height:50px">Ignorer</button><button class="big" data-acc="'+o.id+'" style="height:50px">Accepter</button></div></div>'; }).join('');
@@ -769,9 +832,11 @@ async function admin(tab){
   var c=r.counts;
   if(tab==='vue'){
     var pend=r.drivers.filter(function(d){ return d.status==='pending'; }).length;
-    ab.innerHTML='<div class="grid2">'+[[c.online,'chauffeurs en ligne'],[c.active,'courses en cours'],[c.today_rides,'courses aujourd\'hui'],[F(c.today_volume),'volume du jour'],[F(c.today_commission),'commission du jour'],[F(c.commission_due),'commission à encaisser'],[c.drivers,'chauffeurs validés'],[c.clients,'clients inscrits']].map(function(k){ return '<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'; }).join('')+'</div>'
+    var sosH=(r.sos&&r.sos.length)?'<div class="list" style="margin-bottom:12px">'+r.sos.map(function(x){ return '<div class="it" style="border:2px solid var(--bad)"><div class="l1"><span style="color:var(--bad)">🚨 SOS — '+esc(x.who||'')+'</span><span class="note">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</span></div><div class="l2">'+esc(x.name||'')+' · <a href="tel:'+esc(x.phone||'')+'">'+esc(x.phone||'')+'</a>'+(x.lat!=null?' · <a href="https://maps.google.com/?q='+x.lat+','+x.lng+'" target="_blank" rel="noopener">voir la position</a>':'')+'</div></div>'; }).join('')+'</div>':'';
+    var lr=r.learn||{}; var lrH=lr.moto?'<p class="note">Appris sur les vraies courses — moto : '+String(Math.round((lr.moto.speed||0)*60)).replace('.',',')+' km/h en approche, durée ×'+String(lr.moto.ratio||1).replace('.',',')+' ('+(lr.moto.n||0)+' courses) · voiture : '+String(Math.round((lr.voiture.speed||0)*60)).replace('.',',')+' km/h, durée ×'+String(lr.voiture.ratio||1).replace('.',',')+' ('+(lr.voiture.n||0)+' courses)</p>':'';
+    ab.innerHTML=sosH+'<div class="grid2">'+[[c.online,'chauffeurs en ligne'],[c.active,'courses en cours'],[c.today_rides,'courses aujourd\'hui'],[F(c.today_volume),'volume du jour'],[F(c.today_commission),'commission du jour'],[F(c.commission_due),'commission à encaisser'],[c.drivers,'chauffeurs validés'],[c.clients,'clients inscrits']].map(function(k){ return '<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'; }).join('')+'</div>'
       +(pend?'<button class="big mt" id="goPend">'+pend+' chauffeur(s) à valider</button>':'')
-      +'<p class="note mt">Commission actuelle : '+r.settings.commission_pct+' % · rayon de recherche '+r.settings.search_radius_km+' km</p>';
+      +'<p class="note mt">Commission actuelle : '+r.settings.commission_pct+' % · rayon de recherche '+r.settings.search_radius_km+' km</p>'+lrH;
     var gp=$('#goPend'); if(gp) gp.onclick=function(){ admin('drv'); };
   }
   if(tab==='drv'){
@@ -783,7 +848,9 @@ async function admin(tab){
       acts+=' <button class="sbtn '+(d.banned?'':'r')+'" data-a="'+(d.banned?'unban':'ban')+'" data-u="'+d.id+'">'+(d.banned?'Réactiver':'Suspendre')+'</button>';
       return '<div class="it"><div class="l1"><span>'+esc(d.name)+(d.online?' <span class="tag2 ok">en ligne</span>':'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div>'
         +'<div class="l2">'+vName(d.vehicle)+' · <b>'+esc(d.plate)+'</b>'+(d.vehicle_desc?' · '+esc(d.vehicle_desc):'')+'</div>'
-        +'<div class="l2"><a href="tel:'+esc(d.phone)+'">'+esc(d.phone)+'</a> · '+d.rides+' courses'+(d.rating?' · ★ '+d.rating:'')+' · doit '+F(d.commission_due)+'</div><div style="margin-top:8px">'+acts+'</div></div>'; }).join(''):'<p class="note">Aucun chauffeur inscrit.</p>')+'</div>';
+        +'<div class="l2"><a href="tel:'+esc(d.phone)+'">'+esc(d.phone)+'</a> · '+d.rides+' courses'+(d.rating?' · ★ '+d.rating:'')+' · doit '+F(d.commission_due)+'</div>'
+        +(d.status==='approved'?'<div class="l2">Score <b>'+String(d.score).replace('.',',')+'</b> · priorité '+esc(d.priority)+' · '+d.accepts+' acceptées · '+d.declines+' ignorées · '+d.drops+' abandons'+(d.paused?' · <b style="color:var(--bad)">en pause</b>':'')+'</div>':'')
+        +'<div style="margin-top:8px">'+acts+'</div></div>'; }).join(''):'<p class="note">Aucun chauffeur inscrit.</p>')+'</div>';
     ab.querySelectorAll('[data-a]').forEach(function(b){ b.onclick=async function(){ var a=b.getAttribute('data-a'); if(a==='paid' && !(await ask({ title:'Commission reçue ?', text:'Le montant dû par ce chauffeur repassera à zéro.', ok:'Oui, il a payé', icon:ICOK }))) return; if(a==='ban' && !(await ask({ title:'Suspendre ce chauffeur ?', text:'Il ne pourra plus se connecter ni recevoir de courses.', ok:'Suspendre', danger:true, icon:ICX }))) return; b.disabled=true; var x=await api('/admin/drivers/'+b.getAttribute('data-u')+'/'+a,'POST',{}); if(x.success){ toast('Fait'); admin('drv'); } else { b.disabled=false; toast(x.error||'Erreur'); } }; });
   }
   if(tab==='rides'){
@@ -840,13 +907,14 @@ function deleteAccount(){
     else toast(r.error||'Suppression impossible');
   };
 }
-function _routeHash(){ var h=location.hash||''; if(h==='#/confidentialite') privacy(); else if(h==='#/supprimer-compte') deleteAccount(); }
+function _routeHash(){ var h=location.hash||''; var m=h.match(/^#\/suivi\/([a-f0-9]{18})$/); if(m){ if(S.track!==m[1]) startTrack(m[1]); return; } if(h==='#/confidentialite') privacy(); else if(h==='#/supprimer-compte') deleteAccount(); }
 window.addEventListener('hashchange', _routeHash);
 setTimeout(_routeHash, 700);
 
 /* ── Lancement ── */
 try{ S.tok=localStorage.getItem(TOK_KEY); }catch(_){}
-if(S.tok) boot(); else { initMap(); renderAuth(); }
+var _tm=(location.hash||'').match(/^#\/suivi\/([a-f0-9]{18})$/);
+if(_tm){ initMap(); startTrack(_tm[1]); } else if(S.tok) boot(); else { initMap(); renderAuth(); }
 if('serviceWorker' in navigator) window.addEventListener('load',function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
 </script>
 </body>
