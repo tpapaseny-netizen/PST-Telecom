@@ -10067,6 +10067,18 @@ app.get('/api/penc/health', async (req,res)=>{
 // GET /api/penc/contacts
 // POST /api/penc/contacts/match — fait correspondre une liste de numeros de telephone (importes localement
 // depuis le carnet d'adresses du telephone, jamais stockes cote serveur) aux comptes Penc existants.
+// pncchat1 — ouvrir une discussion Penc à partir d'un numéro (lien penc-messagerie.com/messager?chat=+221…)
+app.get('/api/penc/users/by-phone', pencAuth, async (req, res) => {
+  try{ if(!_pgPool) return res.status(503).json({ error: 'BD non disponible' });
+    if(!_gpRate('pc:' + req.pencUser.userId, 'penc_byphone', 30, 600000)) return res.status(429).json({ error: 'Trop de recherches, réessaie dans quelques minutes' });
+    const phone = _ybPhone(req.query.phone); if(phone.replace(/\D/g,'').length < 9) return res.status(400).json({ error: 'Numéro invalide' });
+    const uid = await _ybPencUid(phone);
+    if(!uid) return res.status(404).json({ error: 'Ce numéro n\'a pas encore de compte Penc', not_found: true });
+    if(String(uid) === String(req.pencUser.userId)) return res.status(400).json({ error: 'C\'est ton propre numéro', self: true });
+    const u = await pgFindUser('id', uid);
+    res.json({ user: { id: uid, full_name: (u && (u.full_name || u.username)) || 'Utilisateur Penc', avatar_url: (u && u.avatar_url) || null } });
+  }catch(e){ console.error('by-phone:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.post('/api/penc/contacts/match', pencAuth, async (req, res) => {
   try{
     const phones = Array.isArray(req.body && req.body.phones) ? req.body.phones : [];
@@ -11103,6 +11115,8 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
+// ybq7 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq7', wallet: true }); });
 // ── Portefeuille chauffeur : crédit prépayé par Wave, validé par l'administration ──
 app.get('/api/yb/wallet', ybAuth, async (req, res) => {
   try{ const d = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0]; if(!d) return res.status(403).json({ error: 'Réservé aux chauffeurs' });
