@@ -113,6 +113,19 @@ h2{font-size:20px;margin:0 0 4px;font-weight:800;}
 .seg button{flex:1;height:42px;border-radius:11px;background:transparent;color:var(--bd);font-weight:800;}
 .seg button.on{background:var(--b);color:#fff;}
 .lnk{background:none;color:var(--b);font-weight:800;padding:10px;display:block;margin:4px auto 0;}
+/* Code de vérification (ybotp1) */
+.otp{position:relative;display:flex;gap:7px;justify-content:center;margin:8px 0 6px;}
+.otp .bx{flex:1;max-width:50px;height:58px;border:1.5px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:800;color:var(--nv);background:#fff;transition:border-color .15s,box-shadow .15s;}
+.otp .bx.full{border-color:var(--b);}
+.otp .bx.on{border-color:var(--b);box-shadow:0 0 0 3px rgba(24,119,242,.14);}
+.otp input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;caret-color:transparent;}
+.otp.bad .bx{border-color:var(--bad);animation:shk .32s;}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.otpto{background:var(--cr);border-radius:14px;padding:11px 13px;color:var(--bd);font-size:13.5px;margin:0 0 6px;line-height:1.4;}
+.otpto b{color:var(--nv);}
+.resend{text-align:center;color:var(--bd);font-size:13.5px;opacity:.85;margin:8px 0 2px;min-height:20px;}
+.choice .rec{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;background:#E3F5EC;color:var(--ok);border-radius:7px;padding:1px 6px;vertical-align:2px;}
+.choice .vi.wa{background:#E3F5EC;color:var(--ok);}
 .sign{text-align:center;margin-top:auto;padding-top:18px;font-size:12.5px;opacity:.85;}
 /* Menu et pages */
 .page{position:fixed;inset:0;z-index:60;background:var(--cr);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px calc(env(safe-area-inset-bottom,0px) + 20px);}
@@ -291,11 +304,28 @@ $('#locBtn').onclick=function(){ startGps(); if(S.pos && map) map.easeTo({center
 
 /* ── Connexion / inscription (le plus simple possible) ── */
 var A={ who:null, mode:'register' };
+var _aTimer=null;
+IC.chat='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/></svg>';
+var AHEAD='<img class="logo" src="/icon-192.png" alt=""/><h1>Dieulsi</h1><p class="tag">Ta moto Jakarta ou ta voiture,<br/>en une minute.</p>';
+function aCard(title, sub, inner){ $('#auth').innerHTML=AHEAD+'<div class="card"><h2>'+title+'</h2>'+(sub?'<p class="sub">'+sub+'</p>':'')+inner+'</div><div class="sign">By PST — Pure Smart Telecom</div>'; }
+function aBusy(b,on){ if(!b) return; b.disabled=on; b.classList.toggle('loading',on); }
+function aErr(t){ var e=$('#aErr'); if(e) e.textContent=t||''; }
+// Mêmes règles que le serveur (le serveur a toujours le dernier mot)
+function pwdErr(p, phone){ p=String(p||'');
+  if(p.length<6) return 'Le code secret doit avoir au moins 6 chiffres';
+  if(/^(\d)\1+$/.test(p)) return 'Code trop facile : évite les chiffres tous pareils';
+  if(/^\d+$/.test(p) && ('01234567890'.indexOf(p)>-1 || '09876543210'.indexOf(p)>-1)) return 'Code trop facile : évite les suites comme 123456';
+  var d=String(phone||'').replace(/\D/g,''); if(d.length>=6 && d.indexOf(p)>-1) return 'N\'utilise pas ton numéro de téléphone comme code secret';
+  return null; }
+function aDone(r){ if(!r || !r.token){ aErr((r&&r.error)||'Erreur'); return false; }
+  S.tok=r.token; try{ localStorage.setItem(TOK_KEY,r.token); }catch(_){} S.me=r.me; A={who:null,mode:'register'}; boot(); return true; }
 function renderAuth(){
-  var el=$('#auth'); el.classList.remove('hide');
-  var head='<img class="logo" src="/icon-192.png" alt=""/><h1>Dieulsi</h1><p class="tag">Ta moto Jakarta ou ta voiture,<br/>en une minute.</p>';
+  var el=$('#auth'); el.classList.remove('hide'); clearInterval(_aTimer); _aTimer=null;
+  if(A.mode==='otp') return renderOtp();
+  if(A.mode==='forgot') return renderForgot();
+  if(A.mode==='newpwd') return renderNewPwd();
   if(!A.who){
-    el.innerHTML=head+'<div class="card">'
+    el.innerHTML=AHEAD+'<div class="card">'
       +'<button class="choice" data-who="client"><span class="vi">'+IC.user+'</span><span><b>Je veux une course</b><small>Moto Jakarta ou voiture</small></span></button>'
       +'<button class="choice" data-who="driver"><span class="vi">'+IC.moto+'</span><span><b>Je suis chauffeur</b><small>Je gagne de l\'argent avec ma moto ou ma voiture</small></span></button>'
       +'<button class="lnk" data-who="login">J\'ai déjà un compte</button></div>'
@@ -303,33 +333,139 @@ function renderAuth(){
     el.querySelectorAll('[data-who]').forEach(function(b){ b.onclick=function(){ var w=b.getAttribute('data-who'); if(w==='login'){ A.who='client'; A.mode='login'; } else { A.who=w; A.mode='register'; } renderAuth(); }; });
     return;
   }
-  var isReg=A.mode==='register', isDrv=A.who==='driver';
+  var isReg=A.mode==='register', isDrv=A.who==='driver', pv=A.pending||{};
   var f='';
-  if(isReg) f+='<div class="field">'+IC.user+'<input id="aName" placeholder="Ton prénom et nom" autocomplete="name"/></div>';
-  f+='<div class="field">'+IC.tel+'<input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : 77 123 45 67)" autocomplete="tel"/></div>';
-  f+='<div class="field">'+IC.lock+'<input id="aPwd" type="password" inputmode="numeric" placeholder="'+(isReg?'Code secret (4 chiffres ou +)':'Ton code secret')+'" autocomplete="'+(isReg?'new-password':'current-password')+'"/></div>';
+  if(isReg) f+='<div class="field">'+IC.user+'<input id="aName" placeholder="Ton prénom et nom" autocomplete="name" value="'+esc(pv.name||'')+'"/></div>';
+  f+='<div class="field">'+IC.tel+'<input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : 77 123 45 67)" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>';
+  f+='<div class="field">'+IC.lock+'<input id="aPwd" type="password" inputmode="numeric" placeholder="'+(isReg?'Code secret (6 chiffres ou +)':'Ton code secret')+'" autocomplete="'+(isReg?'new-password':'current-password')+'"/></div>';
   if(isReg && isDrv){
-    f+='<div class="seg" id="aVeh"><button data-v="moto" class="on">Moto Jakarta</button><button data-v="voiture">Voiture</button></div>';
-    f+='<div class="field">'+IC.plate+'<input id="aPlate" placeholder="Plaque d\'immatriculation" autocapitalize="characters"/></div>';
-    f+='<div class="field">'+(IC.moto.replace('width="28" height="28"','width="22" height="22"'))+'<input id="aDesc" placeholder="Marque et couleur (ex : TVS rouge)"/></div>';
+    f+='<div class="seg" id="aVeh"><button data-v="moto" class="'+(pv.vehicle!=='voiture'?'on':'')+'">Moto Jakarta</button><button data-v="voiture" class="'+(pv.vehicle==='voiture'?'on':'')+'">Voiture</button></div>';
+    f+='<div class="field">'+IC.plate+'<input id="aPlate" placeholder="Plaque d\'immatriculation" autocapitalize="characters" value="'+esc(pv.plate||'')+'"/></div>';
+    f+='<div class="field">'+(IC.moto.replace('width="28" height="28"','width="22" height="22"'))+'<input id="aDesc" placeholder="Marque et couleur (ex : TVS rouge)" value="'+esc(pv.vehicle_desc||'')+'"/></div>';
   }
-  el.innerHTML=head+'<div class="card"><h2>'+(isReg?(isDrv?'Devenir chauffeur':'Créer mon compte'):'Me connecter')+'</h2>'
-    +'<p class="sub">'+(isReg?(isDrv?'On vérifie ton compte avant ta première course.':'Gratuit. Juste ton nom et ton numéro.'):'Avec ton numéro et ton code secret.')+'</p>'
-    +f+'<div class="err" id="aErr"></div><button class="big" id="aGo">'+(isReg?'Continuer':'Me connecter')+'</button>'
+  aCard(isReg?(isDrv?'Devenir chauffeur':'Créer mon compte'):'Me connecter',
+    isReg?(isDrv?'On vérifie ton compte avant ta première course.':'Gratuit. Juste ton nom et ton numéro.'):'Avec ton numéro et ton code secret.',
+    f+'<div class="err" id="aErr"></div><button class="big" id="aGo">'+(isReg?'Continuer':'Me connecter')+'</button>'
+    +(isReg?'':'<button class="lnk" id="aForgot">Code secret oublié ?</button>')
     +'<button class="lnk" id="aSwitch">'+(isReg?'J\'ai déjà un compte':'Je n\'ai pas de compte')+'</button>'
-    +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700;margin-top:0">Retour</button></div>'
-    +'<div class="sign">By PST — Pure Smart Telecom</div>';
-  var veh='moto'; var seg=$('#aVeh'); if(seg) seg.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ veh=b.getAttribute('data-v'); seg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
-  $('#aSwitch').onclick=function(){ A.mode=isReg?'login':'register'; renderAuth(); };
-  $('#aBack').onclick=function(){ A.who=null; renderAuth(); };
+    +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700;margin-top:0">Retour</button>');
+  var veh=pv.vehicle==='voiture'?'voiture':'moto'; var seg=$('#aVeh'); if(seg) seg.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ veh=b.getAttribute('data-v'); seg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
+  $('#aSwitch').onclick=function(){ A.mode=isReg?'login':'register'; A.pending=null; renderAuth(); };
+  $('#aBack').onclick=function(){ A={who:null,mode:'register'}; renderAuth(); };
+  if($('#aForgot')) $('#aForgot').onclick=function(){ A.mode='forgot'; A.pending={ phone:$('#aPhone').value }; renderAuth(); };
   $('#aGo').onclick=async function(){
-    var b=$('#aGo'); $('#aErr').textContent=''; b.disabled=true; b.classList.add('loading');
+    var b=$('#aGo'); aErr('');
     var body={ phone:$('#aPhone').value, password:$('#aPwd').value };
-    if(isReg){ body.name=$('#aName').value; body.role=A.who; if(isDrv){ body.vehicle=veh; body.plate=$('#aPlate').value; body.vehicle_desc=$('#aDesc').value; } }
-    var r=await api('/auth/'+(isReg?'register':'login'),'POST',body); b.disabled=false; b.classList.remove('loading');
-    if(!r.token){ $('#aErr').textContent=r.error||'Erreur'; return; }
-    S.tok=r.token; try{ localStorage.setItem(TOK_KEY,r.token); }catch(_){}
-    S.me=r.me; boot();
+    if(!isReg){ aBusy(b,true); var r0=await api('/auth/login','POST',body); aBusy(b,false); aDone(r0); return; }
+    body.name=$('#aName').value; body.role=A.who; if(isDrv){ body.vehicle=veh; body.plate=$('#aPlate').value; body.vehicle_desc=$('#aDesc').value; }
+    if(String(body.name).trim().length<2) return aErr('Écris ton nom');
+    if(String(body.phone).replace(/\D/g,'').length<9) return aErr('Numéro de téléphone invalide');
+    var pe=pwdErr(body.password, body.phone); if(pe) return aErr(pe);
+    if(isDrv && String(body.plate).trim().length<3) return aErr('Écris la plaque d\'immatriculation');
+    aBusy(b,true);
+    var o=await api('/otp/options','POST',{ phone:body.phone, purpose:'register' });
+    if(o.error){ aBusy(b,false); return aErr(o.error); }
+    A.pending=body;
+    if(!o.penc && !o.whatsapp && !o.test){ var r=await api('/auth/register','POST',body); aBusy(b,false); if(r.need_otp) return aErr('Réessaie dans un instant'); aDone(r); return; }
+    aBusy(b,false); A.purpose='register'; A.chan=o; A.sent=null; A.back='register'; A.mode='otp'; renderAuth();
+  };
+}
+/* ── Code de vérification (Penc d'abord, WhatsApp ensuite) ── */
+function chanName(c){ return c==='whatsapp'?'WhatsApp':(c==='test'?'ton compte de test':'Penc'); }
+function renderOtp(){
+  var c=A.chan||{}, pv=A.pending||{}, both=c.penc && c.whatsapp;
+  var title=A.purpose==='reset'?'Code secret oublié':'Vérifie ton numéro';
+  if(!A.sent){
+    var only=c.test?'test':(c.penc&&!c.whatsapp?'penc':(!c.penc&&c.whatsapp?'whatsapp':null));
+    if(only){ aCard(title,'Envoi de ton code…','<div class="err" id="aErr"></div><button class="big loading" disabled>…</button><button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>'); $('#aBack').onclick=otpBack; otpSend(only); return; }
+    aCard(title,'Où veux-tu recevoir ton code à 6 chiffres ?',
+      '<button class="choice" data-ch="penc"><span class="vi">'+IC.chat+'</span><span><b>Sur Penc<span class="rec">Recommandé</span></b><small>Gratuit et instantané, dans ta messagerie Penc</small></span></button>'
+      +'<button class="choice" data-ch="whatsapp"><span class="vi wa">'+IC.chat+'</span><span><b>Sur WhatsApp</b><small>Message du compte officiel Dieulsi</small></span></button>'
+      +'<div class="err" id="aErr"></div><button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>');
+    document.querySelectorAll('[data-ch]').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('[data-ch]').forEach(function(x){ x.disabled=true; }); otpSend(b.getAttribute('data-ch')); }; });
+    $('#aBack').onclick=otpBack; return;
+  }
+  var ch=A.sent.channel;
+  aCard(title,'',
+    '<div class="otpto">'+(ch==='test'?'Compte de test : entre le code <b>123456</b>.':'Code envoyé sur <b>'+chanName(ch)+'</b> au <b>'+esc(pv.phone)+'</b>. Il expire dans 5 minutes.')+'</div>'
+    +'<div class="otp" id="otpBox"><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span>'
+    +'<input id="otpIn" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Code à 6 chiffres"/></div>'
+    +'<div class="err" id="aErr" style="text-align:center"></div>'
+    +(ch==='penc'?'<a class="big light" href="https://penc-messagerie.com/messager" target="_blank" rel="noopener" style="text-decoration:none">'+IC.chat+' Ouvrir Penc</a>':'')
+    +'<div class="resend" id="aRes"></div>'
+    +(both?'<button class="lnk" id="aOther">Recevoir plutôt sur '+(ch==='penc'?'WhatsApp':'Penc')+'</button>':'')
+    +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700;margin-top:0">Retour</button>');
+  var inp=$('#otpIn'), box=$('#otpBox'), bxs=box.querySelectorAll('.bx'), busy=false;
+  function paint(){ var v=inp.value; bxs.forEach(function(x,i){ x.textContent=v[i]||''; x.classList.toggle('full',!!v[i]); x.classList.toggle('on',document.activeElement===inp && i===Math.min(v.length,5)); }); }
+  inp.oninput=async function(){ inp.value=inp.value.replace(/\D/g,'').slice(0,6); box.classList.remove('bad'); aErr(''); paint();
+    if(inp.value.length===6 && !busy){ busy=true; inp.blur(); await otpVerify(inp.value, function(msg){ busy=false; box.classList.add('bad'); aErr(msg); inp.value=''; paint(); setTimeout(function(){ inp.focus(); },60); }); } };
+  inp.onfocus=paint; inp.onblur=paint;
+  setTimeout(function(){ inp.focus(); paint(); },80);
+  $('#aBack').onclick=otpBack;
+  if($('#aOther')) $('#aOther').onclick=function(){ otpSend(ch==='penc'?'whatsapp':'penc'); };
+  var tick=function(){ var left=Math.max(0, 60-Math.floor((Date.now()-A.sent.at)/1000)), r=$('#aRes'); if(!r){ clearInterval(_aTimer); return; }
+    if(left>0){ r.textContent='Renvoyer le code dans 0:'+(left<10?'0':'')+left; }
+    else { r.innerHTML='<button class="lnk" id="aResend" style="margin:0 auto;padding:4px 10px">Renvoyer le code</button>'; $('#aResend').onclick=function(){ otpSend(ch); }; clearInterval(_aTimer); } };
+  tick(); _aTimer=setInterval(tick,1000);
+}
+async function otpSend(channel){
+  var pv=A.pending||{};
+  var r=await api('/otp/send','POST',{ phone:pv.phone, purpose:A.purpose, channel:channel });
+  if(!r.sent){
+    if(A.sent){ aErr(r.error||'Envoi impossible'); return; }
+    A.sent=null; if(A.mode==='otp' && !(A.chan&&A.chan.penc&&A.chan.whatsapp)){ aCard(A.purpose==='reset'?'Code secret oublié':'Vérifie ton numéro','','<div class="err" id="aErr"></div><button class="big" id="aRetry">Réessayer</button><button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>'); $('#aRetry').onclick=function(){ renderAuth(); }; $('#aBack').onclick=otpBack; }
+    else document.querySelectorAll('[data-ch]').forEach(function(x){ x.disabled=false; });
+    aErr(r.error||'Envoi impossible'); return;
+  }
+  A.sent={ channel:r.channel, at:Date.now() }; renderAuth(); if(r.channel!=='test') toast('Code envoyé sur '+chanName(r.channel));
+}
+async function otpVerify(code, fail){
+  var pv=A.pending||{};
+  var r=await api('/otp/verify','POST',{ phone:pv.phone, purpose:A.purpose, code:code });
+  if(!r.otp_token){ if(r.expired){ A.sent.at=0; } fail(r.error||'Code incorrect'); return; }
+  if(A.purpose==='reset'){ A.otpTok=r.otp_token; A.mode='newpwd'; renderAuth(); return; }
+  var body=Object.assign({}, pv, { otp_token:r.otp_token });
+  var x=await api('/auth/register','POST',body);
+  if(!x.token){ if(x.restart){ A.sent=null; A.mode='register'; renderAuth(); toast(x.error); return; } fail(x.error||'Erreur'); return; }
+  aDone(x); toast('Numéro vérifié ✓');
+}
+function otpBack(){ clearInterval(_aTimer); A.sent=null; A.mode=A.back||'login'; renderAuth(); }
+/* ── Code secret oublié ── */
+function renderForgot(){
+  var pv=A.pending||{};
+  aCard('Code secret oublié','Entre ton numéro : on t\'envoie un code pour choisir un nouveau code secret.',
+    '<div class="field">'+IC.tel+'<input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : 77 123 45 67)" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>'
+    +'<div class="err" id="aErr"></div><button class="big" id="aGo">Recevoir un code</button>'
+    +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>');
+  $('#aBack').onclick=function(){ A.mode='login'; renderAuth(); };
+  $('#aGo').onclick=async function(){
+    var b=$('#aGo'), phone=$('#aPhone').value; aErr('');
+    if(String(phone).replace(/\D/g,'').length<9) return aErr('Numéro de téléphone invalide');
+    aBusy(b,true); var o=await api('/otp/options','POST',{ phone:phone, purpose:'reset' }); aBusy(b,false);
+    if(o.error) return aErr(o.error);
+    A.pending={ phone:phone };
+    if(!o.penc && !o.whatsapp && !o.test){
+      aCard('Code secret oublié','',
+        '<div class="otpto">On ne peut pas encore t\'envoyer de code sur ce numéro : il n\'a pas de compte <b>Penc</b>.<br/><br/>Crée ton compte Penc gratuit avec ce même numéro, puis reviens ici. Ou écris-nous à <a href="mailto:contact@dieulsi.com">contact@dieulsi.com</a> depuis ce numéro.</div>'
+        +'<a class="big" href="https://penc-messagerie.com" target="_blank" rel="noopener" style="text-decoration:none">'+IC.chat+' Créer mon compte Penc</a>'
+        +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>');
+      $('#aBack').onclick=function(){ A.mode='forgot'; renderAuth(); }; return;
+    }
+    A.purpose='reset'; A.chan=o; A.sent=null; A.back='forgot'; A.mode='otp'; renderAuth();
+  };
+}
+function renderNewPwd(){
+  aCard('Nouveau code secret','Numéro vérifié ✓ Choisis un nouveau code secret. Tes autres appareils seront déconnectés.',
+    '<div class="field">'+IC.lock+'<input id="aP1" type="password" inputmode="numeric" placeholder="Nouveau code secret (6 chiffres ou +)" autocomplete="new-password"/></div>'
+    +'<div class="field">'+IC.lock+'<input id="aP2" type="password" inputmode="numeric" placeholder="Confirme le code secret" autocomplete="new-password"/></div>'
+    +'<div class="err" id="aErr"></div><button class="big" id="aGo">Enregistrer et me connecter</button>');
+  $('#aGo').onclick=async function(){
+    var b=$('#aGo'), p1=$('#aP1').value, p2=$('#aP2').value, phone=(A.pending||{}).phone; aErr('');
+    var pe=pwdErr(p1, phone); if(pe) return aErr(pe);
+    if(p1!==p2) return aErr('Les deux codes ne sont pas identiques');
+    aBusy(b,true); var r=await api('/auth/reset','POST',{ phone:phone, otp_token:A.otpTok, password:p1 }); aBusy(b,false);
+    if(r.restart){ A.mode='forgot'; renderAuth(); toast(r.error); return; }
+    if(aDone(r)) toast('Code secret changé ✓');
   };
 }
 function logout(silent){ S.tok=null; S.me=null; S.ride=null; try{ localStorage.removeItem(TOK_KEY); }catch(_){} stopLoops(); setOnline(false,true); A={who:null,mode:'register'}; $('#topbar').classList.add('hide'); $('#sheet').classList.add('hide'); $('#page').classList.add('hide'); renderAuth(); if(silent) toast('Reconnecte-toi'); }

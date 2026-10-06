@@ -10552,6 +10552,7 @@ async function ybAuth(req, res, next){
     let d; try{ d = jwt_penc.verify(h.slice(7), YB_SECRET); }catch(_){ return res.status(401).json({ error: 'Session expirée' }); }
     await _ybInit(); const u = (await _pgPool.query('SELECT * FROM yb_users WHERE id=$1',[String(d.ybu)])).rows[0];
     if(!u) return res.status(401).json({ error: 'Session expirée' }); if(u.banned) return res.status(403).json({ error: 'Compte suspendu' });
+    if(u.pwd_changed_at && d.iat && d.iat * 1000 < new Date(u.pwd_changed_at).getTime()) return res.status(401).json({ error: 'Session expirée' });
     req.yb = u; _pgPool.query('UPDATE yb_users SET last_seen=NOW() WHERE id=$1',[u.id]).catch(function(){}); next();
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 }
@@ -10575,7 +10576,139 @@ async function _ybRideView(r, viewerId){
 }
 // Les recherches sans chauffeur depuis plus de 5 minutes expirent
 async function _ybExpire(){ try{ await _pgPool.query("UPDATE yb_rides SET status='expired' WHERE status='searching' AND created_at < NOW() - INTERVAL '5 minutes'"); }catch(_){} }
+// ── DIEULSI — Vérification du numéro par code à 6 chiffres (ybotp1) ──
+// Canaux : Penc (compte officiel, gratuit) d'abord, WhatsApp (API officielle Meta) ensuite.
+// WhatsApp s'active tout seul quand WA_TOKEN et WA_PHONE_ID sont définis sur Render.
+// Numéros de test (examinateurs Google) : variable YB_TEST_PHONES, code fixe 123456, aucun envoi.
+const YB_OTP_TTL_MS = 5 * 60000, YB_OTP_MAX_TRY = 5, YB_TEST_CODE = '123456';
+const YB_TEST_PHONES = String(process.env.YB_TEST_PHONES || '').split(',').map(function(x){ return _ybPhone(x); }).filter(function(x){ return x.replace(/\D/g,'').length >= 9; });
+const YB_WA = { token: process.env.WA_TOKEN || '', phoneId: process.env.WA_PHONE_ID || '', template: process.env.WA_TEMPLATE || 'dieulsi_code', lang: process.env.WA_LANG || 'fr', ver: process.env.WA_GRAPH_VERSION || 'v21.0' };
+function _ybWaOn(){ return !!(YB_WA.token && YB_WA.phoneId); }
+let _ybOtpReady = false;
+async function _ybOtpInit(){
+  if(_ybOtpReady || !_pgPool) return; await _ybInit();
+  await _pgPool.query(`
+    CREATE TABLE IF NOT EXISTS yb_otp (phone TEXT NOT NULL, purpose TEXT NOT NULL, code_hash TEXT NOT NULL, channel TEXT, tries INT DEFAULT 0,
+      expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (phone, purpose));
+    ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
+    ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS pwd_changed_at TIMESTAMPTZ;
+  `);
+  _ybOtpReady = true;
+}
+setTimeout(function(){ _ybOtpInit().catch(function(e){ console.error('[yb] otp init:', e.message); }); }, 12000);
+function _ybOtpHash(phone, purpose, code){ return crypto.createHmac('sha256', YB_SECRET).update(phone + '|' + purpose + '|' + String(code)).digest('hex'); }
+function _ybSameHex(a, b){ try{ const x = Buffer.from(String(a), 'hex'), y = Buffer.from(String(b), 'hex'); return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y); }catch(_){ return false; } }
+function _ybIsTest(phone){ return YB_TEST_PHONES.indexOf(phone) > -1; }
+// Compte Penc dont le numéro correspond EXACTEMENT (après normalisation). Si deux comptes Penc ont le même numéro : on n'envoie pas par Penc.
+async function _ybPencUid(phone){
+  try{ const d = String(phone).replace(/\D/g,''); if(d.length < 9) return null;
+    const rows = (await _pgPool.query("SELECT id, phone FROM penc_users WHERE id <> 'penc_official' AND phone IS NOT NULL AND RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 9) = $1 LIMIT 5", [d.slice(-9)])).rows;
+    const ok = rows.filter(function(r){ return _ybPhone(r.phone) === phone; });
+    return ok.length === 1 ? String(ok[0].id) : null;
+  }catch(_){ return null; }
+}
+async function _ybOtpChannels(phone){ return { penc: !!(await _ybPencUid(phone)), whatsapp: _ybWaOn(), test: _ybIsTest(phone) }; }
+async function _ybWaSend(phone, code){
+  try{ const ctrl = new AbortController(); const tm = setTimeout(function(){ ctrl.abort(); }, 10000);
+    const r = await fetch('https://graph.facebook.com/' + YB_WA.ver + '/' + YB_WA.phoneId + '/messages', { method: 'POST', signal: ctrl.signal,
+      headers: { 'Authorization': 'Bearer ' + YB_WA.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: phone.replace(/\D/g,''), type: 'template', template: { name: YB_WA.template, language: { code: YB_WA.lang },
+        components: [ { type: 'body', parameters: [ { type: 'text', text: code } ] }, { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: code } ] } ] } }) });
+    clearTimeout(tm);
+    if(!r.ok){ console.log('[yb] whatsapp ECHEC', r.status, (await r.text()).slice(0, 300)); return false; }
+    return true;
+  }catch(e){ console.log('[yb] whatsapp exception', e.message); return false; }
+}
+async function _ybOtpDeliver(phone, purpose, channel, code){
+  if(channel === 'test') return true;
+  if(channel === 'penc'){
+    const uid = await _ybPencUid(phone); if(!uid) return false;
+    const why = purpose === 'reset' ? 'pour changer ton code secret Dieulsi' : 'pour créer ton compte Dieulsi';
+    await _sendPencOfficialDM(uid, '🔐 Dieulsi — ton code de vérification : ' + code + '\n\nIl sert ' + why + ' et expire dans 5 minutes.\nNe le donne à personne, même pas à un chauffeur ou à quelqu\'un qui dit travailler pour Dieulsi.',
+      'Code Dieulsi', 'Ton code de vérification : ' + code, 'dieulsi-otp');
+    return true;
+  }
+  if(channel === 'whatsapp') return _ybWaOn() ? _ybWaSend(phone, code) : false;
+  return false;
+}
+// Jeton court (15 min) remis après un code juste : prouve que le numéro appartient à la personne
+function _ybOtpTok(phone, purpose){ return jwt_penc.sign({ ybotp: phone, p: purpose }, YB_SECRET, { expiresIn: '15m' }); }
+function _ybOtpTokOk(tok, phone, purpose){ try{ const d = jwt_penc.verify(String(tok || ''), YB_SECRET); return d && d.ybotp === phone && d.p === purpose; }catch(_){ return false; } }
+// Code secret : 6 chiffres minimum, pas de suite évidente, pas la fin du numéro
+function _ybPwdErr(pwd, phone){
+  pwd = String(pwd || '');
+  if(pwd.length < 6 || pwd.length > 100) return 'Le code secret doit avoir au moins 6 chiffres';
+  if(/^(\d)\1+$/.test(pwd)) return 'Code trop facile : évite les chiffres tous pareils';
+  const seq = '01234567890', rev = '09876543210';
+  if(/^\d+$/.test(pwd) && (seq.indexOf(pwd) > -1 || rev.indexOf(pwd) > -1)) return 'Code trop facile : évite les suites comme 123456';
+  if(['112233','121212','123123','696969','111222','102030','147258','159753','000111','778899'].indexOf(pwd) > -1) return 'Code trop facile, choisis-en un autre';
+  const d = String(phone || '').replace(/\D/g,''); if(d.length >= 6 && d.indexOf(pwd) > -1) return 'N\'utilise pas ton numéro de téléphone comme code secret';
+  return null;
+}
 
+
+// Quels canaux sont possibles pour ce numéro ? (Penc / WhatsApp)
+app.post('/api/yb/otp/options', async (req, res) => {
+  try{ await _ybOtpInit(); const b = req.body || {}; const phone = _ybPhone(b.phone); const purpose = b.purpose === 'reset' ? 'reset' : 'register';
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_otpopt', 40, 3600000)) return _filTooFast(res);
+    if(phone.replace(/\D/g,'').length < 9) return res.status(400).json({ error: 'Numéro de téléphone invalide' });
+    const u = (await _pgPool.query('SELECT id, banned FROM yb_users WHERE phone=$1',[phone])).rows[0];
+    if(purpose === 'register' && u) return res.status(400).json({ error: 'Ce numéro a déjà un compte. Connecte-toi.' });
+    if(purpose === 'reset' && (!u || u.banned)) return res.status(400).json({ error: 'Aucun compte Dieulsi avec ce numéro' });
+    res.json(await _ybOtpChannels(phone));
+  }catch(e){ console.error('[yb] otp options:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/otp/send', async (req, res) => {
+  try{ await _ybOtpInit(); const b = req.body || {}; const phone = _ybPhone(b.phone); const purpose = b.purpose === 'reset' ? 'reset' : 'register';
+    if(phone.replace(/\D/g,'').length < 9) return res.status(400).json({ error: 'Numéro de téléphone invalide' });
+    const test = _ybIsTest(phone); const channel = test ? 'test' : (b.channel === 'whatsapp' ? 'whatsapp' : 'penc');
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_otpip', 20, 3600000)) return _filTooFast(res);
+    if(!_gpRate('ph:' + phone, 'yb_otp60', 1, 60000)) return res.status(429).json({ error: 'Attends une minute avant de redemander un code', wait: 60 });
+    if(!_gpRate('ph:' + phone, 'yb_otph', 5, 3600000)) return res.status(429).json({ error: 'Trop de codes demandés. Réessaie dans une heure.' });
+    const u = (await _pgPool.query('SELECT id, banned FROM yb_users WHERE phone=$1',[phone])).rows[0];
+    if(purpose === 'register' && u) return res.status(400).json({ error: 'Ce numéro a déjà un compte. Connecte-toi.' });
+    if(purpose === 'reset' && (!u || u.banned)) return res.status(400).json({ error: 'Aucun compte Dieulsi avec ce numéro' });
+    const code = test ? YB_TEST_CODE : String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    await _pgPool.query('INSERT INTO yb_otp(phone,purpose,code_hash,channel,tries,expires_at,created_at) VALUES($1,$2,$3,$4,0,$5,NOW()) ON CONFLICT (phone,purpose) DO UPDATE SET code_hash=$3, channel=$4, tries=0, expires_at=$5, created_at=NOW()',
+      [phone, purpose, _ybOtpHash(phone, purpose, code), channel, new Date(Date.now() + YB_OTP_TTL_MS)]);
+    const ok = await _ybOtpDeliver(phone, purpose, channel, code);
+    if(!ok){ await _pgPool.query('DELETE FROM yb_otp WHERE phone=$1 AND purpose=$2',[phone, purpose]);
+      return res.status(502).json({ error: channel === 'penc' ? 'Aucun compte Penc avec ce numéro. Choisis une autre méthode.' : 'Envoi impossible pour le moment. Réessaie dans un instant.' }); }
+    _ybLog('otp_send', u ? u.id : null, channel, { purpose: purpose }, req);
+    res.json({ sent: true, channel: channel, ttl: YB_OTP_TTL_MS / 1000, resend_in: 60 });
+  }catch(e){ console.error('[yb] otp send:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/otp/verify', async (req, res) => {
+  try{ await _ybOtpInit(); const b = req.body || {}; const phone = _ybPhone(b.phone); const purpose = b.purpose === 'reset' ? 'reset' : 'register';
+    const code = String(b.code || '').replace(/\D/g,'');
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_otpver', 40, 900000)) return _filTooFast(res);
+    const r = (await _pgPool.query('SELECT * FROM yb_otp WHERE phone=$1 AND purpose=$2',[phone, purpose])).rows[0];
+    if(!r || new Date(r.expires_at) < new Date()) return res.status(400).json({ error: 'Code expiré. Demande un nouveau code.', expired: true });
+    if(r.tries >= YB_OTP_MAX_TRY){ await _pgPool.query('DELETE FROM yb_otp WHERE phone=$1 AND purpose=$2',[phone, purpose]); return res.status(400).json({ error: 'Trop d\'essais. Demande un nouveau code.', expired: true }); }
+    if(code.length !== 6 || !_ybSameHex(_ybOtpHash(phone, purpose, code), r.code_hash)){
+      await _pgPool.query('UPDATE yb_otp SET tries=tries+1 WHERE phone=$1 AND purpose=$2',[phone, purpose]);
+      const left = YB_OTP_MAX_TRY - (r.tries + 1); _ybLog('otp_fail', null, phone, { purpose: purpose }, req);
+      if(left <= 0){ await _pgPool.query('DELETE FROM yb_otp WHERE phone=$1 AND purpose=$2',[phone, purpose]); return res.status(400).json({ error: 'Trop d\'essais. Demande un nouveau code.', expired: true }); }
+      return res.status(400).json({ error: 'Code incorrect — encore ' + left + ' essai' + (left > 1 ? 's' : '') });
+    }
+    await _pgPool.query('DELETE FROM yb_otp WHERE phone=$1 AND purpose=$2',[phone, purpose]);
+    res.json({ otp_token: _ybOtpTok(phone, purpose) });
+  }catch(e){ console.error('[yb] otp verify:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// Code secret oublié : numéro vérifié par code → nouveau code secret → toutes les anciennes sessions sont fermées
+app.post('/api/yb/auth/reset', async (req, res) => {
+  try{ await _ybOtpInit(); const b = req.body || {}; const phone = _ybPhone(b.phone); const pwd = String(b.password || '');
+    if(!_gpRate('ip:' + _gpIp(req), 'yb_reset', 10, 3600000)) return _filTooFast(res);
+    if(!_ybOtpTokOk(b.otp_token, phone, 'reset')) return res.status(400).json({ error: 'Vérification expirée. Recommence.', restart: true });
+    const pe = _ybPwdErr(pwd, phone); if(pe) return res.status(400).json({ error: pe });
+    const u = (await _pgPool.query('SELECT * FROM yb_users WHERE phone=$1',[phone])).rows[0];
+    if(!u || u.banned) return res.status(400).json({ error: 'Aucun compte Dieulsi avec ce numéro' });
+    await _pgPool.query('UPDATE yb_users SET pwd_hash=$2, phone_verified=TRUE, pwd_changed_at=$3 WHERE id=$1',[u.id, await _pencHash(pwd), new Date(Date.now() - 2000)]);
+    const drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[u.id])).rows[0];
+    _ybLog('pwd_reset', u.id, null, null, req);
+    res.json({ token: _ybSign(u), me: _ybMe(u, drv) });
+  }catch(e){ console.error('[yb] reset:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
 app.get('/api/yb/config', async (req, res) => { try{ await _ybInit(); const s = await _ybSettings(); res.json({ city: YB_CITY, zones: YB_ZONES, prices: { moto: s.moto, voiture: s.voiture } }); }catch(e){ res.status(500).json({ error: 'Erreur' }); } });
 app.post('/api/yb/auth/register', async (req, res) => {
   try{ await _ybInit(); const b = req.body || {};
@@ -10583,15 +10716,19 @@ app.post('/api/yb/auth/register', async (req, res) => {
     const name = _gpTxt(b.name, 50), phone = _ybPhone(b.phone), pwd = String(b.password || ''), role = b.role === 'driver' ? 'driver' : 'client';
     if(name.length < 2) return res.status(400).json({ error: 'Écris ton nom' });
     if(phone.replace(/\D/g,'').length < 9) return res.status(400).json({ error: 'Numéro de téléphone invalide' });
-    if(pwd.length < 4 || pwd.length > 100) return res.status(400).json({ error: 'Le code secret doit avoir au moins 4 chiffres' });
+    const pe = _ybPwdErr(pwd, phone); if(pe) return res.status(400).json({ error: pe });
+    await _ybOtpInit();
+    let verified = false;
+    if(b.otp_token){ if(!_ybOtpTokOk(b.otp_token, phone, 'register')) return res.status(400).json({ error: 'Vérification expirée. Recommence.', restart: true }); verified = true; }
+    else { const ch = await _ybOtpChannels(phone); if(ch.penc || ch.whatsapp || ch.test) return res.status(400).json({ error: 'Vérifie d\'abord ton numéro', need_otp: true }); }
     let vehicle = null, plate = null;
     if(role === 'driver'){ vehicle = b.vehicle === 'voiture' ? 'voiture' : 'moto'; plate = _gpTxt(b.plate, 20).toUpperCase(); if(plate.length < 3) return res.status(400).json({ error: 'Écris la plaque d\'immatriculation' }); }
     if((await _pgPool.query('SELECT 1 FROM yb_users WHERE phone=$1',[phone])).rows[0]) return res.status(400).json({ error: 'Ce numéro a déjà un compte. Connecte-toi.' });
     const u = { id: _ybId('ybu'), name: name, phone: phone, role: role };
-    await _pgPool.query('INSERT INTO yb_users(id,name,phone,pwd_hash,role) VALUES($1,$2,$3,$4,$5)',[u.id, name, phone, await _pencHash(pwd), role]);
+    await _pgPool.query('INSERT INTO yb_users(id,name,phone,pwd_hash,role,phone_verified) VALUES($1,$2,$3,$4,$5,$6)',[u.id, name, phone, await _pencHash(pwd), role, verified]);
     let drv = null;
     if(role === 'driver'){ await _pgPool.query('INSERT INTO yb_drivers(user_id,vehicle,plate,vehicle_desc) VALUES($1,$2,$3,$4)',[u.id, vehicle, plate, _gpTxt(b.vehicle_desc, 60)]); drv = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[u.id])).rows[0]; }
-    _ybLog('signup', u.id, role, { vehicle: vehicle }, req);
+    _ybLog('signup', u.id, role, { vehicle: vehicle, verified: verified }, req);
     res.json({ token: _ybSign(u), me: _ybMe(u, drv) });
   }catch(e){ console.error('[yb] register:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
