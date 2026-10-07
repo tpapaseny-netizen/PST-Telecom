@@ -10585,7 +10585,7 @@ function _ybLog(type, uid, target, meta, req){ try{ if(!_pgPool) return; _pgPool
 function _ybId(p){ return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function _ybPhone(p){ let s = String(p||'').replace(/[^0-9+]/g,'').replace(/^00/,'+'); if(/^[0-9]{9}$/.test(s)) s = '+221' + s; else if(/^[0-9]{7}$/.test(s)) s = '+220' + s; if(/^221[0-9]{9}$/.test(s) || /^220[0-9]{7}$/.test(s)) s = '+' + s; return s.slice(0,16); }
 function _ybSign(u){ return jwt_penc.sign({ ybu: u.id }, YB_SECRET, { expiresIn: '365d' }); }
-function _ybNum(v){ const n = Number(v); return isFinite(n) ? n : null; }
+function _ybNum(v){ if(v === null || v === undefined || v === '' || typeof v === 'boolean') return null; const n = Number(v); return isFinite(n) ? n : null; }   // ybq14b : null ≠ 0
 function _ybKm(a, b, c, d){ const R = 6371, r = Math.PI/180; const x = Math.sin((c-a)*r/2), y = Math.sin((d-b)*r/2); return 2*R*Math.asin(Math.sqrt(x*x + Math.cos(a*r)*Math.cos(c*r)*y*y)); }
 function _ybInCity(lat, lng){ return lat != null && lng != null && YB_ZONES.some(function(z){ return _ybKm(lat, lng, z.lat, z.lng) <= z.radius_km; }); }
 async function _ybSettings(){ try{ const r = (await _pgPool.query("SELECT v FROM yb_settings WHERE k='main'")).rows[0]; const v = r ? r.v : {};
@@ -10825,7 +10825,7 @@ async function _ybRideView(r, viewerId){
   return v;
 }
 // Les recherches sans chauffeur depuis plus de 5 minutes expirent
-async function _ybExpire(){ try{ const ex = (await _pgPool.query("UPDATE yb_rides SET status='expired' WHERE status='searching' AND created_at < NOW() - INTERVAL '5 minutes' RETURNING id, client_id, offered, declined")).rows;
+async function _ybExpire(){ try{ await _pgPool.query("UPDATE yb_rides SET client_lat=NULL, client_lng=NULL WHERE status = ANY($1) AND client_lat IS NOT NULL AND (client_lat < 10 OR client_lng > -10)",[['searching','accepted','arrived']]).catch(function(){});   // ybq14b const ex = (await _pgPool.query("UPDATE yb_rides SET status='expired' WHERE status='searching' AND created_at < NOW() - INTERVAL '5 minutes' RETURNING id, client_id, offered, declined")).rows;
   ex.forEach(function(r){ _ybSettle(r, null); _ybPushed.delete(r.id); _ybPush(r.client_id, 'Aucun chauffeur libre pour le moment', 'Réessaie dans quelques minutes ou essaie l\'autre véhicule.', '/', 'yb-ride', false, 1800); }); }catch(_){} }
 // ── DIEULSI — Notifications (ybq4) : web-push du serveur, abonnements propres à Dieulsi ──
 const YB_EN = [
@@ -11207,7 +11207,8 @@ app.post('/api/yb/rides', ybAuth, async (req, res) => {
     const s = await _ybSettings(); const T = await _ybTrip(a, o, c, d); const TV = T[vehicle === 'voiture' ? 'voiture' : 'moto']; const rt = { km: TV.km, minutes: TV.minutes, geometry: TV.geometry, src: T.rt.src + (TV.short ? '+court' : '') }; const km = TV.km;   // ybq13
     let sg = b.scheduled_at ? 1 : await _ybSurge(a, o, vehicle, s); const seen = _ybNum(b.surge_seen); if(seen != null && seen >= 1 && seen < sg) sg = seen;   // le client ne paie jamais plus que le prix affiché
     const price = _ybSurgePrice(_ybPrice(s, vehicle, km, ctryR), sg, ctryR); const id = _ybId('ybr');
-    const cla = _ybNum(b.me_lat), cln = _ybNum(b.me_lng), cac = _ybNum(b.me_acc);
+    let cla = _ybNum(b.me_lat), cln = _ybNum(b.me_lng); const cac = _ybNum(b.me_acc);
+    if(cla == null || cln == null || !_ybInArea(cla, cln) || _ybKm(cla, cln, a, o) > 1){ cla = null; cln = null; }   // ybq14b
     const pin = String(crypto.randomInt(0, 10000)).padStart(4, '0'), share = crypto.randomBytes(9).toString('hex');
     await _pgPool.query('INSERT INTO yb_rides(id,client_id,vehicle,from_lat,from_lng,from_label,to_lat,to_lng,to_label,distance_km,price,route,route_src,client_lat,client_lng,client_acc,client_loc_at,pin,share_token,est_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)',
       [id, req.yb.id, vehicle, a, o, _gpTxt(b.from_label, 80) || 'Ma position', c, d, _gpTxt(b.to_label, 80) || 'Destination', km, price, rt.geometry ? JSON.stringify(rt.geometry) : null, rt.src,
@@ -11225,8 +11226,8 @@ app.get('/api/yb/rides/:id', ybAuth, async (req, res) => {
     if(!r || (r.client_id !== req.yb.id && r.driver_id !== req.yb.id && !_ybIsAdmin(req.yb))) return res.status(404).json({ error: 'Course introuvable' });
     const la = _ybNum(req.query.lat), ln = _ybNum(req.query.lng);
     if(r.client_id === req.yb.id && la != null && ln != null && YB_ACTIVE.indexOf(r.status) > -1){
-      const ac = _ybNum(req.query.acc); await _pgPool.query('UPDATE yb_rides SET client_lat=$1, client_lng=$2, client_acc=$3, client_loc_at=NOW() WHERE id=$4',[la, ln, ac != null ? Math.round(ac) : null, r.id]);
-      r.client_lat = la; r.client_lng = ln; }
+      if(!_ybInArea(la, ln) || _ybKm(la, ln, r.from_lat, r.from_lng) > 1.5){ /* ybq14b : trop loin du départ → on garde le départ */ } else { const ac = _ybNum(req.query.acc); await _pgPool.query('UPDATE yb_rides SET client_lat=$1, client_lng=$2, client_acc=$3, client_loc_at=NOW() WHERE id=$4',[la, ln, ac != null ? Math.round(ac) : null, r.id]);
+      r.client_lat = la; r.client_lng = ln; } }
     res.json({ ride: await _ybRideView(r, req.yb.id) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -11297,7 +11298,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq13', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq14', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11409,7 +11410,16 @@ app.post('/api/yb/driver/ping', ybAuth, async (req, res) => {
     const d2 = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[req.yb.id])).rows[0];
     const pctNow = _ybPctNow(d2, sMoney);
     offers.forEach(function(o){ o.net = o.price - Math.round(o.price * pctNow / 100); });
-    res.json({ me: _ybMe(req.yb, d2), ride: await _ybRideView(act, req.yb.id), offers: offers,
+    // ybq14 — le chauffeur voit pourquoi il ne reçoit rien (position, demandes trop loin, autre véhicule)
+    let diag = null;
+    if(!act && !offers.length){ try{
+      const sr = (await _pgPool.query("SELECT vehicle, COALESCE(client_lat, from_lat) AS la, COALESCE(client_lng, from_lng) AS lo FROM yb_rides WHERE status='searching' AND COALESCE(country,'SN')=$1",[d.country || 'SN'])).rows;
+      const same = sr.filter(function(x){ return x.vehicle === d.vehicle; });
+      let near = null; if(lat != null) same.forEach(function(x){ const k = _ybKm(lat, lng, x.la, x.lo); if(near == null || k < near) near = k; });
+      diag = { online: online, can_work: _ybCanWork(d2, sMoney), has_loc: lat != null, loc_age_s: d2.loc_at ? Math.round((Date.now() - new Date(d2.loc_at).getTime()) / 1000) : null,
+        searching: same.length, other_vehicle: sr.length - same.length, nearest_km: near == null ? null : Math.round(near * 10) / 10 };
+    }catch(_){} }
+    res.json({ me: _ybMe(req.yb, d2), ride: await _ybRideView(act, req.yb.id), offers: offers, diag: diag,
       money: { pct: pctNow, pct_normal: sMoney.commission_pct, free_until: _ybFree(d2) ? d2.free_until : null, credit: Number(d2.credit || 0), can_work: _ybCanWork(d2, sMoney), wave_url: sMoney.wave_url } });
   }catch(e){ console.error('[yb] ping:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
