@@ -10625,6 +10625,35 @@ async function _ybRoute(a, b, c, d){
   }catch(_){}
   return est;
 }
+// ybq13 — raccourcis : les motos Jakarta (et souvent les voitures) prennent les pistes, ruelles et chemins de sable.
+// On calcule aussi le trajet « court » (réseau vélo/piste d'OpenStreetMap, qui inclut ces raccourcis) et on facture le plus court des deux.
+const YB_SHORT_ROUTER = process.env.YB_SHORT_ROUTER_URL || 'https://routing.openstreetmap.de/routed-bike';
+const _ybShortCache = new Map();
+async function _ybShort(a, b, c, d){
+  const key = [a, b, c, d].map(function(x){ return Number(x).toFixed(4); }).join(',');
+  const hit = _ybShortCache.get(key); if(hit && Date.now() - hit.t < 6 * 3600000) return hit.v;
+  let v = null;
+  try{ const ctrl = new AbortController(); const tm = setTimeout(function(){ ctrl.abort(); }, 2500);
+    const r = await fetch(YB_SHORT_ROUTER + '/route/v1/driving/' + b + ',' + a + ';' + d + ',' + c + '?overview=simplified&geometries=geojson', { signal: ctrl.signal, headers: { 'User-Agent': 'Dieulsi/1.0 (PST)' } });
+    clearTimeout(tm); const j = await r.json(); const rt = j && j.routes && j.routes[0];
+    if(rt && rt.distance > 0){ const km = Math.round(rt.distance / 100) / 10, straight = _ybKm(a, b, c, d);
+      if(km >= straight * 0.95 && km <= Math.max(straight * 3, straight + 2)){ let g = (rt.geometry && rt.geometry.coordinates) || []; if(g.length > 400){ const st = Math.ceil(g.length / 400); g = g.filter(function(_, i){ return i % st === 0 || i === g.length - 1; }); } v = { km: km, geometry: g }; } }
+  }catch(_){}
+  _ybShortCache.set(key, { t: Date.now(), v: v }); if(_ybShortCache.size > 5000) _ybShortCache.clear();
+  return v;
+}
+// Distance facturée par véhicule : jamais plus que la route officielle, et on profite des raccourcis.
+// Moto : le plus court entre route et piste (sinon ligne droite × 1,25). Voiture : route ou piste + 10 % (sinon ligne droite × 1,4).
+async function _ybTrip(a, b, c, d){
+  const both = await Promise.all([_ybRoute(a, b, c, d), _ybShort(a, b, c, d)]); const rt = both[0], sh = both[1], straight = _ybKm(a, b, c, d);
+  const r1 = function(x){ return Math.round(x * 10) / 10; };
+  const floor = r1(Math.max(0.2, straight * 1.03));
+  const mShort = sh ? sh.km : straight * 1.25, vShort = sh ? sh.km * 1.1 : straight * 1.4;
+  const kmM = r1(Math.max(floor, Math.min(rt.km, mShort))), kmV = r1(Math.max(floor, Math.min(rt.km, vShort)));
+  const minFor = function(km){ return Math.max(2, Math.round(rt.minutes * (rt.km > 0 ? km / rt.km : 1))); };
+  return { rt: rt, straight: straight, moto: { km: kmM, minutes: minFor(kmM), geometry: (sh && sh.km < rt.km) ? sh.geometry : rt.geometry, short: kmM < rt.km },
+    voiture: { km: kmV, minutes: minFor(kmV), geometry: (sh && sh.km * 1.1 < rt.km) ? sh.geometry : rt.geometry, short: kmV < rt.km } };
+}
 function _ybKey(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 // Les lieux nommés par les clients deviennent des suggestions pour tout le monde (gare routière, marché…)
 async function _ybLearnPlace(name, lat, lng){
@@ -11149,14 +11178,16 @@ app.get('/api/yb/places', async (req, res) => {   // ybq9
 app.post('/api/yb/quote', async (req, res) => {
   try{ await _ybInit(); const b = req.body || {}; const a = _ybNum(b.from_lat), o = _ybNum(b.from_lng), c = _ybNum(b.to_lat), d = _ybNum(b.to_lng);
     if([a,o,c,d].some(function(x){ return x == null; })) return res.status(400).json({ error: 'Positions manquantes' });
-    const s = await _ybSettings(); const rt = await _ybRoute(a, o, c, d); const km = rt.km; const L = await _ybLearn(); const ctry = _ybCtry(b.country);
+    const s = await _ybSettings(); const T = await _ybTrip(a, o, c, d); const rt = T.rt; const km = T.moto.km; const L = await _ybLearn(); const ctry = _ybCtry(b.country);   // ybq13
     const since = new Date(Date.now() - 120000);
     const near = (await _pgPool.query("SELECT vehicle, lat, lng FROM yb_drivers WHERE status='approved' AND online=TRUE AND loc_at > $1 AND COALESCE(country,'SN')=$2" + YB_WORK_SQL,[since, ctry])).rows;
     const sm = await _ybSurge(a, o, 'moto', s), sv = await _ybSurge(a, o, 'voiture', s);
     const avail = { moto: 0, voiture: 0 }, eta = { moto: null, voiture: null };
     near.forEach(function(x){ const k = _ybKm(a, o, x.lat, x.lng); if(k <= s.search_radius_km){ avail[x.vehicle]++; const m = _ybEtaMin(L, x.vehicle, k); if(eta[x.vehicle] == null || m < eta[x.vehicle]) eta[x.vehicle] = m; } });
-    const mm = function(v){ return Math.max(2, Math.round(rt.minutes * (L[v].ratio || 1))); };
-    res.json({ distance_km: km, minutes: mm('moto'), route: rt.geometry, route_src: rt.src, cur: YB_COUNTRIES[ctry].sym, moto: { price: _ybSurgePrice(_ybPrice(s, 'moto', km, ctry), sm, ctry), base_price: _ybPrice(s, 'moto', km, ctry), surge: sm, drivers: avail.moto, eta: eta.moto, minutes: mm('moto') }, voiture: { price: _ybSurgePrice(_ybPrice(s, 'voiture', km, ctry), sv, ctry), base_price: _ybPrice(s, 'voiture', km, ctry), surge: sv, drivers: avail.voiture, eta: eta.voiture, minutes: mm('voiture') } });
+    const mm = function(v){ return Math.max(2, Math.round(T[v].minutes * (L[v].ratio || 1))); }, kV = T.voiture.km;
+    res.json({ distance_km: km, minutes: mm('moto'), route: T.voiture.geometry || rt.geometry, route_moto: T.moto.geometry, route_src: rt.src, cur: YB_COUNTRIES[ctry].sym,
+      moto: { price: _ybSurgePrice(_ybPrice(s, 'moto', km, ctry), sm, ctry), base_price: _ybPrice(s, 'moto', km, ctry), surge: sm, drivers: avail.moto, eta: eta.moto, minutes: mm('moto'), km: km, short: T.moto.short },
+      voiture: { price: _ybSurgePrice(_ybPrice(s, 'voiture', kV, ctry), sv, ctry), base_price: _ybPrice(s, 'voiture', kV, ctry), surge: sv, drivers: avail.voiture, eta: eta.voiture, minutes: mm('voiture'), km: kV, short: T.voiture.short } });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/yb/rides', ybAuth, async (req, res) => {
@@ -11173,7 +11204,7 @@ app.post('/api/yb/rides', ybAuth, async (req, res) => {
     if(_ybKm(a, o, c, d) < 0.1) return res.status(400).json({ error: 'La destination est trop proche du départ' });
     const lateCancels = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM yb_rides WHERE client_id=$1 AND cancel_by='client' AND accepted_at IS NOT NULL AND created_at > NOW() - INTERVAL '3 hours'",[req.yb.id])).rows[0].n;
     if(lateCancels >= 3) return res.status(429).json({ error: 'Tu as annulé plusieurs courses après qu\'un chauffeur soit parti te chercher. Réessaie un peu plus tard.' });
-    const s = await _ybSettings(); const rt = await _ybRoute(a, o, c, d); const km = rt.km;
+    const s = await _ybSettings(); const T = await _ybTrip(a, o, c, d); const TV = T[vehicle === 'voiture' ? 'voiture' : 'moto']; const rt = { km: TV.km, minutes: TV.minutes, geometry: TV.geometry, src: T.rt.src + (TV.short ? '+court' : '') }; const km = TV.km;   // ybq13
     let sg = b.scheduled_at ? 1 : await _ybSurge(a, o, vehicle, s); const seen = _ybNum(b.surge_seen); if(seen != null && seen >= 1 && seen < sg) sg = seen;   // le client ne paie jamais plus que le prix affiché
     const price = _ybSurgePrice(_ybPrice(s, vehicle, km, ctryR), sg, ctryR); const id = _ybId('ybr');
     const cla = _ybNum(b.me_lat), cln = _ybNum(b.me_lng), cac = _ybNum(b.me_acc);
@@ -11266,7 +11297,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq12', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq13', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
