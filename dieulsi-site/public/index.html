@@ -170,6 +170,18 @@ h2{font-size:20px;margin:0 0 4px;font-weight:800;}
 .field.bad{border-color:var(--bad);animation:shk .32s;}
 .chip.rec{background:#E7F0FE;color:var(--bd);}
 .slogan{font-weight:700;letter-spacing:.01em;}
+.ctry{display:flex;gap:8px;margin-bottom:10px;}
+.ctry button{flex:1;height:48px;border-radius:14px;border:2px solid var(--line);background:#fff;color:var(--nv);font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.ctry button.on{border-color:var(--b);background:#EEF5FF;color:var(--b);}
+.dial{font-weight:800;color:var(--nv);padding-right:6px;border-right:1.5px solid var(--line);margin-right:2px;}
+.langb{background:none;border:0;color:var(--cr);opacity:.9;font-weight:700;font-size:13px;margin:6px auto 0;display:block;text-decoration:underline;}
+.wlogo{width:28px;height:28px;border-radius:8px;object-fit:cover;}
+.plogo{width:24px;height:24px;border-radius:7px;object-fit:cover;}
+#boot{position:fixed;inset:0;z-index:70;background:var(--b);color:var(--cr);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .3s ease;}
+#boot img{width:84px;height:84px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.18);}
+#boot b{font-size:30px;font-weight:800;letter-spacing:-.02em;}
+#boot span{font-size:14px;opacity:.9;font-weight:700;}
+#boot .sg{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);font-size:12.5px;opacity:.85;}
 .credp{border:0;font:inherit;font-weight:800;color:var(--nv);cursor:pointer;}
 .credp.low{background:#FDECEC;color:var(--bad);}
 .rech{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:52px;border-radius:16px;background:#1DC8F2;color:#06283D;font-weight:800;font-size:16px;margin:0 0 10px;box-shadow:0 8px 20px rgba(29,200,242,.28);}
@@ -258,6 +270,7 @@ h2{font-size:20px;margin:0 0 4px;font-weight:800;}
 </style>
 </head>
 <body>
+<div id="boot"><img src="/icon-192.png" alt=""/><b>Dieulsi</b><span class="slogan">Un geste, on vient te chercher.</span><div class="sg">By PST — Pure Smart Telecom</div></div>
 <div id="map"></div>
 <svg id="pin" class="hide" width="44" height="56" viewBox="0 0 44 56"><path d="M22 2C11 2 3 10.5 3 21c0 13 19 33 19 33s19-20 19-33C41 10.5 33 2 22 2z" fill="#1877F2" stroke="#fff" stroke-width="3"/><circle cx="22" cy="21" r="7" fill="#F5F0E8"/></svg>
 
@@ -281,6 +294,178 @@ h2{font-size:20px;margin:0 0 4px;font-weight:800;}
 <script>
 var API='https://api.penc-messagerie.com/api/yb';
 var TOK_KEY='yb_tok';
+/* ══════════════ LANGUE AUTOMATIQUE (ybq9) : français / anglais ══════════════
+   La langue suit celle du téléphone (anglais → English, sinon français), et peut être changée dans le menu.
+   Les écrans sont écrits en français ; un traducteur remplace les textes affichés quand la langue est l'anglais. */
+var LANG=(function(){ try{ var l=localStorage.getItem('yb_lang'); if(l==='en'||l==='fr') return l; }catch(_){}
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'fr').toLowerCase();
+  return n.indexOf('en')===0 ? 'en' : 'fr'; })();
+try{ document.documentElement.lang=LANG; }catch(_){}
+var TR_EN={
+ 'Un geste, on vient te chercher.':'One tap, we come and pick you up.','— Un geste, on vient te chercher.':'— One tap, we come and pick you up.',
+ 'Je veux une course':'I need a ride','Moto Jakarta ou voiture':'Motorbike or car','Je suis chauffeur':'I am a driver',
+ 'Je gagne de l\'argent avec ma moto ou ma voiture':'I earn money with my motorbike or car',"J'ai déjà un compte":'I already have an account',
+ 'Créer un compte':'Create an account','Retour':'Back','Créer mon compte':'Create my account','Devenir chauffeur':'Become a driver','Me connecter':'Log in',
+ 'On vérifie ton compte avant ta première course.':'We check your account before your first ride.','Gratuit. Juste ton nom et ton numéro.':'Free. Just your name and number.',
+ 'Avec ton numéro et ton code secret.':'With your number and your secret code.','Continuer':'Continue','Code secret oublié ?':'Forgot your secret code?',
+ 'Ton prénom et nom':'Your first and last name','Code secret (6 chiffres ou +)':'Secret code (6 digits or more)','Ton code secret':'Your secret code',
+ 'Plaque d\'immatriculation':'Licence plate','Marque et couleur (ex : TVS rouge)':'Make and colour (e.g. red TVS)','Moto Jakarta':'Motorbike','Voiture':'Car',
+ 'Sénégal':'Senegal','Gambie':'The Gambia','Ton pays':'Your country',
+ 'Vérifie ton numéro':'Verify your number','Où veux-tu recevoir ton code à 6 chiffres ?':'Where do you want to receive your 6-digit code?',
+ 'Sur Penc':'On Penc','Recommandé':'Recommended','Gratuit et instantané, dans ta messagerie Penc':'Free and instant, in your Penc messenger',
+ 'Sur WhatsApp':'On WhatsApp','Message du compte officiel Dieulsi':'Message from the official Dieulsi account','Envoi de ton code…':'Sending your code…',
+ 'Code envoyé sur':'Code sent via','au':'to','. Il expire dans 5 minutes.':'. It expires in 5 minutes.','Compte de test : entre le code':'Test account: enter the code',
+ 'Ouvrir Penc':'Open Penc','Renvoyer le code':'Resend the code','Réessayer':'Try again','Envoi impossible':'Could not send',
+ 'Code secret oublié':'Forgot secret code','Entre ton numéro : on t\'envoie un code pour choisir un nouveau code secret.':'Enter your number: we will send you a code to choose a new secret code.',
+ 'Recevoir un code':'Get a code','Créer mon compte Penc':'Create my Penc account','Nouveau code secret':'New secret code',
+ 'Numéro vérifié ✓ Choisis un nouveau code secret. Tes autres appareils seront déconnectés.':'Number verified ✓ Choose a new secret code. Your other devices will be logged out.',
+ 'Nouveau code secret (6 chiffres ou +)':'New secret code (6 digits or more)','Confirme le code secret':'Confirm the secret code','Enregistrer et me connecter':'Save and log in',
+ 'Code secret changé ✓':'Secret code changed ✓','Numéro vérifié ✓':'Number verified ✓',
+ 'Où vas-tu ?':'Where to?','Chercher une destination':'Search for a destination','Départ':'Pickup','Ma position actuelle':'My current location','Ma position':'My location',
+ 'Recherche de ta position…':'Finding your location…','Position désactivée':'Location turned off','On détecte ta position…':'Detecting your location…',
+ 'Dernière position connue · on actualise…':'Last known location · updating…','Touche ici pour activer ta position':'Tap here to turn on your location',
+ 'Astuce : touche la carte pour choisir directement ta destination.':'Tip: tap the map to pick your destination directly.',
+ 'Ton trajet habituel à cette heure':'Your usual trip at this time','Point choisi sur la carte':'Point chosen on the map',
+ 'Où vas-tu ? (ex : gare routière)':'Where to? (e.g. bus station)',"D'où pars-tu ?":'Where are you leaving from?','Choisir sur la carte':'Choose on the map',
+ 'Aucun lieu trouvé. Choisis-le sur la carte et donne-lui un nom : il sera proposé aux autres clients.':'No place found. Choose it on the map and give it a name: it will be suggested to other customers.',
+ 'Touche la carte':'Tap the map','Destination choisie':'Destination chosen','Départ choisi':'Pickup chosen','Tu peux toucher ailleurs pour corriger.':'You can tap elsewhere to correct it.',
+ 'Nom du lieu (ex : gare routière)':'Place name (e.g. bus station)','Valider':'Confirm','Vers':'To','Changer':'Change','Calcul du trajet et du prix…':'Calculating route and price…',
+ 'Personne pour l\'instant':'No one yet','Disponible':'Available','⚡ Forte demande':'⚡ High demand','Forte demande':'High demand',
+ '⚡ Beaucoup de demandes autour de toi : le prix est un peu plus élevé, et il est fixé dès que tu commandes.':'⚡ Lots of requests around you: the price is a bit higher, and it is locked in as soon as you order.',
+ 'On cherche ton chauffeur…':'Finding your driver…','Les chauffeurs autour de toi sont prévenus':'Drivers around you have been notified','Annuler la recherche':'Cancel search',
+ 'Aucun chauffeur libre pour le moment':'No driver available right now','Course annulée':'Ride cancelled',"Réessaie dans quelques minutes, ou essaie l'autre véhicule.":'Try again in a few minutes, or try the other vehicle.',
+ 'Accueil':'Home','Bien arrivé ?':'Arrived safely?','Paie le chauffeur en espèces':'Pay the driver in cash','Merci pour ta note !':'Thanks for your rating!',
+ 'Note ton chauffeur — les meilleurs sont proposés en premier':'Rate your driver — the best ones are offered first','Terminer':'Done',
+ 'Ton chauffeur arrive':'Your driver is on the way','Ton chauffeur est là !':'Your driver is here!','En route vers ta destination':'On the way to your destination',
+ 'Ton code de départ':'Your start code','Donne-le au chauffeur quand tu montes':'Give it to the driver when you get in','Ton chauffeur est là : donne-lui ce code':'Your driver is here: give them this code',
+ 'À payer en espèces':'To pay in cash','Partager mon trajet':'Share my trip','Annuler la course':'Cancel the ride','Annuler cette course ?':'Cancel this ride?',
+ 'On arrête la recherche de chauffeur.':'We will stop looking for a driver.','Ton chauffeur est prévenu tout de suite.':'Your driver is notified right away.',
+ 'Oui, annuler':'Yes, cancel','Non, garder ma course':'No, keep my ride','Course annulée':'Ride cancelled','Urgence ?':'Emergency?',
+ "On prévient tout de suite l'équipe Dieulsi avec ta position, puis on appelle la police (17).":'We alert the Dieulsi team with your location right away, then call the police (17).',
+ 'Alerter et appeler le 17':'Alert and call 17','Annuler':'Cancel',"Alerte envoyée à l'équipe Dieulsi":'Alert sent to the Dieulsi team',
+ 'Lien copié — colle-le dans Penc ou WhatsApp':'Link copied — paste it in Penc or WhatsApp',
+ 'Hors ligne':'Offline','En ligne':'Online','Tu es en ligne':"You're online",'Passe en ligne pour recevoir les courses autour de toi.':'Go online to receive rides around you.',
+ 'Passer en ligne':'Go online','Passer hors ligne':'Go offline','Garde Dieulsi ouvert pendant que tu travailles.':'Keep Dieulsi open while you work.',
+ 'On t\'envoie les courses proches dès qu\'il y en a.':'We send you nearby rides as soon as there are any.','courses':'rides','gagnés':'earned','crédit · Recharger':'credit · Top up',
+ 'Recharger mon crédit':'Top up my credit','Crédit bas : recharger':'Low credit: top up','Crédit épuisé : recharger':'Credit used up: top up',
+ 'Nouveau chauffeur':'New driver','Nouveau client':'New customer','Proposée à toi en premier':'Offered to you first','Ignorer':'Skip','Accepter':'Accept',
+ 'De :':'From:','Vers :':'To:','Tu gagnes':'You earn','Tu gardes':'You keep',': 0 % de commission':': 0% commission',
+ '🔥 Là où les clients commandent en ce moment':'🔥 Where customers are ordering right now','Y aller ›':'Go ›','Quartier animé':'Busy area',
+ 'Va chercher le client':'Go pick up the customer','Le client monte':'Customer getting in','En route vers la destination':'On the way to the destination',
+ 'Je suis arrivé':"I've arrived",'Démarrer la course':'Start the ride','Itinéraire (Google Maps)':'Directions (Google Maps)','Je ne peux pas la faire':"I can't do it",
+ 'Code du client (4 chiffres)':"Customer's code (4 digits)",'Le client voit ce code en grand sur son écran Dieulsi.':'The customer sees this code in large print on their Dieulsi screen.',
+ 'Position du client en direct':"Customer's live location",'Position de départ indiquée':'Pickup location given','Départ :':'Pickup:','Destination :':'Destination:',
+ 'Demande le code à 4 chiffres au client':'Ask the customer for the 4-digit code','Laisser cette course ?':'Leave this ride?',
+ 'Elle sera proposée tout de suite à un autre chauffeur.':'It will be offered to another driver right away.','Oui, la laisser':'Yes, leave it','Non, je la garde':"No, I'll keep it",
+ 'Course terminée ✓':'Ride completed ✓','Passer':'Skip','ce client':'this customer','Compte en vérification':'Account under review','Compte refusé':'Account refused',
+ "Contacte l'équipe Dieulsi pour en savoir plus.":'Contact the Dieulsi team to find out more.','Actualiser':'Refresh','Pause de quelques minutes':'Short break',
+ 'Les chauffeurs fiables reçoivent les courses en premier.':'Reliable drivers receive rides first.','Recharge ton crédit':'Top up your credit',
+ 'Ta recharge est validée en général en quelques minutes.':'Your top-up is usually approved within a few minutes.',
+ 'Active les notifications pour ne rater aucune course':"Turn on notifications so you don't miss any ride",'Notifications bloquées : active-les dans les réglages':'Notifications blocked: turn them on in settings',
+ 'Active les notifications':'Turn on notifications','Activer':'Turn on','Plus tard':'Later','Notifications activées ✓':'Notifications on ✓',
+ 'Pour recevoir les nouvelles courses même quand ton téléphone est en veille. Les courses vont d\'abord aux chauffeurs qui répondent vite.':'To receive new rides even when your phone is asleep. Rides go first to drivers who respond quickly.',
+ 'Pour savoir tout de suite quand ton chauffeur accepte, quand il arrive et quand la course est terminée.':'To know right away when your driver accepts, arrives and when the ride is over.',
+ 'Mon crédit Dieulsi':'My Dieulsi credit','Ton crédit':'Your credit','Choisis le montant et paie avec Wave':'Choose the amount and pay with Wave',
+ 'Écris le numéro de transaction de ton reçu Wave':'Enter the transaction number from your Wave receipt',
+ "L'équipe Dieulsi vérifie et ajoute ton crédit, en général en quelques minutes. Tu reçois une notification.":'The Dieulsi team checks and adds your credit, usually within a few minutes. You get a notification.',
+ 'Mes recharges':'My top-ups','En attente':'Pending','Validée':'Approved','Refusée':'Refused','Le crédit n\'est pas encore disponible':'Credit is not available yet',
+ 'Le serveur Dieulsi est en cours de mise à jour. Réessaie dans quelques minutes.':'The Dieulsi server is being updated. Try again in a few minutes.',
+ 'Vérifie ta connexion internet.':'Check your internet connection.','Écris le numéro de transaction Wave (dans ton reçu)':'Enter the Wave transaction number (on your receipt)',
+ "Recharge envoyée ✓ — on te prévient dès qu'elle est validée":"Top-up sent ✓ — we'll let you know as soon as it's approved",
+ 'Recharge par l\'équipe Dieulsi':'Top up through the Dieulsi team','Mes courses':'My rides','Comment ça marche':'How it works','Confidentialité':'Privacy',
+ 'Me déconnecter':'Log out','Supprimer mon compte':'Delete my account','Administration':'Administration','Langue':'Language',
+ 'Pour commander':'To order','1. Choisis ta destination sur la carte.':'1. Choose your destination on the map.',
+ "2. Choisis moto Jakarta ou voiture : le prix s'affiche avant de commander.":'2. Choose motorbike or car: the price is shown before you order.',
+ '3. Un chauffeur proche accepte, tu vois son nom, sa plaque et où il est.':'3. A nearby driver accepts; you see their name, plate and where they are.',
+ "4. Tu paies le prix affiché en espèces à l'arrivée.":'4. You pay the displayed price in cash on arrival.','Pour les chauffeurs':'For drivers',
+ "Inscris-toi avec ta plaque. Après validation, passe en ligne : les courses proches s'affichent avec le prix. Le client te paie en espèces. Les premiers jours sont offerts (0 % de commission). Ensuite, recharge ton crédit par Wave : la commission Dieulsi est retirée automatiquement à la fin de chaque course, et chaque offre t'indique ce que tu gagnes vraiment.":'Sign up with your plate. Once approved, go online: nearby rides appear with the price. The customer pays you in cash. Your first days are free (0% commission). After that, top up your credit with Wave: the Dieulsi commission is deducted automatically at the end of each ride, and every offer shows what you really earn.',
+ 'Forte demande':'High demand','Quand beaucoup de clients commandent au même endroit et que peu de chauffeurs sont libres, le prix peut monter un peu (jamais plus de ×1,5). Il est toujours affiché avant de commander et ne change plus ensuite.':'When many customers order in the same place and few drivers are free, the price can go up a little (never more than ×1.5). It is always shown before you order and never changes afterwards.',
+ 'Sécurité':'Safety','Vérifie toujours la plaque avant de monter. Le nom et le numéro du chauffeur sont enregistrés pour chaque course.':"Always check the plate before getting in. The driver's name and number are recorded for every ride.",
+ 'Qui sommes-nous':'Who we are','Dieulsi est un service de PST — Pure Smart Telecom (Thiès, Sénégal). Contact :':'Dieulsi is a service of PST — Pure Smart Telecom (Thiès, Senegal). Contact:',
+ 'Ce que nous enregistrons':'What we store','Ton nom, ton numéro de téléphone et ton code secret (chiffré, jamais lisible). Pour les chauffeurs : le type de véhicule, la plaque et sa description. Pour chaque course : le point de départ, la destination, le prix, les horaires et la note donnée.':'Your name, phone number and secret code (encrypted, never readable). For drivers: vehicle type, plate and description. For each ride: pickup point, destination, price, times and the rating given.',
+ 'Ta position':'Your location',"Ta position n'est utilisée que pendant que l'appli est ouverte : pour placer le départ de ta course, et, pour un chauffeur en ligne, pour lui proposer les courses proches et montrer au client où il se trouve. Nous ne suivons personne en dehors d'une course.":'Your location is only used while the app is open: to set your pickup point and, for an online driver, to offer nearby rides and show the customer where they are. We do not track anyone outside a ride.',
+ 'À quoi ça sert':'What it is used for','Uniquement à faire fonctionner le service : relier un client à un chauffeur, calculer le prix, assurer la sécurité (savoir qui a fait quelle course) et gérer la commission. Pas de publicité, pas de revente de données.':'Only to run the service: connect a customer with a driver, calculate the price, ensure safety (knowing who did which ride) and manage the commission. No advertising, no resale of data.',
+ 'Qui voit quoi':'Who sees what',"Pendant une course, le client voit le nom, la plaque et la position du chauffeur ; le chauffeur voit le nom, le numéro et le point de départ du client. L'équipe Dieulsi peut consulter les courses en cas de problème.":"During a ride, the customer sees the driver's name, plate and location; the driver sees the customer's name, number and pickup point. The Dieulsi team can check rides if there is a problem.",
+ 'Où sont les données':'Where the data is','Sur des serveurs sécurisés (connexion chiffrée HTTPS). La carte utilise OpenStreetMap.':'On secure servers (encrypted HTTPS connection). The map uses OpenStreetMap.',
+ 'Supprimer ton compte':'Delete your account','Menu ☰ → « Supprimer mon compte », ou la page':'Menu ☰ → "Delete my account", or the page',
+ 'Tes questions':'Your questions','Écris à':'Write to','Dernière mise à jour : octobre 2026':'Last updated: October 2026',
+ "Connecte-toi d'abord":'Log in first','Pour supprimer ton compte, connecte-toi avec ton numéro et ton code secret, puis ouvre le menu ☰ → « Supprimer mon compte ».':'To delete your account, log in with your number and secret code, then open the menu ☰ → "Delete my account".',
+ "Tu n'arrives plus à te connecter ? Écris à":"Can't log in anymore? Write to",'en indiquant ton numéro : nous supprimons le compte sous 7 jours.':'with your number: we delete the account within 7 days.',
+ 'Ce qui sera effacé':'What will be deleted','Ton nom, ton numéro, ton code secret':'Your name, your number, your secret code',' et tes informations de chauffeur (véhicule, plaque)':' and your driver details (vehicle, plate)',
+ "Écris SUPPRIMER pour confirmer":'Type DELETE to confirm','Supprimer définitivement':'Delete permanently','Entre ton code secret':'Enter your secret code','Ton compte a été supprimé':'Your account has been deleted',
+ 'Suppression impossible':'Could not delete','Suivi indisponible':'Tracking unavailable','Ouvrir Dieulsi':'Open Dieulsi','Position mise à jour en direct':'Location updated live',
+ 'Ton proche':'Your contact','Le chauffeur est arrivé':'The driver has arrived','Mon trajet Dieulsi':'My Dieulsi trip',
+ 'Active la localisation pour Dieulsi dans les réglages du téléphone':'Turn on location for Dieulsi in your phone settings','Autorise la localisation quand le téléphone le demande':'Allow location when your phone asks',
+ 'Active ta localisation pour recevoir des courses':'Turn on your location to receive rides','On attend ta position… ou choisis ton départ':'Waiting for your location… or choose your pickup',
+ 'Recherche de ta position…':'Finding your location…','Prix indisponible':'Price unavailable','La course est terminée ou annulée':'The ride is finished or cancelled',
+ 'Réglages du téléphone → Applis → Dieulsi → Notifications':'Phone settings → Apps → Dieulsi → Notifications','Notifications bloquées : active-les dans les réglages du téléphone':'Notifications blocked: turn them on in your phone settings',
+ 'Merci !':'Thank you!','Pas de connexion internet':'No internet connection','Vérifie ta connexion internet':'Check your internet connection','Erreur':'Error','Code incorrect':'Incorrect code',
+ 'Écris ton nom':'Enter your name','Numéro de téléphone invalide':'Invalid phone number','Écris la plaque d\'immatriculation':'Enter the licence plate','Réessaie dans un instant':'Try again in a moment',
+ 'Le code secret doit avoir au moins 6 chiffres':'The secret code must have at least 6 digits','Code trop facile : évite les chiffres tous pareils':'Code too easy: avoid identical digits',
+ 'Code trop facile : évite les suites comme 123456':'Code too easy: avoid sequences like 123456','Code trop facile, choisis-en un autre':'Code too easy, choose another one',
+ "N'utilise pas ton numéro de téléphone comme code secret":"Don't use your phone number as your secret code",'Les deux codes ne sont pas identiques':"The two codes don't match",
+ 'Ce numéro a déjà un compte. Connecte-toi.':'This number already has an account. Log in.','Numéro ou code secret incorrect':'Wrong number or secret code',
+ "Trop d'essais. Réessaie dans 15 minutes.":'Too many attempts. Try again in 15 minutes.','Choisis ton pays':'Choose your country',
+ "Ce numéro n'est pas un numéro de Gambie (+220)":'This is not a Gambian number (+220)',"Ce numéro n'est pas un numéro du Sénégal (+221)":'This is not a Senegalese number (+221)',
+ 'Code expiré. Demande un nouveau code.':'Code expired. Ask for a new code.','Attends une minute avant de redemander un code':'Wait a minute before asking for a new code',
+ 'Trop de codes demandés. Réessaie dans une heure.':'Too many codes requested. Try again in an hour.',"Trop d'essais. Demande un nouveau code.":'Too many attempts. Ask for a new code.',
+ 'Vérifie d\'abord ton numéro':'Verify your number first','Vérification expirée. Recommence.':'Verification expired. Start again.','Aucun compte Dieulsi avec ce numéro':'No Dieulsi account with this number',
+ 'Aucun compte Penc avec ce numéro. Choisis une autre méthode.':'No Penc account with this number. Choose another method.','Envoi impossible pour le moment. Réessaie dans un instant.':'Cannot send right now. Try again in a moment.',
+ 'Tu as déjà une course en cours':'You already have a ride in progress','La destination est trop proche du départ':'The destination is too close to the pickup',
+ 'Dieulsi fonctionne au Sénégal et en Gambie':'Dieulsi works in Senegal and The Gambia','Choisis le départ et la destination':'Choose the pickup and destination',
+ 'Trop tard, un autre chauffeur a pris cette course':'Too late, another driver took this ride',"Termine d'abord ta course en cours":'Finish your current ride first',
+ 'Recharge ton crédit Dieulsi pour accepter des courses':'Top up your Dieulsi credit to accept rides','Code de départ incorrect. Demande-le au client.':'Wrong start code. Ask the customer for it.',
+ 'Cette course ne peut plus être annulée':'This ride can no longer be cancelled','Écris le numéro de transaction Wave (dans ton reçu Wave)':'Enter the Wave transaction number (on your Wave receipt)',
+ 'Ce numéro de transaction a déjà été utilisé':'This transaction number has already been used','Tu as déjà 3 recharges en attente de validation':'You already have 3 top-ups waiting for approval',
+ "Trop d'actions en peu de temps. Réessaie dans quelques minutes.":'Too many actions in a short time. Try again in a few minutes.','Session expirée':'Session expired','Compte suspendu':'Account suspended',
+ "Ton compte chauffeur n'est pas encore validé":'Your driver account is not approved yet','Ton compte est en pause quelques minutes après plusieurs abandons de course':'Your account is paused for a few minutes after several abandoned rides',
+ 'Connecte-toi':'Log in','Reconnecte-toi':'Please log in again','Tu as annulé plusieurs courses après qu\'un chauffeur soit parti te chercher. Réessaie un peu plus tard.':'You cancelled several rides after a driver set off to pick you up. Try again a bit later.',
+ 'Ce suivi n\'est plus disponible':'This tracking link is no longer available','Lien invalide':'Invalid link','Écris SUPPRIMER pour confirmer ':'Type DELETE to confirm',
+ 'Code secret incorrect':'Incorrect secret code',"Termine ou annule ta course en cours avant de supprimer ton compte":'Finish or cancel your current ride before deleting your account',
+ 'On confirme ta position, une seconde…':'Confirming your location, one moment…',
+ '💳 Recharger mon crédit':'💳 Top up my credit','💳 Crédit bas : recharger':'💳 Low credit: top up','💳 Crédit épuisé : recharger':'💳 Credit used up: top up',
+ "ou appelle l'équipe pour recharger ton crédit.":'or call the team to top up your credit.',"Écris à":'Write to','Numéro (ex : 77 123 45 67)':'Number (e.g. 77 123 45 67)','Numéro (ex : 701 2345)':'Number (e.g. 701 2345)'
+};
+var TR_RX=[
+ [/^Chauffeur à (\d+) min$/,'Driver $1 min away'],[/^Client à (.+)$/,'Customer $1 away'],
+ [/^Par la route : (.+) · (\d+) min · paiement en espèces$/,'By road: $1 · $2 min · cash payment'],[/^Environ (.+) · (\d+) min · paiement en espèces$/,'About $1 · $2 min · cash payment'],
+ [/^Position détectée · précise à (\d+) m$/,'Location found · accurate to $1 m'],[/^Position approximative \(± (\d+) m\) · on affine…$/,'Approximate location (± $1 m) · refining…'],
+ [/^Commander · (.+)$/,'Order · $1'],[/^\(commission (.+)\)$/,'(commission $1)'],[/^· environ (\d+) min$/,'· about $1 min'],
+ [/^Renvoyer le code dans 0:(\d+)$/,'Resend the code in 0:$1'],[/^Recevoir plutôt sur (.+)$/,'Receive on $1 instead'],
+ [/^Demande (forte|moyenne) · à (.+)$/,function(m,a,b){ return (a==='forte'?'High':'Medium')+' demand · '+b+' away'; }],
+ [/^Payer (.+) avec Wave$/,'Pay $1 with Wave'],[/^J'ai payé (.+), envoyer$/,'I paid $1, send'],
+ [/^30 derniers jours : (\d+) courses · (.+) de commission$/,'Last 30 days: $1 rides · $2 commission'],
+ [/^Commission : (\d+) % par course, retirée automatiquement$/,'Commission: $1% per ride, deducted automatically'],
+ [/^🎁 0 % de commission jusqu'au (.+)$/,'🎁 0% commission until $1'],
+ [/^🎁 Bienvenue : 0 % de commission jusqu'au (.+)\. Ensuite (\d+) % par course, retirés de ton crédit\.$/,'🎁 Welcome: 0% commission until $1. After that $2% per ride, deducted from your credit.'],
+ [/^Ton crédit Dieulsi est épuisé\. Recharge par Wave pour recevoir à nouveau des courses : la commission \((\d+) %\) est retirée à la fin de chaque course\.$/,'Your Dieulsi credit is used up. Top up with Wave to receive rides again: the commission ($1%) is deducted at the end of each ride.'],
+ [/^Tu as laissé plusieurs courses en peu de temps\. Tu pourras repasser en ligne à (.+)\.$/,'You left several rides in a short time. You can go back online at $1.'],
+ [/^Bonjour (.+)$/,'Hello $1'],[/^Encaisse (.+) en espèces$/,'Collect $1 in cash'],[/^Course terminée · encaisse (.+)$/,'Ride completed · collect $1'],
+ [/^Terminer · encaisser (.+)$/,'Finish · collect $1'],[/^★ (.+) · (\d+) courses?$/,'★ $1 · $2 rides'],
+ [/^Priorité (haute|normale|basse)$/,function(m,a){ return 'Priority '+({haute:'high',normale:'normal',basse:'low'})[a]; }],
+ [/^Comment s'est passé le trajet avec$/,'How was the trip with'],[/^On cherche un chauffeur pour (.+)$/,'Looking for a driver for $1'],
+ [/^Le chauffeur va chercher (.+)$/,'The driver is going to pick up $1'],[/^(.+) est en route$/,'$1 is on the way'],[/^(.+) est bien arrivé\(e\) ✓$/,'$1 has arrived ✓'],
+ [/^Code incorrect — encore (\d+) essais?$/,'Incorrect code — $1 attempt(s) left'],[/^Montant entre (.+) et (.+)$/,'Amount between $1 and $2'],
+ [/^Tu pourras repasser en ligne à (.+)$/,'You can go back online at $1'],[/^L'équipe Dieulsi vérifie ta (moto|voiture) \((.+)\)\. Tu pourras recevoir des courses dès la validation\.$/,function(m,a,b){ return 'The Dieulsi team is checking your '+(a==='moto'?'motorbike':'car')+' ('+b+'). You can receive rides once approved.'; }],
+ [/^Touche l'endroit exact (où tu vas|d'où tu pars)\.$/,function(m,a){ return 'Tap the exact spot '+(a==='où tu vas'?'you are going to':'you are leaving from')+'.'; }],
+ [/^Tu gagnes (.+) \(commission (.+)\)$/,'You earn $1 (commission $2)'],[/^Tu gardes (.+) : 0 % de commission$/,'You keep $1: 0% commission'],
+ [/^Code envoyé sur (.+)$/,'Code sent via $1'], [/^Réf\. (.+)$/,'Ref. $1'],[/^Langue : Français → English$/,'Language: French → English'],[/^Langue : English → Français$/,'Language: English → French'],[/^Il y a (\d+) min$/,'$1 min ago']
+];
+function TR(t){ if(LANG!=='en' || !t) return t; var k=String(t).trim(); if(!k) return t; var x=TR_EN[k];
+  if(x==null){ for(var i=0;i<TR_RX.length;i++){ if(TR_RX[i][0].test(k)){ x=k.replace(TR_RX[i][0], TR_RX[i][1]); break; } } }
+  return x==null ? t : String(t).replace(k, x); }
+function _trText(n){ var v=n.nodeValue; if(!v || !/[A-Za-zÀ-ÿ]/.test(v)) return; var x=TR(v); if(x!==v) n.nodeValue=x; }
+function _trEl(el){ if(LANG!=='en' || !el || el.nodeType!==1) return; if(el.id==='map' || el.closest && el.closest('#map')) return;
+  ['placeholder','aria-label','title'].forEach(function(a){ var v=el.getAttribute && el.getAttribute(a); if(v){ var x=TR(v); if(x!==v) el.setAttribute(a,x); } });
+  var w=document.createTreeWalker(el, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT, { acceptNode:function(n){ return n.nodeType===1 && n.id==='map' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } }), n;
+  while((n=w.nextNode())){ if(n.nodeType===3) _trText(n); else ['placeholder','aria-label','title'].forEach(function(a){ var v=n.getAttribute(a); if(v){ var x=TR(v); if(x!==v) n.setAttribute(a,x); } }); } }
+if(LANG==='en'){
+  try{ new MutationObserver(function(ms){ for(var i=0;i<ms.length;i++){ var m=ms[i]; for(var j=0;j<m.addedNodes.length;j++){ var n=m.addedNodes[j]; if(n.nodeType===3) _trText(n); else _trEl(n); } } })
+    .observe(document.documentElement,{ childList:true, subtree:true }); }catch(_){}
+  document.addEventListener('DOMContentLoaded', function(){ _trEl(document.body); document.title=TR('Dieulsi — Un geste, on vient te chercher').replace('Dieulsi — Un geste, on vient te chercher','Dieulsi — One tap, we come and pick you up'); });
+}
+function setLang(l){ try{ localStorage.setItem('yb_lang', l); }catch(_){} if(S && S.tok) api('/me/lang','POST',{ lang:l }); setTimeout(function(){ location.reload(); }, 150); }
+
 var S={ tok:null, me:null, ride:null, prices:null, city:{lat:14.152,lng:-16.073,radius_km:25},
   pos:null, from:null, to:null, fromLabel:'', toLabel:'', vehicle:'moto', quote:null, step:'home',
   online:false, offers:[], seenOffers:{}, lastStatus:null, rated:{} };
@@ -289,7 +474,14 @@ var map=null, mk={};
 /* ── Petits outils ── */
 function $(s){ return document.querySelector(s); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function F(n){ return Math.round(Number(n)||0).toLocaleString('fr-FR')+' F'; }
+// ybq9 — pays (Sénégal / Gambie) et monnaie (F CFA / dalasi)
+var CTRY={ SN:{ flag:'🇸🇳', name:'Sénégal', dial:'+221', digits:9, ex:'77 123 45 67', cur:'F' }, GM:{ flag:'🇬🇲', name:'Gambie', dial:'+220', digits:7, ex:'701 2345', cur:'D' } };
+function guessCtry(){ try{ var c=localStorage.getItem('yb_ctry'); if(c==='SN'||c==='GM') return c; }catch(_){}
+  try{ if(Intl.DateTimeFormat().resolvedOptions().timeZone==='Africa/Banjul') return 'GM'; }catch(_){} return 'SN'; }
+var UCTRY=guessCtry();
+function curSym(){ return (S&&S.me&&S.me.cur) || CTRY[UCTRY].cur; }
+function F(n,c){ return Math.round(Number(n)||0).toLocaleString('fr-FR')+' '+(c||curSym()); }
+function fullPhone(v, c){ var raw=String(v||'').trim(), d=raw.replace(/\D/g,''), k=CTRY[c||UCTRY]; if(/^(\+|00)/.test(raw)) return '+'+d.replace(/^00/,''); if(d.length===k.digits) return k.dial+d; return raw; }
 function km(n){ n=Number(n)||0; return n<1? Math.round(n*1000)+' m' : String(Math.round(n*10)/10).replace('.',',')+' km'; }
 function toast(t){ var e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(function(){ e.classList.remove('on'); },2800); }
 async function api(path, method, body){
@@ -332,12 +524,13 @@ function askInput(o){ return new Promise(function(res){ var d=$('#dlg'), b=$('#d
   var done=function(v){ d.classList.remove('on'); setTimeout(function(){ res(v); },120); };
   $('#dlgOk').onclick=function(){ done($('#dlgIn').value); }; $('#dlgNo').onclick=function(){ done(null); }; d.onclick=function(e){ if(e.target===d) done(null); };
   requestAnimationFrame(function(){ d.classList.add('on'); setTimeout(function(){ var i=$('#dlgIn'); if(i) i.focus(); },150); }); }); }
-function fDate(x){ try{ return new Date(x).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}); }catch(_){ return ''; } }
+function fDate(x){ try{ return new Date(x).toLocaleDateString(LANG==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long'}); }catch(_){ return ''; } }
 var ICX='<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
 var ICOK='<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 IC.penc='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg>';
 function pencLink(phone){ return 'https://penc-messagerie.com/messager?chat='+encodeURIComponent(String(phone||'').replace(/[^0-9+]/g,'')); }   // ybq7
-function pencBtn(phone){ return phone?'<a class="pencb" href="'+pencLink(phone)+'" target="_blank" rel="noopener" aria-label="Écrire sur Penc">'+IC.penc+'<span>Penc</span></a>':''; }
+var PENC_LOGO='<img class="plogo" src="https://penc-messagerie.com/penc-icon-192.png" alt="Penc"/>';
+function pencBtn(phone){ return phone?'<a class="pencb" href="'+pencLink(phone)+'" target="_blank" rel="noopener" aria-label="Écrire sur Penc">'+PENC_LOGO+'<span>Penc</span></a>':''; }
 function fmtTel(p){ var d=String(p||'').replace(/\D/g,''); if(d.length===12 && d.indexOf('221')===0) d=d.slice(3); return d.length===9? d.slice(0,2)+' '+d.slice(2,5)+' '+d.slice(5,7)+' '+d.slice(7) : String(p||''); }
 function rkTag(r, n, who){ return r ? '<span class="rk">★ '+String(r).replace('.',',')+(n?' · '+n+' course'+(n>1?'s':''):'')+'</span>' : '<span class="rk new">Nouveau '+(who||'')+'</span>'; }
 function starsBox(id){ return '<div class="stars" id="'+id+'">'+[1,2,3,4,5].map(function(n){ return '<button data-n="'+n+'" aria-label="'+n+' étoiles">'+IC.star+'</button>'; }).join('')+'</div>'; }
@@ -366,7 +559,7 @@ async function pushInvite(force){
   if(drv) renderDriver();
 }
 async function shareTrip(){ var r=S.ride; if(!r||!r.share) return; var url=location.origin+'/#/suivi/'+r.share;
-  var txt='Je suis en route avec Dieulsi'+(r.driver?' ('+vName(r.driver.vehicle)+' '+(r.driver.plate||'')+')':'')+'. Suis mon trajet en direct :';
+  var txt=(LANG==='en'?'I am on my way with Dieulsi':'Je suis en route avec Dieulsi')+(r.driver?' ('+TR(vName(r.driver.vehicle))+' '+(r.driver.plate||'')+')':'')+(LANG==='en'?'. Follow my trip live:':'. Suis mon trajet en direct :');
   if(navigator.share){ try{ await navigator.share({ title:'Mon trajet Dieulsi', text:txt, url:url }); return; }catch(e){ if(e && e.name==='AbortError') return; } }
   try{ await navigator.clipboard.writeText(txt+' '+url); toast('Lien copié — colle-le dans Penc ou WhatsApp'); }catch(_){ toast(url); } }
 async function sos(){ var r=S.ride; if(!r) return;
@@ -451,6 +644,9 @@ function onFix(p, precise){
   if(S.gpsBad){ S.gpsBad=false; bigChange=true; }
   if((first||bigChange) && S.me && S.me.role==='client' && S.step==='home' && !S.ride) renderClient();
 }
+function quickFix(ms){ return new Promise(function(res){ var done=false, fin=function(){ if(!done){ done=true; res(S.pos); } };
+  try{ navigator.geolocation.getCurrentPosition(function(p){ onFix(p,false); fin(); }, fin, {enableHighAccuracy:false,maximumAge:60000,timeout:ms}); }catch(_){ fin(); }
+  setTimeout(fin, ms+300); }); }   // ybq8
 function startGps(){
   if(!navigator.geolocation || watchId!==null) return;
   if(!S.pos){ try{ var c=JSON.parse(localStorage.getItem(POS_KEY)||'null'); if(c && Date.now()-c.t<1800000){ S.pos={lat:c.lat,lng:c.lng,acc:Math.max(c.acc||0,120),cached:true}; marker('me',c.lat,c.lng,'me'); if(map && !S.ride) map.jumpTo({center:[c.lng,c.lat],zoom:15}); } }catch(_){} }
@@ -477,6 +673,8 @@ function pwdErr(p, phone){ p=String(p||'');
   return null; }
 function aDone(r){ if(!r || !r.token){ aErr((r&&r.error)||'Erreur'); return false; }
   S.tok=r.token; try{ localStorage.setItem(TOK_KEY,r.token); }catch(_){} S.me=r.me; A={who:null,mode:'register'}; boot(); return true; }
+function bindCtry(){ var w=$('#aCtry'); if(!w) return; w.querySelectorAll('[data-c]').forEach(function(b){ b.onclick=function(){ UCTRY=b.getAttribute('data-c'); try{ localStorage.setItem('yb_ctry',UCTRY); }catch(_){}
+  w.querySelectorAll('[data-c]').forEach(function(x){ x.classList.toggle('on',x===b); }); var dl=$('#aDial'); if(dl) dl.textContent=CTRY[UCTRY].dial; var ip=$('#aPhone'); if(ip) ip.setAttribute('placeholder',TR('Numéro (ex : '+CTRY[UCTRY].ex+')')); }; }); }
 function renderAuth(){
   var el=$('#auth'); el.classList.remove('hide'); clearInterval(_aTimer); _aTimer=null;
   if(A.mode==='otp') return renderOtp();
@@ -487,14 +685,17 @@ function renderAuth(){
       +'<button class="choice" data-who="client"><span class="vi">'+IC.user+'</span><span><b>Je veux une course</b><small>Moto Jakarta ou voiture</small></span></button>'
       +'<button class="choice" data-who="driver"><span class="vi">'+IC.moto+'</span><span><b>Je suis chauffeur</b><small>Je gagne de l\'argent avec ma moto ou ma voiture</small></span></button>'
       +'<button class="lnk" data-who="login">J\'ai déjà un compte</button></div>'
+      +'<button class="langb" id="aLang">'+(LANG==='en'?'🌐 Français':'🌐 English')+'</button>'
       +'<div class="sign">By PST — Pure Smart Telecom</div>';
+    $('#aLang') && setTimeout(function(){ var l=$('#aLang'); if(l) l.onclick=function(){ setLang(LANG==='en'?'fr':'en'); }; },0);
     el.querySelectorAll('[data-who]').forEach(function(b){ b.onclick=function(){ var w=b.getAttribute('data-who'); if(w==='login'){ A.who='client'; A.mode='login'; } else { A.who=w; A.mode='register'; } renderAuth(); }; });
     return;
   }
   var isReg=A.mode==='register', isDrv=A.who==='driver', pv=A.pending||{};
   var f='';
   if(isReg) f+='<div class="field">'+IC.user+'<input id="aName" placeholder="Ton prénom et nom" autocomplete="name" value="'+esc(pv.name||'')+'"/></div>';
-  f+='<div class="field">'+IC.tel+'<input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : 77 123 45 67)" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>';
+  f='<div class="ctry" id="aCtry">'+['SN','GM'].map(function(c){ return '<button data-c="'+c+'" class="'+(UCTRY===c?'on':'')+'"><span>'+CTRY[c].flag+'</span>'+CTRY[c].name+'</button>'; }).join('')+'</div>'+f;
+  f+='<div class="field">'+IC.tel+'<span class="dial" id="aDial">'+CTRY[UCTRY].dial+'</span><input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : '+CTRY[UCTRY].ex+')" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>';
   f+='<div class="field">'+IC.lock+'<input id="aPwd" type="password" inputmode="numeric" placeholder="'+(isReg?'Code secret (6 chiffres ou +)':'Ton code secret')+'" autocomplete="'+(isReg?'new-password':'current-password')+'"/></div>';
   if(isReg && isDrv){
     f+='<div class="seg" id="aVeh"><button data-v="moto" class="'+(pv.vehicle!=='voiture'?'on':'')+'">Moto Jakarta</button><button data-v="voiture" class="'+(pv.vehicle==='voiture'?'on':'')+'">Voiture</button></div>';
@@ -507,16 +708,17 @@ function renderAuth(){
     +(isReg?'':'<button class="lnk" id="aForgot">Code secret oublié ?</button>')
     +'<div class="lnks"><button class="lnk back" id="aBack">Retour</button><button class="lnk" id="aSwitch">'+(isReg?'J\'ai déjà un compte':'Créer un compte')+'</button></div>');
   var veh=pv.vehicle==='voiture'?'voiture':'moto'; var seg=$('#aVeh'); if(seg) seg.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ veh=b.getAttribute('data-v'); seg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
+  bindCtry();
   $('#aSwitch').onclick=function(){ A.mode=isReg?'login':'register'; A.pending=null; renderAuth(); };
   $('#aBack').onclick=function(){ A={who:null,mode:'register'}; renderAuth(); };
   if($('#aForgot')) $('#aForgot').onclick=function(){ A.mode='forgot'; A.pending={ phone:$('#aPhone').value }; renderAuth(); };
   $('#aGo').onclick=async function(){
     var b=$('#aGo'); aErr('');
-    var body={ phone:$('#aPhone').value, password:$('#aPwd').value };
+    var body={ phone:fullPhone($('#aPhone').value), password:$('#aPwd').value, country:UCTRY, lang:LANG };
     if(!isReg){ aBusy(b,true); var r0=await api('/auth/login','POST',body); aBusy(b,false); aDone(r0); return; }
     body.name=$('#aName').value; body.role=A.who; if(isDrv){ body.vehicle=veh; body.plate=$('#aPlate').value; body.vehicle_desc=$('#aDesc').value; }
     if(String(body.name).trim().length<2) return aErr('Écris ton nom');
-    if(String(body.phone).replace(/\D/g,'').length<9) return aErr('Numéro de téléphone invalide');
+    if(String(body.phone).replace(/\D/g,'').length < CTRY[UCTRY].digits+3 || body.phone.indexOf(CTRY[UCTRY].dial)!==0) return aErr(UCTRY==='GM'?"Ce numéro n'est pas un numéro de Gambie (+220)":"Ce numéro n'est pas un numéro du Sénégal (+221)");
     var pe=pwdErr(body.password, body.phone); if(pe) return aErr(pe);
     if(isDrv && String(body.plate).trim().length<3) return aErr('Écris la plaque d\'immatriculation');
     aBusy(b,true);
@@ -536,7 +738,7 @@ function renderOtp(){
     var only=c.test?'test':(c.penc&&!c.whatsapp?'penc':(!c.penc&&c.whatsapp?'whatsapp':null));
     if(only){ aCard(title,'Envoi de ton code…','<div class="err" id="aErr"></div><button class="big loading" disabled>…</button><button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>'); $('#aBack').onclick=otpBack; otpSend(only); return; }
     aCard(title,'Où veux-tu recevoir ton code à 6 chiffres ?',
-      '<button class="choice" data-ch="penc"><span class="vi">'+IC.chat+'</span><span><b>Sur Penc<span class="rec">Recommandé</span></b><small>Gratuit et instantané, dans ta messagerie Penc</small></span></button>'
+      '<button class="choice" data-ch="penc"><span class="vi" style="background:#fff;padding:0;overflow:hidden">'+PENC_LOGO.replace('class="plogo"','style="width:52px;height:52px"')+'</span><span><b>Sur Penc<span class="rec">Recommandé</span></b><small>Gratuit et instantané, dans ta messagerie Penc</small></span></button>'
       +'<button class="choice" data-ch="whatsapp"><span class="vi wa">'+IC.chat+'</span><span><b>Sur WhatsApp</b><small>Message du compte officiel Dieulsi</small></span></button>'
       +'<div class="err" id="aErr"></div><button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>');
     document.querySelectorAll('[data-ch]').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('[data-ch]').forEach(function(x){ x.disabled=true; }); otpSend(b.getAttribute('data-ch')); }; });
@@ -548,7 +750,7 @@ function renderOtp(){
     +'<div class="otp" id="otpBox"><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span><span class="bx"></span>'
     +'<input id="otpIn" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Code à 6 chiffres"/></div>'
     +'<div class="err" id="aErr" style="text-align:center"></div>'
-    +(ch==='penc'?'<a class="big light" href="https://penc-messagerie.com/messager" target="_blank" rel="noopener" style="text-decoration:none">'+IC.chat+' Ouvrir Penc</a>':'')
+    +(ch==='penc'?'<a class="big light" href="https://penc-messagerie.com/messager" target="_blank" rel="noopener" style="text-decoration:none">'+PENC_LOGO+' Ouvrir Penc</a>':'')
     +'<div class="resend" id="aRes"></div>'
     +(both?'<button class="lnk" id="aOther">Recevoir plutôt sur '+(ch==='penc'?'WhatsApp':'Penc')+'</button>':'')
     +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700;margin-top:0">Retour</button>');
@@ -591,12 +793,14 @@ function otpBack(){ clearInterval(_aTimer); A.sent=null; A.mode=A.back||'login';
 function renderForgot(){
   var pv=A.pending||{};
   aCard('Code secret oublié','Entre ton numéro : on t\'envoie un code pour choisir un nouveau code secret.',
-    '<div class="field">'+IC.tel+'<input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : 77 123 45 67)" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>'
+    '<div class="ctry" id="aCtry">'+['SN','GM'].map(function(c){ return '<button data-c="'+c+'" class="'+(UCTRY===c?'on':'')+'"><span>'+CTRY[c].flag+'</span>'+CTRY[c].name+'</button>'; }).join('')+'</div>'
+    +'<div class="field">'+IC.tel+'<span class="dial" id="aDial">'+CTRY[UCTRY].dial+'</span><input id="aPhone" type="tel" inputmode="tel" placeholder="Numéro (ex : '+CTRY[UCTRY].ex+')" autocomplete="tel" value="'+esc(pv.phone||'')+'"/></div>'
     +'<div class="err" id="aErr"></div><button class="big" id="aGo">Recevoir un code</button>'
     +'<button class="lnk" id="aBack" style="color:var(--bd);font-weight:700">Retour</button>');
   $('#aBack').onclick=function(){ A.mode='login'; renderAuth(); };
+  bindCtry();
   $('#aGo').onclick=async function(){
-    var b=$('#aGo'), phone=$('#aPhone').value; aErr('');
+    var b=$('#aGo'), phone=fullPhone($('#aPhone').value); aErr('');
     if(String(phone).replace(/\D/g,'').length<9) return aErr('Numéro de téléphone invalide');
     aBusy(b,true); var o=await api('/otp/options','POST',{ phone:phone, purpose:'reset' }); aBusy(b,false);
     if(o.error) return aErr(o.error);
@@ -628,14 +832,18 @@ function renderNewPwd(){
 function logout(silent){ S.tok=null; S.me=null; S.ride=null; try{ localStorage.removeItem(TOK_KEY); }catch(_){} stopLoops(); setOnline(false,true); A={who:null,mode:'register'}; $('#topbar').classList.add('hide'); $('#sheet').classList.add('hide'); $('#page').classList.add('hide'); renderAuth(); if(silent) toast('Reconnecte-toi'); }
 
 /* ── Démarrage ── */
+function bootDone(){ var b=document.getElementById('boot'); if(!b || b._d) return; b._d=1; b.style.opacity='0'; setTimeout(function(){ if(b.parentNode) b.parentNode.removeChild(b); },320); }   // ybq9
+setTimeout(bootDone, 3500);   // filet de sécurité
 async function boot(){
   initMap(); startGps();
   var r=await api('/me'); if(!r.me){ if(!S.tok) return renderAuth(); toast(r.error||'Erreur'); setTimeout(boot,3000); return; }
   S.me=r.me; S.ride=r.ride; S.prices=r.prices; if(r.city) S.city=r.city; S.recent=r.recent||[]; S.suggest=r.suggest||null; S.money=r.money||null;
   $('#auth').classList.add('hide'); $('#topbar').classList.remove('hide'); $('#sheet').classList.remove('hide');
   setTimeout(function(){ pushInvite(false); }, 2500);
-  if(S.me.role==='driver' && S.me.driver){ $('#drvPill').classList.remove('hide'); S.online=!!S.me.driver.online; setOnline(S.online,true); driverLoop(); renderDriver(); }
-  else { $('#drvPill').classList.add('hide'); if(S.ride) S.step='ride'; else S.step='home'; renderClient(); clientLoop(); }
+  if(S.me.lang && !localStorage.getItem('yb_lang') && S.me.lang!==LANG) api('/me/lang','POST',{ lang:LANG });   // la langue du téléphone gagne
+  if(S.me.country){ UCTRY=S.me.country; try{ localStorage.setItem('yb_ctry',UCTRY); }catch(_){} }
+  if(S.me.role==='driver' && S.me.driver){ $('#drvPill').classList.remove('hide'); S.online=!!S.me.driver.online; setOnline(S.online,true); driverLoop(); renderDriver(); setTimeout(bootDone, 900); }
+  else { $('#drvPill').classList.add('hide'); if(S.ride) S.step='ride'; else S.step='home'; renderClient(); clientLoop(); S._bootWait=Date.now(); setTimeout(bootDone, S.ride?300:1400); }
 }
 
 /* ══════════════ CLIENT ══════════════ */
@@ -649,7 +857,7 @@ function setSheet(html){   // ybq7 — écran stable : rien ne bouge si rien n'a
 }
 var _srchT=null, _popular=null;
 function here(){ return S.from||S.pos||{lat:S.city.lat,lng:S.city.lng}; }
-async function loadPopular(){ var p=here(); var r=await api('/places?lat='+p.lat+'&lng='+p.lng); _popular=(r.items||[]).slice(0,6); if(S.step==='home' && !S.ride) renderClient(); }
+async function loadPopular(){ var p=here(); var r=await api('/places?lat='+p.lat+'&lng='+p.lng+'&lang='+LANG); _popular=(r.items||[]).slice(0,6); if(S.step==='home' && !S.ride) renderClient(); setTimeout(bootDone, 120); }
 function pickTo(p){ S.to={lat:p.lat,lng:p.lng}; S.toLabel=p.name||''; S.step='choose'; S.quote=null; renderClient(); getQuote(); }
 function onMapTap(ll){
   if(S.ride || !S.me || S.me.role!=='client') return;
@@ -704,7 +912,7 @@ function renderClient(){
       var me=$('#sRes [data-me]'); if(me) me.onclick=function(){ S.fromManual=false; S.fromLabel=''; if(S.pos) S.from={lat:S.pos.lat,lng:S.pos.lng}; S.step='home'; renderClient(); };
     };
     paint(isTo?_popular:[], '');
-    q.oninput=function(){ clearTimeout(_srchT); var v=q.value.trim(); _srchT=setTimeout(async function(){ var p=here(); var r=await api('/places?q='+encodeURIComponent(v)+'&lat='+p.lat+'&lng='+p.lng); if(S.step==='search' && q.value.trim()===v) paint(r.items||[], v); }, 250); };
+    q.oninput=function(){ clearTimeout(_srchT); var v=q.value.trim(); _srchT=setTimeout(async function(){ var p=here(); var r=await api('/places?lang='+LANG+'&q='+encodeURIComponent(v)+'&lat='+p.lat+'&lng='+p.lng); if(S.step==='search' && q.value.trim()===v) paint(r.items||[], v); }, 250); };
     return;
   }
   if(S.step==='mappick'){
@@ -730,7 +938,9 @@ function renderClient(){
       +'<button class="big" id="cOrder"'+(q?'':' disabled')+'>Commander · '+(q?F(q[S.vehicle].price):'…')+'</button>');
     document.querySelectorAll('.vcard').forEach(function(b){ b.onclick=function(){ S.vehicle=b.getAttribute('data-v'); renderClient(); }; });
     $('#cChange').onclick=function(){ S.searchFor='to'; S.step='search'; S.quote=null; renderClient(); };
-    $('#cOrder').onclick=async function(){ if(S.pos && S.pos.cached && !S.fromManual){ toast('On confirme ta position, une seconde…'); return; } var b=$('#cOrder'); b.disabled=true; b.classList.add('loading');
+    $('#cOrder').onclick=async function(){ var b=$('#cOrder'); if(b.disabled) return; b.disabled=true; b.classList.add('loading');
+      // ybq8 — position encore « mémorisée » : on essaie de la rafraîchir 4 s au plus, puis on commande QUAND MÊME (jamais bloqué)
+      if(S.pos && S.pos.cached && !S.fromManual){ await quickFix(4000); if(S.pos && !S.fromManual) S.from={lat:S.pos.lat,lng:S.pos.lng}; }
       var r=await api('/rides','POST',{ vehicle:S.vehicle, from_lat:S.from.lat, from_lng:S.from.lng, from_label:S.fromManual?S.fromLabel:'Ma position', to_lat:S.to.lat, to_lng:S.to.lng, to_label:S.toLabel,
         me_lat:S.pos?S.pos.lat:null, me_lng:S.pos?S.pos.lng:null, me_acc:S.pos?S.pos.acc:null, surge_seen:(S.quote&&S.quote[S.vehicle]&&S.quote[S.vehicle].surge)||1 });
       if(!r.ride){ b.disabled=false; b.classList.remove('loading'); $('#cErr').textContent=r.error||'Erreur'; return; }
@@ -741,7 +951,7 @@ async function getQuote(){
   if(!S.from && S.pos) S.from={lat:S.pos.lat,lng:S.pos.lng};
   if(!S.from||!S.to){ toast('On attend ta position… ou choisis ton départ'); S.step='home'; renderClient(); return; }
   fit([S.from,S.to]);
-  var r=await api('/quote','POST',{from_lat:S.from.lat,from_lng:S.from.lng,to_lat:S.to.lat,to_lng:S.to.lng});
+  var r=await api('/quote','POST',{from_lat:S.from.lat,from_lng:S.from.lng,to_lat:S.to.lat,to_lng:S.to.lng,country:(S.me&&S.me.country)||UCTRY});
   if(r.moto){ S.quote=r; if(S.step==='choose'){ renderClient(); if(r.route&&r.route.length) fitLine(r.route); } } else toast(r.error||'Prix indisponible');
 }
 function renderRide(){
@@ -903,26 +1113,27 @@ async function loadHot(){
 /* ── Portefeuille chauffeur (ybq6) : recharge Wave en 2 étapes ── */
 async function wallet(){
   openPage(ph('Mon crédit Dieulsi')+'<div id="wb"><p class="note">Chargement…</p></div>');
-  var w=await api('/wallet'); var wb=$('#wb'); if(!wb) return;
+  var w=await api('/credit'); if(w.credit==null && /404/.test(String(w.error||''))) w=await api('/wallet'); var wb=$('#wb'); if(!wb) return;
   if(w.credit==null){ wb.innerHTML='<div class="it"><b>Le crédit n\'est pas encore disponible</b><div class="l2">'+(/404/.test(String(w.error||''))?'Le serveur Dieulsi est en cours de mise à jour. Réessaie dans quelques minutes.':esc(w.error||'Vérifie ta connexion internet.'))+'</div></div><button class="big mt" id="wRetry">Réessayer</button>'; $('#wRetry').onclick=wallet; return; }
-  var amt=2000;
+  var amt=(w.presets&&w.presets[1])||2000, wc=w.cur||curSym();
   var tops=(w.topups||[]).map(function(t){ var st={pending:['En attente','b'],ok:['Validée','ok'],refused:['Refusée','bad']}[t.status]||[t.status,''];
-    return '<div class="it"><div class="l1"><span>'+(t.amount>0?'+':'')+F(t.amount)+(t.method==='manuel'?' · ajout Dieulsi':'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+(t.ref?'Réf. '+esc(t.ref)+' · ':'')+new Date(t.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</div></div>'; }).join('');
+    return '<div class="it"><div class="l1"><span>'+(t.amount>0?'+':'')+F(t.amount,wc)+(t.method==='manuel'?' · ajout Dieulsi':'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+(t.ref?'Réf. '+esc(t.ref)+' · ':'')+new Date(t.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</div></div>'; }).join('');
   var paint=function(){
-    wb.innerHTML='<div class="wal"><small>Ton crédit</small><b>'+F(w.credit)+'</b><small>'+(w.free_until?'🎁 0 % de commission jusqu\'au '+fDate(w.free_until):'Commission : '+w.pct_normal+' % par course, retirée automatiquement')+'</small></div>'
-      +(w.month&&w.month.rides?'<p class="note center" style="margin:-4px 0 10px">30 derniers jours : '+w.month.rides+' courses · '+F(w.month.commission)+' de commission</p>':'')
-      +'<div class="stp"><i>1</i><span>Choisis le montant et paie avec Wave</span></div>'
-      +'<div class="amts">'+(w.presets||[1000,2000,5000,10000]).map(function(a){ return '<button data-amt="'+a+'" class="'+(a===amt?'on':'')+'">'+(a>=1000?(a/1000)+' 000':a)+'</button>'; }).join('')+'</div>'
-      +'<a class="big wave" id="wPay" href="'+esc(w.wave_url)+'?amount='+amt+'" target="_blank" rel="noopener">Payer '+F(amt)+' avec Wave</a>'
+    wb.innerHTML='<div class="wal"><small>Ton crédit</small><b>'+F(w.credit,wc)+'</b><small>'+(w.free_until?'🎁 0 % de commission jusqu\'au '+fDate(w.free_until):'Commission : '+w.pct_normal+' % par course, retirée automatiquement')+'</small></div>'
+      +(w.month&&w.month.rides?'<p class="note center" style="margin:-4px 0 10px">30 derniers jours : '+w.month.rides+' courses · '+F(w.month.commission,wc)+' de commission</p>':'')
+      +'<div class="stp"><i>1</i><span>Choisis le montant et paie avec Wave</span><img class="wlogo" src="/wave.png" alt="" style="margin-left:auto;width:24px;height:24px"/></div>'
+      +'<div class="amts">'+(w.presets||[1000,2000,5000,10000]).map(function(a){ return '<button data-amt="'+a+'" class="'+(a===amt?'on':'')+'">'+a.toLocaleString('fr-FR')+'</button>'; }).join('')+'</div>'
+      +(w.wave_url?'<a class="big wave" id="wPay" href="'+esc(w.wave_url)+'?amount='+amt+'" target="_blank" rel="noopener"><img class="wlogo" src="/wave.png" alt="Wave"/>Payer '+F(amt,wc)+' avec Wave</a>'
+        :'<div class="it"><b>Recharge par l\'équipe Dieulsi</b><div class="l2">Écris à <a href="mailto:contact@dieulsi.com">contact@dieulsi.com</a> ou appelle l\'équipe pour recharger ton crédit.</div></div>')
       +'<div class="stp"><i>2</i><span>Écris le numéro de transaction de ton reçu Wave</span></div>'
       +'<div class="field"><input id="wRef" placeholder="Ex : T_ABC123XYZ" autocapitalize="characters" autocomplete="off"/></div>'
-      +'<div class="err" id="wErr"></div><button class="big" id="wSend">J\'ai payé '+F(amt)+', envoyer</button>'
+      +'<div class="err" id="wErr"></div><button class="big" id="wSend">J\'ai payé '+F(amt,wc)+', envoyer</button>'
       +'<p class="note center" style="margin:8px 0 14px">L\'équipe Dieulsi vérifie et ajoute ton crédit, en général en quelques minutes. Tu reçois une notification.</p>'
       +(tops?'<h3 style="margin:6px 0 8px">Mes recharges</h3><div class="list">'+tops+'</div>':'');
     wb.querySelectorAll('[data-amt]').forEach(function(b){ b.onclick=function(){ var keep=$('#wRef').value; amt=+b.getAttribute('data-amt'); paint(); $('#wRef').value=keep; }; });
     $('#wSend').onclick=async function(){ var b=$('#wSend'), ref=$('#wRef').value.trim(); $('#wErr').textContent='';
       if(ref.length<4){ $('#wErr').textContent='Écris le numéro de transaction Wave (dans ton reçu)'; return; }
-      b.disabled=true; b.classList.add('loading'); var x=await api('/wallet/topup','POST',{ amount:amt, ref:ref }); b.disabled=false; b.classList.remove('loading');
+      b.disabled=true; b.classList.add('loading'); var x=await api('/credit/topup','POST',{ amount:amt, ref:ref }); if(!x.success && /404/.test(String(x.error||''))) x=await api('/wallet/topup','POST',{ amount:amt, ref:ref }); b.disabled=false; b.classList.remove('loading');
       if(!x.success){ $('#wErr').textContent=x.error||'Erreur'; return; }
       toast('Recharge envoyée ✓ — on te prévient dès qu\'elle est validée'); wallet(); };
   };
@@ -953,21 +1164,22 @@ $('#menuBtn').onclick=function(){
   openPage(ph(esc(me.name||'Menu'))+'<p class="note" style="margin:-6px 0 14px">'+esc(me.phone||'')+(me.role==='driver'&&me.driver?' · '+vName(me.driver.vehicle)+' '+esc(me.driver.plate||''):'')+'</p>'
     +'<button class="mitem" id="mHist">'+IC.clock+' Mes courses</button>'
     +(me.is_admin?'<button class="mitem" id="mAdm">'+IC.shield+' Administration</button>':'')
-    +'<a class="mitem" href="https://penc-messagerie.com/messager" target="_blank" rel="noopener" style="text-decoration:none;color:var(--b)">'+IC.penc+' Ouvrir Penc</a>'
+    +'<a class="mitem" href="https://penc-messagerie.com/messager" target="_blank" rel="noopener" style="text-decoration:none;color:var(--b)">'+PENC_LOGO+' Ouvrir Penc</a>'
+    +'<button class="mitem" id="mLang">🌐 '+(LANG==='en'?'Langue : English → Français':'Langue : Français → English')+'</button>'
     +'<button class="mitem" id="mHelp">'+IC.help+' Comment ça marche</button>'
     +'<button class="mitem" id="mPriv">'+IC.shield+' Confidentialité</button>'
     +'<button class="mitem" id="mOut" style="color:var(--bad)">'+IC.out+' Me déconnecter</button>'
     +'<button class="mitem" id="mDel" style="color:var(--bad);opacity:.85">'+IC.out+' Supprimer mon compte</button>'
     +'<p class="note center" style="margin-top:24px"><b>Dieulsi</b> — Un geste, on vient te chercher.<br/>By PST — Pure Smart Telecom</p>');
   $('#mHist').onclick=history; $('#mHelp').onclick=help; $('#mOut').onclick=function(){ closePage(); logout(); };
-  $('#mPriv').onclick=privacy; $('#mDel').onclick=deleteAccount;
+  $('#mPriv').onclick=privacy; $('#mDel').onclick=deleteAccount; $('#mLang').onclick=function(){ setLang(LANG==='en'?'fr':'en'); };
   var a=$('#mAdm'); if(a) a.onclick=function(){ admin('vue'); };
 };
 async function history(){
   openPage(ph('Mes courses')+'<div class="list" id="hl"><p class="note">Chargement…</p></div>');
   var r=await api('/history'); var it=r.items||[];
   $('#hl').innerHTML=it.length?it.map(function(x){ var st={done:['Terminée','ok'],cancelled:['Annulée','bad'],expired:['Sans chauffeur','']}[x.status]||[x.status,''];
-    return '<div class="it"><div class="l1"><span>'+vName(x.vehicle)+' · '+F(x.price)+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+esc(x.from)+' → '+esc(x.to)+' · '+km(x.km)+'</div><div class="l2">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+(x.mine_as==='driver'?' · en tant que chauffeur':'')+'</div></div>'; }).join(''):'<p class="note">Aucune course pour l\'instant.</p>';
+    return '<div class="it"><div class="l1"><span>'+(x.country==='GM'?'🇬🇲 ':'')+vName(x.vehicle)+' · '+F(x.price,x.cur)+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+esc(x.from)+' → '+esc(x.to)+' · '+km(x.km)+'</div><div class="l2">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+(x.mine_as==='driver'?' · en tant que chauffeur':'')+'</div></div>'; }).join(''):'<p class="note">Aucune course pour l\'instant.</p>';
 }
 function help(){
   openPage(ph('Comment ça marche')
@@ -985,7 +1197,8 @@ async function admin(tab){
     var pend=r.drivers.filter(function(d){ return d.status==='pending'; }).length;
     var sosH=(r.sos&&r.sos.length)?'<div class="list" style="margin-bottom:12px">'+r.sos.map(function(x){ return '<div class="it" style="border:2px solid var(--bad)"><div class="l1"><span style="color:var(--bad)">🚨 SOS — '+esc(x.who||'')+'</span><span class="note">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</span></div><div class="l2">'+esc(x.name||'')+' · <a href="tel:'+esc(x.phone||'')+'">'+esc(x.phone||'')+'</a>'+(x.lat!=null?' · <a href="https://maps.google.com/?q='+x.lat+','+x.lng+'" target="_blank" rel="noopener">voir la position</a>':'')+'</div></div>'; }).join('')+'</div>':'';
     var lr=r.learn||{}; var lrH=lr.moto?'<p class="note">Appris sur les vraies courses — moto : '+String(Math.round((lr.moto.speed||0)*60)).replace('.',',')+' km/h en approche, durée ×'+String(lr.moto.ratio||1).replace('.',',')+' ('+(lr.moto.n||0)+' courses) · voiture : '+String(Math.round((lr.voiture.speed||0)*60)).replace('.',',')+' km/h, durée ×'+String(lr.voiture.ratio||1).replace('.',',')+' ('+(lr.voiture.n||0)+' courses)</p>':'';
-    ab.innerHTML=sosH+'<div class="grid2">'+[[c.online,'chauffeurs en ligne'],[c.active,'courses en cours'],[c.today_rides,'courses aujourd\'hui'],[F(c.today_volume),'volume du jour'],[F(c.today_commission),'commission du jour'],[F(c.month_commission),'commission du mois'],[F(c.month_topups),'recharges du mois'],[F(c.credit_total),'crédit des chauffeurs'],[c.drivers,'chauffeurs validés'],[c.clients,'clients inscrits']].map(function(k){ return '<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'; }).join('')+'</div>'
+    ab.innerHTML=sosH+'<div class="grid2">'+[[c.online,'chauffeurs en ligne'],[c.active,'courses en cours'],[c.today_rides,'courses aujourd\'hui'],].concat((r.by_country||[]).filter(function(x){ return x.country==='SN' || x.users>0; }).reduce(function(a,x){ var fl=x.country==='GM'?'🇬🇲 ':'🇸🇳 ';
+      return a.concat([[F(x.today_volume,x.cur),fl+'volume du jour'],[F(x.today_commission,x.cur),fl+'commission du jour'],[F(x.month_commission,x.cur),fl+'commission du mois'],[F(x.month_topups,x.cur),fl+'recharges du mois'],[F(x.credit_total,x.cur),fl+'crédit des chauffeurs']]); },[])).concat([[c.drivers,'chauffeurs validés'],[c.clients,'clients inscrits']]).map(function(k){ return '<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'; }).join('')+'</div>'
       +(c.pending_topups?'<button class="big mt wave" id="goTop">'+c.pending_topups+' recharge(s) Wave à valider</button>':'')
       +(pend?'<button class="big mt" id="goPend">'+pend+' chauffeur(s) à valider</button>':'')
       +'<p class="note mt">Commission actuelle : '+r.settings.commission_pct+' % · rayon de recherche '+r.settings.search_radius_km+' km</p>'+lrH;
@@ -1003,7 +1216,7 @@ async function admin(tab){
       return '<div class="it"><div class="l1"><span>'+esc(d.name)+(d.online?' <span class="tag2 ok">en ligne</span>':'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div>'
         +'<div class="l2">'+vName(d.vehicle)+' · <b>'+esc(d.plate)+'</b>'+(d.vehicle_desc?' · '+esc(d.vehicle_desc):'')+'</div>'
         +'<div class="l2"><a href="tel:'+esc(d.phone)+'">'+esc(d.phone)+'</a> · '+d.rides+' courses'+(d.rating?' · ★ '+d.rating:'')+'</div>'
-        +(d.status==='approved'?'<div class="l2">Crédit <b style="color:'+(d.credit<=0&&!d.free_until?'var(--bad)':'var(--nv)')+'">'+F(d.credit)+'</b>'+(d.free_until?' · 🎁 offert jusqu\'au '+fDate(d.free_until):'')+'</div>':'')
+        +(d.status==='approved'?'<div class="l2">Crédit <b style="color:'+(d.credit<=0&&!d.free_until?'var(--bad)':'var(--nv)')+'">'+F(d.credit,d.cur)+'</b>'+(d.free_until?' · 🎁 offert jusqu\'au '+fDate(d.free_until):'')+'</div>':'')
         +(d.status==='approved'?'<div class="l2">Score <b>'+String(d.score).replace('.',',')+'</b> · priorité '+esc(d.priority)+' · '+d.accepts+' acceptées · '+d.declines+' ignorées · '+d.drops+' abandons'+(d.paused?' · <b style="color:var(--bad)">en pause</b>':'')+'</div>':'')
         +'<div style="margin-top:8px">'+acts+'</div></div>'; }).join(''):'<p class="note">Aucun chauffeur inscrit.</p>')+'</div>';
     ab.querySelectorAll('[data-a]').forEach(function(b){ b.onclick=async function(){ var a=b.getAttribute('data-a'); if(a==='paid' && !(await ask({ title:'Commission reçue ?', text:'Le montant dû par ce chauffeur repassera à zéro.', ok:'Oui, il a payé', icon:ICOK }))) return; if(a==='ban' && !(await ask({ title:'Suspendre ce chauffeur ?', text:'Il ne pourra plus se connecter ni recevoir de courses.', ok:'Suspendre', danger:true, icon:ICX }))) return; b.disabled=true; var x=await api('/admin/drivers/'+b.getAttribute('data-u')+'/'+a,'POST',{}); if(x.success){ toast('Fait'); admin('drv'); } else { b.disabled=false; toast(x.error||'Erreur'); } }; });
@@ -1017,7 +1230,7 @@ async function admin(tab){
     var tl=r.topups||[];
     ab.innerHTML='<p class="note" style="margin:0 0 10px">Vérifie chaque paiement dans ton appli Wave (montant et référence), puis valide : le crédit est ajouté tout de suite et le chauffeur est prévenu.</p><div class="list">'+(tl.length?tl.map(function(t){
       var st={pending:['À valider','b'],ok:['Validée','ok'],refused:['Refusée','bad']}[t.status]||[t.status,''];
-      return '<div class="it"'+(t.status==='pending'?' style="border:2px solid #1DC8F2"':'')+'><div class="l1"><span>'+F(t.amount)+' · '+esc(t.name||'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div>'
+      return '<div class="it"'+(t.status==='pending'?' style="border:2px solid #1DC8F2"':'')+'><div class="l1"><span>'+F(t.amount,t.cur)+' · '+esc(t.name||'')+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div>'
         +'<div class="l2">'+(t.method==='manuel'?'Ajout manuel · '+esc(t.note||''):'Wave · réf. <b>'+esc(t.ref||'')+'</b>')+' · <a href="tel:'+esc(t.phone||'')+'">'+esc(t.phone||'')+'</a></div>'
         +'<div class="l2">'+new Date(t.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</div>'
         +(t.status==='pending'?'<div style="margin-top:8px"><button class="sbtn" data-tok="'+t.id+'">Paiement reçu : valider</button> <button class="sbtn r" data-tno="'+t.id+'">Refuser</button></div>':'')+'</div>'; }).join(''):'<p class="note">Aucune recharge pour l\'instant.</p>')+'</div>';
@@ -1027,21 +1240,25 @@ async function admin(tab){
   }
   if(tab==='rides'){
     ab.innerHTML='<div class="list">'+(r.rides.length?r.rides.map(function(x){ var st={searching:['Recherche','b'],accepted:['Acceptée','b'],arrived:['Chauffeur sur place','b'],ongoing:['En cours','b'],done:['Terminée','ok'],cancelled:['Annulée','bad'],expired:['Sans chauffeur','']}[x.status]||[x.status,''];
-      return '<div class="it"><div class="l1"><span>'+vName(x.vehicle)+' · '+F(x.price)+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+esc(x.from)+' → '+esc(x.to)+' · '+km(x.km)+'</div><div class="l2">Client : '+esc(x.client||'')+' ('+esc(x.client_phone||'')+')'+(x.driver?' · Chauffeur : '+esc(x.driver):'')+(x.commission?' · commission '+F(x.commission):'')+'</div><div class="l2">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</div></div>'; }).join(''):'<p class="note">Aucune course.</p>')+'</div>';
+      return '<div class="it"><div class="l1"><span>'+(x.country==='GM'?'🇬🇲 ':'')+vName(x.vehicle)+' · '+F(x.price,x.cur)+'</span><span class="tag2 '+st[1]+'">'+st[0]+'</span></div><div class="l2">'+esc(x.from)+' → '+esc(x.to)+' · '+km(x.km)+'</div><div class="l2">Client : '+esc(x.client||'')+' ('+esc(x.client_phone||'')+')'+(x.driver?' · Chauffeur : '+esc(x.driver):'')+(x.commission?' · commission '+F(x.commission,x.cur):'')+'</div><div class="l2">'+new Date(x.at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</div></div>'; }).join(''):'<p class="note">Aucune course.</p>')+'</div>';
   }
   if(tab==='tarifs'){
     var s=r.settings; var inp=function(id,v,l){ return '<label for="'+id+'">'+l+'</label><input id="'+id+'" type="number" inputmode="numeric" value="'+v+'"/>'; };
-    ab.innerHTML='<div class="frm"><div class="it"><b>Moto Jakarta</b>'+inp('mb',s.moto.base,'Prise en charge (F)')+inp('mk',s.moto.per_km,'Prix par km (F)')+inp('mm',s.moto.min,'Prix minimum (F)')+'</div>'
-      +'<div class="it"><b>Voiture</b>'+inp('vb',s.voiture.base,'Prise en charge (F)')+inp('vk',s.voiture.per_km,'Prix par km (F)')+inp('vm',s.voiture.min,'Prix minimum (F)')+'</div>'
+    ab.innerHTML='<div class="frm"><div class="it"><b>🇸🇳 Moto Jakarta (F CFA)</b>'+inp('mb',s.moto.base,'Prise en charge (F)')+inp('mk',s.moto.per_km,'Prix par km (F)')+inp('mm',s.moto.min,'Prix minimum (F)')+'</div>'
+      +'<div class="it"><b>🇸🇳 Voiture (F CFA)</b>'+inp('vb',s.voiture.base,'Prise en charge (F)')+inp('vk',s.voiture.per_km,'Prix par km (F)')+inp('vm',s.voiture.min,'Prix minimum (F)')+'</div>'
       +'<div class="it"><b>Plateforme</b>'+inp('cp',s.commission_pct,'Commission Dieulsi (%)')+inp('fd',s.free_days,'Jours offerts aux nouveaux chauffeurs (0 % de commission)')+inp('sr',s.search_radius_km,'Rayon de recherche des chauffeurs (km)')+'</div>'
       +'<div class="it"><b>Forte demande</b><label for="so">Prix en forte demande</label><select id="so" style="width:100%;height:46px;border:1.5px solid var(--line);border-radius:12px;padding:0 10px;font:inherit;background:#fff;color:var(--nv)"><option value="1"'+(s.surge_on?' selected':'')+'>Activé</option><option value="0"'+(!s.surge_on?' selected':'')+'>Désactivé</option></select>'
         +'<label for="sm">Hausse maximale (×1,0 à ×2,0)</label><input id="sm" type="number" step="0.1" min="1" max="2" inputmode="decimal" value="'+s.surge_max+'"/></div>'
-      +'<div class="it"><b>Recharges Wave</b><label for="wu">Lien marchand Wave</label><input id="wu" type="url" value="'+esc(s.wave_url||'')+'"/></div>'
+      +'<div class="it"><b>🇬🇲 Gambie (dalasis)</b>'+inp('gmb',(s.gm||{}).moto?s.gm.moto.base:25,'Moto : prise en charge (D)')+inp('gmk',(s.gm||{}).moto?s.gm.moto.per_km:12,'Moto : prix par km (D)')+inp('gmm',(s.gm||{}).moto?s.gm.moto.min:35,'Moto : prix minimum (D)')
+        +inp('gvb',(s.gm||{}).voiture?s.gm.voiture.base:60,'Voiture : prise en charge (D)')+inp('gvk',(s.gm||{}).voiture?s.gm.voiture.per_km:30,'Voiture : prix par km (D)')+inp('gvm',(s.gm||{}).voiture?s.gm.voiture.min:120,'Voiture : prix minimum (D)')+'</div>'
+      +'<div class="it"><b>Recharges Wave</b><label for="wu">🇸🇳 Lien marchand Wave Sénégal</label><input id="wu" type="url" value="'+esc(s.wave_url||'')+'"/>'
+        +'<label for="wug">🇬🇲 Lien marchand Wave Gambie (vide = recharge par l\'équipe)</label><input id="wug" type="url" value="'+esc(s.wave_url_gm||'')+'"/></div>'
       +'<p class="note">Exemple pour 3 km : moto '+F(Math.ceil(Math.max(s.moto.min,s.moto.base+s.moto.per_km*3)/50)*50)+' · voiture '+F(Math.ceil(Math.max(s.voiture.min,s.voiture.base+s.voiture.per_km*3)/50)*50)+'</p>'
       +'<button class="big" id="sv">Enregistrer les réglages</button></div>';
     $('#sv').onclick=async function(){ var g=function(i){ return $('#'+i).value; };
       var x=await api('/admin/settings','POST',{ moto:{base:g('mb'),per_km:g('mk'),min:g('mm')}, voiture:{base:g('vb'),per_km:g('vk'),min:g('vm')}, commission_pct:g('cp'), search_radius_km:g('sr'),
-        free_days:g('fd'), surge_on:g('so')==='1', surge_max:g('sm'), wave_url:g('wu') });
+        free_days:g('fd'), surge_on:g('so')==='1', surge_max:g('sm'), wave_url:g('wu'), wave_url_gm:g('wug'),
+        gm:{ moto:{base:g('gmb'),per_km:g('gmk'),min:g('gmm')}, voiture:{base:g('gvb'),per_km:g('gvk'),min:g('gvm')} } });
       if(x.success){ toast('Réglages enregistrés'); admin('tarifs'); } else toast(x.error||'Erreur'); };
   }
 }
@@ -1075,7 +1292,7 @@ function deleteAccount(){
   $('#delGo').onclick=async function(){
     var b=this, pwd=$('#delPwd').value, w=$('#delWord').value.trim().toUpperCase();
     if(!pwd){ toast('Entre ton code secret'); return; }
-    if(w!=='SUPPRIMER'){ toast('Écris SUPPRIMER pour confirmer'); return; }
+    if(w!=='SUPPRIMER' && w!=='DELETE'){ toast('Écris SUPPRIMER pour confirmer'); return; } w='SUPPRIMER';
     b.disabled=true; b.classList.add('loading');
     var r=await api('/me/delete','POST',{ password:pwd, confirm:w });
     b.disabled=false; b.classList.remove('loading');
@@ -1090,7 +1307,7 @@ setTimeout(_routeHash, 700);
 /* ── Lancement ── */
 try{ S.tok=localStorage.getItem(TOK_KEY); }catch(_){}
 var _tm=(location.hash||'').match(/^#\/suivi\/([a-f0-9]{18})$/);
-if(_tm){ initMap(); startTrack(_tm[1]); } else if(S.tok) boot(); else { initMap(); renderAuth(); }
+if(_tm){ initMap(); startTrack(_tm[1]); setTimeout(bootDone, 600); } else if(S.tok) boot(); else { initMap(); renderAuth(); setTimeout(bootDone, 250); }
 if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(function(rg){ try{ rg.update(); }catch(_){} }).catch(function(){}); });
   var _ybHadSW=!!navigator.serviceWorker.controller, _ybReloaded=false;
   navigator.serviceWorker.addEventListener('controllerchange',function(){ if(!_ybHadSW || _ybReloaded) return; _ybReloaded=true; if(S.me && S.me.role==='driver' && document.activeElement && document.activeElement.id==='dPin') return; location.reload(); });
