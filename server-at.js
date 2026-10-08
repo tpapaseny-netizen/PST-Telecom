@@ -10804,11 +10804,21 @@ function _ybMe(u, drv){ const ct = _ybUCtry(u); return { id: u.id, name: u.name,
     paused_until: drv.paused_until && new Date(drv.paused_until) > new Date() ? drv.paused_until : null,
     credit: Number(drv.credit || 0), free_until: _ybFree(drv) ? drv.free_until : null } : null }; }
 // Course vue par le client ou le chauffeur (avec l'autre partie)
+const _ybDiagC = new Map();   // ybq16
 async function _ybRideView(r, viewerId){
   if(!r) return null;
   const v = { id: r.id, status: r.status, vehicle: r.vehicle, from: { lat: r.from_lat, lng: r.from_lng, label: r.from_label }, to: { lat: r.to_lat, lng: r.to_lng, label: r.to_label },
     distance_km: Number(r.distance_km), price: Number(r.price), route: r.route || null, created_at: r.created_at, accepted_at: r.accepted_at, done_at: r.done_at, rating: r.rating, cancel_by: r.cancel_by };
-  if(r.status === 'searching'){ const pu = _ybPushed.get(r.id); const o = new Set((r.offered || []).concat(pu ? Array.from(pu) : [])); v.notified = o.size; }   // ybq12
+  if(r.status === 'searching'){ const pu = _ybPushed.get(r.id); const o = new Set((r.offered || []).concat(pu ? Array.from(pu) : [])); v.notified = o.size;   // ybq12
+    // ybq16 — état réel des chauffeurs autour, montré au client pendant la recherche (mis en cache 5 s)
+    try{ const ck = _ybDiagC.get(r.id); if(ck && Date.now() - ck.t < 5000) v.around = ck.v; else {
+      const tl = r.client_lat != null ? r.client_lat : r.from_lat, tg = r.client_lat != null ? r.client_lng : r.from_lng, s = await _ybSettings();
+      const ds = (await _pgPool.query("SELECT user_id, online, lat, lng, loc_at, free_until, credit, paused_until, status FROM yb_drivers WHERE status='approved' AND vehicle=$1 AND COALESCE(country,'SN')=$2 LIMIT 3000",[r.vehicle, r.country || 'SN'])).rows;
+      const a = { registered: ds.length, online_near: 0, online_far: 0, offline_near: 0, no_gps: 0, no_credit: 0, nearest_km: null };
+      ds.forEach(function(d){ if(!_ybCanWork(d, s)){ a.no_credit++; return; } const fresh = d.loc_at && Date.now() - new Date(d.loc_at).getTime() < 1800000; const k = (d.lat != null) ? _ybKm(tl, tg, d.lat, d.lng) : null;
+        if(d.online && fresh && k != null){ if(k <= 15) a.online_near++; else a.online_far++; if(a.nearest_km == null || k < a.nearest_km) a.nearest_km = Math.round(k * 10) / 10; }
+        else if(d.online && !fresh) a.no_gps++; else if(k != null && k <= 15) a.offline_near++; });
+      _ybDiagC.set(r.id, { t: Date.now(), v: a }); if(_ybDiagC.size > 2000) _ybDiagC.clear(); v.around = a; } }catch(_){} }
   if(r.driver_id && viewerId !== r.driver_id){
     const d = (await _pgPool.query('SELECT u.name, u.phone, d.* FROM yb_users u JOIN yb_drivers d ON d.user_id=u.id WHERE u.id=$1',[r.driver_id])).rows[0];
     if(d) v.driver = { name: d.name, phone: d.phone, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, lat: d.lat, lng: d.lng, loc_at: d.loc_at,
@@ -11302,7 +11312,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq15', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq16', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
