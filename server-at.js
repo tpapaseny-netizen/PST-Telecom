@@ -10732,7 +10732,7 @@ function _ybPlate(raw){
 // 2) Dispatch par vagues : chaque course est classée chauffeur par chauffeur (temps d'approche, qualité, équité).
 //    0–10 s : les 2 meilleurs · 10–20 s : les 5 meilleurs · ensuite : tous. Le rayon s'élargit après 1 et 2 minutes.
 function _ybMatch(etaMin, score, idleMin){ return etaMin + (4.9 - score) * 4 - Math.min(idleMin, 40) / 8; }
-function _ybWaveRank(age){ return age < 10 ? 2 : (age < 20 ? 5 : Infinity); }
+function _ybWaveRank(age){ return Infinity; }   // ybq15 : tout le monde, tout de suite — le premier qui accepte la prend
 function _ybRadius(base, age){ return Math.min(20, base + (age > 60 ? 4 : 0) + (age > 120 ? 4 : 0)); }
 // ── DIEULSI — Argent (ybq6) ──
 // Le chauffeur recharge un crédit (Wave). À chaque course terminée, la commission Dieulsi est retirée de ce crédit.
@@ -10897,10 +10897,10 @@ async function _ybDispatchWave(rideId){
   if(!ranked.length && age >= 6){ const stale = (await _pgPool.query("SELECT * FROM yb_drivers WHERE status='approved' AND online=TRUE AND vehicle=$1 AND loc_at > NOW() - INTERVAL '30 minutes' AND (paused_until IS NULL OR paused_until < NOW())" + YB_WORK_SQL + " AND COALESCE(country,'SN')=$2",[r.vehicle, _ybCtry(r.country)])).rows
       .filter(function(x){ return !busy.has(x.user_id) && dec.indexOf(x.user_id) < 0 && x.lat != null; });
     stale.forEach(function(x){ const k = _ybKm(x.lat, x.lng, tl, tg); if(k <= rad + 4) ranked.push({ id: x.user_id, k: k, eta: _ybEtaMin(L, r.vehicle, k), m: 99 + k }); }); }
-  if(age >= 40 && !ranked.length) _ybWakeDrivers(r, tl, tg).catch(function(){});
+  if(age < 8 || (age >= 40 && !ranked.length)) _ybWakeDrivers(r, tl, tg).catch(function(){});   // ybq15 : dès la commande
   const fresh = ranked.filter(function(x){ return !done.has(x.id); }); if(!fresh.length) return;
   fresh.forEach(function(x){ done.add(x.id);
-    _ybPush(x.id, '🔔 Nouvelle course · ' + Number(r.price).toLocaleString('fr-FR') + ' F', 'Client à ' + (Math.round(x.k * 1.3 * 10) / 10).toString().replace('.', ',') + ' km (' + x.eta + ' min) · vers ' + (r.to_label || 'destination'), '/', 'yb-offer', true, 60); });
+    _ybPush(x.id, '🔔 Nouvelle course · ' + Number(r.price).toLocaleString('fr-FR') + ' F', 'Client à ' + (Math.round(x.k * 1.3 * 10) / 10).toString().replace('.', ',') + ' km (' + x.eta + ' min) · vers ' + (r.to_label || 'destination'), '/?online=1', 'yb-offer', true, 60); });
   const off = Array.from(new Set((r.offered || []).concat(fresh.map(function(x){ return x.id; }))));
   await _pgPool.query('UPDATE yb_rides SET offered=$2 WHERE id=$1',[rideId, JSON.stringify(off)]);
 }
@@ -10921,12 +10921,16 @@ async function _ybActivateScheduled(){
   }catch(e){ console.error('[yb] scheduled:', e.message); }
 }
 setInterval(_ybActivateScheduled, 60000);
-async function _ybWakeDrivers(r, lat, lng){
+async function _ybWakeDrivers(r, lat, lng){   // ybq15 — chaque course réveille les chauffeurs inscrits autour (15 km), même hors ligne
   const s = await _ybSettings();
-  const rows = (await _pgPool.query("SELECT * FROM yb_drivers WHERE status='approved' AND vehicle=$1 AND COALESCE(country,'SN')=$2 AND (online=FALSE OR loc_at < NOW() - INTERVAL '5 minutes') AND loc_at > NOW() - INTERVAL '24 hours' AND lat IS NOT NULL LIMIT 300",[r.vehicle, r.country || 'SN'])).rows;
-  rows.filter(function(d){ return _ybCanWork(d, s) && _ybKm(lat, lng, d.lat, d.lng) <= 6 && Date.now() - (_ybWoke.get(d.user_id) || 0) > 3600000; })
-    .sort(function(a, b){ return _ybKm(lat, lng, a.lat, a.lng) - _ybKm(lat, lng, b.lat, b.lng); }).slice(0, 8)
-    .forEach(function(d){ _ybWoke.set(d.user_id, Date.now()); _ybPush(d.user_id, '🔥 Des clients attendent près de toi', 'Passe en ligne sur Dieulsi pour recevoir la course.', '/', 'yb-wake', true, 600); });
+  const rows = (await _pgPool.query("SELECT * FROM yb_drivers WHERE status='approved' AND vehicle=$1 AND COALESCE(country,'SN')=$2 AND (online=FALSE OR loc_at IS NULL OR loc_at < NOW() - INTERVAL '90 seconds') LIMIT 2000",[r.vehicle, r.country || 'SN'])).rows;
+  const done = _ybPushed.get(r.id) || new Set();
+  rows.map(function(d){ return { d: d, k: d.lat != null ? _ybKm(lat, lng, d.lat, d.lng) : null }; })
+    .filter(function(x){ return _ybCanWork(x.d, s) && !done.has(x.d.user_id) && (x.k == null || x.k <= 15) && Date.now() - (_ybWoke.get(x.d.user_id) || 0) > 120000; })
+    .sort(function(a, b){ return (a.k == null ? 99 : a.k) - (b.k == null ? 99 : b.k); }).slice(0, 60)
+    .forEach(function(x){ _ybWoke.set(x.d.user_id, Date.now()); done.add(x.d.user_id);
+      _ybPush(x.d.user_id, '🔔 Course disponible · ' + Number(r.price).toLocaleString('fr-FR') + ' F', (x.k != null ? 'Client à ' + (Math.round(x.k * 1.3 * 10) / 10).toString().replace('.', ',') + ' km · ' : '') + 'touche ici pour passer en ligne et la prendre', '/?online=1', 'yb-offer', true, 120); });
+  _ybPushed.set(r.id, done);
   if(_ybWoke.size > 20000) _ybWoke.clear();
 }
 // ── DIEULSI — Vérification du numéro par code à 6 chiffres (ybotp1) ──
@@ -11298,7 +11302,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq14', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq15', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
