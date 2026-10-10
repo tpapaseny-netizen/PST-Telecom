@@ -10557,6 +10557,9 @@ async function _ybInit(){
     ALTER TABLE yb_drivers ADD COLUMN IF NOT EXISTS hdg REAL;
     ALTER TABLE yb_drivers ADD COLUMN IF NOT EXISTS hdg_at TIMESTAMPTZ;
     ALTER TABLE yb_drivers ADD COLUMN IF NOT EXISTS plate_kind TEXT;
+    ALTER TABLE yb_drivers ADD COLUMN IF NOT EXISTS resp_avg REAL;
+    CREATE TABLE IF NOT EXISTS yb_msgs (id TEXT PRIMARY KEY, ride_id TEXT NOT NULL, sender_id TEXT NOT NULL, kind TEXT DEFAULT 'text', body TEXT, audio TEXT, mime TEXT, dur INT, created_at TIMESTAMPTZ DEFAULT NOW(), read_at TIMESTAMPTZ);
+    CREATE INDEX IF NOT EXISTS idx_ybm_ride ON yb_msgs(ride_id, created_at);
     ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS country TEXT;
     ALTER TABLE yb_places ADD COLUMN IF NOT EXISTS last_used TIMESTAMPTZ;
     ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS favs JSONB;
@@ -10731,7 +10734,7 @@ function _ybPlate(raw){
 }
 // 2) Dispatch par vagues : chaque course est classée chauffeur par chauffeur (temps d'approche, qualité, équité).
 //    0–10 s : les 2 meilleurs · 10–20 s : les 5 meilleurs · ensuite : tous. Le rayon s'élargit après 1 et 2 minutes.
-function _ybMatch(etaMin, score, idleMin){ return etaMin + (4.9 - score) * 4 - Math.min(idleMin, 40) / 8; }
+function _ybMatch(etaMin, score, idleMin, resp){ return etaMin + (4.9 - score) * 4 - Math.min(idleMin, 40) / 8 + (resp ? Math.max(0, Math.min(3, (resp - 15) / 20)) : 0); }   // ybq17 : les plus réactifs d'abord
 function _ybWaveRank(age){ return Infinity; }   // ybq15 : tout le monde, tout de suite — le premier qui accepte la prend
 function _ybRadius(base, age){ return Math.min(20, base + (age > 60 ? 4 : 0) + (age > 120 ? 4 : 0)); }
 // ── DIEULSI — Argent (ybq6) ──
@@ -10805,10 +10808,12 @@ function _ybMe(u, drv){ const ct = _ybUCtry(u); return { id: u.id, name: u.name,
     credit: Number(drv.credit || 0), free_until: _ybFree(drv) ? drv.free_until : null } : null }; }
 // Course vue par le client ou le chauffeur (avec l'autre partie)
 const _ybDiagC = new Map();   // ybq16
+async function _ybUnread(rideId, viewerId){ try{ return (await _pgPool.query('SELECT COUNT(*)::int AS n FROM yb_msgs WHERE ride_id=$1 AND sender_id<>$2 AND read_at IS NULL',[rideId, viewerId])).rows[0].n; }catch(_){ return 0; } }
 async function _ybRideView(r, viewerId){
   if(!r) return null;
   const v = { id: r.id, status: r.status, vehicle: r.vehicle, from: { lat: r.from_lat, lng: r.from_lng, label: r.from_label }, to: { lat: r.to_lat, lng: r.to_lng, label: r.to_label },
     distance_km: Number(r.distance_km), price: Number(r.price), route: r.route || null, created_at: r.created_at, accepted_at: r.accepted_at, done_at: r.done_at, rating: r.rating, cancel_by: r.cancel_by };
+  if(r.driver_id && ['accepted','arrived','ongoing'].indexOf(r.status) > -1 && viewerId) v.unread = await _ybUnread(r.id, viewerId);   // ybq17
   if(r.status === 'searching'){ const pu = _ybPushed.get(r.id); const o = new Set((r.offered || []).concat(pu ? Array.from(pu) : [])); v.notified = o.size;   // ybq12
     // ybq16 — état réel des chauffeurs autour, montré au client pendant la recherche (mis en cache 5 s)
     try{ const ck = _ybDiagC.get(r.id); if(ck && Date.now() - ck.t < 5000) v.around = ck.v; else {
@@ -10874,7 +10879,7 @@ async function _ybPush(uid, title, body, url, tag, urgent, ttl){
     try{ uu = (await _pgPool.query('SELECT country, lang, phone FROM yb_users WHERE id=$1',[String(uid)])).rows[0];
       if(uu && _ybUCtry(uu) === 'GM'){ title = String(title).replace(/(\d) F\b/g, '$1 D'); body = String(body).replace(/(\d) F\b/g, '$1 D'); }
       if(uu && (uu.lang || YB_COUNTRIES[_ybUCtry(uu)].lang) === 'en'){ title = _ybEnText(title); body = _ybEnText(body); } }catch(_){}
-    _ybPencMirror(uu, title, body, tag);
+    if(tag !== 'yb-chat') _ybPencMirror(uu, title, body, tag);   // ybq17 : les messages de course restent dans Dieulsi
     if(!subs.length) return;
     const payload = JSON.stringify({ title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: !!urgent });
     for(const x of subs){ try{ await webpush.sendNotification(typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub, payload, { TTL: ttl || 3600, urgency: urgent ? 'high' : 'normal' }); }
@@ -10900,7 +10905,7 @@ async function _ybDispatchWave(rideId){
     .filter(function(x){ return !busy.has(x.user_id) && dec.indexOf(x.user_id) < 0; });
   const tl = r.client_lat != null ? r.client_lat : r.from_lat, tg = r.client_lat != null ? r.client_lng : r.from_lng, rad = _ybRadius(s.search_radius_km, age);
   const ranked = pool.map(function(x){ const k = _ybKm(x.lat, x.lng, tl, tg); return { id: x.user_id, k: k, eta: _ybEtaMin(L, r.vehicle, k),
-      m: _ybMatch(_ybEtaMin(L, r.vehicle, k), _ybDriverScore(x), x.last_done_at ? (now - new Date(x.last_done_at).getTime()) / 60000 : 20) + _ybHeadAdj(x, tl, tg, k) }; })   // ybq11
+      m: _ybMatch(_ybEtaMin(L, r.vehicle, k), _ybDriverScore(x), x.last_done_at ? (now - new Date(x.last_done_at).getTime()) / 60000 : 20, x.resp_avg) + _ybHeadAdj(x, tl, tg, k) }; })   // ybq11
     .filter(function(x){ return x.k <= rad; }).sort(function(a, b){ return a.m - b.m; }).slice(0, Math.min(15, _ybWaveRank(age)));
   const done = _ybPushed.get(rideId) || new Set(); _ybPushed.set(rideId, done);
   // ybq12 — personne avec une position fraîche : on prévient aussi les chauffeurs en ligne dont la dernière position date de moins de 30 min
@@ -11312,7 +11317,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq16', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq17', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11324,6 +11329,47 @@ app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
 app.post('/api/yb/me/lang', ybAuth, async (req, res) => {
   try{ const l = (req.body || {}).lang === 'en' ? 'en' : 'fr'; await _pgPool.query('UPDATE yb_users SET lang=$1 WHERE id=$2',[l, req.yb.id]); res.json({ success: true, lang: l }); }
   catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── ybq17 : discussion client ↔ chauffeur pendant la course (texte + messages vocaux), sans crédit téléphonique, dans Dieulsi ──
+async function _ybChatRide(req, res){
+  const r = (await _pgPool.query('SELECT * FROM yb_rides WHERE id=$1',[req.params.id])).rows[0];
+  if(!r || (r.client_id !== req.yb.id && r.driver_id !== req.yb.id) || !r.driver_id){ res.status(404).json({ error: 'Course introuvable' }); return null; }
+  return r;
+}
+app.get('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
+  try{ const r = await _ybChatRide(req, res); if(!r) return;
+    const after = req.query.after ? new Date(String(req.query.after)) : null;
+    const rows = (await _pgPool.query('SELECT id, sender_id, kind, body, dur, created_at, read_at FROM yb_msgs WHERE ride_id=$1' + (after && !isNaN(after) ? ' AND created_at > $2' : '') + ' ORDER BY created_at ASC LIMIT 300', after && !isNaN(after) ? [r.id, after] : [r.id])).rows;
+    _pgPool.query('UPDATE yb_msgs SET read_at=NOW() WHERE ride_id=$1 AND sender_id<>$2 AND read_at IS NULL',[r.id, req.yb.id]).catch(function(){});
+    const other = r.client_id === req.yb.id ? r.driver_id : r.client_id;
+    const ou = (await _pgPool.query('SELECT name FROM yb_users WHERE id=$1',[other])).rows[0] || {};
+    const seen = (await _pgPool.query('SELECT MAX(created_at) AS t FROM yb_msgs WHERE ride_id=$1 AND sender_id=$2 AND read_at IS NOT NULL',[r.id, req.yb.id])).rows[0].t;
+    res.json({ other: String(ou.name || '').split(' ')[0], open: ['accepted','arrived','ongoing'].indexOf(r.status) > -1 || (r.done_at && Date.now() - new Date(r.done_at).getTime() < 1800000), seen_until: seen,
+      msgs: rows.map(function(m){ return { id: m.id, mine: m.sender_id === req.yb.id, kind: m.kind, body: m.kind === 'text' ? m.body : null, dur: m.dur, at: m.created_at }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
+  try{ const r = await _ybChatRide(req, res); if(!r) return; const b = req.body || {};
+    const open = ['accepted','arrived','ongoing'].indexOf(r.status) > -1 || (r.done_at && Date.now() - new Date(r.done_at).getTime() < 1800000);
+    if(!open) return res.status(400).json({ error: 'La discussion est fermée pour cette course' });
+    if(!_gpRate('yb:' + req.yb.id, 'yb_chat', 80, 600000)) return _filTooFast(res);
+    let kind = 'text', body = null, audio = null, mime = null, dur = null;
+    if(b.audio){ audio = String(b.audio).replace(/^data:[^,]*,/, ''); if(audio.length > 900000) return res.status(400).json({ error: 'Message vocal trop long (1 minute au plus)' });
+      if(!/^[A-Za-z0-9+/=]+$/.test(audio)) return res.status(400).json({ error: 'Audio invalide' });
+      kind = 'audio'; mime = /^audio\/[a-z0-9.+-]+(;\s*codecs=[a-z0-9.,"' -]+)?$/i.test(String(b.mime || '')) ? String(b.mime) : 'audio/webm'; dur = Math.max(1, Math.min(90, Math.round(Number(b.dur) || 1))); }
+    else { body = _gpTxt(b.text, 500); if(!body) return res.status(400).json({ error: 'Message vide' }); }
+    const id = _ybId('ybm');
+    const row = (await _pgPool.query('INSERT INTO yb_msgs(id,ride_id,sender_id,kind,body,audio,mime,dur) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING created_at',[id, r.id, req.yb.id, kind, body, audio, mime, dur])).rows[0];
+    const to = r.client_id === req.yb.id ? r.driver_id : r.client_id;
+    _ybPush(to, '💬 ' + String(req.yb.name || 'Dieulsi').split(' ')[0], kind === 'audio' ? '🎤 Message vocal' : body, '/?chat=' + r.id, 'yb-chat', true, 600);
+    res.json({ success: true, msg: { id: id, mine: true, kind: kind, body: body, dur: dur, at: row.created_at } });
+  }catch(e){ console.error('[yb] chat:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/msgs/:id/audio', ybAuth, async (req, res) => {
+  try{ const m = (await _pgPool.query('SELECT m.audio, m.mime, r.client_id, r.driver_id FROM yb_msgs m JOIN yb_rides r ON r.id=m.ride_id WHERE m.id=$1',[req.params.id])).rows[0];
+    if(!m || !m.audio || (m.client_id !== req.yb.id && m.driver_id !== req.yb.id)) return res.status(404).json({ error: 'Introuvable' });
+    res.json({ mime: m.mime || 'audio/webm', data: m.audio });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ── Portefeuille chauffeur : crédit prépayé par Wave, validé par l'administration ──
 app.get(['/api/yb/wallet', '/api/yb/credit'], ybAuth, async (req, res) => {
@@ -11452,7 +11498,7 @@ app.post('/api/yb/rides/:id/accept', ybAuth, async (req, res) => {
     // Attribution atomique : le premier chauffeur qui accepte obtient la course
     const r = (await _pgPool.query("UPDATE yb_rides SET status='accepted', driver_id=$1, accepted_at=NOW() WHERE id=$2 AND status='searching' AND vehicle=$3 AND COALESCE(country,'SN')=$4 RETURNING *",[req.yb.id, req.params.id, d.vehicle, d.country || 'SN'])).rows[0];
     if(!r) return res.status(409).json({ error: 'Trop tard, un autre chauffeur a pris cette course' });
-    await _pgPool.query('UPDATE yb_drivers SET accepts=COALESCE(accepts,0)+1 WHERE user_id=$1',[req.yb.id]);
+    await _pgPool.query('UPDATE yb_drivers SET accepts=COALESCE(accepts,0)+1, resp_avg=CASE WHEN resp_avg IS NULL THEN $2 ELSE resp_avg*0.8+$2*0.2 END WHERE user_id=$1',[req.yb.id, Math.max(1, Math.min(300, (Date.now() - new Date(r.created_at).getTime()) / 1000))]);   // ybq17
     if(d.lat != null){ const pk = Math.round(_ybKm(d.lat, d.lng, r.client_lat != null ? r.client_lat : r.from_lat, r.client_lat != null ? r.client_lng : r.from_lng) * 1.3 * 100) / 100;
       await _pgPool.query('UPDATE yb_rides SET pickup_km=$1 WHERE id=$2',[pk, r.id]); r.pickup_km = pk; }
     _ybLog('ride_accept', req.yb.id, r.id, null, req); _ybSettle(r, req.yb.id); _ybPushed.delete(r.id);
