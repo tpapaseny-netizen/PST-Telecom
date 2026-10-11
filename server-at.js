@@ -84,6 +84,7 @@ app.use(cors({ origin: '*', methods: ['GET','POST','PUT','PATCH','DELETE','OPTIO
 app.get('/ping', function(req,res){ res.set('Cache-Control','no-store'); res.status(200).type('text/plain').send('pong'); });
 // ══ Sante / monitoring de charge : nombre de connexions temps reel + etat du pool BD ══
 app.get('/health', function(req,res){
+  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   try{
     var sockCount = (io && io.engine) ? io.engine.clientsCount : 0;
     var meetCount = (typeof _meetRooms!=='undefined') ? Object.keys(_meetRooms).length : 0;
@@ -3634,6 +3635,7 @@ async function getGeoForIp(rawIp){
 async function pencPushSubs()      { const d = await jbGet(BINS.penc_push); return (d && Array.isArray(d.subs)) ? d.subs : []; }
 async function pencSavePushSubs(a) { return jbSet(BINS.penc_push, { subs: a }); }
 async function pencSecLog(type, req, extra) {
+  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   try {
     if (!_pgPool) return;
     extra = extra || {};
@@ -3697,8 +3699,22 @@ async function _pencFcmAccess(){
   _pencFcmTok = { v: j.access_token, exp: Date.now() + ((j.expires_in || 3600) - 300) * 1000 };
   return j.access_token;
 }
+// pncapp2 — message silencieux vers l'appli Android de ce compte (ex. arrêter la sonnerie d'un appel)
+async function _pencFcmRaw(uid, data){
+  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
+  try{
+    if(!_pgPool || !_pencFcmConf()) return;
+    const at = await _pencFcmAccess(); if(!at) return;
+    const sa = _pencFcmConf();
+    const r = await _pgPool.query("SELECT subscription FROM penc_push_subs WHERE user_id=$1 AND subscription ? 'fcm'", [String(uid)]);
+    const d = {}; Object.keys(data || {}).forEach(function(k){ d[k] = String(data[k]); }); d.uid = String(uid);
+    await Promise.all(r.rows.map(function(row){ return fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', { method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + at, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { token: row.subscription.fcm, data: d, android: { priority: 'high', ttl: '60s' } } }) }).catch(function(){}); }));
+  }catch(e){ console.error('[fcm raw]', e.message); }
+}
 // Renvoie 'ok', 'gone' (jeton à supprimer) ou 'err'
-async function _pencFcmSend(token, payload){
+async function _pencFcmSend(token, payload, uid){
   try{
     const sa = _pencFcmConf(); if(!sa) return 'err';
     const at = await _pencFcmAccess(); if(!at) return 'err';
@@ -3707,6 +3723,7 @@ async function _pencFcmSend(token, payload){
     if(!data.url && p.data && p.data.url) data.url = String(p.data.url);
     if(p.tag === 'penc-call' || p.call_data) data.kind = 'call';
     if(p.call_data) data.call_data = String(p.call_data).slice(0, 1500);
+    if(uid) data.uid = String(uid);   // pncapp2
     const r = await fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', { method: 'POST',
       headers: { 'Authorization': 'Bearer ' + at, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: { token: token, data: data, android: { priority: 'high', ttl: (data.kind === 'call' ? '60s' : '86400s') } } }) });
@@ -3717,6 +3734,7 @@ async function _pencFcmSend(token, payload){
   }catch(e){ console.error('[fcm]', e.message); return 'err'; }
 }
 async function sendPencPush(userId, payload) {
+  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
   try {
@@ -3766,7 +3784,7 @@ async function sendPencPush(userId, payload) {
     let _sent = 0, _errs = [];
     for (const sb of mine) {
       if (sb.subscription && sb.subscription.fcm) {   // pncapp1 : appli Android native
-        const st = await _pencFcmSend(sb.subscription.fcm, payload);
+        const st = await _pencFcmSend(sb.subscription.fcm, payload, userId);
         if (st === 'ok') _sent++;
         else { _errs.push('fcm-' + st); if (st === 'gone' && _pgPool) { try { await _pgPool.query('DELETE FROM penc_push_subs WHERE endpoint=$1', [sb.subscription.endpoint]); } catch (_fd) {} } }
         continue;
@@ -3796,6 +3814,7 @@ async function sendPencPush(userId, payload) {
 const _radNotifDebounce = {};
 const RAD_NOTIF_DEBOUNCE_MS = 45000;
 function _radQueueCommentNotif(stationId, authorId, authorName, stationName) {
+  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   let entry = _radNotifDebounce[stationId];
   if (!entry) entry = _radNotifDebounce[stationId] = { count: 0, lastAuthorName: authorName, stationName, excludeIds: new Set() };
   entry.count += 1;
@@ -4856,6 +4875,9 @@ app.get('/api/penc/admin/diagnostic',async(req,res)=>{
 // ══  PENC — AUTH POSTGRESQL (persistance garantie)  ════════
 // ════════════════════════════════════════════════════════════
 let _pgPool = null;
+// pncapp2 — les fonctions déclarées tout en haut du fichier (notifications Penc, journal de sécurité, /health)
+// ne voyaient pas _pgPool (déclaré ici, dans le démarrage) : elles échouaient sans bruit. On le leur prête.
+try{ Object.defineProperty(globalThis, '__pencPg', { get: function(){ return _pgPool; }, configurable: true }); }catch(_gp){}
 async function initPgPenc(){
   if(!process.env.DATABASE_URL){ console.log('⚠️ DATABASE_URL non défini — auth Penc sur JSONBin seulement'); return; }
   try{
@@ -8204,6 +8226,19 @@ app.get('/p/:code', async (req, res) => {
     +'<script>location.replace('+JSON.stringify(target)+');</script></body></html>');
 });
 // ── Appel en attente pour moi (retour dans l'app après avoir touché la notification) ──
+// pncapp2 — « Refuser » touché sur l'écran d'appel de l'appli Android
+app.post('/api/penc/calls/decline', pencAuth, async (req, res) => {
+  try{
+    const uid = String(req.pencUser.userId);
+    const p = _pencPendingCalls.get(uid);
+    const caller = String((req.body && req.body.caller_id) || (p && p.from) || '');
+    _pencPendingCalls.delete(uid);
+    if(caller) await emitToUsers([caller], 'call:declined', { by: uid });
+    try{ io.to('user:' + uid).emit('call:accepted:elsewhere', {}); }catch(_e){}
+    _pencFcmRaw(uid, { kind: 'call_end' });
+    res.json({ success: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
 app.get('/api/penc/calls/pending', pencAuth, async (req, res) => {
   const p = _pencPendingCalls.get(String(req.pencUser.userId));
   if(!p || Date.now() - p.ts > 60000) return res.json({ call: null });
@@ -17584,6 +17619,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('call:accept', ({caller_id}) => {
     _pencPendingCalls.delete(String(pencUserId));
+    _pencFcmRaw(pencUserId, { kind: 'call_end' });   // pncapp2 : les autres téléphones du compte arrêtent de sonner
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
     // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
     // doit arrêter de sonner dès qu'un autre appareil du même compte a répondu.
@@ -17591,6 +17627,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('call:decline', ({caller_id}) => {
     _pencPendingCalls.delete(String(pencUserId));
+    _pencFcmRaw(pencUserId, { kind: 'call_end' });   // pncapp2
     emitToUser(caller_id,'call:declined',{by:pencUserId});
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
@@ -17604,7 +17641,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
-    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)) _pencPendingCalls.delete(String(target_id)); }catch(_pe){}
+    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)){ _pencPendingCalls.delete(String(target_id)); _pencFcmRaw(target_id, { kind: 'call_end' }); } }catch(_pe){}   // pncapp2 : l'appelant a raccroché avant qu'on décroche
     emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
