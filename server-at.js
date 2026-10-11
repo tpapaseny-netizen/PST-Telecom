@@ -13004,6 +13004,15 @@ app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
     if (subscription.fcm) { subscription.fcm = String(subscription.fcm).slice(0, 500); subscription.endpoint = 'fcm:' + uid + ':' + subscription.fcm; }   // pncapp1
+    // pncapp4 — on retient le navigateur de chaque abonnement web. Quand l'appli native Penc s'abonne, les anciens
+    // abonnements de Chrome sur Android (ancienne version Penc « Chrome ») sont retirés : sinon les appels et messages
+    // arrivaient aussi par Chrome (notification « Chrome », appel ouvert dans Chrome au lieu de l'appli).
+    if (!subscription.fcm) { subscription.ua = String(req.headers['user-agent'] || '').slice(0, 200); }
+    else if (_pgPool) {
+      try {
+        await _pgPool.query("DELETE FROM penc_push_subs WHERE user_id=$1 AND NOT (subscription ? 'fcm') AND (subscription->>'ua' IS NULL OR subscription->>'ua' ILIKE '%Android%')", [uid]);
+      } catch (_cl) { console.error('push sub cleanup:', _cl.message); }
+    }
     // Enregistrer dans PostgreSQL en priorité (fiable). L'endpoint est unique : si le même
     // appareil se réabonne, on met simplement à jour son user_id et sa subscription.
     let _pgOk = false;
