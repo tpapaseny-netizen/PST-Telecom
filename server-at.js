@@ -10965,8 +10965,20 @@ async function _ybPencMirror(uu, title, body, tag){
     _sendPencOfficialDM(hit.id, '🚖 Dieulsi — ' + title + (body ? '\n' + body : ''), 'Dieulsi · ' + title, body || '', 'dieulsi-' + (tag || 'info'));
   }catch(_){}
 }
-async function _ybPush(uid, title, body, url, tag, urgent, ttl){
-  try{ if(!uid) return; const subs = webpush ? (await _pgPool.query('SELECT endpoint, sub FROM yb_push WHERE user_id=$1',[String(uid)])).rows : [];
+// ybapp1 — notification vers l'appli native Dieulsi (Firebase, priorité haute : arrive même téléphone en veille)
+async function _ybFcm(token, data, ttl){
+  try{ const sa = _pencFcmConf(); if(!sa) return 'err'; const at = await _pencFcmAccess(); if(!at) return 'err';
+    const d = {}; Object.keys(data).forEach(function(k){ if(data[k] != null) d[k] = String(data[k]).slice(0, 1000); });
+    const r = await fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', { method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + at, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { token: token, data: d, android: { priority: 'high', ttl: Math.max(10, Math.min(86400, ttl || 3600)) + 's' } } }) });
+    if(r.ok) return 'ok'; const t = await r.text();
+    if(r.status === 404 || /UNREGISTERED|registration-token-not-registered/i.test(t)) return 'gone';
+    console.error('[yb fcm] refusé (' + r.status + '):', t.slice(0, 200)); return 'err';
+  }catch(e){ return 'err'; }
+}
+async function _ybPush(uid, title, body, url, tag, urgent, ttl, extra){
+  try{ if(!uid) return; const subs = (await _pgPool.query('SELECT endpoint, sub FROM yb_push WHERE user_id=$1',[String(uid)])).rows;   // ybapp1 : aussi sans web push
     let uu = null;
     try{ uu = (await _pgPool.query('SELECT country, lang, phone FROM yb_users WHERE id=$1',[String(uid)])).rows[0];
       if(uu && _ybUCtry(uu) === 'GM'){ title = String(title).replace(/(\d) F\b/g, '$1 D'); body = String(body).replace(/(\d) F\b/g, '$1 D'); }
@@ -10974,7 +10986,12 @@ async function _ybPush(uid, title, body, url, tag, urgent, ttl){
     if(tag !== 'yb-chat') _ybPencMirror(uu, title, body, tag);   // ybq17 : les messages de course restent dans Dieulsi
     if(!subs.length) return;
     const payload = JSON.stringify({ title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: !!urgent });
-    for(const x of subs){ try{ await webpush.sendNotification(typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub, payload, { TTL: ttl || 3600, urgency: urgent ? 'high' : 'normal' }); }
+    const ex = extra || {};
+    for(const x of subs){ const sb = typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub;
+      if(sb && sb.fcm){ const st = await _ybFcm(sb.fcm, { title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: urgent ? '1' : '0', kind: ex.kind || (tag === 'yb-offer' ? 'offer' : ''), ride_id: ex.ride_id || null }, ttl);
+        if(st === 'gone') _pgPool.query('DELETE FROM yb_push WHERE endpoint=$1',[x.endpoint]).catch(function(){}); continue; }
+      if(!webpush) continue;
+      try{ await webpush.sendNotification(typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub, payload, { TTL: ttl || 3600, urgency: urgent ? 'high' : 'normal' }); }
       catch(e){ if(e && (e.statusCode === 404 || e.statusCode === 410)) _pgPool.query('DELETE FROM yb_push WHERE endpoint=$1',[x.endpoint]).catch(function(){}); } }
   }catch(_){}
 }
@@ -11007,7 +11024,7 @@ async function _ybDispatchWave(rideId){
   if(age < 8 || (age >= 40 && !ranked.length)) _ybWakeDrivers(r, tl, tg).catch(function(){});   // ybq15 : dès la commande
   const fresh = ranked.filter(function(x){ return !done.has(x.id); }); if(!fresh.length) return;
   fresh.forEach(function(x){ done.add(x.id);
-    _ybPush(x.id, '🔔 Nouvelle course · ' + Number(r.price).toLocaleString('fr-FR') + ' F', 'Client à ' + (Math.round(x.k * 1.3 * 10) / 10).toString().replace('.', ',') + ' km (' + x.eta + ' min) · vers ' + (r.to_label || 'destination'), '/?online=1', 'yb-offer', true, 60); });
+    _ybPush(x.id, '🔔 Nouvelle course · ' + Number(r.price).toLocaleString('fr-FR') + ' F', 'Client à ' + (Math.round(x.k * 1.3 * 10) / 10).toString().replace('.', ',') + ' km (' + x.eta + ' min) · vers ' + (r.to_label || 'destination'), '/?online=1', 'yb-offer', true, 60, { kind: 'offer', ride_id: r.id }); });   // ybapp1
   const off = Array.from(new Set((r.offered || []).concat(fresh.map(function(x){ return x.id; }))));
   await _pgPool.query('UPDATE yb_rides SET offered=$2 WHERE id=$1',[rideId, JSON.stringify(off)]);
 }
@@ -11403,13 +11420,20 @@ app.post('/api/yb/rides/:id/sos', ybAuth, async (req, res) => {
 });
 app.get('/api/yb/push/vapid', (req, res) => { res.json({ key: process.env.VAPID_PUBLIC_KEY || null }); });
 app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
-  try{ const x = (req.body || {}).sub; if(!x || !x.endpoint || !x.keys) return res.status(400).json({ error: 'Abonnement invalide' });
+  try{ const x = (req.body || {}).sub;
+    // ybapp1 — appli Android native Dieulsi : jeton Firebase (les anciens abonnements Chrome Android de ce compte sont retirés)
+    if(x && x.fcm){ const tok = String(x.fcm).slice(0, 500);
+      await _pgPool.query("DELETE FROM yb_push WHERE user_id=$1 AND NOT (sub ? 'fcm') AND (sub->>'ua' IS NULL OR sub->>'ua' ILIKE '%Android%')",[req.yb.id]).catch(function(){});
+      await _pgPool.query('INSERT INTO yb_push(endpoint,user_id,sub) VALUES($1,$2,$3) ON CONFLICT (endpoint) DO UPDATE SET user_id=$2, sub=$3',['fcm:' + tok, req.yb.id, JSON.stringify({ fcm: tok })]);
+      return res.json({ success: true, native: true }); }
+    if(x && x.endpoint) x.ua = String(req.headers['user-agent'] || '').slice(0, 200);
+    if(!x || !x.endpoint || !x.keys) return res.status(400).json({ error: 'Abonnement invalide' });
     await _pgPool.query('INSERT INTO yb_push(endpoint,user_id,sub) VALUES($1,$2,$3) ON CONFLICT (endpoint) DO UPDATE SET user_id=$2, sub=$3',[String(x.endpoint).slice(0,800), req.yb.id, JSON.stringify(x)]);
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq17', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq18', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11453,7 +11477,7 @@ app.post('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
     const id = _ybId('ybm');
     const row = (await _pgPool.query('INSERT INTO yb_msgs(id,ride_id,sender_id,kind,body,audio,mime,dur) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING created_at',[id, r.id, req.yb.id, kind, body, audio, mime, dur])).rows[0];
     const to = r.client_id === req.yb.id ? r.driver_id : r.client_id;
-    _ybPush(to, '💬 ' + String(req.yb.name || 'Dieulsi').split(' ')[0], kind === 'audio' ? '🎤 Message vocal' : body, '/?chat=' + r.id, 'yb-chat', true, 600);
+    _ybPush(to, '💬 ' + String(req.yb.name || 'Dieulsi').split(' ')[0], kind === 'audio' ? '🎤 Message vocal' : body, '/?chat=' + r.id, 'yb-chat', true, 600, { kind: 'chat', ride_id: r.id });   // ybapp1
     res.json({ success: true, msg: { id: id, mine: true, kind: kind, body: body, dur: dur, at: row.created_at } });
   }catch(e){ console.error('[yb] chat:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
