@@ -3714,16 +3714,36 @@ async function _pencFcmRaw(uid, data){
   }catch(e){ console.error('[fcm raw]', e.message); }
 }
 // Renvoie 'ok', 'gone' (jeton à supprimer) ou 'err'
+function _pencPushExtra(msg, sender){   // pncapp5
+  try{
+    const out = {};
+    if(!msg) return out;
+    if(msg.sender_id) out.sid = String(msg.sender_id);
+    if(typeof msg.content==='string' && msg.content.indexOf('PENC_E2E_v1:')===0 && msg.content.length < 2600 && !msg.view_once) out.enc = msg.content;
+    const m = { id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type || 'text',
+      content: msg.view_once ? (msg.type==='text' ? null : (msg.content||null)) : (msg.content || null),
+      media_url: msg.view_once ? null : (msg.media_url || null), media_duration: msg.media_duration || null,
+      media_thumb_url: msg.media_thumb_url || null, client_id: msg.client_id || null, created_at: msg.created_at,
+      view_once: !!msg.view_once, file_name: msg.file_name || null, file_size: msg.file_size || null, reply_to: msg.reply_to || null,
+      sender: sender ? { id: sender.id, full_name: sender.full_name || null, username: sender.username || null, avatar_url: (sender.avatar_url && String(sender.avatar_url).indexOf('data:')!==0) ? sender.avatar_url : null } : null };
+    const j = JSON.stringify(m);
+    if(j.length < 3000) out.m = j;
+    return out;
+  }catch(_){ return {}; }
+}
 async function _pencFcmSend(token, payload, uid){
   try{
     const sa = _pencFcmConf(); if(!sa) return 'err';
     const at = await _pencFcmAccess(); if(!at) return 'err';
     const p = payload || {}; const data = {};
     ['title','body','tag','url','icon','conv_id'].forEach(function(k){ if(p[k] != null && p[k] !== '') data[k] = String(p[k]).slice(0, 1000); });
+    if(data.icon && data.icon.indexOf('data:')===0) delete data.icon;   // pncapp5 : image intégrée = trop lourde pour la notification
     if(!data.url && p.data && p.data.url) data.url = String(p.data.url);
     if(p.tag === 'penc-call' || p.call_data) data.kind = 'call';
     if(p.call_data) data.call_data = String(p.call_data).slice(0, 1500);
     if(uid) data.uid = String(uid);   // pncapp2
+    if(p.enc) data.enc = String(p.enc); if(p.sid) data.sid = String(p.sid);   // pncapp5
+    if(p.m && (JSON.stringify(data).length + String(p.m).length) < 3800) data.m = String(p.m);
     const r = await fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', { method: 'POST',
       headers: { 'Authorization': 'Bearer ' + at, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: { token: token, data: data, android: { priority: 'high', ttl: (data.kind === 'call' ? '60s' : '86400s') } } }) });
@@ -3844,8 +3864,27 @@ function _radQueueCommentNotif(stationId, authorId, authorName, stationName) {
   }
 }
 function _pencDur(sec){ sec=Math.max(0,Math.round(sec||0)); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
-function pencMsgBody(type, content, duration){
-  if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' '+_pencDur(duration):'');
+function pencMsgBody(type, content, duration, viewOnce){
+  // pncapp5 : la durée des vocaux arrive en millisecondes ; un message chiffré ou technique n'est jamais affiché tel quel
+  if(duration && duration >= 1000) duration = duration / 1000;
+  if(viewOnce){ return type==='voice' ? '🔥 Message vocal à vue unique' : type==='video' ? '🔥 Vidéo à vue unique' : type==='image' ? '🔥 Photo à vue unique' : '🔥 Message à vue unique'; }
+  if(type==='call'){ let c={}; try{ c=JSON.parse(content||'{}'); }catch(_){}
+    const v = c.call_type==='video';
+    if(c.status==='answered') return v ? '📹 Appel vidéo' : '📞 Appel';
+    return v ? '📹 Appel vidéo manqué' : '📞 Appel manqué'; }
+  if(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0){
+    if(type==='voice') return '🎤 Message vocal'+((duration&&duration>0)?' ('+_pencDur(duration)+')':'');
+    if(type==='image') return '📷 Photo'; if(type==='video') return '🎬 Vidéo'; if(type==='file') return '📎 Fichier';
+    return '🔒 Nouveau message'; }
+  if(type==='voice') return '🎤 Message vocal'+((duration&&duration>0)?' ('+_pencDur(duration)+')':'');
+  if(type==='location') return '📍 Position';
+  if(type==='file') return '📎 '+((content&&String(content).indexOf('{')!==0)?String(content).slice(0,60):'Fichier');
+  if(type==='poll') return '📊 Sondage';
+  if(type==='radio') return '📻 Radio';
+  if(type==='cagnotte') return '🎯 Cagnotte';
+  if(type==='tontine') return '🔄 Tontine';
+  if(type==='contact') return '👤 Contact';
+  if(typeof content==='string' && /^\s*[\[{]/.test(content)) return 'Nouveau message';
   if(type==='image') return 'A envoyé une photo 📷';
   if(type==='video') return 'A envoyé une vidéo 🎬';
   if(type==='money') return '💸 '+(content||'Transfert');
@@ -7469,7 +7508,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
       messages = rows.map(m => {
         const _isMine = String(m.sender_id) === String(uid);
         // Vue unique : si deja consommee, le destinataire ne recoit plus jamais le media (l'expediteur si)
-        const _voHidden = m.view_once && m.view_once_consumed && !_isMine;
+        const _voHidden = m.view_once && !_isMine;   // pncapp5 : vu ou pas encore vu, le destinataire n'a le contenu qu'en l'ouvrant
         // Capsule temporelle : le destinataire ne voit pas le contenu tant que la date choisie
         // n'est pas atteinte (l'expéditeur, lui, voit toujours ce qu'il a écrit).
         const _capsuleLocked = m.reveal_at && new Date(m.reveal_at) > new Date() && !_isMine;
@@ -9475,7 +9514,7 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
       parts.forEach(pid=>{ if(String(pid)!==String(uid)) io.to('user:'+pid).emit('message:new', fullMsg); });
     }catch(_){}
     if(!_claimed){ try{ await pgSaveMessage({ id:msg.id, conversation_id:msg.conversation_id, sender_id:msg.sender_id, type:msg.type, content:msg.content||'', media_url:msg.media_url||null, duration:msg.media_duration||null, reply_to:msg.reply_to||null, created_at:msg.created_at, client_id:msg.client_id, file_name:msg.file_name, file_size:msg.file_size }); }catch(e){ console.error('penc /send persist:', e.message); } }
-    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0)?'\ud83d\udd12 Nouveau message':pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,{title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id}); }catch(_pp){} } } } }catch(_pe){}
+    try{ if(typeof webpush!=='undefined' && webpush){ const cr2=await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]); let rparts=cr2.rows[0]?(Array.isArray(cr2.rows[0].participants)?cr2.rows[0].participants:JSON.parse(cr2.rows[0].participants||'[]')):[]; let pbody=pencMsgBody(type, content, media_duration); const ptitle=(sender&&sender.full_name)?sender.full_name:'Nouveau message'; const _px5=_pencPushExtra(msg, sender); for(const rid of rparts){ if(String(rid)!==String(uid)){ try{ await sendPencPush(rid,Object.assign({title:ptitle,body:pbody,tag:'penc-'+conversation_id,url:'/messager?conv='+conversation_id,conv_id:conversation_id,icon:(sender&&sender.avatar_url)||undefined},_px5)); }catch(_pp){} } } } }catch(_pe){}
     return res.json({ success:true, message: fullMsg });
   }catch(e){ return res.status(500).json({ error:'Erreur envoi' }); }
 });
@@ -17815,8 +17854,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         try { const msgs = await pencMsgs(); msgs.push(msg); await pencSaveMsgs(msgs); _claimed = true; } catch (_jb) {}
       }
       const fullMsg = { ...msg, sender };
+      const _bMsg = msg.view_once ? { ...fullMsg, media_url: null, content: (msg.type==='text' ? null : fullMsg.content) } : fullMsg;   // pncapp5
       // Livraison: room de la conv + rooms personnelles des participants
-      io.to('penc:' + conversation_id).emit('message:new', fullMsg);
+      io.to('penc:' + conversation_id).emit('message:new', _bMsg);
       // Fallback: émettre directement aux participants via leur room user:
       try{
         let parts=[];
@@ -17827,7 +17867,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           }
         }
         parts.forEach(pid=>{
-          if(pid!==pencUserId) io.to('user:'+pid).emit('message:new',fullMsg);
+          if(pid!==pencUserId) io.to('user:'+pid).emit('message:new',_bMsg);
         });
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
@@ -17873,10 +17913,12 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             const c3 = (await pencConvs()).find(x => x.id === conversation_id);
             recipients = (c3 && Array.isArray(c3.participants||c3.members)) ? (c3.participants||c3.members).filter(m => m !== pencUserId) : [];
           }
-          let pbody = pencMsgBody(type, content, msg.media_duration);
+          let pbody = pencMsgBody(type, content, msg.media_duration, msg.view_once);
           const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
           const picon = (sender && sender.avatar_url) ? sender.avatar_url : undefined;
-          for (const rid of recipients) {
+          const _px = _pencPushExtra(msg, sender);   // pncapp5
+          let _callAns = false; if (type === 'call') { try { _callAns = JSON.parse(content || '{}').status === 'answered'; } catch (_) {} }
+          for (const rid of (_callAns ? [] : recipients)) {
             // #8 Silence sélectif avec mot-clé prioritaire — si ce destinataire a mis cette
             // discussion en "silence sauf mot-clé", on ne notifie QUE si le message contient ce
             // mot précis (comparaison insensible à la casse, jamais sur un message vocal/média
@@ -17889,7 +17931,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
                 if (_txt && _txt.indexOf(_kw) === -1) continue; // pas le mot-clé -> silence pour ce destinataire précis
               }
             } catch (_mke) {}
-            await sendPencPush(rid, { title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id, icon: picon });
+            await sendPencPush(rid, Object.assign({ title: ptitle, body: pbody, tag: 'penc-'+conversation_id, url: '/messager?conv='+conversation_id, conv_id: conversation_id, icon: picon }, _px));
           }
         }
       } catch (e) { console.error('penc push notify:', e.message); }
