@@ -10167,15 +10167,24 @@ app.post('/api/penc/contacts/match', pencAuth, async (req, res) => {
     const phones = Array.isArray(req.body && req.body.phones) ? req.body.phones : [];
     if(!phones.length) return res.json({ matches: [] });
     if(!_pgPool) return res.json({ matches: [] });
-    // Normalisation simple : ne garder que les chiffres (+ prefixe)
+    // pncct1 — numéros du répertoire écrits de toutes les façons (77 123 45 67, +221…, 00221…) :
+    // on les ramène au format international (Sénégal 221, Gambie 220 par défaut) et on essaie toutes
+    // les écritures possibles en base. Rien n'est enregistré : la liste ne sert qu'à cette recherche.
     const norm = function(p){ return String(p||'').replace(/[^0-9+]/g,''); };
-    const normalized = Array.from(new Set(phones.map(norm).filter(function(p){ return p.length>=8; }))).slice(0, 1000);
-    if(!normalized.length) return res.json({ matches: [] });
+    const canon = function(p){ let d = norm(p); if(d.indexOf('+')===0) d = d.slice(1); else if(d.indexOf('00')===0) d = d.slice(2);
+      else { d = d.replace(/^0+/, ''); if(d.length===9 && /^[37]/.test(d)) d = '221'+d; else if(d.length===7) d = '220'+d; }
+      d = d.replace(/\+/g,''); return d.length >= 8 ? d : ''; };
+    const variants = new Map();   // écriture possible en base -> numéro tel qu'envoyé
+    phones.slice(0, 5000).forEach(function(p){ const c = canon(p); if(!c) return;
+      [ '+'+c, c, '00'+c, (/^22[01]/.test(c) ? c.slice(3) : null), norm(p) ].forEach(function(v){ if(v && v.length>=7 && !variants.has(v)) variants.set(v, String(p)); }); });
+    const all = Array.from(variants.keys()).slice(0, 25000);
+    if(!all.length) return res.json({ matches: [] });
     const r = await _pgPool.query(
       "SELECT id, full_name, username, phone, avatar_url FROM penc_users WHERE phone = ANY($1) AND id != $2 AND deleted_at IS NULL",
-      [normalized, req.pencUser.userId]
+      [all, req.pencUser.userId]
     );
-    res.json({ matches: r.rows, matched_phones: r.rows.map(function(u){ return u.phone; }) });
+    const inputs = r.rows.map(function(u){ return variants.get(u.phone) || u.phone; });
+    res.json({ matches: r.rows, matched_phones: r.rows.map(function(u){ return u.phone; }).concat(inputs) });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.get('/api/penc/contacts', pencAuth, async (req, res) => {
