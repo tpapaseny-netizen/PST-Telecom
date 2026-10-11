@@ -3674,6 +3674,48 @@ function _pencInDndWindow(start, end) {
     return cur >= s || cur < e; // plage qui traverse minuit
   } catch (_e) { return false; }
 }
+// ── pncapp1 : notifications de l'appli Android native Penc via Firebase Cloud Messaging (HTTP v1) ──
+// Variable Render FIREBASE_SERVICE_ACCOUNT = contenu complet du fichier JSON du compte de service Firebase.
+// Les jetons de l'appli sont rangés dans penc_push_subs avec un « endpoint » fcm:<compte>:<jeton>.
+let _pencFcmSa = null, _pencFcmTok = { v: null, exp: 0 };
+function _pencFcmConf(){
+  if(_pencFcmSa !== null) return _pencFcmSa || null;
+  try{ const raw = process.env.FIREBASE_SERVICE_ACCOUNT || ''; _pencFcmSa = raw ? JSON.parse(raw) : false; if(_pencFcmSa && _pencFcmSa.private_key) _pencFcmSa.private_key = String(_pencFcmSa.private_key).replace(/\\n/g, '\n'); }
+  catch(e){ console.error('[fcm] FIREBASE_SERVICE_ACCOUNT illisible:', e.message); _pencFcmSa = false; }
+  return _pencFcmSa || null;
+}
+async function _pencFcmAccess(){
+  const sa = _pencFcmConf(); if(!sa) return null;
+  if(_pencFcmTok.v && Date.now() < _pencFcmTok.exp) return _pencFcmTok.v;
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = function(o){ return Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_'); };
+  const unsigned = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 });
+  const sig = crypto.createSign('RSA-SHA256').update(unsigned).sign(sa.private_key).toString('base64').replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') + '&assertion=' + unsigned + '.' + sig });
+  const j = await r.json(); if(!j.access_token){ console.error('[fcm] jeton refusé:', JSON.stringify(j).slice(0, 200)); return null; }
+  _pencFcmTok = { v: j.access_token, exp: Date.now() + ((j.expires_in || 3600) - 300) * 1000 };
+  return j.access_token;
+}
+// Renvoie 'ok', 'gone' (jeton à supprimer) ou 'err'
+async function _pencFcmSend(token, payload){
+  try{
+    const sa = _pencFcmConf(); if(!sa) return 'err';
+    const at = await _pencFcmAccess(); if(!at) return 'err';
+    const p = payload || {}; const data = {};
+    ['title','body','tag','url','icon','conv_id'].forEach(function(k){ if(p[k] != null && p[k] !== '') data[k] = String(p[k]).slice(0, 1000); });
+    if(!data.url && p.data && p.data.url) data.url = String(p.data.url);
+    if(p.tag === 'penc-call' || p.call_data) data.kind = 'call';
+    if(p.call_data) data.call_data = String(p.call_data).slice(0, 1500);
+    const r = await fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', { method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + at, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { token: token, data: data, android: { priority: 'high', ttl: (data.kind === 'call' ? '60s' : '86400s') } } }) });
+    if(r.ok) return 'ok';
+    const t = await r.text();
+    if(r.status === 404 || /UNREGISTERED|registration-token-not-registered|INVALID_ARGUMENT.*token/i.test(t)) return 'gone';
+    console.error('[fcm] envoi refusé (' + r.status + '):', t.slice(0, 200)); return 'err';
+  }catch(e){ console.error('[fcm]', e.message); return 'err'; }
+}
 async function sendPencPush(userId, payload) {
   try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
@@ -3723,6 +3765,12 @@ async function sendPencPush(userId, payload) {
     }
     let _sent = 0, _errs = [];
     for (const sb of mine) {
+      if (sb.subscription && sb.subscription.fcm) {   // pncapp1 : appli Android native
+        const st = await _pencFcmSend(sb.subscription.fcm, payload);
+        if (st === 'ok') _sent++;
+        else { _errs.push('fcm-' + st); if (st === 'gone' && _pgPool) { try { await _pgPool.query('DELETE FROM penc_push_subs WHERE endpoint=$1', [sb.subscription.endpoint]); } catch (_fd) {} } }
+        continue;
+      }
       try { await webpush.sendNotification(sb.subscription, JSON.stringify(payload), { TTL: 86400, urgency: 'high' }); _sent++; }
       catch (err) {
         _errs.push((err && err.statusCode) || (err && err.message) || 'erreur');
@@ -12911,6 +12959,7 @@ app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
     const { subscription } = req.body;
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
+    if (subscription.fcm) { subscription.fcm = String(subscription.fcm).slice(0, 500); subscription.endpoint = 'fcm:' + uid + ':' + subscription.fcm; }   // pncapp1
     // Enregistrer dans PostgreSQL en priorité (fiable). L'endpoint est unique : si le même
     // appareil se réabonne, on met simplement à jour son user_id et sa subscription.
     let _pgOk = false;
@@ -15975,6 +16024,7 @@ app.post('/api/penc/admin/broadcast', pencAuth, pencAdmin, async (req, res) => {
       const subs = await pencPushSubs(); total = subs.length;
       const dead = [];
       for (const sb of subs) {
+        if (sb.subscription && sb.subscription.fcm) { const st = await _pencFcmSend(sb.subscription.fcm, JSON.parse(payload)); if (st === 'ok') sent++; else if (st === 'gone') dead.push(sb.subscription.endpoint); continue; }   // pncapp1
         try { await webpush.sendNotification(sb.subscription, payload); sent++; }
         catch (err) { if (err && (err.statusCode===404||err.statusCode===410) && sb.subscription) dead.push(sb.subscription.endpoint); }
       }
