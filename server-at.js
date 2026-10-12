@@ -8709,6 +8709,13 @@ app.post('/api/penc/posts/:id/like', pencAuth, async (req, res) => {
     else if(ex.rows.length){ await _pgPool.query('UPDATE penc_post_likes SET reaction=$3 WHERE post_id=$1 AND user_id=$2',[pid, uid, want]); reaction = want; }
     else { reaction = want || 'like'; await _pgPool.query('INSERT INTO penc_post_likes(post_id,user_id,reaction,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT (post_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction',[pid, uid, reaction]); }
     if(reaction && !ex.rows.length){ setImmediate(async function(){ _gamBump(uid, 'react', 1); try{ const _o = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); if(_o.rows.length && String(_o.rows[0].user_id)!==String(uid)) _gamBump(String(_o.rows[0].user_id), 'got_react', 1); }catch(_g){} }); }
+    // pncapp7 : l'auteur reçoit une vraie notification (comme les messages) quand quelqu'un réagit à sa publication
+    if(reaction && !ex.rows.length){ setImmediate(async function(){ try{
+      const _o = await _pgPool.query('SELECT user_id FROM penc_posts WHERE id=$1',[pid]); const _ow = _o.rows[0] && _o.rows[0].user_id;
+      if(!_ow || String(_ow)===String(uid)) return;
+      const _me = await pgFindUser('id', uid) || {}; const _em = { like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢', angry:'😡', pray:'🙏' }[reaction] || '👍';
+      sendPencPush(String(_ow), { title: _me.full_name || _me.username || 'Penc', body: _em + ' a réagi à ta publication', icon: _me.avatar_url || '/penc-icon-192.png', badge: '/penc-icon-192.png', tag: 'penc-post-' + pid, data: { type: 'post', post_id: pid, url: '/messager?post=' + pid } });
+    }catch(_lp){} }); }
     const lc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1',[pid]);
     const rc = await _pgPool.query("SELECT COALESCE(reaction,'like') AS r, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id=$1 GROUP BY 1 ORDER BY 2 DESC LIMIT 3",[pid]);
     res.json({ success: true, liked: !!reaction, reaction, likes_count: lc.rows[0].n, reactions: rc.rows.map(function(x){ return x.r; }) });
@@ -9869,9 +9876,20 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           locked: _lockedIds.has(c.id),
           ephemeral_seconds: _ephemeralMap[c.id] || 0,
           streak: (parts.length === 2 && _streakMap[String(otherId)]) || 0,
-          is_request: _pendingFrom.has(otherId)
+          is_request: _pendingFrom.has(otherId),
+          _lastOther: !!(last && String(last.sender_id) !== String(uid) && !last.read_at && last.type !== 'deleted')
         };
       }));
+      // pncapp7 : nombre de messages non lus par discussion (avant, il n'était jamais renvoyé : le « 1 » sur Chats disparaissait tout seul)
+      try{
+        const _ids = result.filter(function(c){ return c._lastOther; }).map(function(c){ return c.id; });
+        const _un = {};
+        if(_ids.length){
+          const _ur = await _pgPool.query("SELECT conversation_id, COUNT(*)::int AS n FROM penc_messages WHERE conversation_id = ANY($1) AND sender_id <> $2 AND read_at IS NULL AND COALESCE(deleted_for_all,FALSE)=FALSE AND created_at > NOW() - INTERVAL '30 days' GROUP BY conversation_id",[_ids, uid]);
+          _ur.rows.forEach(function(r){ _un[r.conversation_id] = r.n; });
+        }
+        result.forEach(function(c){ c.unread_count = c._lastOther ? Math.max(1, _un[c.id] || 0) : 0; delete c._lastOther; });
+      }catch(_ue){ result.forEach(function(c){ c.unread_count = c._lastOther ? 1 : 0; delete c._lastOther; }); }
     } else {
       // Fallback JSONBin
       const convs = await pencConvs();
@@ -11022,12 +11040,12 @@ async function _ybPush(uid, title, body, url, tag, urgent, ttl, extra){
     try{ uu = (await _pgPool.query('SELECT country, lang, phone FROM yb_users WHERE id=$1',[String(uid)])).rows[0];
       if(uu && _ybUCtry(uu) === 'GM'){ title = String(title).replace(/(\d) F\b/g, '$1 D'); body = String(body).replace(/(\d) F\b/g, '$1 D'); }
       if(uu && (uu.lang || YB_COUNTRIES[_ybUCtry(uu)].lang) === 'en'){ title = _ybEnText(title); body = _ybEnText(body); } }catch(_){}
-    if(tag !== 'yb-chat') _ybPencMirror(uu, title, body, tag);   // ybq17 : les messages de course restent dans Dieulsi
+    if(tag !== 'yb-chat' && tag !== 'yb-call') _ybPencMirror(uu, title, body, tag);   // ybq17 : les messages de course restent dans Dieulsi
     if(!subs.length) return;
     const payload = JSON.stringify({ title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: !!urgent });
     const ex = extra || {};
     for(const x of subs){ const sb = typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub;
-      if(sb && sb.fcm){ const st = await _ybFcm(sb.fcm, { title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: urgent ? '1' : '0', kind: ex.kind || (tag === 'yb-offer' ? 'offer' : ''), ride_id: ex.ride_id || null }, ttl);
+      if(sb && sb.fcm){ const st = await _ybFcm(sb.fcm, { title: title, body: body, url: url || '/', tag: tag || 'dieulsi', urgent: urgent ? '1' : '0', kind: ex.kind || (tag === 'yb-offer' ? 'offer' : ''), ride_id: ex.ride_id || null, call_id: ex.call_id || null, name: ex.name || null }, ttl);
         if(st === 'gone') _pgPool.query('DELETE FROM yb_push WHERE endpoint=$1',[x.endpoint]).catch(function(){}); continue; }
       if(!webpush) continue;
       try{ await webpush.sendNotification(typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub, payload, { TTL: ttl || 3600, urgency: urgent ? 'high' : 'normal' }); }
@@ -11472,7 +11490,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq18', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq19', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11500,7 +11518,7 @@ app.get('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
     const ou = (await _pgPool.query('SELECT name FROM yb_users WHERE id=$1',[other])).rows[0] || {};
     const seen = (await _pgPool.query('SELECT MAX(created_at) AS t FROM yb_msgs WHERE ride_id=$1 AND sender_id=$2 AND read_at IS NOT NULL',[r.id, req.yb.id])).rows[0].t;
     res.json({ other: String(ou.name || '').split(' ')[0], open: ['accepted','arrived','ongoing'].indexOf(r.status) > -1 || (r.done_at && Date.now() - new Date(r.done_at).getTime() < 1800000), seen_until: seen,
-      msgs: rows.map(function(m){ return { id: m.id, mine: m.sender_id === req.yb.id, kind: m.kind, body: m.kind === 'text' ? m.body : null, dur: m.dur, at: m.created_at }; }) });
+      msgs: rows.map(function(m){ return { id: m.id, mine: m.sender_id === req.yb.id, kind: m.kind, body: (m.kind === 'text' || m.kind === 'call') ? m.body : null, dur: m.dur, at: m.created_at }; }) });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
@@ -11519,6 +11537,95 @@ app.post('/api/yb/rides/:id/msgs', ybAuth, async (req, res) => {
     _ybPush(to, '💬 ' + String(req.yb.name || 'Dieulsi').split(' ')[0], kind === 'audio' ? '🎤 Message vocal' : body, '/?chat=' + r.id, 'yb-chat', true, 600, { kind: 'chat', ride_id: r.id });   // ybapp1
     res.json({ success: true, msg: { id: id, mine: true, kind: kind, body: body, dur: dur, at: row.created_at } });
   }catch(e){ console.error('[yb] chat:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// ── ybapp2 : appel Dieulsi (par internet, sans crédit) entre le client et le chauffeur, sans quitter Dieulsi ──
+let _ybCallReady = false;
+async function _ybCallTable(){
+  if(_ybCallReady) return; _ybCallReady = true;
+  await _pgPool.query("CREATE TABLE IF NOT EXISTS yb_calls (id TEXT PRIMARY KEY, ride_id TEXT NOT NULL, caller_id TEXT NOT NULL, callee_id TEXT NOT NULL, room TEXT NOT NULL, status TEXT DEFAULT 'ringing', created_at TIMESTAMPTZ DEFAULT NOW(), answered_at TIMESTAMPTZ, ended_at TIMESTAMPTZ)");
+  await _pgPool.query("CREATE INDEX IF NOT EXISTS idx_ybc_callee ON yb_calls(callee_id, created_at DESC)");
+  await _pgPool.query("CREATE INDEX IF NOT EXISTS idx_ybc_caller ON yb_calls(caller_id, created_at DESC)");
+}
+let _ybLkAT = null;
+async function _ybLk(u, room){
+  const K = process.env.LIVEKIT_API_KEY || '', SEC = process.env.LIVEKIT_API_SECRET || '';
+  if(!K) return null;
+  if(!_ybLkAT){ try{ _ybLkAT = require('livekit-server-sdk').AccessToken; }catch(_){ return null; } }
+  const at = new _ybLkAT(K, SEC, { identity: 'yb_' + u.id, name: String(u.name || 'Dieulsi').split(' ')[0] });
+  at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true, canPublishData: true }); at.ttl = '6h';
+  return { token: await at.toJwt(), url: process.env.LIVEKIT_URL || '' };
+}
+async function _ybRaw(uid, data){
+  try{ const subs = (await _pgPool.query('SELECT endpoint, sub FROM yb_push WHERE user_id=$1',[String(uid)])).rows;
+    for(const x of subs){ const sb = typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub; if(sb && sb.fcm) await _ybFcm(sb.fcm, data, 60); } }catch(_){}
+}
+function _ybDurTxt(sec){ sec = Math.max(0, Math.round(sec || 0)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+async function _ybCallFinish(c, status, byId){
+  const row = (await _pgPool.query("UPDATE yb_calls SET status=$2, ended_at=NOW() WHERE id=$1 AND status IN ('ringing','active') RETURNING *",[c.id, status])).rows[0];
+  if(!row) return null;
+  const dur = row.answered_at ? (new Date(row.ended_at) - new Date(row.answered_at)) / 1000 : 0;
+  const body = status === 'ended' && row.answered_at ? ('📞 Appel Dieulsi · ' + _ybDurTxt(dur)) : (status === 'declined' ? '📞 Appel refusé' : '📞 Appel manqué');
+  try{ await _pgPool.query('INSERT INTO yb_msgs(id,ride_id,sender_id,kind,body,dur) VALUES($1,$2,$3,$4,$5,$6)',[_ybId('ybm'), row.ride_id, row.caller_id, 'call', body, Math.round(dur)]); }catch(_){}
+  const other = String(byId) === String(row.caller_id) ? row.callee_id : row.caller_id;
+  _ybRaw(other, { kind: 'dl_call_end', call_id: row.id });
+  _ybRaw(byId, { kind: 'dl_call_end', call_id: row.id });
+  if(status === 'missed'){ try{ const cu = (await _pgPool.query('SELECT name FROM yb_users WHERE id=$1',[row.caller_id])).rows[0] || {};
+    _ybPush(row.callee_id, '📞 Appel manqué', String(cu.name || 'Dieulsi').split(' ')[0] + ' a essayé de t\'appeler', '/?chat=' + row.ride_id, 'yb-chat', true, 3600, { kind: 'chat', ride_id: row.ride_id }); }catch(_){} }
+  return row;
+}
+app.post('/api/yb/rides/:id/call', ybAuth, async (req, res) => {
+  try{ await _ybCallTable(); const r = await _ybChatRide(req, res); if(!r) return;
+    const open = ['accepted','arrived','ongoing'].indexOf(r.status) > -1 || (r.done_at && Date.now() - new Date(r.done_at).getTime() < 1800000);
+    if(!open) return res.status(400).json({ error: 'Les appels sont fermés pour cette course' });
+    if(!_gpRate('yb:' + req.yb.id, 'yb_call', 20, 600000)) return _filTooFast(res);
+    const old = (await _pgPool.query("SELECT * FROM yb_calls WHERE ride_id=$1 AND status IN ('ringing','active')",[r.id])).rows;
+    for(const o of old) await _ybCallFinish(o, o.status === 'active' ? 'ended' : 'missed', req.yb.id);
+    const to = r.client_id === req.yb.id ? r.driver_id : r.client_id;
+    const id = _ybId('ybc'), room = 'dl_' + id;
+    const lk = await _ybLk(req.yb, room); if(!lk) return res.status(503).json({ error: 'Appels indisponibles pour le moment' });
+    await _pgPool.query('INSERT INTO yb_calls(id,ride_id,caller_id,callee_id,room) VALUES($1,$2,$3,$4,$5)',[id, r.id, req.yb.id, to, room]);
+    const nm = String(req.yb.name || 'Dieulsi').split(' ')[0];
+    _ybPush(to, '📞 ' + nm + ' t\'appelle', 'Appel Dieulsi — touche pour répondre', '/?call=' + id, 'yb-call', true, 45, { kind: 'dl_call', ride_id: r.id, call_id: id, name: nm });
+    res.json({ success: true, call: { id: id, ride_id: r.id, room: room }, lk: lk });
+  }catch(e){ console.error('[yb] call:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/calls/pending', ybAuth, async (req, res) => {
+  try{ await _ybCallTable();
+    const c = (await _pgPool.query("SELECT c.*, u.name FROM yb_calls c LEFT JOIN yb_users u ON u.id=c.caller_id WHERE c.callee_id=$1 AND c.status='ringing' AND c.created_at > NOW() - INTERVAL '45 seconds' ORDER BY c.created_at DESC LIMIT 1",[req.yb.id])).rows[0];
+    res.json({ call: c ? { id: c.id, ride_id: c.ride_id, name: String(c.name || 'Dieulsi').split(' ')[0], at: c.created_at } : null });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/calls/history', ybAuth, async (req, res) => {
+  try{ await _ybCallTable();
+    const rows = (await _pgPool.query("SELECT c.*, CASE WHEN c.caller_id=$1 THEN cu.name ELSE ku.name END AS other_name FROM yb_calls c LEFT JOIN yb_users cu ON cu.id=c.callee_id LEFT JOIN yb_users ku ON ku.id=c.caller_id WHERE c.caller_id=$1 OR c.callee_id=$1 ORDER BY c.created_at DESC LIMIT 60",[req.yb.id])).rows;
+    res.json({ items: rows.map(function(c){ return { id: c.id, ride_id: c.ride_id, out: c.caller_id === req.yb.id, name: String(c.other_name || 'Dieulsi').split(' ')[0], status: c.status, at: c.created_at,
+      dur: c.answered_at && c.ended_at ? Math.round((new Date(c.ended_at) - new Date(c.answered_at)) / 1000) : 0 }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/yb/calls/:id', ybAuth, async (req, res) => {
+  try{ await _ybCallTable(); const c = (await _pgPool.query('SELECT * FROM yb_calls WHERE id=$1',[req.params.id])).rows[0];
+    if(!c || (c.caller_id !== req.yb.id && c.callee_id !== req.yb.id)) return res.status(404).json({ error: 'Appel introuvable' });
+    if(c.status === 'ringing' && Date.now() - new Date(c.created_at).getTime() > 50000){ await _ybCallFinish(c, 'missed', c.caller_id); c.status = 'missed'; }
+    res.json({ call: { id: c.id, status: c.status, answered_at: c.answered_at } });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/calls/:id/answer', ybAuth, async (req, res) => {
+  try{ await _ybCallTable();
+    const c = (await _pgPool.query("UPDATE yb_calls SET status='active', answered_at=NOW() WHERE id=$1 AND callee_id=$2 AND status='ringing' AND created_at > NOW() - INTERVAL '60 seconds' RETURNING *",[req.params.id, req.yb.id])).rows[0];
+    if(!c) return res.status(400).json({ error: 'L\'appel est terminé' });
+    const lk = await _ybLk(req.yb, c.room); if(!lk) return res.status(503).json({ error: 'Appels indisponibles pour le moment' });
+    _ybRaw(req.yb.id, { kind: 'dl_call_end', call_id: c.id });   // les autres téléphones arrêtent de sonner
+    const cu = (await _pgPool.query('SELECT name FROM yb_users WHERE id=$1',[c.caller_id])).rows[0] || {};
+    res.json({ success: true, call: { id: c.id, ride_id: c.ride_id, room: c.room, name: String(cu.name || 'Dieulsi').split(' ')[0] }, lk: lk });
+  }catch(e){ console.error('[yb] answer:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/calls/:id/end', ybAuth, async (req, res) => {
+  try{ await _ybCallTable(); const c = (await _pgPool.query('SELECT * FROM yb_calls WHERE id=$1',[req.params.id])).rows[0];
+    if(!c || (c.caller_id !== req.yb.id && c.callee_id !== req.yb.id)) return res.status(404).json({ error: 'Appel introuvable' });
+    const st = c.status === 'active' ? 'ended' : (c.callee_id === req.yb.id ? 'declined' : 'missed');
+    await _ybCallFinish(c, st, req.yb.id);
+    res.json({ success: true, status: st });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/yb/msgs/:id/audio', ybAuth, async (req, res) => {
   try{ const m = (await _pgPool.query('SELECT m.audio, m.mime, r.client_id, r.driver_id FROM yb_msgs m JOIN yb_rides r ON r.id=m.ride_id WHERE m.id=$1',[req.params.id])).rows[0];
@@ -18071,6 +18178,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         const convs = await pencConvs();
         const c = convs.find(x => x.id === conversation_id);
         if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
+      } else if (conversation_id) {
+        // pncapp7 : lu pendant que la discussion est ouverte → enregistré (le compteur non-lu reste juste partout)
+        _pgPool.query('UPDATE penc_messages SET read_at=NOW() WHERE conversation_id=$1 AND sender_id<>$2 AND read_at IS NULL', [conversation_id, pencUserId]).catch(function(){});
       }
     } catch {}
     socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
