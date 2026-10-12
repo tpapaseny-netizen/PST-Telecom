@@ -17340,6 +17340,17 @@ app.get('/api/penc/meet/upcoming/mine', pencAuth, async (req,res)=>{
 app.delete('/api/penc/meet/schedule/:code', pencAuth, async (req,res)=>{
   try{ if(_pgPool) await _pgPool.query('DELETE FROM penc_meetings WHERE code=$1 AND host=$2',[req.params.code, req.pencUser.userId]); res.json({success:true}); }catch(e){ res.json({success:false}); }
 });
+// pncapp6 — sous-titres en direct dans l'appli : jeton temporaire de transcription en temps réel (la clé reste sur le serveur)
+app.get('/api/penc/captions/token', pencAuth, async (req,res)=>{
+  try{
+    const AAI_KEY=process.env.ASSEMBLYAI_API_KEY||'';
+    if(!AAI_KEY) return res.status(503).json({error:'Sous-titres indisponibles pour le moment.'});
+    const r=await fetch('https://streaming.assemblyai.com/v3/token?expires_in_seconds=120&max_session_duration_seconds=7200',{ headers:{ 'Authorization':AAI_KEY } });
+    const d=await r.json().catch(function(){ return {}; });
+    if(!r.ok || !d.token) return res.status(502).json({error:'Service de sous-titres indisponible.'});
+    return res.json({ token:d.token });
+  }catch(e){ return res.status(500).json({error:'Erreur sous-titres'}); }
+});
 app.post('/api/penc/transcribe', pencAuth, async (req,res)=>{
   try{
     const url=String((req.body&&req.body.url)||'').trim();
