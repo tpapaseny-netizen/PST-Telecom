@@ -7532,6 +7532,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
           view_once: m.view_once || false,
           view_once_consumed: m.view_once_consumed || false,
           media_views_count: _viewsByMsg[m.id] || 0,
+          client_id: m.client_id || null,   // pncapp8 : la bulle « en cours d'envoi » retrouve toujours son vrai message
           created_at: m.created_at
         };
       });
@@ -8339,6 +8340,38 @@ async function _filBanned(uid){ try{ const r = await _pgPool.query('SELECT 1 FRO
 // ══ VISITEURS SANS COMPTE : lecture seule du Fil (lien partagé ou après téléchargement) ══
 function _pubIp(req){ return String((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '')).split(',')[0].trim(); }
 function _pubGuard(req, res){ if(!_pgPool){ res.json({ posts: [] }); return false; } if(!_filRate('ip:'+_pubIp(req), 'public', 240, 600000)){ res.status(429).json({ error: 'Trop de requêtes' }); return false; } return true; }
+// pncapp8 — visiteurs « sans compte » : connus de l'administration, et suivis jusqu'à leur inscription
+let _pgGuestsReady = false;
+async function _pgGuests(){ if(_pgGuestsReady || !_pgPool) return; _pgGuestsReady = true;
+  await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_guests (id TEXT PRIMARY KEY, first_seen TIMESTAMPTZ DEFAULT NOW(), last_seen TIMESTAMPTZ DEFAULT NOW(), visits INT DEFAULT 1, ua TEXT, lang TEXT, app BOOLEAN DEFAULT FALSE, converted_user TEXT, converted_at TIMESTAMPTZ)"); }
+app.post('/api/penc/public/guest-ping', async (req, res) => {
+  try{ if(!_pgPool) return res.json({ ok: true }); await _pgGuests();
+    const b = req.body || {}; const id = String(b.gid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40); if(id.length < 8) return res.status(400).json({ error: 'id' });
+    const ua = String(req.headers['user-agent'] || '').slice(0, 300), lang = String(b.lang || '').slice(0, 10), app = /PencApp\//.test(ua);
+    await _pgPool.query("INSERT INTO penc_guests(id,ua,lang,app) VALUES($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET last_seen=NOW(), visits=penc_guests.visits+CASE WHEN penc_guests.last_seen < NOW() - INTERVAL '30 minutes' THEN 1 ELSE 0 END, ua=EXCLUDED.ua, app=EXCLUDED.app",[id, ua, lang, app]);
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.post('/api/penc/guest/convert', pencAuth, async (req, res) => {
+  try{ if(!_pgPool) return res.json({ ok: true }); await _pgGuests();
+    const id = String((req.body || {}).gid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+    if(id) await _pgPool.query('UPDATE penc_guests SET converted_user=$2, converted_at=NOW() WHERE id=$1 AND converted_user IS NULL',[id, req.pencUser.userId]);
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+app.get('/api/penc/admin/guests', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _pgGuests();
+    const one = async function(sql){ try{ return (await _pgPool.query(sql)).rows[0].n; }catch(_e){ return 0; } };
+    const rows = (await _pgPool.query("SELECT g.*, u.full_name, u.username FROM penc_guests g LEFT JOIN penc_users u ON u.id=g.converted_user ORDER BY g.last_seen DESC LIMIT 150")).rows;
+    res.json({ today: await one("SELECT COUNT(*)::int AS n FROM penc_guests WHERE last_seen > NOW() - INTERVAL '24 hours'"),
+      week: await one("SELECT COUNT(*)::int AS n FROM penc_guests WHERE last_seen > NOW() - INTERVAL '7 days'"),
+      total: await one("SELECT COUNT(*)::int AS n FROM penc_guests"),
+      converted: await one("SELECT COUNT(*)::int AS n FROM penc_guests WHERE converted_user IS NOT NULL"),
+      guests: rows.map(function(g){ return { id: g.id, first: g.first_seen, last: g.last_seen, visits: g.visits, app: g.app, lang: g.lang,
+        device: /Android/i.test(g.ua||'') ? 'Android' : (/iPhone|iPad/i.test(g.ua||'') ? 'iPhone' : (/Windows|Mac|Linux/i.test(g.ua||'') ? 'Ordinateur' : 'Autre')),
+        converted: g.converted_user ? { id: g.converted_user, name: g.full_name || g.username || '', at: g.converted_at } : null }; }) });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
 app.get('/api/penc/public/posts', async (req, res) => {
   if(!_pubGuard(req, res)) return;
   try{
@@ -10712,6 +10745,11 @@ async function _ybInit(){
     ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS country TEXT;
     ALTER TABLE yb_places ADD COLUMN IF NOT EXISTS last_used TIMESTAMPTZ;
     ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS favs JSONB;
+    CREATE TABLE IF NOT EXISTS yb_photos (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());
+    ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS photo_at TIMESTAMPTZ;
+    ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS bio TEXT;
+    ALTER TABLE yb_users ADD COLUMN IF NOT EXISTS langs TEXT;
+    ALTER TABLE yb_drivers ADD COLUMN IF NOT EXISTS profile_ok BOOLEAN DEFAULT FALSE;
     ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
     ALTER TABLE yb_rides ADD COLUMN IF NOT EXISTS sched_tries INT DEFAULT 0;
     CREATE INDEX IF NOT EXISTS idx_ybr_sched ON yb_rides(status, scheduled_at);
@@ -10836,7 +10874,7 @@ function _ybDriverScore(d){
   const bayes = (rs + 4.6 * 5) / (rc + 5);
   const dropRate = drops / (rides + drops + 3);
   const accRate = (acc + 2) / (acc + dec + 0.5 * miss + 3);
-  return Math.round((bayes - 2 * dropRate + 0.3 * (accRate - 0.6)) * 100) / 100;
+  return Math.round((bayes - 2 * dropRate + 0.3 * (accRate - 0.6) + (d.profile_ok ? 0.15 : 0)) * 100) / 100;   // ybapp3 : profil complet = proposé en priorité
 }
 function _ybDelay(score, pickupKm){ let s = Math.max(0, Math.min(30, Math.round((4.9 - score) * 12))); if(pickupKm != null && pickupKm <= 1) s = Math.floor(s / 2); return s; }
 function _ybPriority(score){ return score >= 4.75 ? 'haute' : (score >= 4.2 ? 'normale' : 'basse'); }
@@ -10974,16 +11012,17 @@ async function _ybRideView(r, viewerId){
         else if(d.online && !fresh) a.no_gps++; else if(k != null && k <= 15) a.offline_near++; });
       _ybDiagC.set(r.id, { t: Date.now(), v: a }); if(_ybDiagC.size > 2000) _ybDiagC.clear(); v.around = a; } }catch(_){} }
   if(r.driver_id && viewerId !== r.driver_id){
-    const d = (await _pgPool.query('SELECT u.name, u.phone, d.* FROM yb_users u JOIN yb_drivers d ON d.user_id=u.id WHERE u.id=$1',[r.driver_id])).rows[0];
-    if(d) v.driver = { name: d.name, phone: d.phone, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, lat: d.lat, lng: d.lng, loc_at: d.loc_at,
+    const d = (await _pgPool.query('SELECT u.name, u.phone, u.photo_at, d.* FROM yb_users u JOIN yb_drivers d ON d.user_id=u.id WHERE u.id=$1',[r.driver_id])).rows[0];
+    if(d) v.driver = { id: r.driver_id, photo: d.photo_at ? ('/api/yb/users/' + r.driver_id + '/photo?v=' + new Date(d.photo_at).getTime()) : null,
+      name: d.name, phone: d.phone, vehicle: d.vehicle, plate: d.plate, vehicle_desc: d.vehicle_desc, lat: d.lat, lng: d.lng, loc_at: d.loc_at,
       rating: d.rating_count ? Math.round(d.rating_sum / d.rating_count * 10) / 10 : null, rides: d.rides || 0 };
     if(v.driver && r.status === 'accepted' && d.lat != null){ const tl = r.client_lat != null ? r.client_lat : r.from_lat, tg = r.client_lat != null ? r.client_lng : r.from_lng;
       v.driver.eta_min = _ybEtaMin(await _ybLearn(), r.vehicle, _ybKm(d.lat, d.lng, tl, tg)); }
   }
   if(viewerId === r.client_id){ v.pin = r.pin || null; v.share = r.share_token || null; }
   else v.has_pin = !!r.pin;
-  if(viewerId !== r.client_id){ const c = (await _pgPool.query('SELECT name, phone, rating_sum, rating_count, rides FROM yb_users WHERE id=$1',[r.client_id])).rows[0];
-    if(c) v.client = { name: c.name, phone: c.phone, rating: _ybStars(c.rating_sum, c.rating_count), rides: c.rides || 0,
+  if(viewerId !== r.client_id){ const c = (await _pgPool.query('SELECT name, phone, rating_sum, rating_count, rides, photo_at FROM yb_users WHERE id=$1',[r.client_id])).rows[0];
+    if(c) v.client = { id: r.client_id, photo: c.photo_at ? ('/api/yb/users/' + r.client_id + '/photo?v=' + new Date(c.photo_at).getTime()) : null, name: c.name, phone: c.phone, rating: _ybStars(c.rating_sum, c.rating_count), rides: c.rides || 0,
       lat: r.client_lat, lng: r.client_lng, acc: r.client_acc, loc_at: r.client_loc_at };
     v.client_rating = r.client_rating; }
   return v;
@@ -11490,7 +11529,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq19', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq20', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11626,6 +11665,60 @@ app.post('/api/yb/calls/:id/end', ybAuth, async (req, res) => {
     await _ybCallFinish(c, st, req.yb.id);
     res.json({ success: true, status: st });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ── ybapp3 : profils façon Uber — photo, présentation, langues, activité (public) ; gains (privé) ──
+async function _ybProfile(uid, full){
+  const u = (await _pgPool.query('SELECT id, name, role, bio, langs, photo_at, created_at, rating_sum, rating_count, rides FROM yb_users WHERE id=$1',[uid])).rows[0];
+  if(!u) return null;
+  const d = (await _pgPool.query('SELECT * FROM yb_drivers WHERE user_id=$1',[uid])).rows[0] || null;
+  const isDrv = !!(d && d.status === 'approved');
+  const col = isDrv ? 'driver_id' : 'client_id';
+  const st = (await _pgPool.query("SELECT COUNT(*) FILTER (WHERE status='done')::int AS done, COUNT(*) FILTER (WHERE status='done' AND done_at > NOW() - INTERVAL '30 days')::int AS month, COALESCE(SUM(distance_km) FILTER (WHERE status='done'),0)::float AS km, COUNT(*) FILTER (WHERE status='cancelled' AND cancel_by=$2)::int AS cancels, MAX(done_at) AS last_at, COUNT(DISTINCT CASE WHEN status='done' THEN date_trunc('day', done_at) END)::int AS days FROM yb_rides WHERE " + col + "=$1",[uid, isDrv ? 'driver' : 'client'])).rows[0];
+  const rc = isDrv ? Number(d.rating_count || 0) : Number(u.rating_count || 0), rs = isDrv ? Number(d.rating_sum || 0) : Number(u.rating_sum || 0);
+  const out = { id: u.id, name: String(u.name || '').split(' ')[0] + (String(u.name || '').split(' ')[1] ? ' ' + String(u.name).split(' ')[1].charAt(0) + '.' : ''),
+    role: isDrv ? 'driver' : 'client', bio: u.bio || '', langs: u.langs || '', photo: u.photo_at ? ('/api/yb/users/' + u.id + '/photo?v=' + new Date(u.photo_at).getTime()) : null,
+    since: u.created_at, rating: rc ? Math.round(rs / rc * 10) / 10 : null, ratings: rc,
+    stats: { rides: st.done, month: st.month, km: Math.round(st.km), cancels: st.cancels, active_days: st.days, last_at: st.last_at },
+    vehicle: isDrv ? { kind: d.vehicle, desc: d.vehicle_desc || '', plate: d.plate ? String(d.plate).replace(/^(.{2}).*(.{2})$/, '$1 ••• $2') : '' } : null,
+    complete: !!(u.photo_at && (u.bio || '').length >= 20) };
+  if(full){
+    out.name = u.name || '';
+    if(isDrv){ const e = (await _pgPool.query("SELECT COALESCE(SUM(price) FILTER (WHERE done_at > date_trunc('day', NOW())),0)::float AS day_gross, COALESCE(SUM(commission) FILTER (WHERE done_at > date_trunc('day', NOW())),0)::float AS day_com, COALESCE(SUM(price) FILTER (WHERE done_at > NOW() - INTERVAL '7 days'),0)::float AS week_gross, COALESCE(SUM(commission) FILTER (WHERE done_at > NOW() - INTERVAL '7 days'),0)::float AS week_com, COALESCE(SUM(price) FILTER (WHERE done_at > date_trunc('month', NOW())),0)::float AS month_gross, COALESCE(SUM(commission) FILTER (WHERE done_at > date_trunc('month', NOW())),0)::float AS month_com, COALESCE(SUM(price),0)::float AS all_gross FROM yb_rides WHERE driver_id=$1 AND status='done'",[uid])).rows[0];
+      out.earnings = { day: { gross: e.day_gross, net: e.day_gross - e.day_com }, week: { gross: e.week_gross, net: e.week_gross - e.week_com }, month: { gross: e.month_gross, net: e.month_gross - e.month_com }, total: e.all_gross, credit: Number(d.credit || 0), cur: _ybCtry(d.country) === 'GM' ? 'D' : 'F' }; }
+    else { const e = (await _pgPool.query("SELECT COALESCE(SUM(price) FILTER (WHERE done_at > date_trunc('month', NOW())),0)::float AS month, COALESCE(SUM(price),0)::float AS total FROM yb_rides WHERE client_id=$1 AND status='done'",[uid])).rows[0];
+      out.spent = { month: e.month, total: e.total }; }
+  }
+  return out;
+}
+app.get('/api/yb/users/:id/photo', async (req, res) => {
+  try{ const u = (await _pgPool.query('SELECT data FROM yb_photos WHERE user_id=$1',[String(req.params.id)])).rows[0];
+    if(!u || !u.data) return res.status(404).end();
+    const m = String(u.data).match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/); if(!m) return res.status(404).end();
+    res.set('Content-Type', m[1]); res.set('Cache-Control', 'public, max-age=604800'); res.send(Buffer.from(m[2], 'base64'));
+  }catch(e){ res.status(500).end(); }
+});
+app.get('/api/yb/profile/:id', ybAuth, async (req, res) => {
+  try{ const p = await _ybProfile(String(req.params.id), String(req.params.id) === String(req.yb.id)); if(!p) return res.status(404).json({ error: 'Profil introuvable' }); res.json({ profile: p }); }
+  catch(e){ console.error('[yb] profile:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/me/profile', ybAuth, async (req, res) => {
+  try{ const b = req.body || {}; const sets = [], vals = [];
+    if(b.photo !== undefined){
+      if(b.photo === null || b.photo === ''){ sets.push('photo_at=NULL'); await _pgPool.query('DELETE FROM yb_photos WHERE user_id=$1',[req.yb.id]); }
+      else { const ph = String(b.photo); if(!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(ph)) return res.status(400).json({ error: 'Photo invalide' });
+        if(ph.length > 400000) return res.status(400).json({ error: 'Photo trop lourde' });
+        await _pgPool.query('INSERT INTO yb_photos(user_id,data,updated_at) VALUES($1,$2,NOW()) ON CONFLICT (user_id) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()',[req.yb.id, ph]);
+        sets.push('photo_at=NOW()'); } }
+    if(b.bio !== undefined){ vals.push(_gpTxt(b.bio, 300) || null); sets.push('bio=$' + vals.length); }
+    if(b.langs !== undefined){ vals.push(_gpTxt(b.langs, 80) || null); sets.push('langs=$' + vals.length); }
+    if(!sets.length) return res.status(400).json({ error: 'Rien à enregistrer' });
+    vals.push(req.yb.id);
+    await _pgPool.query('UPDATE yb_users SET ' + sets.join(', ') + ' WHERE id=$' + vals.length, vals);
+    const u = (await _pgPool.query('SELECT photo_at, bio FROM yb_users WHERE id=$1',[req.yb.id])).rows[0];
+    const ok = !!(u.photo_at && (u.bio || '').length >= 20);
+    await _pgPool.query('UPDATE yb_drivers SET profile_ok=$2 WHERE user_id=$1',[req.yb.id, ok]).catch(function(){});
+    res.json({ success: true, profile: await _ybProfile(req.yb.id, true) });
+  }catch(e){ console.error('[yb] profile save:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/yb/msgs/:id/audio', ybAuth, async (req, res) => {
   try{ const m = (await _pgPool.query('SELECT m.audio, m.mime, r.client_id, r.driver_id FROM yb_msgs m JOIN yb_rides r ON r.id=m.ride_id WHERE m.id=$1',[req.params.id])).rows[0];
