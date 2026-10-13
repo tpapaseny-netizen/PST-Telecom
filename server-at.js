@@ -3754,7 +3754,8 @@ async function _pencFcmSend(token, payload, uid){
   }catch(e){ console.error('[fcm]', e.message); return 'err'; }
 }
 async function sendPencPush(userId, payload) {
-  const _pgPool = globalThis.__pencPg || null;   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
+  const _pgPool = globalThis.__pencPg || null;
+  try{ if(payload && payload.m && typeof payload.url==='string' && payload.url.indexOf('?conv=')>=0 && payload.url.indexOf('mid=')<0){ const _mm=JSON.parse(payload.m); if(_mm && _mm.id) payload.url += '&mid=' + encodeURIComponent(_mm.id); } }catch(_mid){}   // pncapp9   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
   try {
@@ -3867,16 +3868,16 @@ function _pencDur(sec){ sec=Math.max(0,Math.round(sec||0)); var m=Math.floor(sec
 function pencMsgBody(type, content, duration, viewOnce){
   // pncapp5 : la durée des vocaux arrive en millisecondes ; un message chiffré ou technique n'est jamais affiché tel quel
   if(duration && duration >= 1000) duration = duration / 1000;
-  if(viewOnce){ return type==='voice' ? '🔥 Message vocal à vue unique' : type==='video' ? '🔥 Vidéo à vue unique' : type==='image' ? '🔥 Photo à vue unique' : '🔥 Message à vue unique'; }
+  if(viewOnce){ return type==='voice' ? 'Message vocal à vue unique' : type==='video' ? '🔥 Vidéo à vue unique' : type==='image' ? '🔥 Photo à vue unique' : '🔥 Message à vue unique'; }
   if(type==='call'){ let c={}; try{ c=JSON.parse(content||'{}'); }catch(_){}
     const v = c.call_type==='video';
-    if(c.status==='answered') return v ? '📹 Appel vidéo' : '📞 Appel';
-    return v ? '📹 Appel vidéo manqué' : '📞 Appel manqué'; }
+    if(c.status==='answered') return v ? 'Appel vidéo' : 'Appel audio';
+    return v ? 'Appel vidéo manqué' : 'Appel manqué'; }
   if(typeof content==='string' && content.indexOf('PENC_E2E_v1:')===0){
-    if(type==='voice') return '🎤 Message vocal'+((duration&&duration>0)?' ('+_pencDur(duration)+')':'');
+    if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' · '+_pencDur(duration):'');
     if(type==='image') return '📷 Photo'; if(type==='video') return '🎬 Vidéo'; if(type==='file') return '📎 Fichier';
     return '🔒 Nouveau message'; }
-  if(type==='voice') return '🎤 Message vocal'+((duration&&duration>0)?' ('+_pencDur(duration)+')':'');
+  if(type==='voice') return 'Message vocal'+((duration&&duration>0)?' · '+_pencDur(duration):'');
   if(type==='location') return '📍 Position';
   if(type==='file') return '📎 '+((content&&String(content).indexOf('{')!==0)?String(content).slice(0,60):'Fichier');
   if(type==='poll') return '📊 Sondage';
@@ -8278,6 +8279,52 @@ app.post('/api/penc/calls/decline', pencAuth, async (req, res) => {
     _pencFcmRaw(uid, { kind: 'call_end' });
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// ══ pncapp9 — rappels de reconnexion (façon Duolingo) : 1 h, 6 h, 1 jour, 3 jours, 7 jours sans ouvrir Penc ══
+const _NUDGE_STAGES = [1, 6, 24, 72, 168];   // heures d'absence
+const _NUDGE_TXT = [
+  ['{p}, ça fait 1 h 👋', 'Tes messages, tes appels, le Fil, DeglouFM, le Coran, Dieulsi… tout ce que tu cherches ailleurs est déjà dans Penc.'],
+  ['{p}, Penc t’attend 💙', 'Pourquoi jongler entre 5 applis ? Discute, appelle en HD, écoute la radio, commande une course Dieulsi : tout est dans Penc.'],
+  ['Une journée sans Penc ? 😮', '{u}Le Fil bouge, la radio est en direct et tes proches t’écrivent. Reviens voir ce que tu as manqué.'],
+  ['On ne t’a pas vu depuis 3 jours 🥺', '{u}Messages chiffrés, appels vidéo, statuts, Coran, DeglouFM, Dieulsi… ton appli tout-en-un t’attend.'],
+  ['Penc ne t’oublie pas 💙', '{u}Une semaine déjà ! Tes discussions, tes appels et tes contenus préférés sont à un toucher. On t’attend ?']
+];
+async function _pencNudgeTick(){
+  const _pg = globalThis.__pencPg || null; if(!_pg) return;
+  try{
+    const h = new Date(Date.now()).getUTCHours();          // heure de Dakar (UTC+0)
+    if(h < 8 || h >= 22) return;                          // jamais la nuit
+    await _pg.query("CREATE TABLE IF NOT EXISTS penc_nudges (user_id TEXT PRIMARY KEY, stage INT DEFAULT 0, last_at TIMESTAMPTZ, off BOOLEAN DEFAULT FALSE)");
+    const r = await _pg.query("SELECT u.id, u.full_name, u.last_seen, n.stage, n.last_at, COALESCE(n.off,FALSE) AS off FROM penc_users u LEFT JOIN penc_nudges n ON n.user_id=u.id WHERE u.last_seen < NOW() - INTERVAL '1 hour' AND u.last_seen > NOW() - INTERVAL '10 days' AND COALESCE(n.off,FALSE)=FALSE ORDER BY u.last_seen DESC LIMIT 400");
+    let sent = 0;
+    for(const u of r.rows){
+      if(sent >= 120) break;
+      const away = (Date.now() - new Date(u.last_seen).getTime()) / 3600000;
+      let need = 0; _NUDGE_STAGES.forEach(function(s, i){ if(away >= s) need = i + 1; });
+      const back = !u.last_at || new Date(u.last_at) < new Date(u.last_seen);   // revenu depuis le dernier rappel → on repart de zéro
+      const done = back ? 0 : (u.stage || 0);
+      if(need <= done) continue;
+      if(!back && u.last_at && Date.now() - new Date(u.last_at).getTime() < 50*60000) continue;
+      let unread = 0;
+      try{ const q = await _pg.query("SELECT COUNT(*)::int AS n FROM penc_messages WHERE read_at IS NULL AND sender_id<>$1 AND created_at > NOW() - INTERVAL '10 days' AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb)", [u.id, JSON.stringify([u.id])]); unread = q.rows[0].n || 0; }catch(_q){}
+      const t = _NUDGE_TXT[Math.min(need, _NUDGE_TXT.length) - 1];
+      const prenom = String(u.full_name || '').trim().split(/\s+/)[0] || 'Toi';
+      const un = unread > 0 ? (unread + (unread > 1 ? ' messages t’attendent. ' : ' message t’attend. ')) : '';
+      await _pg.query("INSERT INTO penc_nudges(user_id,stage,last_at) VALUES($1,$2,NOW()) ON CONFLICT (user_id) DO UPDATE SET stage=$2, last_at=NOW()", [u.id, need]);
+      try{ await sendPencPush(u.id, { title: t[0].replace('{p}', prenom), body: t[1].replace('{u}', un), tag: 'penc-nudge', url: '/messager' }); sent++; }catch(_s){}
+    }
+    if(sent) console.log('[nudge] rappels envoyés:', sent);
+  }catch(e){ console.error('[nudge]', e.message); }
+}
+setTimeout(function(){ _pencNudgeTick(); setInterval(_pencNudgeTick, 10*60000); }, 90000);
+app.get('/api/penc/me/nudges', pencAuth, async (req, res) => {
+  try{ if(!_pgPool) return res.json({ on: true }); await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_nudges (user_id TEXT PRIMARY KEY, stage INT DEFAULT 0, last_at TIMESTAMPTZ, off BOOLEAN DEFAULT FALSE)");
+    const r = await _pgPool.query('SELECT off FROM penc_nudges WHERE user_id=$1', [req.pencUser.userId]); res.json({ on: !(r.rows[0] && r.rows[0].off) }); }catch(e){ res.json({ on: true }); }
+});
+app.post('/api/penc/me/nudges', pencAuth, async (req, res) => {
+  try{ if(!_pgPool) return res.json({ success: true }); await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_nudges (user_id TEXT PRIMARY KEY, stage INT DEFAULT 0, last_at TIMESTAMPTZ, off BOOLEAN DEFAULT FALSE)");
+    const off = !(req.body && req.body.on);
+    await _pgPool.query('INSERT INTO penc_nudges(user_id,off) VALUES($1,$2) ON CONFLICT (user_id) DO UPDATE SET off=$2', [req.pencUser.userId, off]); res.json({ success: true, on: !off }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/penc/calls/pending', pencAuth, async (req, res) => {
   const p = _pencPendingCalls.get(String(req.pencUser.userId));
@@ -17706,6 +17753,10 @@ io.on('connection', async (socket) => {
 
   pencOnline.set(pencUserId, socket.id);
   socket.data.pencUserId = pencUserId;
+  // pncapp9 : la personne revient en ligne → ses messages en attente deviennent « distribués » (deux coches chez l'expéditeur)
+  try{ if(_pgPool){ _pgPool.query("UPDATE penc_messages SET delivered_at=NOW() WHERE delivered_at IS NULL AND sender_id<>$1 AND created_at > NOW() - INTERVAL '30 days' AND conversation_id IN (SELECT id FROM penc_conversations WHERE participants @> $2::jsonb) RETURNING id, sender_id, conversation_id",[pencUserId, JSON.stringify([pencUserId])]).then(function(r){
+      (r.rows||[]).slice(0,300).forEach(function(x){ io.to('user:'+String(x.sender_id)).emit('message:delivered',{ id:x.id, conv_id:x.conversation_id }); });
+    }).catch(function(){}); } }catch(_dl){}
 
   // Rejoindre ses conversations (PostgreSQL prioritaire)
   try {
@@ -17882,11 +17933,16 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_user_id, 'call:recording-stopped', { room_name });
   });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
-    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now() }); }catch(_pc){}
+    // pncapp9 : le destinataire reçoit tout de suite son accès à l'appel → décroché = connecté, sans attente
+    const _cid9 = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    let _lkt9 = null;
+    try{ if(_lkAccessToken && LIVEKIT_API_KEY && target_user_id){ const _at9 = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: String(target_user_id), name: String(target_user_id) }); _at9.addGrant({ roomJoin:true, room: room_name||('call_'+pencUserId), canPublish:true, canSubscribe:true, canPublishData:true }); _at9.ttl='24h'; _lkt9 = await _at9.toJwt(); } }catch(_lk9){}
+    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now(), call_id: _cid9, lk_token: _lkt9, lk_url: _lkt9 ? LIVEKIT_URL : null }); }catch(_pc){}
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       room_name:room_name||('call_'+pencUserId),
-      caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null
+      caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null,
+      call_id:_cid9, lk_token:_lkt9, lk_url:_lkt9 ? LIVEKIT_URL : null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
     try{ let _rc=0; try{ const _rs=await io.in('user:'+String(target_user_id)).fetchSockets(); _rc=_rs?_rs.length:0; }catch(_e){} socket.emit('call:debug',{target:String(target_user_id), online:ok, room_sockets:_rc}); }catch(_ed){}
@@ -17899,12 +17955,12 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       const callerName = callerUser.full_name||callerUser.username||'Inconnu';
       await sendPencPush(target_user_id, {
         title: callerName+' appelle...',
-        body: (type==='video'?'📹 Appel vidéo':'📞 Appel audio')+' entrant sur Penc',
+        body: (type==='video'?'Appel vidéo':'Appel audio')+' entrant sur Penc',
         tag: 'penc-call',
         url: '/messager?call=1',
         requireInteraction: true, renotify: true, vibrate: [400,200,400,200,400,200,400],
         conv_id: null,
-        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:callerUser.avatar_url||null})
+        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:(callerUser.avatar_url && String(callerUser.avatar_url).indexOf('data:')!==0)?callerUser.avatar_url:null,call_id:_cid9,ts:Date.now(),lk_token:_lkt9,lk_url:_lkt9?LIVEKIT_URL:null})
       });
       console.log('📲 Push call envoyé à',target_user_id.slice(0,10),'(en plus du socket, pour tous les appareils)');
     }catch(ep){console.error('push call err:',ep.message);}
@@ -18080,6 +18136,12 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         parts.forEach(pid=>{
           if(pid!==pencUserId) io.to('user:'+pid).emit('message:new',_bMsg);
         });
+        // pncapp9 : une coche = pas en ligne ; deux coches = la personne est en ligne (le message est arrivé)
+        try{
+          const _on = parts.some(pid => String(pid)!==String(pencUserId) && ((io.sockets.adapter.rooms.get('user:'+pid)||{}).size||0) > 0);
+          if(_on && _pgPool && msg && msg.id){ fullMsg.delivered_at = new Date().toISOString();
+            setTimeout(function(){ _pgPool.query('UPDATE penc_messages SET delivered_at=NOW() WHERE id=$1 AND delivered_at IS NULL',[msg.id]).catch(function(){}); io.to('user:'+String(pencUserId)).emit('message:delivered',{id:msg.id, conv_id:conversation_id}); }, 30); }
+        }catch(_dv){}
       }catch(e2){}
       if (cb) cb({ success: true, message: fullMsg });
 
@@ -18273,10 +18335,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         if (c) { c.unread = c.unread || {}; c.unread[pencUserId] = 0; await pencSaveConvs(convs); }
       } else if (conversation_id) {
         // pncapp7 : lu pendant que la discussion est ouverte → enregistré (le compteur non-lu reste juste partout)
-        _pgPool.query('UPDATE penc_messages SET read_at=NOW() WHERE conversation_id=$1 AND sender_id<>$2 AND read_at IS NULL', [conversation_id, pencUserId]).catch(function(){});
+        // pncapp9 : chaque message lu est signalé à son expéditeur par son identifiant (coche bleue exacte, jamais mélangée)
+        _pgPool.query('UPDATE penc_messages SET read_at=NOW(), delivered_at=COALESCE(delivered_at,NOW()) WHERE conversation_id=$1 AND sender_id<>$2 AND read_at IS NULL RETURNING id, sender_id', [conversation_id, pencUserId]).then(function(r){
+          const by={}; (r.rows||[]).forEach(function(x){ (by[x.sender_id]=by[x.sender_id]||[]).push(x.id); });
+          Object.keys(by).forEach(function(sid){ io.to('user:'+String(sid)).emit('message:read_receipt',{ ids: by[sid], conv_id: conversation_id }); });
+        }).catch(function(){});
       }
     } catch {}
-    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id });
+    socket.to('penc:' + conversation_id).emit('message:read', { userId: pencUserId, conversation_id, at: new Date().toISOString() });
   });
 
   socket.on('disconnect', async () => {
