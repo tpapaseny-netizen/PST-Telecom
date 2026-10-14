@@ -11576,7 +11576,7 @@ app.post('/api/yb/push/subscribe', ybAuth, async (req, res) => {
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ybq7/ybq9 — version du serveur Dieulsi (pour vérifier qu'une mise en ligne a bien eu lieu)
-app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybq20', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
+app.get('/api/yb/version', (req, res) => { res.json({ v: 'ybapp4', wallet: true, countries: Object.keys(YB_COUNTRIES) }); });
 // Favoris : Maison et Travail
 app.post('/api/yb/me/favs', ybAuth, async (req, res) => {
   try{ const b = req.body || {}; const k = b.kind === 'work' ? 'work' : (b.kind === 'home' ? 'home' : null); if(!k) return res.status(400).json({ error: 'Favori inconnu' });
@@ -11641,6 +11641,25 @@ async function _ybLk(u, room){
   at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true, canPublishData: true }); at.ttl = '6h';
   return { token: await at.toJwt(), url: process.env.LIVEKIT_URL || '' };
 }
+// ybapp4 : accès « invisible » pour le téléphone qui sonne (connecté à l'appel sans être vu ni entendu) ; rendu visible au décroché
+async function _ybLkPre(uid, room){
+  const K = process.env.LIVEKIT_API_KEY || '', SEC = process.env.LIVEKIT_API_SECRET || '';
+  if(!K) return null;
+  if(!_ybLkAT){ try{ _ybLkAT = require('livekit-server-sdk').AccessToken; }catch(_){ return null; } }
+  const at = new _ybLkAT(K, SEC, { identity: 'yb_' + uid, name: 'Dieulsi' });
+  at.addGrant({ roomJoin: true, room: room, canPublish: false, canSubscribe: true, canPublishData: false, hidden: true }); at.ttl = '10m';
+  return { token: await at.toJwt(), url: process.env.LIVEKIT_URL || '' };
+}
+let _ybLkSvc = null;
+async function _ybLkUnhide(uid, room){
+  const K = process.env.LIVEKIT_API_KEY || '', SEC = process.env.LIVEKIT_API_SECRET || '', U = process.env.LIVEKIT_URL || '';
+  if(!K || !U) return false;
+  if(!_ybLkSvc){ const lk = require('livekit-server-sdk'); _ybLkSvc = new lk.RoomServiceClient(U.replace(/^ws/i, 'http'), K, SEC); }
+  await _ybLkSvc.updateParticipant(String(room), 'yb_' + uid, undefined, { canPublish: true, canSubscribe: true, canPublishData: true, hidden: false });
+  return true;
+}
+// ybapp4 : journal des erreurs d'appel et de vocal (visible dans les journaux Render : « [yb diag] »)
+const _ybDiagLog = [];
 async function _ybRaw(uid, data){
   try{ const subs = (await _pgPool.query('SELECT endpoint, sub FROM yb_push WHERE user_id=$1',[String(uid)])).rows;
     for(const x of subs){ const sb = typeof x.sub === 'string' ? JSON.parse(x.sub) : x.sub; if(sb && sb.fcm) await _ybFcm(sb.fcm, data, 60); } }catch(_){}
@@ -11678,7 +11697,8 @@ app.post('/api/yb/rides/:id/call', ybAuth, async (req, res) => {
 app.get('/api/yb/calls/pending', ybAuth, async (req, res) => {
   try{ await _ybCallTable();
     const c = (await _pgPool.query("SELECT c.*, u.name FROM yb_calls c LEFT JOIN yb_users u ON u.id=c.caller_id WHERE c.callee_id=$1 AND c.status='ringing' AND c.created_at > NOW() - INTERVAL '45 seconds' ORDER BY c.created_at DESC LIMIT 1",[req.yb.id])).rows[0];
-    res.json({ call: c ? { id: c.id, ride_id: c.ride_id, name: String(c.name || 'Dieulsi').split(' ')[0], at: c.created_at } : null });
+    let pre = null; if(c){ try{ pre = await _ybLkPre(req.yb.id, c.room); }catch(_){} }
+    res.json({ call: c ? { id: c.id, ride_id: c.ride_id, name: String(c.name || 'Dieulsi').split(' ')[0], at: c.created_at, pre: pre } : null });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/yb/calls/history', ybAuth, async (req, res) => {
@@ -11700,9 +11720,10 @@ app.post('/api/yb/calls/:id/answer', ybAuth, async (req, res) => {
     const c = (await _pgPool.query("UPDATE yb_calls SET status='active', answered_at=NOW() WHERE id=$1 AND callee_id=$2 AND status='ringing' AND created_at > NOW() - INTERVAL '60 seconds' RETURNING *",[req.params.id, req.yb.id])).rows[0];
     if(!c) return res.status(400).json({ error: 'L\'appel est terminé' });
     const lk = await _ybLk(req.yb, c.room); if(!lk) return res.status(503).json({ error: 'Appels indisponibles pour le moment' });
+    let unhidden = false; if(req.body && req.body.pre){ try{ unhidden = await _ybLkUnhide(req.yb.id, c.room); }catch(_){ unhidden = false; } }   // ybapp4
     _ybRaw(req.yb.id, { kind: 'dl_call_end', call_id: c.id });   // les autres téléphones arrêtent de sonner
     const cu = (await _pgPool.query('SELECT name FROM yb_users WHERE id=$1',[c.caller_id])).rows[0] || {};
-    res.json({ success: true, call: { id: c.id, ride_id: c.ride_id, room: c.room, name: String(cu.name || 'Dieulsi').split(' ')[0] }, lk: lk });
+    res.json({ success: true, call: { id: c.id, ride_id: c.ride_id, room: c.room, name: String(cu.name || 'Dieulsi').split(' ')[0] }, lk: lk, unhidden: unhidden });
   }catch(e){ console.error('[yb] answer:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/yb/calls/:id/end', ybAuth, async (req, res) => {
@@ -11766,6 +11787,16 @@ app.post('/api/yb/me/profile', ybAuth, async (req, res) => {
     await _pgPool.query('UPDATE yb_drivers SET profile_ok=$2 WHERE user_id=$1',[req.yb.id, ok]).catch(function(){});
     res.json({ success: true, profile: await _ybProfile(req.yb.id, true) });
   }catch(e){ console.error('[yb] profile save:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/yb/diag', ybAuth, async (req, res) => {
+  try{ const b = req.body || {}; const line = { at: new Date().toISOString(), user: req.yb.id, role: req.yb.role, what: String(b.what || '').slice(0, 20), name: String(b.name || '').slice(0, 60), msg: String(b.msg || '').slice(0, 200), ua: String(req.headers['user-agent'] || '').slice(0, 160) };
+    _ybDiagLog.push(line); if(_ybDiagLog.length > 300) _ybDiagLog.shift(); console.log('[yb diag]', JSON.stringify(line)); res.json({ success: true }); }
+  catch(e){ res.json({ success: false }); }
+});
+app.get('/api/yb/admin/diag', ybAuth, async (req, res) => {
+  try{ const ph = String(req.yb.phone || ''); const ok = (typeof YB_ADMINS !== 'undefined') && YB_ADMINS.some(function(a){ return _ybPhone(a) === ph; });
+    if(!ok) return res.status(403).json({ error: 'Réservé à l\'administration' }); res.json({ items: _ybDiagLog.slice(-100).reverse() }); }
+  catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/yb/msgs/:id/audio', ybAuth, async (req, res) => {
   try{ const m = (await _pgPool.query('SELECT m.audio, m.mime, r.client_id, r.driver_id FROM yb_msgs m JOIN yb_rides r ON r.id=m.ride_id WHERE m.id=$1',[req.params.id])).rows[0];
