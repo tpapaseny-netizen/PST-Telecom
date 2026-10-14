@@ -17805,6 +17805,22 @@ let _lkAccessToken = null;
   }
 })();
 
+// ── pncapp10 : rendre visible (et autoriser à parler) la connexion faite pendant la sonnerie ──
+const _pencCallRooms = new Map();   // « destinataire|salle » → heure de l'appel
+setInterval(function(){ const now = Date.now(); _pencCallRooms.forEach(function(t, k){ if(now - t > 3 * 3600000) _pencCallRooms.delete(k); }); }, 600000);
+let _pencLkSvc = null;
+async function _pencLkUnhide(uid, room){
+  if(!room || !LIVEKIT_API_KEY || !LIVEKIT_URL) throw new Error('indisponible');
+  room = String(room);
+  if(!_pencCallRooms.has(uid + '|' + room) && !(room.indexOf('call_') === 0 && room.indexOf(uid) >= 0)) throw new Error('salle inconnue');
+  if(!_pencLkSvc){ const lk = require('livekit-server-sdk'); _pencLkSvc = new lk.RoomServiceClient(LIVEKIT_URL.replace(/^ws/i, 'http'), LIVEKIT_API_KEY, LIVEKIT_API_SECRET); }
+  await _pencLkSvc.updateParticipant(room, uid, undefined, { canPublish: true, canSubscribe: true, canPublishData: true, hidden: false });
+}
+app.post('/api/penc/calls/unhide', pencAuth, async (req, res) => {
+  try{ await _pencLkUnhide(String(req.pencUser.userId), req.body && req.body.room_name); res.json({ ok: true }); }
+  catch(e){ res.json({ ok: false, error: e.message }); }
+});
+
 // POST /api/penc/call/token — génère un token LiveKit
 app.post('/api/penc/call/token', pencAuth, async (req, res) => {
   if(!_lkAccessToken || !LIVEKIT_API_KEY)
@@ -17937,12 +17953,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     const _cid9 = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
     let _lkt9 = null;
     try{ if(_lkAccessToken && LIVEKIT_API_KEY && target_user_id){ const _at9 = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: String(target_user_id), name: String(target_user_id) }); _at9.addGrant({ roomJoin:true, room: room_name||('call_'+pencUserId), canPublish:true, canSubscribe:true, canPublishData:true }); _at9.ttl='24h'; _lkt9 = await _at9.toJwt(); } }catch(_lk9){}
-    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now(), call_id: _cid9, lk_token: _lkt9, lk_url: _lkt9 ? LIVEKIT_URL : null }); }catch(_pc){}
+    let _lkp10 = null;   // pncapp10 : accès invisible (ni vu, ni entendu) pour se connecter pendant la sonnerie → décroché instantané
+    try{ if(_lkAccessToken && LIVEKIT_API_KEY && target_user_id){ const _atp = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: String(target_user_id), name: String(target_user_id) }); _atp.addGrant({ roomJoin:true, room: room_name||('call_'+pencUserId), canPublish:false, canSubscribe:true, canPublishData:false, hidden:true }); _atp.ttl='15m'; _lkp10 = await _atp.toJwt(); _pencCallRooms.set(String(target_user_id)+'|'+String(room_name||('call_'+pencUserId)), Date.now()); } }catch(_lkp){}
+    try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now(), call_id: _cid9, lk_token: _lkt9, lk_pre_token: _lkp10, lk_url: _lkt9 ? LIVEKIT_URL : null }); }catch(_pc){}
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       room_name:room_name||('call_'+pencUserId),
       caller_name:caller_name||'Inconnu', caller_avatar:caller_avatar||null,
-      call_id:_cid9, lk_token:_lkt9, lk_url:_lkt9 ? LIVEKIT_URL : null
+      call_id:_cid9, lk_token:_lkt9, lk_pre_token:_lkp10, lk_url:_lkt9 ? LIVEKIT_URL : null
     });
     console.log('📞 call:initiate',pencUserId.slice(0,8),'→',target_user_id.slice(0,8),'online:',ok);
     try{ let _rc=0; try{ const _rs=await io.in('user:'+String(target_user_id)).fetchSockets(); _rc=_rs?_rs.length:0; }catch(_e){} socket.emit('call:debug',{target:String(target_user_id), online:ok, room_sockets:_rc}); }catch(_ed){}
@@ -17960,10 +17978,16 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         url: '/messager?call=1',
         requireInteraction: true, renotify: true, vibrate: [400,200,400,200,400,200,400],
         conv_id: null,
-        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:(callerUser.avatar_url && String(callerUser.avatar_url).indexOf('data:')!==0)?callerUser.avatar_url:null,call_id:_cid9,ts:Date.now(),lk_token:_lkt9,lk_url:_lkt9?LIVEKIT_URL:null})
+        call_data: JSON.stringify({from:pencUserId,type,room_name,caller_name:callerName,caller_avatar:(callerUser.avatar_url && String(callerUser.avatar_url).indexOf('data:')!==0)?callerUser.avatar_url:null,call_id:_cid9,ts:Date.now(),lk_token:_lkt9,lk_pre_token:_lkp10,lk_url:_lkt9?LIVEKIT_URL:null})
       });
       console.log('📲 Push call envoyé à',target_user_id.slice(0,10),'(en plus du socket, pour tous les appareils)');
     }catch(ep){console.error('push call err:',ep.message);}
+  });
+  // pncapp10 — « Répondre » : la connexion faite pendant la sonnerie devient visible et peut parler (aucune nouvelle connexion)
+  socket.on('call:unhide', async (d, ack) => {
+    const done = (typeof ack === 'function') ? ack : function(){};
+    try{ await _pencLkUnhide(String(pencUserId), d && d.room_name); done({ ok: true }); }
+    catch(e){ done({ ok: false, error: e.message }); }
   });
   socket.on('call:accept', ({caller_id}) => {
     _pencPendingCalls.delete(String(pencUserId));
