@@ -4803,6 +4803,24 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       const tmpPoster = pathMod.join(os.tmpdir(), 'vposter_' + Date.now() + '.jpg');
       tmpFiles = [tmpIn, tmpOut, tmpPoster];
       fs.writeFileSync(tmpIn, buf);
+      // pncsrv14 : vidéo de discussion déjà lisible (H.264), sans rognage/floutage/musique → le message part
+      // TOUT DE SUITE avec la vidéo d'origine ; la version légère avec filigrane est préparée juste après,
+      // sous une nouvelle adresse (jamais d'écrasement pendant qu'on la regarde), puis remplace celle du message.
+      let _p14Async = false;
+      try {
+        if (type === 'video' && req.body.chat === true && !(trim && (trim.start > 0 || trim.end)) && !blurRect && !req.body.audio_track_id && _pgPool) {
+          const _pr0 = await _ffprobeMeta(tmpIn, 15000);
+          const _vs0 = (_pr0.streams || []).find(x => x.codec_type === 'video') || {};
+          if (String(_vs0.codec_name || '') === 'h264' && buf.length < 200 * 1024 * 1024) _p14Async = true;
+        }
+      } catch (_pa) { _p14Async = false; }
+      const _p14RawUrl = R2_PUBLIC + '/' + key;
+      const _p14OutKey = _p14Async ? key.replace(/(\.[^./]+)?$/, '_p.mp4') : key;
+      if (_p14Async) {
+        try { res.json({ success: true, url: _p14RawUrl, posterUrl: null, pending: true }); } catch (_r) {}
+        console.log('[media/process] video: envoyée tout de suite (pncsrv14), traitement en arrière-plan');
+        res = { json: function(){ return this; }, status: function(){ return this; } };
+      }
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
       // Musique choisie sur une vidéo du Fil : téléchargée depuis R2 puis mixée par ffmpeg
@@ -4821,7 +4839,7 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       await _wmVideoTrim(tmpIn, tmpOut, username, trim, withWatermark, blurRect, audioPath);
       console.log('[media/process] video: ffmpeg OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
-      const url = await r2PutBuffer(key, outBuf, 'video/mp4');
+      const url = await r2PutBuffer(_p14OutKey, outBuf, 'video/mp4');
       // Vignette (poster) réelle générée UNE FOIS côté serveur, à partir de la vidéo finale déjà
       // traitée (donc avec le filigrane si présent) — bien plus fiable qu'une astuce de lecture
       // côté navigateur (currentTime, autoplay…) pour éviter le rectangle noir en attendant la
@@ -4839,6 +4857,10 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
         }
       } catch (_pv) { console.error('[media/process] vignette vidéo échouée (non bloquant):', _pv.message); }
       tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+      if (_p14Async && url && url !== _p14RawUrl) {
+        const _p14Upd = async () => { try { const r = await _pgPool.query('UPDATE penc_messages SET media_url=$1, media_thumb_url=COALESCE(media_thumb_url,$3) WHERE media_url=$2', [url, _p14RawUrl, posterUrl]); return r.rowCount; } catch (_u) { return 0; } };
+        if (!(await _p14Upd())) { setTimeout(_p14Upd, 8000); setTimeout(_p14Upd, 45000); setTimeout(_p14Upd, 180000); }
+      }
       console.log('[media/process] video: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url + (posterUrl ? (' (vignette: ' + posterUrl + ')') : ' (sans vignette)'));
       return res.json({ success: true, url, posterUrl });
     }
