@@ -4517,7 +4517,8 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
 async function _voiceToMp3(inputPath, outputPath) {
   const ffmpeg = _ffmpegBin();
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath).audioCodec('libmp3lame').audioBitrate('128k')
+    // pncsrv14c : vocaux plus clairs (160 kb/s, 48 kHz, mono)
+    ffmpeg(inputPath).audioCodec('libmp3lame').audioBitrate('160k').audioFrequency(48000).audioChannels(1).outputOptions(['-compression_level', '0'])
       .on('end', resolve).on('error', reject).save(outputPath);
   });
 }
@@ -18109,6 +18110,14 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('user:join', ({ userId }) => {
     if (userId) socket.join('user:' + userId);
+  });
+  // pncsrv14b : qui est vraiment en ligne (au moment où on ouvre Penc ou une discussion)
+  socket.on('presence:query', (data, cb) => {
+    try {
+      const ids = (data && Array.isArray(data.ids) ? data.ids : []).slice(0, 300).map(String);
+      const online = ids.filter(id => { try { const r = io.sockets.adapter.rooms.get('user:' + id); return !!(r && r.size > 0); } catch (_) { return false; } });
+      if (typeof cb === 'function') cb({ online });
+    } catch (e) { if (typeof cb === 'function') cb({ online: [] }); }
   });
 
   // Envoyer message
