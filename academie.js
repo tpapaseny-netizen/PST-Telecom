@@ -729,32 +729,7 @@ module.exports = function ansMount(ctx){
   }));
 
   // ═══════════════ Site de l'Académie (espace professeurs + administration) ═══════════════
-  // ═══════════════ Visiteurs : découvrir les cours sans compte ═══════════════
-  app.get(API + '/public/courses', wrap(async function(req, res){
-    const q = req.query || {}; const where = ["c.status='published'"], params = [];
-    const L = lvl(q.level); if(L){ params.push(L.code); where.push('c.level=$' + params.length); }
-    if(q.subject && subj(q.subject)){ params.push(q.subject); where.push('c.subject=$' + params.length); }
-    if(q.q){ params.push('%' + String(q.q).toLowerCase().slice(0, 60) + '%'); where.push('(LOWER(c.title) LIKE $' + params.length + ' OR LOWER(COALESCE(c.description,\'\')) LIKE $' + params.length + ')'); }
-    const rows = (await pg().query('SELECT c.*, (SELECT COUNT(*)::int FROM ans_lessons l WHERE l.course_id=c.id) AS n_lessons, (SELECT COUNT(*)::int FROM ans_lessons l WHERE l.course_id=c.id AND l.free_preview) AS n_free FROM ans_courses c WHERE ' + where.join(' AND ') + ' ORDER BY c.published_at DESC NULLS LAST LIMIT ' + (q.limit ? Math.min(200, parseInt(q.limit, 10) || 60) : 120), params)).rows;
-    const pn = await profNames(Array.from(new Set(rows.map(function(c){ return c.prof_id; }))));
-    res.set('Cache-Control', 'public, max-age=60');
-    res.json({ courses: rows.map(function(c){ const p = pn[c.prof_id] || {}; return courseOut(c, { n_lessons:c.n_lessons, n_free:c.n_free, prof_name:p.name || 'Professeur', prof_avatar:p.avatar_url || null }); }) });
-  }));
-  app.get(API + '/public/courses/:id', wrap(async function(req, res){
-    const c = (await pg().query("SELECT * FROM ans_courses WHERE id=$1 AND status='published'", [req.params.id])).rows[0]; if(!c) return res.status(404).json({ error:'Cours introuvable' });
-    const ls = (await pg().query('SELECT * FROM ans_lessons WHERE course_id=$1 ORDER BY idx, created_at', [c.id])).rows;
-    const pn = await profNames([c.prof_id]); const p = pn[c.prof_id] || {};
-    res.json({ course: courseOut(c, { prof_name:p.name || 'Professeur', prof_avatar:p.avatar_url || null, prof_school:p.school || null }), lessons: ls.map(function(l){ return lessonOut(l, !!(c.free || l.free_preview)); }) });
-  }));
-  app.get(API + '/public/stats', wrap(async function(req, res){
-    const r = (await pg().query("SELECT (SELECT COUNT(*)::int FROM ans_courses WHERE status='published') AS courses, (SELECT COUNT(*)::int FROM ans_lessons l JOIN ans_courses c ON c.id=l.course_id WHERE c.status='published') AS lessons, (SELECT COUNT(*)::int FROM ans_users WHERE role='prof' AND prof_status='approved') AS profs, (SELECT COUNT(*)::int FROM ans_users WHERE role='eleve') AS eleves")).rows[0];
-    res.set('Cache-Control', 'public, max-age=120'); res.json(r);
-  }));
-
-  // ═══════════════ Sites : élèves et visiteurs (/academie), professeurs et administration (/academie/prof) ═══════════════
-  const WEB = path.join(__dirname, 'academie-web.html'), ELEVE = path.join(__dirname, 'academie-eleve.html');
-  function page(f){ return function(req, res){ res.set('Cache-Control', 'no-cache'); res.sendFile(f, function(e){ if(e && !res.headersSent) res.status(404).send('Académie : page introuvable'); }); }; }
-  app.get(['/academie/prof', '/academie/prof/', '/academie/admin'], page(WEB));
-  app.get(['/academie', '/academie/', '/academie/merci', '/academie/erreur', '/academie/cours/:id'], page(ELEVE));
+  const WEB = path.join(__dirname, 'academie-web.html');
+  app.get(['/academie', '/academie/', '/academie/merci', '/academie/erreur'], function(req, res){ res.set('Cache-Control', 'no-cache'); res.sendFile(WEB, function(e){ if(e && !res.headersSent) res.status(404).send('Académie : page introuvable'); }); });
   log('module chargé');
 };
