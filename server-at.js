@@ -3755,6 +3755,24 @@ async function _pencFcmSend(token, payload, uid){
 }
 async function sendPencPush(userId, payload) {
   const _pgPool = globalThis.__pencPg || null;
+  // pncsrv15 : chaque notification ouvre le bon endroit de Penc (avant : certaines ouvraient le site vitrine « / »)
+  try{
+    if(payload && typeof payload === 'object'){
+      const _d = payload.data || {};
+      if(!payload.url && _d.url) payload.url = String(_d.url);
+      if(!payload.url){
+        if(_d.post_id) payload.url = '/messager?post=' + encodeURIComponent(_d.post_id);
+        else if(_d.status_id) payload.url = '/messager?status=' + encodeURIComponent(_d.status_id);
+        else if(payload.conv_id) payload.url = '/messager?conv=' + encodeURIComponent(payload.conv_id);
+        else if(_d.type === 'follow' && _d.user_id) payload.url = '/messager?user=' + encodeURIComponent(_d.user_id);
+        else payload.url = '/messager';
+      }
+      if(payload.url === '/' || payload.url === '') payload.url = '/messager';
+      if(!payload.icon) payload.icon = '/penc-icon-192.png';
+      if(!payload.badge) payload.badge = '/penc-icon-192.png';
+      if(!payload.tag && _d.type) payload.tag = 'penc-' + String(_d.type) + '-' + String(_d.post_id || _d.status_id || Date.now());
+    }
+  }catch(_u15){}
   try{ if(payload && payload.m && typeof payload.url==='string' && payload.url.indexOf('?conv=')>=0 && payload.url.indexOf('mid=')<0){ const _mm=JSON.parse(payload.m); if(_mm && _mm.id) payload.url += '&mid=' + encodeURIComponent(_mm.id); } }catch(_mid){}   // pncapp9   // pncapp2 : la base est déclarée plus bas (dans le démarrage), on la lit ici
   try{ if(payload && payload.data && (payload.data.type==='post'||payload.data.type==='follow')) emitToUsers([String(userId)],'fil:notif',{ type:payload.data.type, post_id:payload.data.post_id||null, user_id:payload.data.user_id||null, body:payload.body||'' }); }catch(_fn){}
   if (!webpush) return;
@@ -7807,6 +7825,17 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
+    // pncsrv15 : les abonnés reçoivent une notification (au plus une toutes les 3 h par auteur, 300 abonnés max)
+    try{ if(!when && !groupId && !_asPenc){ globalThis.__p15FolT = globalThis.__p15FolT || new Map(); const _lt = globalThis.__p15FolT.get(String(uid)) || 0;
+      if(Date.now() - _lt > 3*3600000){ globalThis.__p15FolT.set(String(uid), Date.now()); const _pid15 = id, _txt15 = String(content || '');
+        setImmediate(async function(){ try{
+          const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un';
+          const fl = (await _pgPool.query('SELECT follower FROM penc_follows WHERE followee=$1 LIMIT 300',[String(uid)])).rows;
+          const what = _txt15.trim() ? ('« ' + _txt15.trim().replace(/\s+/g,' ').slice(0, 70) + (_txt15.trim().length > 70 ? '…' : '') + ' »') : (video ? 'une nouvelle vidéo' : (media.length ? (media.length > 1 ? media.length + ' photos' : 'une photo') : 'une publication'));
+          for(const f of fl){ try{ if(String(f.follower) === String(uid)) continue; if(typeof _areIsolated === 'function' && _areIsolated(uid, f.follower)) continue;
+            await sendPencPush(String(f.follower), { title: who, body: 'a publié ' + what, icon: me.avatar_url && String(me.avatar_url).indexOf('data:') !== 0 ? me.avatar_url : '/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-' + _pid15, url:'/messager?post=' + _pid15, data:{ type:'post', post_id:_pid15, url:'/messager?post=' + _pid15 } }); }catch(_fp){} }
+        }catch(_fe){ console.error('[pncsrv15] abonnés:', _fe.message); } });
+      } } }catch(_f15){}
     setImmediate(function(){ _gamBump(uid, 'post', 1); if(video) _gamBump(uid, 'video', 1); });
     res.json({ success: true, post: await _postEnrich(row, uid) });
   }catch(e){ console.error('create post:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -8878,6 +8907,9 @@ app.post('/api/penc/posts/:id/repost', pencAuth, async (req, res) => {
   }catch(e){ console.error('repost:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 // GET /api/penc/posts/:id/comments — commentaires + réponses (parent_id) + j'aime
+// pncsrv15 : colonnes des commentaires avec photo / autocollant (créées une seule fois)
+let _p15CmtColsP = null;
+function _p15CmtCols(){ if(!_p15CmtColsP && _pgPool) _p15CmtColsP = _pgPool.query('ALTER TABLE penc_post_comments ADD COLUMN IF NOT EXISTS media_url TEXT, ADD COLUMN IF NOT EXISTS media_type TEXT').catch(function(e){ _p15CmtColsP = null; console.error('[pncsrv15] colonnes commentaires:', e.message); }); return _p15CmtColsP || Promise.resolve(); }
 app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
   try{
     if(!_pgPool) return res.json({ comments: [] });
@@ -8895,7 +8927,7 @@ app.get('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
       const a = users[c.user_id];
       return { id:c.id, user_id:c.user_id, parent_id:c.parent_id||null,
         author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_username: a?(a.username||''):'', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false,
-        content:c.content, created_at:c.created_at, edited_at:c.edited_at||null, pinned:!!c.pinned, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id], my_reaction: mine[c.id]||null,
+        content:c.content, media_url:c.media_url||null, media_type:c.media_type||null, created_at:c.created_at, edited_at:c.edited_at||null, pinned:!!c.pinned, likes_count: cl[c.id]||0, liked_by_me: !!mine[c.id], my_reaction: mine[c.id]||null,
         reactions: Object.keys(rx[c.id]||{}).sort(function(a,b){ return rx[c.id][b]-rx[c.id][a]; }).slice(0,3),
         is_author: postOwner!==null && String(c.user_id)===postOwner, can_edit: String(c.user_id)===String(uid), can_pin: postOwner===String(uid) && !c.parent_id,
         can_delete: String(c.user_id)===String(uid) || postOwner===String(uid) || _isAdm };
@@ -8910,7 +8942,11 @@ app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
     const uid = req.pencUser.userId; const pid = req.params.id;
     if(!_filRate(uid, 'comment', 40, 600000)) return _filTooFast(res);
     if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux plus commenter pour le moment (décision de modération).' });
-    const content = String(req.body.content || '').trim().slice(0, 2000);
+    let content = String(req.body.content || '').trim().slice(0, 2000);
+    // pncsrv15 : photo ou autocollant joint au commentaire
+    let _cMedia = String(req.body.media_url || '').trim(), _cMType = String(req.body.media_type || '').trim();
+    if(!/^(https:\/\/|http:\/\/127\.0\.0\.1)[^\s<>"']{8,900}$/.test(_cMedia) || ['image','sticker'].indexOf(_cMType) < 0){ _cMedia = ''; _cMType = ''; }
+    if(!content && _cMedia) content = (_cMType === 'sticker') ? '🎨 Autocollant' : '📷 Photo';
     if(!content) return res.status(400).json({ error: 'Commentaire vide' });
     let parentId = null, parentAuthor = null;
     if(req.body.parent_id){
@@ -8919,6 +8955,7 @@ app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
     }
     const id = 'pcm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     await _pgPool.query('INSERT INTO penc_post_comments(id,post_id,user_id,content,parent_id,created_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, pid, uid, content, parentId]);
+    if(_cMedia){ try{ await _p15CmtCols(); await _pgPool.query('UPDATE penc_post_comments SET media_url=$1, media_type=$2 WHERE id=$3',[_cMedia, _cMType, id]); }catch(_cm){ console.error('[pncsrv15] média commentaire:', _cm.message); } }
     let a = null; try{ a = await pgFindUser('id', uid); }catch(_e){}
     const cc = await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_post_comments WHERE post_id=$1',[pid]);
     try{
@@ -8930,7 +8967,7 @@ app.post('/api/penc/posts/:id/comments', pencAuth, async (req, res) => {
     }catch(_p){}
     _filNotifyMentions(content, uid, pid, 'comment');
     setImmediate(function(){ _gamBump(uid, 'comment', 1); });
-    res.json({ success: true, comment: { id, user_id: uid, parent_id: parentId, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false, content, created_at: new Date().toISOString(), likes_count: 0, liked_by_me: false, can_delete: true }, comments_count: cc.rows[0].n });
+    res.json({ success: true, comment: { id, user_id: uid, parent_id: parentId, author_name: a?(a.full_name||a.username||'Utilisateur'):'Utilisateur', author_avatar: a?(a.avatar_url||null):null, author_verified: a?!!(a.verified||a.business_verified):false, content, media_url: _cMedia || null, media_type: _cMType || null, created_at: new Date().toISOString(), likes_count: 0, liked_by_me: false, can_delete: true, can_edit: true }, comments_count: cc.rows[0].n });
   }catch(e){ console.error('comment post:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 // POST /api/penc/posts/comments/:cid/like — aimer un commentaire (toggle)
@@ -15799,6 +15836,33 @@ app.post('/api/penc/call/rate', pencAuth, async (req,res)=>{
     await _pgPool.query('INSERT INTO penc_call_ratings(id,rater_id,peer_id,call_type,rating,comment,created_at) VALUES($1,$2,$3,$4,$5,$6,NOW())',['cr_'+Date.now()+Math.random().toString(36).slice(2),uid,peer,ct,r,cm||null]);
     res.json({success:true});
   }catch(e){ res.status(500).json({error:'Erreur serveur'}); }
+});
+// pncsrv15 : avis des utilisateurs sur Penc (note 1 à 5 + commentaire), une note par personne (la dernière compte)
+let _p15RateP = null;
+function _p15RateTable(){ if(!_p15RateP && _pgPool) _p15RateP = _pgPool.query('CREATE TABLE IF NOT EXISTS penc_app_ratings (user_id TEXT PRIMARY KEY, stars INTEGER NOT NULL, comment TEXT, platform TEXT, app_version TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())').catch(function(e){ _p15RateP = null; console.error('[pncsrv15] avis:', e.message); }); return _p15RateP || Promise.resolve(); }
+app.post('/api/penc/app-rating', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = String(req.pencUser.userId); const stars = Math.round(Number(req.body && req.body.stars));
+    if(!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Note invalide' });
+    const comment = String((req.body && req.body.comment) || '').replace(/[<>]/g,'').trim().slice(0, 1000) || null;
+    const platform = String((req.body && req.body.platform) || '').slice(0, 20) || null, ver = String((req.body && req.body.app_version) || '').slice(0, 20) || null;
+    await _p15RateTable();
+    await _pgPool.query('INSERT INTO penc_app_ratings(user_id,stars,comment,platform,app_version,created_at,updated_at) VALUES($1,$2,$3,$4,$5,NOW(),NOW()) ON CONFLICT (user_id) DO UPDATE SET stars=EXCLUDED.stars, comment=COALESCE(EXCLUDED.comment, penc_app_ratings.comment), platform=EXCLUDED.platform, app_version=EXCLUDED.app_version, updated_at=NOW()',[uid, stars, comment, platform, ver]);
+    res.json({ success: true });
+  }catch(e){ console.error('[pncsrv15] avis:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/admin/app-ratings', pencAuth, pencAdmin, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ avg: 0, count: 0, dist: {}, items: [] });
+    await _p15RateTable();
+    const g = (await _pgPool.query('SELECT COALESCE(AVG(stars),0)::numeric(10,2) AS avg, COUNT(*)::int AS n FROM penc_app_ratings')).rows[0];
+    const d = {}; (await _pgPool.query('SELECT stars, COUNT(*)::int AS n FROM penc_app_ratings GROUP BY stars')).rows.forEach(function(x){ d[x.stars] = x.n; });
+    const st = parseInt(req.query.stars, 10);
+    const it = (await _pgPool.query('SELECT r.user_id, r.stars, r.comment, r.platform, r.app_version, r.updated_at, u.full_name, u.username, u.avatar_url, u.phone FROM penc_app_ratings r LEFT JOIN penc_users u ON u.id=r.user_id' + (st >= 1 && st <= 5 ? ' WHERE r.stars=' + st : '') + ' ORDER BY r.updated_at DESC LIMIT 300')).rows;
+    const w = (await _pgPool.query("SELECT COUNT(*)::int AS n FROM penc_app_ratings WHERE updated_at > NOW() - INTERVAL '7 days'")).rows[0].n;
+    res.json({ avg: parseFloat(g.avg) || 0, count: g.n, week: w, dist: d, items: it.map(function(x){ return { user_id: x.user_id, name: x.full_name || x.username || 'Utilisateur', username: x.username || '', avatar: (x.avatar_url && String(x.avatar_url).indexOf('data:') !== 0) ? x.avatar_url : null, stars: x.stars, comment: x.comment, platform: x.platform, app_version: x.app_version, at: x.updated_at }; }) });
+  }catch(e){ console.error('[pncsrv15] avis admin:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/penc/admin/call-ratings', pencAuth, pencAdmin, async (req,res)=>{
   try{ if(!_pgPool) return res.json({avg:0,count:0,per_user:[],history:[]});
