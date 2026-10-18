@@ -105,7 +105,7 @@ module.exports = function ansMount(ctx){
   async function settings(){ try{ const r = (await pg().query("SELECT v FROM ans_settings WHERE k='main'")).rows[0]; return Object.assign({}, DEFAULTS, (r && r.v) || {}); }catch(_){ return Object.assign({}, DEFAULTS); } }
   function pubUser(u){ if(!u) return null; return { id:u.id, name:u.name, phone:u.phone, email:u.email || null, role:u.role, level:u.level, serie:u.serie, school:u.school, region:u.region,
     bio:u.bio, avatar_url:u.avatar_url, subjects:u.subjects || [], prof_status:u.prof_status || null, created_at:u.created_at }; }
-  function wrap(fn){ return async function(req, res){ try{ await init(); await fn(req, res); }catch(e){ log(req.method, req.path, e.message); if(!res.headersSent) res.status(500).json({ error:'Erreur serveur, réessaie.' }); } }; }
+  function wrap(fn){ return async function(req, res){ try{ await init(); await fn(req, res); }catch(e){ log(req.method, req.path, e.message); if(!res.headersSent){ if(/^Le Prof IA/.test(e.message)) res.status(503).json({ error: e.message }); else res.status(500).json({ error:'Erreur serveur, réessaie.' }); } } }; }
   const rate = new Map();
   function tooFast(key, max, ms){ const now = Date.now(); const a = (rate.get(key) || []).filter(function(t){ return now - t < ms; }); a.push(now); rate.set(key, a); if(rate.size > 20000) rate.clear(); return a.length > max; }
 
@@ -568,14 +568,49 @@ module.exports = function ansMount(ctx){
 
   // ═══════════════ L'IA au cœur ═══════════════
   // Un modèle de langage (Claude d'Anthropic par défaut) : clé ANS_AI_KEY (ou ANTHROPIC_API_KEY) dans Render.
-  function aiKey(){ return process.env.ANS_AI_KEY || process.env.ANTHROPIC_API_KEY || ''; }
-  function aiOn(){ return !!aiKey(); }
+  // Plusieurs fournisseurs, essayés dans l'ordre : Anthropic (payant, ANS_AI_KEY), Groq (gratuit, ANS_GROQ_KEY),
+  // Google Gemini (gratuit, ANS_GEMINI_KEY). Si l'un est saturé ou en panne, le suivant répond.
+  function providers(){
+    const out = [];
+    if(process.env.ANS_AI_KEY || process.env.ANTHROPIC_API_KEY) out.push('anthropic');
+    if(process.env.ANS_GROQ_KEY) out.push('groq');
+    if(process.env.ANS_GEMINI_KEY) out.push('gemini');
+    return out;
+  }
+  function aiOn(){ return providers().length > 0; }
+  async function callProvider(p, system, messages, maxTokens){
+    if(p === 'anthropic'){
+      const r = await fetch(process.env.ANS_AI_URL || 'https://api.anthropic.com/v1/messages', { method:'POST', headers:{ 'x-api-key': process.env.ANS_AI_KEY || process.env.ANTHROPIC_API_KEY, 'anthropic-version':'2023-06-01', 'content-type':'application/json' },
+        body: JSON.stringify({ model: process.env.ANS_AI_MODEL || 'claude-haiku-5-5', max_tokens: maxTokens || 900, system: system, messages: messages }) });
+      const j = await r.json(); if(!r.ok) throw new Error((j && j.error && j.error.message) || ('IA ' + r.status));
+      return { text: (j.content || []).filter(function(c){ return c.type === 'text'; }).map(function(c){ return c.text; }).join('\n').trim(), tokens: ((j.usage || {}).input_tokens || 0) + ((j.usage || {}).output_tokens || 0) };
+    }
+    if(p === 'groq'){
+      const r = await fetch(process.env.ANS_GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions', { method:'POST', headers:{ Authorization:'Bearer ' + process.env.ANS_GROQ_KEY, 'content-type':'application/json' },
+        body: JSON.stringify({ model: process.env.ANS_GROQ_MODEL || 'llama-3.3-70b-versatile', max_tokens: maxTokens || 900, temperature: 0.4, messages: [{ role:'system', content: system }].concat(messages) }) });
+      const j = await r.json(); if(!r.ok) throw new Error((j && j.error && j.error.message) || ('Groq ' + r.status));
+      return { text: String((((j.choices || [])[0] || {}).message || {}).content || '').trim(), tokens: (j.usage || {}).total_tokens || 0 };
+    }
+    if(p === 'gemini'){
+      const model = process.env.ANS_GEMINI_MODEL || 'gemini-2.5-flash';
+      const base = process.env.ANS_GEMINI_URL || 'https://generativelanguage.googleapis.com/v1beta';
+      const gen = { maxOutputTokens: maxTokens || 900, temperature: 0.4 }; if(/2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
+      const r = await fetch(base + '/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(process.env.ANS_GEMINI_KEY), { method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: messages.map(function(m){ return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }; }), generationConfig: gen }) });
+      const j = await r.json(); if(!r.ok) throw new Error((j && j.error && j.error.message) || ('Gemini ' + r.status));
+      const c = (j.candidates || [])[0] || {}; const text = ((c.content || {}).parts || []).map(function(x){ return x.text || ''; }).join('').trim();
+      if(!text) throw new Error('Gemini : réponse vide');
+      return { text: text, tokens: (j.usageMetadata || {}).totalTokenCount || 0 };
+    }
+    throw new Error('fournisseur inconnu');
+  }
   async function llm(system, messages, maxTokens){
-    const url = process.env.ANS_AI_URL || 'https://api.anthropic.com/v1/messages';
-    const r = await fetch(url, { method:'POST', headers:{ 'x-api-key': aiKey(), 'anthropic-version':'2023-06-01', 'content-type':'application/json' },
-      body: JSON.stringify({ model: process.env.ANS_AI_MODEL || 'claude-haiku-5-5', max_tokens: maxTokens || 900, system: system, messages: messages }) });
-    const j = await r.json(); if(!r.ok) throw new Error((j && j.error && j.error.message) || ('IA ' + r.status));
-    return { text: (j.content || []).filter(function(c){ return c.type === 'text'; }).map(function(c){ return c.text; }).join('\n').trim(), tokens: ((j.usage || {}).input_tokens || 0) + ((j.usage || {}).output_tokens || 0) };
+    let last = null;
+    for(const p of providers()){
+      try{ const r = await callProvider(p, system, messages, maxTokens); if(r.text) return Object.assign({ provider: p }, r); }
+      catch(e){ last = e; log('IA ' + p + ' :', e.message); }
+    }
+    throw new Error('Le Prof IA est très demandé en ce moment, réessaie dans une minute 🙂' + (last ? '' : ''));
   }
   function levelName(c){ const L = lvl(c); return L ? L.name : 'élève'; }
   function tutorSystem(u, lesson, course){
@@ -602,7 +637,11 @@ module.exports = function ansMount(ctx){
     pg().query('INSERT INTO ans_ai_log(user_id, kind, lesson_id, tokens) VALUES($1,$2,$3,$4)', [req.ans.id, 'tutor', lesson ? lesson.id : null, out.tokens]).catch(function(){});
     res.json({ success:true, answer: out.text });
   }));
-  function parseJson(t){ const m = String(t || '').match(/\{[\s\S]*\}|\[[\s\S]*\]/); if(!m) return null; try{ return JSON.parse(m[0]); }catch(_){ return null; } }
+  function parseJson(t){ t = String(t || '').replace(/```(?:json)?/gi, '');
+    const cands = []; const o1 = t.indexOf('{'), o2 = t.lastIndexOf('}'), a1 = t.indexOf('['), a2 = t.lastIndexOf(']');
+    if(o1 >= 0 && o2 > o1) cands.push(t.slice(o1, o2 + 1)); if(a1 >= 0 && a2 > a1) cands.push(t.slice(a1, a2 + 1));
+    cands.sort(function(x, y){ return t.indexOf(x) - t.indexOf(y); });
+    for(const c of cands){ try{ return JSON.parse(c); }catch(_){} } return null; }
   // le professeur colle son cours : l'IA propose un quiz (qu'il relit et corrige avant de publier)
   app.post(API + '/ai/quiz', auth, role('prof'), wrap(async function(req, res){
     if(!(await aiGuard(req, res, 'quiz', 30))) return;
@@ -690,7 +729,32 @@ module.exports = function ansMount(ctx){
   }));
 
   // ═══════════════ Site de l'Académie (espace professeurs + administration) ═══════════════
-  const WEB = path.join(__dirname, 'academie-web.html');
-  app.get(['/academie', '/academie/', '/academie/merci', '/academie/erreur'], function(req, res){ res.set('Cache-Control', 'no-cache'); res.sendFile(WEB, function(e){ if(e && !res.headersSent) res.status(404).send('Académie : page introuvable'); }); });
+  // ═══════════════ Visiteurs : découvrir les cours sans compte ═══════════════
+  app.get(API + '/public/courses', wrap(async function(req, res){
+    const q = req.query || {}; const where = ["c.status='published'"], params = [];
+    const L = lvl(q.level); if(L){ params.push(L.code); where.push('c.level=$' + params.length); }
+    if(q.subject && subj(q.subject)){ params.push(q.subject); where.push('c.subject=$' + params.length); }
+    if(q.q){ params.push('%' + String(q.q).toLowerCase().slice(0, 60) + '%'); where.push('(LOWER(c.title) LIKE $' + params.length + ' OR LOWER(COALESCE(c.description,\'\')) LIKE $' + params.length + ')'); }
+    const rows = (await pg().query('SELECT c.*, (SELECT COUNT(*)::int FROM ans_lessons l WHERE l.course_id=c.id) AS n_lessons, (SELECT COUNT(*)::int FROM ans_lessons l WHERE l.course_id=c.id AND l.free_preview) AS n_free FROM ans_courses c WHERE ' + where.join(' AND ') + ' ORDER BY c.published_at DESC NULLS LAST LIMIT ' + (q.limit ? Math.min(200, parseInt(q.limit, 10) || 60) : 120), params)).rows;
+    const pn = await profNames(Array.from(new Set(rows.map(function(c){ return c.prof_id; }))));
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ courses: rows.map(function(c){ const p = pn[c.prof_id] || {}; return courseOut(c, { n_lessons:c.n_lessons, n_free:c.n_free, prof_name:p.name || 'Professeur', prof_avatar:p.avatar_url || null }); }) });
+  }));
+  app.get(API + '/public/courses/:id', wrap(async function(req, res){
+    const c = (await pg().query("SELECT * FROM ans_courses WHERE id=$1 AND status='published'", [req.params.id])).rows[0]; if(!c) return res.status(404).json({ error:'Cours introuvable' });
+    const ls = (await pg().query('SELECT * FROM ans_lessons WHERE course_id=$1 ORDER BY idx, created_at', [c.id])).rows;
+    const pn = await profNames([c.prof_id]); const p = pn[c.prof_id] || {};
+    res.json({ course: courseOut(c, { prof_name:p.name || 'Professeur', prof_avatar:p.avatar_url || null, prof_school:p.school || null }), lessons: ls.map(function(l){ return lessonOut(l, !!(c.free || l.free_preview)); }) });
+  }));
+  app.get(API + '/public/stats', wrap(async function(req, res){
+    const r = (await pg().query("SELECT (SELECT COUNT(*)::int FROM ans_courses WHERE status='published') AS courses, (SELECT COUNT(*)::int FROM ans_lessons l JOIN ans_courses c ON c.id=l.course_id WHERE c.status='published') AS lessons, (SELECT COUNT(*)::int FROM ans_users WHERE role='prof' AND prof_status='approved') AS profs, (SELECT COUNT(*)::int FROM ans_users WHERE role='eleve') AS eleves")).rows[0];
+    res.set('Cache-Control', 'public, max-age=120'); res.json(r);
+  }));
+
+  // ═══════════════ Sites : élèves et visiteurs (/academie), professeurs et administration (/academie/prof) ═══════════════
+  const WEB = path.join(__dirname, 'academie-web.html'), ELEVE = path.join(__dirname, 'academie-eleve.html');
+  function page(f){ return function(req, res){ res.set('Cache-Control', 'no-cache'); res.sendFile(f, function(e){ if(e && !res.headersSent) res.status(404).send('Académie : page introuvable'); }); }; }
+  app.get(['/academie/prof', '/academie/prof/', '/academie/admin'], page(WEB));
+  app.get(['/academie', '/academie/', '/academie/merci', '/academie/erreur', '/academie/cours/:id'], page(ELEVE));
   log('module chargé');
 };

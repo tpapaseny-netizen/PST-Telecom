@@ -122,7 +122,7 @@ function authView(){
   var mode='login';
   $('#app').innerHTML='<div class="auth"><div class="card"><div class="hero"><h2>Bienvenue, professeur 👋</h2><p class="mut">Partagez vos cours avec les élèves du Sénégal, de la CI à la Terminale.</p></div>'
     +'<div class="seg"><button data-m="login" class="on">Se connecter</button><button data-m="reg">Devenir professeur partenaire</button></div>'
-    +'<div id="f"></div><div class="err" id="err"></div></div><p class="mut" style="text-align:center;font-size:13px;">Élève ? Téléchargez l’appli de l’Académie sur Google Play.</p></div>';
+    +'<div id="f"></div><div class="err" id="err"></div></div><p class="mut" style="text-align:center;font-size:13px;">Élève ou parent ? <a href="/academie">Ouvrir l’espace élèves</a></p></div>';
   function draw(){ $('#f').innerHTML=(mode==='reg'?'<label>Nom complet</label><input id="nm" placeholder="Ex : Fatou Diop" autocomplete="name"/><label>École / établissement</label><input id="sc" placeholder="Ex : Lycée Valdiodio Ndiaye, Kaolack"/><label>Matières enseignées</label><select id="sj" multiple size="5">'+subjOptions('')+'</select>':'')
     +'<label>Téléphone</label><input id="ph" type="tel" placeholder="77 123 45 67" autocomplete="tel"/><label>Mot de passe</label><input id="pw" type="password" placeholder="Au moins 6 caractères" autocomplete="'+(mode==='reg'?'new-password':'current-password')+'"/>'
     +'<button class="btn" id="go" style="width:100%;margin-top:16px;">'+(mode==='reg'?'Envoyer ma candidature':'Se connecter')+'</button>'; $('#go').onclick=go; }
