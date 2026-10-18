@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Académie Numérique du Sénégal — Espace professeurs</title>
+<meta name="theme-color" content="#00653A"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--g:#00853F;--g2:#00653A;--g3:#E8F5EE;--y:#FDEF42;--gold:#E9B200;--r:#E31B23;--ink:#10231A;--mut:#5D7266;--line:#DCE6E0;--bg:#F5F8F6;--card:#fff;--sh:0 6px 24px rgba(0,60,30,.08);}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--g3:#0F2A1D;--ink:#ECF5EF;--mut:#9DB5A7;--line:#22372B;--bg:#0B1510;--card:#122019;--sh:0 6px 24px rgba(0,0,0,.35);}}
+*{box-sizing:border-box;}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;}
+a{color:var(--g);}
+button{font-family:inherit;}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#00853F,#00653A);color:#fff;box-shadow:0 4px 18px rgba(0,60,30,.25);}
+.logo{width:40px;height:40px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;}
+.top h1{font-size:16px;margin:0;line-height:1.2;}
+.top small{display:block;font-size:12px;opacity:.85;font-weight:600;}
+.top .sp{flex:1;}
+.top .who{font-size:13px;font-weight:700;opacity:.95;text-align:right;}
+.top button{border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:20px;padding:7px 14px;font-weight:700;cursor:pointer;}
+.flag{height:4px;background:linear-gradient(90deg,#00853F 0 33.3%,#FDEF42 33.3% 66.6%,#E31B23 66.6%);}
+.wrap{max-width:1100px;margin:0 auto;padding:18px 16px 60px;}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 14px;scrollbar-width:none;}
+.tabs button{flex:none;border:none;border-radius:22px;padding:9px 16px;font-weight:800;font-size:14px;background:var(--card);color:var(--ink);box-shadow:var(--sh);cursor:pointer;}
+.tabs button.on{background:var(--g);color:#fff;}
+.tabs .n{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:var(--r);color:#fff;font-size:12px;}
+.card{background:var(--card);border-radius:20px;box-shadow:var(--sh);padding:18px;margin-bottom:14px;}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+.kpi{background:var(--card);border-radius:18px;box-shadow:var(--sh);padding:16px;}
+.kpi b{display:block;font-size:28px;font-weight:800;color:var(--g);}
+.kpi span{color:var(--mut);font-size:13px;font-weight:700;}
+h2{font-size:20px;margin:0 0 12px;}
+h3{font-size:16px;margin:0 0 8px;}
+.mut{color:var(--mut);}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.btn{border:none;border-radius:14px;padding:11px 18px;font-weight:800;font-size:14.5px;cursor:pointer;background:var(--g);color:#fff;box-shadow:0 6px 16px rgba(0,133,63,.25);}
+.btn:disabled{opacity:.5;cursor:default;}
+.btn.ghost{background:var(--g3);color:var(--g2);box-shadow:none;}
+.btn.red{background:var(--r);box-shadow:0 6px 16px rgba(227,27,35,.2);}
+.btn.gold{background:var(--gold);color:#2A2000;box-shadow:0 6px 16px rgba(233,178,0,.25);}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:11px;}
+label{display:block;font-size:13px;font-weight:800;color:var(--mut);margin:10px 0 6px;}
+input,select,textarea{width:100%;border:1.5px solid var(--line);border-radius:13px;padding:11px 13px;font-size:15px;background:var(--card);color:var(--ink);font-family:inherit;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,133,63,.15);}
+textarea{min-height:110px;resize:vertical;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:640px){.two{grid-template-columns:1fr;}.top .who{display:none;}}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:800;}
+.b-draft{background:#EEF1F4;color:#4A5568;} .b-pending{background:#FFF4D1;color:#8A6200;} .b-published{background:#DFF5E8;color:#00653A;} .b-rejected{background:#FDE2E3;color:#A50F15;} .b-archived{background:#EEE;color:#777;}
+.list > div{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+.list > div:last-child{border-bottom:none;}
+.grow{flex:1;min-width:0;}
+.ic{width:42px;height:42px;border-radius:12px;background:var(--g3);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;}
+.auth{max-width:440px;margin:40px auto;}
+.hero{text-align:center;padding:10px 0 6px;}
+.hero h2{font-size:24px;}
+.seg{display:flex;background:var(--g3);border-radius:14px;padding:4px;margin:6px 0 4px;}
+.seg button{flex:1;border:none;background:none;padding:10px;border-radius:11px;font-weight:800;color:var(--g2);cursor:pointer;}
+.seg button.on{background:var(--card);box-shadow:var(--sh);}
+.err{color:var(--r);font-weight:700;font-size:13.5px;min-height:18px;margin-top:8px;}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(30px);opacity:0;background:#10231A;color:#fff;padding:12px 18px;border-radius:14px;font-weight:700;transition:.25s;z-index:99;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:90vw;}
+.toast.on{opacity:1;transform:translateX(-50%);}
+.modal{position:fixed;inset:0;background:rgba(5,20,12,.5);display:flex;align-items:flex-start;justify-content:center;z-index:50;padding:30px 12px;overflow-y:auto;}
+.modal > div{width:100%;max-width:760px;background:var(--card);border-radius:22px;padding:20px;box-shadow:0 30px 70px rgba(0,0,0,.3);}
+.prog{height:8px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:8px;}
+.prog i{display:block;height:100%;width:0;background:var(--g);transition:width .2s;}
+.q{border:1.5px solid var(--line);border-radius:16px;padding:12px;margin:10px 0;}
+.q .row input[type=radio]{width:auto;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chips span{background:var(--g3);color:var(--g2);font-weight:700;font-size:12.5px;padding:4px 10px;border-radius:12px;}
+.empty{text-align:center;color:var(--mut);padding:26px 10px;}
+.codes{font-family:ui-monospace,Menlo,monospace;font-size:15px;line-height:1.9;columns:3 160px;}
+.check{display:flex;align-items:center;gap:8px;font-weight:700;margin-top:10px;}
+.check input{width:auto;}
+.ai{background:linear-gradient(135deg,#0B4FD1,#7C3AED);color:#fff;box-shadow:0 6px 16px rgba(76,29,149,.3);}
+</style>
+</head>
+<body>
+<div class="top"><div class="logo"><svg width="26" height="26" viewBox="0 0 48 48"><path d="M6 14l18-8 18 8-18 8z" fill="#00853F"/><path d="M12 18v10c0 3 5.4 6 12 6s12-3 12-6V18l-12 5z" fill="#00653A"/><path d="M40 16v13" stroke="#E9B200" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="31" r="3" fill="#E9B200"/><path d="m24 37 1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#E31B23"/></svg></div>
+<div><h1>Académie Numérique du Sénégal</h1><small id="sub">Espace professeurs</small></div><div class="sp"></div><div class="who" id="who"></div><button id="out" style="display:none">Se déconnecter</button></div>
+<div class="flag"></div>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+var API='/api/ans', T=null, ME=null, CAT=null;
+try{ T=localStorage.getItem('ans_tok'); }catch(_){}
+var $=function(s,r){ return (r||document).querySelector(s); };
+function E(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function toast(t){ var x=$('#toast'); x.textContent=t; x.classList.add('on'); clearTimeout(x._t); x._t=setTimeout(function(){ x.classList.remove('on'); },3200); }
+async function api(m,u,b){ var r=await fetch(API+u,{method:m,headers:Object.assign({'Content-Type':'application/json'},T?{Authorization:'Bearer '+T}:{}),body:b?JSON.stringify(b):undefined}); var j={}; try{ j=await r.json(); }catch(_){} if(r.status===401 && T){ logout(); throw new Error('Session expirée'); } if(!r.ok) throw new Error(j.error||('Erreur '+r.status)); return j; }
+function lvName(c){ var l=(CAT&&CAT.levels||[]).find(function(x){ return x.code===c; }); return l?l.name:(c||''); }
+function sbName(c){ var s=(CAT&&CAT.subjects||[]).find(function(x){ return x.code===c; }); return s?(s.icon+' '+s.name):(c||''); }
+function stBadge(s){ var L={draft:'Brouillon',pending:'En validation',published:'Publié',rejected:'À revoir',archived:'Archivé'}; return '<span class="badge b-'+E(s)+'">'+(L[s]||s)+'</span>'; }
+function fmtSize(n){ n=Number(n||0); if(n>1048576) return (n/1048576).toFixed(1)+' Mo'; if(n>1024) return Math.round(n/1024)+' Ko'; return n?n+' o':''; }
+function fcfa(n){ return Number(n||0).toLocaleString('fr-FR')+' FCFA'; }
+function logout(){ T=null; ME=null; try{ localStorage.removeItem('ans_tok'); }catch(_){} render(); }
+$('#out').onclick=logout;
+function modal(html){ var m=document.createElement('div'); m.className='modal'; m.innerHTML='<div>'+html+'</div>'; document.body.appendChild(m); m.addEventListener('click',function(e){ if(e.target===m) m.remove(); }); m.close=function(){ m.remove(); }; return m; }
+function ask(msg, okLbl, danger){ return new Promise(function(res){ var m=modal('<h2 style="font-size:18px;">'+E(msg)+'</h2><div class="row" style="justify-content:flex-end;margin-top:14px;"><button class="btn ghost" id="n">Annuler</button><button class="btn'+(danger?' red':'')+'" id="y">'+E(okLbl||'Confirmer')+'</button></div>'); m.querySelector('#n').onclick=function(){ m.close(); res(false); }; m.querySelector('#y').onclick=function(){ m.close(); res(true); }; m.firstChild.style.maxWidth='440px'; m.style.alignItems='center'; }); }
+function askText(msg, def, okLbl){ return new Promise(function(res){ var m=modal('<h2 style="font-size:18px;">'+E(msg)+'</h2><textarea id="v" style="min-height:80px;">'+E(def||'')+'</textarea><div class="row" style="justify-content:flex-end;margin-top:14px;"><button class="btn ghost" id="n">Annuler</button><button class="btn" id="y">'+E(okLbl||'Valider')+'</button></div>'); m.querySelector('#n').onclick=function(){ m.close(); res(null); }; m.querySelector('#y').onclick=function(){ var v=m.querySelector('#v').value; m.close(); res(v); }; m.firstChild.style.maxWidth='480px'; m.style.alignItems='center'; setTimeout(function(){ m.querySelector('#v').focus(); },50); }); }
+function levelOptions(sel){ return (CAT.levels||[]).map(function(l){ return '<option value="'+l.code+'"'+(l.code===sel?' selected':'')+'>'+E(l.name)+'</option>'; }).join(''); }
+function subjOptions(sel){ return (CAT.subjects||[]).map(function(s){ return '<option value="'+s.code+'"'+(s.code===sel?' selected':'')+'>'+E(s.icon+' '+s.name)+'</option>'; }).join(''); }
+function serieOptions(level, sel){ var l=(CAT.levels||[]).find(function(x){ return x.code===level; }); if(!l||!l.series) return ''; return '<option value="">Toutes les séries</option>'+l.series.map(function(s){ return '<option'+(s===sel?' selected':'')+'>'+s+'</option>'; }).join(''); }
+
+// ── fichiers : envoi direct au stockage avec barre de progression ──
+async function upload(file, kind, bar){
+  var ext=(file.name.split('.').pop()||'').toLowerCase();
+  var p=await api('POST','/media/presign',{kind:kind,mime:file.type||'application/octet-stream',ext:ext});
+  await new Promise(function(res,rej){ var x=new XMLHttpRequest(); x.open('PUT',p.upload_url); x.setRequestHeader('Content-Type',file.type||'application/octet-stream');
+    x.upload.onprogress=function(e){ if(e.lengthComputable && bar) bar.style.width=Math.round(e.loaded/e.total*100)+'%'; };
+    x.onload=function(){ x.status>=200&&x.status<300?res():rej(new Error('Envoi refusé ('+x.status+')')); }; x.onerror=function(){ rej(new Error('Réseau')); }; x.send(file); });
+  var dur=null; if(kind==='video'||kind==='audio'){ dur=await new Promise(function(res){ var v=document.createElement(kind==='video'?'video':'audio'); v.preload='metadata'; v.onloadedmetadata=function(){ res(Math.round(v.duration)||null); URL.revokeObjectURL(v.src); }; v.onerror=function(){ res(null); }; v.src=URL.createObjectURL(file); setTimeout(function(){ res(null); },8000); }); }
+  return { url:p.public_url, size:file.size, duration:dur };
+}
+
+// ═════ Connexion ═════
+function authView(){
+  var mode='login';
+  $('#app').innerHTML='<div class="auth"><div class="card"><div class="hero"><h2>Bienvenue, professeur 👋</h2><p class="mut">Partagez vos cours avec les élèves du Sénégal, de la CI à la Terminale.</p></div>'
+    +'<div class="seg"><button data-m="login" class="on">Se connecter</button><button data-m="reg">Devenir professeur partenaire</button></div>'
+    +'<div id="f"></div><div class="err" id="err"></div></div><p class="mut" style="text-align:center;font-size:13px;">Élève ? Téléchargez l’appli de l’Académie sur Google Play.</p></div>';
+  function draw(){ $('#f').innerHTML=(mode==='reg'?'<label>Nom complet</label><input id="nm" placeholder="Ex : Fatou Diop" autocomplete="name"/><label>École / établissement</label><input id="sc" placeholder="Ex : Lycée Valdiodio Ndiaye, Kaolack"/><label>Matières enseignées</label><select id="sj" multiple size="5">'+subjOptions('')+'</select>':'')
+    +'<label>Téléphone</label><input id="ph" type="tel" placeholder="77 123 45 67" autocomplete="tel"/><label>Mot de passe</label><input id="pw" type="password" placeholder="Au moins 6 caractères" autocomplete="'+(mode==='reg'?'new-password':'current-password')+'"/>'
+    +'<button class="btn" id="go" style="width:100%;margin-top:16px;">'+(mode==='reg'?'Envoyer ma candidature':'Se connecter')+'</button>'; $('#go').onclick=go; }
+  document.querySelectorAll('.seg button').forEach(function(b){ b.onclick=function(){ mode=b.getAttribute('data-m'); document.querySelectorAll('.seg button').forEach(function(x){ x.classList.toggle('on',x===b); }); draw(); }; });
+  async function go(){ $('#err').textContent=''; var b=$('#go'); b.disabled=true;
+    try{ var r; if(mode==='reg'){ var sj=[].slice.call($('#sj').selectedOptions).map(function(o){ return o.value; }); r=await api('POST','/auth/register',{name:$('#nm').value,phone:$('#ph').value,password:$('#pw').value,role:'prof',school:$('#sc').value,subjects:sj}); }
+      else r=await api('POST','/auth/login',{phone:$('#ph').value,password:$('#pw').value});
+      T=r.token; ME=r.user; try{ localStorage.setItem('ans_tok',T); }catch(_){} render(); }
+    catch(e){ $('#err').textContent=e.message; b.disabled=false; } }
+  draw();
+}
+
+// ═════ Espace ═════
+var TAB=null;
+async function render(){
+  try{ if(!CAT) CAT=await api('GET','/catalog'); }catch(e){ $('#app').innerHTML='<div class="card empty">Serveur indisponible : '+E(e.message)+'</div>'; return; }
+  if(!T){ $('#who').textContent=''; $('#out').style.display='none'; return authView(); }
+  try{ var me=await api('GET','/me'); ME=me.user; }catch(e){ return; }
+  $('#who').innerHTML=E(ME.name)+'<br><span style="font-weight:600;opacity:.8">'+(ME.role==='admin'?'Administration':'Professeur')+'</span>'; $('#out').style.display='';
+  $('#sub').textContent=ME.role==='admin'?'Administration et professeurs':'Espace professeurs';
+  if(ME.role==='prof' && ME.prof_status!=='approved'){ $('#app').innerHTML='<div class="card" style="max-width:560px;margin:30px auto;text-align:center;"><div style="font-size:48px">'+(ME.prof_status==='rejected'?'🙏':'⏳')+'</div><h2>'+(ME.prof_status==='rejected'?'Candidature non retenue pour le moment':'Candidature en cours de validation')+'</h2><p class="mut">'+(ME.prof_status==='rejected'?'Contactez l’Académie pour en savoir plus.':'L’équipe de l’Académie vérifie votre profil. Vous pourrez publier vos cours dès la validation.')+'</p></div>'; return; }
+  if(ME.role==='eleve'){ $('#app').innerHTML='<div class="card" style="max-width:560px;margin:30px auto;text-align:center;"><div style="font-size:48px">📱</div><h2>Bonjour '+E(ME.name.split(' ')[0])+' !</h2><p class="mut">Cet espace est réservé aux professeurs. Les cours se suivent dans l’appli de l’Académie, même sans connexion.</p></div>'; return; }
+  var tabs=[['cours','📚 Mes cours'],['evals','📝 Évaluations'],['ia','✨ Vidéos IA']];
+  if(ME.role==='admin') tabs=[['dash','📊 Tableau de bord'],['vprofs','👩🏾‍🏫 Professeurs'],['vcours','✅ Cours à valider'],['pay','💰 Paiements'],['codes','🎟️ Codes'],['grants','🎓 Bourses'],['users','👥 Utilisateurs'],['set','⚙️ Réglages']].concat(tabs);
+  if(!TAB || !tabs.some(function(t){ return t[0]===TAB; })) TAB=tabs[0][0];
+  $('#app').innerHTML='<div class="tabs">'+tabs.map(function(t){ return '<button data-t="'+t[0]+'"'+(t[0]===TAB?' class="on"':'')+'>'+t[1]+'</button>'; }).join('')+'</div><div id="view"></div>';
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.onclick=function(){ TAB=b.getAttribute('data-t'); document.querySelectorAll('.tabs button').forEach(function(x){ x.classList.toggle('on',x===b); }); show(); }; });
+  if(ME.role==='admin'){ try{ var o=await api('GET','/admin/overview'); var nb={vprofs:o.profs_pending,vcours:o.courses.pending,pay:o.payments.to_check,grants:o.grants_pending}; document.querySelectorAll('.tabs button').forEach(function(b){ var n=nb[b.getAttribute('data-t')]; if(n) b.insertAdjacentHTML('beforeend','<span class="n">'+n+'</span>'); }); }catch(_){} }
+  show();
+}
+function show(){ var v=$('#view'); v.innerHTML='<div class="card empty">Chargement…</div>'; var f={cours:vCours,evals:vEvals,ia:vIA,dash:vDash,vprofs:vProfs,vcours:vValid,pay:vPay,codes:vCodes,grants:vGrants,users:vUsers,set:vSet}[TAB]; f(v).catch(function(e){ v.innerHTML='<div class="card empty">'+E(e.message)+'</div>'; }); }
+
+// ── Mes cours ──
+async function vCours(v){
+  var r=await api('GET','/prof/courses'), s={}; try{ s=await api('GET','/prof/stats'); }catch(_){}
+  v.innerHTML='<div class="grid" style="margin-bottom:14px;"><div class="kpi"><b>'+(r.courses||[]).length+'</b><span>cours</span></div><div class="kpi"><b>'+(s.students||0)+'</b><span>élèves qui suivent vos cours</span></div><div class="kpi"><b>'+(s.lessons_done||0)+'</b><span>leçons terminées</span></div><div class="kpi"><b>'+(s.hours||0)+' h</b><span>d’apprentissage</span></div></div>'
+    +'<div class="card"><div class="row" style="justify-content:space-between;"><h2 style="margin:0">Mes cours</h2><button class="btn" id="nc">＋ Nouveau cours</button></div><div class="list" id="cl" style="margin-top:8px;"></div></div>';
+  $('#cl').innerHTML=(r.courses||[]).filter(function(c){ return c.status!=='archived'; }).map(function(c){ return '<div><div class="ic">'+E((sbName(c.subject)||'📘').split(' ')[0])+'</div><div class="grow"><b>'+E(c.title)+'</b><div class="mut" style="font-size:13px;">'+E(lvName(c.level))+(c.serie?' · '+E(c.serie):'')+' · '+E(sbName(c.subject))+' · '+c.n_lessons+' leçon'+(c.n_lessons>1?'s':'')+' · '+(c.students||0)+' élève'+((c.students||0)>1?'s':'')+'</div>'+(c.status==='rejected'&&c.reject_reason?'<div style="color:var(--r);font-size:13px;font-weight:700;">À revoir : '+E(c.reject_reason)+'</div>':'')+'</div>'+stBadge(c.status)+'<button class="btn ghost sm" data-c="'+c.id+'">Ouvrir</button></div>'; }).join('')||'<div class="empty">Vous n’avez pas encore de cours. Créez le premier !</div>';
+  $('#nc').onclick=function(){ courseForm(null); };
+  v.querySelectorAll('[data-c]').forEach(function(b){ b.onclick=function(){ courseEdit(b.getAttribute('data-c')); }; });
+}
+function courseForm(c){
+  c=c||{}; var m=modal('<h2>'+(c.id?'Modifier le cours':'Nouveau cours')+'</h2><label>Titre</label><input id="t" value="'+E(c.title||'')+'" placeholder="Ex : Les fractions"/><label>Description</label><textarea id="d" placeholder="Ce que l’élève va apprendre">'+E(c.description||'')+'</textarea>'
+    +'<div class="two"><div><label>Classe</label><select id="l">'+levelOptions(c.level||'CM1')+'</select></div><div><label>Matière</label><select id="s">'+subjOptions(c.subject||'math')+'</select></div></div>'
+    +'<div class="two"><div><label>Série (lycée)</label><select id="se"></select></div><div><label>Langue</label><select id="lg"><option value="fr">Français</option><option value="wo">Wolof</option><option value="en">Anglais</option><option value="ar">Arabe</option></select></div></div>'
+    +'<label>Image de couverture (facultatif)</label><input type="file" id="cv" accept="image/*"/><div class="prog"><i id="cvp"></i></div>'
+    +'<label class="check"><input type="checkbox" id="fr"'+(c.free?' checked':'')+'/> Cours gratuit pour tous</label><div class="err" id="err"></div><div class="row" style="justify-content:flex-end;margin-top:12px;"><button class="btn ghost" id="x">Annuler</button><button class="btn" id="ok">'+(c.id?'Enregistrer':'Créer le cours')+'</button></div>');
+  $('#lg',m).value=c.lang||'fr';
+  function se(){ var h=serieOptions($('#l',m).value, c.serie); $('#se',m).innerHTML=h||'<option value="">—</option>'; $('#se',m).disabled=!h; } se(); $('#l',m).onchange=se;
+  $('#x',m).onclick=m.close;
+  $('#ok',m).onclick=async function(){ var b=this; b.disabled=true; $('#err',m).textContent='';
+    try{ var cover=c.cover_url||null; var f=$('#cv',m).files[0]; if(f) cover=(await upload(f,'image',$('#cvp',m))).url;
+      var body={title:$('#t',m).value,description:$('#d',m).value,level:$('#l',m).value,subject:$('#s',m).value,serie:$('#se',m).value||null,lang:$('#lg',m).value,free:$('#fr',m).checked,cover_url:cover};
+      var r=c.id?await api('PUT','/prof/courses/'+c.id,body):await api('POST','/prof/courses',body); m.close(); toast(c.id?'Cours enregistré':'Cours créé ✅'); courseEdit(r.course.id); }
+    catch(e){ $('#err',m).textContent=e.message; b.disabled=false; } };
+}
+async function courseEdit(id){
+  var r=await api('GET','/courses/'+id); var c=r.course;
+  var v=$('#view'); var KI={video:'🎬',pdf:'📄',text:'📝',quiz:'❓',audio:'🎧'};
+  v.innerHTML='<div class="card"><div class="row" style="justify-content:space-between;"><div><button class="btn ghost sm" id="bk">← Mes cours</button></div><div class="row"><button class="btn ghost sm" id="ed">Modifier</button>'+(c.status==='draft'||c.status==='rejected'?'<button class="btn sm" id="sb">Envoyer à la validation</button>':'')+'</div></div>'
+    +'<h2 style="margin-top:14px;">'+E(c.title)+' '+stBadge(c.status)+'</h2><div class="mut">'+E(lvName(c.level))+(c.serie?' · '+E(c.serie):'')+' · '+E(sbName(c.subject))+(c.free?' · Gratuit':'')+'</div>'+(c.description?'<p>'+E(c.description)+'</p>':'')+'</div>'
+    +'<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0">Leçons</h3><div class="row"><button class="btn sm" data-k="video">🎬 Vidéo</button><button class="btn sm" data-k="pdf">📄 PDF</button><button class="btn sm" data-k="text">📝 Texte</button><button class="btn sm" data-k="quiz">❓ Quiz</button><button class="btn sm" data-k="audio">🎧 Audio</button></div></div>'
+    +'<div class="list" id="ll" style="margin-top:8px;"></div></div>'
+    +'<div class="card"><div class="row" style="justify-content:space-between;"><h3 style="margin:0">Évaluations du cours</h3><button class="btn ghost sm" id="ne">＋ Évaluation</button></div><div class="list">'+((r.evals||[]).map(function(e){ return '<div><div class="ic">📝</div><div class="grow"><b>'+E(e.title)+'</b><div class="mut" style="font-size:13px;">'+e.n+' questions · '+(e.price?fcfa(e.price):'gratuite')+(e.merit?' · mérite':'')+'</div></div></div>'; }).join('')||'<div class="empty">Pas encore d’évaluation.</div>')+'</div></div>';
+  $('#ll').innerHTML=(r.lessons||[]).map(function(l,i){ return '<div><div class="ic">'+(KI[l.kind]||'📘')+'</div><div class="grow"><b>'+(i+1)+'. '+E(l.title)+'</b><div class="mut" style="font-size:13px;">'+E(l.kind)+(l.duration?' · '+Math.round(l.duration/60)+' min':'')+(l.media_size?' · '+fmtSize(l.media_size):'')+(l.free_preview?' · aperçu gratuit':'')+(l.versions&&Object.keys(l.versions).length?' · 🌍 '+Object.keys(l.versions).join(', '):'')+'</div></div>'
+    +'<button class="btn ghost sm" data-up="'+i+'"'+(i===0?' disabled':'')+'>↑</button><button class="btn ghost sm" data-dn="'+i+'"'+(i===r.lessons.length-1?' disabled':'')+'>↓</button><button class="btn ghost sm" data-e="'+l.id+'">Modifier</button><button class="btn red sm" data-x="'+l.id+'">✕</button></div>'; }).join('')||'<div class="empty">Ajoutez la première leçon : une vidéo, un PDF, un texte ou un quiz.</div>';
+  $('#bk').onclick=function(){ show(); }; $('#ed').onclick=function(){ courseForm(c); };
+  if($('#sb')) $('#sb').onclick=async function(){ try{ var s=await api('POST','/prof/courses/'+c.id+'/submit',{}); toast(s.status==='published'?'Cours publié ✅':'Cours envoyé à la validation ⏳'); courseEdit(c.id); }catch(e){ toast(e.message); } };
+  v.querySelectorAll('[data-k]').forEach(function(b){ b.onclick=function(){ lessonForm(c, {kind:b.getAttribute('data-k')}); }; });
+  v.querySelectorAll('[data-e]').forEach(function(b){ b.onclick=function(){ lessonForm(c, r.lessons.find(function(l){ return l.id===b.getAttribute('data-e'); })); }; });
+  v.querySelectorAll('[data-x]').forEach(function(b){ b.onclick=async function(){ if(!(await ask('Supprimer cette leçon ?','Supprimer',true))) return; await api('DELETE','/prof/lessons/'+b.getAttribute('data-x')); courseEdit(c.id); }; });
+  function mv(i,d){ var ids=r.lessons.map(function(l){ return l.id; }); var t=ids[i]; ids[i]=ids[i+d]; ids[i+d]=t; api('POST','/prof/courses/'+c.id+'/order',{ids:ids}).then(function(){ courseEdit(c.id); }); }
+  v.querySelectorAll('[data-up]').forEach(function(b){ b.onclick=function(){ mv(+b.getAttribute('data-up'),-1); }; });
+  v.querySelectorAll('[data-dn]').forEach(function(b){ b.onclick=function(){ mv(+b.getAttribute('data-dn'),1); }; });
+  $('#ne').onclick=function(){ evalForm({course_id:c.id, level:c.level, subject:c.subject}); };
+}
+function quizBuilder(host, qs, level){
+  qs=(qs||[]).map(function(q){ return Object.assign({},q); });
+  function draw(){
+    host.innerHTML=qs.map(function(q,i){ return '<div class="q" data-i="'+i+'"><div class="row"><b style="flex:1">Question '+(i+1)+'</b><select data-f="type" style="width:auto;"><option value="qcm">Choix multiple</option><option value="vf">Vrai / Faux</option><option value="court">Réponse courte</option><option value="long">Réponse rédigée (corrigée par l’IA)</option></select><button class="btn red sm" data-del>✕</button></div>'
+      +'<textarea data-f="q" style="min-height:60px;margin-top:8px;" placeholder="Énoncé">'+E(q.q||'')+'</textarea>'
+      +(q.type==='qcm'||!q.type?(q.choices||['','','','']).map(function(c,j){ return '<div class="row" style="margin-top:6px;"><input type="radio" name="a'+i+'" data-ans="'+j+'"'+((q.answer|0)===j?' checked':'')+'/><input data-ch="'+j+'" value="'+E(c)+'" placeholder="Choix '+(j+1)+'" style="flex:1"/></div>'; }).join('')+'<div class="mut" style="font-size:12.5px;margin-top:4px;">Cochez la bonne réponse.</div>'
+        :q.type==='vf'?'<div class="row" style="margin-top:8px;"><label class="check"><input type="radio" name="a'+i+'" data-ans="0"'+((q.answer|0)===0?' checked':'')+'/> Vrai</label><label class="check"><input type="radio" name="a'+i+'" data-ans="1"'+((q.answer|0)===1?' checked':'')+'/> Faux</label></div>'
+        :'<input data-f="answer" value="'+E(typeof q.answer==='string'?q.answer:'')+'" placeholder="Réponse attendue (corrigé)" style="margin-top:8px;"/>')
+      +'<input data-f="explain" value="'+E(q.explain||'')+'" placeholder="Explication montrée après la réponse (facultatif)" style="margin-top:8px;"/></div>'; }).join('')+'<button class="btn ghost sm" data-add>＋ Ajouter une question</button>';
+    host.querySelectorAll('.q').forEach(function(d){ var i=+d.getAttribute('data-i'); var q=qs[i]; d.querySelector('[data-f="type"]').value=q.type||'qcm';
+      d.querySelector('[data-f="type"]').onchange=function(){ q.type=this.value; if(q.type==='vf'){ q.choices=['Vrai','Faux']; q.answer=0; } else if(q.type==='qcm'){ q.choices=['','','','']; q.answer=0; } else { q.choices=[]; q.answer=''; } draw(); };
+      d.querySelector('[data-f="q"]').oninput=function(){ q.q=this.value; };
+      d.querySelectorAll('[data-ch]').forEach(function(x){ x.oninput=function(){ q.choices=q.choices||[]; q.choices[+x.getAttribute('data-ch')]=x.value; }; });
+      d.querySelectorAll('[data-ans]').forEach(function(x){ x.onchange=function(){ q.answer=+x.getAttribute('data-ans'); }; });
+      var a=d.querySelector('[data-f="answer"]'); if(a) a.oninput=function(){ q.answer=a.value; };
+      d.querySelector('[data-f="explain"]').oninput=function(){ q.explain=this.value; };
+      d.querySelector('[data-del]').onclick=function(){ qs.splice(i,1); draw(); }; });
+    host.querySelector('[data-add]').onclick=function(){ qs.push({type:'qcm',q:'',choices:['','','',''],answer:0}); draw(); };
+  }
+  if(!qs.length) qs.push({type:'qcm',q:'',choices:['','','',''],answer:0});
+  draw();
+  return { get:function(){ return qs; }, set:function(n){ qs=n.map(function(q){ return Object.assign({},q); }); draw(); } };
+}
+function aiQuizBox(host, qb, level){
+  host.innerHTML='<details style="margin:8px 0;"><summary style="cursor:pointer;font-weight:800;color:#5B21B6;">✨ Créer les questions avec l’IA à partir du cours</summary><textarea id="aiT" placeholder="Collez ici le texte du cours (au moins quelques paragraphes)"></textarea><div class="row" style="margin-top:8px;"><button class="btn ai sm" id="aiG">✨ Générer les questions</button><span class="mut" style="font-size:12.5px;">Relisez et corrigez avant de publier.</span></div></details>';
+  $('#aiG',host).onclick=async function(){ var b=this; b.disabled=true; b.textContent='L’IA prépare les questions…'; try{ var r=await api('POST','/ai/quiz',{text:$('#aiT',host).value,level:level,n:8}); qb.set(qb.get().filter(function(q){ return q.q; }).concat(r.questions)); toast(r.questions.length+' questions ajoutées ✨'); }catch(e){ toast(e.message); } b.disabled=false; b.textContent='✨ Générer les questions'; };
+}
+function lessonForm(c, l){
+  var k=l.kind; var title={video:'Leçon vidéo',pdf:'Fiche PDF',text:'Leçon écrite',quiz:'Quiz',audio:'Leçon audio'}[k]||'Leçon';
+  var m=modal('<h2>'+(l.id?'Modifier : ':'Ajouter : ')+title+'</h2><label>Titre</label><input id="t" value="'+E(l.title||'')+'"/>'
+    +(k==='video'||k==='pdf'||k==='audio'?'<label>Fichier '+(k==='pdf'?'PDF':k)+(l.media_url?' (déjà envoyé — choisissez-en un autre pour le remplacer)':'')+'</label><input type="file" id="f" accept="'+(k==='video'?'video/mp4,video/*':k==='pdf'?'application/pdf':'audio/*')+'"/><div class="prog"><i id="fp"></i></div><div class="mut" style="font-size:12.5px;margin-top:6px;">'+(k==='video'?'Conseil : MP4 en 480p ou 720p, pour que les élèves puissent le télécharger facilement.':'')+'</div>':'')
+    +(k==='text'||k==='video'||k==='pdf'||k==='audio'?'<label>'+(k==='text'?'Contenu de la leçon':'Résumé écrit (utile au Prof IA et aux élèves)')+'</label><textarea id="b" style="min-height:'+(k==='text'?'260':'110')+'px">'+E(l.body||'')+'</textarea>':'')
+    +(k==='quiz'?'<div id="aib"></div><div id="qz"></div>':'')
+    +'<label class="check"><input type="checkbox" id="fp2"'+(l.free_preview?' checked':'')+'/> Aperçu gratuit (visible sans abonnement)</label><div class="err" id="err"></div><div class="row" style="justify-content:flex-end;margin-top:12px;"><button class="btn ghost" id="x">Annuler</button><button class="btn" id="ok">Enregistrer</button></div>');
+  var qb=null; if(k==='quiz'){ qb=quizBuilder($('#qz',m), l.quiz, c.level); aiQuizBox($('#aib',m), qb, c.level); }
+  $('#x',m).onclick=m.close;
+  $('#ok',m).onclick=async function(){ var b=this; b.disabled=true; $('#err',m).textContent='';
+    try{ var body={title:$('#t',m).value,kind:k,free_preview:$('#fp2',m).checked};
+      if($('#b',m)) body.body=$('#b',m).value;
+      if(qb) body.quiz=qb.get();
+      var f=$('#f',m)&&$('#f',m).files[0]; if(f){ b.textContent='Envoi du fichier…'; var u=await upload(f,k==='pdf'?'pdf':k,$('#fp',m)); body.media_url=u.url; body.media_size=u.size; body.duration=u.duration; } else if(l.media_url){ body.media_url=l.media_url; body.media_size=l.media_size; body.duration=l.duration; }
+      if(l.id) await api('PUT','/prof/lessons/'+l.id,body); else await api('POST','/prof/courses/'+c.id+'/lessons',body);
+      m.close(); toast('Leçon enregistrée ✅'); courseEdit(c.id); }
+    catch(e){ $('#err',m).textContent=e.message; b.disabled=false; b.textContent='Enregistrer'; } };
+}
+// ── Évaluations ──
+async function vEvals(v){
+  var r=await api('GET','/evals?level='+encodeURIComponent((ME.level||'CM1')));
+  v.innerHTML='<div class="card"><div class="row" style="justify-content:space-between;"><h2 style="margin:0">Évaluations et examens blancs</h2><button class="btn" id="ne">＋ Nouvelle évaluation</button></div><p class="mut">Une évaluation peut être gratuite, payante (l’élève paie à l’examen), ou servir au <b>mérite</b> : une bonne note offre des jours d’accès gratuits (réservé à l’administration).</p><div class="row"><label style="margin:0">Classe</label><select id="lv" style="width:auto;">'+levelOptions(ME.level||'CM1')+'</select></div><div class="list" id="el" style="margin-top:8px;"></div></div>';
+  async function load(){ var x=await api('GET','/evals?level='+$('#lv').value); $('#el').innerHTML=(x.evals||[]).map(function(e){ return '<div><div class="ic">📝</div><div class="grow"><b>'+E(e.title)+'</b><div class="mut" style="font-size:13px;">'+E(lvName(e.level))+' · '+E(sbName(e.subject))+' · '+e.n+' questions · '+(e.price?fcfa(e.price):'gratuite')+(e.merit?' · 🏅 mérite':'')+(e.minutes?' · '+e.minutes+' min':'')+'</div></div></div>'; }).join('')||'<div class="empty">Aucune évaluation pour cette classe.</div>'; }
+  $('#lv').onchange=load; load();
+  $('#ne').onclick=function(){ evalForm({level:$('#lv').value}); };
+}
+function evalForm(e){
+  var m=modal('<h2>Nouvelle évaluation</h2><label>Titre</label><input id="t" placeholder="Ex : Examen blanc CFEE — Mathématiques"/><div class="two"><div><label>Classe</label><select id="l">'+levelOptions(e.level||'CM1')+'</select></div><div><label>Matière</label><select id="s">'+subjOptions(e.subject||'math')+'</select></div></div>'
+    +'<div class="two"><div><label>Type</label><select id="k"><option value="quiz">Quiz</option><option value="examen">Examen blanc</option></select></div><div><label>Durée (minutes, facultatif)</label><input id="mn" type="number" min="1" max="300"/></div></div>'
+    +'<div class="two"><div><label>Note pour réussir (%)</label><input id="ps" type="number" value="50" min="0" max="100"/></div><div><label>Prix</label><select id="pd"><option value="0">Gratuite</option><option value="1">Payante (l’élève paie à l’examen)</option></select></div></div>'
+    +(ME.role==='admin'?'<label class="check"><input type="checkbox" id="mr"/> 🏅 Évaluation du mérite (une bonne note offre l’accès gratuit)</label>':'')
+    +'<div id="aib"></div><div id="qz"></div><div class="err" id="err"></div><div class="row" style="justify-content:flex-end;margin-top:12px;"><button class="btn ghost" id="x">Annuler</button><button class="btn" id="ok">Publier</button></div>');
+  var qb=quizBuilder($('#qz',m), [], e.level); aiQuizBox($('#aib',m), qb, e.level);
+  $('#x',m).onclick=m.close;
+  $('#ok',m).onclick=async function(){ var b=this; b.disabled=true; $('#err',m).textContent='';
+    try{ await api('POST','/prof/evals',{title:$('#t',m).value,course_id:e.course_id||null,level:$('#l',m).value,subject:$('#s',m).value,kind:$('#k',m).value,minutes:$('#mn',m).value||null,pass_score:$('#ps',m).value,paid:$('#pd',m).value==='1',merit:!!($('#mr',m)&&$('#mr',m).checked),questions:qb.get()});
+      m.close(); toast('Évaluation publiée ✅'); if(e.course_id) courseEdit(e.course_id); else show(); }
+    catch(x){ $('#err',m).textContent=x.message; b.disabled=false; } };
+}
+// ── Vidéos IA ──
+async function vIA(v){
+  var r=await api('GET','/ai/jobs'), cs=await api('GET','/prof/courses');
+  var lessons=[], texts=[]; for(var i=0;i<Math.min(cs.courses.length,20);i++){ try{ var d=await api('GET','/courses/'+cs.courses[i].id); d.lessons.forEach(function(l){ var o={id:l.id,title:cs.courses[i].title+' — '+l.title}; if(l.kind==='video') lessons.push(o); if(l.kind==='video'||l.kind==='text') texts.push(o); }); }catch(_){} }
+  var ST={queued:'⏳ En file',running:'⚙️ En cours',done:'✅ Prête',failed:'❌ Échec'};
+  v.innerHTML='<div class="two"><div class="card"><h2>🧑🏾‍🏫 Cours présenté par un avatar</h2><p class="mut">Écrivez le texte du cours et ajoutez une photo du présentateur : l’IA fabrique une vidéo où il parle et explique.</p><label>Photo du présentateur (de face, bien éclairée)</label><input type="file" id="ap" accept="image/*"/><div class="prog"><i id="app"></i></div><label>Texte du cours</label><textarea id="as" placeholder="Bonjour les enfants ! Aujourd’hui, nous allons apprendre…"></textarea><label>Langue</label><select id="al"><option value="fr">Français</option><option value="wo">Wolof</option><option value="en">Anglais</option></select><label>Leçon où ajouter la vidéo (facultatif)</label><select id="alx"><option value="">—</option>'+texts.map(function(l){ return '<option value="'+l.id+'">'+E(l.title)+'</option>'; }).join('')+'</select><button class="btn ai" id="ago" style="margin-top:14px;width:100%;">✨ Fabriquer la vidéo</button></div>'
+    +'<div class="card"><h2>🌍 Doubler une vidéo</h2><p class="mut">Votre vidéo est traduite et redite avec votre voix dans une autre langue, et les lèvres suivent. L’élève choisit sa langue dans l’appli.</p><label>Leçon vidéo</label><select id="dl">'+(lessons.map(function(l){ return '<option value="'+l.id+'">'+E(l.title)+'</option>'; }).join('')||'<option value="">Ajoutez d’abord une leçon vidéo</option>')+'</select><label>Langue du doublage</label><select id="dt"><option value="wo">Wolof</option><option value="en">Anglais</option><option value="fr">Français</option><option value="ar">Arabe</option></select><button class="btn ai" id="dgo" style="margin-top:14px;width:100%;">✨ Doubler la vidéo</button></div></div>'
+    +'<div class="card"><h3>Mes vidéos IA</h3><div class="list">'+((r.jobs||[]).map(function(j){ return '<div><div class="ic">'+(j.kind==='dub'?'🌍':'🧑🏾‍🏫')+'</div><div class="grow"><b>'+(j.kind==='dub'?'Doublage → '+E((j.params||{}).target_lang||''):'Vidéo avatar ('+E((j.params||{}).lang||'fr')+')')+'</b><div class="mut" style="font-size:13px;">'+new Date(j.created_at).toLocaleString('fr-FR')+(j.error?' · '+E(j.error):'')+'</div></div><span>'+(ST[j.status]||j.status)+(j.status==='running'&&j.progress?' '+j.progress+'%':'')+'</span>'+(j.result_url?'<a class="btn ghost sm" href="'+E(j.result_url)+'" target="_blank">Voir</a>':'')+'</div>'; }).join('')||'<div class="empty">Aucune vidéo IA pour le moment.</div>')+'</div><p class="mut" style="font-size:12.5px;">Les vidéos sont fabriquées sur un serveur à carte graphique allumé à la demande : comptez quelques minutes.</p></div>';
+  $('#ago').onclick=async function(){ var b=this; b.disabled=true; try{ var f=$('#ap').files[0]; if(!f) throw new Error('Ajoutez une photo'); var u=await upload(f,'image',$('#app')); await api('POST','/ai/jobs',{kind:'avatar',script:$('#as').value,avatar_url:u.url,lang:$('#al').value,lesson_id:$('#alx').value||null}); toast('Vidéo en préparation ✨'); show(); }catch(e){ toast(e.message); b.disabled=false; } };
+  $('#dgo').onclick=async function(){ var b=this; b.disabled=true; try{ if(!$('#dl').value) throw new Error('Choisissez une leçon vidéo'); await api('POST','/ai/jobs',{kind:'dub',lesson_id:$('#dl').value,target_lang:$('#dt').value}); toast('Doublage en préparation ✨'); show(); }catch(e){ toast(e.message); b.disabled=false; } };
+}
+
+// ═════ Administration ═════
+async function vDash(v){
+  var o=await api('GET','/admin/overview');
+  v.innerHTML='<div class="grid"><div class="kpi"><b>'+o.users.eleves+'</b><span>élèves</span></div><div class="kpi"><b>'+o.users.profs+'</b><span>professeurs</span></div><div class="kpi"><b>'+o.users.actifs+'</b><span>actifs cette semaine</span></div><div class="kpi"><b>'+o.subscribers+'</b><span>accès actifs</span></div><div class="kpi"><b>'+o.courses.published+'</b><span>cours publiés</span></div><div class="kpi"><b>'+fcfa(o.payments.month_fcfa)+'</b><span>encaissés ce mois</span></div></div>'
+    +'<div class="card" style="margin-top:14px;"><h3>À traiter</h3><div class="list"><div><div class="ic">👩🏾‍🏫</div><div class="grow">Professeurs à valider</div><b>'+o.profs_pending+'</b></div><div><div class="ic">✅</div><div class="grow">Cours à valider</div><b>'+o.courses.pending+'</b></div><div><div class="ic">💰</div><div class="grow">Paiements à vérifier</div><b>'+o.payments.to_check+'</b></div><div><div class="ic">🎓</div><div class="grow">Demandes de bourse</div><b>'+o.grants_pending+'</b></div></div></div>';
+}
+async function vProfs(v){
+  var r=await api('GET','/admin/profs?status=pending'), a=await api('GET','/admin/profs?status=approved');
+  v.innerHTML='<div class="card"><h2>Candidatures</h2><div class="list">'+((r.profs||[]).map(function(p){ return '<div><div class="ic">👩🏾‍🏫</div><div class="grow"><b>'+E(p.name)+'</b><div class="mut" style="font-size:13px;">'+E(p.phone)+(p.school?' · '+E(p.school):'')+'</div><div class="chips" style="margin-top:4px;">'+(p.subjects||[]).map(function(s){ return '<span>'+E(sbName(s))+'</span>'; }).join('')+'</div></div><button class="btn sm" data-a="approve" data-id="'+p.id+'">Valider</button><button class="btn red sm" data-a="reject" data-id="'+p.id+'">Refuser</button></div>'; }).join('')||'<div class="empty">Aucune candidature en attente.</div>')+'</div></div>'
+    +'<div class="card"><h3>Professeurs partenaires ('+(a.profs||[]).length+')</h3><div class="list">'+(a.profs||[]).map(function(p){ return '<div><div class="ic">✅</div><div class="grow"><b>'+E(p.name)+'</b><div class="mut" style="font-size:13px;">'+E(p.phone)+(p.school?' · '+E(p.school):'')+'</div></div></div>'; }).join('')+'</div></div>';
+  v.querySelectorAll('[data-a]').forEach(function(b){ b.onclick=async function(){ await api('POST','/admin/profs/'+b.getAttribute('data-id')+'/'+b.getAttribute('data-a'),{}); toast('C’est fait'); render(); }; });
+}
+async function vValid(v){
+  var r=await api('GET','/admin/courses?status=pending');
+  v.innerHTML='<div class="card"><h2>Cours à valider</h2><div class="list">'+((r.courses||[]).map(function(c){ return '<div><div class="ic">📚</div><div class="grow"><b>'+E(c.title)+'</b><div class="mut" style="font-size:13px;">'+E(c.prof_name)+' · '+E(lvName(c.level))+' · '+E(sbName(c.subject))+' · '+c.n_lessons+' leçons</div></div><button class="btn ghost sm" data-v="'+c.id+'">Voir</button><button class="btn sm" data-p="'+c.id+'">Publier</button><button class="btn red sm" data-r="'+c.id+'">À revoir</button></div>'; }).join('')||'<div class="empty">Rien à valider 🎉</div>')+'</div></div>';
+  v.querySelectorAll('[data-p]').forEach(function(b){ b.onclick=async function(){ await api('POST','/admin/courses/'+b.getAttribute('data-p')+'/publish',{}); toast('Cours publié ✅'); render(); }; });
+  v.querySelectorAll('[data-r]').forEach(function(b){ b.onclick=async function(){ var why=await askText('Ce que le professeur doit revoir :','','Renvoyer au professeur'); if(why==null) return; await api('POST','/admin/courses/'+b.getAttribute('data-r')+'/reject',{reason:why}); toast('Renvoyé au professeur'); render(); }; });
+  v.querySelectorAll('[data-v]').forEach(function(b){ b.onclick=async function(){ var d=await api('GET','/courses/'+b.getAttribute('data-v')); modal('<h2>'+E(d.course.title)+'</h2><p class="mut">'+E(d.course.description||'')+'</p>'+d.lessons.map(function(l,i){ return '<div class="q"><b>'+(i+1)+'. '+E(l.title)+'</b> <span class="mut">('+E(l.kind)+')</span>'+(l.kind==='video'&&l.media_url?'<video src="'+E(l.media_url)+'" controls style="width:100%;border-radius:12px;margin-top:8px;"></video>':'')+(l.kind==='pdf'&&l.media_url?'<div><a href="'+E(l.media_url)+'" target="_blank">Ouvrir le PDF</a></div>':'')+(l.body?'<div style="white-space:pre-wrap;margin-top:6px;">'+E(l.body).slice(0,1500)+'</div>':'')+(l.quiz?'<div class="mut">'+l.quiz.length+' questions</div>':'')+'</div>'; }).join('')); }; });
+}
+async function vPay(v){
+  var r=await api('GET','/admin/payments?status=pending');
+  var M={wave:'Wave',om:'Orange Money',play:'Google Play'};
+  v.innerHTML='<div class="card"><h2>Paiements à vérifier</h2><p class="mut">Comparez la référence avec votre relevé Wave / Orange Money, puis confirmez : l’accès de l’élève s’ouvre aussitôt.</p><div class="list">'+((r.payments||[]).map(function(p){ return '<div><div class="ic">'+(p.method==='wave'?'🌊':p.method==='om'?'🟠':'▶️')+'</div><div class="grow"><b>'+E(p.name||'?')+' — '+fcfa(p.amount)+'</b><div class="mut" style="font-size:13px;">'+E(M[p.method]||p.method)+' · '+E((p.meta||{}).label||p.purpose)+' · '+E(p.phone||'')+' · '+new Date(p.created_at).toLocaleString('fr-FR')+'</div><div style="font-size:13px;font-weight:800;">Référence : '+(p.ref?E(p.ref):'<span class="mut">pas encore envoyée</span>')+'</div></div><button class="btn sm" data-c="'+p.id+'"'+(p.ref?'':' disabled')+'>Confirmer</button><button class="btn red sm" data-r="'+p.id+'">Refuser</button></div>'; }).join('')||'<div class="empty">Aucun paiement en attente.</div>')+'</div></div>';
+  v.querySelectorAll('[data-c]').forEach(function(b){ b.onclick=async function(){ await api('POST','/admin/payments/'+b.getAttribute('data-c')+'/confirm',{}); toast('Paiement confirmé, accès ouvert ✅'); render(); }; });
+  v.querySelectorAll('[data-r]').forEach(function(b){ b.onclick=async function(){ if(!(await ask('Refuser ce paiement ?','Refuser',true))) return; await api('POST','/admin/payments/'+b.getAttribute('data-r')+'/reject',{}); toast('Paiement refusé'); render(); }; });
+}
+async function vCodes(v){
+  var r=await api('GET','/admin/codes');
+  v.innerHTML='<div class="card"><h2>Codes d’accès prépayés</h2><p class="mut">Pour les écoles, les parents, les mairies, les ONG ou l’État (subventions) : chaque code ouvre l’accès pendant le nombre de jours choisi.</p><div class="two"><div><label>Nombre de codes</label><input id="n" type="number" value="30" min="1" max="1000"/></div><div><label>Durée de l’accès (jours)</label><input id="d" type="number" value="366" min="1" max="800"/></div></div><div class="two"><div><label>Financé par (sponsor)</label><input id="sp" placeholder="Ex : Mairie de Kaolack"/></div><div><label>École</label><input id="sc" placeholder="Ex : École Médina Baye"/></div></div><button class="btn gold" id="go" style="margin-top:14px;">🎟️ Créer les codes</button><div id="cout"></div></div>'
+    +'<div class="card"><h3>Lots de codes</h3><div class="list">'+((r.batches||[]).map(function(b){ return '<div><div class="ic">🎟️</div><div class="grow"><b>'+b.total+' codes · '+b.days+' jours</b><div class="mut" style="font-size:13px;">'+E(b.sponsor||'—')+(b.school?' · '+E(b.school):'')+' · '+new Date(b.at).toLocaleDateString('fr-FR')+'</div></div><span>'+b.used+' / '+b.total+' utilisés</span><button class="btn ghost sm" data-b="'+E(b.batch)+'">Voir</button></div>'; }).join('')||'<div class="empty">Aucun code créé.</div>')+'</div></div>';
+  function print(codes, info){ var w=window.open('','_blank'); if(!w) return; w.document.write('<html><head><title>Codes Académie</title><style>body{font-family:sans-serif;padding:20px}div{display:inline-block;width:31%;margin:6px 1%;padding:12px;border:2px dashed #00853F;border-radius:12px;text-align:center;font-size:13px}b{display:block;font-size:20px;letter-spacing:2px;font-family:monospace;margin:6px 0;color:#00653A}</style></head><body>'+codes.map(function(c){ return '<div>Académie Numérique du Sénégal<b>'+c+'</b>'+E(info)+'</div>'; }).join('')+'</body></html>'); w.document.close(); w.print(); }
+  $('#go').onclick=async function(){ var b=this; b.disabled=true; try{ var x=await api('POST','/admin/codes',{count:$('#n').value,days:$('#d').value,sponsor:$('#sp').value,school:$('#sc').value}); $('#cout').innerHTML='<p><b>'+x.codes.length+' codes créés</b> — '+x.days+' jours chacun.</p><div class="codes">'+x.codes.join('<br>')+'</div><div class="row" style="margin-top:10px;"><button class="btn ghost sm" id="pr">🖨️ Imprimer les cartes</button><button class="btn ghost sm" id="cp">Copier</button></div>'; $('#pr').onclick=function(){ print(x.codes, x.days+' jours d’accès · '+($('#sp').value||'')); }; $('#cp').onclick=function(){ navigator.clipboard.writeText(x.codes.join('\n')); toast('Codes copiés'); }; }catch(e){ toast(e.message); } b.disabled=false; };
+  v.querySelectorAll('[data-b]').forEach(function(b){ b.onclick=async function(){ var x=await api('GET','/admin/codes/'+encodeURIComponent(b.getAttribute('data-b'))); var m=modal('<h2>Codes du lot</h2><div class="list">'+x.codes.map(function(c){ return '<div><code style="font-size:15px;font-weight:800;">'+c.code+'</code><span class="grow"></span><span class="mut">'+(c.used_at?'utilisé par '+E(c.used_by_name||'?')+' le '+new Date(c.used_at).toLocaleDateString('fr-FR'):'libre')+'</span></div>'; }).join('')+'</div><button class="btn ghost" id="pr" style="margin-top:12px;">🖨️ Imprimer les codes libres</button>'); $('#pr',m).onclick=function(){ print(x.codes.filter(function(c){ return !c.used_at; }).map(function(c){ return c.code; }), x.codes[0]?x.codes[0].days+' jours d’accès':''); }; }; });
+}
+async function vGrants(v){
+  var r=await api('GET','/admin/grants?status=pending');
+  v.innerHTML='<div class="card"><h2>Demandes de bourse</h2><div class="list">'+((r.grants||[]).map(function(g){ return '<div style="align-items:flex-start;"><div class="ic">🎓</div><div class="grow"><b>'+E(g.name)+'</b> <span class="mut">'+E(g.phone||'')+' · '+E(lvName(g.level))+(g.school||g.user_school?' · '+E(g.school||g.user_school):'')+'</span><div style="white-space:pre-wrap;margin-top:6px;">'+E(g.reason)+'</div>'+(g.guardian_phone?'<div class="mut" style="font-size:13px;">Parent : '+E(g.guardian_phone)+'</div>':'')+(g.doc_url?'<a href="'+E(g.doc_url)+'" target="_blank">Justificatif</a>':'')+'</div><div style="display:flex;flex-direction:column;gap:6px;"><select data-d="'+g.id+'" style="width:auto;"><option value="92">3 mois</option><option value="183">6 mois</option><option value="366" selected>1 an</option></select><button class="btn sm" data-a="'+g.id+'">Accorder</button><button class="btn red sm" data-r="'+g.id+'">Refuser</button></div></div>'; }).join('')||'<div class="empty">Aucune demande en attente.</div>')+'</div></div>';
+  v.querySelectorAll('[data-a]').forEach(function(b){ b.onclick=async function(){ var id=b.getAttribute('data-a'); await api('POST','/admin/grants/'+id+'/approve',{days:v.querySelector('[data-d="'+id+'"]').value}); toast('Bourse accordée 🎓'); render(); }; });
+  v.querySelectorAll('[data-r]').forEach(function(b){ b.onclick=async function(){ var n=await askText('Message pour l’élève (facultatif) :','','Refuser la demande'); if(n==null) return; await api('POST','/admin/grants/'+b.getAttribute('data-r')+'/reject',{note:n}); toast('Demande refusée'); render(); }; });
+}
+async function vUsers(v){
+  v.innerHTML='<div class="card"><h2>Utilisateurs</h2><input id="q" placeholder="Rechercher un nom ou un numéro"/><div class="list" id="ul" style="margin-top:8px;"></div></div>';
+  async function load(){ var r=await api('GET','/admin/users?q='+encodeURIComponent($('#q').value)); $('#ul').innerHTML=(r.users||[]).map(function(u){ var act=u.access_until&&new Date(u.access_until)>new Date(); return '<div><div class="ic">'+({admin:'⭐',prof:'👩🏾‍🏫',ecole:'🏫'}[u.role]||'🎒')+'</div><div class="grow"><b>'+E(u.name)+'</b>'+(u.banned?' <span class="badge b-rejected">suspendu</span>':'')+'<div class="mut" style="font-size:13px;">'+E(u.phone)+' · '+E(u.role)+(u.level?' · '+E(lvName(u.level)):'')+' · accès '+(act?'jusqu’au '+new Date(u.access_until).toLocaleDateString('fr-FR'):'inactif')+'</div></div><button class="btn ghost sm" data-g="'+u.id+'">＋ Accès</button><button class="btn ghost sm" data-b="'+u.id+'" data-on="'+(u.banned?1:0)+'">'+(u.banned?'Réactiver':'Suspendre')+'</button></div>'; }).join('')||'<div class="empty">Personne.</div>';
+    $('#ul').querySelectorAll('[data-g]').forEach(function(b){ b.onclick=async function(){ var d=await askText('Nombre de jours d’accès à offrir :','31','Offrir'); if(!d) return; await api('POST','/admin/users/'+b.getAttribute('data-g')+'/access',{days:d}); toast('Accès offert'); load(); }; });
+    $('#ul').querySelectorAll('[data-b]').forEach(function(b){ b.onclick=async function(){ await api('POST','/admin/users/'+b.getAttribute('data-b')+'/'+(b.getAttribute('data-on')==='1'?'unban':'ban'),{}); load(); }; }); }
+  var t=null; $('#q').oninput=function(){ clearTimeout(t); t=setTimeout(load,300); }; load();
+}
+async function vSet(v){
+  var s=(await api('GET','/admin/settings')).settings;
+  var F=[['price_month','Abonnement 1 mois (FCFA)'],['price_quarter','Abonnement 3 mois (FCFA)'],['price_year','Abonnement 1 an (FCFA)'],['price_eval','Prix d’une évaluation payante (FCFA)'],['trial_days','Essai gratuit à l’inscription (jours)'],['merit_score','Note pour le mérite (%)'],['merit_days','Jours offerts au mérite']];
+  v.innerHTML='<div class="card"><h2>Prix et accès</h2><div class="two">'+F.map(function(f){ return '<div><label>'+f[1]+'</label><input type="number" data-k="'+f[0]+'" value="'+E(s[f[0]])+'"/></div>'; }).join('')+'</div>'
+    +'<h2 style="margin-top:20px;">Paiements</h2><label>Lien de paiement Wave (marchand)</label><input data-k="wave_url" value="'+E(s.wave_url||'')+'" placeholder="https://pay.wave.com/m/…"/><div class="two"><div><label>Numéro Orange Money</label><input data-k="om_number" value="'+E(s.om_number||'')+'"/></div><div><label>Nom du compte Orange Money</label><input data-k="om_name" value="'+E(s.om_name||'')+'"/></div></div><label>Numéro d’aide (WhatsApp / Penc)</label><input data-k="support_phone" value="'+E(s.support_phone||'')+'"/>'
+    +'<button class="btn" id="sv" style="margin-top:16px;">Enregistrer</button><p class="mut" style="font-size:12.5px;">Paiement Wave automatique : ajoutez ANS_WAVE_API_KEY (et ANS_WAVE_WEBHOOK_SECRET) dans Render. Prof IA : ANS_AI_KEY.</p></div>';
+  $('#sv').onclick=async function(){ var b={}; v.querySelectorAll('[data-k]').forEach(function(i){ b[i.getAttribute('data-k')]=i.value; }); try{ await api('PUT','/admin/settings',b); CAT=null; toast('Réglages enregistrés ✅'); }catch(e){ toast(e.message); } };
+}
+render();
+})();
+</script>
+</body>
+</html>

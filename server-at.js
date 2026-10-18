@@ -10763,6 +10763,9 @@ app.post('/api/penc/keybackup/mark', pencAuth, async (req, res) => {
 // Paiement : espèces au chauffeur ; la commission s'accumule et se règle avec l'admin.
 // ════════════════════════════════════════════════════════════════════════════
 const YB_SECRET = PENC_SECRET + '::yobouma';
+// ANS : Académie Numérique du Sénégal (module séparé academie.js — tables ans_*, routes /api/ans et /academie)
+try{ require('./academie.js')({ app: app, pg: function(){ return _pgPool || globalThis.__pencPg || null; }, jwt: jwt_penc, bcrypt: bcrypt_penc, secret: PENC_SECRET + '::ans',
+  r2: { presign: r2PresignPut, public: R2_PUBLIC, ready: function(){ return _r2Ready; } } }); }catch(_ansE){ console.error('[ans] module non chargé :', _ansE.message); }
 const YB_ADMINS = String(process.env.YB_ADMINS || '').split(',').map(function(s){ return s.replace(/[^0-9+]/g,'').trim(); }).filter(Boolean);
 const YB_CITY = { name: 'Kaolack', lat: 14.152, lng: -16.073, radius_km: 25 };
 // ybq9 — Dieulsi couvre tout le Sénégal et toute la Gambie. Chaque compte a un pays (imposé à l'inscription),
