@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Académie Numérique du Sénégal</title>
+<meta name="description" content="Apprendre de la CI à la Terminale avec les meilleurs professeurs du Sénégal, un Prof IA et des cours qui marchent même sans connexion."/>
+<meta name="theme-color" content="#00653A"/>
+<meta property="og:title" content="Académie Numérique du Sénégal"/>
+<meta property="og:description" content="De la CI à la Terminale. Cours, quiz, évaluations et Prof IA — même sans connexion."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--g:#00853F;--g2:#00653A;--g3:#E8F5EE;--y:#FDEF42;--gold:#E9B200;--r:#E31B23;--ink:#10231A;--mut:#5D7266;--line:#DCE6E0;--bg:#F5F8F6;--card:#fff;--sh:0 6px 24px rgba(0,60,30,.08);--ai1:#0B4FD1;--ai2:#7C3AED;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--g3:#0F2A1D;--ink:#ECF5EF;--mut:#9DB5A7;--line:#22372B;--bg:#0B1510;--card:#122019;--sh:0 6px 24px rgba(0,0,0,.35);}}
+*{box-sizing:border-box;}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.5;}
+a{color:var(--g);}
+button{font-family:inherit;}
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));background:linear-gradient(135deg,#00853F,#00653A);color:#fff;box-shadow:0 4px 18px rgba(0,60,30,.22);}
+.logo{width:38px;height:38px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer;}
+.top .nm{cursor:pointer;line-height:1.15;}
+.top .nm b{display:block;font-size:15px;}
+.top .nm small{font-size:11.5px;opacity:.85;font-weight:600;}
+.top .sp{flex:1;}
+.top button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);color:#fff;border-radius:20px;padding:8px 14px;font-weight:800;cursor:pointer;font-size:13.5px;}
+.top button.w{background:#fff;color:var(--g2);border-color:#fff;}
+#tb{display:flex;gap:6px;flex:none;}
+.top button{white-space:nowrap;}
+@media (max-width:440px){.top .nm b{font-size:14px;}.top .nm small{display:none;}.top button{padding:7px 11px;font-size:12.5px;}}
+@media (max-width:350px){#tb .c{display:none;}}
+.flag{height:4px;background:linear-gradient(90deg,#00853F 0 33.3%,#FDEF42 33.3% 66.6%,#E31B23 66.6%);}
+.wrap{max-width:1040px;margin:0 auto;padding:16px 16px 90px;}
+.hero{background:radial-gradient(120% 90% at 20% 0%,#00A04D 0%,#00853F 40%,#00562F 100%);color:#fff;border-radius:28px;padding:34px 24px;margin:6px 0 18px;position:relative;overflow:hidden;box-shadow:0 18px 40px rgba(0,60,30,.25);}
+.hero:after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:rgba(253,239,66,.12);}
+.hero h1{font-size:clamp(26px,5.4vw,42px);line-height:1.12;margin:0 0 10px;max-width:640px;position:relative;}
+.hero p{font-size:16.5px;opacity:.92;margin:0 0 20px;max-width:560px;position:relative;}
+.hero .row{position:relative;}
+.btn{border:none;border-radius:16px;padding:13px 20px;font-weight:800;font-size:15px;cursor:pointer;background:var(--g);color:#fff;box-shadow:0 6px 16px rgba(0,133,63,.25);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;}
+.btn:disabled{opacity:.5;}
+.btn.white{background:#fff;color:var(--g2);box-shadow:0 8px 22px rgba(0,0,0,.18);}
+.btn.glass{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);box-shadow:none;}
+.btn.ghost{background:var(--g3);color:var(--g2);box-shadow:none;}
+.btn.gold{background:var(--gold);color:#2A2000;box-shadow:0 6px 16px rgba(233,178,0,.25);}
+.btn.ai{background:linear-gradient(135deg,var(--ai1),var(--ai2));box-shadow:0 6px 18px rgba(76,29,149,.3);}
+.btn.sm{padding:8px 13px;font-size:13.5px;border-radius:12px;}
+.btn.full{width:100%;}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.card{background:var(--card);border-radius:22px;box-shadow:var(--sh);padding:18px;margin-bottom:14px;}
+h2{font-size:21px;margin:22px 4px 12px;}
+h3{font-size:17px;margin:0 0 6px;}
+.mut{color:var(--mut);}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;position:relative;}
+.stats div b{display:block;font-size:24px;}
+.stats div span{font-size:13px;opacity:.85;font-weight:700;}
+.feat{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
+.feat .card{margin:0;}
+.feat .ic{font-size:30px;}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+.tile{background:var(--card);border-radius:20px;box-shadow:var(--sh);padding:16px;cursor:pointer;transition:transform .12s;}
+.tile:active{transform:scale(.97);}
+.tile .ic{font-size:30px;}
+.tile b{display:block;margin-top:6px;}
+.tile span{font-size:12.5px;font-weight:700;color:var(--g);}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:none;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex:none;border:none;border-radius:18px;padding:8px 14px;font-weight:800;font-size:13.5px;background:var(--g3);color:var(--g2);cursor:pointer;}
+.chip.on{background:var(--g);color:#fff;}
+.lvlh{font-size:12px;font-weight:800;color:var(--mut);margin:6px 4px 4px;text-transform:uppercase;letter-spacing:.4px;}
+.list > div{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+.list > div:last-child{border-bottom:none;}
+.grow{flex:1;min-width:0;}
+.sq{width:48px;height:48px;border-radius:14px;background:var(--g3);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none;}
+.sq.done{background:var(--g);color:#fff;font-weight:900;}
+.lock{font-size:16px;}
+.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11.5px;font-weight:800;background:var(--g3);color:var(--g2);}
+.back{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--g2);font-weight:800;font-size:14.5px;cursor:pointer;padding:6px 2px;margin-bottom:6px;}
+.player{border-radius:18px;overflow:hidden;background:#000;}
+.player video{width:100%;display:block;max-height:70vh;}
+.txt{white-space:pre-wrap;font-size:16.5px;line-height:1.7;}
+.cta{background:linear-gradient(135deg,#FFF8DC,#FFF1B8);border-radius:22px;padding:18px;margin:14px 0;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cta{background:linear-gradient(135deg,#2B2508,#3A300A);}}
+label{display:block;font-size:13px;font-weight:800;color:var(--mut);margin:12px 0 6px;}
+input,select,textarea{width:100%;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;font-size:16px;background:var(--card);color:var(--ink);font-family:inherit;outline:none;}
+input:focus,textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(0,133,63,.15);}
+textarea{min-height:110px;resize:vertical;}
+.err{color:var(--r);font-weight:700;font-size:13.5px;min-height:18px;margin-top:8px;}
+.seg{display:flex;background:var(--g3);border-radius:14px;padding:4px;}
+.seg button{flex:1;border:none;background:none;padding:10px;border-radius:11px;font-weight:800;color:var(--g2);cursor:pointer;}
+.seg button.on{background:var(--card);box-shadow:var(--sh);}
+.choice{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:14px 16px;font-size:16px;margin:8px 0;cursor:pointer;font-weight:600;}
+.choice.on{background:var(--g);border-color:var(--g);color:#fff;}
+.bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden;}
+.bar i{display:block;height:100%;background:var(--g);border-radius:4px;}
+.chat{display:flex;flex-direction:column;gap:8px;min-height:50vh;}
+.bub{max-width:85%;padding:11px 14px;border-radius:18px;white-space:pre-wrap;font-size:15.5px;box-shadow:var(--sh);}
+.bub.me{align-self:flex-end;background:linear-gradient(135deg,#00853F,#00653A);color:#fff;}
+.bub.ai{align-self:flex-start;background:var(--card);}
+.composer{position:sticky;bottom:0;display:flex;gap:8px;padding:10px 0 calc(10px + env(safe-area-inset-bottom));background:var(--bg);}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--card);box-shadow:0 -6px 20px rgba(0,0,0,.08);padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+.nav button{flex:1;border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11.5px;font-weight:700;color:var(--mut);cursor:pointer;padding:4px 0;}
+.nav button i{font-style:normal;font-size:21px;padding:1px 14px;border-radius:14px;}
+.nav button.on{color:var(--g2);}
+.nav button.on i{background:var(--g3);}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);opacity:0;background:#10231A;color:#fff;padding:12px 18px;border-radius:14px;font-weight:700;transition:.25s;z-index:99;max-width:90vw;}
+.toast.on{opacity:1;transform:translateX(-50%);}
+.foot{text-align:center;color:var(--mut);font-size:13px;margin:30px 0 10px;}
+.empty{text-align:center;color:var(--mut);padding:30px 12px;}
+.plan{display:flex;align-items:center;gap:12px;border:2px solid var(--line);border-radius:18px;padding:14px 16px;margin:8px 0;cursor:pointer;background:var(--card);}
+.plan.on{border-color:var(--g);background:var(--g3);}
+.pay{display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:var(--card);box-shadow:var(--sh);margin:8px 0;cursor:pointer;}
+.pay .sq{background:var(--g3);}
+</style>
+</head>
+<body>
+<div class="top"><div class="logo" onclick="go('#/')"><svg width="24" height="24" viewBox="0 0 48 48"><path d="M6 14l18-8 18 8-18 8z" fill="#00853F"/><path d="M12 18v10c0 3 5.4 6 12 6s12-3 12-6V18l-12 5z" fill="#00653A"/><path d="M40 16v13" stroke="#E9B200" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="31" r="3" fill="#E9B200"/><path d="m24 37 1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#E31B23"/></svg></div>
+<div class="nm" onclick="go('#/')"><b>Académie Numérique</b><small>du Sénégal</small></div><div class="sp"></div><div id="tb"></div></div>
+<div class="flag"></div>
+<div class="wrap" id="app"></div>
+<div class="nav" id="nav" style="display:none"></div>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+var API='/api/ans', T=null, ME=null, ACC=null, CAT=null;
+try{ T=localStorage.getItem('ans_eleve_tok'); }catch(_){}
+var $=function(s,r){ return (r||document).querySelector(s); };
+function E(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function toast(t){ var x=$('#toast'); x.textContent=t; x.classList.add('on'); clearTimeout(x._t); x._t=setTimeout(function(){ x.classList.remove('on'); },3400); }
+async function api(m,u,b){ var r=await fetch(API+u,{method:m,headers:Object.assign({'Content-Type':'application/json'},T?{Authorization:'Bearer '+T}:{}),body:b?JSON.stringify(b):undefined}); var j={}; try{ j=await r.json(); }catch(_){} if(r.status===401 && T){ logout(true); } if(!r.ok){ var e=new Error(j.error||('Erreur '+r.status)); e.code=r.status; throw e; } return j; }
+window.go=function(h){ if(location.hash===h) route(); else location.hash=h; };
+function logout(silent){ T=null; ME=null; ACC=null; try{ localStorage.removeItem('ans_eleve_tok'); }catch(_){} if(!silent) go('#/'); }
+function lv(c){ return (CAT&&CAT.levels||[]).find(function(x){ return x.code===c; }); }
+function lvName(c){ var l=lv(c); return l?l.name:(c||''); }
+function sb(c){ return (CAT&&CAT.subjects||[]).find(function(x){ return x.code===c; })||{icon:'📘',name:c}; }
+function subjFor(level){ var l=lv(level); if(!l) return CAT.subjects; return CAT.subjects.filter(function(s){ return (s.cycles||[]).indexOf(l.cycle)>=0; }); }
+function fcfa(n){ return Number(n||0).toLocaleString('fr-FR')+' FCFA'; }
+function frDate(s){ try{ return new Date(s).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}); }catch(_){ return ''; } }
+var KIND={video:'🎬',pdf:'📄',text:'📝',quiz:'❓',audio:'🎧'}, KL={video:'Vidéo',pdf:'Fiche PDF',text:'Leçon écrite',quiz:'Quiz',audio:'Audio'};
+var LANG={fr:'Français',wo:'Wolof',en:'Anglais',ar:'Arabe',avatar_fr:'Avatar (français)',avatar_wo:'Avatar (wolof)',avatar_en:'Avatar (anglais)'};
+function view(h){ $('#app').innerHTML=h; window.scrollTo(0,0); }
+function topbar(){ $('#tb').innerHTML=T?'<button onclick="go(\'#/compte\')">👤 '+E((ME&&ME.name||'Moi').split(' ')[0])+'</button>':'<button class="c" onclick="go(\'#/connexion\')">Se connecter</button><button class="w" onclick="go(\'#/inscription\')">S’inscrire</button>';
+  var n=$('#nav'); if(!T){ n.style.display='none'; return; } n.style.display='flex';
+  var cur=(location.hash||'#/').split('/')[1]||'';
+  n.innerHTML=[['','🏠','Accueil'],['evals','📝','Évaluations'],['ia','✨','Prof IA'],['acces','💳','Mon accès'],['compte','👤','Moi']].map(function(t){ return '<button class="'+(cur===t[0]?'on':'')+'" onclick="go(\'#/'+t[0]+'\')"><i>'+t[1]+'</i>'+t[2]+'</button>'; }).join(''); }
+function levelPicker(sel, href){ var g=[['elementaire','Élémentaire'],['moyen','Moyen (collège)'],['secondaire','Secondaire (lycée)']];
+  return g.map(function(x){ return '<div class="lvlh">'+x[1]+'</div><div class="chips">'+CAT.levels.filter(function(l){ return l.cycle===x[0]; }).map(function(l){ return '<button class="chip'+(l.code===sel?' on':'')+'" onclick="'+href.replace('%L',l.code)+'">'+E(l.name)+'</button>'; }).join('')+'</div>'; }).join(''); }
+
+// ═════ Accueil ═════
+async function home(){
+  if(T){ return homeEleve(); }
+  var st={}; try{ st=await api('GET','/public/stats'); }catch(_){}
+  var recent=[]; try{ recent=(await api('GET','/public/courses?limit=8')).courses; }catch(_){}
+  view('<div class="hero"><h1>Apprends de la CI à la Terminale, même sans connexion.</h1><p>Des cours de vrais professeurs sénégalais, des quiz, des examens blancs et un Prof IA qui t’explique pas à pas — en français ou en wolof.</p>'
+    +'<div class="row"><button class="btn white" onclick="go(\'#/inscription\')">Commencer — 7 jours offerts</button><button class="btn glass" onclick="document.getElementById(\'explore\').scrollIntoView({behavior:\'smooth\'})">Voir les cours</button></div>'
+    +'<div class="stats"><div><b>'+(st.courses||0)+'</b><span>cours</span></div><div><b>'+(st.lessons||0)+'</b><span>leçons</span></div><div><b>'+(st.profs||0)+'</b><span>professeurs partenaires</span></div><div><b>13</b><span>classes, de la CI au Bac</span></div></div></div>'
+    +'<div class="feat"><div class="card"><div class="ic">👩🏾‍🏫</div><h3>Les cours des profs</h3><div class="mut">Vidéos, fiches, leçons écrites et quiz préparés par des professeurs partenaires, validés par l’Académie.</div></div>'
+    +'<div class="card"><div class="ic">📥</div><h3>Même sans internet</h3><div class="mut">Dans l’appli, télécharge un cours une fois et étudie partout : à la maison, au village, dans le car.</div></div>'
+    +'<div class="card"><div class="ic">✨</div><h3>Le Prof IA</h3><div class="mut">Une question, un exercice difficile ? Il explique avec des exemples de chez nous, sans donner la réponse toute faite.</div></div>'
+    +'<div class="card"><div class="ic">🏅</div><h3>Le mérite récompensé</h3><div class="mut">Réussis une évaluation du mérite et gagne ton accès gratuit. Les bourses aident ceux qui ne peuvent pas payer.</div></div></div>'
+    +'<h2 id="explore">Explorer les cours</h2><div class="card">'+levelPicker('', "go('#/classe/%L')")+'</div>'
+    +(recent.length?'<h2>Nouveaux cours</h2><div class="card list">'+recent.map(courseRow).join('')+'</div>':'')
+    +'<div class="cta"><h3>💳 Un accès pour toutes les familles</h3><div class="mut" style="color:inherit;opacity:.85">Abonnement à partir de '+fcfa((CAT.prices||{}).month)+' par mois avec Wave ou Orange Money, codes offerts par ton école ou ta mairie, bourses, et accès gratuit au mérite.</div><div class="row" style="margin-top:12px;"><button class="btn gold" onclick="go(\'#/inscription\')">Créer mon compte</button></div></div>'
+    +'<div class="foot">Professeur ? <a href="/academie/prof">Devenir professeur partenaire</a> · L’appli Android arrive sur Google Play<br/>© Académie Numérique du Sénégal — PST Pure Smart Telecom</div>');
+}
+function courseRow(c){ return '<div onclick="go(\'#/cours/'+c.id+'\')"><div class="sq">'+E(sb(c.subject).icon)+'</div><div class="grow"><b>'+E(c.title)+'</b><div class="mut" style="font-size:13px;">'+E(lvName(c.level))+(c.serie?' · '+E(c.serie):'')+' · '+E(sb(c.subject).name)+' · '+(c.n_lessons||0)+' leçon'+((c.n_lessons||0)>1?'s':'')+(c.free?' · <span class="badge">gratuit</span>':(c.n_free?' · <span class="badge">aperçu gratuit</span>':''))+'</div></div><span style="color:var(--g);font-size:22px;font-weight:800;">›</span></div>'; }
+async function homeEleve(){
+  var u=ME||{}; var a=ACC||{};
+  var first=(u.name||'').split(' ')[0];
+  var subs=subjFor(u.level), counts=CAT.counts||{};
+  var prog=[]; try{ prog=(await api('GET','/my/progress')).courses||[]; }catch(_){}
+  view('<div class="hero" style="padding:24px 22px;"><h1 style="font-size:26px;">Bonjour '+E(first)+' 👋</h1><p style="margin:0">'+E(lvName(u.level))+(u.serie?' · série '+E(u.serie):'')+' — qu’apprend-on aujourd’hui ?</p></div>'
+    +'<div class="card row" style="justify-content:space-between;"><div><b>'+(a.active?(a.source==='essai'?'✅ Essai gratuit':'✅ Accès complet'):'🔒 Accès limité')+'</b><div class="mut" style="font-size:13px;">'+(a.active?'jusqu’au '+frDate(a.until):'Abonnement, code d’école, bourse ou mérite')+'</div></div>'+(!a.active||a.source==='essai'?'<button class="btn gold sm" onclick="go(\'#/acces\')">'+(a.active?'Prolonger':'Débloquer')+'</button>':'')+'</div>'
+    +(prog.length?'<h2>Je continue</h2><div class="card list">'+prog.slice(0,4).map(function(p){ var pct=p.total?Math.round(100*p.done/p.total):0; return '<div onclick="go(\'#/cours/'+p.id+'\')"><div class="sq">'+E(sb(p.subject).icon)+'</div><div class="grow"><b>'+E(p.title)+'</b><div class="bar" style="margin-top:6px;"><i style="width:'+pct+'%"></i></div></div><span class="mut" style="font-size:13px;font-weight:800;">'+pct+' %</span></div>'; }).join('')+'</div>':'')
+    +'<h2>Mes matières</h2><div class="grid">'+subs.map(function(s){ var n=counts[u.level+':'+s.code]||0; return '<div class="tile" onclick="go(\'#/matiere/'+u.level+'/'+s.code+'\')"><div class="ic">'+E(s.icon)+'</div><b>'+E(s.name)+'</b><span style="color:'+(n?'var(--g)':'var(--mut)')+'">'+(n?n+' cours':'Bientôt')+'</span></div>'; }).join('')+'</div>'
+    +'<div class="card" style="margin-top:14px;background:linear-gradient(135deg,var(--ai1),var(--ai2));color:#fff;cursor:pointer;" onclick="go(\'#/ia\')"><h3>✨ Prof IA</h3><div style="opacity:.92">Une question sur un cours, un exercice difficile ? Le Prof IA t’explique pas à pas.</div></div>'
+    +'<h2>Toutes les classes</h2><div class="card">'+levelPicker(u.level, "go('#/classe/%L')")+'</div>');
+}
+function classe(L){
+  var subs=subjFor(L), counts=CAT.counts||{};
+  view('<button class="back" onclick="history.back()">‹ Retour</button><h2 style="margin-top:0">'+E(lvName(L))+'</h2><div class="grid">'+subs.map(function(s){ var n=counts[L+':'+s.code]||0; return '<div class="tile" onclick="go(\'#/matiere/'+L+'/'+s.code+'\')"><div class="ic">'+E(s.icon)+'</div><b>'+E(s.name)+'</b><span style="color:'+(n?'var(--g)':'var(--mut)')+'">'+(n?n+' cours':'Bientôt')+'</span></div>'; }).join('')+'</div>');
+}
+async function matiere(L, S){
+  var s=sb(S);
+  view('<button class="back" onclick="history.back()">‹ Retour</button><h2 style="margin-top:0">'+E(s.icon+' '+s.name)+' <span class="mut" style="font-size:15px;">· '+E(lvName(L))+'</span></h2><div class="card list" id="cl"><div class="empty">Chargement…</div></div>');
+  try{ var r=await api('GET',(T?'/courses':'/public/courses')+'?level='+L+'&subject='+S); $('#cl').innerHTML=r.courses.map(courseRow).join('')||'<div class="empty">🌱 Nos professeurs préparent les cours de cette matière. Reviens bientôt !</div>'; }
+  catch(e){ $('#cl').innerHTML='<div class="empty">'+E(e.message)+'</div>'; }
+}
+var CUR=null;
+async function cours(id){
+  view('<div class="empty">Chargement…</div>');
+  var r; try{ r=await api('GET',(T?'/courses/':'/public/courses/')+id); }catch(e){ view('<div class="empty">'+E(e.message)+'</div>'); return; }
+  CUR=r; var c=r.course, ls=r.lessons||[];
+  var done=ls.filter(function(l){ return l.progress&&l.progress.done; }).length;
+  view('<button class="back" onclick="history.back()">‹ Retour</button><div class="card"><div class="row"><div class="sq" style="width:56px;height:56px;font-size:26px;">'+E(sb(c.subject).icon)+'</div><div class="grow"><h2 style="margin:0">'+E(c.title)+'</h2><div class="mut">'+E(lvName(c.level))+' · '+E(sb(c.subject).name)+' · 👩🏾‍🏫 '+E(c.prof_name||'Professeur')+(c.prof_school?' · '+E(c.prof_school):'')+'</div></div></div>'
+    +(c.description?'<p>'+E(c.description)+'</p>':'')+(T?'<div class="mut" style="font-size:13px;font-weight:800;margin-top:6px;">'+done+' / '+ls.length+' leçons terminées</div><div class="bar" style="margin-top:6px;"><i style="width:'+(ls.length?Math.round(100*done/ls.length):0)+'%"></i></div>':'')+'</div>'
+    +(!T?'<div class="cta"><b>📱 Pour suivre tout le cours</b><div style="opacity:.85">Crée ton compte gratuitement : 7 jours d’accès complet offerts.</div><div class="row" style="margin-top:10px;"><button class="btn gold sm" onclick="go(\'#/inscription\')">Créer mon compte</button><button class="btn ghost sm" onclick="go(\'#/connexion\')">J’ai déjà un compte</button></div></div>':'')
+    +'<h2>Leçons</h2><div class="card list">'+ls.map(function(l,i){ var ok=l.progress&&l.progress.done; return '<div onclick="'+(l.locked?(T?'go(\'#/acces\')':'go(\'#/inscription\')'):'go(\'#/lecon/'+c.id+'/'+l.id+'\')')+'"><div class="sq'+(ok?' done':'')+'">'+(ok?'✓':(KIND[l.kind]||'📘'))+'</div><div class="grow"><b>'+(i+1)+'. '+E(l.title)+'</b><div class="mut" style="font-size:13px;">'+(KL[l.kind]||'')+(l.duration?' · '+Math.ceil(l.duration/60)+' min':'')+(l.free_preview&&!c.free?' · <span class="badge">aperçu gratuit</span>':'')+(l.versions&&Object.keys(l.versions).length?' · 🌍 '+Object.keys(l.versions).map(function(k){ return LANG[k]||k; }).join(', '):'')+'</div></div><span class="lock">'+(l.locked?'🔒':'<span style="color:var(--g);font-size:22px;font-weight:800;">›</span>')+'</span></div>'; }).join('')+'</div>'
+    +((r.evals||[]).length?'<h2>Évaluations</h2><div class="card list">'+r.evals.map(function(e){ return '<div onclick="go(\'#/eval/'+e.id+'\')"><div class="sq">'+(e.merit?'🏅':'📝')+'</div><div class="grow"><b>'+E(e.title)+'</b><div class="mut" style="font-size:13px;">'+e.n+' questions · '+(e.price?fcfa(e.price):'gratuite')+'</div></div><span style="color:var(--g);font-size:22px;font-weight:800;">›</span></div>'; }).join('')+'</div>':''));
+}
+async function lecon(cid, lid){
+  if(!CUR || CUR.course.id!==cid){ try{ CUR=await api('GET',(T?'/courses/':'/public/courses/')+cid); }catch(e){ view('<div class="empty">'+E(e.message)+'</div>'); return; } }
+  var l=(CUR.lessons||[]).find(function(x){ return x.id===lid; }); if(!l){ view('<div class="empty">Leçon introuvable</div>'); return; }
+  if(l.locked){ go(T?'#/acces':'#/inscription'); return; }
+  var t0=Date.now(), body='';
+  var vers=Object.keys(l.versions||{});
+  if(l.kind==='video') body='<div class="player"><video id="vid" src="'+E(l.media_url)+'" controls playsinline controlsList="nodownload"></video></div>'+(vers.length?'<div class="chips" style="margin-top:10px;"><button class="chip on" data-v="">Version originale</button>'+vers.map(function(k){ return '<button class="chip" data-v="'+E(k)+'">🌍 '+E(LANG[k]||k)+'</button>'; }).join('')+'</div>':'');
+  else if(l.kind==='audio') body='<div class="card"><div style="font-size:48px;text-align:center;">🎧</div><audio src="'+E(l.media_url)+'" controls style="width:100%"></audio></div>';
+  else if(l.kind==='pdf') body='<div class="card"><div class="row"><div style="font-size:40px;">📄</div><div class="grow"><b>Fiche PDF</b><div class="mut">Ouvre la fiche pour la lire ou l’imprimer.</div></div><a class="btn" href="'+E(l.media_url)+'" target="_blank" rel="noopener">Ouvrir la fiche</a></div></div><iframe src="'+E(l.media_url)+'" style="width:100%;height:70vh;border:none;border-radius:18px;background:#fff;"></iframe>';
+  else if(l.kind==='quiz') body='<div id="qz"></div>';
+  if(l.body && l.kind!=='quiz') body+='<div class="card"><div class="txt">'+E(l.body)+'</div></div>';
+  view('<button class="back" onclick="go(\'#/cours/'+cid+'\')">‹ '+E(CUR.course.title)+'</button><h2 style="margin-top:0">'+E(l.title)+'</h2>'+body
+    +'<div class="row" style="margin-top:14px;">'+(T&&l.kind!=='quiz'?'<button class="btn" id="fin">✓ J’ai terminé</button>':'')+'<button class="btn ai" onclick="go(\'#/ia/'+lid+'\')">✨ Demander au Prof IA</button></div>'
+    +(!T?'<div class="cta"><b>Tu aimes ce cours ?</b><div style="opacity:.85">Crée ton compte pour suivre toutes les leçons, faire les quiz et garder ta progression.</div><div class="row" style="margin-top:10px;"><button class="btn gold sm" onclick="go(\'#/inscription\')">Créer mon compte</button></div></div>':''));
+  document.querySelectorAll('[data-v]').forEach(function(b){ b.onclick=function(){ var v=$('#vid'); var t=v.currentTime; v.src=b.getAttribute('data-v')?l.versions[b.getAttribute('data-v')]:l.media_url; v.currentTime=t; v.play(); document.querySelectorAll('[data-v]').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
+  function mark(score){ if(!T) return; api('POST','/progress',{lesson_id:lid,done:true,score:score,seconds:Math.round((Date.now()-t0)/1000)}).then(function(){ var x=(CUR.lessons||[]).find(function(y){ return y.id===lid; }); if(x) x.progress={done:true,score:score}; }).catch(function(){}); }
+  if($('#fin')) $('#fin').onclick=function(){ mark(null); toast('Bravo, leçon terminée 🎉'); go('#/cours/'+cid); };
+  var v=$('#vid'); if(v) v.addEventListener('ended',function(){ mark(null); toast('Leçon terminée ✅'); });
+  if(l.kind==='quiz') runQuiz($('#qz'), l.quiz||[], null, function(score){ mark(score); });
+}
+// ── quiz (leçon : corrigé ici ; évaluation : corrigée par le serveur) ──
+function runQuiz(host, qs, evalId, onDone, minutes){
+  var i=0, ans={}, end=minutes?Date.now()+minutes*60000:0, tm=null;
+  function draw(){
+    var q=qs[i]; if(!q){ host.innerHTML='<div class="empty">Pas de question.</div>'; return; }
+    var k=String(q.i!=null?q.i:i), t=q.type||'qcm';
+    host.innerHTML='<div class="mut" style="font-weight:800;">Question '+(i+1)+' sur '+qs.length+(end?' · <span id="tm"></span>':'')+'</div><div class="bar" style="margin:8px 0 12px;"><i style="width:'+Math.round(100*(i+1)/qs.length)+'%"></i></div>'
+      +'<div class="card"><div style="font-size:18px;font-weight:800;">'+E(q.q)+'</div></div>'
+      +(t==='qcm'||t==='vf'?(q.choices||[]).map(function(c,j){ return '<button class="choice'+(ans[k]===j?' on':'')+'" data-j="'+j+'">'+E(c)+'</button>'; }).join(''):'<textarea id="ta" placeholder="'+(t==='long'?'Écris ta réponse (corrigée par le Prof IA)':'Ta réponse')+'">'+E(ans[k]||'')+'</textarea>')
+      +'<div class="row" style="margin-top:14px;">'+(i>0?'<button class="btn ghost" id="pv">‹ Précédente</button>':'')+'<button class="btn" id="nx">'+(i===qs.length-1?'Terminer ✓':'Suivante ›')+'</button></div>';
+    host.querySelectorAll('[data-j]').forEach(function(b){ b.onclick=function(){ ans[k]=+b.getAttribute('data-j'); draw(); }; });
+    var ta=$('#ta',host); if(ta) ta.oninput=function(){ ans[k]=ta.value; };
+    if($('#pv',host)) $('#pv',host).onclick=function(){ i--; draw(); };
+    $('#nx',host).onclick=function(){ if(i<qs.length-1){ i++; draw(); } else finish(); };
+  }
+  function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9/ ]+/g,' ').replace(/\s+/g,' ').trim(); }
+  async function finish(){
+    clearInterval(tm);
+    var res;
+    if(!evalId){ var ok=0, det=qs.map(function(q,j){ var k=String(j), t=q.type||'qcm'; var g=(t==='qcm'||t==='vf')?ans[k]===q.answer:norm(ans[k])===norm(q.answer); if(g) ok++; return {i:j,ok:g,answer:q.answer,explain:q.explain}; }); res={score:qs.length?Math.round(100*ok/qs.length):0, detail:det}; }
+    else { host.innerHTML='<div class="empty">Correction…</div>'; try{ res=await api('POST','/evals/'+evalId+'/submit',{answers:ans,client_id:'web_'+Date.now()}); }catch(e){ if(e.code===402){ go('#/acces'); return; } host.innerHTML='<div class="empty">'+E(e.message)+'</div>'; return; } }
+    onDone && onDone(res.score);
+    var s=res.score;
+    host.innerHTML='<div class="card" style="text-align:center;"><div style="font-size:52px;">'+(s>=80?'🏆':s>=50?'👍':'💪')+'</div><div style="font-size:40px;font-weight:800;color:'+(s>=50?'var(--g)':'var(--r)')+'">'+s+' %</div><div style="font-weight:800;">'+(s>=80?'Excellent travail !':s>=50?'C’est réussi, continue comme ça !':'Pas encore… relis la leçon et réessaie, tu vas y arriver.')+'</div>'+(res.merit?'<div style="color:var(--gold);font-weight:800;margin-top:8px;">🏅 Mérite : '+res.merit.days+' jours d’accès gratuit offerts !</div>':'')+'</div>'
+      +(res.detail||[]).map(function(d){ var q=qs[d.i]||{}; var a=d.answer; return '<div class="card"><b>'+(d.ok?'✅ ':'❌ ')+E(q.q)+'</b>'+(typeof a==='number'&&q.choices?'<div style="color:var(--g2)">Bonne réponse : '+E(q.choices[a])+'</div>':(a?'<div style="color:var(--g2)">Corrigé : '+E(a)+'</div>':''))+(d.feedback?'<div style="color:var(--ai2)">✨ '+E(d.feedback)+'</div>':'')+(d.explain?'<div class="mut">'+E(d.explain)+'</div>':'')+'</div>'; }).join('')
+      +'<div class="row"><button class="btn ghost" id="again">Recommencer</button><button class="btn ai" onclick="go(\'#/ia\')">✨ Comprendre mes erreurs</button></div>';
+    if(ME){ if(res.merit) refreshMe(); }
+    $('#again',host).onclick=function(){ i=0; ans={}; if(minutes) end=Date.now()+minutes*60000; draw(); timer(); };
+  }
+  function timer(){ if(!end) return; clearInterval(tm); tm=setInterval(function(){ var left=Math.round((end-Date.now())/1000); var x=$('#tm',host); if(left<=0){ clearInterval(tm); finish(); return; } if(x) x.textContent='⏱ '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0'); },1000); }
+  draw(); timer();
+}
+async function evals(){
+  if(!T) return go('#/connexion');
+  view('<h2 style="margin-top:4px">📝 Évaluations</h2><div class="cta"><b>🏅 Accès au mérite</b><div style="opacity:.85">Réussis une évaluation du mérite avec au moins '+((CAT.merit||{}).score||80)+' % et gagne '+((CAT.merit||{}).days||30)+' jours d’accès gratuit.</div></div><div class="card list" id="el"><div class="empty">Chargement…</div></div>');
+  try{ var r=await api('GET','/evals?level='+(ME.level||'')); $('#el').innerHTML=r.evals.map(function(e){ return '<div onclick="go(\'#/eval/'+e.id+'\')"><div class="sq">'+(e.merit?'🏅':e.kind==='examen'?'🎯':'📝')+'</div><div class="grow"><b>'+E(e.title)+'</b><div class="mut" style="font-size:13px;">'+e.n+' questions'+(e.minutes?' · '+e.minutes+' min':'')+' · '+(e.price?fcfa(e.price):'gratuite')+(e.best!=null?' · meilleure note '+e.best+' %':'')+'</div></div><span class="lock">'+(e.unlocked?'<span style="color:var(--g);font-size:22px;font-weight:800;">›</span>':'🔒')+'</span></div>'; }).join('')||'<div class="empty">Pas encore d’évaluation pour ta classe.</div>'; }catch(e){ $('#el').innerHTML='<div class="empty">'+E(e.message)+'</div>'; }
+}
+async function evalPage(id){
+  if(!T) return go('#/connexion');
+  var r; try{ r=await api('GET','/evals/'+id); }catch(e){ view('<div class="empty">'+E(e.message)+'</div>'); return; }
+  var e=r.eval;
+  if(!e.unlocked){ return payPage('eval:'+id, e.title, e.price); }
+  view('<button class="back" onclick="history.back()">‹ Retour</button><h2 style="margin-top:0">'+E(e.title)+'</h2><div id="qz"></div>');
+  runQuiz($('#qz'), e.questions||[], id, null, e.minutes);
+}
+// ── Prof IA ──
+var HIST=[];
+function ia(lid){
+  if(!T) return go('#/connexion');
+  var l=lid&&CUR?(CUR.lessons||[]).find(function(x){ return x.id===lid; }):null;
+  HIST=[];
+  view('<h2 style="margin-top:4px">✨ Prof IA'+(l?' <span class="mut" style="font-size:14px;">· '+E(l.title)+'</span>':'')+'</h2><div class="chat" id="ch"></div><div class="chips" id="sg"></div><div class="composer"><input id="q" placeholder="Écris ta question…"/><button class="btn ai" id="sd">➤</button></div>');
+  bub('ai', l?'Salut ! Je suis ton Prof IA 🤓 On travaille sur « '+l.title+' ». Qu’est-ce qui n’est pas clair ?':'Salut ! Je suis ton Prof IA 🤓 Pose-moi une question sur n’importe quelle matière, ou colle un exercice : je t’explique pas à pas.');
+  var sug=l?['Explique-moi la leçon simplement','Donne-moi un exemple','Fais-moi un petit exercice','Explique-moi en wolof']:['Comment réviser pour le CFEE ?','Explique-moi les fractions','Aide-moi pour une rédaction','Explique-moi en wolof'];
+  $('#sg').innerHTML=sug.map(function(s){ return '<button class="chip">'+E(s)+'</button>'; }).join('');
+  $('#sg').querySelectorAll('button').forEach(function(b){ b.onclick=function(){ send(b.textContent); }; });
+  $('#sd').onclick=function(){ var v=$('#q').value.trim(); if(v){ $('#q').value=''; send(v); } };
+  $('#q').onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); $('#sd').click(); } };
+  var busy=false;
+  async function send(q){ if(busy) return; busy=true; var h=HIST.slice(); bub('me',q); HIST.push({role:'user',content:q}); var w=bub('ai','Le Prof IA réfléchit…');
+    try{ var r=await api('POST','/ai/tutor',{question:q,history:h,lesson_id:l?l.id:null}); w.textContent=r.answer; HIST.push({role:'assistant',content:r.answer}); }
+    catch(e){ w.textContent=e.message; if(e.code===402) setTimeout(function(){ go('#/acces'); },1500); }
+    busy=false; window.scrollTo(0,document.body.scrollHeight); }
+}
+function bub(who,t){ var d=document.createElement('div'); d.className='bub '+who; d.textContent=t; $('#ch').appendChild(d); window.scrollTo(0,document.body.scrollHeight); return d; }
+// ── Accès / paiement ──
+var PLAN='month';
+function payPage(purpose, label, price){
+  if(!T) return go('#/inscription');
+  var a=ACC||{};
+  var plans=CAT.plans||[];
+  view('<h2 style="margin-top:4px">'+(purpose?'Débloquer : '+E(label):'💳 Mon accès')+'</h2>'
+    +(!purpose?'<div class="card"><b>'+(a.active?'✅ Actif jusqu’au '+frDate(a.until):'🔒 Accès inactif')+'</b>'+(a.source?'<div class="mut" style="font-size:13px;">'+E({essai:'essai gratuit',merite:'mérite',bourse:'bourse',admin:'offert'}[a.source]||a.source)+'</div>':'')+'</div><h2>Choisis ta formule</h2>'+plans.map(function(p){ return '<div class="plan'+(PLAN===p.id?' on':'')+'" data-p="'+p.id+'"><div class="grow"><b>'+E(p.label)+'</b>'+(p.id==='year'?'<div style="color:var(--gold);font-weight:800;font-size:13px;">La meilleure affaire 🎉</div>':'')+'</div><b style="color:var(--g2)">'+fcfa(p.price)+'</b></div>'; }).join(''):'<div class="card"><b>Prix de l’évaluation : '+fcfa(price)+'</b><div class="mut">Ou abonne-toi : toutes les évaluations sont incluses.</div></div>')
+    +'<h2>Payer avec</h2><div class="pay" data-m="wave"><div class="sq">🌊</div><div class="grow"><b>Wave</b><div class="mut" style="font-size:13px;">Paiement rapide, accès ouvert après vérification</div></div>›</div><div class="pay" data-m="om"><div class="sq">🟠</div><div class="grow"><b>Orange Money</b><div class="mut" style="font-size:13px;">Envoie le montant, puis colle la référence</div></div>›</div>'
+    +'<h2>Autres façons d’avoir l’accès</h2><div class="pay" id="cd"><div class="sq">🎟️</div><div class="grow"><b>Code de l’école ou d’un sponsor</b><div class="mut" style="font-size:13px;">Ton école, ta mairie ou un parent t’a donné un code</div></div>›</div><div class="pay" onclick="go(\'#/bourse\')"><div class="sq">🎓</div><div class="grow"><b>Demander une bourse</b><div class="mut" style="font-size:13px;">Pour les élèves qui ne peuvent pas payer</div></div>›</div><div class="pay" onclick="go(\'#/evals\')"><div class="sq">🏅</div><div class="grow"><b>Gagner l’accès au mérite</b><div class="mut" style="font-size:13px;">Réussis une évaluation du mérite</div></div>›</div><div id="pz"></div>');
+  document.querySelectorAll('[data-p]').forEach(function(x){ x.onclick=function(){ PLAN=x.getAttribute('data-p'); payPage(purpose,label,price); }; });
+  document.querySelectorAll('[data-m]').forEach(function(x){ x.onclick=function(){ startPay(x.getAttribute('data-m'), purpose||('sub:'+PLAN)); }; });
+  $('#cd').onclick=function(){ $('#pz').innerHTML='<div class="card"><h3>🎟️ Entrer un code</h3><input id="cv" placeholder="Ex : ANS7K2M9QXT4" style="text-transform:uppercase"/><button class="btn full" id="cg" style="margin-top:10px;">Valider</button><div class="err" id="ce"></div></div>'; $('#cv').focus(); $('#cg').onclick=async function(){ try{ var r=await api('POST','/codes/redeem',{code:$('#cv').value}); ACC=r.access; toast('🎉 '+r.days+' jours d’accès offerts'+(r.sponsor?' par '+r.sponsor:'')); go('#/'); }catch(e){ $('#ce').textContent=e.message; } }; $('#pz').scrollIntoView({behavior:'smooth'}); };
+}
+async function startPay(method, purpose){
+  var p; try{ p=await api('POST','/pay/init',{method:method,purpose:purpose}); }catch(e){ toast(e.message); return; }
+  var wave=method==='wave';
+  $('#pz').innerHTML='<div class="card"><h3>'+(wave?'🌊 Wave':'🟠 Orange Money')+' — '+fcfa(p.amount)+'</h3><div class="mut">'+E(p.label)+'</div><ol>'+(p.steps||[]).map(function(s){ return '<li>'+E(s)+'</li>'; }).join('')+'</ol>'
+    +(wave&&p.url?'<a class="btn ghost" href="'+E(p.url)+'" target="_blank" rel="noopener">Ouvrir Wave</a>':'')+(!wave&&p.om_number?'<button class="btn ghost" id="cp">📋 Copier le numéro '+E(p.om_number)+'</button>':'')
+    +'<label>Référence de la transaction</label><input id="rf" placeholder="Ex : T_ABC123…" style="text-transform:uppercase"/><label>Numéro qui a payé (facultatif)</label><input id="pp" type="tel"/><button class="btn full" id="sv" style="margin-top:12px;">Envoyer la référence</button><div class="err" id="pe"></div></div>';
+  if($('#cp')) $('#cp').onclick=function(){ navigator.clipboard.writeText(p.om_number); toast('Numéro copié'); };
+  $('#sv').onclick=async function(){ try{ var r=await api('POST','/pay/'+p.payment_id+'/proof',{ref:$('#rf').value,payer_phone:$('#pp').value}); toast(r.message||'Merci ! Paiement en vérification.'); go('#/'); }catch(e){ $('#pe').textContent=e.message; } };
+  $('#pz').scrollIntoView({behavior:'smooth'});
+}
+function bourse(){
+  if(!T) return go('#/inscription');
+  view('<button class="back" onclick="history.back()">‹ Retour</button><h2 style="margin-top:0">🎓 Demander une bourse</h2><div class="card"><div class="mut">L’Académie aide les élèves qui ne peuvent pas payer, avec l’État, les mairies, les ONG et les entreprises.</div><label>Ta situation</label><textarea id="r" placeholder="Ta classe, ton école, pourquoi tu as besoin de l’Académie…"></textarea><label>École</label><input id="s"/><label>Numéro d’un parent ou tuteur</label><input id="g" type="tel"/><button class="btn full" id="go" style="margin-top:14px;">Envoyer ma demande</button><div class="err" id="e"></div></div>');
+  $('#go').onclick=async function(){ try{ var r=await api('POST','/grants',{reason:$('#r').value,school:$('#s').value,guardian_phone:$('#g').value}); toast(r.message); go('#/'); }catch(e){ $('#e').textContent=e.message; } };
+}
+// ── Compte ──
+function authPage(mode){
+  if(T) return go('#/');
+  var L='CM1', S=null;
+  function draw(){
+    var l=lv(L);
+    view('<div style="max-width:460px;margin:10px auto;"><div class="card"><h2 style="margin:4px 0 12px;text-align:center;">'+(mode==='reg'?'Crée ton compte élève':'Content de te revoir 👋')+'</h2><div class="seg"><button data-m="login"'+(mode!=='reg'?' class="on"':'')+'>Se connecter</button><button data-m="reg"'+(mode==='reg'?' class="on"':'')+'>Créer mon compte</button></div>'
+      +(mode==='reg'?'<label>Ton nom</label><input id="nm" placeholder="Prénom et nom" autocomplete="name"/><label>Ta classe</label>'+levelPicker(L,"window.__lv('%L')")+(l&&l.series?'<label>Ta série</label><div class="chips">'+l.series.map(function(s){ return '<button class="chip'+(S===s?' on':'')+'" onclick="window.__se(\''+s+'\')">'+s+'</button>'; }).join('')+'</div>':'')+'<label>Ton école (facultatif)</label><input id="sc"/>':'')
+      +'<label>Ton numéro de téléphone</label><input id="ph" type="tel" placeholder="77 123 45 67" autocomplete="tel"/><label>Mot de passe</label><input id="pw" type="password" placeholder="Au moins 6 caractères" autocomplete="'+(mode==='reg'?'new-password':'current-password')+'"/>'
+      +'<button class="btn full" id="go" style="margin-top:16px;">'+(mode==='reg'?'Commencer — 7 jours offerts':'Se connecter')+'</button><div class="err" id="err"></div></div><p class="mut" style="text-align:center;font-size:13px;">Professeur ? <a href="/academie/prof">Espace professeurs</a></p></div>');
+    document.querySelectorAll('.seg button').forEach(function(b){ b.onclick=function(){ go(b.getAttribute('data-m')==='reg'?'#/inscription':'#/connexion'); }; });
+    $('#go').onclick=async function(){ var b=this; b.disabled=true; $('#err').textContent='';
+      try{ var r=mode==='reg'?await api('POST','/auth/register',{name:$('#nm').value,phone:$('#ph').value,password:$('#pw').value,level:L,serie:S,school:$('#sc').value,role:'eleve'}):await api('POST','/auth/login',{phone:$('#ph').value,password:$('#pw').value});
+        if(r.user && r.user.role!=='eleve' && r.user.role!=='admin'){ toast('Compte professeur : direction l’espace professeurs'); setTimeout(function(){ location.href='/academie/prof'; },900); return; }
+        T=r.token; ME=r.user; ACC=r.access; try{ localStorage.setItem('ans_eleve_tok',T); }catch(_){} toast(mode==='reg'?'Bienvenue à l’Académie 🎉':'Connecté ✅'); go('#/'); }
+      catch(e){ $('#err').textContent=e.message; b.disabled=false; } };
+    if($('#nm') && window.__nm) $('#nm').value=window.__nm;
+  }
+  window.__lv=function(x){ window.__nm=$('#nm')&&$('#nm').value; L=x; S=null; draw(); };
+  window.__se=function(x){ window.__nm=$('#nm')&&$('#nm').value; S=x; draw(); };
+  draw();
+}
+function compte(){
+  if(!T) return go('#/connexion');
+  var u=ME||{}, l=lv(u.level);
+  view('<h2 style="margin-top:4px">👤 '+E(u.name)+'</h2><div class="card"><div class="mut">'+E(u.phone)+'</div><label>Ma classe</label>'+levelPicker(u.level,"window.__setL('%L')")+(l&&l.series?'<label>Ma série</label><div class="chips">'+l.series.map(function(s){ return '<button class="chip'+(u.serie===s?' on':'')+'" onclick="window.__setS(\''+s+'\')">'+s+'</button>'; }).join('')+'</div>':'')+'</div>'
+    +'<div class="card"><b>📱 L’appli Android</b><div class="mut">Avec l’appli, tu télécharges les cours et tu étudies même sans connexion. Elle arrive sur Google Play.</div></div>'
+    +'<button class="btn ghost full" onclick="go(\'#/acces\')">💳 Mon accès</button><div style="height:10px"></div><button class="btn full" style="background:var(--r)" id="lo">Se déconnecter</button>');
+  $('#lo').onclick=function(){ logout(); };
+  window.__setL=async function(x){ try{ var r=await api('PUT','/me',{level:x}); ME=r.user; toast('Classe : '+lvName(x)); compte(); }catch(e){ toast(e.message); } };
+  window.__setS=async function(x){ try{ var r=await api('PUT','/me',{serie:x}); ME=r.user; compte(); }catch(e){ toast(e.message); } };
+}
+async function refreshMe(){ try{ var r=await api('GET','/me'); ME=r.user; ACC=r.access; }catch(_){} }
+
+// ── routes ──
+async function route(){
+  var h=(location.hash||'#/').slice(2).split('/');
+  var pm=location.pathname.match(/\/academie\/cours\/([^/]+)/); if(pm && !location.hash){ history.replaceState(null,'','/academie#/cours/'+pm[1]); h=['cours',pm[1]]; }
+  topbar();
+  try{
+    switch(h[0]){
+      case 'classe': return classe(h[1]);
+      case 'matiere': return matiere(h[1], h[2]);
+      case 'cours': return cours(h[1]);
+      case 'lecon': return lecon(h[1], h[2]);
+      case 'evals': return evals();
+      case 'eval': return evalPage(h[1]);
+      case 'ia': return ia(h[1]);
+      case 'acces': return payPage(null);
+      case 'bourse': return bourse();
+      case 'connexion': return authPage('login');
+      case 'inscription': return authPage('reg');
+      case 'compte': return compte();
+      default: return home();
+    }
+  }catch(e){ view('<div class="empty">'+E(e.message)+'</div>'); }
+}
+window.addEventListener('hashchange', route);
+(async function(){
+  try{ CAT=await api('GET','/catalog'); }catch(e){ view('<div class="empty">Serveur indisponible, réessaie dans un instant.</div>'); return; }
+  if(T) await refreshMe();
+  if(location.pathname.indexOf('/academie/merci')===0){ history.replaceState(null,'','/academie#/'); toast('Merci ! Ton paiement est en cours de vérification.'); }
+  route();
+})();
+})();
+</script>
+</body>
+</html>
