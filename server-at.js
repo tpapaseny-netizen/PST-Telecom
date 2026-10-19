@@ -4756,7 +4756,7 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     console.log('[media/presign] reçu type=' + req.body.type + ' user=' + req.pencUser.userId + ' r2Ready=' + _r2Ready);
     if (!_r2Ready) { console.error('[media/presign] R2 non configuré (_r2Ready=false)'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
     const type = req.body.type;
-    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup', 'listing', 'bg_audio'];
+    const allowed = ['photo', 'video', 'voice', 'sticker', 'avatar', 'group_icon', 'kyc', 'status_photo', 'status_video', 'channel', 'file', 'ad', 'wallpaper', 'key_backup', 'listing', 'bg_audio', 'live_rec'];
     if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
@@ -13149,6 +13149,56 @@ app.post('/api/penc/fil/lives/:id/join', pencAuth, async (req, res) => {
     res.json({ success: true, live: { id:l.id, title:l.title, room:l.room, host_id:l.host_id, host_name:host.full_name||host.username||'', host_avatar:host.avatar_url||null, started_at:l.started_at, audience:l.audience||'all' }, token, url: _LVU });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
+// pncsrv18 : séquences enregistrées d'un direct (replay pendant 24 h, puis effacées)
+let _lvClipsOk = false;
+async function _lvClipsTable(){ if(_lvClipsOk) return; try{ await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_fil_live_clips (id TEXT PRIMARY KEY, live_id TEXT NOT NULL, host_id TEXT NOT NULL, idx INT DEFAULT 0, url TEXT NOT NULL, dur INT DEFAULT 0, hearts INT DEFAULT 0, comments INT DEFAULT 0, mime TEXT, created_at TIMESTAMPTZ DEFAULT NOW())'); await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_fil_live_clips_live ON penc_fil_live_clips(live_id, idx)'); _lvClipsOk = true; }catch(e){ console.error('[live] clips table:', e.message); } }
+app.post('/api/penc/fil/lives/:id/clips', pencAuth, async (req, res) => {
+  try{
+    await _lvClipsTable(); const uid = req.pencUser.userId;
+    const l = (await _pgPool.query('SELECT id, host_id, started_at FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0];
+    if(!l || String(l.host_id) !== String(uid)) return res.status(403).json({ error: 'Réservé à la personne en direct' });
+    const url = String(req.body.url || '');
+    if(!R2_PUBLIC || url.indexOf(R2_PUBLIC + '/') !== 0) return res.status(400).json({ error: 'Lien invalide' });
+    const n = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM penc_fil_live_clips WHERE live_id=$1',[l.id])).rows[0].n;
+    if(n >= 400) return res.status(400).json({ error: 'Trop de séquences' });
+    const id = 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const num = function(v, max){ return Math.max(0, Math.min(max, parseInt(v)||0)); };
+    await _pgPool.query('INSERT INTO penc_fil_live_clips(id,live_id,host_id,idx,url,dur,hearts,comments,mime) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id, l.id, uid, num(req.body.idx, 100000), url, num(req.body.dur, 36000), num(req.body.hearts, 1e7), num(req.body.comments, 1e6), String(req.body.mime||'video/webm').slice(0,60)]);
+    res.json({ success: true, id });
+  }catch(e){ console.error('[live] clip:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/lives/:id/clips', pencAuth, async (req, res) => {
+  try{
+    await _lvClipsTable(); await _lvCols();
+    const l = (await _pgPool.query('SELECT * FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0];
+    if(!l) return res.status(404).json({ error: 'Direct introuvable' });
+    if(!(await _lvCanSee(req.pencUser.userId, l))) return res.status(403).json({ error: 'Ce direct est réservé aux amis de la personne' });
+    const until = new Date(new Date(l.ended_at || l.started_at).getTime() + 24 * 3600000);
+    if(l.status !== 'live' && until.getTime() < Date.now()) return res.json({ clips: [], expired: true });
+    const r = await _pgPool.query('SELECT id, idx, url, dur, hearts, comments, mime, created_at FROM penc_fil_live_clips WHERE live_id=$1 ORDER BY idx ASC',[l.id]);
+    const host = await pgFindUser('id', l.host_id) || {};
+    res.json({ clips: r.rows, live: { id: l.id, title: l.title, status: l.status, host_id: l.host_id, host_name: host.full_name || host.username || '', host_avatar: host.avatar_url || null, started_at: l.started_at, ended_at: l.ended_at, expires_at: until.toISOString(), peak: l.peak || 0, hearts: l.hearts || 0 } });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/penc/fil/replays', pencAuth, async (req, res) => {
+  try{
+    await _lvClipsTable(); await _lvCols();
+    const r0 = await _pgPool.query("SELECT l.*, (SELECT COUNT(*)::int FROM penc_fil_live_clips c WHERE c.live_id=l.id) AS nclips FROM penc_fil_lives l WHERE l.status='ended' AND l.ended_at > NOW() - INTERVAL '24 hours' ORDER BY l.ended_at DESC LIMIT 40");
+    const out = []; const us = {}; (await pgFindUsersByIds(r0.rows.map(function(x){ return x.host_id; }))).forEach(function(u){ us[u.id]=u; });
+    for(const l of r0.rows){ if(!l.nclips) continue; if(!(await _lvCanSee(req.pencUser.userId, l))) continue; const u = us[l.host_id] || {}; out.push({ id: l.id, title: l.title, host_id: l.host_id, host_name: u.full_name || u.username || 'Utilisateur', host_avatar: u.avatar_url || null, ended_at: l.ended_at, expires_at: new Date(new Date(l.ended_at).getTime() + 24 * 3600000).toISOString(), clips: l.nclips }); if(out.length >= 15) break; }
+    res.json({ replays: out });
+  }catch(e){ res.json({ replays: [] }); }
+});
+// nettoyage : les séquences disparaissent 24 h après la fin du direct (fichiers effacés du stockage)
+async function _lvClean(){
+  try{
+    await _lvClipsTable();
+    const r = await _pgPool.query("SELECT c.id, c.url FROM penc_fil_live_clips c LEFT JOIN penc_fil_lives l ON l.id=c.live_id WHERE (l.id IS NULL) OR (COALESCE(l.ended_at, l.started_at) < NOW() - INTERVAL '24 hours' AND (l.status <> 'live' OR l.started_at < NOW() - INTERVAL '30 hours')) LIMIT 300");
+    for(const c of r.rows){ try{ if(R2_PUBLIC && c.url.indexOf(R2_PUBLIC + '/') === 0) await r2DeleteObject(c.url.slice(R2_PUBLIC.length + 1)); }catch(_){} await _pgPool.query('DELETE FROM penc_fil_live_clips WHERE id=$1',[c.id]); }
+    if(r.rows.length) console.log('[live] séquences effacées (24 h) :', r.rows.length);
+  }catch(e){ console.error('[live] nettoyage:', e.message); }
+}
+setTimeout(_lvClean, 60000); setInterval(_lvClean, 30 * 60000);
 // pncsrv17 : état d'un direct
 app.get('/api/penc/fil/lives/:id', pencAuth, async (req, res) => {
   try{ const l = (await _pgPool.query('SELECT id, host_id, title, status, started_at FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0]; if(!l) return res.status(404).json({ error: 'Introuvable' }); res.json({ live: l }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
