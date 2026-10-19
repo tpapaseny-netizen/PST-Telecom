@@ -13094,55 +13094,71 @@ app.post('/api/penc/fil/groups/:id/members/:uid/:action', pencAuth, async (req, 
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ══ LIVES DU FIL (vidéo en direct via LiveKit) ══
+// pncsrv17 : variables LiveKit propres aux directs (lisibles par ces routes)
+const _LVK = process.env.LIVEKIT_API_KEY || '', _LVS = process.env.LIVEKIT_API_SECRET || '', _LVU = process.env.LIVEKIT_URL || '';
+let _LVAT = null; try{ _LVAT = require('livekit-server-sdk').AccessToken; }catch(_){ console.error('[live] livekit-server-sdk manquant'); }
+let _lvColsOk = false;
+async function _lvCols(){ if(_lvColsOk) return; try{ await _pgPool.query("ALTER TABLE penc_fil_lives ADD COLUMN IF NOT EXISTS audience TEXT DEFAULT 'all'"); await _pgPool.query('ALTER TABLE penc_fil_lives ADD COLUMN IF NOT EXISTS hearts INT DEFAULT 0'); await _pgPool.query('ALTER TABLE penc_fil_lives ADD COLUMN IF NOT EXISTS comments INT DEFAULT 0'); _lvColsOk = true; }catch(e){ console.error('[live] colonnes:', e.message); } }
+async function _lvCanSee(uid, l){
+  if(!l || String(uid) === String(l.host_id) || (l.audience || 'all') !== 'friends') return true;
+  try{ const r = await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[uid, l.host_id]); return r.rows.length > 0; }catch(_){ return false; }
+}
 async function _liveToken(uid, name, room, host){
-  const at = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: uid, name: name || uid });
+  const at = new _LVAT(_LVK, _LVS, { identity: uid, name: name || uid });
   at.addGrant({ roomJoin: true, room: room, canPublish: !!host, canSubscribe: true, canPublishData: true });
   at.ttl = '6h'; return await at.toJwt();
 }
 app.post('/api/penc/fil/lives', pencAuth, async (req, res) => {
   try{
-    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Le direct n\'est pas disponible pour le moment' });
+    if(!_LVAT || !_LVK || !_LVU) return res.status(503).json({ error: 'Le direct n\'est pas disponible pour le moment' });
     const uid = req.pencUser.userId;
     if(!_filRate(uid, 'live_start', 6, 86400000)) return _filTooFast(res);
     if(await _filBanned(uid)) return res.status(403).json({ error: 'Tu ne peux pas lancer de direct pour le moment (décision de modération).' });
     await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE host_id=$1 AND status='live'",[uid]);
     const id = 'live_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); const room = 'penc_live_' + id;
     const title = String(req.body.title||'').replace(/[<>]/g,'').trim().slice(0,100) || 'En direct';
-    await _pgPool.query('INSERT INTO penc_fil_lives(id,host_id,title,room,status,started_at) VALUES($1,$2,$3,$4,$5,NOW())',[id, uid, title, room, 'live']);
+    await _lvCols(); const audience = req.body.audience === 'friends' ? 'friends' : 'all';
+    await _pgPool.query('INSERT INTO penc_fil_lives(id,host_id,title,room,status,started_at,audience) VALUES($1,$2,$3,$4,$5,NOW(),$6)',[id, uid, title, room, 'live', audience]);
     const me = await pgFindUser('id', uid) || {};
     const token = await _liveToken(uid, me.full_name || me.username, room, true);
     // Prévenir les abonnés et les amis
     setImmediate(async function(){ try{
-      const f = await _pgPool.query("SELECT follower AS u FROM penc_follows WHERE followee=$1 UNION SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1) LIMIT 2000",[uid]);
+      const f = await _pgPool.query((audience === 'friends' ? '' : "SELECT follower AS u FROM penc_follows WHERE followee=$1 UNION ") + "SELECT CASE WHEN requester=$1 THEN recipient ELSE requester END FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1) LIMIT 2000",[uid]);
       f.rows.forEach(function(x){ try{ sendPencPush(x.u, { title:'🔴 ' + (me.full_name||'Quelqu\'un') + ' est en direct', body: title, icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-live-'+id, data:{ type:'live', live_id:id, url:'/messager?live='+id } }); }catch(_){} });
     }catch(_e){} });
-    res.json({ success: true, live: { id, title, room, host_id: uid }, token, url: LIVEKIT_URL });
+    res.json({ success: true, live: { id, title, room, host_id: uid, audience, started_at: new Date().toISOString(), host_name: me.full_name || me.username || '', host_avatar: me.avatar_url || null }, token, url: _LVU });
   }catch(e){ console.error('live start:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
 app.get('/api/penc/fil/lives', pencAuth, async (req, res) => {
   try{
     await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW() WHERE status='live' AND started_at < NOW() - INTERVAL '6 hours'");
-    const r = await _pgPool.query("SELECT * FROM penc_fil_lives WHERE status='live' ORDER BY started_at DESC LIMIT 20");
+    await _lvCols(); const r0 = await _pgPool.query("SELECT * FROM penc_fil_lives WHERE status='live' ORDER BY started_at DESC LIMIT 40"); const r = { rows: [] }; for(const l of r0.rows){ if(await _lvCanSee(req.pencUser.userId, l)) r.rows.push(l); if(r.rows.length >= 20) break; }
     const us = {}; (await pgFindUsersByIds(r.rows.map(function(x){ return x.host_id; }))).forEach(function(u){ us[u.id]=u; });
     res.json({ lives: r.rows.map(function(l){ const u = us[l.host_id] || {}; return { id:l.id, title:l.title, host_id:l.host_id, host_name:u.full_name||u.username||'Utilisateur', host_avatar:u.avatar_url||null, started_at:l.started_at }; }) });
   }catch(e){ res.json({ lives: [] }); }
 });
 app.post('/api/penc/fil/lives/:id/join', pencAuth, async (req, res) => {
   try{
-    if(!_lkAccessToken || !LIVEKIT_API_KEY) return res.status(503).json({ error: 'Direct indisponible' });
+    if(!_LVAT || !_LVK || !_LVU) return res.status(503).json({ error: 'Direct indisponible' });
     const uid = req.pencUser.userId; const l = (await _pgPool.query('SELECT * FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0];
     if(!l || l.status !== 'live') return res.status(404).json({ error: 'Ce direct est terminé' });
     if(_areIsolated(uid, l.host_id)) return res.status(403).json({ error: 'Direct indisponible' });
+    await _lvCols(); if(!(await _lvCanSee(uid, l))) return res.status(403).json({ error: 'Ce direct est réservé aux amis de la personne' });
     const me = await pgFindUser('id', uid) || {}; const host = await pgFindUser('id', l.host_id) || {};
     const token = await _liveToken(uid, me.full_name || me.username, l.room, String(uid) === String(l.host_id));
-    res.json({ success: true, live: { id:l.id, title:l.title, room:l.room, host_id:l.host_id, host_name:host.full_name||host.username||'', host_avatar:host.avatar_url||null, started_at:l.started_at }, token, url: LIVEKIT_URL });
+    res.json({ success: true, live: { id:l.id, title:l.title, room:l.room, host_id:l.host_id, host_name:host.full_name||host.username||'', host_avatar:host.avatar_url||null, started_at:l.started_at, audience:l.audience||'all' }, token, url: _LVU });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// pncsrv17 : état d'un direct
+app.get('/api/penc/fil/lives/:id', pencAuth, async (req, res) => {
+  try{ const l = (await _pgPool.query('SELECT id, host_id, title, status, started_at FROM penc_fil_lives WHERE id=$1',[req.params.id])).rows[0]; if(!l) return res.status(404).json({ error: 'Introuvable' }); res.json({ live: l }); }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 app.post('/api/penc/fil/lives/:id/end', pencAuth, async (req, res) => {
   try{
-    const peak = Math.max(0, parseInt(req.body.peak)||0);
-    const r = await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW(), peak=GREATEST(peak,$3) WHERE id=$1 AND host_id=$2 RETURNING id",[req.params.id, req.pencUser.userId, peak]);
-    res.json({ success: !!r.rows.length });
+    const peak = Math.max(0, parseInt(req.body.peak)||0); const hearts = Math.max(0, Math.min(1e7, parseInt(req.body.hearts)||0)); const comments = Math.max(0, Math.min(1e6, parseInt(req.body.comments)||0));
+    await _lvCols();
+    const r = await _pgPool.query("UPDATE penc_fil_lives SET status='ended', ended_at=NOW(), peak=GREATEST(peak,$3), hearts=GREATEST(COALESCE(hearts,0),$4), comments=GREATEST(COALESCE(comments,0),$5) WHERE id=$1 AND host_id=$2 RETURNING started_at, ended_at, peak",[req.params.id, req.pencUser.userId, peak, hearts, comments]);
+    const x = r.rows[0]; res.json({ success: !!x, duration: x ? Math.round((new Date(x.ended_at) - new Date(x.started_at)) / 1000) : 0, peak: x ? x.peak : peak });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
 // ══ COLLECTES ET COTISATIONS ══
