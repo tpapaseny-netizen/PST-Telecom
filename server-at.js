@@ -9501,6 +9501,24 @@ async function pgIsBlocked(a,b){
 }
 function _frInfo(u){ u=u||{}; return {id:u.id, full_name:u.full_name||u.username||'Utilisateur', username:u.username||'', avatar_url:u.avatar_url||null, bio:u.bio||'', is_online:!!u.is_online}; }
 
+// pncsrv16 : carte de contact inconnu (comme WhatsApp : numéro, origine, groupes en commun, Bloquer / Ajouter)
+app.get('/api/penc/contact-card/:id', pencAuth, async (req,res)=>{
+  try{ const uid = req.pencUser.userId, oid = String(req.params.id || ''); if(!_pgPool || !oid || oid === uid) return res.status(400).json({ error: 'Invalide' });
+    const u = await pgFindUser('id', oid); if(!u) return res.status(404).json({ error: 'Introuvable' });
+    const conv = (await _pgPool.query('SELECT 1 FROM penc_conversations WHERE participants @> $1 AND participants @> $2 LIMIT 1',[JSON.stringify([uid]), JSON.stringify([oid])])).rows[0];
+    const fr = (await _pgPool.query('SELECT requester, recipient, status FROM penc_friendships WHERE (requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1) ORDER BY created_at DESC LIMIT 5',[uid, oid])).rows;
+    let friend = 'none';
+    if(fr.some(function(x){ return x.status === 'accepted'; })) friend = 'friend';
+    else if(fr.some(function(x){ return x.status === 'blocked' && x.requester === uid; })) friend = 'blocked';
+    else if(fr.some(function(x){ return x.status === 'pending' && x.requester === uid; })) friend = 'sent';
+    else if(fr.some(function(x){ return x.status === 'pending' && x.requester === oid; })) friend = 'received';
+    let groups = { count: 0, names: [] };
+    try{ const g = (await _pgPool.query("SELECT to_jsonb(c)->>'group_name' AS gn, to_jsonb(c)->>'name' AS nm FROM penc_conversations c WHERE participants @> $1 AND participants @> $2 AND (jsonb_array_length(participants) > 2 OR to_jsonb(c)->>'is_group' = 'true' OR COALESCE(to_jsonb(c)->>'group_name','') <> '') LIMIT 50",[JSON.stringify([uid]), JSON.stringify([oid])])).rows;
+      groups = { count: g.length, names: g.map(function(x){ return x.gn || x.nm || ''; }).filter(Boolean).slice(0, 2) }; }catch(_){}
+    res.json({ id: u.id, name: u.full_name || u.username || 'Utilisateur', username: u.username || '', avatar_url: u.avatar_url || null,
+      phone: conv ? (u.phone || null) : null, friend: friend, groups: groups, verified: !!(u.verified || u.business_verified) });
+  }catch(e){ console.error('[penc] contact-card:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 app.get('/api/penc/friends', pencAuth, async (req,res)=>{
   try{ const uid=req.pencUser.userId; if(!_pgPool) return res.json({friends:[]});
     const r=await _pgPool.query("SELECT DISTINCT requester,recipient FROM penc_friendships WHERE status='accepted' AND (requester=$1 OR recipient=$1)",[uid]);
