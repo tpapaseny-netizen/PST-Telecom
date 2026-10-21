@@ -3828,7 +3828,7 @@ async function sendPencPush(userId, payload) {
       if (!_snd && payload && payload.sid) _snd = payload.sid;
       if (!_snd && payload && (payload.sender_id || (payload.data && payload.data.sender_id))) _snd = payload.sender_id || payload.data.sender_id;
       if (_snd != null && String(_snd) === String(userId)) return;
-      if (_snd != null && _pgPool && mine.length) {
+      if (false && _snd != null && _pgPool && mine.length) {
         const _st = await _pgPool.query('SELECT endpoint, subscription FROM penc_push_subs WHERE user_id=$1', [String(_snd)]);
         const _tok = new Set(), _ep = new Set();
         _st.rows.forEach(function (r) { const sb = r.subscription || {}; if (sb.fcm) _tok.add(String(sb.fcm)); if (sb.endpoint && !sb.fcm) _ep.add(String(sb.endpoint)); });
@@ -4798,6 +4798,27 @@ function _releaseVideoSlot(){
   if(_videoProcessingQueue.length){ const next = _videoProcessingQueue.shift(); next(); }
   else { _videoProcessingActive = false; }
 }
+// pncsrv20 : remise en mp3 des vocaux WebM envoyés récemment (l'appli Android ne les lisait pas)
+async function _p20FixVoices(){
+  try{
+    if(!_pgPool || !R2_PUBLIC) return;
+    const r = await _pgPool.query("SELECT id, media_url FROM penc_messages WHERE type='voice' AND media_url LIKE $1 AND media_url ~* '\\.(webm|ogg)$' AND created_at > NOW() - INTERVAL '4 days' ORDER BY created_at DESC LIMIT 40", [R2_PUBLIC + '/%']);
+    for(const m of r.rows){
+      const os = require('os'), pathMod = require('path'), fs = require('fs');
+      const key = m.media_url.slice(R2_PUBLIC.length + 1);
+      const tIn = pathMod.join(os.tmpdir(), 'p20_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)), tOut = tIn + '.mp3';
+      try{
+        fs.writeFileSync(tIn, await r2GetBuffer(key));
+        await _voiceToMp3(tIn, tOut);
+        const url = await r2PutBuffer(key.replace(/\.[a-z0-9]+$/i, '') + '.mp3', fs.readFileSync(tOut), 'audio/mpeg');
+        if(url) await _pgPool.query('UPDATE penc_messages SET media_url=$1 WHERE id=$2', [url, m.id]);
+      }catch(e){ console.error('[voix p20]', m.id, e.message); await _pgPool.query("UPDATE penc_messages SET media_url=media_url||'#x' WHERE id=$1", [m.id]).catch(function(){}); }
+      finally{ try{ fs.unlinkSync(tIn); }catch(_){} try{ fs.unlinkSync(tOut); }catch(_){} }
+    }
+    if(r.rows.length) console.log('[voix p20] vocaux remis en mp3 :', r.rows.length);
+  }catch(e){ console.error('[voix p20]', e.message); }
+}
+setTimeout(_p20FixVoices, 45000); setInterval(_p20FixVoices, 10 * 60000);
 // pncsrv19 : conversion d'un vocal pour les téléphones qui ne lisent pas le format d'origine (iPhone)
 const _voiceMp3Cache = new Map();
 app.post('/api/penc/media/voice-mp3', pencAuth, async (req, res) => {
@@ -13724,7 +13745,7 @@ app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
     if (subscription.fcm) { subscription.fcm = String(subscription.fcm).slice(0, 500); subscription.endpoint = 'fcm:' + uid + ':' + subscription.fcm; }   // pncapp1
-    if (subscription.fcm && _pgPool) { try { await _pgPool.query("DELETE FROM penc_push_subs WHERE subscription->>'fcm'=$1 AND user_id<>$2", [subscription.fcm, uid]); } catch (_d19) {} }   // pncsrv19 : téléphone passé sur un autre compte
+    // pncsrv20 : plusieurs comptes sur un même téléphone = chacun garde ses notifications
     // pncapp4 — on retient le navigateur de chaque abonnement web. Quand l'appli native Penc s'abonne, les anciens
     // abonnements de Chrome sur Android (ancienne version Penc « Chrome ») sont retirés : sinon les appels et messages
     // arrivaient aussi par Chrome (notification « Chrome », appel ouvert dans Chrome au lieu de l'appli).
