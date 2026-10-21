@@ -3821,6 +3821,20 @@ async function sendPencPush(userId, payload) {
       mine = subs.filter(x => x.user_id === userId);
     }
     let _sent = 0, _errs = [];
+    // pncsrv19 : l'expéditeur ne reçoit jamais la notification de son propre message
+    try{
+      let _snd = null;
+      if (payload && payload.m) { try { const _mm = typeof payload.m === 'string' ? JSON.parse(payload.m) : payload.m; _snd = _mm && (_mm.sender_id || (_mm.sender && _mm.sender.id)); } catch (_pm) {} }
+      if (!_snd && payload && payload.sid) _snd = payload.sid;
+      if (!_snd && payload && (payload.sender_id || (payload.data && payload.data.sender_id))) _snd = payload.sender_id || payload.data.sender_id;
+      if (_snd != null && String(_snd) === String(userId)) return;
+      if (_snd != null && _pgPool && mine.length) {
+        const _st = await _pgPool.query('SELECT endpoint, subscription FROM penc_push_subs WHERE user_id=$1', [String(_snd)]);
+        const _tok = new Set(), _ep = new Set();
+        _st.rows.forEach(function (r) { const sb = r.subscription || {}; if (sb.fcm) _tok.add(String(sb.fcm)); if (sb.endpoint && !sb.fcm) _ep.add(String(sb.endpoint)); });
+        mine = mine.filter(function (x) { const sb = x.subscription || {}; if (sb.fcm && _tok.has(String(sb.fcm))) return false; if (!sb.fcm && sb.endpoint && _ep.has(String(sb.endpoint))) return false; return true; });
+      }
+    }catch(_s19){}
     for (const sb of mine) {
       if (sb.subscription && sb.subscription.fcm) {   // pncapp1 : appli Android native
         const st = await _pencFcmSend(sb.subscription.fcm, payload, userId);
@@ -4784,6 +4798,24 @@ function _releaseVideoSlot(){
   if(_videoProcessingQueue.length){ const next = _videoProcessingQueue.shift(); next(); }
   else { _videoProcessingActive = false; }
 }
+// pncsrv19 : conversion d'un vocal pour les téléphones qui ne lisent pas le format d'origine (iPhone)
+const _voiceMp3Cache = new Map();
+app.post('/api/penc/media/voice-mp3', pencAuth, async (req, res) => {
+  const os = require('os'), pathMod = require('path'), fs = require('fs');
+  try{
+    const url = String((req.body && req.body.url) || '').split('#')[0].split('?')[0];
+    if(!R2_PUBLIC || url.indexOf(R2_PUBLIC + '/') !== 0) return res.status(400).json({ error: 'Lien invalide' });
+    if(_voiceMp3Cache.has(url)) return res.json({ success: true, url: _voiceMp3Cache.get(url) });
+    const key = url.slice(R2_PUBLIC.length + 1);
+    if(!/\.(webm|ogg|opus|m4a|mp4|wav|bin)$/i.test(key)) return res.json({ success: true, url });
+    const mp3Key = key.replace(/\.[a-z0-9]+$/i, '') + '_c.mp3';
+    const buf = await r2GetBuffer(key);
+    const tIn = pathMod.join(os.tmpdir(), 'vin_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)), tOut = tIn + '.mp3';
+    fs.writeFileSync(tIn, buf);
+    try{ await _voiceToMp3(tIn, tOut); const out = await r2PutBuffer(mp3Key, fs.readFileSync(tOut), 'audio/mpeg'); if(_voiceMp3Cache.size > 2000) _voiceMp3Cache.clear(); _voiceMp3Cache.set(url, out); res.json({ success: true, url: out }); }
+    finally{ try{ fs.unlinkSync(tIn); }catch(_){} try{ fs.unlinkSync(tOut); }catch(_){} }
+  }catch(e){ console.error('[voice-mp3]', e.message); res.status(500).json({ error: 'Conversion impossible' }); }
+});
 app.post('/api/penc/media/process', pencAuth, async (req, res) => {
   const os = require('os'), pathMod = require('path'), fs = require('fs');
   let tmpFiles = [];
@@ -6194,7 +6226,9 @@ async function pgGetOlderMessages(convId, beforeId, limit){
 }
 // ══ APPELS EN ATTENTE : permet de décrocher en revenant dans l'app (notification touchée, app en arrière-plan) ══
 const _pencPendingCalls = new Map();
-setInterval(function(){ const now = Date.now(); _pencPendingCalls.forEach(function(v,k){ if(now - v.ts > 70000) _pencPendingCalls.delete(k); }); }, 30000);
+// pncsrv19 : appels manqués retrouvés en ouvrant Penc (10 min)
+const _pencMissedCalls = new Map();
+setInterval(function(){ const now = Date.now(); _pencPendingCalls.forEach(function(v,k){ if(now - v.ts > 90000){ _pencPendingCalls.delete(k); try{ _pencMissedCalls.set(k, Object.assign({}, v, { ts: now })); }catch(_m){} } }); _pencMissedCalls.forEach(function(v,k){ if(now - v.ts > 600000) _pencMissedCalls.delete(k); }); }, 15000);
 // ══ GAMIFICATION ══
 const _GAM_DAILY = [
   { id:'d_msg', kind:'msg', title:'Envoie 10 messages', target:10, xp:20, icon:'💬' },
@@ -8380,7 +8414,11 @@ app.post('/api/penc/me/nudges', pencAuth, async (req, res) => {
 });
 app.get('/api/penc/calls/pending', pencAuth, async (req, res) => {
   const p = _pencPendingCalls.get(String(req.pencUser.userId));
-  if(!p || Date.now() - p.ts > 60000) return res.json({ call: null });
+  if(!p || Date.now() - p.ts > 75000){
+    const _uid19 = String(req.pencUser.userId), m = _pencMissedCalls.get(_uid19);
+    if(m){ _pencMissedCalls.delete(_uid19); return res.json({ call: null, missed: { from: m.from, type: m.type || 'audio', caller_name: m.caller_name || null, caller_avatar: m.caller_avatar || null, ts: m.ts } }); }
+    return res.json({ call: null });
+  }
   res.json({ call: Object.assign({}, p, { age_ms: Date.now() - p.ts }) });
 });
 // ── Gamification : mon niveau, mes flammes, mes défis ──
@@ -10027,7 +10065,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           name: other.full_name || other.username || 'Utilisateur',
           avatar_url: other.avatar_url || null,
           birthday_today: _birthdayToday,
-          last_message: last ? { content: last.content, type: last.type, created_at: last.created_at, delivered_at: last.delivered_at, read_at: last.read_at, sender_id: last.sender_id } : null,
+          last_message: last ? { content: last.content, type: last.type, created_at: last.created_at, delivered_at: last.delivered_at, read_at: last.read_at, sender_id: last.sender_id, media_duration: last.duration || null } : null,
           updated_at: c.updated_at,
           pinned: _pinnedIds.has(c.id),
           muted: _mutedIds.has(c.id),
@@ -13686,6 +13724,7 @@ app.post('/api/penc/push/subscribe', pencAuth, async (req, res) => {
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'subscription requise' });
     const uid = req.pencUser.userId;
     if (subscription.fcm) { subscription.fcm = String(subscription.fcm).slice(0, 500); subscription.endpoint = 'fcm:' + uid + ':' + subscription.fcm; }   // pncapp1
+    if (subscription.fcm && _pgPool) { try { await _pgPool.query("DELETE FROM penc_push_subs WHERE subscription->>'fcm'=$1 AND user_id<>$2", [subscription.fcm, uid]); } catch (_d19) {} }   // pncsrv19 : téléphone passé sur un autre compte
     // pncapp4 — on retient le navigateur de chaque abonnement web. Quand l'appli native Penc s'abonne, les anciens
     // abonnements de Chrome sur Android (ancienne version Penc « Chrome ») sont retirés : sinon les appels et messages
     // arrivaient aussi par Chrome (notification « Chrome », appel ouvert dans Chrome au lieu de l'appli).
@@ -18389,7 +18428,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     catch(e){ done({ ok: false, error: e.message }); }
   });
   socket.on('call:accept', ({caller_id}) => {
-    _pencPendingCalls.delete(String(pencUserId));
+    _pencPendingCalls.delete(String(pencUserId)); try{ _pencMissedCalls.delete(String(pencUserId)); }catch(_m){}
     _pencFcmRaw(pencUserId, { kind: 'call_end' });   // pncapp2 : les autres téléphones du compte arrêtent de sonner
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
     // v396 : si le compte a plusieurs appareils qui sonnaient tous, celui qui n'a PAS décroché
@@ -18412,7 +18451,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
-    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)){ _pencPendingCalls.delete(String(target_id)); _pencFcmRaw(target_id, { kind: 'call_end' }); } }catch(_pe){}   // pncapp2 : l'appelant a raccroché avant qu'on décroche
+    try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)){ _pencPendingCalls.delete(String(target_id)); try{ _pencMissedCalls.set(String(target_id), Object.assign({}, _p, { ts: Date.now() })); }catch(_m19){} _pencFcmRaw(target_id, { kind: 'call_end' }); } }catch(_pe){}   // pncapp2 : l'appelant a raccroché avant qu'on décroche
     emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
