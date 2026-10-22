@@ -7580,7 +7580,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     const uid = req.pencUser.userId;
     if (_pgPool) {
       const _before = req.query.before ? String(req.query.before).slice(0,120) : null;
-      const _lim = _before ? Math.min(parseInt(req.query.limit)||200, 500) : 400;
+      const _lim = _before ? Math.min(parseInt(req.query.limit)||200, 500) : Math.min(Math.max(parseInt(req.query.limit)||400, 20), 400);   // pncsrv40 : ?limit= pour le préchargement léger
       const rows = _before ? await pgGetOlderMessages(convId, _before, _lim) : await pgGetMessages(convId, _lim);
       res.set('X-Penc-Has-More', rows.length >= _lim ? '1' : '0');
       console.log('[msgs-read] conv=' + convId + ' user=' + uid + ' -> ' + rows.length + ' message(s), dernier=' + (rows.length ? rows[rows.length-1].id : '-'));
