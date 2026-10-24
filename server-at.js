@@ -9545,6 +9545,24 @@ app.delete('/api/penc/ads/:id', pencAuth, pencAdmin, async (req,res)=>{
 });
 
 // ════════════════ AMIS — SYSTEME COMPLET ════════════════
+// pncsrv41 : envoi d'un message plus rapide — participants gardés 20 s, relation amis/blocage en une seule requête
+const _pencPartsCache = new Map(), _pencRelCache = new Map();
+async function _pencConvParts(cid){
+  const h = _pencPartsCache.get(cid); if(h && Date.now()-h.t < 20000) return h.p;
+  const r = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[cid]);
+  const row = r.rows[0]; const p = row ? (Array.isArray(row.participants) ? row.participants : JSON.parse(row.participants||'[]')) : [];
+  if(row){ if(_pencPartsCache.size > 5000) _pencPartsCache.clear(); _pencPartsCache.set(cid, { p:p, t:Date.now() }); }
+  return p;
+}
+async function _pencRel(a,b){
+  const k = a < b ? a+'|'+b : b+'|'+a; const h = _pencRelCache.get(k); if(h && Date.now()-h.t < 15000) return h.v;
+  let v = { blocked:false, accepted:true };
+  try{ const r = await _pgPool.query("SELECT status FROM penc_friendships WHERE status IN ('accepted','blocked') AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1))",[a,b]);
+    v = { blocked: r.rows.some(x => x.status==='blocked'), accepted: r.rows.some(x => x.status==='accepted') };
+    if(v.accepted && !v.blocked){ if(_pencRelCache.size > 5000) _pencRelCache.clear(); _pencRelCache.set(k, { v:v, t:Date.now() }); }
+  }catch(e){}
+  return v;
+}
 async function pgFriendAccepted(a,b){
   if(!_pgPool) return true;
   try{ const r=await _pgPool.query("SELECT 1 FROM penc_friendships WHERE status='accepted' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) LIMIT 1",[a,b]); return r.rows.length>0; }catch(e){ return true; }
@@ -18535,10 +18553,15 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     }
     try {
       const { reply_to } = data;
+      // pncsrv41 : les lectures indépendantes partent en même temps (avant : l'une après l'autre)
+      const _pEph = _pgPool ? _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1', [conversation_id]) : Promise.resolve({ rows:[] });
+      const _pUsr = _pgPool ? pgFindUser('id', pencUserId) : Promise.resolve(null);
+      const _pPrt = _pgPool ? _pencConvParts(conversation_id) : Promise.resolve([]);
+      _pEph.catch(()=>{}); _pUsr.catch(()=>{}); _pPrt.catch(()=>{});
       let _expiresAt = null;
       try{
         if(_pgPool){
-          const _er = await _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1', [conversation_id]);
+          const _er = await _pEph;
           if(_er.rows.length){ _expiresAt = new Date(Date.now() + _er.rows[0].duration_seconds*1000).toISOString(); }
         }
       }catch(_ee){}
@@ -18565,21 +18588,20 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       // 1) Livraison TEMPS RÉEL d'abord (ne dépend pas de JSONBin)
       let sender = { id: pencUserId }; let _senderAdmin = false;
       try {
-        const u = _pgPool ? await pgFindUser('id', pencUserId) : (await pencUsers()).find(x => x.id === pencUserId);
+        const u = _pgPool ? await _pUsr : (await pencUsers()).find(x => x.id === pencUserId);
         if (u) { sender = pencStrip(u); _senderAdmin = (u.is_admin === true) || PENC_ADMIN_EMAILS.includes(((u.email || '') + '').toLowerCase()); }
       } catch {}
       // ── Amis : blocage + 1er message en attente (fail-open) ──
       let _blocked = false;
       try {
         if (_pgPool) {
-          const _cr = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1',[conversation_id]);
-          let _parts = _cr.rows[0] ? (Array.isArray(_cr.rows[0].participants)?_cr.rows[0].participants:JSON.parse(_cr.rows[0].participants||'[]')) : [];
+          let _parts = (await _pPrt) || [];
           const _other = _parts.find(p=>p!==pencUserId);
           if (_other && _areIsolated(pencUserId, _other)) { if (typeof cb === 'function') cb({ error: 'Conversation indisponible.' }); return; }
           if (_other) {
-            _blocked = await pgIsBlocked(pencUserId, _other);
+            const _rel = await _pencRel(pencUserId, _other); _blocked = _rel.blocked;
             if (!_blocked) {
-              const _acc = await pgFriendAccepted(pencUserId, _other);
+              const _acc = _rel.accepted;
               if (!_acc && !_senderAdmin && _parts.length===2 && String(_other)!=='penc_official') { await pgEnsureFriendRequest(pencUserId, _other); try { io.to('user:'+_other).emit('friend:request',{from:pencUserId}); } catch(e){} if (typeof cb === 'function') cb({ error: 'Vous devez etre amis pour discuter. Demande d\'ami envoyee.', need_friend: true }); return; }
             }
           }
@@ -19114,6 +19136,90 @@ app.post('/api/sonko/upload-video', sonkoAdmin, async (req, res) => {
       finally { try { fs.unlinkSync(req.file.path); } catch (_ue) {} }
     });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ==== pncsrv42 : Penc Proche — pont internet ====
+// Un téléphone Penc Proche qui a internet dépose ici les messages qu'il transporte pour d'autres.
+// Le message (déjà chiffré de bout en bout par l'expéditeur) arrive dans la discussion Penc normale :
+// le destinataire le reçoit partout (Android, iPhone, ordinateur). Le serveur ne peut pas le lire.
+let _meshReady = false;
+async function _meshInit(){
+  if(_meshReady || !_pgPool) return;
+  await _pgPool.query('CREATE TABLE IF NOT EXISTS penc_mesh_acks(mid TEXT PRIMARY KEY, uid TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())');
+  await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_mesh_acks_uid ON penc_mesh_acks(uid)');
+  try{ await _pgPool.query("DELETE FROM penc_mesh_acks WHERE created_at < NOW() - INTERVAL '14 days'"); }catch(_){}
+  _meshReady = true;
+}
+const _meshRate = new Map();
+app.post('/api/penc/mesh/relay', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.status(503).json({ error:'indisponible' });
+    await _meshInit();
+    const relayer = String(req.pencUser.userId);
+    const now = Date.now();
+    let rl = _meshRate.get(relayer);
+    if(!rl || now - rl.t > 600000){ rl = { t:now, n:0 }; _meshRate.set(relayer, rl); }
+    const items = Array.isArray(req.body && req.body.items) ? req.body.items.slice(0, 20) : [];
+    const done = [], skip = [];
+    for(const o of items){
+      try{
+        const id = String((o && o.id) || '');
+        if(!/^[0-9a-fA-F-]{20,40}$/.test(id)) continue;
+        if(++rl.n > 300) break;   // 300 messages / 10 min par téléphone relais
+        const f = String(o.f || ''), to = String(o.to || '');
+        if(!f || !to || f === to || f.indexOf('anon_') === 0 || to.indexOf('anon_') === 0 || to === '*'){ skip.push(id); continue; }
+        const ts = Number(o.ts) || now;
+        if(now - ts > 3 * 86400000 || ts - now > 600000){ skip.push(id); continue; }
+        const ur = await _pgPool.query('SELECT id, public_key FROM penc_users WHERE id = ANY($1)', [[f, to]]);
+        const uf = ur.rows.find(r => String(r.id) === f), ut = ur.rows.find(r => String(r.id) === to);
+        // la clé de l'expéditeur doit être celle de son compte : sinon le destinataire ne pourrait pas le lire
+        if(!uf || !ut || !uf.public_key || String(uf.public_key) !== String(o.fpk || '')){ skip.push(id); continue; }
+        let type = 'text', content = String(o.c || ''), media = null, dur = null;
+        const k = String(o.k || '');
+        if(k === 'img' || k === 'voice'){
+          const x = String(o.x || '');
+          if(!x || x.length > 1400000 || !_r2Client){ skip.push(id); continue; }
+          const buf = Buffer.from(x, 'base64');
+          const mime = k === 'img' ? 'image/jpeg' : 'audio/mp4';
+          const url = await r2PutBuffer('penc/proche/' + Date.now() + '_' + Math.random().toString(36).slice(2, 10) + '.bin', buf, 'application/octet-stream');
+          media = 'PENC_E2E_v1:' + Buffer.from(mime).toString('base64') + '|' + url;
+          type = k === 'img' ? 'image' : 'voice';
+          content = '';
+          dur = k === 'voice' ? (Number(o.d) || null) : null;
+        } else if(content.indexOf('PENC_E2E_v1:') !== 0 || content.length > 20000){ skip.push(id); continue; }
+        const conv = await pgGetOrCreateConv(f, to);
+        if(!conv) continue;
+        const msg = { id:'msg_' + Date.now() + Math.random().toString(36).slice(2), conversation_id:conv.id, sender_id:f, type:type,
+          content:content, media_url:media, duration:dur, client_id:'mesh_' + id, created_at:new Date(Math.min(ts, now)).toISOString() };
+        const r = await _pencPersistMsg(msg);
+        if(!r.ok) continue;
+        done.push(id);
+        try{ await _pgPool.query('INSERT INTO penc_mesh_acks(mid, uid) VALUES($1, $2) ON CONFLICT DO NOTHING', [id, f]); }catch(_){}
+        if(r.dup) continue;
+        let sender = { id:f };
+        try{ const u = await pgFindUser('id', f); if(u) sender = pencStrip(u); }catch(_){}
+        const full = Object.assign({}, msg, { media_duration:dur, sender:sender, via:'proche' });
+        try{ io.to('penc:' + conv.id).emit('message:new', full); }catch(_){}
+        try{ io.to('user:' + to).emit('message:new', full); io.to('user:' + f).emit('message:new', full); }catch(_){}
+        try{
+          if(typeof webpush !== 'undefined' && webpush){
+            await sendPencPush(to, { title:(sender.full_name || 'Nouveau message'), body:'🔒 Nouveau message (Penc Proche)', tag:'penc-' + conv.id,
+              url:'/messager?conv=' + conv.id, conv_id:conv.id, icon:(sender.avatar_url || undefined) });
+          }
+        }catch(_){}
+      }catch(e){ console.error('[mesh] relais:', e.message); }
+    }
+    res.json({ done:done, skip:skip });
+  }catch(e){ res.status(500).json({ error:'Erreur relais' }); }
+});
+// GET /api/penc/mesh/acks — messages Penc Proche de l'expéditeur arrivés par internet (✓✓ 🌐)
+app.get('/api/penc/mesh/acks', pencAuth, async (req, res) => {
+  try{
+    if(!_pgPool) return res.json({ mids:[] });
+    await _meshInit();
+    const r = await _pgPool.query('DELETE FROM penc_mesh_acks WHERE uid=$1 RETURNING mid', [String(req.pencUser.userId)]);
+    res.json({ mids:r.rows.map(x => x.mid) });
+  }catch(e){ res.json({ mids:[] }); }
 });
 
 httpServer.listen(PORT, () => {
