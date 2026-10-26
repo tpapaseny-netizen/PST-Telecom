@@ -4546,11 +4546,24 @@ async function _wmVideoTrim(inputPath, outputPath, username, trim, withWatermark
 }
 
 // ── Conversion vocale → mp3 (ffmpeg) ──
-async function _voiceToMp3(inputPath, outputPath) {
+// pncsrv43 : reconnaît un fichier audio à ses premiers octets
+function _audioKind(buf) {
+  if (!buf || buf.length < 400) return null;
+  const s4 = buf.slice(4, 8).toString('latin1'), s0 = buf.slice(0, 4).toString('latin1');
+  if (s4 === 'ftyp') return { name: 'mp4', fmts: ['mp4', 'mov'] };
+  if (buf[0] === 0x1A && buf[1] === 0x45 && buf[2] === 0xDF && buf[3] === 0xA3) return { name: 'webm', fmts: ['webm', 'matroska'] };
+  if (s0 === 'OggS') return { name: 'ogg', fmts: ['ogg'] };
+  if (s0 === 'RIFF') return { name: 'wav', fmts: ['wav'] };
+  if (s0.slice(0, 3) === 'ID3' || (buf[0] === 0xFF && (buf[1] & 0xF6) === 0xF0)) return { name: 'aac', fmts: ['aac', 'mp3'] };
+  if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return { name: 'mp3', fmts: ['mp3'] };
+  return null;
+}
+async function _voiceToMp3(inputPath, outputPath, inFmt) {
   const ffmpeg = _ffmpegBin();
   return new Promise((resolve, reject) => {
     // pncsrv14c : vocaux plus clairs (160 kb/s, 48 kHz, mono)
-    ffmpeg(inputPath).audioCodec('libmp3lame').audioBitrate('160k').audioFrequency(48000).audioChannels(1).outputOptions(['-compression_level', '0'])
+    const cmd = ffmpeg(inputPath); if (inFmt) cmd.inputFormat(inFmt);
+    cmd.audioCodec('libmp3lame').audioBitrate('160k').audioFrequency(48000).audioChannels(1).outputOptions(['-compression_level', '0'])
       .on('end', resolve).on('error', reject).save(outputPath);
   });
 }
@@ -4842,7 +4855,7 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
   let tmpFiles = [];
   const _t0 = Date.now();
   const _isVideo = (req.body && (req.body.type === 'video' || req.body.type === 'status_video'));
-  if(_isVideo) await _acquireVideoSlot();
+  let _slotHeld = false;   // pncsrv44 : la file d'attente vidéo ne bloque plus l'envoi (pris seulement pour le traitement ffmpeg)
   try {
     console.log('[media/process] reçu type=' + req.body.type + ' key=' + req.body.key + ' user=' + req.pencUser.userId);
     if (!_r2Ready) { console.error('[media/process] R2 non configuré'); return res.status(500).json({ error: 'R2 non configuré côté serveur' }); }
@@ -4883,7 +4896,10 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
         if (type === 'video' && req.body.chat === true && !(trim && (trim.start > 0 || trim.end)) && !blurRect && !req.body.audio_track_id && _pgPool) {
           const _pr0 = await _ffprobeMeta(tmpIn, 15000);
           const _vs0 = (_pr0.streams || []).find(x => x.codec_type === 'video') || {};
-          if (String(_vs0.codec_name || '') === 'h264' && buf.length < 200 * 1024 * 1024) _p14Async = true;
+          const _d0 = Number((_pr0.format && _pr0.format.duration) || _vs0.duration || 0);
+          // pncsrv44 : H.264 → part tout de suite ; autre format (HEVC, WebM…) de plus de 40 s → part tout de suite aussi,
+          // la version convertie remplace l'originale dès qu'elle est prête (avant : l'envoi attendait la conversion → « En attente de connexion »)
+          if (buf.length < 200 * 1024 * 1024 && (String(_vs0.codec_name || '') === 'h264' || _d0 > 40)) _p14Async = true;
         }
       } catch (_pa) { _p14Async = false; }
       const _p14RawUrl = R2_PUBLIC + '/' + key;
@@ -4893,6 +4909,7 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
         console.log('[media/process] video: envoyée tout de suite (pncsrv14), traitement en arrière-plan');
         res = { json: function(){ return this; }, status: function(){ return this; } };
       }
+      await _acquireVideoSlot(); _slotHeld = true;
       const withWatermark = (type === 'video'); // statuts : rognage seul, pas de filigrane (comme avant)
       const username = withWatermark ? await _pencUsernameFor(req.pencUser.userId) : null;
       // Musique choisie sur une vidéo du Fil : téléchargée depuis R2 puis mixée par ffmpeg
@@ -4945,7 +4962,23 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       const tmpOut = pathMod.join(os.tmpdir(), 'aout_' + Date.now() + '.mp3');
       tmpFiles = [tmpIn, tmpOut];
       fs.writeFileSync(tmpIn, buf);
-      await _voiceToMp3(tmpIn, tmpOut);
+      // pncsrv43 : vocal vérifié avant conversion — une page web reçue à la place du son est refusée
+      // clairement, et un vocal valide que ffmpeg n'arrive pas à convertir est envoyé tel quel.
+      const _kind = _audioKind(buf);
+      if (!_kind) {
+        console.error('[media/process] voice: fichier non audio (' + buf.length + ' o, début: ' + JSON.stringify(buf.slice(0, 16).toString('latin1')) + ')');
+        tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+        return res.status(422).json({ error: 'Le vocal est arrivé vide ou abîmé. Réenregistre-le.' });
+      }
+      let _conv = false;
+      for (const fmt of [null].concat(_kind.fmts)) {
+        try { await _voiceToMp3(tmpIn, tmpOut, fmt); _conv = true; break; } catch (e) { console.error('[media/process] voice: ffmpeg' + (fmt ? ' -f ' + fmt : '') + ' :', String(e.message).slice(0, 160)); }
+      }
+      if (!_conv) {
+        tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+        console.log('[media/process] voice: conversion impossible, vocal d\'origine gardé (' + _kind.name + ')');
+        return res.json({ success: true, url: R2_PUBLIC + '/' + key });
+      }
       console.log('[media/process] voice: conversion OK, ré-upload...');
       const outBuf = fs.readFileSync(tmpOut);
       const mp3Key = key.replace(/\.[a-z0-9]+$/i, '.mp3');
@@ -4961,7 +4994,7 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
     tmpFiles.forEach(p => { try { require('fs').unlinkSync(p); } catch (_e) {} });
     res.status(500).json({ error: e.message });
   } finally {
-    if(_isVideo) _releaseVideoSlot();
+    if(_slotHeld) _releaseVideoSlot();
   }
 });
 
