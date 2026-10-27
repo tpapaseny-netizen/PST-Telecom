@@ -13719,7 +13719,7 @@ app.post('/api/penc/statuses', pencAuth, async (req, res) => {
       media_url: (_mu&&_mu.length)?_mu[0]:(media_url||null), media_urls: (_mu&&_mu.length>1)?_mu:null, text_content: text_content||null,
       bg_color: bg_color||'#050D18', caption: caption||null,
       font_family: _fontFamily,
-      duration: (typeof duration==='number'&&duration>0&&duration<=60)?Math.round(duration):(type==='video'?0:10),
+      duration: (typeof duration==='number'&&duration>0&&duration<=600)?Math.round(duration):((type==='video'||type==='audio')?0:10), // pncsrv47 : vidéos/audios jusqu'à 10 min, lus jusqu'au bout
       reactions: [], views: [], view_ips: [],
       poll_data: (poll_question && String(poll_question).trim()) ? { question: String(poll_question).trim().slice(0,150), responses: [] } : null,
       bg_audio: _bgAudio,
@@ -17251,7 +17251,7 @@ app.post('/api/penc/admin/official-status', pencAuth, pencAdmin, async (req, res
       user_id: 'penc_official', type: type || 'text',
       media_url: media_url || null, text_content: text_content || null,
       bg_color: bg_color || '#0E8C7C', caption: caption || null,
-      duration: (typeof duration === 'number' && duration > 0 && duration <= 60) ? Math.round(duration) : (type === 'video' ? 0 : 10),
+      duration: (typeof duration === 'number' && duration > 0 && duration <= 600) ? Math.round(duration) : ((type === 'video' || type === 'audio') ? 0 : 10), // pncsrv47
       reactions: [], views: [], view_ips: [],
       created_at: new Date().toISOString(),
       expires_at: _offExp
