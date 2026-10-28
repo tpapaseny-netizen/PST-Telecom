@@ -104,6 +104,157 @@ app.get('/health', function(req,res){
 try{ const _compression = require('compression'); app.use(_compression({ threshold: 1024, filter: function(req, res){ if(req.headers['x-no-compression']) return false; return _compression.filter(req, res); } })); console.log('[perf] compression gzip active'); }
 catch(_c){ console.log('[perf] module compression absent — ajouter "compression" dans package.json pour activer le gzip'); }
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
+// ════ pncsrv48 — Sécurité : médias de discussion privés (liens signés qui expirent), anti-abus, sessions ════
+// Les photos / vidéos / vocaux / documents des discussions (dossier penc/chat/) et les pièces KYC (penc/verif/)
+// ne sont plus servis par l'adresse publique : le serveur donne des liens signés (Worker « penc-media-gate »)
+// valables 30 jours, renouvelables uniquement par les membres de la discussion. Inactif tant que
+// MEDIA_SIGN_SECRET et MEDIA_GATE_URL ne sont pas définis (aucun changement de comportement).
+const MEDIA_SIGN_SECRET = process.env.MEDIA_SIGN_SECRET || '';
+const MEDIA_GATE_URL = (process.env.MEDIA_GATE_URL || '').replace(/\/$/, '');
+const _MEDIA_PRIV = ['penc/chat/', 'penc/verif/'];
+function _mediaOn(){ return !!(MEDIA_SIGN_SECRET && MEDIA_GATE_URL); }
+function _mediaPub(){ try{ return R2_PUBLIC; }catch(_){ return ''; } }
+function _mediaPrivKey(u){
+  if (typeof u !== 'string' || u.length > 2000 || u.length < 12) return null;
+  var rest = null, pub = _mediaPub();
+  if (pub && u.indexOf(pub + '/') === 0) rest = u.slice(pub.length + 1);
+  else if (MEDIA_GATE_URL && u.indexOf(MEDIA_GATE_URL + '/') === 0) rest = u.slice(MEDIA_GATE_URL.length + 1);
+  if (rest == null) return null;
+  var key = rest.split('?')[0].split('#')[0];
+  for (var i = 0; i < _MEDIA_PRIV.length; i++) if (key.indexOf(_MEDIA_PRIV[i]) === 0) return key;
+  return null;
+}
+function _mediaSig(key, exp){ return crypto.createHmac('sha256', MEDIA_SIGN_SECRET).update(key + '.' + exp).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32); }
+function _mediaSignKey(key){ var day = 86400000; var exp = Math.floor((Math.floor(Date.now() / day) + 30) * day / 1000); return MEDIA_GATE_URL + '/' + key + '?e=' + exp + '&s=' + _mediaSig(key, exp); }
+function _mediaOutUrl(u){ if (!_mediaOn()) return u; var key = _mediaPrivKey(u); return key ? _mediaSignKey(key) : u; }
+function _mediaInUrl(u){ if (!_mediaOn() || typeof u !== 'string' || u.indexOf(MEDIA_GATE_URL + '/') !== 0) return u; var key = _mediaPrivKey(u), pub = _mediaPub(); return (key && pub) ? (pub + '/' + key) : u; }
+function _mediaDeep(v, fn, d){
+  d = d || 0; if (d > 12 || v == null) return v;
+  if (typeof v === 'string') return fn(v);
+  if (Array.isArray(v)){ var out = null; for (var i = 0; i < v.length; i++){ var n = _mediaDeep(v[i], fn, d + 1); if (n !== v[i]){ if (!out) out = v.slice(); out[i] = n; } } return out || v; }
+  if (typeof v === 'object'){ var pr = Object.getPrototypeOf(v); if (pr !== Object.prototype && pr !== null) return v;
+    var o2 = null; for (var k in v){ if (!Object.prototype.hasOwnProperty.call(v, k)) continue; var n2 = _mediaDeep(v[k], fn, d + 1); if (n2 !== v[k]){ if (!o2) o2 = Object.assign({}, v); o2[k] = n2; } } return o2 || v; }
+  return v;
+}
+global._mediaOutUrl = _mediaOutUrl;
+// liens signés reçus des applis → adresse d'origine (on n'enregistre jamais un lien signé en base)
+app.use(function(req, res, next){
+  if (_mediaOn()){
+    try { if (req.body && typeof req.body === 'object') req.body = _mediaDeep(req.body, _mediaInUrl, 0); } catch(_){}
+    var _j = res.json.bind(res);
+    res.json = function(b){ try { b = _mediaDeep(b, _mediaOutUrl, 0); } catch(_){} return _j(b); };
+  }
+  next();
+});
+// temps réel : même règle pour tout ce qui part / arrive par socket
+(function(){
+  try {
+    var sio = require('socket.io');
+    var RES = new Set(['connect', 'connect_error', 'disconnect', 'disconnecting', 'newListener', 'removeListener', 'error']);
+    function wrap(proto){
+      if (!proto || proto._p48m) return; var o = proto.emit;
+      proto.emit = function(ev){
+        var args = Array.prototype.slice.call(arguments);
+        if (_mediaOn() && typeof ev === 'string' && !RES.has(ev)){
+          try { for (var i = 1; i < args.length; i++){ if (typeof args[i] !== 'function') args[i] = _mediaDeep(args[i], _mediaOutUrl, 0); } } catch(_){}
+        }
+        return o.apply(this, args);
+      };
+      proto._p48m = 1;
+    }
+    wrap(sio.Socket && sio.Socket.prototype); wrap(sio.Namespace && sio.Namespace.prototype);
+    try { wrap(require('socket.io/dist/broadcast-operator').BroadcastOperator.prototype); } catch(_){}
+  } catch(e){ console.error('[pncsrv48] socket media', e.message); }
+  // anti-inondation : 30 messages / 10 s et 300 / 5 min par compte (largement au-dessus d'un usage normal)
+  var _floodMap = new Map();
+  setInterval(function(){ var now = Date.now(); _floodMap.forEach(function(v, k){ if (now - v.w5 > 300000) _floodMap.delete(k); }); }, 120000);
+  io.on('connection', function(socket){
+    socket.use(function(packet, next){
+      try {
+        var ev = packet[0];
+        if (ev === 'message:send'){
+          var uid = String((socket.data && socket.data.pencUserId) || socket.id); var now = Date.now();
+          var e = _floodMap.get(uid); if (!e){ e = { w10: now, n10: 0, w5: now, n5: 0 }; _floodMap.set(uid, e); }
+          if (now - e.w10 > 10000){ e.w10 = now; e.n10 = 0; } if (now - e.w5 > 300000){ e.w5 = now; e.n5 = 0; }
+          e.n10++; e.n5++;
+          if (e.n10 > 30 || e.n5 > 300){
+            var ack = packet[packet.length - 1];
+            if (typeof ack === 'function') { try { ack({ error: 'rate_limited', message: 'Trop de messages d’un coup. Patiente quelques secondes.' }); } catch(_){} }
+            if (e.n10 === 31 || e.n5 === 301) { try { pencSecLog('msg_flood', { headers: socket.handshake.headers, socket: {} }, { user_id: uid }); } catch(_){} }
+            return;   // message ignoré
+          }
+        }
+        if (_mediaOn()){
+          for (var i = 1; i < packet.length; i++){
+            var a = packet[i];
+            if (typeof a === 'function'){ (function(fn, idx){ packet[idx] = function(){ var r = Array.prototype.slice.call(arguments); try { r = r.map(function(x){ return _mediaDeep(x, _mediaOutUrl, 0); }); } catch(_){} return fn.apply(this, r); }; })(a, i); }
+            else packet[i] = _mediaDeep(a, _mediaInUrl, 0);
+          }
+        }
+      } catch(_){}
+      next();
+    });
+  });
+})();
+// renouveler un lien de média expiré — seulement pour les membres de la discussion (ou l'équipe pour le KYC)
+app.post('/api/penc/media/resign', function(req, res, next){ return pencAuth(req, res, next); }, async function(req, res){
+  try {
+    if (!_mediaOn()) return res.json({ urls: {} });
+    var list = Array.isArray(req.body && req.body.urls) ? req.body.urls.slice(0, 60) : [];
+    var raw = (req.body && req.body.raw) || {};   // adresses signées d'origine (pas réécrites par le filtre d'entrée)
+    var uid = String(req.pencUser.userId), out = {};
+    var isAdm = false;
+    try { var u = await _pgPool.query('SELECT email, is_admin FROM penc_users WHERE id=$1', [uid]); isAdm = !!(u.rows[0] && (u.rows[0].is_admin || PENC_ADMIN_EMAILS.includes(String(u.rows[0].email || '').toLowerCase()))); } catch(_){}
+    for (var i = 0; i < list.length; i++){
+      var canon = list[i]; var key = _mediaPrivKey(canon); if (!key) continue;
+      var ok = false;
+      if (key.indexOf('penc/verif/') === 0) ok = isAdm || key.indexOf('penc/verif/' + uid + '/') === 0;
+      else if (_pgPool){
+        try {
+          var q = await _pgPool.query("SELECT 1 FROM penc_messages m JOIN penc_conversations c ON c.id=m.conversation_id WHERE (m.media_url=$1 OR m.media_thumb_url=$1 OR m.media_url=$3) AND (c.participants @> $2::jsonb OR m.sender_id=$4) LIMIT 1",
+            [canon, JSON.stringify([uid]), canon.replace(/(\.[^./]+)?$/, '_p.mp4'), uid]);
+          ok = q.rowCount > 0;
+          if (!ok){   // vidéo / vocal convertis : même nom de base
+            var base = canon.replace(/(_p|_c)?\.[^./]+$/, '');
+            var q2 = await _pgPool.query("SELECT 1 FROM penc_messages m JOIN penc_conversations c ON c.id=m.conversation_id WHERE m.media_url LIKE $1 AND (c.participants @> $2::jsonb OR m.sender_id=$3) LIMIT 1", [base.replace(/[%_]/g, '\\$&') + '%', JSON.stringify([uid]), uid]);
+            ok = q2.rowCount > 0;
+          }
+        } catch(_){ ok = false; }
+      }
+      if (ok) out[canon] = _mediaSignKey(key);
+    }
+    res.json({ urls: out });
+  } catch(e){ res.status(500).json({ error: 'resign' }); }
+});
+// déconnecter tous les autres appareils
+app.post('/api/penc/auth/sessions/revoke-others', function(req, res, next){ return pencAuth(req, res, next); }, async function(req, res){
+  try {
+    var uid = String(req.pencUser.userId), cur = req.pencUser.sid || '';
+    if (!_pgPool) return res.json({ success: true, count: 0 });
+    var r = await _pgPool.query("UPDATE penc_sessions SET revoked=TRUE WHERE user_id=$1 AND sid<>$2 AND revoked=FALSE RETURNING sid", [uid, cur]);
+    var sids = r.rows.map(function(x){ return x.sid; });
+    sids.forEach(function(s){ try { _pencRevokedSids.add(s); } catch(_){} });
+    try { var socks = await io.in('user:' + uid).fetchSockets(); socks.forEach(function(sk){ if (sk.data && sk.data.pencSid && sids.indexOf(sk.data.pencSid) >= 0){ try { sk.emit('session:revoked', {}); sk.disconnect(true); } catch(_){} } }); } catch(_){}
+    try { pencSecLog('sessions_revoke_others', req, { user_id: uid, detail: String(sids.length) }); } catch(_){}
+    res.json({ success: true, count: sids.length });
+  } catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+// activité réelle des sessions (au plus une écriture toutes les 5 min par appareil)
+var _sessTouch = new Map();
+function _pencTouchSession(sid, req){
+  try {
+    if (!sid) return; var now = Date.now(), t = _sessTouch.get(sid) || 0; if (now - t < 300000) return; _sessTouch.set(sid, now);
+    if (_sessTouch.size > 50000) _sessTouch.clear();
+    var ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (_pgPool) _pgPool.query("UPDATE penc_sessions SET last_seen=NOW(), ip=COALESCE(NULLIF($2,''), ip) WHERE sid=$1 AND revoked=FALSE", [sid, ip]).catch(function(){});
+  } catch(_){}
+}
+// limites sur les codes de double authentification (2FA)
+var _twofaFails = new Map();
+function _twofaBlocked(uid){ var e = _twofaFails.get(String(uid)); return !!(e && e.until && e.until > Date.now()); }
+function _twofaFail(uid){ var k = String(uid), now = Date.now(), e = _twofaFails.get(k); if (!e || now - e.first > 900000) e = { first: now, n: 0, until: 0 }; e.n++; if (e.n >= 5) e.until = now + 900000; _twofaFails.set(k, e); }
+function _twofaOk(uid){ _twofaFails.delete(String(uid)); }
+// ════ fin pncsrv48 (partie A) ════
 // ─── PWA — SW + manifest avec headers corrects ───────────────────────────────
 app.get('/sw.js',(req,res)=>{ res.set({'Service-Worker-Allowed':'/','Cache-Control':'no-cache','Content-Type':'application/javascript'}); res.sendFile(require('path').join(__dirname,'sw.js')); });
 app.get('/penc-manifest.json',(req,res)=>{ res.set({'Cache-Control':'no-cache','Content-Type':'application/manifest+json'}); res.sendFile(require('path').join(__dirname,'penc-manifest.json')); });
@@ -3722,8 +3873,8 @@ function _pencPushExtra(msg, sender){   // pncapp5
     if(typeof msg.content==='string' && msg.content.indexOf('PENC_E2E_v1:')===0 && msg.content.length < 2600 && !msg.view_once) out.enc = msg.content;
     const m = { id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, type: msg.type || 'text',
       content: msg.view_once ? (msg.type==='text' ? null : (msg.content||null)) : (msg.content || null),
-      media_url: msg.view_once ? null : (msg.media_url || null), media_duration: msg.media_duration || null,
-      media_thumb_url: msg.media_thumb_url || null, client_id: msg.client_id || null, created_at: msg.created_at,
+      media_url: msg.view_once ? null : (msg.media_url ? _mediaOutUrl(msg.media_url) : null), media_duration: msg.media_duration || null,
+      media_thumb_url: msg.media_thumb_url ? _mediaOutUrl(msg.media_thumb_url) : null, client_id: msg.client_id || null, created_at: msg.created_at,
       view_once: !!msg.view_once, file_name: msg.file_name || null, file_size: msg.file_size || null, reply_to: msg.reply_to || null,
       sender: sender ? { id: sender.id, full_name: sender.full_name || null, username: sender.username || null, avatar_url: (sender.avatar_url && String(sender.avatar_url).indexOf('data:')!==0) ? sender.avatar_url : null } : null };
     const j = JSON.stringify(m);
@@ -4252,6 +4403,7 @@ function pencAuth(req, res, next) {
     req.pencUser = jwt_penc.verify(h.slice(7), PENC_SECRET);
     if (typeof _pencBlocked!=='undefined' && _pencBlocked.has(String(req.pencUser.userId))) return res.status(403).json({ error: 'compte_restreint', restricted:true });
     if (req.pencUser.sid && typeof _pencRevokedSids!=='undefined' && _pencRevokedSids.has(req.pencUser.sid)) return res.status(401).json({ error: 'session_revoked' });
+    try{ _pencTouchSession(req.pencUser.sid, req); }catch(_t){}   // pncsrv48
     next();
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
@@ -4807,7 +4959,9 @@ app.post('/api/penc/media/presign', pencAuth, async (req, res) => {
     if (!allowed.includes(type)) { console.error('[media/presign] REJET type invalide reçu="' + type + '" (types connus par CE serveur: ' + allowed.join(',') + ')'); return res.status(400).json({ error: 'type media invalide' }); }
     const mime = req.body.mime || 'application/octet-stream';
     const ext = req.body.ext || 'bin';
-    const key = r2Key(type, req.pencUser.userId, ext);
+    // pncsrv48 : médias de discussion → dossier privé penc/chat/ (nom aléatoire de 128 bits, sans identifiant ni date)
+    const _chatScope = (req.body.scope === 'chat' && ['photo','video','voice','file'].includes(type));
+    const key = _chatScope ? ('penc/chat/' + ({photo:'img',video:'vid',voice:'aud',file:'doc'}[type]) + '/' + crypto.randomBytes(16).toString('hex') + '.' + (String(ext||'bin').replace(/[^a-z0-9]/gi,'').toLowerCase()||'bin')) : r2Key(type, req.pencUser.userId, ext);
     const uploadUrl = await r2PresignPut(key, mime);
     console.log('[media/presign] OK key=' + key);
     res.json({ success: true, uploadUrl, key, publicUrl: R2_PUBLIC + '/' + key });
@@ -7118,7 +7272,9 @@ app.post('/api/penc/auth/2fa/enable', pencAuth, async (req,res)=>{
     var r=await _pgPool.query("SELECT totp_secret FROM penc_users WHERE id=$1",[req.pencUser.userId]);
     var enc=r.rows[0]&&r.rows[0].totp_secret; var sec=enc?_totpDec(enc):null;
     if(!sec) return res.status(400).json({error:"Lance d'abord la configuration."});
-    if(!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect. Reessaie.'});
+    if(_twofaBlocked(req.pencUser.userId)) return res.status(429).json({error:'Trop de codes faux. Réessaie dans 15 minutes.'});   // pncsrv48
+    if(!_totpVerify(sec, code, 1)){ _twofaFail(req.pencUser.userId); return res.status(400).json({error:'Code incorrect. Reessaie.'}); }
+    _twofaOk(req.pencUser.userId);
     await _pgPool.query("UPDATE penc_users SET totp_enabled=true WHERE id=$1",[req.pencUser.userId]);
     try{ pencSecLog('2fa_enabled', req, {user_id:req.pencUser.userId}); }catch(_){}
     res.json({ success:true });
@@ -7132,7 +7288,8 @@ app.post('/api/penc/auth/2fa/disable', pencAuth, async (req,res)=>{
     var r=await _pgPool.query("SELECT totp_secret,totp_enabled FROM penc_users WHERE id=$1",[req.pencUser.userId]);
     var row=r.rows[0]||{}; if(!row.totp_enabled) return res.json({success:true});
     var sec=row.totp_secret?_totpDec(row.totp_secret):null;
-    if(!sec||!_totpVerify(sec, code, 1)) return res.status(400).json({error:'Code incorrect.'});
+    if(_twofaBlocked(req.pencUser.userId)) return res.status(429).json({error:'Trop de codes faux. Réessaie dans 15 minutes.'});   // pncsrv48
+    if(!sec||!_totpVerify(sec, code, 1)){ _twofaFail(req.pencUser.userId); return res.status(400).json({error:'Code incorrect.'}); }
     await _pgPool.query("UPDATE penc_users SET totp_enabled=false, totp_secret=NULL WHERE id=$1",[req.pencUser.userId]);
     try{ pencSecLog('2fa_disabled', req, {user_id:req.pencUser.userId}); }catch(_){}
     res.json({ success:true });
@@ -7149,7 +7306,9 @@ app.post('/api/penc/auth/2fa/login', async (req,res)=>{
     if(!user) return res.status(400).json({error:'Compte introuvable.'});
     var sec=user.totp_secret?_totpDec(user.totp_secret):null;
     if(!sec||!user.totp_enabled) return res.status(400).json({error:'2FA non configuree.'});
-    if(!_totpVerify(sec, code, 1)){ try{ pencSecLog('2fa_failed', req, {user_id:user.id}); }catch(_){} return res.status(400).json({error:'Code incorrect.'}); }
+    if(_twofaBlocked(user.id)) return res.status(429).json({error:'Trop de codes faux. Réessaie dans 15 minutes.'});   // pncsrv48
+    if(!_totpVerify(sec, code, 1)){ _twofaFail(user.id); try{ pencSecLog('2fa_failed', req, {user_id:user.id}); }catch(_){} return res.status(400).json({error:'Code incorrect.'}); }
+    _twofaOk(user.id);
     var _lock2 = await _pencDeviceLockCheck(user.id, req);
     if(_lock2.blocked){ return res.status(403).json({ error:'device_locked', message:'Un appareil est déjà connecté à ce compte. Utilise \'Lier cet appareil par QR code\' depuis l\'écran de connexion, en scannant depuis ton appareil déjà connecté (Profil › Sécurité & sessions).' }); }
     var _sid=_pencNewSid();
