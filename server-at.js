@@ -9957,6 +9957,17 @@ app.post('/api/penc/send', pencAuth, async (req, res) => {
     const { conversation_id, type, content, media_url, media_duration, reply_to, client_id } = req.body || {};
     if(!conversation_id) return res.status(400).json({ error:'conversation_id requis' });
     if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    /* pncsrv49 : mêmes règles que l'envoi normal — membre de la discussion, pas de blocage */
+    try{
+      const _sp = (await _pencConvParts(conversation_id)) || [];
+      if(_sp.length && !_sp.map(String).includes(String(uid))) return res.status(403).json({ error:'Conversation indisponible.', code:'not_member' });
+      const _so = _sp.find(p=>String(p)!==String(uid));
+      if(_sp.length===2 && _so){
+        if(_areIsolated(uid, _so)) return res.status(403).json({ error:'Conversation indisponible.', code:'isolated' });
+        const _rb = await _pgPool.query("SELECT requester FROM penc_friendships WHERE status='blocked' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) ORDER BY created_at DESC LIMIT 1",[uid,_so]);
+        if(_rb.rows[0]){ const _by = String(_rb.rows[0].requester)===String(uid)?'me':'them'; return res.status(403).json({ error: _by==='me'?'Vous avez bloqué ce contact.':'Ce contact ne reçoit pas vos messages.', code:'blocked', by:_by, other:_so }); }
+      }
+    }catch(_sx){}
     const msg = {
       id: 'msg_'+Date.now()+Math.random().toString(36).slice(2),
       conversation_id, sender_id: uid, reply_to: reply_to||null,
@@ -18822,11 +18833,11 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
         if (u) { sender = pencStrip(u); _senderAdmin = (u.is_admin === true) || PENC_ADMIN_EMAILS.includes(((u.email || '') + '').toLowerCase()); }
       } catch {}
       // ── Amis : blocage + 1er message en attente (fail-open) ──
-      let _blocked = false;
+      let _blocked = false, _blkOther = null;
       try {
         if (_pgPool) {
           let _parts = (await _pPrt) || [];
-          const _other = _parts.find(p=>p!==pencUserId);
+          const _other = _parts.find(p=>p!==pencUserId); _blkOther = _other || null;
           if (_other && _areIsolated(pencUserId, _other)) { if (typeof cb === 'function') cb({ error: 'Conversation indisponible.' }); return; }
           if (_other) {
             const _rel = await _pencRel(pencUserId, _other); _blocked = _rel.blocked;
@@ -18837,7 +18848,10 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
           }
         }
       } catch(_e){ _blocked = false; msg.pending = false; }
-      if (_blocked) { if (typeof cb === 'function') cb({ error: 'Vous ne pouvez pas écrire à cet utilisateur.' }); return; }
+      if (_blocked) { /* pncsrv49 : on dit clairement qui a bloqué (pour proposer « Débloquer » si c'est moi) */
+        let _by = 'them';
+        try { if (_pgPool && _blkOther) { const _rb = await _pgPool.query("SELECT requester FROM penc_friendships WHERE status='blocked' AND ((requester=$1 AND recipient=$2) OR (requester=$2 AND recipient=$1)) ORDER BY created_at DESC LIMIT 1",[pencUserId,_blkOther]); if (_rb.rows[0] && String(_rb.rows[0].requester) === String(pencUserId)) _by = 'me'; } } catch(_e2) {}
+        if (typeof cb === 'function') cb({ error: _by === 'me' ? 'Vous avez bloqué ce contact.' : 'Ce contact ne reçoit pas vos messages.', code: 'blocked', by: _by, other: _blkOther }); return; }
       // ── Anti-doublon ATOMIQUE : si un client_id est fourni (cas des vocaux/médias envoyés
       // via sendMsgSocket, retentables par la file hors-ligne), on réserve la ligne en base
       // AVANT toute diffusion. Deux envois concurrents avec le même client_id ne peuvent plus
