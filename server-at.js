@@ -6578,6 +6578,100 @@ async function pgClaimMessage(msg){
   if(r.rows[0]){ await _pgPool.query('UPDATE penc_conversations SET updated_at=NOW() WHERE id=$1',[msg.conversation_id]); return r.rows[0]; }
   return null; // conflit = un autre envoi avec le même client_id a déjà gagné la course
 }
+
+// ════ pncsrv51 — médias des discussions comme WhatsApp : le serveur ne garde un média que le temps
+// que chaque destinataire l'ait reçu sur son téléphone. Chaque appli enregistre le média chez elle puis
+// le signale (POST /api/penc/media/got) ; quand tous les destinataires l'ont, le fichier est supprimé du
+// stockage 48 h plus tard. Un média jamais récupéré est supprimé au bout de 30 jours.
+// Ne concerne QUE les médias de discussion (dossier penc/chat/) envoyés à partir de maintenant.
+let _p51Ready = false;
+async function _p51Init(){
+  if (_p51Ready || !_pgPool) return _p51Ready;
+  try {
+    await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_media_hold (key TEXT PRIMARY KEY, conv_id TEXT, sender_id TEXT, pending JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW(), done_at TIMESTAMPTZ, gone BOOLEAN DEFAULT FALSE, gone_at TIMESTAMPTZ)");
+    await _pgPool.query("CREATE INDEX IF NOT EXISTS penc_media_hold_purge ON penc_media_hold (gone, done_at, created_at)");
+    _p51Ready = true;
+  } catch (e) { console.error('[media-hold] init:', e.message); }
+  return _p51Ready;
+}
+function _p51Key(u){
+  try {
+    if (typeof u !== 'string' || !u) return null;
+    let k = null;
+    try { k = _mediaPrivKey(u); } catch (_) {}
+    if (!k) { const i = u.indexOf('/penc/chat/'); if (i >= 0) k = u.slice(i + 1).split('?')[0].split('#')[0]; }
+    if (!k || k.indexOf('penc/chat/') !== 0 || k.indexOf('..') >= 0 || k.length > 300) return null;
+    return k;
+  } catch (_) { return null; }
+}
+async function _p51Hold(msg){
+  try {
+    if (!msg || !msg.conversation_id || !msg.sender_id) return;
+    const keys = [msg.media_url, msg.media_thumb_url].map(_p51Key).filter(Boolean);
+    if (!keys.length || !(await _p51Init())) return;
+    const c = await _pgPool.query('SELECT participants FROM penc_conversations WHERE id=$1', [msg.conversation_id]);
+    if (!c.rows.length) return;
+    let parts = c.rows[0].participants; if (typeof parts === 'string') { try { parts = JSON.parse(parts); } catch (_) { parts = []; } }
+    const rec = (Array.isArray(parts) ? parts : []).map(String).filter(function(x){ return x && x !== String(msg.sender_id); });
+    if (!rec.length) return;
+    for (const k of keys) {
+      await _pgPool.query(
+        "INSERT INTO penc_media_hold(key,conv_id,sender_id,pending,created_at) VALUES($1,$2,$3,$4::jsonb,NOW()) " +
+        "ON CONFLICT (key) DO UPDATE SET pending=(SELECT COALESCE(jsonb_agg(DISTINCT x),'[]'::jsonb) FROM jsonb_array_elements(penc_media_hold.pending || EXCLUDED.pending) x), done_at=NULL, created_at=NOW()",
+        [k, msg.conversation_id, String(msg.sender_id), JSON.stringify(rec)]);
+    }
+  } catch (e) { console.error('[media-hold] hold:', e.message); }
+}
+try {
+  const _p51s = pgSaveMessage;
+  pgSaveMessage = async function(m){ const r = await _p51s(m); if (r) _p51Hold(m); return r; };
+  const _p51c = pgClaimMessage;
+  pgClaimMessage = async function(m){ const r = await _p51c(m); if (r) _p51Hold(m); return r; };
+} catch (e) { console.error('[media-hold] wrap:', e.message); }
+app.post('/api/penc/media/got', pencAuth, async (req, res) => {
+  try {
+    if (!(await _p51Init())) return res.json({ ok: true, n: 0 });
+    const uid = String(req.pencUser.userId);
+    const keys = (Array.isArray(req.body && req.body.keys) ? req.body.keys : []).slice(0, 200).map(_p51Key).filter(Boolean);
+    let n = 0;
+    for (const k of keys) {
+      const r = await _pgPool.query(
+        "UPDATE penc_media_hold SET pending = pending - $2::text, done_at = CASE WHEN jsonb_array_length(pending - $2::text)=0 THEN COALESCE(done_at, NOW()) ELSE NULL END WHERE key=$1 AND pending ? $2::text",
+        [k, uid]);
+      n += r.rowCount || 0;
+    }
+    res.json({ ok: true, n: n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// l'appli demande si des médias ont déjà quitté le serveur (pour afficher « média expiré » au lieu d'un chargement sans fin)
+app.post('/api/penc/media/state', pencAuth, async (req, res) => {
+  try {
+    if (!(await _p51Init())) return res.json({ gone: [] });
+    const keys = (Array.isArray(req.body && req.body.keys) ? req.body.keys : []).slice(0, 200).map(_p51Key).filter(Boolean);
+    if (!keys.length) return res.json({ gone: [] });
+    const r = await _pgPool.query('SELECT key FROM penc_media_hold WHERE gone=TRUE AND key = ANY($1::text[])', [keys]);
+    res.json({ gone: r.rows.map(function(x){ return x.key; }) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+let _p51Busy = false;
+async function _p51Purge(){
+  if (_p51Busy || !_pgPool || typeof _r2Ready === 'undefined' || !_r2Ready) return;
+  _p51Busy = true;
+  try {
+    if (!(await _p51Init())) return;
+    const r = await _pgPool.query("SELECT key FROM penc_media_hold WHERE gone=FALSE AND ((done_at IS NOT NULL AND done_at < NOW() - INTERVAL '48 hours') OR created_at < NOW() - INTERVAL '30 days') ORDER BY created_at LIMIT 300");
+    let n = 0;
+    for (const row of r.rows) {
+      try { await r2DeleteObject(row.key); await _pgPool.query('UPDATE penc_media_hold SET gone=TRUE, gone_at=NOW() WHERE key=$1', [row.key]); n++; }
+      catch (e) { console.error('[media-hold] suppression ' + row.key + ':', e.message); }
+    }
+    if (n) console.log('[media-hold] ' + n + ' média(s) de discussion retiré(s) du stockage (déjà reçus par tous ou expirés)');
+    await _pgPool.query("DELETE FROM penc_media_hold WHERE gone=TRUE AND gone_at < NOW() - INTERVAL '180 days'").catch(function(){});
+  } catch (e) { console.error('[media-hold] purge:', e.message); }
+  finally { _p51Busy = false; }
+}
+setTimeout(_p51Purge, 120000);
+setInterval(_p51Purge, 3600000);
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
   const p = String(fullName||'').trim().split(/\s+/)[0] || '';
