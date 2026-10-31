@@ -10379,6 +10379,10 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           avatar_url: other.avatar_url || null, last_message: last };
       });
     }
+    /* pncsrv50 : blocage — plus de photo de profil, discussion marquée bloquée (on ne peut plus rien s'envoyer) */
+    try{ if(_pgPool){ const _bl = await _filBlockedSet(uid); if(_bl.size){
+      const _mine = new Set((await _pgPool.query("SELECT recipient FROM penc_friendships WHERE status='blocked' AND requester=$1",[uid])).rows.map(function(x){ return String(x.recipient); }));
+      result = result.map(function(c){ if(c && c.other_user_id && _bl.has(String(c.other_user_id)) && (c.participants||[]).length===2){ return Object.assign({}, c, { avatar_url:null, blocked:true, blocked_by_me:_mine.has(String(c.other_user_id)) }); } return c; }); } } }catch(_be){}
     res.json({ conversations: result });
   } catch(e) { console.error('GET convs:', e.message); res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10839,6 +10843,11 @@ app.get('/api/penc/statuses', pencAuth, async (req, res) => {
         statuses=filtered;
       }
     }catch(_pe){ console.error('filtre confidentialite statuts:', _pe.message); }
+    /* pncsrv50 : blocage définitif — ni statuts ni vues entre les deux personnes */
+    try{ if(_pgPool){ const _bl = await _filBlockedSet(uid); if(_bl.size){
+      statuses = statuses.filter(function(s){ return !_bl.has(String(s.user_id)); });
+      mine = mine.map(function(s){ return Object.assign({}, s, { viewers:(s.viewers||[]).filter(function(v){ return !_bl.has(String(v.user_id)); }), views:(s.views||[]).filter(function(v){ return !_bl.has(String(v)); }) }); });
+    } } }catch(_be){}
     res.json({statuses,mine,me:meUser});
   }catch(e){console.error('GET statuses:',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
@@ -18667,6 +18676,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_user_id, 'call:recording-stopped', { room_name });
   });
   socket.on('call:initiate', async ({target_user_id, type, caller_name, caller_avatar, room_name}) => {
+    /* pncsrv50 : pas d'appel entre personnes bloquées */
+    try{ if(target_user_id && await pgIsBlocked(pencUserId, String(target_user_id))){ socket.emit('call:blocked', { target: String(target_user_id) }); socket.emit('call:declined', { from: String(target_user_id), blocked: true }); return; } }catch(_cb){}
     // pncapp9 : le destinataire reçoit tout de suite son accès à l'appel → décroché = connecté, sans attente
     const _cid9 = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
     let _lkt9 = null;
