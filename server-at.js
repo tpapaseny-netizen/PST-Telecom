@@ -8239,7 +8239,7 @@ app.get('/api/penc/posts', pencAuth, async (req, res) => {
     if(String(req.query.ranked||'') === '1'){
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const _sessSeen = new Set(String(req.query.seen||'').split(',').filter(Boolean).slice(0, 200));
-      const out = await _filRankedFeed(uid, visible, { fresh: String(req.query.fresh||'')==='1', sessionSeen: _sessSeen });
+      const out = await _filRankedFeed(uid, visible, { fresh: String(req.query.fresh||'')==='1', sessionSeen: _sessSeen, page: offset > 0 });
       const slice = out.rows.slice(offset, offset + limit);
       return res.json({ posts: await _postEnrichMany(slice, uid), ranked: true, more: offset + limit < out.rows.length, pool_oldest: out.oldest });
     }
@@ -8292,7 +8292,7 @@ async function _filGlobalPool(){
 async function _filRankedFeed(uid, visible, opts){
   opts = opts || {};
   const c = _filRankCache.get(uid);
-  if(c && !opts.fresh && Date.now() - c.t < 20000) return c;
+  if(c && !opts.fresh && Date.now() - c.t < (opts.page ? 1800000 : 20000)) return c;   // pncsrv52 : les pages suivantes gardent le même ordre
   const G = await _filGlobalPool();
   let pool = G.pool.filter(visible);
   const ids = pool.map(function(r){ return r.id; });
@@ -8308,6 +8308,31 @@ async function _filRankedFeed(uid, visible, opts){
   const friendLikes = {};
   const circle = Array.from(new Set(Array.from(friends).concat(Array.from(follows))));
   if(circle.length){ try{ (await _pgPool.query('SELECT post_id AS k, COUNT(*)::int AS n FROM penc_post_likes WHERE post_id = ANY($1) AND user_id = ANY($2) GROUP BY post_id',[ids, circle])).rows.forEach(function(x){ friendLikes[x.k]=x.n; }); }catch(_e){} }
+  /* ════ pncsrv52 — le classement apprend de chaque personne ════
+     · affinité par auteur = interactions ÷ publications de cet auteur réellement vues (lissé) ;
+     · goût par format (vidéo / photo / texte / sondage) comparé à sa moyenne ;
+     · centres d'intérêt : #hashtags des publications aimées, commentées, enregistrées, regardées longtemps ;
+     · qualité : taux d'engagement de la publication (pas seulement le nombre brut de j'aime) ;
+     · « masquer » : publication retirée, auteur moins montré. */
+  const authViews = {}, hidden = new Set(), hideAuth = {}, typeV = {}, typeE = {}, tagW = {};
+  const _ptype = "CASE WHEN COALESCE(p.video::text,'') NOT IN ('','null') THEN 'video' WHEN COALESCE(p.poll::text,'') NOT IN ('','null') THEN 'poll' WHEN COALESCE(p.media_urls::text,'') NOT IN ('','[]','null') THEN 'photo' ELSE 'text' END";
+  try{ (await _pgPool.query("SELECT p.user_id AS k, COUNT(*)::int AS n FROM penc_post_views v JOIN penc_posts p ON p.id=v.post_id WHERE v.user_id=$1 AND v.created_at > NOW() - INTERVAL '60 days' GROUP BY p.user_id",[uid])).rows.forEach(function(x){ authViews[x.k]=x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT p.user_id AS k, c.kind, COUNT(*)::int AS n FROM penc_post_clicks c JOIN penc_posts p ON p.id=c.post_id WHERE c.user_id=$1 AND c.created_at > NOW() - INTERVAL '60 days' GROUP BY p.user_id, c.kind",[uid])).rows.forEach(function(x){
+    const w = { share:3, profile:1.5, dwell:0.8, comments:0.6, more:0.6, media:0.5, reel:0.5, link:0.5, cta:0.5 }[x.kind];
+    if(x.kind === 'hide') hideAuth[x.k] = (hideAuth[x.k]||0) + x.n; else if(w) inter[x.k] = (inter[x.k]||0) + w*x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT p.user_id AS k, COUNT(*)::int AS n FROM penc_post_saves s JOIN penc_posts p ON p.id=s.post_id WHERE s.user_id=$1 AND s.created_at > NOW() - INTERVAL '60 days' GROUP BY p.user_id",[uid])).rows.forEach(function(x){ inter[x.k]=(inter[x.k]||0)+2*x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT o.user_id AS k, COUNT(*)::int AS n FROM penc_posts r JOIN penc_posts o ON o.id=r.repost_of WHERE r.user_id=$1 AND r.deleted=FALSE AND r.created_at > NOW() - INTERVAL '60 days' GROUP BY o.user_id",[uid])).rows.forEach(function(x){ inter[x.k]=(inter[x.k]||0)+3*x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT post_id FROM penc_post_clicks WHERE user_id=$1 AND kind='hide'",[uid])).rows.forEach(function(x){ hidden.add(x.post_id); }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT "+_ptype+" AS t, COUNT(*)::int AS n FROM penc_post_views v JOIN penc_posts p ON p.id=v.post_id WHERE v.user_id=$1 AND v.created_at > NOW() - INTERVAL '60 days' GROUP BY 1",[uid])).rows.forEach(function(x){ typeV[x.t]=x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT "+_ptype+" AS t, COUNT(DISTINCT p.id)::int AS n FROM penc_posts p WHERE p.id IN (SELECT post_id FROM penc_post_likes WHERE user_id=$1 AND created_at > NOW() - INTERVAL '60 days' UNION SELECT post_id FROM penc_post_comments WHERE user_id=$1 AND created_at > NOW() - INTERVAL '60 days' UNION SELECT post_id FROM penc_post_saves WHERE user_id=$1 AND created_at > NOW() - INTERVAL '60 days' UNION SELECT post_id FROM penc_post_clicks WHERE user_id=$1 AND kind IN ('dwell','share','comments','media','reel') AND created_at > NOW() - INTERVAL '60 days') GROUP BY 1",[uid])).rows.forEach(function(x){ typeE[x.t]=x.n; }); }catch(_e){}
+  try{ (await _pgPool.query("SELECT p.content FROM penc_posts p WHERE p.content LIKE '%#%' AND p.id IN (SELECT post_id FROM penc_post_likes WHERE user_id=$1 AND created_at > NOW() - INTERVAL '90 days' UNION SELECT post_id FROM penc_post_comments WHERE user_id=$1 AND created_at > NOW() - INTERVAL '90 days' UNION SELECT post_id FROM penc_post_saves WHERE user_id=$1 UNION SELECT post_id FROM penc_post_clicks WHERE user_id=$1 AND kind IN ('dwell','share') AND created_at > NOW() - INTERVAL '90 days') LIMIT 400",[uid])).rows.forEach(function(x){ (String(x.content||'').toLowerCase().match(/#[0-9a-z_à-ÿ]{2,40}/g)||[]).forEach(function(t){ tagW[t]=(tagW[t]||0)+1; }); }); }catch(_e){}
+  const _vTot = Object.keys(typeV).reduce(function(a,k){ return a+typeV[k]; },0), _eTot = Object.keys(typeE).reduce(function(a,k){ return a+typeE[k]; },0);
+  const _baseRate = (_eTot + 4) / (_vTot + 24);
+  function _typePref(t){ const r = ((typeE[t]||0) + 1) / ((typeV[t]||0) + 6); return Math.max(0.8, Math.min(1.35, r / _baseRate)); }
+  function _authAff(a){ const r = ((inter[a]||0) + 1) / ((authViews[a]||0) + 4); return Math.max(0.55, Math.min(1.9, (0.7 + Math.min(1.1, 2.4*r)) / 1.3)); }
+  function _ptypeOf(p){ try{ if(p.video) return 'video'; if(p.poll) return 'poll'; const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); return m.length ? 'photo' : 'text'; }catch(_){ return 'text'; } }
+  function _tagBoost(p){ const ts = String(p.content||'').toLowerCase().match(/#[0-9a-z_à-ÿ]{2,40}/g); if(!ts) return 1; let b = 0; Array.from(new Set(ts)).forEach(function(t){ if(tagW[t]) b += 0.15*Math.log2(1+tagW[t]); }); return 1 + Math.min(0.45, b); }
+  pool = pool.filter(function(p){ return !hidden.has(p.id); });
   const verified = G.verified;
   const now = Date.now(), day = new Date().toISOString().slice(0,10);
   function h(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0)/4294967295; }
@@ -8322,11 +8347,15 @@ async function _filRankedFeed(uid, visible, opts){
     if(follows.has(a)) prox += 0.6;
     if(chatting.has(a)) prox += 0.5;
     prox += Math.min(1.2, (inter[a]||0)/8);
+    prox *= _authAff(a);                                   // pncsrv52 : affinité apprise (interactions ÷ vues)
+    if(hideAuth[a]) prox *= hideAuth[a] >= 2 ? 0.35 : 0.65;   // auteur déjà masqué
     if(verified.has(a)) prox += 0.1;
     let media = 1; try{ const m = Array.isArray(p.media_urls)?p.media_urls:JSON.parse(p.media_urls||'[]'); if(p.video) media = 1.2; else if(m.length) media = 1.15; else if(p.poll) media = 1.12; else if(p.bg) media = 1.08; }catch(_e){}
     const novelty = (opts.sessionSeen && opts.sessionSeen.has(p.id)) ? 0.12 : (seen.has(p.id) ? 0.3 : 1);
     const ctr = (clickers[p.id]||0) / Math.max(10, viewers[p.id]||0);   // taux de clic (lissé pour les petites audiences)
     media *= (1 + Math.min(0.5, ctr));
+    const _er = (l + 2*cm + 3*rp + (clickers[p.id]||0)) / ((viewers[p.id]||0) + 10);   // pncsrv52 : qualité = taux d'engagement
+    media *= (1 + Math.min(0.6, 1.5*_er)) * _typePref(_ptypeOf(p)) * _tagBoost(p);
     const jitter = 0.92 + 0.16*h(p.id + day + uid);
     let s = interest * fresh * prox * media * novelty * jitter;
     if(a === String(uid) && ageH < 2 && !seen.has(p.id)) s += 1e6;
@@ -8335,7 +8364,9 @@ async function _filRankedFeed(uid, visible, opts){
   const rows = [], recent = [];
   while(scored.length){
     let k = 0;
-    for(let i=0; i<scored.length && i<15; i++){ if(recent.indexOf(String(scored[i].p.user_id))<0){ k=i; break; } }
+    const _t2 = rows.length >= 2 && _ptypeOf(rows[rows.length-1]) === _ptypeOf(rows[rows.length-2]) ? _ptypeOf(rows[rows.length-1]) : null;
+    let k2 = -1;
+    for(let i=0; i<scored.length && i<15; i++){ if(recent.indexOf(String(scored[i].p.user_id))<0){ if(k2 < 0) k2 = i; if(!_t2 || _ptypeOf(scored[i].p) !== _t2){ k=i; break; } } if(i === Math.min(scored.length,15)-1) k = Math.max(0, k2); }
     const it = scored.splice(k,1)[0]; rows.push(it.p);
     recent.push(String(it.p.user_id)); if(recent.length>2) recent.shift();
   }
@@ -8369,7 +8400,7 @@ app.post('/api/penc/posts/clicks', pencAuth, async (req, res) => {
     if(!_pgPool) return res.json({ success: true });
     const uid = req.pencUser.userId;
     if(!_filRate(uid, 'clicks', 120, 600000)) return res.json({ success: true });
-    const KINDS = ['media','profile','comments','more','link','share','reel','cta'];
+    const KINDS = ['media','profile','comments','more','link','share','reel','cta','dwell','hide'];   // pncsrv52 : temps passé + masquées
     const items = (Array.isArray(req.body.items) ? req.body.items : []).slice(0, 80).filter(function(x){ return x && /^post_/.test(String(x.post_id||'')) && KINDS.indexOf(String(x.kind)) > -1; });
     for(const it of items){ try{ await _pgPool.query('INSERT INTO penc_post_clicks(post_id,user_id,kind,created_at) VALUES($1,$2,$3,NOW()) ON CONFLICT DO NOTHING',[String(it.post_id), uid, String(it.kind)]); }catch(_e){} }
     res.json({ success: true });
