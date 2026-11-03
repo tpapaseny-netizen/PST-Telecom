@@ -6769,7 +6769,8 @@ app.get('/api/penc/groups/:id', pencAuth, async (req, res) => {
     const x54 = await _p54Extra(g);   /* pncsrv54 */
     res.json({ id: g.id, name: g.group_name || 'Groupe', icon: g.group_icon || null, desc: g.group_desc || '', created_by: g.group_created_by || null, created_at: g.created_at || null,
       admins: g.group_admins, members: mem.map(function(m){ return Object.assign(m, { is_admin: adm.has(m.id) }); }), me_admin: adm.has(uid),
-      code: x54.code, settings: x54.settings, invite: (adm.has(uid) || !x54.settings.only_admins_invite) ? x54.invite : null });
+      code: x54.code, settings: x54.settings, invite: (adm.has(uid) || !x54.settings.only_admins_invite) ? x54.invite : null,
+      pinned: _p55Raw(g.group_settings).pinned || null, requests: adm.has(uid) ? await _p55Reqs(g) : [] });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 async function _p53Admin(req, res){
@@ -6803,6 +6804,7 @@ app.post('/api/penc/groups/:id/add', pencAuth, async (req, res) => {
     await _pgPool.query('UPDATE penc_conversations SET participants=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(parts), g.id]); _p53Forget(g.id);
     const names = (await _p53Members(add)).map(function(m){ return m.full_name; });
     await _p53Sys(g.id, uid, (await _p53Name(uid)) + ' a ajouté ' + names.join(', '), parts);
+    try { await _p55Welcome(g, add, parts); } catch (_) {}
     _p53Emit(add, 'conversation:new', { conv_id: g.id, group: true, name: g.group_name });
     _p53Emit(add, 'group:added', { conv_id: g.id, name: g.group_name, by: await _p53Name(uid) });
     _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
@@ -6871,7 +6873,8 @@ setTimeout(function(){ _p54Init().catch(function(){}); }, 6000);
 const _P54_AB = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function _p54Rand(n){ const b = require('crypto').randomBytes(n); let o = ''; for (let i = 0; i < n; i++) o += _P54_AB[b[i] % _P54_AB.length]; return o; }
 function _p54Set(v){ let o = v; if (typeof o === 'string') { try { o = JSON.parse(o); } catch (_) { o = {}; } } o = o || {};
-  return { only_admins_send: !!o.only_admins_send, only_admins_edit: o.only_admins_edit !== false, only_admins_invite: !!o.only_admins_invite }; }
+  return { only_admins_send: !!o.only_admins_send, only_admins_edit: o.only_admins_edit !== false, only_admins_invite: !!o.only_admins_invite, approve_join: !!o.approve_join, welcome: typeof o.welcome === 'string' ? o.welcome : '' }; }
+function _p55Raw(v){ let o = v; if (typeof o === 'string') { try { o = JSON.parse(o); } catch (_) { o = {}; } } return (o && typeof o === 'object') ? o : {}; }   /* pncsrv55 */
 const _p54Cache = new Map();
 async function _p54Settings(cid){
   const c = _p54Cache.get(cid); if (c && Date.now() - c.t < 30000) return c.v;
@@ -6905,9 +6908,11 @@ app.post('/api/penc/groups/:id/settings', pencAuth, async (req, res) => {
     const g = await _p53Admin(req, res); if (!g) return;
     await _p54Init();
     const cur = _p54Set(g.group_settings), uid = String(req.pencUser.userId), me = await _p53Name(uid);
-    const nxt = Object.assign({}, cur);
-    ['only_admins_send', 'only_admins_edit', 'only_admins_invite'].forEach(function(k){ if (typeof req.body[k] === 'boolean') nxt[k] = req.body[k]; });
-    await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(nxt), g.id]);
+    const raw = _p55Raw(g.group_settings);
+    ['only_admins_send', 'only_admins_edit', 'only_admins_invite', 'approve_join'].forEach(function(k){ if (typeof req.body[k] === 'boolean') raw[k] = req.body[k]; });
+    if (typeof req.body.welcome === 'string') raw.welcome = _p53Clean(req.body.welcome, 300);
+    const nxt = _p54Set(raw);
+    await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(raw), g.id]);
     _p54Cache.delete(g.id);
     if (nxt.only_admins_send !== cur.only_admins_send) await _p53Sys(g.id, uid, me + (nxt.only_admins_send ? ' a réservé l\'envoi de messages aux administrateurs' : ' a autorisé tous les membres à envoyer des messages'), g.participants);
     if (nxt.only_admins_edit !== cur.only_admins_edit) await _p53Sys(g.id, uid, me + (nxt.only_admins_edit ? ' a réservé la modification des infos aux administrateurs' : ' a autorisé tous les membres à modifier les infos du groupe'), g.participants);
@@ -6936,7 +6941,8 @@ app.get('/api/penc/groups/join/:tok', pencAuth, async (req, res) => {
     const g = await _p54ByInvite(req.params.tok); if (!g) return res.status(404).json({ error: 'Lien d\'invitation invalide ou expiré' });
     const uid = String(req.pencUser.userId);
     const some = (await _p53Members(g.participants.slice(0, 6))).map(function(m){ return { full_name: m.full_name, avatar_url: m.avatar_url }; });
-    res.json({ id: g.id, name: g.group_name || 'Groupe', icon: g.group_icon || null, desc: g.group_desc || '', code: g.group_code || null, members_count: g.participants.length, some: some, member: g.participants.includes(uid) });
+    const rq55 = _p55Raw(g.group_settings).requests || [];
+    res.json({ id: g.id, name: g.group_name || 'Groupe', icon: g.group_icon || null, desc: g.group_desc || '', code: g.group_code || null, members_count: g.participants.length, some: some, member: g.participants.includes(uid), pending: rq55.some(function(x){ return String(x.id) === uid; }), approve: !!_p55Raw(g.group_settings).approve_join });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 app.post('/api/penc/groups/join/:tok', pencAuth, async (req, res) => {
@@ -6947,12 +6953,70 @@ app.post('/api/penc/groups/join/:tok', pencAuth, async (req, res) => {
     if (!_filRate(uid, 'grp_join', 20, 3600000)) return res.status(429).json({ error: 'Trop de tentatives. Réessaie plus tard.' });
     if (g.participants.length >= 256) return res.status(400).json({ error: 'Ce groupe est complet' });
     for (const p of g.participants) { try { if (await pgIsBlocked(uid, p) && g.group_admins.includes(p)) return res.status(403).json({ error: 'Tu ne peux pas rejoindre ce groupe' }); } catch (_) {} }
+    const raw55 = _p55Raw(g.group_settings);
+    if (raw55.approve_join && !g.group_admins.includes(uid)) {   /* pncsrv55 : l'admin approuve */
+      const rq = Array.isArray(raw55.requests) ? raw55.requests : [];
+      if (!rq.some(function(x){ return String(x.id) === uid; })) { rq.push({ id: uid, at: new Date().toISOString() }); raw55.requests = rq.slice(-200);
+        await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(raw55), g.id]);
+        _p53Emit(g.group_admins, 'group:request', { conv_id: g.id, name: g.group_name, who: await _p53Name(uid) }); }
+      return res.json({ success: true, pending: true });
+    }
     const parts = g.participants.concat([uid]);
     await _pgPool.query('UPDATE penc_conversations SET participants=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(parts), g.id]); _p53Forget(g.id);
     await _p53Sys(g.id, uid, (await _p53Name(uid)) + ' a rejoint le groupe grâce au lien d\'invitation', parts);
+    await _p55Welcome(g, [uid], parts);
     _p53Emit([uid], 'conversation:new', { conv_id: g.id, group: true, name: g.group_name });
     _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
     res.json({ success: true, conv_id: g.id });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ════ pncsrv55 — Groupes : message épinglé, message d'accueil automatique, demandes pour rejoindre (approbation) ════
+async function _p55Reqs(g){
+  const rq = (_p55Raw(g.group_settings).requests || []).filter(function(x){ return x && x.id && !g.participants.includes(String(x.id)); });
+  if (!rq.length) return [];
+  const us = await _p53Members(rq.map(function(x){ return String(x.id); }));
+  return us.map(function(u){ const r = rq.find(function(x){ return String(x.id) === u.id; }); return Object.assign(u, { at: r && r.at }); });
+}
+async function _p55Welcome(g, uids, parts){
+  const w = _p55Raw(g.group_settings).welcome; if (!w || !uids.length) return;
+  const names = (await _p53Members(uids)).map(function(m){ return m.full_name; }).join(', ');
+  await _p53Sys(g.id, g.group_admins[0] || g.group_created_by || uids[0], '👋 Bienvenue ' + names + ' ! ' + w, parts);
+}
+app.post('/api/penc/groups/:id/requests/:uid', pencAuth, async (req, res) => {
+  try {
+    const g = await _p53Admin(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId), who = String(req.params.uid), ok = !!req.body.accept;
+    const raw = _p55Raw(g.group_settings);
+    raw.requests = (raw.requests || []).filter(function(x){ return String(x.id) !== who; });
+    await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(raw), g.id]);
+    if (ok && !g.participants.includes(who)) {
+      if (g.participants.length >= 256) return res.status(400).json({ error: 'Ce groupe est complet' });
+      const parts = g.participants.concat([who]);
+      await _pgPool.query('UPDATE penc_conversations SET participants=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(parts), g.id]); _p53Forget(g.id);
+      await _p53Sys(g.id, uid, (await _p53Name(uid)) + ' a accepté ' + (await _p53Name(who)) + ' dans le groupe', parts);
+      await _p55Welcome(g, [who], parts);
+      _p53Emit([who], 'conversation:new', { conv_id: g.id, group: true, name: g.group_name });
+      _p53Emit([who], 'group:added', { conv_id: g.id, name: g.group_name, by: await _p53Name(uid) });
+    }
+    _p53Emit(g.group_admins, 'group:changed', { conv_id: g.id });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/groups/:id/pin', pencAuth, async (req, res) => {
+  try {
+    const g = await _p54Editor(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId), me = await _p53Name(uid);
+    const raw = _p55Raw(g.group_settings);
+    if (req.body.clear) { raw.pinned = null; }
+    else {
+      const text = _p53Clean(req.body.text, 400); if (!text) return res.status(400).json({ error: 'Message vide' });
+      raw.pinned = { mid: String(req.body.mid || ''), text: text, by: uid, by_name: me, at: new Date().toISOString() };
+    }
+    await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(raw), g.id]);
+    await _p53Sys(g.id, uid, me + (raw.pinned ? ' a épinglé un message' : ' a retiré le message épinglé'), g.participants);
+    _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
+    res.json({ success: true, pinned: raw.pinned });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 // groupes en commun avec une personne (fiche contact)
