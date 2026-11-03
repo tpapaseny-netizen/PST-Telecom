@@ -6672,6 +6672,223 @@ async function _p51Purge(){
 }
 setTimeout(_p51Purge, 120000);
 setInterval(_p51Purge, 3600000);
+
+// ════ pncsrv53 — Groupes façon WhatsApp (dans Discussions), étiquette « image IA » sur le Fil,
+// publications supprimées qui ne reviennent plus jamais ════
+let _p53Ready = false;
+const _p53GroupCache = new Map();
+const _p53Deleted = new Set();
+async function _p53Init(){
+  if (_p53Ready || !_pgPool) return _p53Ready;
+  try {
+    for (const q of ["ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS is_group BOOLEAN DEFAULT FALSE",
+                     "ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS group_name TEXT",
+                     "ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS group_icon TEXT",
+                     "ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS group_desc TEXT",
+                     "ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS group_admins JSONB DEFAULT '[]'",
+                     "ALTER TABLE penc_conversations ADD COLUMN IF NOT EXISTS group_created_by TEXT",
+                     "ALTER TABLE penc_posts ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE"]) {
+      try { await _pgPool.query(q); } catch (e) { console.error('[p53] ' + q.slice(0, 60) + ':', e.message); }
+    }
+    _p53Ready = true;
+  } catch (e) { console.error('[p53] init:', e.message); }
+  return _p53Ready;
+}
+setTimeout(function(){ _p53Init().catch(function(){}); }, 4000);
+async function _p53IsGroup(cid){
+  if (!cid) return false;
+  if (String(cid).indexOf('grp_') === 0) return true;
+  if (_p53GroupCache.has(cid)) return _p53GroupCache.get(cid);
+  try {
+    if (!_pgPool) return false;
+    const r = await _pgPool.query("SELECT to_jsonb(c)->>'is_group' AS g FROM penc_conversations c WHERE id=$1", [cid]);
+    const g = !!(r.rows[0] && r.rows[0].g === 'true');
+    if (_p53GroupCache.size > 20000) _p53GroupCache.clear();
+    _p53GroupCache.set(cid, g); return g;
+  } catch (_) { return false; }
+}
+function _p53Arr(v){ if (Array.isArray(v)) return v.map(String); try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (_) { return []; } }
+async function _p53Group(cid){
+  const r = await _pgPool.query('SELECT * FROM penc_conversations WHERE id=$1', [cid]);
+  const g = r.rows[0]; if (!g || !(g.is_group || String(g.id).indexOf('grp_') === 0)) return null;
+  g.participants = _p53Arr(g.participants); g.group_admins = _p53Arr(g.group_admins); return g;
+}
+function _p53Emit(uids, ev, data){ try { (uids || []).forEach(function(u){ io.to('user:' + String(u)).emit(ev, data); }); } catch (_) {} }
+async function _p53Sys(cid, actor, text, parts){
+  const m = { id: 'msg_' + Date.now() + Math.random().toString(36).slice(2), conversation_id: cid, sender_id: String(actor), type: 'system', content: text, created_at: new Date().toISOString() };
+  try { await pgSaveMessage({ id: m.id, conversation_id: cid, sender_id: m.sender_id, type: 'system', content: text, created_at: m.created_at }); await _pgPool.query('UPDATE penc_messages SET read_at=NOW(), delivered_at=NOW() WHERE id=$1', [m.id]); } catch (e) { console.error('[p53] sys:', e.message); }
+  const fm = Object.assign({}, m, { sender: { id: String(actor) }, read_at: m.created_at });
+  try { io.to('penc:' + cid).emit('message:new', fm); } catch (_) {}
+  _p53Emit(parts || [], 'message:new', fm);
+}
+async function _p53Name(uid){ try { const u = await pgFindUser('id', uid); return (u && (u.full_name || u.username)) || 'Quelqu\'un'; } catch (_) { return 'Quelqu\'un'; } }
+function _p53Clean(t, n){ return String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n); }
+function _p53Forget(cid){ try { _pencPartsCache.delete(cid); } catch (_) {} }
+async function _p53Members(ids){ const us = await pgFindUsersByIds(ids); return us.map(function(u){ return { id: String(u.id), full_name: u.full_name || u.username || 'Utilisateur', username: u.username || '', avatar_url: u.avatar_url || null }; }); }
+async function _p53Allowed(uid, ids){
+  const out = [];
+  for (const id of ids) { try { if (String(id) === String(uid)) continue; if (typeof _areIsolated === 'function' && _areIsolated(uid, id)) continue; if (await pgIsBlocked(uid, id)) continue; out.push(String(id)); } catch (_) {} }
+  const ok = new Set((await pgFindUsersByIds(out)).map(function(u){ return String(u.id); }));
+  return out.filter(function(x){ return ok.has(x); });
+}
+// créer un groupe
+app.post('/api/penc/groups', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool || !(await _p53Init())) return res.status(503).json({ error: 'Indisponible' });
+    const uid = String(req.pencUser.userId);
+    if (!_filRate(uid, 'grp_create', 10, 3600000)) return res.status(429).json({ error: 'Trop de groupes créés. Réessaie plus tard.' });
+    const name = _p53Clean(req.body && req.body.name, 60);
+    if (!name) return res.status(400).json({ error: 'Donne un nom au groupe' });
+    const want = Array.from(new Set((Array.isArray(req.body.members) ? req.body.members : []).map(String))).slice(0, 255);
+    const members = await _p53Allowed(uid, want);
+    if (!members.length) return res.status(400).json({ error: 'Ajoute au moins un membre' });
+    const icon = (typeof req.body.icon === 'string' && /^https:\/\//.test(req.body.icon) && req.body.icon.length < 600) ? req.body.icon : null;
+    const desc = _p53Clean(req.body.desc, 300);
+    const id = 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const parts = [uid].concat(members);
+    await _pgPool.query("INSERT INTO penc_conversations(id,participants,updated_at,is_group,group_name,group_icon,group_desc,group_admins,group_created_by) VALUES($1,$2,NOW(),TRUE,$3,$4,$5,$6,$7)",
+      [id, JSON.stringify(parts), name, icon, desc || null, JSON.stringify([uid]), uid]);
+    _p53GroupCache.set(id, true);
+    const me = await _p53Name(uid);
+    await _p53Sys(id, uid, me + ' a créé le groupe « ' + name + ' »', parts);
+    _p53Emit(parts, 'conversation:new', { conv_id: id, group: true, name: name });
+    _p53Emit(members, 'group:added', { conv_id: id, name: name, by: me });
+    res.json({ success: true, conversation: { id: id, is_group: true, participants: parts, name: name, avatar_url: icon, group_admins: [uid], members_count: parts.length, other_user_id: null, last_message: null, updated_at: new Date().toISOString(), unread_count: 0 } });
+  } catch (e) { console.error('[p53] create:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// infos d'un groupe (membres, admins)
+app.get('/api/penc/groups/:id', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.status(503).json({ error: 'Indisponible' });
+    const uid = String(req.pencUser.userId); const g = await _p53Group(req.params.id);
+    if (!g) return res.status(404).json({ error: 'Groupe introuvable' });
+    if (!g.participants.includes(uid)) return res.status(403).json({ error: 'Tu ne fais plus partie de ce groupe', left: true });
+    const mem = await _p53Members(g.participants);
+    const adm = new Set(g.group_admins);
+    mem.sort(function(a, b){ return (adm.has(b.id) ? 1 : 0) - (adm.has(a.id) ? 1 : 0) || a.full_name.localeCompare(b.full_name); });
+    res.json({ id: g.id, name: g.group_name || 'Groupe', icon: g.group_icon || null, desc: g.group_desc || '', created_by: g.group_created_by || null, created_at: g.created_at || null,
+      admins: g.group_admins, members: mem.map(function(m){ return Object.assign(m, { is_admin: adm.has(m.id) }); }), me_admin: adm.has(uid) });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+async function _p53Admin(req, res){
+  const uid = String(req.pencUser.userId); const g = await _p53Group(req.params.id);
+  if (!g) { res.status(404).json({ error: 'Groupe introuvable' }); return null; }
+  if (!g.participants.includes(uid)) { res.status(403).json({ error: 'Tu ne fais plus partie de ce groupe' }); return null; }
+  if (!g.group_admins.includes(uid)) { res.status(403).json({ error: 'Seuls les administrateurs peuvent faire ça' }); return null; }
+  return g;
+}
+// modifier nom, photo, description (administrateurs)
+app.post('/api/penc/groups/:id/edit', pencAuth, async (req, res) => {
+  try {
+    const g = await _p53Admin(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId), me = await _p53Name(uid);
+    if (req.body.name !== undefined) { const n = _p53Clean(req.body.name, 60); if (n && n !== g.group_name) { await _pgPool.query('UPDATE penc_conversations SET group_name=$1 WHERE id=$2', [n, g.id]); await _p53Sys(g.id, uid, me + ' a renommé le groupe « ' + n + ' »', g.participants); } }
+    if (req.body.icon !== undefined) { const ic = (typeof req.body.icon === 'string' && /^https:\/\//.test(req.body.icon) && req.body.icon.length < 600) ? req.body.icon : null; await _pgPool.query('UPDATE penc_conversations SET group_icon=$1 WHERE id=$2', [ic, g.id]); await _p53Sys(g.id, uid, me + (ic ? ' a changé la photo du groupe' : ' a retiré la photo du groupe'), g.participants); }
+    if (req.body.desc !== undefined) { const d = _p53Clean(req.body.desc, 300); await _pgPool.query('UPDATE penc_conversations SET group_desc=$1 WHERE id=$2', [d || null, g.id]); await _p53Sys(g.id, uid, me + ' a modifié la description du groupe', g.participants); }
+    _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ajouter des membres (administrateurs)
+app.post('/api/penc/groups/:id/add', pencAuth, async (req, res) => {
+  try {
+    const g = await _p53Admin(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId);
+    const want = (Array.isArray(req.body.members) ? req.body.members : []).map(String).filter(function(x){ return !g.participants.includes(x); });
+    const add = (await _p53Allowed(uid, want)).slice(0, Math.max(0, 256 - g.participants.length));
+    if (!add.length) return res.status(400).json({ error: 'Personne à ajouter' });
+    const parts = g.participants.concat(add);
+    await _pgPool.query('UPDATE penc_conversations SET participants=$1, updated_at=NOW() WHERE id=$2', [JSON.stringify(parts), g.id]); _p53Forget(g.id);
+    const names = (await _p53Members(add)).map(function(m){ return m.full_name; });
+    await _p53Sys(g.id, uid, (await _p53Name(uid)) + ' a ajouté ' + names.join(', '), parts);
+    _p53Emit(add, 'conversation:new', { conv_id: g.id, group: true, name: g.group_name });
+    _p53Emit(add, 'group:added', { conv_id: g.id, name: g.group_name, by: await _p53Name(uid) });
+    _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
+    res.json({ success: true, added: add });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+async function _p53Drop(g, who, actor, text){
+  const parts = g.participants.filter(function(x){ return x !== who; });
+  let adm = g.group_admins.filter(function(x){ return x !== who; });
+  if (!adm.length && parts.length) adm = [parts[0]];   // un groupe garde toujours un administrateur
+  await _pgPool.query('UPDATE penc_conversations SET participants=$1, group_admins=$2, updated_at=NOW() WHERE id=$3', [JSON.stringify(parts), JSON.stringify(adm), g.id]); _p53Forget(g.id);
+  try { io.in('user:' + who).socketsLeave('penc:' + g.id); } catch (_) {}
+  await _p53Sys(g.id, actor, text, parts.concat([who]));
+  _p53Emit(parts, 'group:changed', { conv_id: g.id });
+  _p53Emit([who], 'group:removed', { conv_id: g.id, name: g.group_name, left: who === actor });
+}
+// retirer un membre (administrateurs)
+app.post('/api/penc/groups/:id/remove', pencAuth, async (req, res) => {
+  try {
+    const g = await _p53Admin(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId), who = String(req.body.user_id || '');
+    if (!who || who === uid || !g.participants.includes(who)) return res.status(400).json({ error: 'Membre introuvable' });
+    await _p53Drop(g, who, uid, (await _p53Name(uid)) + ' a retiré ' + (await _p53Name(who)));
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// quitter le groupe
+app.post('/api/penc/groups/:id/leave', pencAuth, async (req, res) => {
+  try {
+    const uid = String(req.pencUser.userId); const g = await _p53Group(req.params.id);
+    if (!g || !g.participants.includes(uid)) return res.json({ success: true });
+    await _p53Drop(g, uid, uid, (await _p53Name(uid)) + ' a quitté le groupe');
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// nommer / retirer un administrateur
+app.post('/api/penc/groups/:id/admin', pencAuth, async (req, res) => {
+  try {
+    const g = await _p53Admin(req, res); if (!g) return;
+    const uid = String(req.pencUser.userId), who = String(req.body.user_id || ''), on = !!req.body.admin;
+    if (!g.participants.includes(who)) return res.status(400).json({ error: 'Membre introuvable' });
+    let adm = g.group_admins.filter(function(x){ return x !== who; }); if (on) adm.push(who);
+    if (!adm.length) return res.status(400).json({ error: 'Le groupe doit garder au moins un administrateur' });
+    await _pgPool.query('UPDATE penc_conversations SET group_admins=$1 WHERE id=$2', [JSON.stringify(adm), g.id]);
+    await _p53Sys(g.id, uid, (await _p53Name(uid)) + (on ? ' a nommé ' : ' a retiré les droits d\'administrateur à ') + (await _p53Name(who)) + (on ? ' administrateur' : ''), g.participants);
+    _p53Emit(g.participants, 'group:changed', { conv_id: g.id });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// groupes en commun avec une personne (fiche contact)
+app.get('/api/penc/groups/common/:uid', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ groups: [] });
+    const uid = String(req.pencUser.userId), other = String(req.params.uid);
+    const r = await _pgPool.query("SELECT id, group_name, group_icon, participants FROM penc_conversations WHERE (is_group = TRUE OR id LIKE 'grp\\_%') AND participants @> $1 AND participants @> $2 ORDER BY updated_at DESC LIMIT 50", [JSON.stringify([uid]), JSON.stringify([other])]);
+    res.json({ groups: r.rows.map(function(g){ return { id: g.id, name: g.group_name || 'Groupe', icon: g.group_icon || null, members_count: _p53Arr(g.participants).length }; }) });
+  } catch (e) { res.json({ groups: [] }); }
+});
+// Fil : publications encore en ligne (l'appli retire de son cache celles qui ont été supprimées)
+app.post('/api/penc/posts/alive', pencAuth, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ alive: null });
+    const ids = (Array.isArray(req.body && req.body.ids) ? req.body.ids : []).map(String).filter(function(x){ return /^post_/.test(x); }).slice(0, 200);
+    if (!ids.length) return res.json({ alive: [] });
+    const r = await _pgPool.query('SELECT id FROM penc_posts WHERE id = ANY($1) AND deleted=FALSE', [ids]);
+    res.json({ alive: r.rows.map(function(x){ return x.id; }) });
+  } catch (e) { res.json({ alive: null }); }
+});
+// Fil : image générée par IA — signature invisible laissée par les générateurs (C2PA « trainedAlgorithmicMedia »,
+// métadonnées DALL·E, Midjourney, Stable Diffusion, Firefly, Imagen…) ; l'appli la lit sur la photo d'origine
+// avant compression, le serveur la cherche aussi dans les fichiers reçus.
+const _P53_AI_RX = /trainedAlgorithmicMedia|compositeWithTrainedAlgorithmicMedia|algorithmicMedia|DALL[·\-\s]?E|Midjourney|Stable[ _-]?Diffusion|NovelAI|Adobe Firefly|Firefly|Google Imagen|Imagen [0-9]|Gemini|OpenAI|ChatGPT|Bing Image Creator|Leonardo\.Ai|Ideogram|ComfyUI|InvokeAI|sd-metadata|Made with AI|AI[ -]generated|Generated by AI/i;
+async function _p53AiMark(id, body, media, video){
+  if (!(await _p53Init())) return;
+  if (body && body.ai_generated === true) { await _pgPool.query('UPDATE penc_posts SET ai_generated=TRUE WHERE id=$1', [id]); return; }
+  const urls = (Array.isArray(media) ? media : []).slice(0, 4);
+  if (!urls.length || typeof r2GetBuffer !== 'function') return;
+  setImmediate(async function(){
+    try {
+      for (const u of urls) {
+        const k = String(u).replace(/^https?:\/\/[^/]+\//, '').split('?')[0];
+        const buf = await r2GetBuffer(k); if (!buf) continue;
+        const txt = buf.slice(0, Math.min(buf.length, 3 * 1024 * 1024)).toString('latin1');
+        if (_P53_AI_RX.test(txt)) { await _pgPool.query('UPDATE penc_posts SET ai_generated=TRUE WHERE id=$1', [id]); _filRankCache.clear(); _filGlobal = null; return; }
+      }
+    } catch (_) {}
+  });
+}
 // ==== Message d'accueil Penc (complet) + relance apres absence ====
 function _pencWelcomeText(fullName){
   const p = String(fullName||'').trim().split(/\s+/)[0] || '';
@@ -8112,7 +8329,8 @@ async function _postEnrichMany(rows, meId){
       liked_by_me: !!likedByMe[row.id],
       reposted_by_me: !!repostedByMe[row.id],
       saved_by_me: !!savedByMe[row.id],
-      is_mine: mine
+      is_mine: mine,
+      ai_generated: !!row.ai_generated   // pncsrv53 : image générée par IA (signature détectée)
     };
     if(mine) o.views_count = views[row.id] || 0;   // statistiques visibles par l'auteur uniquement
     if(withRepost && row.repost_of){
@@ -8191,7 +8409,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     let when = null;
     if(req.body.scheduled_at){ const t = new Date(req.body.scheduled_at).getTime(); if(isFinite(t) && t > Date.now() + 60000 && t < Date.now() + 30*86400000) when = new Date(t).toISOString(); }
     if(!content.trim() && !media.length && !video) return res.status(400).json({ error: 'Publication vide' });
-    let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && !poll && content.length<=300) ? String(req.body.bg) : null;
+    let bg = (req.body.bg && _FIL_BG_KEYS.indexOf(String(req.body.bg))>-1 && !media.length && !video && !poll && content.length<=700) ? String(req.body.bg) : null;
     const id = 'post_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     let tagged = Array.isArray(req.body.tagged) ? Array.from(new Set(req.body.tagged.map(String).filter(function(x){ return x && x !== String(uid); }))).slice(0, 10) : [];
     if(tagged.length){ try{ const ok = await pgFindUsersByIds(tagged); tagged = ok.filter(function(u){ return !_areIsolated(uid, u.id); }).map(function(u){ return String(u.id); }); }catch(_tg){ tagged = []; } }
@@ -8201,6 +8419,7 @@ app.post('/api/penc/posts', pencAuth, async (req, res) => {
     if(_place || _mood){ try{ await _pgPool.query('UPDATE penc_posts SET place=$1, mood=$2 WHERE id=$3',[_place, _mood, id]); }catch(_pm){} }
     if(groupId || fundGoal){ try{ await _pgPool.query('UPDATE penc_posts SET group_id=$1, group_private=$2, fund_goal=$3, fund_deadline=$4, fund_wave=$5 WHERE id=$6',[groupId, groupPrivate, fundGoal, fundDeadline, fundWave, id]); }catch(_gf){ console.error('[post] groupe/collecte:', _gf.message); } }
     if(tagged.length && !when){ setImmediate(async function(){ try{ const me = await pgFindUser('id', uid) || {}; const who = me.full_name || me.username || 'Quelqu\'un'; for(const t of tagged){ try{ sendPencPush(t, { title:'Penc', body: who + ' t\'a identifié dans une publication', icon:'/penc-icon-192.png', badge:'/penc-icon-192.png', tag:'penc-post-'+id, data:{ type:'post', post_id:id, url:'/messager?post='+id } }); }catch(_p){} } }catch(_e){} }); }
+    try{ await _p53AiMark(id, req.body, media, video); }catch(_ai53){}
     const row = (await _pgPool.query('SELECT * FROM penc_posts WHERE id=$1',[id])).rows[0];
     if(!when) _filNotifyMentions(content, uid, id, 'post');
     // pncsrv15 : les abonnés reçoivent une notification (au plus une toutes les 3 h par auteur, 300 abonnés max)
@@ -8240,7 +8459,7 @@ app.get('/api/penc/posts', pencAuth, async (req, res) => {
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const _sessSeen = new Set(String(req.query.seen||'').split(',').filter(Boolean).slice(0, 200));
       const out = await _filRankedFeed(uid, visible, { fresh: String(req.query.fresh||'')==='1', sessionSeen: _sessSeen, page: offset > 0 });
-      const slice = out.rows.slice(offset, offset + limit);
+      const slice = out.rows.filter(function(r){ return !r.deleted && !_p53Deleted.has(String(r.id)); }).slice(offset, offset + limit);
       return res.json({ posts: await _postEnrichMany(slice, uid), ranked: true, more: offset + limit < out.rows.length, pool_oldest: out.oldest });
     }
     const before = req.query.before ? String(req.query.before) : null;
@@ -9452,7 +9671,7 @@ app.delete('/api/penc/posts/:id', pencAuth, async (req, res) => {
     const isAdmin = await _pencIsAdmin(req);
     if(String(p.rows[0].user_id) !== String(uid) && !isAdmin) return res.status(403).json({ error: 'Non autorisé' });
     await _pgPool.query('UPDATE penc_posts SET deleted=TRUE WHERE id=$1',[pid]);
-    _filRankCache.clear(); _filGlobal = null;
+    _filRankCache.clear(); _filGlobal = null; _p53Deleted.add(String(pid));
     res.json({ success: true });
   }catch(e){ res.status(500).json({ error: 'Erreur' }); }
 });
@@ -10463,6 +10682,19 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
             _birthdayToday = bd.getUTCMonth() === now.getUTCMonth() && bd.getUTCDate() === now.getUTCDate();
           }
         }catch(_bde){}
+        if (c.is_group || String(c.id).indexOf('grp_') === 0) {   /* pncsrv53 : groupe façon WhatsApp */
+          let _sn = null; try { if (last && last.sender_id) { const _su = allUsers.find(u => String(u.id) === String(last.sender_id)); _sn = String(last.sender_id) === String(uid) ? 'Toi' : (_su ? (_su.full_name || _su.username) : null); } } catch (_) {}
+          let _adm = c.group_admins; if (typeof _adm === 'string') { try { _adm = JSON.parse(_adm); } catch (_) { _adm = []; } }
+          return {
+            id: c.id, participants: parts, is_group: true, other_user_id: null,
+            name: c.group_name || 'Groupe', avatar_url: c.group_icon || null, group_desc: c.group_desc || '',
+            group_admins: Array.isArray(_adm) ? _adm : [], members_count: parts.length,
+            last_message: last ? { content: last.content, type: last.type, created_at: last.created_at, delivered_at: last.delivered_at, read_at: last.read_at, sender_id: last.sender_id, media_duration: last.duration || null, sender_name: _sn } : null,
+            updated_at: c.updated_at, pinned: _pinnedIds.has(c.id), muted: _mutedIds.has(c.id), locked: _lockedIds.has(c.id),
+            ephemeral_seconds: _ephemeralMap[c.id] || 0, streak: 0, is_request: false,
+            _lastOther: !!(last && String(last.sender_id) !== String(uid) && !last.read_at && last.type !== 'deleted' && last.type !== 'system')
+          };
+        }
         return {
           id: c.id, participants: parts,
           other_user_id: otherId,
@@ -18973,7 +19205,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       try {
         if (_pgPool) {
           let _parts = (await _pPrt) || [];
-          const _other = _parts.find(p=>p!==pencUserId); _blkOther = _other || null;
+          const _isGrp53 = await _p53IsGroup(conversation_id);
+          if (_isGrp53 && !_parts.map(String).includes(String(pencUserId))) { if (typeof cb === 'function') cb({ error: 'Tu ne fais plus partie de ce groupe.', code: 'not_member' }); return; }
+          const _other = _isGrp53 ? null : _parts.find(p=>p!==pencUserId); _blkOther = _other || null;
           if (_other && _areIsolated(pencUserId, _other)) { if (typeof cb === 'function') cb({ error: 'Conversation indisponible.' }); return; }
           if (_other) {
             const _rel = await _pencRel(pencUserId, _other); _blocked = _rel.blocked;
@@ -19080,7 +19314,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
             recipients = (c3 && Array.isArray(c3.participants||c3.members)) ? (c3.participants||c3.members).filter(m => m !== pencUserId) : [];
           }
           let pbody = pencMsgBody(type, content, msg.media_duration, msg.view_once);
-          const ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
+          let ptitle = (sender && sender.full_name) ? sender.full_name : 'Nouveau message';
+          try { if (await _p53IsGroup(conversation_id)) { const _gn = (await _pgPool.query('SELECT group_name FROM penc_conversations WHERE id=$1',[conversation_id])).rows[0]; if (_gn && _gn.group_name) { pbody = ((sender && (sender.full_name || sender.username)) || 'Quelqu\'un') + ' : ' + pbody; ptitle = _gn.group_name; } } } catch (_g53) {}
           const picon = (sender && sender.avatar_url) ? sender.avatar_url : undefined;
           const _px = _pencPushExtra(msg, sender);   // pncapp5
           let _callAns = false; if (type === 'call') { try { _callAns = JSON.parse(content || '{}').status === 'answered'; } catch (_) {} }
