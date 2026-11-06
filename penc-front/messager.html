@@ -24069,6 +24069,7 @@ function openPencRadioAdmin(){
       +'<div style="font-weight:700;font-size:17px;flex:1;">🎙️ Radio Penc — Stations</div>'
       +'<button onclick="openPencRadioPlayer()" title="Aperçu lecteur" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;">▶️ Aperçu</button>'
       +'<button onclick="openRadioStats()" title="Statistiques" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;">📊 Stats</button>'
+      +'<button onclick="_p68AdsManager()" title="Publicités" style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;">📣 Pubs</button>'
     +'</div>'
     +'<div style="padding:14px;background:var(--card);border-bottom:1px solid var(--border);">'
       +'<button onclick="_radAdminOpenForm()" style="width:100%;padding:12px;border:none;border-radius:12px;background:#1DBF73;color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">➕ Ajouter une station</button>'
@@ -24128,6 +24129,7 @@ function _radAdminOpenForm(stationId){
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card2);border-radius:11px;margin-bottom:14px;"><span style="font-weight:600;font-size:14px;">⏮️ Replay premium (48h)</span><div onclick="_radToggleReplayField()" id="radReplayToggle" data-replay="'+(s&&s.replay_enabled?'1':'0')+'" style="width:44px;height:26px;border-radius:13px;background:'+(s&&s.replay_enabled?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;flex-shrink:0;"><div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:'+(s&&s.replay_enabled?'21px':'3px')+';transition:left .15s;"></div></div></div>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card2);border-radius:11px;margin-bottom:14px;"><span style="font-weight:600;font-size:14px;">🔒 Bientôt disponible (pas encore de flux)</span><div onclick="_radToggleComingSoonField()" id="radComingSoonToggle" data-comingsoon="'+(s&&s.coming_soon?'1':'0')+'" style="width:44px;height:26px;border-radius:13px;background:'+(s&&s.coming_soon?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;flex-shrink:0;"><div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:'+(s&&s.coming_soon?'21px':'3px')+';transition:left .15s;"></div></div></div>'
     +(s?('<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card2);border-radius:11px;margin-bottom:14px;"><span style="font-weight:600;font-size:14px;">Station active</span><div onclick="_radToggleActiveField()" id="radActiveToggle" data-active="'+(s.active?'1':'0')+'" style="width:44px;height:26px;border-radius:13px;background:'+(s.active?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;flex-shrink:0;"><div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:'+(s.active?'21px':'3px')+';transition:left .15s;"></div></div></div>'):'')
+    +(s?('<button onclick="_p68StationAds(\''+s.id+'\')" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:transparent;color:#D97706;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;">📣 Publicités de cette station</button>'):'')
     +(s?('<button onclick="_radOpenProgramsAdmin(\''+s.id+'\',\''+esc(s.name).replace(/'/g,"\\'")+'\')" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:transparent;color:var(--accent);font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;">🗓️ Gérer la grille des programmes</button>'):'')
     +(s?('<button onclick="_radOpenPlaylistAdmin(\''+s.id+'\',\''+esc(s.name).replace(/'/g,"\\'")+'\')" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:transparent;color:#7B2FF7;font-weight:700;font-size:13.5px;cursor:pointer;margin-bottom:14px;">🔁 Radio en boucle (playlist)</button>'):'')
     +'<button onclick="_radAdminSave(\''+(s?s.id:'')+'\')" id="radSaveBtn" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;">'+(s?'Enregistrer':'Ajouter')+'</button>'
@@ -30012,7 +30014,7 @@ try{ window.addEventListener('online', function(){
   }catch(_ol){}
   try{ if(typeof loadConvs==='function') loadConvs(); _pencResyncOpenConv(); }catch(_r2){}
 }); }catch(_o){}
-console.log('PENC build v476 (pncapp67 · emojis nets sans filtre, comme sur la palette) (pncapp66b · logo Penc sur les groupes, liens Penc ouverts dans l’appli, discussion jamais invisible, vocaux préchargés) (pncapp65+66 · photo de groupe et visionneuse au premier plan, partage du lien réparé (Penc, WhatsApp, SMS), réunion de groupe, message épinglé, message d’accueil, demandes à approuver) (pncapp65 · groupes Penc premium : identifiant PG, sceau Penc, invitation lien + QR, réglages admins, mentions, médias, photo recadrée, vocal transféré en audio) (pncapp64 · plus aucun code de mise en forme visible, barre de style simple, discussions affichées tout de suite, liens vidéo toujours en carte) (pncapp63 · groupes façon WhatsApp, discussions qui s’ouvrent d’un coup, resynchro au retour, Fil pro sans codes, image IA signalée) (pncapp62 · Fil stable : rien ne bouge pendant la lecture, classement qui apprend du temps passé et des publications masquées) (pncapp61 · médias gardés sur le téléphone comme WhatsApp, vidéo réduite qui continue partout, durée des vidéos citées) (pncapp60 · légendes et textes longs des statuts bien agencés, mise en forme dans les statuts) (pncapp59 · Radio Penc : navigation par pays comme DeglouFM, fans, auditeurs en direct, avis/commentaires, partage, invitation)');
+console.log('PENC build v477 (pncapp68 · publicités radio : avant l’écoute, bannière, coupure pub sauf Premium) (pncapp67 · emojis nets sans filtre, comme sur la palette) (pncapp66b · logo Penc sur les groupes, liens Penc ouverts dans l’appli, discussion jamais invisible, vocaux préchargés) (pncapp65+66 · photo de groupe et visionneuse au premier plan, partage du lien réparé (Penc, WhatsApp, SMS), réunion de groupe, message épinglé, message d’accueil, demandes à approuver) (pncapp65 · groupes Penc premium : identifiant PG, sceau Penc, invitation lien + QR, réglages admins, mentions, médias, photo recadrée, vocal transféré en audio) (pncapp64 · plus aucun code de mise en forme visible, barre de style simple, discussions affichées tout de suite, liens vidéo toujours en carte) (pncapp63 · groupes façon WhatsApp, discussions qui s’ouvrent d’un coup, resynchro au retour, Fil pro sans codes, image IA signalée) (pncapp62 · Fil stable : rien ne bouge pendant la lecture, classement qui apprend du temps passé et des publications masquées) (pncapp61 · médias gardés sur le téléphone comme WhatsApp, vidéo réduite qui continue partout, durée des vidéos citées) (pncapp60 · légendes et textes longs des statuts bien agencés, mise en forme dans les statuts) (pncapp59 · Radio Penc : navigation par pays comme DeglouFM, fans, auditeurs en direct, avis/commentaires, partage, invitation)');
 try{ if(localStorage.getItem('penc_last_build')!=='v407'){ localStorage.setItem('penc_last_build','v407'); setTimeout(function(){ try{ if(typeof showNotif==='function'&&TOKEN) showNotif('\uD83D\uDD27','Penc mis \u00e0 jour','Corrections et am\u00e9liorations diverses','green',null); }catch(_n){} },1400); } }catch(_b){}
 (function(){ document.addEventListener('contextmenu', function(e){ try{ var t=e.target; if(t&&t.closest&&t.closest('input,textarea,select,[contenteditable=\"true\"]')) return; e.preventDefault(); }catch(_){} }, false); })();
 /* === Flèche "aller en bas" === */
@@ -43333,5 +43335,210 @@ body:not(.penc-blue-emojis) #stickerPanel .sticker-grid:not(.emoji-penc-blue) im
 body.penc-blue-emojis .emoji-only .msg-text img.emoji{filter:hue-rotate(160deg) saturate(1.15) brightness(1.02)!important}
 body.penc-blue-emojis .emoji-only .msg-text img.emoji[src*="2763"]{filter:none!important}
 </style>
+<style id="pncapp68">
+/* pncapp68 : publicités radio (avant l'écoute, bannière, coupure pub) */
+#p68Pill{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));z-index:2147483004;display:flex;align-items:center;gap:10px;
+  background:#0B1730;color:#fff;border-radius:18px;padding:9px 12px 9px 9px;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:calc(100vw - 24px);font-family:inherit}
+#p68Pill .p68i{width:38px;height:38px;border-radius:10px;background:#1877F2;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+#p68Pill .p68i img{width:100%;height:100%;object-fit:cover}
+#p68Pill .p68t{min-width:0;flex:1}
+#p68Pill .p68k{font-size:11px;font-weight:800;letter-spacing:.6px;color:#FDE68A;text-transform:uppercase}
+#p68Pill .p68n{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56vw}
+#p68Pill .p68c{font-variant-numeric:tabular-nums;font-weight:800;font-size:13px;background:rgba(255,255,255,.14);border-radius:10px;padding:4px 8px;flex:none}
+#p68Pill .p68l{background:#fff;color:#0E5FCC;border:none;border-radius:10px;padding:6px 10px;font-weight:800;font-size:12px;cursor:pointer;flex:none}
+.p68Ban{margin:14px auto 0;max-width:340px;width:calc(100% - 32px);border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:0 4px 14px rgba(0,0,0,.08);cursor:pointer;display:block;text-align:left}
+.p68Ban img{display:block;width:100%;aspect-ratio:3/1;object-fit:cover}
+.p68Ban div{padding:7px 11px;font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.p68Ban b{color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p68Row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--card2);border-radius:12px;margin-bottom:10px;font-weight:600;font-size:14px}
+.p68Row input[type=checkbox]{width:22px;height:22px;accent-color:#1877F2}
+.p68Ad{display:flex;gap:10px;align-items:center;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px}
+.p68Ad .ic{width:44px;height:44px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;overflow:hidden}
+.p68Ad .ic img{width:100%;height:100%;object-fit:cover}
+.p68Btn{border:none;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:700;font-size:12.5px;background:var(--card2);color:var(--text)}
+</style>
+<script>
+/* pncapp68 — Publicités radio : avant l'écoute (pré-roll), bannière sponsorisée, coupure pub (mid-roll, sans pour les Premium) */
+(function(){
+  var P68 = { plans:{}, adAudio:null, busy:false, midTimer:null, midSince:0, midIdx:0, guard:null, stationId:null };
+  var PRE_CAP_MS = 15*60*1000;        // une pub avant l'écoute au plus toutes les 15 minutes
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){} }
+  function ev(ad,type){ try{ if(ad&&ad.id) api('/radio/ads/'+encodeURIComponent(ad.id)+'/event','POST',{type:type}); }catch(_){} }
+  function getPlan(sid){
+    var c=P68.plans[sid]; if(c && Date.now()-c.at<5*60*1000) return Promise.resolve(c.plan);
+    return Promise.race([
+      api('/radio/ads/plan?station_id='+encodeURIComponent(sid),'GET').then(function(p){ p=p||{}; P68.plans[sid]={at:Date.now(),plan:p}; return p; }),
+      new Promise(function(r){ setTimeout(function(){ r(null); }, 1500); })   // jamais plus de 1,5 s d'attente avant la radio
+    ]).catch(function(){ return null; });
+  }
+  function pill(ad, label){
+    var el=document.getElementById('p68Pill'); if(!el){ el=document.createElement('div'); el.id='p68Pill'; document.body.appendChild(el); }
+    var ico=ad.image_url?'<img src="'+esc(ad.image_url)+'" alt="">':'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a3 3 0 0 1 0 6"/></svg>';
+    el.innerHTML='<div class="p68i">'+ico+'</div><div class="p68t"><div class="p68k">'+esc(label)+'</div><div class="p68n">'+esc(ad.advertiser||ad.title)+'</div></div><div class="p68c" id="p68Cnt">'+(ad.duration_s||15)+'</div>'
+      +(ad.click_url?'<button class="p68l" id="p68Lnk">En savoir plus</button>':'');
+    el.style.display='flex';
+    var l=document.getElementById('p68Lnk'); if(l) l.onclick=function(e){ e.stopPropagation(); ev(ad,'click'); try{ window.open(ad.click_url,'_blank','noopener'); }catch(_){} };
+  }
+  function hidePill(){ var el=document.getElementById('p68Pill'); if(el) el.style.display='none'; }
+  // Joue une pub audio ; appelle done() à la fin, en cas d'erreur, ou au bout de la durée + 4 s (sécurité)
+  function playAd(ad, label, done){
+    var finished=false, a=null, t0=Date.now(), tick=null, safety=null;
+    function end(ok){ if(finished) return; finished=true; clearInterval(tick); clearTimeout(safety);
+      try{ if(a){ a.onended=null; a.onerror=null; a.pause(); a.src=''; } }catch(_){}
+      P68.adAudio=null; P68.busy=false; hidePill(); if(ok) ev(ad,'complete'); done&&done(); }
+    try{
+      P68.busy=true; a=new Audio(ad.audio_url); P68.adAudio=a; a.preload='auto';
+      pill(ad, label);
+      a.onended=function(){ end(true); }; a.onerror=function(){ end(false); };
+      var pr=a.play(); if(pr&&pr.then) pr.then(function(){ ev(ad,'impression'); }).catch(function(){ end(false); });
+      tick=setInterval(function(){ var c=document.getElementById('p68Cnt'); if(!c) return;
+        var left=Math.max(0, Math.ceil((a.duration&&isFinite(a.duration)?a.duration:(ad.duration_s||15)) - a.currentTime)); c.textContent=left+' s'; }, 250);
+      safety=setTimeout(function(){ end(false); }, ((ad.duration_s||15)+4)*1000);
+    }catch(_){ end(false); }
+    return { stop:function(){ end(false); } };
+  }
+  // ── 1. Avant l'écoute ──
+  var _origPlay = window._radPlayerPlay;
+  if(typeof _origPlay==='function' && !_origPlay._p68){
+    window._radPlayerPlay = function(id){
+      var self=this, args=arguments;
+      var s=(_pencRadioStations||[]).find(function(x){ return x.id===id; });
+      p68StopMid();
+      if(P68.busy && P68.adAudio){ try{ P68.adAudio.onended=null; P68.adAudio.pause(); }catch(_){} P68.busy=false; hidePill(); }
+      if(!s){ return _origPlay.apply(self,args); }
+      getPlan(id).then(function(plan){
+        var last=parseInt(lsGet('p68_pre_at')||'0',10);
+        if(plan && plan.preroll && plan.preroll.audio_url && Date.now()-last>PRE_CAP_MS){
+          lsSet('p68_pre_at', String(Date.now()));
+          try{ var st=document.getElementById('radStatusMsg'); if(st){ st.style.color='var(--muted)'; st.textContent='Publicité — la radio démarre juste après'; } }catch(_){}
+          playAd(plan.preroll, 'Publicité', function(){ _origPlay.apply(self,args); p68StartMid(id, plan); });
+        } else { _origPlay.apply(self,args); p68StartMid(id, plan); }
+      });
+    };
+    window._radPlayerPlay._p68=true;
+  }
+  // ── 3. Coupure pub pendant l'écoute (pas pour les Premium) ──
+  function p68StopMid(){ clearInterval(P68.midTimer); P68.midTimer=null; clearInterval(P68.guard); P68.guard=null; }
+  function p68StartMid(sid, plan){
+    p68StopMid();
+    if(!plan || plan.premium || !plan.midroll || !plan.midroll.ads || !plan.midroll.ads.length) return;
+    P68.stationId=sid; P68.midSince=Date.now(); P68.midIdx=0;
+    var every=plan.midroll.every_min*60*1000;
+    P68.midTimer=setInterval(function(){
+      if(!_pencRadioCur || _pencRadioCur.id!==sid){ p68StopMid(); return; }
+      if(!_pencRadioPlaying || P68.busy) return;
+      if(Date.now()-P68.midSince < every) return;
+      if(typeof CUR_CALL!=='undefined' && CUR_CALL) return;      // jamais pendant un appel
+      var ad=plan.midroll.ads[P68.midIdx++ % plan.midroll.ads.length]; if(!ad||!ad.audio_url) return;
+      // La radio continue en direct, son coupé, pendant la pub ; puis le son revient
+      function mute(v){ try{ if(_pencRadioAudio) _pencRadioAudio.volume=v; }catch(_){} }
+      mute(0); P68.guard=setInterval(function(){ mute(0); }, 400);   // même si le flux se reconnecte pendant la pub
+      playAd(ad, 'Publicité · la radio reprend après', function(){ clearInterval(P68.guard); P68.guard=null; mute(1); P68.midSince=Date.now(); });
+    }, 5000);
+  }
+  var _origStop = window._radPlayerStop;
+  if(typeof _origStop==='function' && !_origStop._p68){
+    window._radPlayerStop = function(){ p68StopMid(); if(P68.busy && P68.adAudio){ try{ P68.adAudio.onended=null; P68.adAudio.pause(); P68.adAudio.src=''; }catch(_){} P68.busy=false; hidePill(); }
+      try{ if(_pencRadioAudio) _pencRadioAudio.volume=1; }catch(_){} return _origStop.apply(this, arguments); };
+    window._radPlayerStop._p68=true;
+  }
+  // ── 2. Bannière sponsorisée sous le lecteur ──
+  var _origFull = window._radRenderFullPlayer;
+  if(typeof _origFull==='function' && !_origFull._p68){
+    window._radRenderFullPlayer = function(ov, s){
+      var r=_origFull.apply(this, arguments);
+      try{ if(s&&s.id) getPlan(s.id).then(function(plan){
+        if(!plan || !plan.banner || !plan.banner.image_url || !ov || ov.querySelector('.p68Ban')) return;
+        var b=plan.banner, st=ov.querySelector('#radStatusMsg'); if(!st) return;
+        var el=document.createElement('button'); el.type='button'; el.className='p68Ban';
+        el.innerHTML='<img src="'+esc(b.image_url)+'" alt=""><div><b>'+esc(b.advertiser||b.title)+'</b><span>Sponsorisé</span></div>';
+        el.onclick=function(){ ev(b,'click'); if(b.click_url){ try{ window.open(b.click_url,'_blank','noopener'); }catch(_){} } };
+        var host=st.parentNode; host.parentNode.insertBefore(el, host.nextSibling); ev(b,'impression');
+      }); }catch(_){}
+      return r;
+    };
+    window._radRenderFullPlayer._p68=true;
+  }
+
+  // ════ Administration ════
+  function sheet(id, html){
+    var ov=document.getElementById(id); if(!ov){ ov=document.createElement('div'); ov.id=id; ov.className='overlay'; ov.style.zIndex='2147482990'; document.body.appendChild(ov);
+      ov.onclick=function(e){ if(e.target===ov) ov.classList.remove('show'); }; }
+    ov.innerHTML='<div class="sheet" style="max-height:90vh;overflow-y:auto;"><div class="sheet-handle"></div>'+html+'</div>'; ov.classList.add('show'); return ov;
+  }
+  window._p68StationAds = function(sid){
+    var s=(_pencRadioStations||[]).find(function(x){ return x.id===sid; }); if(!s) return;
+    sheet('p68StOv','<div class="sheet-title">📣 Publicités — '+esc(s.name)+'</div>'
+      +'<div style="color:var(--muted);font-size:13px;margin:-4px 0 14px;line-height:1.45">Active uniquement les stations pour lesquelles tu as un accord (ou ta propre radio DeglouFM).</div>'
+      +'<label class="p68Row"><span>🎧 Pub avant l’écoute<br><small style="color:var(--muted);font-weight:500">Au plus une fois toutes les 15 min par auditeur</small></span><input type="checkbox" id="p68Pre" '+(s.ads_preroll?'checked':'')+'></label>'
+      +'<label class="p68Row"><span>🖼️ Bannière sponsorisée</span><input type="checkbox" id="p68Ban" '+(s.ads_banner?'checked':'')+'></label>'
+      +'<label class="p68Row"><span>⏸️ Coupure pub pendant l’écoute<br><small style="color:var(--muted);font-weight:500">Jamais pour les abonnés Premium</small></span><input type="checkbox" id="p68Mid" '+(s.ads_midroll?'checked':'')+'></label>'
+      +'<div class="form-group"><label class="form-label">Coupure pub toutes les (minutes)</label><input class="form-input" id="p68Every" type="number" min="10" max="120" value="'+(s.midroll_every_min||20)+'"></div>'
+      +'<button id="p68StSave" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Enregistrer</button>'
+      +'<button onclick="_p68AdsManager()" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--accent);font-weight:700;margin-top:8px;cursor:pointer;">Gérer les annonces</button>');
+    document.getElementById('p68StSave').onclick=async function(){ var b=this; b.disabled=true;
+      var body={ ads_preroll:document.getElementById('p68Pre').checked, ads_banner:document.getElementById('p68Ban').checked, ads_midroll:document.getElementById('p68Mid').checked, midroll_every_min:parseInt(document.getElementById('p68Every').value,10)||20 };
+      var r=await api('/admin/radio/stations/'+encodeURIComponent(sid)+'/ads','POST',body); b.disabled=false;
+      if(r&&r.station){ Object.assign(s, r.station); P68.plans={}; document.getElementById('p68StOv').classList.remove('show'); showNotif('✅','Publicités','Réglages enregistrés','green',null); }
+      else showNotif('❌','Erreur',(r&&r.error)||'Échec','red',null); };
+  };
+  var ADS=[];
+  window._p68AdsManager = async function(){
+    sheet('p68AdsOv','<div class="sheet-title">📣 Annonces radio</div><button onclick="_p68AdForm()" style="width:100%;padding:12px;border:none;border-radius:12px;background:#1DBF73;color:#fff;font-weight:700;margin-bottom:12px;cursor:pointer;">➕ Nouvelle annonce</button><div id="p68AdsList">Chargement…</div>');
+    var r=await api('/admin/radio/ads','GET'); ADS=(r&&r.ads)||[]; renderAds();
+  };
+  function renderAds(){
+    var host=document.getElementById('p68AdsList'); if(!host) return;
+    if(!ADS.length){ host.innerHTML='<div style="text-align:center;color:var(--muted);padding:24px 0">Aucune annonce pour le moment.</div>'; return; }
+    host.innerHTML=ADS.map(function(a){
+      var rate=a.impressions? Math.round(a.completes*100/a.impressions)+' % écoutées' : '';
+      return '<div class="p68Ad" style="'+(a.active?'':'opacity:.55')+'"><div class="ic">'+(a.image_url?'<img src="'+esc(a.image_url)+'">':(a.kind==='banner'?'🖼️':'🎧'))+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a.title)+'</div>'
+        +'<div style="color:var(--muted);font-size:12px">'+(a.kind==='banner'?'Bannière':'Audio '+a.duration_s+' s')+' · '+esc(a.advertiser||'')+(a.stations&&a.stations.length?' · '+a.stations.length+' station(s)':' · toutes les stations activées')+'</div>'
+        +'<div style="color:var(--muted);font-size:12px">👁 '+a.impressions+' · 👆 '+a.clicks+(rate?' · '+rate:'')+'</div></div>'
+        +'<button class="p68Btn" onclick="_p68AdForm(\''+a.id+'\')">✏️</button><button class="p68Btn" style="color:#E0473E" onclick="_p68AdDel(\''+a.id+'\')">🗑️</button></div>';
+    }).join('');
+  }
+  window._p68AdDel = async function(id){
+    var b=event&&event.currentTarget; if(b && !b.dataset.c){ b.dataset.c='1'; b.textContent='Confirmer'; return; }
+    await api('/admin/radio/ads/'+encodeURIComponent(id),'DELETE'); ADS=ADS.filter(function(a){ return a.id!==id; }); renderAds(); P68.plans={};
+  };
+  window._p68AdForm = function(id){
+    var a=id?ADS.find(function(x){ return x.id===id; }):null; a=a||{kind:'audio',duration_s:15,weight:1,active:true,stations:[]};
+    var sts=(_pencRadioStations||[]);
+    var dt=function(v){ try{ return v? new Date(v).toISOString().slice(0,10):''; }catch(_){ return ''; } };
+    sheet('p68FormOv','<div class="sheet-title">'+(id?'✏️ Modifier l’annonce':'➕ Nouvelle annonce')+'</div>'
+      +'<div class="form-group"><label class="form-label">Type</label><select class="form-input" id="p68Kind"><option value="audio"'+(a.kind==='audio'?' selected':'')+'>🎧 Audio (avant l’écoute et coupures)</option><option value="banner"'+(a.kind==='banner'?' selected':'')+'>🖼️ Bannière (sous le lecteur)</option></select></div>'
+      +'<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="p68Title" value="'+esc(a.title||'')+'" placeholder="Ex : Promo Tabaski"></div>'
+      +'<div class="form-group"><label class="form-label">Annonceur</label><input class="form-input" id="p68Adv" value="'+esc(a.advertiser||'')+'" placeholder="Ex : Boutique Diallo"></div>'
+      +'<div class="form-group" id="p68AudioG"><label class="form-label">Fichier audio (mp3)</label><input class="form-input" id="p68Audio" value="'+esc(a.audio_url||'')+'" placeholder="https://…"><input type="file" accept="audio/*" id="p68AudioF" style="margin-top:8px"></div>'
+      +'<div class="form-group"><label class="form-label">Image (bannière 3:1, ou logo pour l’audio)</label><input class="form-input" id="p68Img" value="'+esc(a.image_url||'')+'" placeholder="https://…"><input type="file" accept="image/*" id="p68ImgF" style="margin-top:8px"></div>'
+      +'<div class="form-group"><label class="form-label">Lien « En savoir plus » (facultatif)</label><input class="form-input" id="p68Click" value="'+esc(a.click_url||'')+'" placeholder="https://…"></div>'
+      +'<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Durée (s)</label><input class="form-input" id="p68Dur" type="number" min="3" max="60" value="'+(a.duration_s||15)+'"></div>'
+      +'<div class="form-group" style="flex:1"><label class="form-label">Poids</label><input class="form-input" id="p68W" type="number" min="1" max="100" value="'+(a.weight||1)+'"></div></div>'
+      +'<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Début</label><input class="form-input" id="p68S" type="date" value="'+dt(a.starts_at)+'"></div>'
+      +'<div class="form-group" style="flex:1"><label class="form-label">Fin</label><input class="form-input" id="p68E" type="date" value="'+dt(a.ends_at)+'"></div></div>'
+      +'<div class="form-group"><label class="form-label">Stations (aucune cochée = toutes les stations où la pub est activée)</label><div style="max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:11px;padding:6px 10px">'
+      +sts.map(function(s){ return '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px"><input type="checkbox" class="p68St" value="'+esc(s.id)+'" '+((a.stations||[]).indexOf(s.id)>-1?'checked':'')+'> '+esc(s.name)+'</label>'; }).join('')+'</div></div>'
+      +'<label class="p68Row"><span>Annonce active</span><input type="checkbox" id="p68Act" '+(a.active!==false?'checked':'')+'></label>'
+      +'<button id="p68Save" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Enregistrer</button>');
+    function up(inp, out, kind){ inp.onchange=async function(){ var f=inp.files&&inp.files[0]; if(!f) return; var o=document.getElementById(out); o.value='Envoi…';
+      try{ var ext=(f.name.split('.').pop()||'').toLowerCase()||(f.type.split('/')[1]||'bin'); var url=await r2Upload(f,'ad',{mime:f.type,ext:ext}); o.value=url||''; if(!url) showNotif('❌','Erreur','Échec de l’envoi','red',null);
+        if(url && kind==='audio'){ var t=new Audio(url); t.onloadedmetadata=function(){ if(isFinite(t.duration)) document.getElementById('p68Dur').value=Math.max(3,Math.min(60,Math.round(t.duration))); }; }
+      }catch(e){ o.value=''; showNotif('❌','Erreur',e.message||'Échec','red',null); } }; }
+    up(document.getElementById('p68AudioF'),'p68Audio','audio'); up(document.getElementById('p68ImgF'),'p68Img','img');
+    document.getElementById('p68Save').onclick=async function(){ var b=this; b.disabled=true;
+      var body={ id:id||undefined, kind:document.getElementById('p68Kind').value, title:document.getElementById('p68Title').value, advertiser:document.getElementById('p68Adv').value,
+        audio_url:document.getElementById('p68Audio').value, image_url:document.getElementById('p68Img').value, click_url:document.getElementById('p68Click').value,
+        duration_s:document.getElementById('p68Dur').value, weight:document.getElementById('p68W').value, starts_at:document.getElementById('p68S').value||null, ends_at:document.getElementById('p68E').value||null,
+        active:document.getElementById('p68Act').checked, stations:Array.prototype.map.call(document.querySelectorAll('.p68St:checked'),function(x){ return x.value; }) };
+      var r=await api('/admin/radio/ads','POST',body); b.disabled=false;
+      if(r&&r.ad){ P68.plans={}; document.getElementById('p68FormOv').classList.remove('show'); var i=ADS.findIndex(function(x){ return x.id===r.ad.id; }); if(i>-1) ADS[i]=r.ad; else ADS.unshift(r.ad); renderAds(); showNotif('✅','Annonce','Enregistrée','green',null); }
+      else showNotif('❌','Erreur',(r&&r.error)||'Échec','red',null); };
+  };
+})();
+</script>
+
 </body>
 </html>

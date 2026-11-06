@@ -20241,6 +20241,102 @@ app.post('/api/otp/admin/recharges/:id', pencAuth, pencAdmin, async (req, res) =
 });
 // ════ fin pncsrv56 ════
 
+// ════ pncsrv57 — Publicités radio : avant l'écoute (pré-roll), bannière sponsorisée, coupure pub (mid-roll) ════
+// Activées station par station par l'admin. Les abonnés Premium radio (radio_premium) n'ont pas les coupures pub.
+let _radAdsReady = false;
+async function _radAdsInit(){
+  if(_radAdsReady || !_pgPool) return;
+  await _pgPool.query(`
+    ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS ads_preroll BOOLEAN DEFAULT FALSE;
+    ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS ads_banner BOOLEAN DEFAULT FALSE;
+    ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS ads_midroll BOOLEAN DEFAULT FALSE;
+    ALTER TABLE penc_radio_stations ADD COLUMN IF NOT EXISTS midroll_every_min INT DEFAULT 20;
+    CREATE TABLE IF NOT EXISTS penc_radio_ads (id TEXT PRIMARY KEY, title TEXT NOT NULL, advertiser TEXT DEFAULT '', kind TEXT NOT NULL DEFAULT 'audio',
+      audio_url TEXT, image_url TEXT, click_url TEXT, duration_s INT DEFAULT 15, stations TEXT[] DEFAULT '{}', weight INT DEFAULT 1, active BOOLEAN DEFAULT TRUE,
+      starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, impressions INT DEFAULT 0, completes INT DEFAULT 0, clicks INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW());
+  `);
+  _radAdsReady = true;
+}
+setTimeout(function(){ _radAdsInit().catch(function(e){ console.error('[radio-ads] init:', e.message); }); }, 16000);
+function _radAdPub(a){ return a ? { id: a.id, title: a.title, advertiser: a.advertiser || '', kind: a.kind, audio_url: a.audio_url || null, image_url: a.image_url || null, click_url: a.click_url || null, duration_s: a.duration_s || 15 } : null; }
+function _radAdPick(rows){ if(!rows.length) return null; let tot = 0; rows.forEach(function(r){ tot += Math.max(1, r.weight || 1); }); let x = Math.random() * tot;
+  for(const r of rows){ x -= Math.max(1, r.weight || 1); if(x <= 0) return r; } return rows[rows.length - 1]; }
+async function _radAdsFor(stationId, kind){
+  return (await _pgPool.query(`SELECT * FROM penc_radio_ads WHERE active=TRUE AND kind=$2 AND (cardinality(stations)=0 OR $1 = ANY(stations))
+    AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at > NOW()) AND ($2 <> 'audio' OR audio_url IS NOT NULL) AND ($2 <> 'banner' OR image_url IS NOT NULL)`, [stationId, kind])).rows;
+}
+// Plan publicitaire d'une station pour l'auditeur (jeton facultatif : il sert à savoir s'il est Premium)
+app.get('/api/penc/radio/ads/plan', async (req, res) => {
+  try{ if(!_pgPool) return res.json({});
+    await _radAdsInit(); const sid = String(req.query.station_id || '');
+    const st = (await _pgPool.query('SELECT id, ads_preroll, ads_banner, ads_midroll, midroll_every_min FROM penc_radio_stations WHERE id=$1', [sid])).rows[0];
+    if(!st) return res.json({});
+    let premium = false;
+    try{ const h = req.headers.authorization || ''; if(h.startsWith('Bearer ')){ const d = jwt_penc.verify(h.slice(7), PENC_SECRET); const u = await pgFindUser('id', d.userId); premium = !!(u && u.radio_premium); } }catch(_){}
+    const out = { premium: premium, preroll: null, banner: null, midroll: null };
+    if(st.ads_preroll || (st.ads_midroll && !premium)){
+      const audio = await _radAdsFor(sid, 'audio');
+      if(st.ads_preroll) out.preroll = _radAdPub(_radAdPick(audio));
+      if(st.ads_midroll && !premium && audio.length){
+        const list = audio.slice().sort(function(){ return Math.random() - .5; }).slice(0, 6).map(_radAdPub);
+        out.midroll = { every_min: Math.min(120, Math.max(10, st.midroll_every_min || 20)), ads: list };
+      }
+    }
+    if(st.ads_banner) out.banner = _radAdPub(_radAdPick(await _radAdsFor(sid, 'banner')));
+    res.json(out);
+  }catch(e){ console.error('[radio-ads] plan:', e.message); res.json({}); }
+});
+app.post('/api/penc/radio/ads/:id/event', async (req, res) => {
+  try{ if(!_pgPool) return res.json({ ok: false });
+    const t = String((req.body || {}).type || ''); const col = { impression: 'impressions', complete: 'completes', click: 'clicks' }[t];
+    if(!col) return res.status(400).json({ error: 'type' });
+    if(!_filRate('ip:' + _gpIp(req) + ':' + req.params.id, 'radad_' + t, 30, 3600000)) return res.json({ ok: true });
+    await _pgPool.query('UPDATE penc_radio_ads SET ' + col + ' = ' + col + ' + 1 WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  }catch(e){ res.json({ ok: false }); }
+});
+// ── Administration ──
+app.get('/api/penc/admin/radio/ads', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _radAdsInit(); res.json({ ads: (await _pgPool.query('SELECT * FROM penc_radio_ads ORDER BY created_at DESC LIMIT 300')).rows }); }
+  catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/ads', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _radAdsInit(); const b = req.body || {};
+    const kind = b.kind === 'banner' ? 'banner' : 'audio';
+    const title = String(b.title || '').trim().slice(0, 120); if(title.length < 2) return res.status(400).json({ error: 'Titre requis' });
+    const url = function(v){ v = String(v || '').trim(); return /^https:\/\//i.test(v) ? v.slice(0, 600) : null; };
+    const audio = url(b.audio_url), image = url(b.image_url), click = url(b.click_url);
+    if(kind === 'audio' && !audio) return res.status(400).json({ error: 'Fichier audio requis' });
+    if(kind === 'banner' && !image) return res.status(400).json({ error: 'Image requise' });
+    const stations = Array.isArray(b.stations) ? b.stations.map(String).slice(0, 500) : [];
+    const dur = Math.min(60, Math.max(3, parseInt(b.duration_s, 10) || 15));
+    const weight = Math.min(100, Math.max(1, parseInt(b.weight, 10) || 1));
+    const d = function(v){ const x = v ? new Date(v) : null; return x && !isNaN(x) ? x : null; };
+    const active = b.active !== false;
+    if(b.id){
+      const r = await _pgPool.query('UPDATE penc_radio_ads SET title=$2, advertiser=$3, kind=$4, audio_url=$5, image_url=$6, click_url=$7, duration_s=$8, stations=$9, weight=$10, active=$11, starts_at=$12, ends_at=$13 WHERE id=$1 RETURNING *',
+        [String(b.id), title, String(b.advertiser || '').slice(0, 80), kind, audio, image, click, dur, stations, weight, active, d(b.starts_at), d(b.ends_at)]);
+      if(!r.rowCount) return res.status(404).json({ error: 'Introuvable' }); return res.json({ ad: r.rows[0] });
+    }
+    const id = 'rad_ad_' + crypto.randomBytes(6).toString('hex');
+    const r = await _pgPool.query('INSERT INTO penc_radio_ads(id,title,advertiser,kind,audio_url,image_url,click_url,duration_s,stations,weight,active,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *',
+      [id, title, String(b.advertiser || '').slice(0, 80), kind, audio, image, click, dur, stations, weight, active, d(b.starts_at), d(b.ends_at)]);
+    res.json({ ad: r.rows[0] });
+  }catch(e){ console.error('[radio-ads] save:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.delete('/api/penc/admin/radio/ads/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _radAdsInit(); await _pgPool.query('DELETE FROM penc_radio_ads WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch(e){ res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/admin/radio/stations/:id/ads', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _radAdsInit(); const b = req.body || {};
+    const r = await _pgPool.query('UPDATE penc_radio_stations SET ads_preroll=$2, ads_banner=$3, ads_midroll=$4, midroll_every_min=$5 WHERE id=$1 RETURNING id, ads_preroll, ads_banner, ads_midroll, midroll_every_min',
+      [req.params.id, !!b.ads_preroll, !!b.ads_banner, !!b.ads_midroll, Math.min(120, Math.max(10, parseInt(b.midroll_every_min, 10) || 20))]);
+    if(!r.rowCount) return res.status(404).json({ error: 'Introuvable' }); res.json({ station: r.rows[0] });
+  }catch(e){ console.error('[radio-ads] station:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+// ════ fin pncsrv57 ════
+
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");
     console.log("http://localhost:" + PORT);
