@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const _PENC_DISABLE_DEVICE_LOCK = true; // TEMPORAIRE (tests natif multi-appareils) — remettre à false pour restaurer le verrou
 const cors = require('cors');
 const path = require('path');
@@ -20006,6 +20006,240 @@ app.get('/api/penc/mesh/acks', pencAuth, async (req, res) => {
     res.json({ mids:r.rows.map(x => x.mid) });
   }catch(e){ res.json({ mids:[] }); }
 });
+
+// ════ pncsrv56 — Penc OTP : codes de vérification pour les entreprises (API) ════
+// Envoi par Penc (message officiel, presque gratuit) avec secours SMS (Techsoft) ; crédit prépayé en FCFA.
+// API publique : Authorization: Bearer pk_live_xxx  →  /api/otp/v1/send · /api/otp/v1/verify · /api/otp/v1/balance
+// Console développeurs (compte Penc) : /api/otp/dev/*   ·   Administration : /api/otp/admin/*
+const OTP_SECRET = process.env.OTP_SECRET || (PENC_SECRET + '|otp');
+const OTP_SMS_SENDER = (process.env.OTP_SMS_SENDER || 'Penc').slice(0, 11);
+const OTP_DEF = { price_penc: Number(process.env.OTP_PRICE_PENC || 10), price_sms: Number(process.env.OTP_PRICE_SMS || 25), fallback_s: 45, max_try: 5 };
+let _otpReady = false;
+async function _otpInit(){
+  if(_otpReady || !_pgPool) return;
+  await _pgPool.query(`
+    CREATE TABLE IF NOT EXISTS otp_clients (id TEXT PRIMARY KEY, owner_uid TEXT NOT NULL, name TEXT NOT NULL, brand TEXT NOT NULL, email TEXT, website TEXT, use_case TEXT,
+      key_hash TEXT, key_prefix TEXT, status TEXT DEFAULT 'pending', balance INT DEFAULT 0, price_penc INT DEFAULT 10, price_sms INT DEFAULT 25,
+      sms_fallback BOOLEAN DEFAULT TRUE, note TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), approved_at TIMESTAMPTZ);
+    CREATE INDEX IF NOT EXISTS otp_clients_owner ON otp_clients(owner_uid);
+    CREATE INDEX IF NOT EXISTS otp_clients_key ON otp_clients(key_hash);
+    CREATE TABLE IF NOT EXISTS otp_codes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, phone TEXT NOT NULL, code_hash TEXT NOT NULL, channel TEXT, tries INT DEFAULT 0,
+      sms_sent BOOLEAN DEFAULT FALSE, verified_at TIMESTAMPTZ, expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS otp_codes_cp ON otp_codes(client_id, phone, created_at DESC);
+    CREATE TABLE IF NOT EXISTS otp_journal (id BIGSERIAL PRIMARY KEY, client_id TEXT NOT NULL, code_id TEXT, phone TEXT, event TEXT NOT NULL, cost INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW());
+    CREATE INDEX IF NOT EXISTS otp_journal_c ON otp_journal(client_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS otp_recharges (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, amount INT NOT NULL, wave_ref TEXT, status TEXT DEFAULT 'pending', by_admin TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(), done_at TIMESTAMPTZ);
+  `);
+  _otpReady = true;
+}
+setTimeout(function(){ _otpInit().catch(function(e){ console.error('[otp] init:', e.message); }); }, 15000);
+function _otpMask(p){ const d = String(p || ''); return d.length > 6 ? d.slice(0, d.length - 6) + '••' + d.slice(-4) : d; }
+function _otpHash(id, code){ return crypto.createHmac('sha256', OTP_SECRET).update(id + '|' + String(code)).digest('hex'); }
+function _otpKeyHash(k){ return crypto.createHash('sha256').update(String(k)).digest('hex'); }
+function _otpPhone(p){ let s = _ybPhone(p); if(!/^\+[1-9][0-9]{7,14}$/.test(s)) return null; return s; }
+function _otpBrandOk(b){ b = String(b || '').trim(); return /^[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9 '&.\-]{1,19}$/.test(b) ? b : null; }
+function _otpPub(c, full){ const o = { id: c.id, name: c.name, brand: c.brand, status: c.status, balance: c.balance, price_penc: c.price_penc, price_sms: c.price_sms,
+  sms_fallback: c.sms_fallback, key_prefix: c.key_prefix || null, website: c.website || '', email: c.email || '', created_at: c.created_at, approved_at: c.approved_at };
+  if(full){ o.owner_uid = c.owner_uid; o.use_case = c.use_case || ''; o.note = c.note || ''; } return o; }
+async function _otpLog(cid, codeId, phone, event, cost){ try{ await _pgPool.query('INSERT INTO otp_journal(client_id,code_id,phone,event,cost) VALUES($1,$2,$3,$4,$5)', [cid, codeId || null, phone ? _otpMask(phone) : null, event, cost || 0]); }catch(_){} }
+// Débit atomique : refuse si le solde ne suffit pas
+async function _otpDebit(cid, amount){ const r = await _pgPool.query('UPDATE otp_clients SET balance = balance - $2 WHERE id=$1 AND balance >= $2 RETURNING balance', [cid, amount]); return r.rowCount ? r.rows[0].balance : null; }
+async function _otpSms(phone, text){
+  try{ const tok = process.env.TECHSOFT_TOKEN; if(!tok){ console.log('[otp] SMS : TECHSOFT_TOKEN absent'); return false; }
+    const ctrl = new AbortController(); const tm = setTimeout(function(){ ctrl.abort(); }, 12000);
+    const r = await fetch('https://app.techsoft-sms.com/api/http/?token=' + encodeURIComponent(tok) + '&to=' + encodeURIComponent(phone) + '&message=' + encodeURIComponent(text) + '&sender_id=' + encodeURIComponent(OTP_SMS_SENDER), { signal: ctrl.signal });
+    clearTimeout(tm); const t = await r.text(); const ok = r.ok && !/error/i.test(t); if(!ok) console.log('[otp] SMS ECHEC', t.slice(0, 160)); return ok;
+  }catch(e){ console.log('[otp] SMS exception', e.message); return false; }
+}
+function _otpTexts(brand, code, ttlMin){
+  return { penc: '🔐 ' + brand + ' — votre code de vérification : ' + code + '\n\nIl expire dans ' + ttlMin + ' minutes. Ne le communiquez à personne, même à quelqu\'un qui dit travailler pour ' + brand + '.\n\nEnvoyé avec Penc OTP.',
+    push: 'Votre code : ' + code, sms: brand + ' : votre code est ' + code + '. Il expire dans ' + ttlMin + ' min. Ne le partagez avec personne.' };
+}
+// Authentification par clé d'API
+async function otpKeyAuth(req, res, next){
+  try{ await _otpInit();
+    const h = String(req.headers.authorization || ''); const k = h.startsWith('Bearer ') ? h.slice(7).trim() : String(req.headers['x-api-key'] || '').trim();
+    if(!/^pk_(live|test)_[a-f0-9]{32}$/.test(k)) return res.status(401).json({ error: 'cle_invalide', message: 'Clé d\'API manquante ou invalide' });
+    const c = (await _pgPool.query('SELECT * FROM otp_clients WHERE key_hash=$1', [_otpKeyHash(k)])).rows[0];
+    if(!c) return res.status(401).json({ error: 'cle_invalide', message: 'Clé d\'API inconnue' });
+    if(c.status !== 'active') return res.status(403).json({ error: 'compte_inactif', message: 'Compte Penc OTP non actif' });
+    if(!_filRate('otpc:' + c.id, 'otp_min', 300, 60000)) return res.status(429).json({ error: 'trop_rapide', message: 'Limite de 300 requêtes par minute atteinte' });
+    req.otpClient = c; next();
+  }catch(e){ console.error('[otp] auth:', e.message); res.status(500).json({ error: 'erreur' }); }
+}
+// Secours SMS : si le code envoyé par Penc n'est pas validé à temps
+function _otpScheduleFallback(codeId, cid){
+  setTimeout(async function(){
+    try{ const k = (await _pgPool.query('SELECT k.*, c.brand, c.price_sms, c.sms_fallback, c.status FROM otp_codes k JOIN otp_clients c ON c.id = k.client_id WHERE k.id=$1', [codeId])).rows[0];
+      if(!k || k.verified_at || k.sms_sent || !k.sms_fallback || k.status !== 'active' || new Date(k.expires_at) < new Date()) return;
+      const code = _otpPending.get(codeId); if(!code) return;
+      if((await _otpDebit(cid, k.price_sms)) === null){ await _otpLog(cid, codeId, k.phone, 'sms_solde_insuffisant', 0); return; }
+      const ttlMin = Math.max(1, Math.round((new Date(k.expires_at) - Date.now()) / 60000));
+      const ok = await _otpSms(k.phone, _otpTexts(k.brand, code, ttlMin).sms);
+      if(ok){ await _pgPool.query("UPDATE otp_codes SET sms_sent=TRUE, channel='penc+sms' WHERE id=$1", [codeId]); await _otpLog(cid, codeId, k.phone, 'secours_sms', k.price_sms); }
+      else { await _pgPool.query('UPDATE otp_clients SET balance = balance + $2 WHERE id=$1', [cid, k.price_sms]); await _otpLog(cid, codeId, k.phone, 'secours_sms_echec', 0); }
+    }catch(e){ console.error('[otp] secours:', e.message); }
+  }, OTP_DEF.fallback_s * 1000);
+}
+// Codes en clair gardés en mémoire uniquement le temps du secours SMS (jamais en base)
+const _otpPending = new Map();
+function _otpKeep(id, code, ms){ _otpPending.set(id, code); setTimeout(function(){ _otpPending.delete(id); }, ms); }
+
+// ── API publique ──
+app.post('/api/otp/v1/send', otpKeyAuth, async (req, res) => {
+  try{ const c = req.otpClient; const b = req.body || {};
+    const phone = _otpPhone(b.phone || b.telephone);
+    if(!phone) return res.status(400).json({ error: 'numero_invalide', message: 'Numéro au format international attendu, ex. +221771234567' });
+    const ttlMin = Math.min(10, Math.max(2, parseInt(b.ttl_minutes || b.ttl || 5, 10) || 5));
+    const want = ['auto', 'penc', 'sms'].indexOf(b.channel) > -1 ? b.channel : 'auto';
+    if(!_filRate('otpc:' + c.id + ':' + phone, 'otp_60', 1, 60000)) return res.status(429).json({ error: 'trop_rapide', message: 'Un seul code par minute pour ce numéro', retry_in: 60 });
+    if(!_filRate('otpc:' + c.id + ':' + phone, 'otp_h', 6, 3600000)) return res.status(429).json({ error: 'trop_de_codes', message: 'Trop de codes pour ce numéro, réessayez dans une heure' });
+    const uid = want === 'sms' ? null : await _ybPencUid(phone);
+    let channel = uid ? 'penc' : 'sms';
+    if(want === 'penc' && !uid) return res.status(404).json({ error: 'pas_de_compte_penc', message: 'Ce numéro n\'a pas de compte Penc' });
+    const cost = channel === 'penc' ? c.price_penc : c.price_sms;
+    if((await _otpDebit(c.id, cost)) === null) return res.status(402).json({ error: 'solde_insuffisant', message: 'Crédit Penc OTP insuffisant, rechargez votre compte', balance: c.balance });
+    const id = 'otp_' + crypto.randomBytes(12).toString('hex');
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const exp = new Date(Date.now() + ttlMin * 60000);
+    await _pgPool.query('INSERT INTO otp_codes(id,client_id,phone,code_hash,channel,expires_at) VALUES($1,$2,$3,$4,$5,$6)', [id, c.id, phone, _otpHash(id, code), channel, exp]);
+    const T = _otpTexts(c.brand, code, ttlMin); let ok = false;
+    if(channel === 'penc'){ try{ await _sendPencOfficialDM(uid, T.penc, 'Code ' + c.brand, T.push, 'otp-' + c.id); ok = true; }catch(_){ ok = false; } }
+    else ok = await _otpSms(phone, T.sms);
+    if(!ok){
+      await _pgPool.query('UPDATE otp_clients SET balance = balance + $2 WHERE id=$1', [c.id, cost]);
+      await _pgPool.query('DELETE FROM otp_codes WHERE id=$1', [id]); await _otpLog(c.id, id, phone, 'echec_' + channel, 0);
+      return res.status(502).json({ error: 'envoi_impossible', message: 'Envoi impossible pour le moment, réessayez' });
+    }
+    await _otpLog(c.id, id, phone, 'envoi_' + channel, cost);
+    if(channel === 'penc' && want === 'auto' && c.sms_fallback){ _otpKeep(id, code, ttlMin * 60000); _otpScheduleFallback(id, c.id); }
+    const bal = (await _pgPool.query('SELECT balance FROM otp_clients WHERE id=$1', [c.id])).rows[0];
+    res.json({ id: id, channel: channel, expires_in: ttlMin * 60, cost: cost, sms_fallback: channel === 'penc' && want === 'auto' && !!c.sms_fallback, balance: bal ? bal.balance : null });
+  }catch(e){ console.error('[otp] send:', e.message); res.status(500).json({ error: 'erreur' }); }
+});
+app.post('/api/otp/v1/verify', otpKeyAuth, async (req, res) => {
+  try{ const c = req.otpClient; const b = req.body || {}; const code = String(b.code || '').replace(/\D/g, '');
+    let k = null;
+    if(b.id) k = (await _pgPool.query('SELECT * FROM otp_codes WHERE id=$1 AND client_id=$2', [String(b.id), c.id])).rows[0];
+    else { const phone = _otpPhone(b.phone || b.telephone); if(phone) k = (await _pgPool.query('SELECT * FROM otp_codes WHERE client_id=$1 AND phone=$2 AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1', [c.id, phone])).rows[0]; }
+    if(!k) return res.status(404).json({ valid: false, reason: 'introuvable', message: 'Aucun code en cours pour ce numéro' });
+    if(k.verified_at) return res.status(400).json({ valid: false, reason: 'deja_utilise', message: 'Ce code a déjà été utilisé' });
+    if(new Date(k.expires_at) < new Date()) return res.status(400).json({ valid: false, reason: 'expire', message: 'Code expiré' });
+    if(k.tries >= OTP_DEF.max_try) return res.status(400).json({ valid: false, reason: 'trop_d_essais', message: 'Trop d\'essais, demandez un nouveau code' });
+    const good = code.length === 6 && (function(){ try{ const x = Buffer.from(_otpHash(k.id, code), 'hex'), y = Buffer.from(k.code_hash, 'hex'); return x.length === y.length && crypto.timingSafeEqual(x, y); }catch(_){ return false; } })();
+    if(!good){
+      await _pgPool.query('UPDATE otp_codes SET tries = tries + 1 WHERE id=$1', [k.id]); await _otpLog(c.id, k.id, k.phone, 'verif_echec', 0);
+      return res.status(400).json({ valid: false, reason: 'incorrect', message: 'Code incorrect', tries_left: Math.max(0, OTP_DEF.max_try - k.tries - 1) });
+    }
+    await _pgPool.query('UPDATE otp_codes SET verified_at=NOW() WHERE id=$1', [k.id]); _otpPending.delete(k.id);
+    await _otpLog(c.id, k.id, k.phone, 'verif_ok', 0);
+    res.json({ valid: true, id: k.id, phone: k.phone, channel: k.channel });
+  }catch(e){ console.error('[otp] verify:', e.message); res.status(500).json({ error: 'erreur' }); }
+});
+app.get('/api/otp/v1/balance', otpKeyAuth, async (req, res) => {
+  const c = req.otpClient; res.json({ balance: c.balance, price_penc: c.price_penc, price_sms: c.price_sms, currency: 'XOF', brand: c.brand });
+});
+
+// ── Console développeurs (compte Penc) ──
+async function _otpMine(uid, id){ const c = (await _pgPool.query('SELECT * FROM otp_clients WHERE id=$1 AND owner_uid=$2', [id, String(uid)])).rows[0]; return c || null; }
+app.get('/api/otp/dev/config', async (req, res) => {
+  res.json({ price_penc: OTP_DEF.price_penc, price_sms: OTP_DEF.price_sms, fallback_s: OTP_DEF.fallback_s, wave_link: 'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=', currency: 'XOF' });
+});
+app.post('/api/otp/dev/apply', pencAuth, async (req, res) => {
+  try{ await _otpInit(); const uid = String(req.pencUser.userId); const b = req.body || {};
+    if(!_filRate('u:' + uid, 'otp_apply', 5, 86400000)) return _filTooFast(res);
+    const name = String(b.name || '').trim().slice(0, 80); const brand = _otpBrandOk(b.brand);
+    if(name.length < 2) return res.status(400).json({ error: 'Nom de l\'entreprise requis' });
+    if(!brand) return res.status(400).json({ error: 'Nom affiché invalide (2 à 20 caractères, lettres et chiffres)' });
+    let isAdm = false; try{ const me = await pgFindUser('id', uid); isAdm = !!(me && PENC_ADMIN_EMAILS.includes(String(me.email || '').toLowerCase())); }catch(_){}
+    if(/\b(penc|wave|orange|free|yas|expresso|google|whatsapp|banque centrale|bceao)\b/i.test(brand) && !isAdm) return res.status(400).json({ error: 'Ce nom affiché est réservé. Utilisez le nom de votre propre entreprise.' });
+    const n = (await _pgPool.query('SELECT COUNT(*)::int AS n FROM otp_clients WHERE owner_uid=$1', [uid])).rows[0].n;
+    if(n >= 3) return res.status(400).json({ error: 'Maximum 3 applications par compte' });
+    const id = 'oc_' + crypto.randomBytes(8).toString('hex');
+    await _pgPool.query('INSERT INTO otp_clients(id,owner_uid,name,brand,email,website,use_case,price_penc,price_sms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, uid, name, brand, String(b.email || '').slice(0, 120), String(b.website || '').slice(0, 200), String(b.use_case || '').slice(0, 600), OTP_DEF.price_penc, OTP_DEF.price_sms]);
+    try{ for(const em of (PENC_ADMIN_EMAILS || [])){ const a = await pgFindUser('email', em); if(a) await _sendPencOfficialDM(a.id, '🆕 Penc OTP — nouvelle demande : ' + name + ' (« ' + brand + ' »). À valider sur penc-messagerie.com/developpeurs', 'Penc OTP', 'Nouvelle demande : ' + name, 'otp-admin'); } }catch(_){}
+    res.json({ ok: true, client: _otpPub((await _pgPool.query('SELECT * FROM otp_clients WHERE id=$1', [id])).rows[0]) });
+  }catch(e){ console.error('[otp] apply:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.get('/api/otp/dev/mine', pencAuth, async (req, res) => {
+  try{ await _otpInit(); const uid = String(req.pencUser.userId);
+    const cs = (await _pgPool.query('SELECT * FROM otp_clients WHERE owner_uid=$1 ORDER BY created_at DESC', [uid])).rows;
+    const out = [];
+    for(const c of cs){
+      const st = (await _pgPool.query(`SELECT COUNT(*) FILTER (WHERE event LIKE 'envoi_%')::int AS envois, COUNT(*) FILTER (WHERE event='envoi_penc')::int AS penc, COUNT(*) FILTER (WHERE event IN ('envoi_sms','secours_sms'))::int AS sms,
+        COUNT(*) FILTER (WHERE event='verif_ok')::int AS valides, COALESCE(SUM(cost),0)::int AS depense FROM otp_journal WHERE client_id=$1 AND created_at > NOW() - INTERVAL '30 days'`, [c.id])).rows[0];
+      const j = (await _pgPool.query('SELECT phone, event, cost, created_at FROM otp_journal WHERE client_id=$1 ORDER BY id DESC LIMIT 30', [c.id])).rows;
+      const rc = (await _pgPool.query('SELECT id, amount, wave_ref, status, created_at FROM otp_recharges WHERE client_id=$1 ORDER BY created_at DESC LIMIT 10', [c.id])).rows;
+      out.push(Object.assign(_otpPub(c), { stats30: st, journal: j, recharges: rc }));
+    }
+    res.json({ clients: out });
+  }catch(e){ console.error('[otp] mine:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/otp/dev/:id/key', pencAuth, async (req, res) => {
+  try{ await _otpInit(); const c = await _otpMine(req.pencUser.userId, req.params.id); if(!c) return res.status(404).json({ error: 'Introuvable' });
+    if(c.status !== 'active') return res.status(400).json({ error: 'Votre compte doit d\'abord être validé par Penc' });
+    if(!_filRate('u:' + req.pencUser.userId, 'otp_key', 10, 3600000)) return _filTooFast(res);
+    const key = 'pk_live_' + crypto.randomBytes(16).toString('hex');
+    await _pgPool.query('UPDATE otp_clients SET key_hash=$2, key_prefix=$3 WHERE id=$1', [c.id, _otpKeyHash(key), key.slice(0, 14)]);
+    await _otpLog(c.id, null, null, 'nouvelle_cle', 0);
+    res.json({ key: key, key_prefix: key.slice(0, 14) });
+  }catch(e){ console.error('[otp] key:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/otp/dev/:id/settings', pencAuth, async (req, res) => {
+  try{ await _otpInit(); const c = await _otpMine(req.pencUser.userId, req.params.id); if(!c) return res.status(404).json({ error: 'Introuvable' });
+    const b = req.body || {}; await _pgPool.query('UPDATE otp_clients SET sms_fallback=$2 WHERE id=$1', [c.id, b.sms_fallback !== false]); res.json({ ok: true });
+  }catch(e){ res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/otp/dev/:id/recharge', pencAuth, async (req, res) => {
+  try{ await _otpInit(); const c = await _otpMine(req.pencUser.userId, req.params.id); if(!c) return res.status(404).json({ error: 'Introuvable' });
+    const b = req.body || {}; const amount = parseInt(b.amount, 10); const ref = String(b.wave_ref || '').trim().slice(0, 80);
+    if(!(amount >= 1000 && amount <= 5000000)) return res.status(400).json({ error: 'Montant entre 1 000 et 5 000 000 FCFA' });
+    if(ref.length < 4) return res.status(400).json({ error: 'Indiquez la référence de votre paiement Wave' });
+    if(!_filRate('u:' + req.pencUser.userId, 'otp_rch', 10, 86400000)) return _filTooFast(res);
+    const id = 'or_' + crypto.randomBytes(8).toString('hex');
+    await _pgPool.query('INSERT INTO otp_recharges(id,client_id,amount,wave_ref) VALUES($1,$2,$3,$4)', [id, c.id, amount, ref]);
+    try{ for(const em of (PENC_ADMIN_EMAILS || [])){ const a = await pgFindUser('email', em); if(a) await _sendPencOfficialDM(a.id, '💳 Penc OTP — recharge à confirmer : ' + amount + ' F pour ' + c.name + ' (réf. Wave ' + ref + ')', 'Penc OTP', 'Recharge ' + amount + ' F à confirmer', 'otp-admin'); } }catch(_){}
+    res.json({ ok: true, id: id });
+  }catch(e){ console.error('[otp] recharge:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+
+// ── Administration ──
+app.get('/api/otp/admin/overview', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _otpInit();
+    const cs = (await _pgPool.query('SELECT * FROM otp_clients ORDER BY created_at DESC LIMIT 300')).rows;
+    const rc = (await _pgPool.query("SELECT r.*, c.name FROM otp_recharges r JOIN otp_clients c ON c.id=r.client_id ORDER BY (r.status='pending') DESC, r.created_at DESC LIMIT 100")).rows;
+    const st = (await _pgPool.query(`SELECT COUNT(*) FILTER (WHERE event LIKE 'envoi_%')::int AS envois, COALESCE(SUM(cost),0)::int AS chiffre FROM otp_journal WHERE created_at > NOW() - INTERVAL '30 days'`)).rows[0];
+    res.json({ clients: cs.map(function(c){ return _otpPub(c, true); }), recharges: rc, stats30: st });
+  }catch(e){ console.error('[otp] admin:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/otp/admin/clients/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _otpInit(); const b = req.body || {}; const c = (await _pgPool.query('SELECT * FROM otp_clients WHERE id=$1', [req.params.id])).rows[0];
+    if(!c) return res.status(404).json({ error: 'Introuvable' });
+    const status = ['pending', 'active', 'suspended', 'refused'].indexOf(b.status) > -1 ? b.status : c.status;
+    const pp = Number.isFinite(+b.price_penc) ? Math.max(0, Math.round(+b.price_penc)) : c.price_penc;
+    const ps = Number.isFinite(+b.price_sms) ? Math.max(0, Math.round(+b.price_sms)) : c.price_sms;
+    const credit = parseInt(b.credit || 0, 10) || 0;
+    await _pgPool.query('UPDATE otp_clients SET status=$2, price_penc=$3, price_sms=$4, balance=balance+$5, note=COALESCE($6,note), approved_at=CASE WHEN $2=\'active\' AND approved_at IS NULL THEN NOW() ELSE approved_at END WHERE id=$1',
+      [c.id, status, pp, ps, credit, b.note != null ? String(b.note).slice(0, 300) : null]);
+    if(credit) await _otpLog(c.id, null, null, credit > 0 ? 'credit_admin' : 'debit_admin', -credit);
+    if(status !== c.status){ await _otpLog(c.id, null, null, 'statut_' + status, 0);
+      try{ await _sendPencOfficialDM(c.owner_uid, status === 'active' ? '✅ Penc OTP — votre compte « ' + c.brand + ' » est validé. Créez votre clé d\'API sur penc-messagerie.com/developpeurs' : (status === 'refused' ? '❌ Penc OTP — votre demande « ' + c.brand + ' » n\'a pas été retenue.' : 'ℹ️ Penc OTP — votre compte « ' + c.brand + ' » est ' + (status === 'suspended' ? 'suspendu' : 'en attente') + '.'), 'Penc OTP', 'Compte ' + c.brand, 'otp-dev'); }catch(_){} }
+    res.json({ ok: true });
+  }catch(e){ console.error('[otp] admin client:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+app.post('/api/otp/admin/recharges/:id', pencAuth, pencAdmin, async (req, res) => {
+  try{ await _otpInit(); const ok = (req.body || {}).approve !== false;
+    const r = (await _pgPool.query("UPDATE otp_recharges SET status=$2, by_admin=$3, done_at=NOW() WHERE id=$1 AND status='pending' RETURNING *", [req.params.id, ok ? 'done' : 'refused', String(req.pencUser.userId)])).rows[0];
+    if(!r) return res.status(400).json({ error: 'Recharge déjà traitée ou introuvable' });
+    if(ok){ await _pgPool.query('UPDATE otp_clients SET balance = balance + $2 WHERE id=$1', [r.client_id, r.amount]); await _otpLog(r.client_id, null, null, 'recharge', -r.amount); }
+    try{ const c = (await _pgPool.query('SELECT owner_uid, brand FROM otp_clients WHERE id=$1', [r.client_id])).rows[0];
+      if(c) await _sendPencOfficialDM(c.owner_uid, ok ? '💳 Penc OTP — recharge de ' + r.amount + ' F confirmée pour « ' + c.brand + ' ».' : '⚠️ Penc OTP — recharge de ' + r.amount + ' F non confirmée (réf. ' + r.wave_ref + '). Contactez-nous.', 'Penc OTP', 'Recharge ' + (ok ? 'confirmée' : 'refusée'), 'otp-dev'); }catch(_){}
+    res.json({ ok: true });
+  }catch(e){ console.error('[otp] admin recharge:', e.message); res.status(500).json({ error: 'Erreur' }); }
+});
+// ════ fin pncsrv56 ════
 
 httpServer.listen(PORT, () => {
     console.log("\nPST — Pure Smart Telecom");

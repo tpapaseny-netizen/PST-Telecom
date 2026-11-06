@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Penc OTP — codes de vérification pour les entreprises</title>
+<meta name="description" content="Envoyez vos codes de vérification par Penc, moins cher que le SMS, avec secours SMS automatique. API simple, crédit prépayé en FCFA.">
+<link rel="icon" href="/penc-icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--b:#1877F2;--b2:#0E5FCC;--c:#F5F0E8;--ink:#14213D;--mut:#5B6478;--card:#fff;--ok:#0E9F6E;--warn:#D97706;--bad:#DC2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--c);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--b)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header{background:var(--b);color:var(--c)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-family:Syne,'DM Sans',system-ui,sans-serif;font-weight:800;font-size:24px;color:var(--c);text-decoration:none}
+.logo i{width:36px;height:36px;border-radius:10px;background:var(--c) url(/penc-icon-192.png) center/cover;display:block}
+.logo small{font-family:'DM Sans',system-ui,sans-serif;font-weight:700;font-size:13px;background:rgba(245,240,232,.18);padding:3px 9px;border-radius:99px}
+.nav nav{display:flex;gap:6px}
+.nav nav a{color:var(--c);text-decoration:none;font-weight:600;font-size:15px;padding:8px 12px;border-radius:10px}
+.nav nav a:hover{background:rgba(255,255,255,.12)}
+.hero{padding:56px 0 90px;display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.hero h1{font-family:Syne,'DM Sans',system-ui,sans-serif;font-weight:800;font-size:clamp(34px,5vw,56px);line-height:1.02;letter-spacing:-1px}
+.hero p{font-size:19px;opacity:.92;margin:18px 0 26px;max-width:520px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer;font:700 16px 'DM Sans',system-ui,sans-serif;padding:13px 20px;border-radius:14px;text-decoration:none}
+.btn.cream{background:var(--c);color:var(--b2)}.btn.ghost{background:transparent;color:var(--c);border:2px solid rgba(245,240,232,.5)}
+.btn.blue{background:var(--b);color:#fff}.btn.line{background:#fff;color:var(--b2);border:2px solid #D6E4FB}
+.btn:disabled{opacity:.5;cursor:default}
+.phone{background:#0B1730;border-radius:38px;padding:12px;width:290px;margin:auto;box-shadow:0 30px 60px rgba(0,0,0,.3);transform:rotate(3deg)}
+.scr{background:var(--c);border-radius:28px;overflow:hidden;min-height:420px}
+.scr .h{background:var(--b);color:#fff;padding:20px 16px 12px;font-weight:700;display:flex;gap:10px;align-items:center}
+.scr .h i{width:34px;height:34px;border-radius:50%;background:var(--c) url(/penc-icon-192.png) center/cover}
+.bub{background:#fff;margin:16px 12px;padding:12px 14px;border-radius:18px 18px 18px 6px;font-size:14px;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.bub b{font-size:22px;letter-spacing:3px;color:var(--b2);display:block;margin:4px 0}
+.sec{padding:64px 0}
+.sec h2{font-family:Syne,'DM Sans',system-ui,sans-serif;font-weight:800;font-size:clamp(28px,4vw,40px);letter-spacing:-.5px;margin-bottom:10px}
+.lead{color:var(--mut);font-size:18px;max-width:640px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}
+.card{background:var(--card);border-radius:22px;padding:24px;box-shadow:0 8px 24px rgba(20,33,61,.06)}
+.card h3{font-size:19px;margin:10px 0 6px}.card p{color:var(--mut)}
+.ic{width:46px;height:46px;border-radius:14px;background:rgba(24,119,242,.1);display:grid;place-items:center;font-size:22px}
+.price{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
+.price .card{text-align:center}.price .big{font-family:Syne,'DM Sans',system-ui,sans-serif;font-weight:800;font-size:44px;color:var(--b)}
+pre{background:#0B1730;color:#DCE7FF;border-radius:16px;padding:18px;overflow:auto;font:13.5px/1.55 ui-monospace,Menlo,Consolas,monospace;margin:12px 0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#E8EEF8;padding:1px 6px;border-radius:6px;font-size:.92em}
+pre code{background:none;padding:0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px}
+.tabs button{border:0;background:#E3EBF8;color:var(--b2);font:700 14px 'DM Sans',system-ui,sans-serif;padding:8px 14px;border-radius:10px;cursor:pointer}
+.tabs button.on{background:var(--b);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #ECE6DA;vertical-align:top}
+th{color:var(--mut);font-weight:700;font-size:13px}
+.console{background:#fff;border-radius:24px;padding:24px;box-shadow:0 8px 24px rgba(20,33,61,.06)}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-weight:700;font-size:14px}
+.field input,.field textarea,.field select{font:16px 'DM Sans',system-ui,sans-serif;padding:11px 13px;border:1.5px solid #DCD5C8;border-radius:12px;background:#FFFDF9;color:var(--ink);width:100%}
+.field textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;font-weight:700;font-size:12.5px;padding:3px 10px;border-radius:99px}
+.pill.pending{background:#FEF3C7;color:#92400E}.pill.active{background:#D1FAE5;color:#065F46}.pill.suspended,.pill.refused{background:#FEE2E2;color:#991B1B}
+.app{border:1.5px solid #ECE6DA;border-radius:18px;padding:18px;margin-top:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.stat{background:var(--c);border-radius:14px;padding:12px}.stat b{display:block;font-family:Syne,'DM Sans',system-ui,sans-serif;font-size:22px;color:var(--b2)}.stat span{color:var(--mut);font-size:13px}
+.keybox{background:#0B1730;color:#9EF0C4;font:14px ui-monospace,Menlo,monospace;padding:12px 14px;border-radius:12px;word-break:break-all;margin:8px 0}
+.note{background:#FFF7E6;border-radius:12px;padding:12px 14px;color:#7A4B00;font-size:14px;margin:10px 0}
+.msg{margin-top:10px;font-weight:600}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
+.hide{display:none!important}
+footer{padding:36px 0 50px;color:var(--mut);font-size:14px;text-align:center}
+@media(max-width:820px){.hero{grid-template-columns:1fr;padding:34px 0 60px}.phone{display:none}.grid3,.price{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.nav nav a.hm{display:none}}
+</style></head><body>
+<header><div class="wrap">
+  <div class="nav"><a class="logo" href="/"><i></i>Penc <small>OTP</small></a>
+    <nav><a class="hm" href="#avantages">Avantages</a><a class="hm" href="#tarifs">Tarifs</a><a href="#docs">Documentation</a><a href="#console">Console</a></nav></div>
+  <div class="hero">
+    <div>
+      <h1>Vos codes de vérification, livrés par Penc.</h1>
+      <p>Inscription, connexion, paiement : envoyez vos codes à 6 chiffres par la messagerie Penc, moins cher que le SMS, avec un <b>secours SMS automatique</b> si votre client n'a pas Penc.</p>
+      <div class="row"><a class="btn cream" href="#console">Créer mon compte</a><a class="btn ghost" href="#docs">Voir l'API</a></div>
+    </div>
+    <div class="phone"><div class="scr"><div class="h"><i></i>Penc · compte officiel</div>
+      <div class="bub">🔐 <strong>Boutique Diallo</strong> — votre code de vérification :<b>482 915</b>Il expire dans 5 minutes. Ne le communiquez à personne.</div>
+      <div class="bub" style="opacity:.75">🔐 <strong>Dieulsi</strong> — votre code de vérification :<b>••• •••</b></div></div></div>
+  </div>
+</div></header>
+
+<section class="sec" id="avantages"><div class="wrap">
+  <h2>Pourquoi Penc OTP ?</h2>
+  <p class="lead">Une API pensée pour les entreprises sénégalaises et africaines : simple, sûre, facturée en FCFA.</p>
+  <div class="grid3">
+    <div class="card"><div class="ic">💸</div><h3>Moins cher que le SMS</h3><p>Le code part par la messagerie Penc. Vous ne payez le SMS que lorsqu'il est vraiment nécessaire.</p></div>
+    <div class="card"><div class="ic">🛟</div><h3>Secours SMS automatique</h3><p>Si le client n'a pas Penc, le code part directement par SMS. S'il ne valide pas en <span id="fbs">45</span> s, un SMS est envoyé.</p></div>
+    <div class="card"><div class="ic">🔒</div><h3>Sécurisé</h3><p>Codes chiffrés, expiration rapide, 5 essais maximum, limites anti-abus. Penc vérifie le code : vous ne le voyez jamais.</p></div>
+  </div>
+</div></section>
+
+<section class="sec" id="tarifs" style="padding-top:0"><div class="wrap">
+  <h2>Tarifs simples</h2>
+  <p class="lead">Crédit prépayé, rechargé par Wave. Aucun abonnement, aucun engagement.</p>
+  <div class="price">
+    <div class="card"><div>Code envoyé par Penc</div><div class="big"><span id="pp">10</span> F</div><div style="color:var(--mut)">par code</div></div>
+    <div class="card"><div>Code envoyé par SMS (ou secours)</div><div class="big"><span id="ps">25</span> F</div><div style="color:var(--mut)">par SMS envoyé</div></div>
+  </div>
+  <p class="lead" style="margin-top:14px;font-size:15px">Volumes importants (plus de 50 000 codes par mois) : contactez-nous à <a href="mailto:contact@penc-messagerie.com">contact@penc-messagerie.com</a> pour un tarif dédié.</p>
+</div></section>
+
+<section class="sec" id="docs" style="padding-top:0"><div class="wrap">
+  <h2>Documentation de l'API</h2>
+  <p class="lead">Deux appels suffisent : envoyer un code, puis le vérifier. Votre clé d'API se place dans l'en-tête <code>Authorization</code>. Ne l'utilisez que depuis votre serveur, jamais dans une appli mobile ou une page web.</p>
+
+  <h3 style="margin-top:28px">1. Envoyer un code</h3>
+  <pre><code>POST https://api.penc-messagerie.com/api/otp/v1/send
+Authorization: Bearer pk_live_votre_cle
+Content-Type: application/json
+
+{ "phone": "+221771234567", "ttl_minutes": 5, "channel": "auto" }</code></pre>
+  <table><tr><th>Champ</th><th>Description</th></tr>
+    <tr><td><code>phone</code></td><td>Numéro au format international (ex. <code>+221771234567</code>). Obligatoire.</td></tr>
+    <tr><td><code>ttl_minutes</code></td><td>Durée de validité, de 2 à 10 minutes (5 par défaut).</td></tr>
+    <tr><td><code>channel</code></td><td><code>auto</code> (Penc puis secours SMS), <code>penc</code> (Penc uniquement) ou <code>sms</code> (SMS uniquement).</td></tr></table>
+  <pre><code>{ "id": "otp_3f9c…", "channel": "penc", "expires_in": 300, "cost": 10, "sms_fallback": true, "balance": 4990 }</code></pre>
+
+  <h3 style="margin-top:28px">2. Vérifier le code saisi par votre client</h3>
+  <pre><code>POST https://api.penc-messagerie.com/api/otp/v1/verify
+Authorization: Bearer pk_live_votre_cle
+
+{ "id": "otp_3f9c…", "code": "482915" }</code></pre>
+  <pre><code>{ "valid": true, "phone": "+221771234567", "channel": "penc" }
+{ "valid": false, "reason": "incorrect", "tries_left": 3 }</code></pre>
+  <p class="lead" style="font-size:15px">Vous pouvez aussi vérifier avec <code>"phone"</code> au lieu de <code>"id"</code> : le dernier code en cours de ce numéro est utilisé. Raisons possibles : <code>incorrect</code>, <code>expire</code>, <code>deja_utilise</code>, <code>trop_d_essais</code>, <code>introuvable</code>.</p>
+
+  <h3 style="margin-top:28px">3. Consulter votre solde</h3>
+  <pre><code>GET https://api.penc-messagerie.com/api/otp/v1/balance
+Authorization: Bearer pk_live_votre_cle</code></pre>
+
+  <h3 style="margin-top:28px">Exemples</h3>
+  <div class="tabs" id="tabs"><button class="on" data-k="js">Node.js</button><button data-k="php">PHP</button><button data-k="py">Python</button><button data-k="curl">cURL</button></div>
+  <pre><code id="ex"></code></pre>
+
+  <h3 style="margin-top:28px">Erreurs</h3>
+  <table><tr><th>Code HTTP</th><th>error</th><th>Signification</th></tr>
+    <tr><td>401</td><td><code>cle_invalide</code></td><td>Clé absente, mal formée ou inconnue</td></tr>
+    <tr><td>402</td><td><code>solde_insuffisant</code></td><td>Crédit épuisé : rechargez dans la console</td></tr>
+    <tr><td>403</td><td><code>compte_inactif</code></td><td>Compte en attente de validation ou suspendu</td></tr>
+    <tr><td>404</td><td><code>pas_de_compte_penc</code></td><td>Avec <code>channel: "penc"</code>, le numéro n'a pas Penc</td></tr>
+    <tr><td>429</td><td><code>trop_rapide</code> / <code>trop_de_codes</code></td><td>1 code par minute et 6 par heure pour un même numéro ; 300 requêtes par minute par compte</td></tr>
+    <tr><td>502</td><td><code>envoi_impossible</code></td><td>Envoi momentanément impossible (non facturé)</td></tr></table>
+</div></section>
+
+<section class="sec" id="console" style="padding-top:0"><div class="wrap">
+  <h2>Console</h2>
+  <div class="console">
+    <div id="cLogin">
+      <p>Connectez-vous avec votre compte Penc pour créer et gérer vos applications Penc OTP.</p>
+      <div class="row" style="margin-top:14px"><a class="btn blue" href="/messager" target="_blank" rel="noopener">Se connecter à Penc</a><span style="color:var(--mut)">Connectez-vous à Penc dans ce navigateur, puis actualisez cette page.</span></div>
+    </div>
+    <div id="cMain" class="hide">
+      <div class="row" style="justify-content:space-between"><div><b style="font-size:18px">Vos applications Penc OTP</b></div><button class="btn line" id="bNew">+ Nouvelle application</button></div>
+      <form id="fNew" class="app hide">
+        <div class="field"><label>Nom de l'entreprise</label><input name="name" required maxlength="80" placeholder="Boutique Diallo SARL"></div>
+        <div class="field"><label>Nom affiché dans le message (2 à 20 caractères)</label><input name="brand" required maxlength="20" placeholder="Boutique Diallo"></div>
+        <div class="row"><div class="field" style="flex:1;min-width:220px"><label>E-mail de contact</label><input name="email" type="email" placeholder="tech@entreprise.sn"></div>
+          <div class="field" style="flex:1;min-width:220px"><label>Site ou appli</label><input name="website" placeholder="https://…"></div></div>
+        <div class="field"><label>À quoi serviront les codes ?</label><textarea name="use_case" placeholder="Inscription des clients, connexion, validation des paiements…"></textarea></div>
+        <div class="note">Votre demande est vérifiée par l'équipe Penc avant activation, pour éviter toute usurpation de nom. Vous recevrez la réponse dans Penc.</div>
+        <div class="row"><button class="btn blue" type="submit">Envoyer la demande</button><button class="btn line" type="button" id="bCancel">Annuler</button></div>
+        <div class="msg" id="mNew"></div>
+      </form>
+      <div id="apps"></div>
+    </div>
+    <div id="cAdmin" class="hide" style="margin-top:34px;border-top:2px dashed #ECE6DA;padding-top:24px">
+      <h3>Administration Penc OTP</h3><div id="adm"></div>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">Penc OTP · un service de <b>PST — Pure Smart Telecom</b>, Thiès (Sénégal) · <a href="/">penc-messagerie.com</a> · <a href="mailto:contact@penc-messagerie.com">contact@penc-messagerie.com</a></div></footer>
+
+<script>
+(function(){
+var API='https://api.penc-messagerie.com', CFG={price_penc:10,price_sms:25,fallback_s:45,wave_link:''};
+var tok=null; try{ tok=localStorage.getItem('penc_tok'); }catch(_){}
+function $(s){ return document.querySelector(s); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
+function call(path, opt){ opt=opt||{}; var h={'Content-Type':'application/json'}; if(tok) h.Authorization='Bearer '+tok;
+  return fetch(API+path,{method:opt.method||'GET',headers:h,body:opt.body?JSON.stringify(opt.body):undefined}).then(function(r){ return r.json().catch(function(){return {};}).then(function(j){ if(!r.ok){ var e=new Error(j.error||j.message||('Erreur '+r.status)); e.status=r.status; throw e; } return j; }); }); }
+// exemples de code
+var EX={
+js:"// Node.js 18+ (fetch intégré)\nconst KEY = process.env.PENC_OTP_KEY;\nconst H = { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' };\n\nconst r = await fetch('https://api.penc-messagerie.com/api/otp/v1/send', {\n  method: 'POST', headers: H, body: JSON.stringify({ phone: '+221771234567' })\n});\nconst { id } = await r.json();\n\n// … plus tard, quand le client a saisi son code :\nconst v = await fetch('https://api.penc-messagerie.com/api/otp/v1/verify', {\n  method: 'POST', headers: H, body: JSON.stringify({ id, code: codeSaisi })\n}).then(r => r.json());\nif (v.valid) { /* numéro vérifié */ }",
+php:"<?php\n$key = getenv('PENC_OTP_KEY');\nfunction penc($path, $data, $key) {\n  $ch = curl_init('https://api.penc-messagerie.com/api/otp/v1/' . $path);\n  curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true,\n    CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Content-Type: application/json'],\n    CURLOPT_POSTFIELDS => json_encode($data)]);\n  $r = json_decode(curl_exec($ch), true); curl_close($ch); return $r;\n}\n$envoi = penc('send', ['phone' => '+221771234567'], $key);\n$verif = penc('verify', ['id' => $envoi['id'], 'code' => $_POST['code']], $key);\nif (!empty($verif['valid'])) { /* numéro vérifié */ }",
+py:"import os, requests\nKEY = os.environ['PENC_OTP_KEY']\nH = {'Authorization': f'Bearer {KEY}'}\nURL = 'https://api.penc-messagerie.com/api/otp/v1/'\n\nenvoi = requests.post(URL + 'send', json={'phone': '+221771234567'}, headers=H).json()\nverif = requests.post(URL + 'verify', json={'id': envoi['id'], 'code': code_saisi}, headers=H).json()\nif verif.get('valid'):\n    pass  # numéro vérifié",
+curl:"curl -X POST https://api.penc-messagerie.com/api/otp/v1/send \\\n  -H 'Authorization: Bearer pk_live_votre_cle' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"phone\":\"+221771234567\"}'\n\ncurl -X POST https://api.penc-messagerie.com/api/otp/v1/verify \\\n  -H 'Authorization: Bearer pk_live_votre_cle' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"id\":\"otp_…\",\"code\":\"482915\"}'"};
+function showEx(k){ $('#ex').textContent=EX[k]; document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.k===k); }); }
+document.querySelectorAll('#tabs button').forEach(function(b){ b.onclick=function(){ showEx(b.dataset.k); }; }); showEx('js');
+call('/api/otp/dev/config').then(function(c){ CFG=c; $('#pp').textContent=c.price_penc; $('#ps').textContent=c.price_sms; $('#fbs').textContent=c.fallback_s; }).catch(function(){});
+
+var EVT={envoi_penc:'Code envoyé par Penc',envoi_sms:'Code envoyé par SMS',secours_sms:'Secours SMS',secours_sms_echec:'Secours SMS échoué (remboursé)',sms_solde_insuffisant:'Secours SMS impossible : solde insuffisant',
+  verif_ok:'Code validé',verif_echec:'Code incorrect',echec_penc:'Envoi Penc échoué (non facturé)',echec_sms:'Envoi SMS échoué (non facturé)',recharge:'Recharge',credit_admin:'Crédit offert',debit_admin:'Ajustement',nouvelle_cle:'Nouvelle clé créée'};
+var ST={pending:'En attente de validation',active:'Actif',suspended:'Suspendu',refused:'Refusé'};
+function renderApps(list){
+  var h='';
+  if(!list.length) h='<p style="margin-top:16px;color:var(--mut)">Aucune application pour le moment. Créez-en une pour obtenir votre clé d\'API.</p>';
+  list.forEach(function(a){
+    var s=a.stats30||{};
+    h+='<div class="app" data-id="'+a.id+'"><div class="row" style="justify-content:space-between"><div><b style="font-size:18px">'+esc(a.name)+'</b> <span class="pill '+a.status+'">'+ST[a.status]+'</span><div style="color:var(--mut);font-size:14px">Nom affiché : « '+esc(a.brand)+' » · Penc '+a.price_penc+' F · SMS '+a.price_sms+' F</div></div>'
+      +'<div style="text-align:right"><div style="color:var(--mut);font-size:13px">Solde</div><b style="font-family:Syne,'DM Sans',system-ui,sans-serif;font-size:26px;color:var(--b2)">'+fmt(a.balance)+' F</b></div></div>';
+    if(a.status==='active'){
+      h+='<div class="stats"><div class="stat"><b>'+fmt(s.envois)+'</b><span>codes envoyés (30 j)</span></div><div class="stat"><b>'+fmt(s.penc)+'</b><span>par Penc</span></div><div class="stat"><b>'+fmt(s.sms)+'</b><span>par SMS</span></div><div class="stat"><b>'+fmt(s.valides)+'</b><span>validés</span></div></div>'
+        +'<div><b>Clé d\'API</b> : '+(a.key_prefix?'<code>'+esc(a.key_prefix)+'…</code>':'<span style="color:var(--mut)">aucune</span>')+' <button class="btn line k" style="padding:8px 12px;font-size:14px">'+(a.key_prefix?'Remplacer la clé':'Créer ma clé')+'</button><div class="kb"></div></div>'
+        +'<label class="row" style="margin-top:12px;gap:8px"><input type="checkbox" class="fb" '+(a.sms_fallback?'checked':'')+'> Secours SMS automatique si le code Penc n\'est pas validé en '+CFG.fallback_s+' s</label>'
+        +'<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">Recharger par Wave</summary><div style="margin-top:10px">'
+        +'<p style="font-size:14.5px">1. Payez par Wave le montant voulu. 2. Indiquez ci-dessous le montant et la référence de la transaction Wave. Le crédit est ajouté après vérification.</p>'
+        +'<div class="row" style="margin-top:8px"><input class="ra" type="number" min="1000" step="500" placeholder="Montant (F)" style="flex:1;min-width:140px;font:16px 'DM Sans',system-ui,sans-serif;padding:10px;border:1.5px solid #DCD5C8;border-radius:12px"><a class="btn line wl" target="_blank" rel="noopener" style="padding:10px 14px">Payer avec Wave</a></div>'
+        +'<div class="row" style="margin-top:8px"><input class="rr" placeholder="Référence Wave (ex. T_ABCD1234)" style="flex:2;min-width:200px;font:16px 'DM Sans',system-ui,sans-serif;padding:10px;border:1.5px solid #DCD5C8;border-radius:12px"><button class="btn blue rs" style="padding:10px 14px">Déclarer le paiement</button></div><div class="msg rm"></div>'
+        +(a.recharges&&a.recharges.length?'<table style="margin-top:10px"><tr><th>Date</th><th>Montant</th><th>Réf.</th><th>État</th></tr>'+a.recharges.map(function(r){ return '<tr><td>'+new Date(r.created_at).toLocaleDateString('fr-FR')+'</td><td>'+fmt(r.amount)+' F</td><td>'+esc(r.wave_ref)+'</td><td>'+({pending:'En vérification',done:'Crédité',refused:'Refusé'}[r.status])+'</td></tr>'; }).join('')+'</table>':'')
+        +'</div></details>'
+        +'<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Journal</summary><table style="margin-top:8px"><tr><th>Date</th><th>Événement</th><th>Numéro</th><th>Coût</th></tr>'
+        +(a.journal||[]).map(function(j){ return '<tr><td>'+new Date(j.created_at).toLocaleString('fr-FR')+'</td><td>'+esc(EVT[j.event]||j.event)+'</td><td>'+esc(j.phone||'')+'</td><td>'+(j.cost>0?fmt(j.cost)+' F':(j.cost<0?'+'+fmt(-j.cost)+' F':''))+'</td></tr>'; }).join('')+'</table></details>';
+    } else if(a.status==='pending') h+='<div class="note">Votre demande est en cours de vérification. Vous serez prévenu dans Penc dès qu\'elle sera validée.</div>';
+    h+='</div>';
+  });
+  $('#apps').innerHTML=h;
+  document.querySelectorAll('#apps .app').forEach(function(el){
+    var id=el.dataset.id;
+    var k=el.querySelector('.k'); if(k) k.onclick=function(){ if(el.querySelector('code') && !confirm2(el)) return; k.disabled=true;
+      call('/api/otp/dev/'+id+'/key',{method:'POST'}).then(function(r){ el.querySelector('.kb').innerHTML='<div class="keybox">'+esc(r.key)+'</div><div class="note">Copiez cette clé maintenant et gardez-la sur votre serveur : elle ne sera plus jamais affichée. L\'ancienne clé ne fonctionne plus.</div>'; k.remove(); }).catch(function(e){ k.disabled=false; alertMsg(el,e.message); }); };
+    var fb=el.querySelector('.fb'); if(fb) fb.onchange=function(){ call('/api/otp/dev/'+id+'/settings',{method:'POST',body:{sms_fallback:fb.checked}}).catch(function(){}); };
+    var ra=el.querySelector('.ra'), wl=el.querySelector('.wl'); if(ra&&wl){ var up=function(){ wl.href=(CFG.wave_link||'https://pay.wave.com/m/M_rlEv9b4P3VtG/c/sn/?amount=')+(parseInt(ra.value,10)||''); }; ra.oninput=up; up(); }
+    var rs=el.querySelector('.rs'); if(rs) rs.onclick=function(){ var m=el.querySelector('.rm'); rs.disabled=true;
+      call('/api/otp/dev/'+id+'/recharge',{method:'POST',body:{amount:parseInt(ra.value,10),wave_ref:el.querySelector('.rr').value}}).then(function(){ m.className='msg rm ok'; m.textContent='Paiement déclaré : le crédit sera ajouté après vérification.'; setTimeout(load,1500); }).catch(function(e){ rs.disabled=false; m.className='msg rm err'; m.textContent=e.message; }); };
+  });
+}
+function confirm2(el){ var b=el.querySelector('.k'); if(b.dataset.c) return true; b.dataset.c='1'; b.textContent='Confirmer : l\'ancienne clé cessera de fonctionner'; return false; }
+function alertMsg(el,t){ var m=document.createElement('div'); m.className='msg err'; m.textContent=t; el.appendChild(m); }
+function load(){
+  call('/api/otp/dev/mine').then(function(r){ $('#cLogin').classList.add('hide'); $('#cMain').classList.remove('hide'); renderApps(r.clients||[]); }).catch(function(e){ if(e.status===401){ try{ localStorage.removeItem('penc_tok'); }catch(_){} tok=null; } });
+  call('/api/otp/admin/overview').then(renderAdmin).catch(function(){});
+}
+$('#bNew').onclick=function(){ $('#fNew').classList.remove('hide'); $('#bNew').classList.add('hide'); };
+$('#bCancel').onclick=function(){ $('#fNew').classList.add('hide'); $('#bNew').classList.remove('hide'); };
+$('#fNew').onsubmit=function(ev){ ev.preventDefault(); var f=new FormData(ev.target), b={}; f.forEach(function(v,k){ b[k]=v; }); var m=$('#mNew');
+  call('/api/otp/dev/apply',{method:'POST',body:b}).then(function(){ m.className='msg ok'; m.textContent='Demande envoyée ✔'; ev.target.reset(); setTimeout(function(){ $('#bCancel').onclick(); m.textContent=''; load(); },1200); }).catch(function(e){ m.className='msg err'; m.textContent=e.message; }); };
+// administration (visible seulement pour les admins Penc)
+function admErr(t){ var m=document.getElementById('admMsg'); if(m){ m.textContent=t; } }
+function renderAdmin(d){
+  $('#cAdmin').classList.remove('hide'); var s=d.stats30||{};
+  var h='<div class="msg err" id="admMsg"></div><p style="color:var(--mut)">30 derniers jours : <b>'+fmt(s.envois)+'</b> codes · <b>'+fmt(s.chiffre)+' F</b> consommés</p>';
+  var pend=(d.recharges||[]).filter(function(r){ return r.status==='pending'; });
+  h+='<h4 style="margin-top:16px">Recharges à confirmer ('+pend.length+')</h4>';
+  h+=pend.length?'<table><tr><th>Client</th><th>Montant</th><th>Réf. Wave</th><th></th></tr>'+pend.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+fmt(r.amount)+' F</td><td><code>'+esc(r.wave_ref)+'</code></td><td><button class="btn blue ar" data-id="'+r.id+'" data-ok="1" style="padding:6px 10px;font-size:13px">Créditer</button> <button class="btn line ar" data-id="'+r.id+'" data-ok="0" style="padding:6px 10px;font-size:13px">Refuser</button></td></tr>'; }).join('')+'</table>':'<p style="color:var(--mut)">Aucune.</p>';
+  h+='<h4 style="margin-top:18px">Comptes</h4><table><tr><th>Entreprise</th><th>État</th><th>Solde</th><th>Prix Penc / SMS</th><th>Actions</th></tr>'+(d.clients||[]).map(function(c){
+    return '<tr data-id="'+c.id+'"><td><b>'+esc(c.name)+'</b><br>« '+esc(c.brand)+' »<br><span style="color:var(--mut);font-size:13px">'+esc(c.email)+' '+esc(c.website)+'<br>'+esc(c.use_case)+'</span></td><td><span class="pill '+c.status+'">'+ST[c.status]+'</span></td><td>'+fmt(c.balance)+' F</td>'
+      +'<td><input class="pp" type="number" value="'+c.price_penc+'" style="width:60px"> / <input class="ps" type="number" value="'+c.price_sms+'" style="width:60px"></td>'
+      +'<td><select class="st">'+['pending','active','suspended','refused'].map(function(x){ return '<option value="'+x+'"'+(x===c.status?' selected':'')+'>'+ST[x]+'</option>'; }).join('')+'</select><br><input class="cr" type="number" placeholder="Crédit offert (F)" style="width:140px;margin-top:4px"><br><button class="btn blue sv" style="padding:6px 10px;font-size:13px;margin-top:4px">Enregistrer</button></td></tr>'; }).join('')+'</table>';
+  $('#adm').innerHTML=h;
+  document.querySelectorAll('#adm .ar').forEach(function(b){ b.onclick=function(){ b.disabled=true; call('/api/otp/admin/recharges/'+b.dataset.id,{method:'POST',body:{approve:b.dataset.ok==='1'}}).then(load).catch(function(e){ b.disabled=false; admErr(e.message); }); }; });
+  document.querySelectorAll('#adm tr[data-id]').forEach(function(tr){ tr.querySelector('.sv').onclick=function(){ var b=this; b.disabled=true;
+    call('/api/otp/admin/clients/'+tr.dataset.id,{method:'POST',body:{status:tr.querySelector('.st').value,price_penc:tr.querySelector('.pp').value,price_sms:tr.querySelector('.ps').value,credit:tr.querySelector('.cr').value||0}}).then(load).catch(function(e){ b.disabled=false; admErr(e.message); }); }; });
+}
+if(tok) load();
+})();
+</script>
+</body></html>
