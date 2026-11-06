@@ -6722,7 +6722,7 @@ async function _p53Sys(cid, actor, text, parts){
   try { io.to('penc:' + cid).emit('message:new', fm); } catch (_) {}
   _p53Emit(parts || [], 'message:new', fm);
 }
-async function _p58GroupCallEnded(cid, g){ try { g = g || await _p53Group(cid); if (!g) return; _p53Emit(g.participants, 'group:call:state', { conv_id: cid, ended: true }); } catch (_) {} }   // pncsrv58
+async function _p58GroupCallEnded(cid, g){ try { try{ _p59GroupEnd(cid); }catch(_l59){} g = g || await _p53Group(cid); if (!g) return; _p53Emit(g.participants, 'group:call:state', { conv_id: cid, ended: true }); } catch (_) {} }   // pncsrv58
 async function _p53Name(uid){ try { const u = await pgFindUser('id', uid); return (u && (u.full_name || u.username)) || 'Quelqu\'un'; } catch (_) { return 'Quelqu\'un'; } }
 function _p53Clean(t, n){ return String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n); }
 function _p53Forget(cid){ try { _pencPartsCache.delete(cid); } catch (_) {} }
@@ -8019,7 +8019,7 @@ app.get('/api/penc/auth/me', pencAuth, async (req, res) => {
 
 // PUT /api/penc/auth/profile
 // GET /api/penc/calls — historique des appels (façon WhatsApp)
-app.get('/api/penc/calls', pencAuth, async (req, res) => {
+app.get('/api/penc/calls-legacy', pencAuth, async (req, res) => {   // pncsrv59 : remplacé par le journal des appels ci-dessous
   try {
     const me = req.pencUser.userId;
     if (!_pgPool) return res.json({ calls: [] });
@@ -9129,6 +9129,7 @@ app.post('/api/penc/calls/decline', pencAuth, async (req, res) => {
     const p = _pencPendingCalls.get(uid);
     const caller = String((req.body && req.body.caller_id) || (p && p.from) || '');
     _pencPendingCalls.delete(uid);
+    try{ if(caller) _p59Final(caller, uid, 'declined', uid, 'refusé depuis la notification'); }catch(_l59){}   // pncsrv59
     if(caller) await emitToUsers([caller], 'call:declined', { by: uid });
     try{ io.to('user:' + uid).emit('call:accepted:elsewhere', {}); }catch(_e){}
     _pencFcmRaw(uid, { kind: 'call_end' });
@@ -17953,6 +17954,183 @@ app.post('/api/penc/admin/reports/:id/resolve', pencAuth, pencAdmin, async (req,
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
+// ════ pncsrv59 — JOURNAL DES APPELS : chaque appel est tracé côté serveur (lancé, sonnerie, décroché,
+//      terminé, durée exacte, qui a raccroché, raison), même si l'appli d'un des deux se coupe ════
+let _p59Ready = false;
+async function _p59Init(){
+  if (_p59Ready || !_pgPool) return; _p59Ready = true;
+  try {
+    await _pgPool.query(`CREATE TABLE IF NOT EXISTS penc_call_log(
+      id TEXT PRIMARY KEY, kind TEXT DEFAULT 'direct', caller_id TEXT, callee_id TEXT, conv_id TEXT, group_name TEXT,
+      call_type TEXT DEFAULT 'audio', room_name TEXT, status TEXT DEFAULT 'ringing',
+      invited_at TIMESTAMPTZ DEFAULT NOW(), answered_at TIMESTAMPTZ, ended_at TIMESTAMPTZ, duration_s INT DEFAULT 0,
+      ended_by TEXT, end_reason TEXT, caller_app TEXT, callee_app TEXT, last_hb TIMESTAMPTZ, last_both TIMESTAMPTZ,
+      invited JSONB, joined JSONB, msg_done BOOLEAN DEFAULT FALSE)`);
+    await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_call_log_caller ON penc_call_log(caller_id, invited_at DESC)');
+    await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_call_log_callee ON penc_call_log(callee_id, invited_at DESC)');
+    await _pgPool.query('CREATE INDEX IF NOT EXISTS penc_call_log_room ON penc_call_log(room_name, invited_at DESC)');
+  } catch (e) { _p59Ready = false; console.error('[p59] init:', e.message); }
+}
+setTimeout(function(){ _p59Init(); }, 8000);
+const _P59_OPEN = "status IN ('ringing','ongoing')";
+async function _p59Start(o){
+  await _p59Init(); if (!_pgPool) return;
+  // un appel resté ouvert entre ces deux personnes est clos d'abord
+  await _pgPool.query("UPDATE penc_call_log SET status=CASE WHEN status='ongoing' THEN 'answered' ELSE 'missed' END, ended_at=COALESCE(last_hb,NOW()), end_reason=COALESCE(end_reason,'remplacé par un nouvel appel') WHERE " + _P59_OPEN + " AND ((caller_id=$1 AND callee_id=$2) OR (caller_id=$2 AND callee_id=$1))", [String(o.caller), String(o.callee)]).catch(function(){});
+  await _pgPool.query("INSERT INTO penc_call_log(id, kind, caller_id, callee_id, call_type, room_name, status) VALUES($1,'direct',$2,$3,$4,$5,'ringing') ON CONFLICT (id) DO NOTHING",
+    [o.id, String(o.caller), String(o.callee), o.type === 'video' ? 'video' : 'audio', String(o.room || '').slice(0, 120)]);
+}
+async function _p59Row(a, b){
+  const r = await _pgPool.query("SELECT * FROM penc_call_log WHERE kind='direct' AND " + _P59_OPEN + " AND ((caller_id=$1 AND callee_id=$2) OR (caller_id=$2 AND callee_id=$1)) AND invited_at > NOW() - INTERVAL '8 hours' ORDER BY invited_at DESC LIMIT 1", [String(a), String(b)]);
+  return r.rows[0] || null;
+}
+async function _p59Accept(callee, caller){
+  await _p59Init(); if (!_pgPool) return;
+  await _pgPool.query("UPDATE penc_call_log SET status='ongoing', answered_at=COALESCE(answered_at,NOW()), last_hb=NOW(), last_both=NOW() WHERE id=(SELECT id FROM penc_call_log WHERE kind='direct' AND status='ringing' AND caller_id=$1 AND callee_id=$2 ORDER BY invited_at DESC LIMIT 1)", [String(caller), String(callee)]);
+}
+async function _p59Close(row, status, by, reason, endAt){
+  if (!row) return;
+  const end = endAt ? new Date(endAt) : new Date();
+  const dur = (status === 'answered' && row.answered_at) ? Math.max(0, Math.round((end - new Date(row.answered_at)) / 1000)) : 0;
+  const r = await _pgPool.query("UPDATE penc_call_log SET status=$2, ended_at=$3, duration_s=$4, ended_by=COALESCE(ended_by,$5), end_reason=COALESCE(end_reason,$6) WHERE id=$1 AND " + _P59_OPEN + " RETURNING *", [row.id, status, end.toISOString(), dur, by ? String(by) : null, reason || null]);
+  if (r.rows[0]) setTimeout(function(){ _p59Bubble(r.rows[0]).catch(function(){}); }, 20000);   // filet de sécurité : la bulle d'appel dans la discussion
+}
+async function _p59Final(caller, callee, status, by, reason){
+  await _p59Init(); if (!_pgPool) return;
+  const row = await _p59Row(caller, callee); if (!row) return;
+  await _p59Close(row, row.status === 'ongoing' ? 'answered' : status, by, reason);
+}
+async function _p59End(by, other){
+  await _p59Init(); if (!_pgPool) return;
+  const row = await _p59Row(by, other); if (!row) return;
+  if (row.status === 'ongoing') return _p59Close(row, 'answered', by, 'raccroché');
+  // pas encore décroché : l'appelant a annulé (= appel manqué pour l'autre), ou l'appelé a coupé (= refusé)
+  if (String(row.caller_id) === String(by)) return _p59Close(row, 'missed', by, 'annulé avant réponse');
+  return _p59Close(row, 'declined', by, 'refusé');
+}
+async function _p59Hb(room, uid, app){
+  await _p59Init(); if (!_pgPool) return;
+  const r = (await _pgPool.query("SELECT * FROM penc_call_log WHERE room_name=$1 AND " + _P59_OPEN + " AND invited_at > NOW() - INTERVAL '8 hours' ORDER BY invited_at DESC LIMIT 1", [room])).rows[0];
+  if (!r) return;
+  if (r.kind === 'group') {
+    const j = Array.isArray(r.joined) ? r.joined : []; if (!j.includes(uid)) j.push(uid);
+    return _pgPool.query("UPDATE penc_call_log SET last_hb=NOW(), joined=$2::jsonb WHERE id=$1", [r.id, JSON.stringify(j)]);
+  }
+  // le battement de l'appelé prouve qu'il a décroché, même si l'événement « décroché » s'est perdu
+  const ans = (r.status === 'ringing' && String(r.callee_id) === uid);
+  await _pgPool.query("UPDATE penc_call_log SET last_hb=NOW(), " +
+    (ans ? "status='ongoing', answered_at=COALESCE(answered_at,NOW()), " : "") +
+    "caller_app=CASE WHEN caller_id=$2 AND $3<>'' THEN $3 ELSE caller_app END, callee_app=CASE WHEN callee_id=$2 AND $3<>'' THEN $3 ELSE callee_app END WHERE id=$1", [r.id, uid, app || '']);
+}
+// bulle « Appel audio · 1 h 02 » dans la discussion si l'appli de l'appelant ne l'a pas écrite (appli coupée, réseau…)
+async function _p59Bubble(row){
+  if (!_pgPool || !row || row.kind !== 'direct' || row.msg_done) return;
+  await _pgPool.query('UPDATE penc_call_log SET msg_done=TRUE WHERE id=$1', [row.id]);
+  let cid = row.conv_id;
+  if (!cid) { const c = (await _pgPool.query("SELECT id FROM penc_conversations WHERE participants @> $1::jsonb AND jsonb_array_length(participants)=2 AND COALESCE(is_group,FALSE)=FALSE ORDER BY updated_at DESC NULLS LAST LIMIT 1", [JSON.stringify([String(row.caller_id), String(row.callee_id)])])).rows[0]; cid = c && c.id; }
+  if (!cid) return;
+  await _pgPool.query('UPDATE penc_call_log SET conv_id=$2 WHERE id=$1', [row.id, cid]);
+  const ex = (await _pgPool.query("SELECT id FROM penc_messages WHERE conversation_id=$1 AND type='call' AND created_at >= $2::timestamptz - INTERVAL '5 seconds' LIMIT 1", [cid, row.invited_at])).rows[0];
+  if (ex) return;
+  const content = JSON.stringify({ call_type: row.call_type === 'video' ? 'video' : 'audio', status: row.status === 'answered' ? 'answered' : 'missed', duration: row.duration_s || 0, log_id: row.id });
+  const m = { id: 'msg_' + Date.now() + Math.random().toString(36).slice(2), conversation_id: cid, sender_id: String(row.caller_id), type: 'call', content: content, created_at: new Date(row.ended_at || Date.now()).toISOString() };
+  try { await pgSaveMessage(m); } catch (e) { return; }
+  const fm = Object.assign({}, m, { sender: { id: String(row.caller_id) } });
+  try { io.to('penc:' + cid).emit('message:new', fm); } catch (_) {}
+  try { await emitToUsers([String(row.caller_id), String(row.callee_id)], 'message:new', fm); } catch (_) {}
+}
+// appels de groupe
+async function _p59GroupStart(cid, g, by, type){
+  await _p59Init(); if (!_pgPool) return;
+  await _pgPool.query("INSERT INTO penc_call_log(id, kind, caller_id, conv_id, group_name, call_type, status, answered_at, invited, joined, last_hb) VALUES($1,'group',$2,$3,$4,$5,'ongoing',NOW(),$6::jsonb,$7::jsonb,NOW())",
+    ['clg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), String(by), cid, g.group_name || 'Groupe', type === 'video' ? 'video' : 'audio', JSON.stringify(g.participants.map(String)), JSON.stringify([String(by)])]);
+}
+async function _p59GroupRoom(cid, room){ if (!_pgPool) return; await _pgPool.query("UPDATE penc_call_log SET room_name=$2 WHERE id=(SELECT id FROM penc_call_log WHERE kind='group' AND conv_id=$1 AND status='ongoing' ORDER BY invited_at DESC LIMIT 1)", [cid, room]); }
+async function _p59GroupJoin(room, uid){ return _p59Hb(room, String(uid), ''); }
+async function _p59GroupEnd(cid){
+  if (!_pgPool) return;
+  await _pgPool.query("UPDATE penc_call_log SET status='answered', ended_at=NOW(), duration_s=GREATEST(0, EXTRACT(EPOCH FROM (NOW()-answered_at))::int), end_reason='tout le monde a raccroché' WHERE kind='group' AND conv_id=$1 AND status='ongoing'", [cid]);
+}
+// surveillance toutes les 45 s : sonnerie sans réponse, appel coupé (appli fermée, réseau perdu)
+setInterval(async function(){
+  try {
+    await _p59Init(); if (!_pgPool) return;
+    const rows = (await _pgPool.query("SELECT * FROM penc_call_log WHERE " + _P59_OPEN + " AND invited_at > NOW() - INTERVAL '12 hours'")).rows;
+    for (const r of rows) {
+      const now = Date.now();
+      if (r.status === 'ringing') { if (now - new Date(r.invited_at).getTime() > 75000) await _p59Close(r, 'missed', null, 'sans réponse'); continue; }
+      if (r.kind === 'group') { if (r.last_hb && now - new Date(r.last_hb).getTime() > 180000) { await _pgPool.query("UPDATE penc_call_log SET status='answered', ended_at=last_hb, duration_s=GREATEST(0, EXTRACT(EPOCH FROM (last_hb-answered_at))::int), end_reason='connexion perdue' WHERE id=$1", [r.id]); } continue; }
+      // appel 1-à-1 en cours : on demande à LiveKit qui est encore dans la salle
+      let both = null;
+      try { if (typeof _pencLkSvcGet === 'function') { const ps = await _pencLkSvcGet().listParticipants(r.room_name); const ids = (ps || []).map(function(x){ return String(x.identity); }); both = ids.includes(String(r.caller_id)) && ids.includes(String(r.callee_id)); } } catch (_) { both = null; }
+      if (both === true) { await _pgPool.query('UPDATE penc_call_log SET last_both=NOW() WHERE id=$1', [r.id]); continue; }
+      const lastSeen = Math.max(r.last_hb ? new Date(r.last_hb).getTime() : 0, r.last_both ? new Date(r.last_both).getTime() : 0, r.answered_at ? new Date(r.answered_at).getTime() : 0);
+      if (now - lastSeen > 90000) await _p59Close(r, 'answered', null, 'connexion perdue', new Date(lastSeen));
+    }
+  } catch (e) { console.error('[p59] veille:', e.message); }
+}, 45000);
+function _p59Pub(r, me, prof){
+  const g = r.kind === 'group';
+  const mine = String(r.caller_id) === String(me);
+  const other = g ? null : (mine ? r.callee_id : r.caller_id);
+  let st = r.status;
+  if (g) { const j = Array.isArray(r.joined) ? r.joined.map(String) : []; st = (st === 'ongoing') ? 'ongoing' : (j.includes(String(me)) ? 'answered' : 'missed'); }
+  return { id: r.id, source: 'log', kind: r.kind, conversation_id: r.conv_id || null, group_name: r.group_name || null, call_type: r.call_type === 'video' ? 'video' : 'audio',
+    status: (st === 'answered' || st === 'ongoing') ? 'answered' : 'missed', detail: st, duration: r.duration_s || 0, direction: mine ? 'out' : 'in',
+    created_at: r.invited_at, answered_at: r.answered_at, ended_at: r.ended_at, ended_by: r.ended_by ? (String(r.ended_by) === String(me) ? 'me' : 'other') : null, end_reason: r.end_reason || null,
+    my_app: mine ? r.caller_app : r.callee_app, other_app: mine ? r.callee_app : r.caller_app,
+    participants: g ? (Array.isArray(r.joined) ? r.joined.length : 0) : 2, invited_count: g ? (Array.isArray(r.invited) ? r.invited.length : 0) : 2,
+    other: other ? (prof[String(other)] || { id: String(other), full_name: 'Inconnu' }) : null };
+}
+app.get('/api/penc/calls', pencAuth, async (req, res) => {
+  try {
+    const me = String(req.pencUser.userId);
+    if (!_pgPool) return res.json({ calls: [] });
+    await _p59Init();
+    const logs = (await _pgPool.query("SELECT * FROM penc_call_log WHERE caller_id=$1 OR callee_id=$1 OR (kind='group' AND invited @> $2::jsonb) ORDER BY invited_at DESC LIMIT 300", [me, JSON.stringify([me])])).rows;
+    // anciens appels (avant le journal) : bulles « call » des discussions
+    const msgs = (await _pgPool.query("SELECT m.id, m.content, m.created_at, m.sender_id, m.conversation_id, c.participants FROM penc_messages m JOIN penc_conversations c ON c.id = m.conversation_id WHERE m.type = 'call' AND (m.deleted_for_all IS NOT TRUE) AND c.participants @> $1::jsonb ORDER BY m.created_at DESC LIMIT 300", [JSON.stringify([me])])).rows;
+    const others = new Set();
+    logs.forEach(function(r){ if (r.kind !== 'group') others.add(String(String(r.caller_id) === me ? r.callee_id : r.caller_id)); });
+    const legacy = [];
+    msgs.forEach(function(row){
+      const t = new Date(row.created_at).getTime();
+      const dup = logs.some(function(l){ if (l.kind === 'group') return false; const a = new Date(l.invited_at).getTime() - 5000, b = (l.ended_at ? new Date(l.ended_at).getTime() : a + 3 * 3600000) + 180000; return t >= a && t <= b && (!l.conv_id || l.conv_id === row.conversation_id); });
+      if (dup) return;
+      let parts = []; try { parts = Array.isArray(row.participants) ? row.participants : JSON.parse(row.participants || '[]'); } catch (e) {}
+      const other = parts.find(function(p){ return String(p) !== me; }) || null; if (other) others.add(String(other));
+      let d = {}; try { d = JSON.parse(row.content || '{}'); } catch (e) {}
+      legacy.push({ id: row.id, source: 'msg', kind: 'direct', conversation_id: row.conversation_id, call_type: d.call_type === 'video' ? 'video' : 'audio', status: d.status === 'answered' ? 'answered' : 'missed', detail: d.status || 'missed', duration: d.duration || 0, direction: String(row.sender_id) === me ? 'out' : 'in', created_at: row.created_at, other_id: other });
+    });
+    const prof = {};
+    if (others.size) { (await _pgPool.query("SELECT id, full_name, username, avatar_url FROM penc_users WHERE id = ANY($1)", [Array.from(others)])).rows.forEach(function(u){ prof[String(u.id)] = { id: String(u.id), full_name: u.full_name, username: u.username, avatar_url: u.avatar_url }; }); }
+    const calls = logs.map(function(r){ return _p59Pub(r, me, prof); })
+      .concat(legacy.map(function(c){ const o = c.other_id; delete c.other_id; c.other = o ? (prof[String(o)] || { id: String(o), full_name: 'Inconnu' }) : null; return c; }))
+      .sort(function(a, b){ return new Date(b.created_at) - new Date(a.created_at); }).slice(0, 300);
+    res.json({ calls: calls });
+  } catch (e) { console.error('penc /calls p59:', e.message); res.json({ calls: [] }); }
+});
+// admin : tous les appels de Penc, traçables
+app.get('/api/penc/admin/calls', pencAuth, pencAdmin, async (req, res) => {
+  try {
+    if (!_pgPool) return res.json({ calls: [] });
+    await _p59Init();
+    const days = Math.max(1, Math.min(90, parseInt(req.query.days, 10) || 7));
+    const rows = (await _pgPool.query("SELECT * FROM penc_call_log WHERE invited_at > NOW() - ($1 || ' days')::interval ORDER BY invited_at DESC LIMIT 500", [String(days)])).rows;
+    const ids = new Set(); rows.forEach(function(r){ if (r.caller_id) ids.add(String(r.caller_id)); if (r.callee_id) ids.add(String(r.callee_id)); });
+    let us = []; try { us = ids.size ? await pgFindUsersByIds(Array.from(ids)) : []; } catch (_) {}
+    const nm = {}; us.forEach(function(u){ nm[String(u.id)] = u.full_name || u.username || 'Utilisateur'; });
+    const done = rows.filter(function(r){ return r.status === 'answered'; });
+    const totalS = done.reduce(function(a, r){ return a + (r.duration_s || 0); }, 0);
+    res.json({ days: days, count: rows.length, answered: done.length, missed: rows.filter(function(r){ return r.status === 'missed'; }).length,
+      declined: rows.filter(function(r){ return r.status === 'declined' || r.status === 'busy'; }).length, ongoing: rows.filter(function(r){ return r.status === 'ongoing' || r.status === 'ringing'; }).length,
+      total_s: totalS, avg_s: done.length ? Math.round(totalS / done.length) : 0, video: rows.filter(function(r){ return r.call_type === 'video'; }).length, groups: rows.filter(function(r){ return r.kind === 'group'; }).length,
+      calls: rows.map(function(r){ return { id: r.id, kind: r.kind, type: r.call_type, status: r.status, caller: nm[String(r.caller_id)] || '—', callee: r.kind === 'group' ? (r.group_name || 'Groupe') : (nm[String(r.callee_id)] || '—'),
+        invited_at: r.invited_at, answered_at: r.answered_at, ended_at: r.ended_at, duration_s: r.duration_s || 0, ended_by: r.ended_by ? (nm[String(r.ended_by)] || '—') : null, end_reason: r.end_reason || null,
+        caller_app: r.caller_app || null, callee_app: r.callee_app || null, participants: Array.isArray(r.joined) ? r.joined.length : null }; }) });
+  } catch (e) { console.error('[p59] admin calls:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ════ pncsrv58 — signalements : répondre au signaleur / l'aviser une fois réglé ════
 async function _p58NotifyReporter(repId, text){
   const r = (await _pgPool.query('SELECT reporter_id, target_type, reason FROM penc_reports WHERE id=$1', [repId])).rows[0];
@@ -17995,6 +18173,7 @@ app.post('/api/penc/calls/accept', pencAuth, async (req, res) => {
     const caller = String((req.body && req.body.caller_id) || (p && p.from) || '');
     if (!caller) return res.json({ success: false, error: 'Appel introuvable' });
     _pencPendingCalls.delete(uid); try { _pencMissedCalls.delete(uid); } catch (_m) {}
+    try{ _p59Accept(uid, caller); }catch(_l59){}   // pncsrv59
     if (_p58AcceptOnce(uid, caller)) {
       _pencFcmRaw(uid, { kind: 'call_end' });
       await emitToUsers([caller], 'call:accepted', { by: uid });
@@ -19167,6 +19346,7 @@ let _lkAccessToken = null;
 const _pencCallRooms = new Map();   // « destinataire|salle » → heure de l'appel
 setInterval(function(){ const now = Date.now(); _pencCallRooms.forEach(function(t, k){ if(now - t > 3 * 3600000) _pencCallRooms.delete(k); }); }, 600000);
 let _pencLkSvc = null;
+function _pencLkSvcGet(){ if(!LIVEKIT_API_KEY || !LIVEKIT_URL) throw new Error('indisponible'); if(!_pencLkSvc){ const lk = require('livekit-server-sdk'); _pencLkSvc = new lk.RoomServiceClient(LIVEKIT_URL.replace(/^ws/i, 'http'), LIVEKIT_API_KEY, LIVEKIT_API_SECRET); } return _pencLkSvc; }   // pncsrv59
 async function _pencLkUnhide(uid, room){
   if(!room || !LIVEKIT_API_KEY || !LIVEKIT_URL) throw new Error('indisponible');
   room = String(room);
@@ -19236,6 +19416,8 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     console.log('⚠️',event,'→',uid.slice(0,10),'HORS LIGNE');
     return false;
   }
+  // ── pncsrv59 : battement de cœur pendant un appel (toutes les 20 s) → durée exacte même si l'appli est coupée ──
+  socket.on('call:hb', function(d){ try { if (!pencUserId || !d || !d.room) return; _p59Hb(String(d.room).slice(0, 120), String(pencUserId), String(d.app || '').slice(0, 12)); } catch (_) {} });
   // ── pncsrv58 : activité en direct (ce que fait la personne : Fil, discussion, appel…) ──
   socket.on('presence:activity', function(d){
     try { if (!pencUserId) return; d = d || {}; const a = String(d.a || 'app').slice(0, 24), det = String(d.d || '').slice(0, 60);
@@ -19251,8 +19433,9 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       const type = (d && d.type === 'video') ? 'video' : 'audio';
       let c = _p58GCalls.get(cid); const fresh = !c;
       const me = await _p53Name(pencUserId);
-      if (!c) { c = { room: 'grpcall_' + cid.replace(/[^A-Za-z0-9_-]/g, '') + '_' + Date.now().toString(36), type: type, by: String(pencUserId), by_name: me, ts: Date.now(), last: Date.now(), members: new Set() }; _p58GCalls.set(cid, c); }
+      if (!c) { try{ _p59GroupStart(cid, g, pencUserId, type); }catch(_l59){} c = { room: 'grpcall_' + cid.replace(/[^A-Za-z0-9_-]/g, '') + '_' + Date.now().toString(36), type: type, by: String(pencUserId), by_name: me, ts: Date.now(), last: Date.now(), members: new Set() }; _p58GCalls.set(cid, c); }
       c.members.add(String(pencUserId) + '|' + socket.id); c.last = Date.now();
+      try{ if (fresh) { _p59GroupRoom(cid, c.room); } _p59GroupJoin(c.room, pencUserId); }catch(_l59){}
       done({ ok: true, room: c.room, type: c.type, fresh: fresh });
       const others = g.participants.filter(function(p){ return String(p) !== String(pencUserId); });
       _p53Emit(g.participants, 'group:call:state', _p58GCallPub(cid));
@@ -19265,7 +19448,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
   });
   socket.on('group:call:join', async (d) => {
     try { const cid = String((d && d.conv_id) || ''); const c = _p58GCalls.get(cid); if (!c) return; const g = await _p53Group(cid); if (!g || !g.participants.includes(String(pencUserId))) return;
-      c.members.add(String(pencUserId) + '|' + socket.id); c.last = Date.now(); _p53Emit(g.participants, 'group:call:state', _p58GCallPub(cid)); } catch (_) {}
+      c.members.add(String(pencUserId) + '|' + socket.id); c.last = Date.now(); try{ _p59GroupJoin(c.room, pencUserId); }catch(_l59){} _p53Emit(g.participants, 'group:call:state', _p58GCallPub(cid)); } catch (_) {}
   });
   socket.on('group:call:leave', async (d) => {
     try { const cid = String((d && d.conv_id) || ''); const c = _p58GCalls.get(cid); if (!c) return;
@@ -19354,6 +19537,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     let _lkp10 = null;   // pncapp10 : accès invisible (ni vu, ni entendu) pour se connecter pendant la sonnerie → décroché instantané
     try{ if(_lkAccessToken && LIVEKIT_API_KEY && target_user_id){ const _atp = new _lkAccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: String(target_user_id), name: String(target_user_id) }); _atp.addGrant({ roomJoin:true, room: room_name||('call_'+pencUserId), canPublish:false, canSubscribe:true, canPublishData:false, hidden:true }); _atp.ttl='15m'; _lkp10 = await _atp.toJwt(); _pencCallRooms.set(String(target_user_id)+'|'+String(room_name||('call_'+pencUserId)), Date.now()); } }catch(_lkp){}
     try{ _pencPendingCalls.set(String(target_user_id), { from: pencUserId, type: type||'audio', room_name: room_name||('call_'+pencUserId), caller_name: caller_name||'Inconnu', caller_avatar: caller_avatar||null, ts: Date.now(), call_id: _cid9, lk_token: _lkt9, lk_pre_token: _lkp10, lk_url: _lkt9 ? LIVEKIT_URL : null }); }catch(_pc){}
+    try{ _p59Start({ id: 'cl_' + _cid9, caller: pencUserId, callee: target_user_id, type: type, room: room_name || ('call_' + pencUserId) }); }catch(_l59){}   // pncsrv59 : journal
     const ok=await emitToUser(target_user_id,'call:incoming',{
       from:pencUserId, type:type||'audio',
       room_name:room_name||('call_'+pencUserId),
@@ -19388,6 +19572,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     catch(e){ done({ ok: false, error: e.message }); }
   });
   socket.on('call:accept', ({caller_id}) => {
+    try{ _p59Accept(pencUserId, caller_id); }catch(_l59){}   // pncsrv59
     _pencPendingCalls.delete(String(pencUserId)); try{ _pencMissedCalls.delete(String(pencUserId)); }catch(_m){}
     _pencFcmRaw(pencUserId, { kind: 'call_end' });   // pncapp2 : les autres téléphones du compte arrêtent de sonner
     emitToUser(caller_id,'call:accepted',{by:pencUserId});
@@ -19396,6 +19581,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     try{ socket.to('user:'+String(pencUserId)).emit('call:accepted:elsewhere', {}); }catch(_e){}
   });
   socket.on('call:decline', ({caller_id}) => {
+    try{ _p59Final(caller_id, pencUserId, 'declined', pencUserId, 'refusé'); }catch(_l59){}   // pncsrv59
     _pencPendingCalls.delete(String(pencUserId));
     _pencFcmRaw(pencUserId, { kind: 'call_end' });   // pncapp2
     emitToUser(caller_id,'call:declined',{by:pencUserId});
@@ -19411,10 +19597,12 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     emitToUser(target_id,'call:ice',{from:pencUserId, candidate});
   });
   socket.on('call:end', ({target_id}) => {
+    try{ _p59End(pencUserId, target_id); }catch(_l59){}   // pncsrv59
     try{ const _p = _pencPendingCalls.get(String(target_id)); if(_p && String(_p.from)===String(pencUserId)){ _pencPendingCalls.delete(String(target_id)); try{ _pencMissedCalls.set(String(target_id), Object.assign({}, _p, { ts: Date.now() })); }catch(_m19){} _pencFcmRaw(target_id, { kind: 'call_end' }); } }catch(_pe){}   // pncapp2 : l'appelant a raccroché avant qu'on décroche
     emitToUser(target_id,'call:ended',{by:pencUserId});
   });
   socket.on('call:busy', ({target_id}) => {
+    try{ _p59Final(target_id, pencUserId, 'busy', pencUserId, 'occupé'); }catch(_l59){}   // pncsrv59
     emitToUser(target_id,'call:busy',{by:pencUserId});
   });
   // Sous-titres en direct (1-à-1) : transcription faite localement chez chacun (Web Speech API,
