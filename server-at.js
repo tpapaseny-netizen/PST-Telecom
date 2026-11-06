@@ -19259,7 +19259,7 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
       if (fresh) {
         await emitToUsers(others, 'channel:call:incoming', { channel_id: null, conv_id: cid, room_name: c.room, type: c.type, from: pencUserId, caller_name: me, channel_name: g.group_name || 'Groupe', channel_icon: g.group_icon || null, group: true });
         try { await _p53Sys(cid, pencUserId, (c.type === 'video' ? '📹 ' : '📞 ') + me + ' a lancé un appel ' + (c.type === 'video' ? 'vidéo' : 'audio') + ' de groupe', g.participants); } catch (_s) {}
-        for (const o of others.slice(0, 256)) { try { await sendPencPush(o, { title: (g.group_name || 'Groupe') + ' · appel de groupe', body: me + ' lance un appel ' + (c.type === 'video' ? 'vidéo' : 'audio') + ' — touchez pour rejoindre', tag: 'penc-gcall-' + cid, url: '/messager?conv=' + encodeURIComponent(cid) + '&gcall=1', requireInteraction: true, renotify: true, vibrate: [300, 150, 300, 150, 300] }); } catch (_p) {} }
+        for (const o of others.slice(0, 256)) { try { await sendPencPush(o, { title: (g.group_name || 'Groupe') + ' · appel de groupe', body: me + ' lance un appel ' + (c.type === 'video' ? 'vidéo' : 'audio') + ' — touchez pour rejoindre', tag: 'penc-gcall-' + cid, conv_id: cid, url: '/messager?conv=' + encodeURIComponent(cid) + '&gcall=1', requireInteraction: true, renotify: true, vibrate: [300, 150, 300, 150, 300] }); } catch (_p) {} }
       }
     } catch (e) { console.error('[p58] group:call:start', e.message); done({ error: 'Erreur' }); }
   });
