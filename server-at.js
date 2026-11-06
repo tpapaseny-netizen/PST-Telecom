@@ -18134,6 +18134,158 @@ app.get('/api/penc/admin/calls', pencAuth, pencAdmin, async (req, res) => {
   } catch (e) { console.error('[p59] admin calls:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ════ pncsrv61 — Animateur Penc des groupes : un algorithme qui fait vivre chaque groupe ════
+// Il apprend le rythme du groupe (heure de pointe, silences, membres actifs) et intervient au bon moment :
+//  · « Question du jour » à l'heure de pointe, seulement si le groupe s'est tu depuis 2 h et que les membres ont parlé depuis sa dernière intervention ;
+//  · « Les plus actifs de la semaine » chaque lundi à 9 h (même algorithme que le tableau d'activité : régularité + messages + vocaux, anti-spam) ;
+//  · caps de messages fêtés (100, 500, 1 000…) ;
+//  · « Le groupe s'endort » après 4 jours de silence (une fois, puis il attend que les membres reparlent).
+// Jamais deux fois de suite sans réponse humaine entre les deux. Les administrateurs peuvent le couper.
+const _P61_Q = [
+  "Quel est le plat sénégalais que tu pourrais manger tous les jours ? 🍛",
+  "Si tu pouvais voyager n'importe où demain, tu irais où ? ✈️",
+  "Quelle chanson tourne en boucle chez toi en ce moment ? 🎶",
+  "Quel conseil donnerais-tu à toi-même il y a 10 ans ?",
+  "Thiéboudienne ou yassa : ton camp ? 😄",
+  "Quelle est la plus belle ville du Sénégal selon toi ? 🌍",
+  "Quel film ou série recommandes-tu au groupe ? 🎬",
+  "Quel est ton meilleur souvenir d'enfance ?",
+  "Si tu lançais ton entreprise demain, ce serait dans quel domaine ? 💡",
+  "Quelle appli tu ne pourrais plus quitter (à part Penc 😉) ?",
+  "Quel petit plaisir illumine ta journée ? ☀️",
+  "Plage, montagne ou ville pour les vacances ? 🏖️",
+  "Quel est le meilleur proverbe wolof que tu connais ?",
+  "Qu'est-ce qui te motive le matin ?",
+  "Quel talent caché as-tu ? 🎭",
+  "Quel livre t'a marqué ?",
+  "Quelle est ta boisson préférée : bissap, bouye ou gingembre ? 🥤",
+  "Si tu pouvais dîner avec une personne célèbre (vivante ou non), qui serait-ce ?",
+  "Quelle compétence aimerais-tu apprendre cette année ? 📚",
+  "Quel est l'endroit où tu te sens le plus en paix ?",
+  "Lève-tôt ou couche-tard ? 🌙",
+  "Quel est ton sport préféré à regarder ou à pratiquer ? ⚽",
+  "Quelle invention aimerais-tu voir dans 10 ans ? 🚀",
+  "Raconte une petite victoire de ta semaine 🏅",
+  "Quelle est la meilleure astuce que tu connais pour économiser ? 💰",
+  "Si tu avais une journée libre sans aucune contrainte, tu ferais quoi ?",
+  "Quel artiste sénégalais faut-il absolument écouter ? 🎤",
+  "Qu'est-ce qui te fait rire à coup sûr ? 😂",
+  "Quel métier rêvais-tu de faire enfant ?",
+  "Une photo de ton plat du jour ? 📸",
+  "Quel est le meilleur moment de la journée pour toi ?",
+  "Quelle habitude veux-tu prendre ce mois-ci ?",
+  "Si le groupe partait en sortie, on irait où ? 🚐",
+  "Quel est ton mot préféré en wolof ou en français ?",
+  "Quelle est la personne qui t'inspire le plus ?",
+  "Partage une bonne nouvelle, même toute petite 🌱",
+  "Quel serait le nom parfait pour ce groupe ? ✨",
+  "Thé attaya : premier, deuxième ou troisième verre ? 🍵",
+  "Qu'est-ce que tu as appris récemment qui t'a surpris ?",
+  "Envoie un vocal de 10 secondes pour dire bonjour au groupe 🎙️"
+];
+const _P61_MS = [100, 500, 1000, 2500, 5000, 10000, 25000, 50000];
+let _p61Ready = false;
+async function _p61Init(){
+  if (_p61Ready || !_pgPool) return;
+  await _pgPool.query("CREATE TABLE IF NOT EXISTS penc_group_anim (conv_id TEXT PRIMARY KEY, last_q TEXT, last_recap TEXT, milestone INT DEFAULT 0, last_post TIMESTAMPTZ, last_wake TIMESTAMPTZ, qi INT DEFAULT 0, posts INT DEFAULT 0)");
+  _p61Ready = true;
+}
+function _p61Week(d){ const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() + '-W' + Math.ceil(((t - y) / 86400000 + 1) / 7); }
+function _p61Hash(s){ let h = 0; String(s).split('').forEach(function(c){ h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return h; }
+async function _p61Post(g, st, text){
+  await _p53Sys(g.id, 'penc_anim', text, g.participants);
+  st.last_post = new Date(); st.posts = (st.posts || 0) + 1;
+}
+async function _p61Save(cid, st){
+  await _pgPool.query("INSERT INTO penc_group_anim(conv_id,last_q,last_recap,milestone,last_post,last_wake,qi,posts) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (conv_id) DO UPDATE SET last_q=$2,last_recap=$3,milestone=$4,last_post=$5,last_wake=$6,qi=$7,posts=$8",
+    [cid, st.last_q || null, st.last_recap || null, st.milestone || 0, st.last_post || null, st.last_wake || null, st.qi || 0, st.posts || 0]);
+}
+async function _p61Top(g){
+  const q = (await _pgPool.query("SELECT sender_id, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE type IN ('voice','audio'))::int AS v, COUNT(DISTINCT date_trunc('day', created_at))::int AS days FROM penc_messages WHERE conversation_id=$1 AND type<>'system' AND created_at > NOW() - INTERVAL '7 days' GROUP BY sender_id", [g.id])).rows;
+  const scored = q.filter(function(x){ return g.participants.includes(String(x.sender_id)); }).map(function(x){ return { id: String(x.sender_id), n: x.n, score: Math.round(Math.min(x.n, 150) + x.days * 12 + x.v * 2) }; }).sort(function(a, b){ return b.score - a.score; });
+  const mem = await _p53Members(scored.slice(0, 3).map(function(x){ return x.id; }));
+  return { total: q.reduce(function(a, x){ return a + x.n; }, 0), active: scored.length, top: scored.slice(0, 3).map(function(x){ const m = mem.find(function(u){ return u.id === x.id; }) || {}; return { name: String(m.full_name || 'Membre').split(' ').slice(0, 2).join(' '), n: x.n }; }) };
+}
+let _p61Busy = false;
+async function _p61Tick(){
+  if (_p61Busy || !_pgPool) return; _p61Busy = true;
+  try {
+    await _p61Init();
+    const gs = (await _pgPool.query("SELECT id, group_name, participants, group_settings FROM penc_conversations WHERE is_group = TRUE OR id LIKE 'grp_%' LIMIT 5000")).rows
+      .map(function(g){ g.participants = _p53Arr(g.participants); return g; })
+      .filter(function(g){ return g.participants.length >= 3 && _p55Raw(g.group_settings).anim !== false; });
+    if (!gs.length) return;
+    const ids = gs.map(function(g){ return g.id; });
+    const stats = {}; (await _pgPool.query("SELECT conversation_id AS c, MAX(created_at) AS last_h, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS w FROM penc_messages WHERE conversation_id = ANY($1) AND type <> 'system' GROUP BY 1", [ids])).rows.forEach(function(r){ stats[r.c] = r; });
+    const peaks = {}; (await _pgPool.query("SELECT conversation_id AS c, EXTRACT(HOUR FROM created_at)::int AS h, COUNT(*)::int AS n FROM penc_messages WHERE conversation_id = ANY($1) AND type <> 'system' AND created_at > NOW() - INTERVAL '30 days' GROUP BY 1, 2", [ids])).rows.forEach(function(r){ const p = peaks[r.c]; if (!p || r.n > p.n) peaks[r.c] = { h: r.h, n: r.n }; });
+    const sts = {}; (await _pgPool.query("SELECT * FROM penc_group_anim WHERE conv_id = ANY($1)", [ids])).rows.forEach(function(r){ sts[r.conv_id] = r; });
+    const now = new Date(), day = now.toISOString().slice(0, 10), hour = now.getUTCHours(), week = _p61Week(now);
+    for (const g of gs) {
+      try {
+        const s = stats[g.id]; if (!s || !s.last_h) continue;              // groupe sans aucun message : rien à animer
+        let st = sts[g.id], fresh = false;
+        if (!st) { st = { milestone: 0, qi: _p61Hash(g.id) % _P61_Q.length, posts: 0 }; fresh = true; }
+        const lastH = new Date(s.last_h).getTime(), quiet = Date.now() - lastH;
+        const peak = peaks[g.id] && peaks[g.id].n >= 3 ? peaks[g.id].h : 19;
+        const humanSince = !st.last_post || lastH > new Date(st.last_post).getTime();
+        const ms = _P61_MS.filter(function(m){ return s.total >= m; }).pop() || 0;
+        let changed = fresh;
+        if (fresh) { st.milestone = ms; }                                     // on ne fête pas les anciens caps
+        else if (ms > (st.milestone || 0)) {
+          st.milestone = ms; changed = true;
+          await _p61Post(g, st, '🎉 Cap des ' + ms.toLocaleString('fr-FR').replace(/ | /g, ' ') + ' messages !\nLe groupe « ' + (g.group_name || 'Groupe') + ' » vient de franchir ' + ms.toLocaleString('fr-FR').replace(/ | /g, ' ') + ' messages. Merci à tous pour cette belle ambiance 💙');
+        }
+        if (now.getUTCDay() === 1 && hour === 9 && st.last_recap !== week && s.w >= 5) {
+          const t = await _p61Top(g);
+          if (t.top.length) {
+            const md = ['🥇', '🥈', '🥉'];
+            await _p61Post(g, st, '🏆 Les plus actifs de la semaine\n' + t.top.map(function(m, i){ return md[i] + ' ' + m.name + ' — ' + m.n + ' message' + (m.n > 1 ? 's' : ''); }).join('\n') + '\n📊 ' + t.total + ' messages · ' + t.active + ' membre' + (t.active > 1 ? 's' : '') + ' actif' + (t.active > 1 ? 's' : '') + '\nBravo à tous, continuez comme ça ! 💙');
+          }
+          st.last_recap = week; changed = true;
+        }
+        if (hour === peak && humanSince && st.last_q !== day) {
+          if (quiet >= 4 * 86400000 && quiet < 30 * 86400000 && (!st.last_wake || Date.now() - new Date(st.last_wake).getTime() > 7 * 86400000)) {
+            const q = _P61_Q[(st.qi || 0) % _P61_Q.length]; st.qi = (st.qi || 0) + 1;
+            await _p61Post(g, st, '⏰ Le groupe s\'endort…\nÇa fait ' + Math.floor(quiet / 86400000) + ' jours qu\'on ne s\'est pas parlé ! Pour se réveiller :\n' + q);
+            st.last_wake = new Date(); st.last_q = day; changed = true;
+          } else if (quiet >= 2 * 3600000 && quiet < 4 * 86400000) {
+            const q = _P61_Q[(st.qi || 0) % _P61_Q.length]; st.qi = (st.qi || 0) + 1;
+            await _p61Post(g, st, '💬 Question du jour\n' + q + '\nRéponds en vocal ou par écrit 👇');
+            st.last_q = day; changed = true;
+          }
+        }
+        if (changed) await _p61Save(g.id, st);
+      } catch (e1) { console.error('[p61] groupe', g.id, e1.message); }
+    }
+  } catch (e) { console.error('[p61] tick:', e.message); }
+  finally { _p61Busy = false; }
+}
+setTimeout(function(){ _p61Tick(); setInterval(_p61Tick, 10 * 60000); }, 120000);
+app.get('/api/penc/groups/:id/anim', pencAuth, async (req, res) => {
+  try {
+    const uid = String(req.pencUser.userId); const g = await _p53Group(req.params.id);
+    if (!g || !g.participants.includes(uid)) return res.status(403).json({ error: 'Réservé aux membres' });
+    await _p61Init();
+    const st = (await _pgPool.query('SELECT * FROM penc_group_anim WHERE conv_id=$1', [g.id])).rows[0] || {};
+    const pk = (await _pgPool.query("SELECT EXTRACT(HOUR FROM created_at)::int AS h, COUNT(*)::int AS n FROM penc_messages WHERE conversation_id=$1 AND type<>'system' AND created_at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 1", [g.id])).rows[0];
+    res.json({ on: _p55Raw(g.group_settings).anim !== false, can_edit: g.group_admins.includes(uid), big_enough: g.participants.length >= 3,
+      hour: pk && pk.n >= 3 ? pk.h : 19, posts: st.posts || 0, milestone: st.milestone || 0 });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/penc/groups/:id/anim', pencAuth, async (req, res) => {
+  try {
+    const uid = String(req.pencUser.userId); const g = await _p53Group(req.params.id);
+    if (!g || !g.participants.includes(uid)) return res.status(403).json({ error: 'Réservé aux membres' });
+    if (!g.group_admins.includes(uid)) return res.status(403).json({ error: 'Seuls les administrateurs peuvent régler l\'animateur' });
+    const raw = _p55Raw(g.group_settings); raw.anim = !!(req.body && req.body.on);
+    await _pgPool.query('UPDATE penc_conversations SET group_settings=$1 WHERE id=$2', [JSON.stringify(raw), g.id]);
+    try { _p54Cache.delete(g.id); } catch (_) {}
+    const me = await _p53Name(uid);
+    await _p53Sys(g.id, uid, me + (raw.anim ? ' a activé l\'Animateur Penc 🎈' : ' a mis l\'Animateur Penc en pause'), g.participants);
+    res.json({ success: true, on: raw.anim });
+  } catch (e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ════ pncsrv58 — signalements : répondre au signaleur / l'aviser une fois réglé ════
 async function _p58NotifyReporter(repId, text){
   const r = (await _pgPool.query('SELECT reporter_id, target_type, reason FROM penc_reports WHERE id=$1', [repId])).rows[0];
