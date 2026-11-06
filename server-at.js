@@ -10886,19 +10886,22 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
           ephemeral_seconds: _ephemeralMap[c.id] || 0,
           streak: (parts.length === 2 && _streakMap[String(otherId)]) || 0,
           is_request: _pendingFrom.has(otherId),
-          _lastOther: !!(last && String(last.sender_id) !== String(uid) && !last.read_at && last.type !== 'deleted')
+          _lastOther: !!(last && String(last.sender_id) !== String(uid) && !last.read_at && last.type !== 'deleted'),
+          _lastReadOther: !!(last && String(last.sender_id) !== String(uid) && last.read_at && last.type !== 'system' && last.type !== 'reaction')   // pncsrv60
         };
       }));
       // pncapp7 : nombre de messages non lus par discussion (avant, il n'était jamais renvoyé : le « 1 » sur Chats disparaissait tout seul)
       try{
-        const _ids = result.filter(function(c){ return c._lastOther; }).map(function(c){ return c.id; });
+        // pncsrv60 : non-lus comptés même quand le tout dernier enregistrement n'est pas un message de l'autre
+        // (réaction, message système…) — avant, le badge disparaissait au rafraîchissement de la liste.
+        const _ids = result.filter(function(c){ return !c._lastReadOther; }).map(function(c){ return c.id; });
         const _un = {};
         if(_ids.length){
-          const _ur = await _pgPool.query("SELECT conversation_id, COUNT(*)::int AS n FROM penc_messages WHERE conversation_id = ANY($1) AND sender_id <> $2 AND read_at IS NULL AND COALESCE(deleted_for_all,FALSE)=FALSE AND created_at > NOW() - INTERVAL '30 days' GROUP BY conversation_id",[_ids, uid]);
+          const _ur = await _pgPool.query("SELECT m.conversation_id, COUNT(*)::int AS n FROM penc_messages m WHERE m.conversation_id = ANY($1) AND m.sender_id <> $2 AND m.read_at IS NULL AND COALESCE(m.deleted_for_all,FALSE)=FALSE AND COALESCE(m.type,'text') NOT IN ('system','reaction','deleted') AND m.created_at > NOW() - INTERVAL '30 days' AND m.created_at > COALESCE((SELECT MAX(x.created_at) FROM penc_messages x WHERE x.conversation_id = m.conversation_id AND x.sender_id = $2 AND COALESCE(x.type,'text') NOT IN ('system','reaction')), 'epoch'::timestamptz) GROUP BY m.conversation_id",[_ids, uid]);
           _ur.rows.forEach(function(r){ _un[r.conversation_id] = r.n; });
         }
-        result.forEach(function(c){ c.unread_count = c._lastOther ? Math.max(1, _un[c.id] || 0) : 0; delete c._lastOther; });
-      }catch(_ue){ result.forEach(function(c){ c.unread_count = c._lastOther ? 1 : 0; delete c._lastOther; }); }
+        result.forEach(function(c){ c.unread_count = c._lastReadOther ? 0 : ((_un[c.id] || 0) || (c._lastOther ? 1 : 0)); delete c._lastOther; delete c._lastReadOther; });
+      }catch(_ue){ result.forEach(function(c){ c.unread_count = c._lastOther ? 1 : 0; delete c._lastOther; delete c._lastReadOther; }); }
     } else {
       // Fallback JSONBin
       const convs = await pencConvs();
