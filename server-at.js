@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const _PENC_DISABLE_DEVICE_LOCK = true; // TEMPORAIRE (tests natif multi-appareils) — remettre à false pour restaurer le verrou
 const cors = require('cors');
 const path = require('path');
@@ -5054,6 +5054,21 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
     }
 
     if (type === 'video' || type === 'status_video') {
+      // pncsrv62 : vidéo de discussion simple → on lit ses infos directement sur R2 (quelques Ko) et on confirme
+      // l'envoi TOUT DE SUITE, sans attendre de re-télécharger tout le fichier sur le serveur.
+      if (type === 'video' && req.body.chat === true && !(trim && (trim.start > 0 || trim.end)) && !blurRect && !req.body.audio_track_id && _pgPool && !req.body._p62) {
+        try {
+          const _u62 = R2_PUBLIC + '/' + key;
+          const _pr62 = await _ffprobeMeta(_u62, 8000);
+          const _vs62 = (_pr62.streams || []).find(x => x.codec_type === 'video') || {};
+          const _d62 = Number((_pr62.format && _pr62.format.duration) || _vs62.duration || 0);
+          if (String(_vs62.codec_name || '') === 'h264' || _d62 > 40) {
+            res.json({ success: true, url: _u62, posterUrl: null, pending: true });
+            console.log('[media/process] video: confirmée en ' + (Date.now() - _t0) + 'ms (pncsrv62), traitement en arrière-plan');
+            res = { json: function(){ return this; }, status: function(){ return this; } };
+          }
+        } catch (_e62) { console.log('[media/process] pncsrv62 sonde directe impossible : ' + _e62.message); }
+      }
       console.log('[media/process] video: téléchargement depuis R2...');
       const buf = await r2GetBuffer(key);
       console.log('[media/process] video: ' + buf.length + ' octets récupérés');
@@ -5121,7 +5136,7 @@ app.post('/api/penc/media/process', pencAuth, async (req, res) => {
       } catch (_pv) { console.error('[media/process] vignette vidéo échouée (non bloquant):', _pv.message); }
       tmpFiles.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
       if (_p14Async && url && url !== _p14RawUrl) {
-        const _p14Upd = async () => { try { const r = await _pgPool.query('UPDATE penc_messages SET media_url=$1, media_thumb_url=COALESCE(media_thumb_url,$3) WHERE media_url=$2', [url, _p14RawUrl, posterUrl]); return r.rowCount; } catch (_u) { return 0; } };
+        const _p14Upd = async () => { try { const r = await _pgPool.query("UPDATE penc_messages SET media_url=$1 || COALESCE(substring(media_url from '#.*$'),''), media_thumb_url=COALESCE(media_thumb_url,$3) WHERE media_url=$2 OR media_url LIKE ($2 || '#%')", [url, _p14RawUrl, posterUrl]); return r.rowCount; } catch (_u) { return 0; } };
         if (!(await _p14Upd())) { setTimeout(_p14Upd, 8000); setTimeout(_p14Upd, 45000); setTimeout(_p14Upd, 180000); }
       }
       console.log('[media/process] video: TERMINÉ en ' + (Date.now() - _t0) + 'ms -> ' + url + (posterUrl ? (' (vignette: ' + posterUrl + ')') : ' (sans vignette)'));
