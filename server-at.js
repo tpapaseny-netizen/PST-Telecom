@@ -5805,6 +5805,7 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_conv_folders (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, PRIMARY KEY (user_id, folder_name));
       CREATE TABLE IF NOT EXISTS penc_conv_folder_items (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, conv_id TEXT NOT NULL, PRIMARY KEY (user_id, folder_name, conv_id));
       CREATE TABLE IF NOT EXISTS penc_conv_ephemeral (conv_id TEXT PRIMARY KEY, duration_seconds INTEGER NOT NULL, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
+      CREATE TABLE IF NOT EXISTS penc_conv_secure (conv_id TEXT PRIMARY KEY, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_media_views (message_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
@@ -10989,6 +10990,33 @@ app.post('/api/penc/folders/:name/toggle', pencAuth, async (req, res) => {
     }
     await _pgPool.query('INSERT INTO penc_conv_folder_items(user_id,folder_name,conv_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [uid, name, convId]);
     res.json({ success:true, added:true });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+// ══ Discussion protégée : captures bloquées + transferts de médias interdits, PAR DISCUSSION ══
+app.get('/api/penc/conversations/:id/secure', pencAuth, async (req, res) => {
+  try{
+    const convId = req.params.id;
+    if(!_pgPool) return res.json({ secure:false });
+    const parts = await _pencConvParts(convId);
+    if(!parts.map(String).includes(String(req.pencUser.userId))) return res.status(403).json({ error:'Accès refusé' });
+    const r = await _pgPool.query('SELECT 1 FROM penc_conv_secure WHERE conv_id=$1', [convId]);
+    res.json({ secure: r.rowCount > 0 });
+  }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
+});
+app.post('/api/penc/conversations/:id/secure', pencAuth, async (req, res) => {
+  try{
+    const convId = req.params.id;
+    const on = !!(req.body && req.body.enabled);
+    if(!_pgPool) return res.status(503).json({ error:'BD non disponible' });
+    const parts = await _pencConvParts(convId);
+    if(!parts.map(String).includes(String(req.pencUser.userId))) return res.status(403).json({ error:'Accès refusé' });
+    if(on){
+      await _pgPool.query('INSERT INTO penc_conv_secure(conv_id,set_by) VALUES($1,$2) ON CONFLICT (conv_id) DO UPDATE SET set_by=$2, updated_at=NOW()', [convId, req.pencUser.userId]);
+    } else {
+      await _pgPool.query('DELETE FROM penc_conv_secure WHERE conv_id=$1', [convId]);
+    }
+    try{ emitToUsers(parts, 'conversation:secure', { conv_id: convId, secure: on }); }catch(_e){}
+    res.json({ success:true, secure: on });
   }catch(e){ res.status(500).json({ error:'Erreur serveur' }); }
 });
 app.post('/api/penc/conversations/:id/ephemeral', pencAuth, async (req, res) => {
@@ -19832,6 +19860,11 @@ app.get('/api/penc/call/config', pencAuth, (req, res) => {
     }
     try {
       const { reply_to } = data;
+      // Discussion protégée : aucun média, vocal ou fichier d'une discussion protégée ne peut être transféré
+      if (data.forwarded && data.media_url && data.type && data.type !== 'text' && _pgPool) {
+        const _secChk = await _pgPool.query("SELECT 1 FROM penc_messages m JOIN penc_conv_secure s ON s.conv_id = m.conversation_id WHERE split_part(m.media_url,'#',1) = split_part($1,'#',1) LIMIT 1", [String(data.media_url)]);
+        if (_secChk.rowCount > 0) { if (typeof cb === 'function') cb({ error: 'Discussion protégée : transfert de médias désactivé.' }); return; }
+      }
       // pncsrv41 : les lectures indépendantes partent en même temps (avant : l'une après l'autre)
       const _pEph = _pgPool ? _pgPool.query('SELECT duration_seconds FROM penc_conv_ephemeral WHERE conv_id=$1', [conversation_id]) : Promise.resolve({ rows:[] });
       const _pUsr = _pgPool ? pgFindUser('id', pencUserId) : Promise.resolve(null);
