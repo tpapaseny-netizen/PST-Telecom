@@ -5806,6 +5806,7 @@ async function initPgPenc(){
       CREATE TABLE IF NOT EXISTS penc_conv_folder_items (user_id TEXT NOT NULL, folder_name TEXT NOT NULL, conv_id TEXT NOT NULL, PRIMARY KEY (user_id, folder_name, conv_id));
       CREATE TABLE IF NOT EXISTS penc_conv_ephemeral (conv_id TEXT PRIMARY KEY, duration_seconds INTEGER NOT NULL, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS penc_conv_secure (conv_id TEXT PRIMARY KEY, set_by TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
+      ALTER TABLE penc_messages ADD COLUMN IF NOT EXISTS visible_to TEXT;
       CREATE TABLE IF NOT EXISTS penc_media_views (message_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (message_id, user_id));
       CREATE INDEX IF NOT EXISTS idx_psess_user ON penc_sessions(user_id);
       ALTER TABLE penc_users ADD COLUMN IF NOT EXISTS public_key TEXT;
@@ -6998,10 +6999,22 @@ async function _p55Reqs(g){
 }
 async function _p55Welcome(g, uids, parts){
   const w = _p55Raw(g.group_settings).welcome; if (!w || !uids.length) return;
-  // pncsrv58 : le message d'accueil part en privé à chaque nouvel adhérent (et non plus dans le groupe)
+  // Accueil PERSONNEL : chaque nouvel adhérent reçoit son propre message, publié dans le groupe,
+  // visible uniquement par lui (visible_to). Les autres membres ne le voient pas.
   const mem = await _p53Members(uids);
   for (const m of mem) {
-    try { await _sendPencOfficialDM(m.id, '👋 Bienvenue dans le groupe « ' + (g.group_name || 'Groupe') + ' », ' + (String(m.full_name || '').split(' ')[0] || '') + ' !\n\n' + w, 'Penc', 'Bienvenue dans « ' + (g.group_name || 'Groupe') + ' »', 'penc-grp-welcome'); } catch (_w) {}
+    try {
+      const uid = String(m.id);
+      const first = String(m.full_name || '').split(' ')[0] || '';
+      const text = '👋 Bienvenue' + (first ? ' ' + first : '') + ' dans « ' + (g.group_name || 'Groupe') + ' » !\n\n' + w;
+      const id = 'msg_' + Date.now() + Math.random().toString(36).slice(2);
+      const created = new Date().toISOString();
+      await pgSaveMessage({ id: id, conversation_id: g.id, sender_id: 'penc_official', type: 'text', content: text, created_at: created });
+      await _pgPool.query('UPDATE penc_messages SET visible_to=$2 WHERE id=$1', [id, uid]);
+      let sender = { id: 'penc_official', full_name: 'Penc' };
+      try { const pu = await pgFindUser('id', 'penc_official'); if (pu) sender = pencStrip(pu); } catch (_) {}
+      io.to('user:' + uid).emit('message:new', { id: id, conversation_id: g.id, sender_id: 'penc_official', type: 'text', content: text, created_at: created, sender: sender, visible_to: uid });
+    } catch (_) {}
   }
 }
 app.post('/api/penc/groups/:id/requests/:uid', pencAuth, async (req, res) => {
@@ -8286,7 +8299,7 @@ app.get('/api/penc/messages/:convId', pencAuth, async (req, res) => {
     const { convId } = req.params;
     let messages = [];
     if (_pgPool) {
-      messages = await pgGetMessages(convId, 400);
+      messages = (await pgGetMessages(convId, 400)).filter(m => !m.visible_to || String(m.visible_to) === String(uid));
       // Formater comme le frontend l'attend
       messages = messages.map(m => ({
         id: m.id, conversation_id: m.conversation_id,
@@ -8311,7 +8324,7 @@ app.get('/api/penc/conversations/:convId/messages', pencAuth, async (req, res) =
     if (_pgPool) {
       const _before = req.query.before ? String(req.query.before).slice(0,120) : null;
       const _lim = _before ? Math.min(parseInt(req.query.limit)||200, 500) : Math.min(Math.max(parseInt(req.query.limit)||400, 20), 400);   // pncsrv40 : ?limit= pour le préchargement léger
-      const rows = _before ? await pgGetOlderMessages(convId, _before, _lim) : await pgGetMessages(convId, _lim);
+      const rows = (_before ? await pgGetOlderMessages(convId, _before, _lim) : await pgGetMessages(convId, _lim)).filter(m => !m.visible_to || String(m.visible_to) === String(uid));
       res.set('X-Penc-Has-More', rows.length >= _lim ? '1' : '0');
       console.log('[msgs-read] conv=' + convId + ' user=' + uid + ' -> ' + rows.length + ' message(s), dernier=' + (rows.length ? rows[rows.length-1].id : '-'));
       // Reactions groupees par message pour cette conversation (une seule requete)
@@ -10863,7 +10876,7 @@ app.get('/api/penc/conversations', pencAuth, async (req, res) => {
         let other = allUsers.find(u => u.id === otherId) || {};
         if(!other.full_name && !other.username && otherId){ try{ const _pu=await pgFindUser('id',otherId); if(_pu) other=_pu; }catch(_e){} }
         // Dernier message
-        const _lr = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT 1',[c.id]);
+        const _lr = await _pgPool.query('SELECT * FROM penc_messages WHERE conversation_id=$1 AND visible_to IS NULL ORDER BY created_at DESC LIMIT 1',[c.id]);
         const last = _lr.rows[0] || null;
         // v460 : anniversaires — on ne renvoie jamais la date de naissance brute à quelqu'un
         // d'autre (respect de birthdate_public), juste un simple "c'est son anniversaire
@@ -11158,7 +11171,7 @@ app.get('/api/penc/conversations/:id/messages', pencAuth, async (req, res) => {
        ORDER BY created_at DESC LIMIT 400`, [req.params.id]
     );
     console.log('[msgs-read] conv=' + req.params.id + ' -> ' + r.rows.length + ' message(s) trouvé(s) en PostgreSQL');
-    let rows = r.rows.slice().reverse(); // chronologique (ancien -> récent) comme avant
+    let rows = r.rows.filter(m => !m.visible_to || String(m.visible_to) === String(req.pencUser.userId)).slice().reverse(); // chronologique (ancien -> récent) comme avant
     // Filet de sécurité TEMPORAIRE pendant l'instabilité mémoire du serveur : si _pgPool était
     // indisponible au moment précis d'un envoi, le message a pu atterrir dans l'ancien JSONBin
     // (repli existant dans le code d'envoi). On fusionne ici pour ne perdre aucun message tant
